@@ -5153,7 +5153,7 @@
           if (prefix === 0 && 0x30 <= subtype && subtype <= 0x3b) {
             const bytes = [];
             while (index < payload.length &&
-                   (!editorCursorState ||
+                   (!bytes.length || !editorCursorState ||
                     editorCursorState.recordId !== recordId ||
                     editorCursorState.byteOffset !== index) &&
                    0x30 <= payload[index] && payload[index] <= 0x3b)
@@ -5355,6 +5355,142 @@
     const expression = visit(input);
     if (!mutation)
       throw new RangeError('editor insertion could not locate the cursor');
+    return {expression,mutation};
+  }
+
+  // The ordinary left/right editor path moves one packed native token across
+  // the gap. Page 6 treats the same two-byte leads as _IsA2ByteTok; structural
+  // record markers are handled by separate page-34 navigation paths.
+  function editorMovePackedTokenCursor(input, direction) {
+    if (direction !== 'left' && direction !== 'right')
+      throw new RangeError('editor cursor direction must be left or right');
+    const cursorCount = value => {
+      if (!value || typeof value !== 'object') return 0;
+      if (value.kind === 'editorCursor') return 1;
+      if (Array.isArray(value) || value instanceof Uint8Array)
+        return Array.from(value).reduce(
+          (count, item) => count + cursorCount(item),0);
+      return Object.values(value).reduce(
+        (count, item) => count + cursorCount(item),0);
+    };
+    const count = cursorCount(input);
+    if (count !== 1)
+      throw new RangeError(
+        `editor cursor movement requires one cursor, found ${count}`);
+    const tokenBytes = value => {
+      if (Array.isArray(value) || value instanceof Uint8Array)
+        return Array.from(value);
+      if (value && (value.kind === 'tokens' ||
+                    value.kind === 'extendedToken') &&
+          (Array.isArray(value.tokens) || value.tokens instanceof Uint8Array))
+        return Array.from(value.tokens);
+      return null;
+    };
+    const withTokenBytes = (value, bytes) => {
+      if (!bytes.length) return null;
+      if (Array.isArray(value) || value instanceof Uint8Array) return bytes;
+      return {...value,tokens:bytes};
+    };
+
+    let mutation = null;
+    const moveInSequence = value => {
+      const cursorIndex = value.parts.findIndex(
+        part => part && part.kind === 'editorCursor');
+      if (cursorIndex < 0) return null;
+      const sourceIndex = direction === 'left'
+        ? cursorIndex - 1 : cursorIndex + 1;
+      if (sourceIndex < 0 || sourceIndex >= value.parts.length)
+        throw new RangeError(`editor cursor cannot move ${direction}`);
+      const source = value.parts[sourceIndex];
+      const bytes = tokenBytes(source);
+      if (!bytes)
+        throw new RangeError(
+          `editor ${direction} movement reached a structural boundary`);
+      const boundaries = editorPayloadCursorBoundaries(bytes);
+      const start = direction === 'left'
+        ? boundaries[boundaries.length - 2] : boundaries[0];
+      const end = direction === 'left'
+        ? boundaries[boundaries.length - 1] : boundaries[1];
+      const moved = bytes.slice(start,end);
+      if (moved.length === 6 && moved[0] === 0xef &&
+          0x1f <= moved[1] && moved[1] <= 0x2b)
+        throw new RangeError(
+          `editor ${direction} movement requires the structural path`);
+      const remainder = direction === 'left'
+        ? bytes.slice(0,start) : bytes.slice(end);
+      const cursor = value.parts[cursorIndex];
+      const before = cursor.byte_offset;
+      const delta = direction === 'left' ? -moved.length : moved.length;
+      const after = before === undefined ? undefined : before + delta;
+      if (after !== undefined && after < 0)
+        throw new RangeError('editor cursor movement produced a negative offset');
+      const updatedCursor = {
+        ...cursor,
+        ...(after === undefined ? {} : {byte_offset:after}),
+      };
+      const parts = value.parts.slice();
+      const replacement = withTokenBytes(source,remainder);
+      if (direction === 'left') {
+        if (replacement === null) {
+          parts.splice(sourceIndex,1);
+          parts[cursorIndex - 1] = updatedCursor;
+        } else {
+          parts[sourceIndex] = replacement;
+          parts[cursorIndex] = updatedCursor;
+        }
+        const updatedIndex = replacement === null
+          ? cursorIndex - 1 : cursorIndex;
+        const next = parts[updatedIndex + 1];
+        const nextBytes = tokenBytes(next);
+        if (nextBytes) parts[updatedIndex + 1] =
+          withTokenBytes(next,[...moved,...nextBytes]);
+        else parts.splice(updatedIndex + 1,0,moved);
+      } else {
+        if (replacement === null) parts.splice(sourceIndex,1);
+        else parts[sourceIndex] = replacement;
+        const previous = parts[cursorIndex - 1];
+        const previousBytes = tokenBytes(previous);
+        if (previousBytes) {
+          parts[cursorIndex - 1] =
+            withTokenBytes(previous,[...previousBytes,...moved]);
+          parts[cursorIndex] = updatedCursor;
+        } else {
+          parts.splice(cursorIndex,0,moved);
+          parts[cursorIndex + 1] = updatedCursor;
+        }
+      }
+      mutation = {
+        direction,moved,
+        record_id:cursor.record_id,
+        before_byte_offset:before,
+        after_byte_offset:after,
+        routine:direction === 'left'
+          ? '34:42B4 → 00:3B49 → 06:4294–42C7'
+          : '34:4193 → 00:367B → 06:42C8–4301',
+      };
+      return {...value,parts};
+    };
+    const visit = value => {
+      if (!value || typeof value !== 'object') return value;
+      if (Array.isArray(value) || value instanceof Uint8Array) return value;
+      if (value.kind === 'editorCursor')
+        throw new RangeError(`editor cursor cannot move ${direction}`);
+      if (value.kind === 'sequence') {
+        const moved = moveInSequence(value);
+        if (moved) return moved;
+      }
+      const result = {};
+      for (const [key,child] of Object.entries(value)) {
+        if (Array.isArray(child) && child.every(Number.isInteger))
+          result[key] = child.slice();
+        else if (Array.isArray(child)) result[key] = child.map(visit);
+        else result[key] = visit(child);
+      }
+      return result;
+    };
+    const expression = visit(input);
+    if (!mutation)
+      throw new RangeError('editor cursor movement could not locate the cursor');
     return {expression,mutation};
   }
 
@@ -5799,7 +5935,7 @@
         embeddedStructures.push(structural);
       };
 
-      const addEditorCursor = (cursor, beforeEmptySlot) => {
+      const addEditorCursor = (cursor, nextPart) => {
         if (!editorMode)
           throw new RangeError('settled leaf contains an editor cursor');
         if (editorState.activeLeafId !== null)
@@ -5815,8 +5951,11 @@
             `constructed byte ${byteOffset}`);
         const height = renderDepth === 0 ? 7 : 5;
         const baseline = renderDepth === 0 ? 3 : 2;
-        const width = beforeEmptySlot ? 0 : renderDepth === 0 ? 6 : 5;
-        if (!beforeEmptySlot) {
+        const beforeEmptySlot = beginsWithEmptySlot(nextPart);
+        // Inside an existing payload the cursor overlays the following cell;
+        // only an end-of-leaf cursor allocates a new large/small cell.
+        const width = nextPart ? 0 : renderDepth === 0 ? 6 : 5;
+        if (width) {
           mergeVerticalMetrics(height,baseline);
           leaf.word07 = checkedWord(
             leaf.word07 + width, 'editor cursor leaf width');
@@ -5860,7 +5999,7 @@
           return;
         }
         if (part.kind === 'editorCursor') {
-          addEditorCursor(part,beginsWithEmptySlot(nextPart));
+          addEditorCursor(part,nextPart);
           return;
         }
         throw new RangeError(`unsupported settled expression part ${part.kind}`);
@@ -7559,6 +7698,7 @@
     decodeSettledExpressionGraph,
     editorPayloadCursorBoundaries,
     editorInsertPackedToken,
+    editorMovePackedTokenCursor,
     decodeEditorExpressionGraph,
     decodeMathPrintEditorRam,
     constructSettledProgramFromTokens,

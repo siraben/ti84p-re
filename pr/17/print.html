@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3fce7450.js";
+            window.path_to_searchindex_js = "searchindex-280f8a8a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15263,7 +15263,25 @@ therefore retains structural <code>+13h</code> state in addition to the active l
 the mutated cursor tree equals the decoded post-key tree, reconstruction
 matches every post-key record field, and execution matches the complete
 cursor-off LCD bitmap. Structural template insertion, deletion, and cursor
-navigation remain open. [confirmed]</p>
+navigation across structural boundaries remain open. [confirmed]</p>
+<p>Ordinary in-leaf navigation uses the page-6 gap movers. LEFT reaches
+<code>06:4294–42C7</code> through <code>34:42B4</code> and <code>00:3B49</code>; RIGHT reaches
+<code>06:42C8–4301</code> through <code>34:4193</code> and <code>00:367B</code>. Both paths call
+<code>00:1FE7</code> so a two-byte native token crosses the gap as one unit. Structural
+record markers remain on separate page-34 paths. [confirmed]</p>
+<p><code>tools/mathprint-editor-navigation-oracles.json</code> captures <code>12</code> with the cursor
+at the end, after LEFT places it between the digits, and after RIGHT returns it
+to the end. The middle state splits the logical payload into left byte <code>31h</code>
+and right byte <code>32h</code>; its cursor offset is one. Its active leaf width is 12
+pixels, not 18: before existing payload the cursor overlays the following cell
+without adding width. At the leaf end, the cursor allocates a six-pixel cell
+and the width returns to 18. All three reconstructed record sets and complete
+cursor-off LCD bitmaps match their calculator states. [confirmed]</p>
+<p><code>editorMovePackedTokenCursor()</code> translates both directions and rejects a
+structural boundary rather than applying the ordinary token rule there. The
+same regression also closes an AST-decoder bug: after emitting a cursor inside
+a numeric run, the following digit must begin a new atom before the two sides
+are recombined around the cursor. [confirmed]</p>
 <p><code>34:789A</code> first distinguishes the table-equation context from other editors.
 On its fallthrough, <code>34:75AB</code> reads the marker type from <code>editTail + 1</code>.
 <code>34:40F9</code> groups fraction (<code>0x20</code>), nth-root (<code>0x24</code>), and power (<code>0x2A</code>)
@@ -16508,7 +16526,8 @@ bytes therefore remain visible in the trace. [confirmed]</p>
 <p>The text field uses a preview-specific semantic grammar for ordinary input. It
 does not drive the TI-OS editor state machine. The ROM engine separately
 decodes a captured live editor arena, active gap leaf, and cursor into a semantic
-tree and translates ordinary packed-token insertion on that state. The browser
+tree and translates ordinary packed-token insertion and in-leaf navigation on
+that state. The browser
 does not yet expose the mutation API as an interactive calculator editor. An
 input prefixed with <code>hex:</code> bypasses the preview grammar and passes the
 listed native bytes to the translated constructor. Malformed streams and
