@@ -2527,6 +2527,99 @@
     };
   }
 
+  // 34:6143 is shared by the type-1Fh render-table entry and the page-6
+  // editor marker bjump. The table route fixes A=43h; the editor route passes
+  // the marker type. Type 2Bh also reads the word at 8520h and changes its
+  // threshold with (IY+44h).3. Preserve the complete branch path and the two
+  // flag mutations so callers can compose this helper with their own state.
+  function settledSharedMarkerPrimitive(incomingA, options = {}) {
+    const a = byte(incomingA, 'shared marker incoming A');
+    const iy44Bit3 = options.iy44Bit3 === undefined ? false :
+      boolean(options.iy44Bit3, 'shared marker IY+44h bit 3');
+    const word8520 = unsignedWord(
+      options.word8520 === undefined ? 0 : options.word8520,
+      'shared marker word 8520h');
+    const branchOutcomes = [];
+    const branch = (address, taken) => branchOutcomes.push(
+      `34:${address.toString(16).toUpperCase()}:` +
+      `${taken ? 'taken' : 'fallthrough'}`);
+    const finish = (terminal, operation, sideEffects = {}) => ({
+      incomingA:a,
+      iy44Bit3,
+      word8520,
+      terminal,
+      operation,
+      sideEffects:{
+        setIy32Bit2:false,
+        clearIyMinus1Bit0:false,
+        ...sideEffects,
+      },
+      branchOutcomes,
+      routine:'34:6143–61BD',
+    });
+    const bitmap = (terminal, address, rows, sideEffects = {}) => finish(
+      terminal,
+      {
+        kind:'bitmap',x:0,y:0,width:5,height:rows.length,rows,
+        retainUnchanged:true,
+        routine:`34:6143 → 34:${address.toString(16).toUpperCase()}`,
+      },
+      sideEffects);
+    const glyph = (terminal, code, sideEffects = {}) => finish(
+      terminal,
+      {
+        kind:'display-code',code,
+        routine:'34:6143 → 34:615F → ram:3CE1',
+      },
+      sideEffects);
+
+    branch(0x6145,a !== 0x27);
+    if (a === 0x27) {
+      branch(0x614e,iy44Bit3);
+      return iy44Bit3
+        ? bitmap('bitmap_630C',0x630c,[0x04,0x04,0x04,0x04,0x14,0x0c,0x04])
+        : bitmap('bitmap_6304',0x6304,[0x00,0x04,0x04,0x14,0x0c,0x04,0x00]);
+    }
+
+    branch(0x6157,a !== 0x22);
+    if (a === 0x22)
+      return glyph('glyph_7C_set_iy32_bit2',0x7c,{setIy32Bit2:true});
+    branch(0x6166,a === 0x21);
+    if (a === 0x21)
+      return glyph('glyph_7C_set_iy32_bit2',0x7c,{setIy32Bit2:true});
+    branch(0x616c,a === 0x25);
+    if (a === 0x25)
+      return glyph('glyph_DB_set_iy32_bit2',0xdb,{setIy32Bit2:true});
+    branch(0x6170,a !== 0x2b);
+    if (a === 0x2b) {
+      const high = word8520 >> 8;
+      const low = word8520 & 0xff;
+      branch(0x6178,high !== 0);
+      if (high)
+        return glyph('glyph_7C_set_iy32_bit2',0x7c,{setIy32Bit2:true});
+      branch(0x6181,!iy44Bit3);
+      const bound = iy44Bit3 ? 8 : 6;
+      branch(0x6186,low >= bound);
+      if (low >= bound)
+        return glyph('glyph_7C_set_iy32_bit2',0x7c,{setIy32Bit2:true});
+      branch(0x618e,iy44Bit3);
+      if (iy44Bit3) return glyph('glyph_C1',0xc1);
+      return bitmap(
+        'bitmap_61C7_clear_iy_minus1_bit0',0x61c7,
+        [0x06,0x04,0x04,0x04,0x06],{clearIyMinus1Bit0:true});
+    }
+
+    branch(0x619f,a === 0x26);
+    if (a === 0x26)
+      return glyph('glyph_1D_set_iy32_bit2',0x1d,{setIy32Bit2:true});
+    branch(0x61a5,a === 0x28);
+    if (a === 0x28) return glyph('glyph_6C',0x6c);
+    branch(0x61ab,a === 0x29);
+    if (a === 0x29) return glyph('glyph_C6',0xc6);
+    return bitmap(
+      'bitmap_61BE',0x61be,[0x02,0x01,0x00,0x1f,0x00,0x02,0x06]);
+  }
+
   function decodedSettledNode(input) {
     if (!input || typeof input !== 'object')
       throw new TypeError('settled record node must be an object');
@@ -2778,10 +2871,10 @@
           // dispatch reaches the shared helper with A=43h. Every comparison
           // falls through to the fixed width byte plus seven bitmap rows at
           // 34:61BE.
+          const marker = settledSharedMarkerPrimitive(0x43);
+          const {routine:_markerRoutine,...operation} = marker.operation;
           emit(record, origin, {
-            kind:'bitmap', x:0, y:0, width:5, height:7,
-            rows:[0x02,0x01,0x00,0x1f,0x00,0x02,0x06],
-            retainUnchanged:true,
+            ...operation,
             tableEntry:[0x43,0x61], incomingA:0x43,
             routine:'34:6105 → 34:6119 → 00:0033 → 34:6143 → 34:61BE',
           });
@@ -9196,6 +9289,7 @@
     settledRecordAllocationCheck,
     decodeSettledRecord,
     settledRenderHandler,
+    settledSharedMarkerPrimitive,
     settledCompoundOperations,
     settledBraceOperations,
     matrixChildCount,

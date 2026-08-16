@@ -165,7 +165,10 @@ cursor-off LCD. A five-key `[[1]]` sequence additionally verifies both partial
 list frames and the two completed nested-list nodes. The fraction case retains
 the structural record's pre-edit `+13h` byte while replacing the `EF 1E`
 empty-slot token. Structural templates use the separate mutation path below;
-structural-boundary navigation remains open.
+`editorMoveCursor()` handles ordinary and structural boundaries. Live captures
+cover fraction and integral traversal in both directions plus one depth-two
+fraction traversal to the right. Other structural types and nested directions
+remain open.
 `editorInsertStructuralTemplate()` translates fraction insertion from source
 token `EF 2E` at every cursor class in the root leaf and both child leaves of
 one outer fraction, plus the blank radicand of one prefixed radical. A

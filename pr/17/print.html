@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-06ae1395.js";
+            window.path_to_searchindex_js = "searchindex-3fd91d15.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15648,6 +15648,18 @@ childless node models the independent <code>34:6119</code> table entry and its r
 bitmap. No retained natural trace combines <code>0x8DE7=0x1F</code> with <code>34:6105</code> →
 <code>34:6143</code>, so the latter remains a decoded table ABI without a natural record
 dispatch. [confirmed]</p>
+<p><code>settledSharedMarkerPrimitive()</code> translates every conditional at
+<code>34:6143–61BD</code>. Its finite test enumerates all 256 values of <code>A</code>, both states
+of <code>(IY+44h).3</code>, and all 65,536 values of <code>0x8520</code> when <code>A=0x2B</code>. Values of
+<code>0x8520</code> are irrelevant for other <code>A</code> values. The resulting 33,554,432-state
+projection has 14 path classes and 26 branch outcomes. [confirmed]</p>
+<p>For the type-<code>0x2B</code> matrix marker, a nonzero high byte at <code>0x8521</code> or a low
+byte at or above the active bound emits display code <code>0x7C</code> and sets
+<code>(IY+32h).2</code>. The bound is six when <code>(IY+44h).3</code> is clear and eight when it is
+set. A smaller low byte emits <code>0xC1</code> when that flag is set. When it is clear,
+the helper emits the five-row bitmap at <code>34:61C7</code> and clears <code>(IY-1).0</code>.
+Retained natural traces do not yet exercise the four matrix-only conditionals
+at <code>34:6178</code>–<code>34:618E</code>. [confirmed]</p>
 <p>Page <code>39</code> layout control remains incomplete. Its class and handler tables, argument
 order, row composition, descriptor mapping, and draw paths are decoded. The
 browser-side ROM engine now translates the <code>39:4A74</code> token/action dispatch and
