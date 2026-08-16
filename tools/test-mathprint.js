@@ -2413,6 +2413,15 @@ expectEqual('34:6C5F/6C7C exposes both glyph clipping comparisons', [
   {action:'draw',logicalPen:0xffff,endpoint:0,rightExclusive:96,
    branchOutcomes:['34:6C69:fallthrough','34:6C7F:taken']},
 ]);
+expectEqual('34:6659 gates embedded records by their logical endpoint', [
+  rom.settledEmbeddedViewportDecision(56,63),
+  rom.settledEmbeddedViewportDecision(63,63),
+], [
+  {action:'skip-left',logicalEndpoint:56,translatedEndpoint:0xfff9,
+   branchOutcomes:['34:6659:taken']},
+  {action:'draw',logicalEndpoint:63,translatedEndpoint:0,
+   branchOutcomes:['34:6659:fallthrough']},
+]);
 expectEqual('34:608F selects and positions the right overflow bitmap',
   rom.settledEditorRightCueOperation(rom.settledEditorViewport(106), 23), {
     kind:'bitmap', x:91, y:8, width:4, height:7,
@@ -4050,6 +4059,60 @@ expectEqual('34:637E keeps the nested exponential marker in the large font', {
   y:raisedExponentialGlyph.y,
   depth:raisedExponentialGlyph.depth,
 }, {x:73,y:6,depth:0});
+const deepViewportSpec = {
+  kind:'logBase',
+  base:{kind:'power',
+    base:{kind:'group',expression:{kind:'power',
+      base:{kind:'group',expression:[0x32,0x71,0x4e]},
+      exponent:{kind:'power',base:[0x32],exponent:[0x33]}}},
+    exponent:{kind:'power',
+      base:{kind:'group',expression:[0x41,0x82,0x31]},
+      exponent:{kind:'group',expression:[0x58,0x82,0x41]}}},
+  argument:{kind:'absolute',body:{kind:'fraction',
+    numerator:{kind:'ePower',exponent:[0x41]},
+    denominator:{kind:'fraction',numerator:[0x58],denominator:[0x41]}}},
+};
+const deepViewportProgram = rom.constructSettledExpressionProgram(
+  deepViewportSpec,1,font);
+const deepViewportRoot = deepViewportProgram.nodes.find(
+  node => node.record_id === deepViewportProgram.entry_id);
+const deepViewport = rom.settledEditorViewport(deepViewportRoot.word07);
+const deepViewportOptions = {
+  origin:deepViewportProgram.origin,
+  glyphAdvance:settledGlyphAdvance,
+};
+const deepUngatedOperations = rom.executeSettledRecordProgram(
+  deepViewportProgram.nodes,deepViewportProgram.entry_id,deepViewportOptions);
+const deepGatedOperations = rom.executeSettledRecordProgram(
+  deepViewportProgram.nodes,deepViewportProgram.entry_id,{
+    ...deepViewportOptions,editorViewport:deepViewport,
+  });
+const deepGatedRecordIds = new Set(
+  deepGatedOperations.map(operation => operation.recordId));
+expectEqual('34:6659 skips the complete off-left nested power renderer', {
+  root:[deepViewportRoot.word05,deepViewportRoot.word07,deepViewportRoot.word09],
+  xClip:deepViewport.xClip,
+  operationCounts:[deepUngatedOperations.length,deepGatedOperations.length],
+  removedRecordIds:[...new Set(deepUngatedOperations
+    .filter(operation => !deepGatedRecordIds.has(operation.recordId))
+    .map(operation => operation.recordId))],
+}, {
+  root:[28,152,10],xClip:63,operationCounts:[58,56],removedRecordIds:[6,8],
+});
+const deepViewportGenerated = mp.generateRecordProgram(
+  deepViewportProgram,{editor:true});
+const deepViewportBitmap = cropInk(deepViewportGenerated.final);
+expectEqual('depth-four viewport trace retains exact final pixel parity', {
+  dimensions:[deepViewportBitmap[0].length,deepViewportBitmap.length],
+  eventCount:deepViewportGenerated.events.length,
+  sha256:crypto.createHash('sha256').update(
+    Buffer.from(deepViewportBitmap.flat())).digest('hex'),
+}, {
+  // Reset-origin trace SHA-256
+  // b8d970906e63db96d36847dfcafed91d97e73fc7699294cc8debd08e7affdd93.
+  dimensions:[87,25],eventCount:220,
+  sha256:'b4a60c6f5b1bc78d5a59f6b6fb0f379c999e70dc09c409131677142c0c2b1b09',
+});
 expectEqual('34:5996 selects the log-base metadata row',
   rom.settledRecordMetadata(0x28), [0x04,0x02,0x01,0x00,0x00]);
 expectEqual('34:5935 maps the matrix token through 34:594D',
