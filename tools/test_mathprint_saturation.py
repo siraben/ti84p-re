@@ -1281,9 +1281,9 @@ class CheckedReportTests(unittest.TestCase):
         )
 
         self.assertEqual(2, report["schema"])
-        self.assertEqual(252, len(report["traces"]))
+        self.assertEqual(256, len(report["traces"]))
         self.assertEqual(
-            251,
+            255,
             sum(
                 row["provenance"] == TRACE_PROVENANCE_NATURAL
                 for row in report["traces"]
@@ -1653,25 +1653,40 @@ class CheckedReportTests(unittest.TestCase):
             "mathprint_editor_summation_mid_leaf":
                 "f4d0324117aa308e0195eecb09c2b114214c7e260bb4b74f97c748e0008cd7d0",
         }, summation_insertions)
+        structural_deletions = {
+            row["label"]: row["sha256"]
+            for row in report["traces"]
+            if row["label"].startswith("mathprint_editor_structural_delete_")
+        }
+        self.assertEqual({
+            "mathprint_editor_structural_delete_fraction":
+                "f9a71a90596988b589d1338b768e2aea90178f13a67ba67766ded2328261a35f",
+            "mathprint_editor_structural_delete_fraction_promote":
+                "6086133fa5ff264f995e071e923a98bfce78a4c827f88f4ff42c0368df874a71",
+            "mathprint_editor_structural_delete_nthroot":
+                "ccfbc027ef177f02be1e51f8a85f843b33b96142971bf2d136a1ef96a138ebd6",
+            "mathprint_editor_structural_delete_radical":
+                "788fe5c31ab1e269e318aa5e682b5536cbfefb6a8bad471b55794707de8fbe4a",
+        }, structural_deletions)
         self.assertEqual(
             114, report["record_oracles"]["cases"]
         )
         self.assertEqual(
-            1334,
+            1338,
             report["minimized_dynamic_feature_corpus"]["covered_features"],
         )
         self.assertEqual(
-            190,
+            194,
             report["minimized_dynamic_feature_corpus"]["selected_trace_count"],
         )
         self.assertEqual(
-            1331,
+            1335,
             report["minimized_natural_dynamic_feature_corpus"][
                 "covered_features"
             ],
         )
         self.assertEqual(
-            189,
+            193,
             report["minimized_natural_dynamic_feature_corpus"][
                 "selected_trace_count"
             ],

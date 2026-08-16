@@ -273,8 +273,9 @@ TRANSLATION_SURFACES = (
             "at every cursor class in the root leaf, both fraction children, and that "
             "radical's radicand with packed-token replacement; in-leaf "
             "packed-token navigation, "
-            "and packed-token deletion; deeper nested positions, remaining structural types, "
-            "structural deletion, and boundary navigation remain open"
+            "packed-token deletion, and structural deletion for blank first children plus "
+            "fraction and nth-root second-child promotion; deeper nested deletion states, "
+            "remaining structural types, and boundary navigation remain open"
         ),
     },
     {
@@ -286,6 +287,7 @@ TRANSLATION_SURFACES = (
             "editorInsertStructuralTemplate",
             "editorMovePackedTokenCursor",
             "editorDeletePackedToken",
+            "editorDeleteStructuralTemplate",
             "decodeEditorExpressionGraph",
             "decodeMathPrintEditorRam",
             "constructEditorExpressionProgram",
@@ -297,6 +299,7 @@ TRANSLATION_SURFACES = (
             "tools/mathprint-editor-structural-mutation-oracles.json",
             "tools/mathprint-editor-navigation-oracles.json",
             "tools/mathprint-editor-deletion-oracles.json",
+            "tools/mathprint-editor-structural-deletion-oracles.json",
         ],
         "scope": (
             "complete captured arenas, active-leaf substitution, nested cursor paths, "
@@ -311,9 +314,9 @@ TRANSLATION_SURFACES = (
             "other two added types; radical insertion at every cursor class in the root "
             "leaf, both fraction children, and that radical's radicand with packed-token "
             "replacement; in-leaf packed-token navigation, and "
-            "packed-token deletion with "
-            "empty-slot restoration; deeper nested positions, remaining structural types, "
-            "structural deletion, and boundary navigation remain open"
+            "packed-token deletion with empty-slot restoration, blank fraction and radical "
+            "structural deletion, and fraction/nth-root first-child promotion; deeper nested "
+            "deletion states, remaining structural types, and boundary navigation remain open"
         ),
     },
     {
@@ -4102,9 +4105,10 @@ def open_paths(
                 "fraction children, and that radical's radicand with packed-token "
                 "replacement, "
                 "in-leaf packed-token navigation, and packed-token deletion with empty-slot "
-                "restoration are translated, but deeper nested positions, remaining "
-                "structural types, "
-                "structural deletion, and boundary navigation are not"
+                "restoration are translated; structural deletion is translated for blank "
+                "fraction and radical children plus fraction/nth-root first-child promotion, "
+                "but deeper nested deletion states, remaining structural types, and boundary "
+                "navigation are not"
             ),
         },
         {
