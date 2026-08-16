@@ -1096,12 +1096,20 @@ function generateRecordProgram(program, options = {}) {
       glyphAdvance:(depth, code) => depth ? FONT.small.glyphs[code].w : 6,
       editorViewport:editorViewport || undefined,
     });
-  const operations = editorViewport
+  const settledOperations = editorViewport
     ? ROM_ENGINE.settledEditorViewportOperations(
       recordOperations, editorViewport, recordHeight, {
         glyphAdvance:(depth, code) => depth ? FONT.small.glyphs[code].w : 6,
       })
     : recordOperations;
+  const editorChrome = editorViewport &&
+      typeof ROM_ENGINE.settledEditorVerticalCueOperations === 'function'
+    ? ROM_ENGINE.settledEditorVerticalCueOperations(
+      editorViewport, recordHeight)
+    : null;
+  const operations = editorChrome
+    ? settledOperations.concat(editorChrome.operations)
+    : settledOperations;
   const rendered = ROM_ENGINE.rasterizeSettledOperations(operations, FONT);
   const overflowRight = Math.max(0, recordWidth - rendered.width);
   let clippedInkPixels = 0;
@@ -1121,6 +1129,8 @@ function generateRecordProgram(program, options = {}) {
     width:rendered.width, height:rendered.height,
     recordWidth, recordHeight, overflowRight, clippedInkPixels,
     editorViewport,
+    editorChrome,
+    settledOperations,
     initial:Array.from({length:rendered.height}, () => '0'.repeat(rendered.width)),
     final:rendered.grid.map(row => row.join('')),
     operations,

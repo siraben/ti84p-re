@@ -38,16 +38,32 @@
         "word09_baseline": 62,
         "first_vertical_clip": 4,
         "second_vertical_clip": 8,
-        "operation_count": 23,
-        "accepted_write_count": 103,
-        "accepted_write_sha256": "7726e5823bdea3dbd5f4f09feacb560f2f03bce4ef0c9fbfd47acc4570bd806e",
-        "final_lcd_sha256": "6d472b704f7904735153b836a2ebb1e1ea4f27f3771e1122ae224110aa2729db"
+        "settled_operation_count": 23,
+        "settled_accepted_write_count": 103,
+        "settled_accepted_write_sha256": "7726e5823bdea3dbd5f4f09feacb560f2f03bce4ef0c9fbfd47acc4570bd806e",
+        "settled_lcd_sha256": "6d472b704f7904735153b836a2ebb1e1ea4f27f3771e1122ae224110aa2729db",
+        "editor_chrome_operation_count": 2,
+        "full_operation_count": 25,
+        "full_accepted_write_count": 119,
+        "full_accepted_write_sha256": "56496701827da5738df9e7a69e78f5128371817db47c499c9de17eeaba5b3dd1",
+        "full_lcd_sha256": "5e34c3710b0dbe45c5f8a8152fbc9db81ac098faa5698df429f5793ec6876d99"
       },
       "entry_crop": {
         "width": 17,
         "height": 61,
         "sha256": "7516b14104afaa3259d45b4b1577d0a9ae96df4a9bbc65bb52b147e3cb59910d",
         "match_percent": 100
+      },
+      "full_lcd": {
+        "width": 96,
+        "height": 64,
+        "sha256": "5e34c3710b0dbe45c5f8a8152fbc9db81ac098faa5698df429f5793ec6876d99",
+        "screenshot_match_percent": 100
+      },
+      "editor_chrome_trace": {
+        "accepted_write_count": 16,
+        "accepted_write_sha256": "c0f5202b5a37dac8101aac9bbf412f0727a2475e63f5f6cfa70dc63722e6f2f8",
+        "accepted_write_instruction_interval": [10312791, 10317440]
       }
     }
   ]

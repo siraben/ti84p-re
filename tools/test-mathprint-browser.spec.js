@@ -106,7 +106,7 @@ test('renders the depth-four vertical viewport at calculator pixels',
     await page.locator('#expr').fill(verticalViewportOracle.expression);
     await expect(page.locator('#err')).toHaveText('');
     await expect(page.locator('#dims')).toContainText('editor y clip 8 px');
-    await expect(page.locator('#dims')).toContainText('write 103/103');
+    await expect(page.locator('#dims')).toContainText('write 119/119');
 
     const grid = await page.locator('#screen').evaluate((canvas) => {
       const context = canvas.getContext('2d');
@@ -123,13 +123,20 @@ test('renders the depth-four vertical viewport at calculator pixels',
             pixels[offset + channel] !== value) ? 1 : 0;
         }));
     });
-    const occupied = grid.flatMap((row, y) =>
+    expect(crypto.createHash('sha256').update(
+      Buffer.from(grid.flat())).digest('hex'))
+      .toBe(verticalViewportOracle.full_lcd.sha256);
+    // The ROM draws the two viewport arrows near the screen center after the
+    // settled expression. Restrict the independent entry crop to the pixels
+    // left of that chrome before comparing its compact oracle.
+    const entryGrid = grid.map(row => row.slice(0,44));
+    const occupied = entryGrid.flatMap((row, y) =>
       row.flatMap((value, x) => value ? [[x,y]] : []));
     const left = Math.min(...occupied.map(([x]) => x));
     const right = Math.max(...occupied.map(([x]) => x));
     const top = Math.min(...occupied.map(([,y]) => y));
     const bottom = Math.max(...occupied.map(([,y]) => y));
-    const crop = grid.slice(top,bottom + 1).map(row =>
+    const crop = entryGrid.slice(top,bottom + 1).map(row =>
       row.slice(left,right + 1));
     expect({
       width:right - left + 1,

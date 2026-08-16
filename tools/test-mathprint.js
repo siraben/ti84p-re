@@ -134,6 +134,17 @@ const editorViewportRomSpans = [
     'd52a1885ed5b048eb7ed523008010000ed43048e19110700fdcb445e20021b1b' +
     '19d119ed5bfd8d1600b7ed52d8ed5b048e1922048ec9', 'hex')},
 ];
+const verticalCueRomSpans = [
+  {page:0x34,address:0x6000,bytes:Buffer.from(
+    'cda378c82a048e7cb52803efda53cda860c8efd753c9', 'hex')},
+  {page:0x34,address:0x60a0,bytes:Buffer.from(
+    '010700cd08781bc9cda060ebed5b048eb7ed52d2f85dbfc9', 'hex')},
+  {page:0x35,address:0x7116,bytes:Buffer.from(
+    '3afb8d32d8863e0432729bfdcb32fefdcbff86217d71e53a9a8521fa8dfe49' +
+    '20057ed60718083afc8dcb3f86d60332d786e13e0432729b3e06115f86d5cd' +
+    '941ae1ef3d54c93afb8d21fd8d86d60432d886fdcb32be3e0232019dfdcbff' +
+    'c6fdcb05ce21827118af07081c3e00070000003e1c0800', 'hex')},
+];
 const glyphViewportRomSpan = {address:0x6c5f, bytes:Buffer.from(
   '2a1685ed5b028ecdbb213816e1e5ed5b168519e52a028ecdca5d1319d1cdbb21' +
   '3006d1e1f1d51824', 'hex')};
@@ -978,6 +989,12 @@ if (fs.existsSync(localRomPath)) {
   for (const span of editorViewportRomSpans) {
     const offset = 0x34 * 0x4000 + (span.address & 0x3fff);
     expectEqual(`34:${span.address.toString(16)} raw editor-viewport bytes`,
+      localRom.subarray(offset, offset + span.bytes.length), span.bytes);
+  }
+  for (const span of verticalCueRomSpans) {
+    const offset = span.page * 0x4000 + (span.address & 0x3fff);
+    expectEqual(
+      `${span.page.toString(16)}:${span.address.toString(16)} raw vertical-cue bytes`,
       localRom.subarray(offset, offset + span.bytes.length), span.bytes);
   }
   const glyphViewportOffset = 0x34 * 0x4000 +
@@ -2380,18 +2397,27 @@ expectEqual('34:5F8B exhaustive raw-byte viewport state count',
   editorVerticalViewportRawStates, 786428);
 expectEqual('depth-four fraction uses the captured vertical viewport', (() => {
   const generated = mp.generatedForExpression(verticalViewportOracle.expression);
-  const crop = cropInk(generated.final);
+  const settled = rom.rasterizeSettledOperations(
+    generated.settledOperations,font);
+  const crop = cropInk(settled.grid.map(row => row.join('')));
   return {
     nativeTokens:generated.nativeTokens,
     recordHeight:generated.recordHeight,
     recordWidth:generated.recordWidth,
     firstClip:generated.editorViewport.verticalPasses[0].yClip,
     secondClip:generated.editorViewport.yClip,
-    operationCount:generated.operations.length,
-    writeCount:generated.events.length,
-    writeHash:crypto.createHash('sha256').update(Buffer.from(
+    settledOperationCount:generated.settledOperations.length,
+    settledWriteCount:settled.writes.length,
+    settledWriteHash:crypto.createHash('sha256').update(Buffer.from(
+      settled.writes.flatMap(write => [...write.pointer,write.value]))).digest('hex'),
+    settledLcdHash:crypto.createHash('sha256').update(Buffer.from(
+      settled.grid.flat())).digest('hex'),
+    chromeOperationCount:generated.editorChrome.operations.length,
+    fullOperationCount:generated.operations.length,
+    fullWriteCount:generated.events.length,
+    fullWriteHash:crypto.createHash('sha256').update(Buffer.from(
       generated.events.flatMap(write => [...write.pointer,write.value]))).digest('hex'),
-    lcdHash:crypto.createHash('sha256').update(Buffer.from(
+    fullLcdHash:crypto.createHash('sha256').update(Buffer.from(
       generated.final.flatMap(row => Array.from(row,Number)))).digest('hex'),
     crop:[crop[0].length,crop.length,
       crypto.createHash('sha256').update(Buffer.from(crop.flat())).digest('hex')],
@@ -2402,13 +2428,57 @@ expectEqual('depth-four fraction uses the captured vertical viewport', (() => {
   recordWidth:verticalViewportOracle.translated.expression_endpoint,
   firstClip:verticalViewportOracle.translated.first_vertical_clip,
   secondClip:verticalViewportOracle.translated.second_vertical_clip,
-  operationCount:verticalViewportOracle.translated.operation_count,
-  writeCount:verticalViewportOracle.translated.accepted_write_count,
-  writeHash:verticalViewportOracle.translated.accepted_write_sha256,
-  lcdHash:verticalViewportOracle.translated.final_lcd_sha256,
+  settledOperationCount:verticalViewportOracle.translated.settled_operation_count,
+  settledWriteCount:verticalViewportOracle.translated.settled_accepted_write_count,
+  settledWriteHash:verticalViewportOracle.translated.settled_accepted_write_sha256,
+  settledLcdHash:verticalViewportOracle.translated.settled_lcd_sha256,
+  chromeOperationCount:verticalViewportOracle.translated.editor_chrome_operation_count,
+  fullOperationCount:verticalViewportOracle.translated.full_operation_count,
+  fullWriteCount:verticalViewportOracle.translated.full_accepted_write_count,
+  fullWriteHash:verticalViewportOracle.translated.full_accepted_write_sha256,
+  fullLcdHash:verticalViewportOracle.translated.full_lcd_sha256,
   crop:[verticalViewportOracle.entry_crop.width,
     verticalViewportOracle.entry_crop.height,
     verticalViewportOracle.entry_crop.sha256],
+});
+expectEqual('34:6000 emits both vertical cues for the tall fraction', (() => {
+  const viewport = rom.settledEditorViewport2D(20,59);
+  const cues = rom.settledEditorVerticalCueOperations(viewport,125);
+  return {
+    show:[cues.showUp,cues.showDown],
+    endpoints:[cues.endpoint,cues.visibleEndpoint],
+    positions:cues.operations.map(operation => [operation.x,operation.y]),
+    rows:cues.operations.map(operation => operation.rows),
+    outcomes:cues.branchOutcomes,
+  };
+})(), {
+  show:[true,true], endpoints:[124,116], positions:[[44,0],[44,58]],
+  rows:[[0x08,0x1c,0x3e,0x00],[0x00,0x3e,0x1c,0x08]],
+  outcomes:['34:6009:fallthrough','34:60B3:taken',
+    '34:5E01:taken','34:6011:fallthrough'],
+});
+expectEqual('34:60A8 includes the exact lower-cue boundary', [
+  rom.settledEditorVerticalCueOperations(
+    rom.settledEditorViewport2D(20,59),70).showDown,
+  rom.settledEditorVerticalCueOperations(
+    rom.settledEditorViewport2D(20,59),71).showDown,
+  rom.settledEditorVerticalCueOperations({
+    ...rom.settledEditorViewport2D(20,59),yClip:8,
+  },5).branchOutcomes,
+], [false,true,
+  ['34:6009:fallthrough','34:60B3:fallthrough','34:6011:returned']]);
+expectEqual('35:7116/715B reproduce the natural vertical-cue write stream', (() => {
+  const generated = mp.generatedForExpression(verticalViewportOracle.expression);
+  const writes = generated.events.slice(
+    -verticalViewportOracle.editor_chrome_trace.accepted_write_count);
+  return {
+    count:writes.length,
+    sha256:crypto.createHash('sha256').update(Buffer.from(
+      writes.flatMap(write => [...write.pointer,write.value]))).digest('hex'),
+  };
+})(), {
+  count:verticalViewportOracle.editor_chrome_trace.accepted_write_count,
+  sha256:verticalViewportOracle.editor_chrome_trace.accepted_write_sha256,
 });
 expectEqual('33:4F82 exposes every fixed allocation geometry row',
   Array.from({length:12}, (_, index) => {
