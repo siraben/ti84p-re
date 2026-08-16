@@ -524,10 +524,10 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, large-glyph output, and alphabetic VAT selection. It
 recursively follows direct ROM edges from named entries, seeds decoded table
-destinations, overlays exact next-PC outcomes from 216 reset-origin traces, and
+destinations, overlays exact next-PC outcomes from 221 reset-origin traces, and
 lists direct external targets. Computed dispatch destinations are manually
 seeded; bcall and RAM bjump bodies remain outside the direct-edge walk. Of those
-traces, 215 reach their state through calculator input. One explicitly
+traces, 220 reach their state through calculator input. One explicitly
 classified synthetic trace inserts an `EF36h` editor buffer through direct RAM
 writes. The report keeps the two provenance classes separate.
 `tools/mathprint-saturation.json` records the resulting branches and trace
@@ -537,9 +537,9 @@ The analyzer can restore trace identities, provenance, and per-trace summaries
 from a prior report and the digest-keyed cache. Regeneration therefore scans a
 new trace once without reopening the other retained TLMT files. [confirmed]
 
-None of the 216 report traces executes `39:5167`, `39:523B`, the saved-operand
+None of the 221 report traces executes `39:5167`, `39:523B`, the saved-operand
 wrappers at `39:5B10`–`39:5B38`, or the dispatchers at `39:59E0`/`39:59F9`.
-The 216-digest trace cache also has no hit at those entries. [confirmed]
+The 221-digest trace cache also has no hit at those entries. [confirmed]
 `_FindAlphaUp` at `07:50B5` executes once in 112 report traces, but every call
 comes from the type-`16h` cleanup loop at `07:5544`. Each observed call returns
 carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
@@ -695,8 +695,8 @@ bytes, respectively.
 
 The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,296 tags and needs 154
-traces. The natural-only universe has 1,293 tags and needs 153 traces. Every
+independent oracle case. Its all-evidence universe has 1,301 tags and needs 159
+traces. The natural-only universe has 1,298 tags and needs 158 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The broad set remains the RE and
@@ -743,7 +743,7 @@ and `A` at each discriminator were checked before admission. [confirmed]
 The synthetic `EF36h` trace uses
 `tools/macros/mathprint-ef36-injected-buffer.macro`. Its two `memwrite`
 commands place `EF 36 31 11` at the editor cursor. It is the sole synthetic
-source in the 216-trace report. It supplies the only evidence for
+source in the 221-trace report. It supplies the only evidence for
 `34:5A23` fallthrough, `34:6992` taken, and `34:6B94` taken. The full minimum
 retains it; the natural minimum excludes it by construction. [confirmed]
 
@@ -955,16 +955,34 @@ denominator insertion replaces payload in leaf `10`. The controller depth moves
 from one to two, and the cursor selects leaf `12`. Blank, leaf-end, leading, and
 mid-leaf captures cover all four cursor classes in both children. [confirmed]
 
-At depth zero, a populated insertion retains the parent payload's first byte in
-the new radical record at `+13h`. At depth one, the same field is `EFh` for both
-fraction children, including leaf-end and mid-leaf cases with left payload.
-`editorInsertStructuralTemplate()` applies this depth test before reconstructing
-the record arena. Across all 13 radical transitions, its cursor AST matches the
-decoded post-key tree, reconstruction matches every record field, and execution
-matches all 768 LCD bytes. Radical insertion at deeper structural positions,
-remaining structural template types, structural deletion, and
-structural-boundary navigation remain open.
-[confirmed]
+The allocator loads the entry-record pointer from `0x8DBC` and invokes unnamed
+bcall ID `53ADh` at `34:4900`–`34:4905`. Initialization at
+`34:4908`–`34:4928` overwrites the new ID, type, parent, selector, and depth
+fields. It skips bytes `+07h`–`+10h` and does not write `+12h` or `+13h`.
+Structural insertion therefore retains the byte that occupied `+13h` in the
+old entry record. Root insertion at a nonzero cursor offset retains the entry
+leaf's first payload byte. Insertion at offset zero retains `EFh` because the
+new marker becomes the first payload unit. A nested insertion does not derive
+this byte from structural depth or from the active child. [confirmed]
+
+Four additional captures begin with root token `3` and insert a second radical
+into the first radical's radicand. Blank, leaf-end, leading, and mid-leaf cases
+cover every cursor class in that child. The new radical record retains `33h`
+from entry record `7`, including the blank case whose active radicand begins
+with `EFh`. A blank fraction inserted at the same position also retains `33h`,
+which exercises the shared structural-allocation rule. [confirmed]
+
+`tools/mathprint-editor-structural-mutation-oracles.json` retains the five
+macro and trace hashes, both RAM states, sparse arena bytes, screenshots, and
+complete LCD hashes. [confirmed]
+
+`editorInsertStructuralTemplate()` retains the old entry byte before
+reconstructing the arena. Across all 17 radical transitions, its cursor AST
+matches the decoded post-key tree, reconstruction matches every record field,
+and execution matches all 768 LCD bytes. The fraction discriminator has the
+same record and LCD parity. Radical and fraction insertion at other deeper
+structural positions, remaining structural template types, structural
+deletion, and structural-boundary navigation remain open. [confirmed]
 
 Ordinary in-leaf navigation uses the page-6 gap movers. LEFT reaches
 `06:4294–42C7` through `34:42B4` and `00:3B49`; RIGHT reaches
