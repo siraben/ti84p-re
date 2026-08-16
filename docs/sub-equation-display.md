@@ -775,12 +775,12 @@ Four reset-origin RAM snapshots pin the cursor-to-record mapping. The compact
 bytes and expected trees are in `tools/mathprint-editor-gap-oracles.json`.
 Each reproduction uses key input only. [confirmed]
 
-| Editor state | Active leaf | Logical gap payload | Cursor path | Sparse-state SHA-256 |
-|--------------|-------------|---------------------|-------------|----------------------|
-| Empty fraction numerator | `9` | cursor, `EF 1E` | numerator | `bcabb3961e1f37fe21b4e66c8bbfffb9a3812a162324e85273fdeed0beccc019` |
-| Integral upper bound after `2` | `10` | `32`, cursor | upper bound | `1dab216a05a2604bdb51eaa8a347a881f4dcccb7c8f19965503d73812422f8d5` |
-| Fraction denominator nested in an integral body | `15` | `32`, cursor | body → denominator | `7da6d7fdbb5ea848dda0afb1105237280a06b6dff994879df0a8c0b63e1a5f10` |
-| Immediately after a completed integral | `7` | `EF 22 08 00 EF 2D`, cursor | root sequence after integral | `89dd708b40f3c77f2cb5392783256576be8f0014beea2b411b6ba860dd441ef4` |
+| Editor state | Active leaf | Logical gap payload | Cursor path | Sparse-state SHA-256 | Cursor-off LCD SHA-256 |
+|--------------|-------------|---------------------|-------------|----------------------|-----------------------|
+| Empty fraction numerator | `9` | cursor, `EF 1E` | numerator | `bcabb3961e1f37fe21b4e66c8bbfffb9a3812a162324e85273fdeed0beccc019` | `450e82a31ced68ed319a1c2e8d18d3e2d3813f097de8be9dc2a89d48289cc4c9` |
+| Integral upper bound after `2` | `10` | `32`, cursor | upper bound | `1dab216a05a2604bdb51eaa8a347a881f4dcccb7c8f19965503d73812422f8d5` | `39b937b16e32e4e07f6ffc2d6e60842c0249fd51d3aa661b23af2d2cb8708cea` |
+| Fraction denominator nested in an integral body | `15` | `32`, cursor | body → denominator | `7da6d7fdbb5ea848dda0afb1105237280a06b6dff994879df0a8c0b63e1a5f10` | `1297c2562d7c2fac9612aad6fc2e829ecb8f487606da6a079fb7d49d1c4c64d9` |
+| Immediately after a completed integral | `7` | `EF 22 08 00 EF 2D`, cursor | root sequence after integral | `89dd708b40f3c77f2cb5392783256576be8f0014beea2b411b6ba860dd441ef4` | `80cc504e3a7c6c773906f1e64ca6916e48594fd0c66c946151b3bc9849647f64` |
 
 The empty numerator keeps `EF 1E` in the right gap segment, while its sibling
 denominator leaf resides near the high-memory boundary. The nested case links
@@ -794,6 +794,27 @@ substitution. `decodeEditorExpressionGraph()` inserts a cursor at
 `editCursor - editTop`, after checking the native token and six-byte marker
 boundaries. It recovers the nested cursor path from record IDs and leaf bytes;
 the screenshots do not participate in the decode. [confirmed]
+
+`constructEditorExpressionProgram()` translates the inverse path. It allocates
+the entry leaf at ID `7`, the transient type-`0x1F` wrapper at ID `6`, and the
+same structural and child IDs as the captured arenas. The cursor contributes a
+six-pixel cell at render depth zero and a five-pixel cell in a raised row. A
+cursor immediately before `EF 1E` reuses that token's six-pixel empty-slot cell.
+The ordinary structural metric formulas then propagate the active leaf's
+height, width, and baseline through every ancestor. [confirmed]
+
+The structural word at `+0x05` identifies the active one-based child along the
+cursor path. A completed template outside that path retains its last child.
+Containing leaves on the active structural path retain the descendant marker's
+byte offset at `+0x0F`. The active gap also retains its pre-edit `+0x0F` and
+`+0x11` words, so the cursor node carries those two state words explicitly.
+They cannot be recovered from the concatenated gap payload alone. [confirmed]
+
+For all four states above, decoding RAM to a cursor-annotated expression and
+reconstructing it matches every record field by ID. Executing the reconstructed
+record program in the cursor-off phase also matches the complete 96×64
+calculator screenshot bitmap. The hashes in the last column cover all 768 LCD
+bytes. [confirmed]
 
 `34:789A` first distinguishes the table-equation context from other editors.
 On its fallthrough, `34:75AB` reads the marker type from `editTail + 1`.
