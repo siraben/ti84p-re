@@ -5408,11 +5408,10 @@
     return {expression,mutation};
   }
 
-  // The fraction-template route consumes the live arena state as well as the
-  // semantic tree: newly allocated record IDs and the structural-depth gate
-  // are not recoverable from the cursor AST alone. EF 2Eh and EF 2Fh both map
-  // to type 20h at 34:5935. This translation currently closes the type-20h
-  // insertion path; the other structural source types remain separate.
+  // Structural-template insertion consumes the live arena state as well as
+  // the semantic tree: newly allocated record IDs and the structural-depth
+  // gate are not recoverable from the cursor AST alone. EF 2Eh/EF 2Fh map to
+  // type 20h, while the one-byte BCh source maps to type 27h at 34:5935.
   function editorInsertStructuralTemplate(input, sourceToken = [0xef,0x2e]) {
     if (!input || typeof input !== 'object' || !input.editor ||
         !Array.isArray(input.nodes))
@@ -5422,13 +5421,15 @@
       byte(value, `editor structural source byte ${index}`));
     const boundaries = editorPayloadCursorBoundaries(source);
     if (boundaries.length !== 2 || boundaries[1] !== source.length ||
-        source.length !== 2)
+        (source.length !== 1 && source.length !== 2))
       throw new RangeError(
-        'editor structural insertion requires one two-byte source token');
-    const renderType = settledStructuralTokenType(source[0],source[1]);
-    if (renderType !== 0x20)
+        'editor structural insertion requires one packed source token');
+    const renderType = source.length === 1
+      ? settledStructuralTokenType(0,source[0])
+      : settledStructuralTokenType(source[0],source[1]);
+    if (renderType !== 0x20 && renderType !== 0x27)
       throw new RangeError(
-        'only the translated type-20h fraction insertion path is supported');
+        'the structural source type has no translated insertion path');
     const depth = input.controller && input.controller.structuralDepth;
     if (!Number.isInteger(depth) || depth < 0 || depth > 0xff)
       throw new RangeError(
@@ -5453,12 +5454,16 @@
         new Set(ids).size !== ids.length)
       throw new RangeError('decoded editor state has an invalid record ID');
     const firstId = Math.max(...ids) + 1;
-    if (firstId > 0xfffd)
+    const allocationCount = renderType === 0x20 ? 3 : 2;
+    if (firstId > 0x10000 - allocationCount)
       throw new RangeError(
-        'fraction insertion requires three available record IDs');
+        `structural insertion requires ${allocationCount} available record IDs`);
     const structuralId = firstId;
     const numeratorId = firstId + 1;
     const denominatorId = firstId + 2;
+    const marker = [
+      0xef,renderType,structuralId & 0xff,structuralId >> 8,0xef,0x2d,
+    ];
     const clone = value => {
       if (!value || typeof value !== 'object') return value;
       if (Array.isArray(value) || value instanceof Uint8Array)
@@ -5479,6 +5484,85 @@
       throw new RangeError(
         `structural insertion requires one cursor, found ${count}`);
     let originalCursor;
+    let replacedRightToken = [];
+    const activeNode = cursor => input.nodes.find(node =>
+      (node.record_id === undefined ? node.id : node.record_id) ===
+        cursor.record_id);
+    const stripFirstPackedUnit = value => {
+      let tokens;
+      if (Array.isArray(value) || value instanceof Uint8Array)
+        tokens = Array.from(value);
+      else if (value && (value.kind === 'tokens' ||
+               value.kind === 'extendedToken') &&
+               (Array.isArray(value.tokens) ||
+                value.tokens instanceof Uint8Array))
+        tokens = Array.from(value.tokens);
+      else
+        throw new RangeError(
+          'radical insertion before a structural boundary remains open');
+      const unitBoundaries = editorPayloadCursorBoundaries(tokens);
+      if (unitBoundaries.length < 2)
+        throw new RangeError(
+          'radical insertion has no packed token to replace');
+      replacedRightToken = tokens.slice(0,unitBoundaries[1]);
+      const remainder = tokens.slice(unitBoundaries[1]);
+      if (!remainder.length) return null;
+      return remainder;
+    };
+    const radicalAtCursor = leaf => {
+      let left = [];
+      let right = [];
+      if (leaf && leaf.kind === 'editorCursor') {
+        originalCursor = leaf;
+      } else if (leaf && leaf.kind === 'sequence' &&
+                 Array.isArray(leaf.parts)) {
+        const cursorIndex = leaf.parts.findIndex(
+          part => part && part.kind === 'editorCursor');
+        if (cursorIndex < 0)
+          throw new RangeError(
+            'radical insertion sequence has no direct cursor');
+        originalCursor = leaf.parts[cursorIndex];
+        left = leaf.parts.slice(0,cursorIndex).map(clone);
+        right = leaf.parts.slice(cursorIndex + 1).map(clone);
+      } else {
+        return null;
+      }
+      const active = activeNode(originalCursor);
+      if (!active || !Array.isArray(active.payload) ||
+          !Number.isInteger(originalCursor.byte_offset) ||
+          originalCursor.byte_offset < 0 ||
+          originalCursor.byte_offset > active.payload.length)
+        throw new RangeError(
+          'radical insertion requires a valid active payload split');
+      if (right.length) {
+        const remainder = stripFirstPackedUnit(right[0]);
+        if (remainder === null) right.shift();
+        else right[0] = remainder;
+      }
+      const childId = structuralId + 1;
+      const radicand = {
+        kind:'sequence',parts:[
+          {
+            kind:'editorCursor',record_id:childId,byte_offset:0,
+            record_word0F:0,record_word11:2,
+            editor_leaf_record_id:childId,
+          },
+          {kind:'extendedToken',tokens:[0xef,0x1e]},
+        ],editor_leaf_record_id:childId,
+      };
+      const radical = {
+        kind:'radical',radicand,
+        editor_record_id:structuralId,
+        editor_record_byte13:originalCursor.byte_offset ? active.payload[0] : 0xef,
+      };
+      const parts = [...left,radical,...right];
+      return parts.length === 1 ? {
+        ...radical,editor_leaf_record_id:originalCursor.record_id,
+      } : {
+        kind:'sequence',parts,
+        editor_leaf_record_id:originalCursor.record_id,
+      };
+    };
     let numerator;
     let denominator;
     let recordByte13;
@@ -5510,9 +5594,7 @@
           throw new RangeError(
             'fraction insertion sequence has no direct cursor');
         originalCursor = leaf.parts[cursorIndex];
-        const activeId = originalCursor.record_id;
-        const active = input.nodes.find(node =>
-          (node.record_id === undefined ? node.id : node.record_id) === activeId);
+        const active = activeNode(originalCursor);
         if (!active || !Array.isArray(active.payload) || !active.payload.length ||
             !Number.isInteger(originalCursor.byte_offset) ||
             originalCursor.byte_offset < 0 ||
@@ -5608,12 +5690,14 @@
       if (!value || typeof value !== 'object') return value;
       if (value.kind === 'editorCursor') {
         replaced = true;
-        return fractionAtCursor(value);
+        return renderType === 0x27
+          ? radicalAtCursor(value) : fractionAtCursor(value);
       }
       if (value.kind === 'sequence' && Array.isArray(value.parts) &&
           value.parts.some(part => part && part.kind === 'editorCursor')) {
         replaced = true;
-        return fractionAtCursor(value);
+        return renderType === 0x27
+          ? radicalAtCursor(value) : fractionAtCursor(value);
       }
       if (Array.isArray(value) || value instanceof Uint8Array)
         return Array.from(value,item =>
@@ -5625,10 +5709,22 @@
     const expression = visit(root);
     if (!replaced || !expression)
       throw new RangeError(
-        'fraction insertion outside the translated leaf cases is open');
-    const marker = [
-      0xef,renderType,structuralId & 0xff,structuralId >> 8,0xef,0x2d,
-    ];
+        'structural insertion outside the translated leaf cases is open');
+    if (renderType === 0x27) return {
+      expression,
+      mutation:{
+        status:'inserted',source_token:source,render_type:renderType,
+        marker,parent_record_id:originalCursor.record_id,
+        before_byte_offset:originalCursor.byte_offset,
+        after_record_id:structuralId + 1,after_byte_offset:0,
+        structural_record_id:structuralId,
+        child_record_ids:[structuralId + 1],
+        replaced_right_token:replacedRightToken,
+        before_structural_depth:depth,
+        after_structural_depth:gate.incrementedDepth,
+        routine:'34:473A → 35:7B37 → 34:4169 → 34:5026–5057 → 34:5473–547B → 34:58A0–58B4 → 34:4862–491D',
+      },
+    };
     return {
       expression,
       mutation:{

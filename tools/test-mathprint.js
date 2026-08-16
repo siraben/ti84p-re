@@ -3387,7 +3387,7 @@ for (const oracle of editorStructuralMutationOracles.transitions) {
       expression:before.editor.expression,
       mutation:{
         status:'depth-limit',source_token:oracle.source_token,
-        render_type:0x20,before_structural_depth:4,
+        render_type:oracle.mutation.render_type,before_structural_depth:4,
         after_structural_depth:5,return_a:3,flags45_bit6:true,
         error_address:0x9d20,error_value:5,
         routine:'34:473A → 35:7B37 → 34:54D2',
@@ -3401,6 +3401,29 @@ for (const oracle of editorStructuralMutationOracles.transitions) {
       () => rom.decodeMathPrintEditorRam(inactiveEmpty));
   }
 }
+const structuralAllocationBase = rom.decodeMathPrintEditorRam(sparseEditorRam(
+  editorStructuralMutationOracles.transitions[0].pre,
+  'structural allocation boundary source'));
+const radicalAtLastTwoIds = rom.editorInsertStructuralTemplate({
+  ...structuralAllocationBase,
+  nodes:[...structuralAllocationBase.nodes,{id:0xfffd}],
+},[0xbc]);
+expectEqual('radical insertion can allocate the last two record IDs',{
+  structural_record_id:radicalAtLastTwoIds.mutation.structural_record_id,
+  child_record_ids:radicalAtLastTwoIds.mutation.child_record_ids,
+}, {
+  structural_record_id:0xfffe,child_record_ids:[0xffff],
+});
+expectThrows('fraction insertion still requires three record IDs',RangeError,
+  () => rom.editorInsertStructuralTemplate({
+    ...structuralAllocationBase,
+    nodes:[...structuralAllocationBase.nodes,{id:0xfffd}],
+  },[0xef,0x2e]));
+expectThrows('radical insertion rejects a one-ID tail',RangeError,
+  () => rom.editorInsertStructuralTemplate({
+    ...structuralAllocationBase,
+    nodes:[...structuralAllocationBase.nodes,{id:0xfffe}],
+  },[0xbc]));
 expectThrows('structural insertion keeps unsupported source types explicit',
   RangeError,() => rom.editorInsertStructuralTemplate(
     rom.decodeMathPrintEditorRam(sparseEditorRam(
