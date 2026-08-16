@@ -5488,6 +5488,21 @@
     const activeNode = cursor => input.nodes.find(node =>
       (node.record_id === undefined ? node.id : node.record_id) ===
         cursor.record_id);
+    const entryNode = input.nodes.find(node =>
+      (node.record_id === undefined ? node.id : node.record_id) ===
+        input.entryId);
+    if (!entryNode)
+      throw new RangeError(
+        'structural insertion requires the decoded entry record');
+    // 34:4900 inserts the new record at the old entry boundary. Initialization
+    // through 34:4928 writes selected header fields but not physical byte +13h,
+    // so nested insertion retains the old entry record's byte at that offset.
+    const retainedStructuralByte13 = (cursor, active) => {
+      if (cursor.record_id !== input.entryId)
+        return byte(entryNode.byte13,
+          'structural insertion retained entry +13h byte');
+      return cursor.byte_offset ? active.payload[0] : 0xef;
+    };
     const stripFirstPackedUnit = value => {
       let tokens;
       if (Array.isArray(value) || value instanceof Uint8Array)
@@ -5553,8 +5568,7 @@
       const radical = {
         kind:'radical',radicand,
         editor_record_id:structuralId,
-        editor_record_byte13:
-          originalCursor.byte_offset && depth === 0 ? active.payload[0] : 0xef,
+        editor_record_byte13:retainedStructuralByte13(originalCursor,active),
       };
       const parts = [...left,radical,...right];
       return parts.length === 1 ? {
@@ -5572,6 +5586,10 @@
       let trailingParts = [];
       if (leaf && leaf.kind === 'editorCursor') {
         originalCursor = leaf;
+        const active = activeNode(originalCursor);
+        if (!active || !Array.isArray(active.payload))
+          throw new RangeError(
+            'blank fraction insertion requires a valid active leaf');
         numerator = {
           kind:'sequence',parts:[
           {
@@ -5585,7 +5603,7 @@
           kind:'extendedToken',tokens:[0xef,0x1e],
           editor_leaf_record_id:denominatorId,
         };
-        recordByte13 = 0xef;
+        recordByte13 = retainedStructuralByte13(originalCursor,active);
         afterRecordId = numeratorId;
       } else if (leaf && leaf.kind === 'sequence' &&
                  Array.isArray(leaf.parts)) {
@@ -5629,7 +5647,7 @@
             kind:'extendedToken',tokens:[0xef,0x1e],
             editor_leaf_record_id:denominatorId,
           };
-          recordByte13 = 0xef;
+          recordByte13 = retainedStructuralByte13(originalCursor,active);
           afterRecordId = numeratorId;
           const insertedFraction = {
             kind:'fraction',numerator,denominator,
@@ -5667,7 +5685,7 @@
           },
           {kind:'extendedToken',tokens:[0xef,0x1e]},
         ],editor_leaf_record_id:denominatorId};
-        recordByte13 = depth === 0 ? active.payload[0] : 0xef;
+        recordByte13 = retainedStructuralByte13(originalCursor,active);
         afterRecordId = denominatorId;
       } else {
         return null;
