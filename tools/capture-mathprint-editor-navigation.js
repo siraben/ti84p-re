@@ -176,7 +176,7 @@ function main() {
   const decoded = states.map(decodeSparse);
   const transitions = [];
   for (let index = 0; index + 1 < decoded.length; index++) {
-    const moved = rom.editorMoveCursor(decoded[index],args.direction);
+    const moved = rom.editorMoveCursor(decoded[index],args.direction,font);
     if (!sameState(moved.state,decoded[index + 1]))
       throw new Error(
         `${args.name}: translated transition ${index} does not match state ${index + 1}`);
