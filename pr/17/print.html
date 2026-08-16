@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1c27be2e.js";
+            window.path_to_searchindex_js = "searchindex-6eac65fd.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14997,7 +14997,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 21 finite models. It also computes an
+complete path-equivalence class in 22 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -15019,6 +15019,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Reverse argument-overflow cue</td><td style="text-align: right">65,536</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
 <tr><td>Editor horizontal viewport</td><td style="text-align: right">17,179,869,184</td><td style="text-align: right">8</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
 <tr><td>Editor vertical viewport</td><td style="text-align: right">17,179,869,184</td><td style="text-align: right">8</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
+<tr><td>Editor vertical overflow cues</td><td style="text-align: right">4,294,901,760</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">3</td></tr>
 <tr><td>Glyph viewport gates</td><td style="text-align: right">30,064,771,072</td><td style="text-align: right">3</td><td style="text-align: right">4</td><td style="text-align: right">3</td></tr>
 <tr><td>Embedded-record viewport gate</td><td style="text-align: right">4,294,967,296</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
 <tr><td>Record-allocation capacity</td><td style="text-align: right">36,893,488,147,419,103,232</td><td style="text-align: right">6</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
@@ -15031,8 +15032,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 21 models contain 1,322 path classes and 187 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 97 representatives. Each
+<p>The 22 models contain 1,327 path classes and 195 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 100 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -16211,8 +16212,21 @@ pixel. Its SHA-256 is
 <code>tools/mathprint-vertical-viewport-oracle.json</code> records the ROM, trace, RAM,
 LCD-write, and crop hashes;
 <code>tools/macros/mathprint-nested-fraction-vertical.macro</code> reproduces the natural
-entry. Editor up/down chrome is a separate write stream and is not included in
-the settled-expression crop. [confirmed]</p>
+entry. [confirmed]</p>
+<p><code>34:6000</code>–<code>34:6015</code> appends the vertical editor chrome after the settled
+expression. A nonzero <code>ram:8E04</code> clip calls bcall <code>53DAh</code>; its body at
+<code>35:7116</code> draws the upper cue from the four rows at <code>35:717D</code>. <code>34:60A0</code> loads
+the root height, subtracts one and the clip, and applies the same bottom-bound
+comparison as <code>34:5DF8</code>. A remaining endpoint at or beyond the bound calls
+bcall <code>53D7h</code>; <code>35:715B</code> draws the lower cue from <code>35:7182</code>. [confirmed]</p>
+<p>The normal home editor centers both seven-pixel cells from the horizontal
+bound at <code>ram:8DFC</code>, giving $x=44$. Their top rows are 0–3 and 58–61. The final
+16 accepted writes in the natural trace exactly match the translated byte
+columns, rows, values, and order. Appending them produces the complete 96×64
+calculator LCD with zero pixel differences; its flat-byte SHA-256 is
+<code>5e34c3710b0dbe45c5f8a8152fbc9db81ac098faa5698df429f5793ec6876d99</code>.
+The 17×61 crop above deliberately excludes this separate chrome stream.
+[confirmed]</p>
 <p>The visible expression therefore begins at effective $x=-17$, while the cursor
 cell begins at $x=89$. When <code>ram:8E02</code> is nonzero, <code>34:5FF2</code> calls <code>34:6031</code>.
 That routine draws the seven-row left-overflow bitmap at <code>34:60B8</code> through

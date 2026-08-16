@@ -1732,6 +1732,104 @@
   const SETTLED_RIGHT_OVERFLOW_ROWS = Object.freeze([
     0x00,0x04,0x06,0x07,0x06,0x04,0x00,
   ]);
+  const SETTLED_VERTICAL_UP_ROWS = Object.freeze([
+    0x08,0x1c,0x3e,0x00,
+  ]);
+  const SETTLED_VERTICAL_DOWN_ROWS = Object.freeze([
+    0x00,0x3e,0x1c,0x08,
+  ]);
+
+  // 34:6000–6015 draws editor chrome after the settled record. A nonzero
+  // ram:8E04 clip calls bcall 53DAh for the upper cue. 34:60A0–60B7 loads
+  // the root's height word, subtracts one and the vertical clip, and calls
+  // bcall 53D7h when the remaining endpoint reaches or exceeds ram:8DFDh's
+  // bottom boundary. The bcall bodies are 35:7116 and 35:715B.
+  function settledEditorVerticalCueOperations(
+    viewport, recordHeight, options = {}) {
+    if (!viewport || typeof viewport !== 'object' ||
+        !Number.isInteger(viewport.xOrigin) ||
+        !Number.isInteger(viewport.yClip) ||
+        !Number.isInteger(viewport.bottomBound))
+      throw new TypeError('settled vertical-cue viewport state is invalid');
+    if (!Number.isInteger(recordHeight) ||
+        recordHeight < 1 || recordHeight > 0xffff)
+      throw new RangeError(
+        'settled vertical-cue record height must fit an unsigned word');
+    if (!options || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('settled vertical-cue options must be an object');
+    const yClip = unsignedWord(
+      viewport.yClip, 'settled vertical-cue clip');
+    const bottomBound = byte(
+      viewport.bottomBound, 'settled vertical-cue bottom bound');
+    const xOrigin = byte(
+      viewport.xOrigin, 'settled vertical-cue x origin');
+    const screenYOrigin = byte(
+      viewport.screenYOrigin === undefined ? 0 : viewport.screenYOrigin,
+      'settled vertical-cue y origin');
+    const editorMode = byte(
+      options.editorMode === undefined ? 0 : options.editorMode,
+      'settled vertical-cue editor mode');
+    const horizontalBound = byte(
+      options.horizontalBound === undefined
+        ? (viewport.rightBound === undefined ? 0x5f : viewport.rightBound)
+        : options.horizontalBound,
+      'settled vertical-cue horizontal bound');
+    const x = editorMode === 0x49
+      ? (xOrigin - 7) & 0xff
+      : (xOrigin + (horizontalBound >>> 1) - 3) & 0xff;
+    const endpoint = (recordHeight - 1) & 0xffff;
+    const endpointBeforeClip = endpoint < yClip;
+    const visibleEndpoint = endpointBeforeClip
+      ? null : (endpoint - yClip) & 0xffff;
+    const showUp = yClip !== 0;
+    const showDown = visibleEndpoint !== null &&
+      visibleEndpoint >= bottomBound;
+    const operations = [];
+    if (showUp) operations.push({
+      kind:'bitmap',
+      x,
+      y:screenYOrigin,
+      width:7,
+      height:4,
+      rows:SETTLED_VERTICAL_UP_ROWS.slice(),
+      retainUnchanged:true,
+      editorChrome:true,
+      routine:'34:6009 → bcall 53DAh → 35:7116–715A; table 35:717D',
+    });
+    if (showDown) operations.push({
+      kind:'bitmap',
+      x,
+      y:(screenYOrigin + bottomBound - 4) & 0xff,
+      width:7,
+      height:4,
+      rows:SETTLED_VERTICAL_DOWN_ROWS.slice(),
+      retainUnchanged:true,
+      editorChrome:true,
+      routine:'34:6011 → bcall 53D7h → 35:715B–717B; table 35:7182',
+    });
+    return {
+      showUp,
+      showDown,
+      endpoint,
+      endpointBeforeClip,
+      visibleEndpoint,
+      x,
+      topY:screenYOrigin,
+      bottomY:(screenYOrigin + bottomBound - 4) & 0xff,
+      editorMode,
+      horizontalBound,
+      branchOutcomes:[
+        `34:6009:${showUp ? 'fallthrough' : 'taken'}`,
+        `34:60B3:${endpointBeforeClip ? 'fallthrough' : 'taken'}`,
+        ...(endpointBeforeClip ? [] : [
+          `34:5E01:${showDown ? 'taken' : 'fallthrough'}`,
+        ]),
+        `34:6011:${showDown ? 'fallthrough' : 'returned'}`,
+      ],
+      operations,
+      routine:'34:6000–6015 → 34:60A0–60B7 → bcall 53DAh/53D7h',
+    };
+  }
 
   // ram:027B decrements indicCounter and returns until it reaches zero.
   // 01:6BBA–6BFA then reloads 14h, rotates indicBusy right, and uses the
@@ -6502,6 +6600,7 @@
     settledGlyphViewportDecision,
     settledGlyphVerticalViewportDecision,
     settledEmbeddedViewportDecision,
+    settledEditorVerticalCueOperations,
     settledEditorViewportOperations,
     settledEditorRightCueOperation,
     settledRunIndicatorTick,

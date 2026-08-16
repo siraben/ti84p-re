@@ -88,7 +88,10 @@ the horizontal clip from the expression endpoint and cursor width.
 `34:5F8B` then updates the vertical clip twice, using the cursor top and the
 two live caller paddings. A natural depth-four balanced fraction reaches an
 eight-row vertical clip; the translated 17×61 expression crop matches the
-calculator exactly. The compact evidence is in
+calculator exactly. The browser then appends the upper and lower cue bitmaps
+from bcall bodies `35:7116` and `35:715B`. Their final 16 accepted writes and
+the complete 96×64 LCD match the natural trace and screenshot exactly. The
+compact evidence is in
 `tools/mathprint-vertical-viewport-oracle.json`.
 
 Render-record type `0x2A` is translated as a child-1 traversal through
