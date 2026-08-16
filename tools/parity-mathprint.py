@@ -19,6 +19,10 @@ import sys
 import tempfile
 from pathlib import Path
 
+from analyze_mathprint_records import (
+    decode_record_header,
+    decode_settled_expression,
+)
 from hardware_trace import count_resolved_trace_points, trace_header
 from rom_signatures import TI84_PLUS_OS_255MP_SHA256
 
@@ -89,10 +93,36 @@ PRELUDE = ("set key_hold 0.18s\nset key_delay 0.1s\n"
 
 # Template navigation keys are dropped at full key speed; settle after each.
 NAV = {"RIGHT", "LEFT", "UP", "DOWN"}
+SETTLED_STRUCTURAL_ROOT_POINTER = 0x8DAF
+SETTLED_EDITOR_BOUNDARY_POINTER = 0x8DB1
+SETTLED_ENTRY_POINTER = 0x8DBC
+SETTLED_MAIN_TAIL_POINTER = 0x8DBE
+SETTLED_GAP_RECORD_POINTER = 0x8DC2
+MATHPRINT_EDITOR_FLAGS = 0x89F1
+SETTLED_CHILD_COUNTS = {
+    0x1F: 1, 0x20: 2, 0x21: 1, 0x22: 4, 0x23: 3, 0x24: 2,
+    0x25: 1, 0x26: 1, 0x27: 1, 0x28: 2, 0x29: 4, 0x2A: 1,
+}
 
 
-def run_calc(keys, outdir, name, trace=False, trace_history=False):
-    macro = PRELUDE
+def run_calc(
+    keys,
+    outdir,
+    name,
+    trace=False,
+    trace_history=False,
+    *,
+    key_delay=0.1,
+    inter_key_wait=0.0,
+):
+    if key_delay == 0.1:
+        macro = PRELUDE
+    else:
+        macro = (
+            "set key_hold 0.18s\n"
+            f"set key_delay {key_delay}s\n"
+            "wait 4s\nkey ON\nwait 3s\nkey ENTER\nwait 1.5s\nkey CLEAR\n"
+        )
     previous_key = None
     for k in keys:
         if k == "WAIT":                 # settle for a menu/template to appear
@@ -107,6 +137,8 @@ def run_calc(keys, outdir, name, trace=False, trace_history=False):
         macro += f"key {k}\n"
         if k in NAV:
             macro += "wait 0.35s\n"
+        elif inter_key_wait:
+            macro += f"wait {inter_key_wait}s\n"
         previous_key = k
     ram = os.path.join(outdir, f"{name}.ram")
     shot = os.path.join(outdir, f"{name}.png")
@@ -365,8 +397,8 @@ def js_bitmap(expr, *, generated=False):
     return crop(grid)
 
 
-def js_bitmap_spec(spec):
-    """Render a semantic AST through native-byte encoding and record construction."""
+def js_render_spec(spec):
+    """Return a semantic AST's translated bitmap, native tokens, and graph AST."""
     code = (
         "const fs=require('fs');"
         "const root=process.argv[1];"
@@ -380,15 +412,198 @@ def js_bitmap_spec(spec):
         "const native=rom.encodeSettledExpressionTokens(spec);"
         "const program=rom.constructSettledProgramFromTokens(native,1,font);"
         "const result=mp.generateRecordProgram(program,{editor:true});"
-        "process.stdout.write(result.final.map(row=>"
-        "Array.from(row,value=>Number(value)?'#':'.').join('')).join('\\n'));"
+        "const expression=rom.decodeSettledExpressionGraph("
+        "program.nodes,program.entry_id);"
+        "process.stdout.write(JSON.stringify({native,expression,final:result.final}));"
     )
     out = subprocess.run(
         ["node", "-e", code, ROOT, json.dumps(spec, separators=(",", ":"))],
         check=True, capture_output=True, text=True,
     ).stdout
-    grid = [[1 if c == "#" else 0 for c in line] for line in out.splitlines()]
-    return crop(grid)
+    rendered = json.loads(out)
+    grid = [[1 if int(value) else 0 for value in row]
+            for row in rendered["final"]]
+    return crop(grid), bytes(rendered["native"]), rendered["expression"]
+
+
+def js_bitmap_spec(spec):
+    """Render a semantic AST through native-byte encoding and record construction."""
+    return js_render_spec(spec)[0]
+
+
+def calculator_settled_program(ram_path):
+    """Decode the calculator's final settled graph from a RAM dump.
+
+    ``34:4ACE`` walks structural records from ``0x8DAF`` to ``0x8DBC``.
+    ``34:4A83`` walks leaf/editor records from ``0x8DBC`` and substitutes the
+    live edit gap when ``(IY+1).2`` is set. This mirrors both ROM walks instead
+    of assuming the live graph is one contiguous settled-record array.
+    """
+    memory = Path(ram_path).read_bytes()
+    if len(memory) < 0x8000:
+        raise ValueError("RAM dump does not contain the logical 0x8000–0xFFFF window")
+    logical = memory[:0x8000]
+
+    def word(address):
+        if not 0x8000 <= address <= 0xFFFE:
+            raise ValueError(f"RAM word address 0x{address:04X} is outside the logical window")
+        offset = address - 0x8000
+        return logical[offset] | logical[offset + 1] << 8
+
+    structural_start = word(SETTLED_STRUCTURAL_ROOT_POINTER)
+    entry_pointer = word(SETTLED_ENTRY_POINTER)
+    main_tail = word(SETTLED_MAIN_TAIL_POINTER)
+    if not (0x8000 <= structural_start <= entry_pointer <= main_tail <= 0x10000):
+        raise ValueError(
+            "settled graph pointers are inconsistent: "
+            f"structural=0x{structural_start:04X}, entry=0x{entry_pointer:04X}, "
+            f"main-tail=0x{main_tail:04X}"
+        )
+
+    def active_edit_payload():
+        edit_top, edit_cursor, edit_tail, edit_bottom = (
+            word(address) for address in (0x96F4, 0x96F6, 0x96F8, 0x96FA)
+        )
+        if not (0x8000 <= edit_top <= edit_cursor <= 0x10000):
+            raise ValueError("home editor left-segment pointers are inconsistent")
+        if not (0x8000 <= edit_tail <= edit_bottom <= 0x10000):
+            raise ValueError("home editor right-segment pointers are inconsistent")
+        left = logical[edit_top - 0x8000:edit_cursor - 0x8000]
+        right = logical[edit_tail - 0x8000:edit_bottom - 0x8000]
+        return list(left + right)
+
+    def node_from(decoded, pointer):
+        return {
+            "record_id": decoded.record_id,
+            "render_type": decoded.render_type,
+            "word03": decoded.word03,
+            "word05": decoded.word05,
+            "word07": decoded.word07,
+            "word09": decoded.word09,
+            "word0B": decoded.word0B,
+            "word0D": decoded.word0D,
+            "word0F": decoded.word0F,
+            "word11": decoded.word11,
+            "byte13": decoded.byte13,
+            "child_ids": [],
+            "payload": [],
+            "pointer": pointer,
+        }
+
+    nodes = []
+    pointer = structural_start
+    while pointer < entry_pointer:
+        offset = pointer - 0x8000
+        if pointer + 0x14 > entry_pointer:
+            raise ValueError(
+                f"structural record at 0x{pointer:04X} has a truncated header"
+            )
+        decoded = decode_record_header(tuple(logical[offset:offset + 0x14]))
+        node = node_from(decoded, pointer)
+        if decoded.render_type < 0x1F:
+            raise ValueError(
+                f"record 0x{decoded.record_id:04X} before the entry boundary "
+                f"has leaf type 0x{decoded.render_type:02X}"
+            )
+        if decoded.render_type == 0x2B:
+            semantic_children = decoded.byte13 * (decoded.word11 >> 8)
+            physical_children = semantic_children + 1
+            if not semantic_children or semantic_children > 0xFF:
+                raise ValueError(
+                    f"settled matrix record 0x{decoded.record_id:04X} has "
+                    f"invalid dimensions {decoded.byte13}x{decoded.word11 >> 8}"
+                )
+        else:
+            try:
+                semantic_children = SETTLED_CHILD_COUNTS[decoded.render_type]
+            except KeyError as error:
+                raise ValueError(
+                    f"settled record 0x{decoded.record_id:04X} has unsupported "
+                    f"type 0x{decoded.render_type:02X}"
+                ) from error
+            physical_children = semantic_children
+        size = 0x14 + 2 * physical_children
+        node["child_ids"] = [
+            word(pointer + 0x14 + 2 * index)
+            for index in range(semantic_children)
+        ]
+        if pointer + size > entry_pointer:
+            raise ValueError(
+                f"structural record 0x{decoded.record_id:04X} at 0x{pointer:04X} "
+                f"extends past entry boundary 0x{entry_pointer:04X}"
+            )
+        nodes.append(node)
+        pointer += size
+
+    if pointer != entry_pointer:
+        raise ValueError(
+            f"structural record walk ended at 0x{pointer:04X}, "
+            f"not entry 0x{entry_pointer:04X}"
+        )
+    gap_active = bool(logical[MATHPRINT_EDITOR_FLAGS - 0x8000] & 0x04)
+    leaf_boundary = word(SETTLED_EDITOR_BOUNDARY_POINTER) \
+        if gap_active else main_tail
+    gap_record = word(SETTLED_GAP_RECORD_POINTER)
+    if not (entry_pointer < leaf_boundary <= 0x10000):
+        raise ValueError(
+            f"editor record boundary 0x{leaf_boundary:04X} does not follow "
+            f"entry 0x{entry_pointer:04X}"
+        )
+
+    pointer = entry_pointer
+    visited_pointers = set()
+    while pointer < leaf_boundary:
+        if pointer in visited_pointers:
+            raise ValueError(f"editor record walk cycles at 0x{pointer:04X}")
+        visited_pointers.add(pointer)
+        if not 0x8000 <= pointer <= 0xFFEC:
+            raise ValueError(f"editor record pointer 0x{pointer:04X} is out of range")
+        offset = pointer - 0x8000
+        decoded = decode_record_header(tuple(logical[offset:offset + 0x14]))
+        if decoded.render_type >= 0x1F:
+            raise ValueError(
+                f"editor record 0x{decoded.record_id:04X} has structural "
+                f"type 0x{decoded.render_type:02X}"
+            )
+        node = node_from(decoded, pointer)
+        if gap_active and pointer == gap_record:
+            node["payload"] = active_edit_payload()
+            next_pointer = word(0x96FA)
+        else:
+            payload_end = offset + 0x13 + decoded.word11
+            node["payload"] = list(logical[offset + 0x13:payload_end])
+            next_pointer = pointer + 0x13 + decoded.word11
+        if not node["payload"]:
+            raise ValueError(
+                f"editor leaf record 0x{decoded.record_id:04X} has an empty payload"
+            )
+        node["byte13"] = node["payload"][0]
+        if next_pointer <= pointer:
+            raise ValueError(
+                f"editor record 0x{decoded.record_id:04X} does not advance"
+            )
+        nodes.append(node)
+        pointer = next_pointer
+
+    by_pointer = {node["pointer"]: node for node in nodes}
+    if len(by_pointer) != len(nodes):
+        raise ValueError("settled graph contains duplicate record pointers")
+    if entry_pointer not in by_pointer:
+        raise ValueError(
+            f"settled entry pointer 0x{entry_pointer:04X} is not a record boundary"
+        )
+    entry_id = by_pointer[entry_pointer]["record_id"]
+    expression = decode_settled_expression(nodes, entry_id)
+    return {
+        "structural_start": structural_start,
+        "main_tail": main_tail,
+        "leaf_boundary": leaf_boundary,
+        "gap_active": gap_active,
+        "entry_pointer": entry_pointer,
+        "entry_id": entry_id,
+        "nodes": nodes,
+        "expression": expression,
+    }
 
 
 def show(grid):

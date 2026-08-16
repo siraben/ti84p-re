@@ -447,17 +447,49 @@ class ModelRenderError(RuntimeError):
     """The translated JavaScript model rejected a generated expression."""
 
 
+class CalculatorInputMismatch(RuntimeError):
+    """The calculator's final settled graph differs from the requested AST."""
+
+    def __init__(self, expected, actual):
+        self.expected = expected
+        self.actual = actual
+        super().__init__(
+            "calculator settled graph differs from the requested AST: "
+            f"expected {expected!r}, captured {actual!r}"
+        )
+
+
+def calculator_expression(parity, ram_path):
+    """Return the final graph AST, preserving graph-walk failures as diagnostics."""
+    try:
+        return parity.calculator_settled_program(ram_path)["expression"]
+    except ValueError as error:
+        return f"unresolved settled graph: {error}"
+
+
 def run_one(parity, ast, outdir, name, *, trace=False):
     """Render one translated model and calculator entry, optionally tracing it."""
     expr = to_expr(ast)
-    keys = emit(ast)
+    # One final top-level RIGHT commits a completed nested template boundary.
+    # The key is a no-op when the cursor is already at the outer boundary. This
+    # leaves the accepted graph stable before the final RAM snapshot.
+    keys = emit(ast) + ["RIGHT", "WAIT"]
     try:
-        model = parity.js_bitmap_spec(to_spec(ast))
+        model, _expected_native, expected_expression = parity.js_render_spec(
+            to_spec(ast))
     except subprocess.CalledProcessError as error:
         detail = (error.stderr or error.stdout or "no process output").strip()
         raise ModelRenderError(f"translated model failed: {detail}") from error
-    captures, _ram, trace_path, _macro = parity.run_calc(
+    captures, ram_path, trace_path, _macro = parity.run_calc(
         keys, outdir, name, trace=trace)
+    actual_expression = calculator_expression(parity, ram_path)
+    if actual_expression != expected_expression and not trace:
+        captures, ram_path, trace_path, _macro = parity.run_calc(
+            keys, outdir, f"{name}-slow", trace=False,
+            key_delay=0.16, inter_key_wait=0.03)
+        actual_expression = calculator_expression(parity, ram_path)
+    if actual_expression != expected_expression:
+        raise CalculatorInputMismatch(expected_expression, actual_expression)
     calc = parity.calc_from_trace(trace_path) if trace \
         else parity.calc_entry_bitmap(captures)
     pct, bad, dim = parity.diff_metric(calc, model)
@@ -536,6 +568,10 @@ def main():
             mismatches += 1
             print(f"[{i}] MODEL {expr}\n     AST : {show_ast(ast)}"
                   f"\n     keys: {' '.join(keys)}\n     {error}", flush=True)
+            continue
+        except CalculatorInputMismatch as error:
+            inconclusive += 1
+            print(f"[{i}] INC  {expr}\n     {error}", flush=True)
             continue
         except RuntimeError as error:
             # Preserve the completed cases and continue reducing the corpus.
