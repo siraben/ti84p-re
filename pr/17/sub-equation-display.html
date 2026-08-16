@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-05e9eea4.js";
+            window.path_to_searchindex_js = "searchindex-2b3a5994.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -993,7 +993,8 @@ semantic cursor tree does not contain the next record ID or structural-depth
 byte. For this capture, it produces <code>EF 20 08 00 EF 2D</code>, moves the cursor into
 the empty numerator, and creates an <code>EF 1E</code> token in both children. The decoded
 post-key tree, all five record headers, and the complete cursor-off LCD bitmap
-match the calculator. [confirmed]</p>
+match the calculator. The constructor also returns that decoded arena directly,
+so a following translated edit does not need to import RAM again. [confirmed]</p>
 <p>A second reset-origin transition begins with root payload <code>31</code> and a leaf-end
 cursor. The same template path moves <code>31</code> into numerator record <code>9</code>, creates an
 empty denominator in record <code>10</code>, and moves the cursor to the denominator. The
@@ -1258,8 +1259,11 @@ child automatically. Lower-bound, upper-bound, and body insertion remain in
 their current child. The following <strong>RIGHT</strong> commits that child’s payload length
 to <code>+11h</code> and either selects its sibling or exits the summation.
 <code>editorInsertPackedToken()</code> and <code>editorMoveCursor()</code> reproduce all seven
-transitions as one composable decoded-arena sequence. Each reconstructed state
-matches the calculator’s record fields and cursor-off LCD bitmap. [confirmed]</p>
+transitions as one composable decoded-arena sequence. The sequence starts from
+the decoded arena returned by <code>editorInsertStructuralTemplate()</code> for a blank
+root rather than from the first recorded summation state. Each reconstructed
+state matches the calculator’s record fields and cursor-off LCD bitmap.
+[confirmed]</p>
 <p>The generic transition tests apply the same decoded-arena rules to types
 <code>0x20</code>–<code>0x2B</code>, a six-child matrix, two-byte child tokens, and depth-two nested
 markers. The type-<code>0x01</code> variable rule is also tested in the integral,

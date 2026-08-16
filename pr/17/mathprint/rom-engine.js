@@ -5529,7 +5529,9 @@
   // B2h, BFh, C1h, and BCh map to the
   // one-child types 21h and 25h–27h at 34:5935; all four use the shared
   // path at 34:5057.
-  function editorInsertStructuralTemplate(input, sourceToken = [0xef,0x2e]) {
+  function editorInsertStructuralTemplate(
+    input, sourceToken = [0xef,0x2e], font = null
+  ) {
     if (!input || typeof input !== 'object' || !input.editor ||
         !Array.isArray(input.nodes))
       throw new TypeError(
@@ -6285,7 +6287,12 @@
     if (!replaced || !expression)
       throw new RangeError(
         'structural insertion outside the translated leaf cases is open');
-    if (unaryStructuralSpec) return {
+    const withState = result => ({
+      ...result,
+      state:editorStateFromProgram(constructEditorExpressionProgram(
+        result.expression,input.entryId,font)),
+    });
+    if (unaryStructuralSpec) return withState({
       expression,
       mutation:{
         status:'inserted',source_token:source,render_type:renderType,
@@ -6299,8 +6306,8 @@
         after_structural_depth:gate.incrementedDepth,
         routine:'34:473A → 35:7B37 → 34:4169 → 34:5026–5057 → 34:5473–547B → 34:58A0–58B4 → 34:4862–491D',
       },
-    };
-    if (renderType === 0x22) return {
+    });
+    if (renderType === 0x22) return withState({
       expression,
       mutation:{
         status:'inserted',source_token:source,render_type:renderType,
@@ -6317,8 +6324,8 @@
         after_structural_depth:gate.incrementedDepth,
         routine:'34:473A → 35:7B37 → 34:4169 → 34:5026–5057 → 34:5473–547B → 34:58A0–58B4 → 34:4862–492B',
       },
-    };
-    if (renderType === 0x23) return {
+    });
+    if (renderType === 0x23) return withState({
       expression,
       mutation:{
         status:'inserted',source_token:source,render_type:renderType,
@@ -6334,8 +6341,8 @@
         after_structural_depth:gate.incrementedDepth,
         routine:'34:473A → 35:7B37 → 34:4169 → 34:5026–5057 → 34:5473–547B → 34:58A0–58B4 → 34:4862–492B',
       },
-    };
-    if (renderType === 0x29) return {
+    });
+    if (renderType === 0x29) return withState({
       expression,
       mutation:{
         status:'inserted',source_token:source,render_type:renderType,
@@ -6352,8 +6359,8 @@
         after_structural_depth:gate.incrementedDepth,
         routine:'34:473A → 35:7B37 → 34:4169 → 34:5026–5057 → 34:5473–547B → 34:58A0–58B4 → 34:4862–492B',
       },
-    };
-    if (renderType === 0x24) return {
+    });
+    if (renderType === 0x24) return withState({
       expression,
       mutation:{
         status:'inserted',source_token:source,render_type:renderType,
@@ -6367,8 +6374,8 @@
         after_structural_depth:gate.incrementedDepth,
         routine:'34:473A → 35:7B37 → 34:4169 → 34:5026 → 34:51C0–51D9 → 34:5473–547B → 34:58A0–58B4 → 34:4862–492B',
       },
-    };
-    if (renderType === 0x2a) return {
+    });
+    if (renderType === 0x2a) return withState({
       expression,
       mutation:{
         status:'inserted',source_token:source,render_type:renderType,
@@ -6382,8 +6389,8 @@
         after_structural_depth:gate.incrementedDepth,
         routine:'34:473A → 35:7B37 → 34:4169 → 34:5026 → 34:50EF–511D → 34:5057 → 34:5473–547B → 34:58A0–58B4 → 34:4862–491D',
       },
-    };
-    if (renderType === 0x28) return {
+    });
+    if (renderType === 0x28) return withState({
       expression,
       mutation:{
         status:'inserted',source_token:source,render_type:renderType,
@@ -6397,8 +6404,8 @@
         after_structural_depth:gate.incrementedDepth,
         routine:'34:473A → 35:7B37 → 34:4169 → 34:5026–5057 → 34:5473–547B → 34:58A0–58B4 → 34:4862–492B',
       },
-    };
-    return {
+    });
+    return withState({
       expression,
       mutation:{
         status:'inserted', source_token:source, render_type:renderType,
@@ -6411,7 +6418,7 @@
         after_structural_depth:gate.incrementedDepth,
         routine:'34:473A → 35:7B37 → 34:4169 → 34:5026 → 34:51B8–51D4 → 34:5467–547E → 34:4862–492B',
       },
-    };
+    });
   }
 
   // LEFT and RIGHT operate on the decoded arena because crossing a structural
@@ -8499,6 +8506,66 @@
       });
   }
 
+  // Convert the constructor's cursor-annotated record program into the same
+  // logical arena shape returned by decodeMathPrintEditorRam().  The physical
+  // editor arena stores structural records before leaves; record IDs preserve
+  // allocation order within those two regions.
+  function editorStateFromProgram(program) {
+    if (!program || !Number.isInteger(program.entry_id) ||
+        !program.editor || !Array.isArray(program.nodes))
+      throw new TypeError(
+        'editor state conversion requires a constructed editor program');
+    const nodeId = node => node.record_id === undefined
+      ? node.id : node.record_id;
+    const nodeType = node => node.render_type === undefined
+      ? node.type : node.render_type;
+    const nodes = program.nodes.map(node => ({
+      ...node,
+      child_ids:node.child_ids.slice(),
+      payload:node.payload.slice(),
+    })).sort((left,right) => {
+      const leftLeaf = nodeType(left) < 0x1f;
+      const rightLeaf = nodeType(right) < 0x1f;
+      if (leftLeaf !== rightLeaf) return leftLeaf ? 1 : -1;
+      return nodeId(left) - nodeId(right);
+    });
+    const byId = new Map(nodes.map(node => [nodeId(node),node]));
+    const activeId = program.editor.active_record_id;
+    const byteOffset = program.editor.cursor_byte_offset;
+    const active = byId.get(activeId);
+    if (!active || nodeType(active) >= 0x1f ||
+        !Array.isArray(active.payload))
+      throw new RangeError(
+        'constructed editor active record is not an ordinary leaf');
+    const controller = byId.get(active.word03);
+    if (!controller || nodeType(controller) < 0x1f ||
+        !controller.child_ids.includes(activeId))
+      throw new RangeError(
+        'constructed editor active leaf has no structural controller');
+    const decoded = decodeEditorExpressionGraph(
+      nodes,program.entry_id,activeId,byteOffset);
+    return {
+      entryId:program.entry_id,
+      nodes,
+      controller:{
+        recordId:nodeId(controller),
+        renderType:nodeType(controller),
+        structuralDepth:controller.word11 & 0xff,
+        activeLeafId:activeId,
+      },
+      expression:decodeSettledExpressionGraph(
+        nodes,program.entry_id,null,null,true),
+      editor:{
+        expression:decoded.expression,
+        cursor:{
+          ...decoded.cursor,
+          left:active.payload.slice(0,byteOffset),
+          right:active.payload.slice(byteOffset),
+        },
+      },
+    };
+  }
+
   // Compatibility entry for the closed power slice. The exponent may itself
   // contain any expression kind accepted by the compositional builder.
   function constructSettledPowerProgram(input, firstId = 1, font = null) {
@@ -9399,6 +9466,7 @@
     traceSettledLcdWrites,
     constructSettledAbsoluteProgram,
     constructEditorExpressionProgram,
+    editorStateFromProgram,
     constructSettledExpressionProgram,
     constructSettledFractionProgram,
     constructSettledIntegralProgram,
