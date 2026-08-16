@@ -276,8 +276,10 @@ TRANSLATION_SURFACES = (
             "packed-token deletion, and blank-child structural deletion across insertable "
             "types 20h–2Ah, including bidirectional fraction/nth-root sibling promotion "
             "and protected multi-argument no-ops, plus nested empty-slot restoration for a "
-            "fraction inside a radical; bidirectional fraction boundary navigation covers "
-            "entry, sibling selection, exit, and root endpoints; other deeper nested "
+            "fraction inside a radical; bidirectional fraction and integral boundary "
+            "navigation covers entry, sibling selection, exit, root endpoints, the "
+            "type-01h atomic variable leaf, and a depth-two fraction whose empty-slot "
+            "leaf is atomic; other deeper nested "
             "deletion states, matrix deletion, and live boundary-navigation captures for "
             "other structural types remain open"
         ),
@@ -323,8 +325,10 @@ TRANSLATION_SURFACES = (
             "other two added types; radical insertion at every cursor class in the root "
             "leaf, both fraction children, and that radical's radicand with packed-token "
             "replacement; in-leaf packed-token navigation, and "
-            "bidirectional fraction boundary navigation through structural entry, both "
-            "children, structural exit, and both root endpoint no-ops; decoded-arena "
+            "bidirectional fraction and integral boundary navigation through structural "
+            "entry, child selection, structural exit, root endpoint no-ops, the "
+            "type-01h atomic variable leaf, and a depth-two fraction whose empty-slot "
+            "leaf is atomic; decoded-arena "
             "transition tests also cover types 20h–2Bh and depth-two nesting; "
             "packed-token deletion with empty-slot restoration and blank-child structural "
             "deletion across insertable types 20h–2Ah, including bidirectional "
@@ -4144,8 +4148,10 @@ def open_paths(
                 "restoration are translated; blank-child structural deletion is translated "
                 "across insertable types 20h–2Ah, including bidirectional fraction/nth-root "
                 "sibling promotion and protected multi-argument no-ops; one fraction-in-radical "
-                "case verifies nested empty-slot restoration, but other deeper nested deletion "
-                "states, matrix deletion, and boundary navigation are not"
+                "case verifies nested empty-slot restoration; live fraction and integral "
+                "boundary traversal includes a depth-two fraction and atomic type-01h and "
+                "EF1Eh leaves, but other nested traversal states, matrix deletion, and live "
+                "navigation for the remaining structural types are open"
             ),
         },
         {
