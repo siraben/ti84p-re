@@ -24,6 +24,7 @@ from analyze_mathprint_saturation import (
     editor_horizontal_viewport_path,
     editor_vertical_viewport_path,
     editor_vertical_cue_path,
+    editor_left_overflow_cue_path,
     editor_reverse_overflow_cue_path,
     editor_saved_operand_wrapper_path,
     embedded_viewport_path,
@@ -60,6 +61,7 @@ from analyze_mathprint_saturation import (
     symbolic_editor_horizontal_viewport_paths,
     symbolic_editor_vertical_viewport_paths,
     symbolic_editor_vertical_cue_paths,
+    symbolic_editor_left_overflow_cue_paths,
     symbolic_editor_reverse_overflow_cue_paths,
     symbolic_editor_saved_operand_wrapper_paths,
     symbolic_embedded_viewport_paths,
@@ -258,13 +260,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(1327, report["path_equivalence_class_count"])
-        self.assertEqual(1327, report["representative_path_corpus_count"])
-        self.assertEqual(195, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(1332, report["path_equivalence_class_count"])
+        self.assertEqual(1332, report["representative_path_corpus_count"])
+        self.assertEqual(203, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            100, report["per_domain_minimum_branch_outcome_corpus_count"]
+            105, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(22, len(report["domains"]))
+        self.assertEqual(23, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -378,6 +380,32 @@ class SymbolicHandlerTests(unittest.TestCase):
         )
         self.assertEqual(
             "draw_both_cues", editor_vertical_cue_path(125, 8)["terminal"]
+        )
+
+    def test_left_cue_partitions_clips_heights_and_editor_modes(self) -> None:
+        paths = symbolic_editor_left_overflow_cue_paths()
+
+        self.assertEqual(0x10000 * 0xFFFF * 0x100, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(5, len(paths))
+        self.assertEqual({
+            "skip_left_cue", "use_bound_for_mode_49", "use_record_height",
+            "clamp_low_byte", "clamp_high_byte",
+        }, {row["terminal"] for row in paths})
+        self.assertEqual(
+            "skip_left_cue",
+            editor_left_overflow_cue_path(0, 125, 0x40)["terminal"],
+        )
+        self.assertEqual(
+            8, editor_left_overflow_cue_path(1, 23, 0x40)["cue_y"]
+        )
+        self.assertEqual(
+            28, editor_left_overflow_cue_path(15, 125, 0x40)["cue_y"]
+        )
+        self.assertEqual(
+            "use_bound_for_mode_49",
+            editor_left_overflow_cue_path(1, 23, 0x49)["terminal"],
         )
 
     def test_glyph_viewport_partitions_pen_clip_words_and_advances(self) -> None:
@@ -1198,7 +1226,7 @@ class CheckedReportTests(unittest.TestCase):
             1002, report["summary"]["natural_branch_outcomes_observed"]
         )
         self.assertEqual(
-            1327,
+            1332,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(

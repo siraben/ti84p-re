@@ -1428,6 +1428,86 @@ def symbolic_editor_vertical_cue_paths() -> list[dict[str, object]]:
     return result
 
 
+def editor_left_overflow_cue_path(
+    x_clip: int,
+    record_height: int,
+    editor_mode: int,
+    bottom_bound: int = 0x3E,
+) -> dict[str, object]:
+    """Return one path through 34:5FF2–6079's left-cue centering logic."""
+
+    x_clip &= 0xFFFF
+    if not 1 <= record_height <= 0xFFFF:
+        raise ValueError("left-cue record height must be 1..65535")
+    editor_mode &= 0xFF
+    bottom_bound &= 0xFF
+    if x_clip == 0:
+        return {
+            "terminal": "skip_left_cue",
+            "cue_y": None,
+            "branch_outcomes": ["34:5FF7:fallthrough"],
+        }
+
+    outcomes = ["34:5FF7:taken"]
+    if editor_mode == 0x49:
+        outcomes.append("34:603E:taken")
+        chosen_height = bottom_bound
+        terminal = "use_bound_for_mode_49"
+    else:
+        outcomes.extend(["34:603E:fallthrough"])
+        high_byte_nonzero = record_height > 0xFF
+        outcomes.append(
+            f"34:6045:{'taken' if high_byte_nonzero else 'fallthrough'}"
+        )
+        if high_byte_nonzero:
+            chosen_height = bottom_bound
+            terminal = "clamp_high_byte"
+        else:
+            exceeds_bound = record_height > bottom_bound
+            outcomes.append(
+                f"34:604B:{'taken' if exceeds_bound else 'fallthrough'}"
+            )
+            chosen_height = bottom_bound if exceeds_bound else record_height
+            terminal = "clamp_low_byte" if exceeds_bound else "use_record_height"
+    return {
+        "terminal": terminal,
+        "cue_y": (chosen_height >> 1) - 3,
+        "chosen_height": chosen_height,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_editor_left_overflow_cue_paths() -> list[dict[str, object]]:
+    """Partition every clip word, record height, and editor-mode byte."""
+
+    clip_words = 0xFFFF
+    ordinary_modes = 0xFF
+    rows = (
+        (0, 1, 0, 0xFFFF * 0x100),
+        (1, 1, 0x49, clip_words * 0xFFFF),
+        (1, 1, 0, clip_words * ordinary_modes * 0x3E),
+        (1, 0x3F, 0, clip_words * ordinary_modes * (0x100 - 0x3F)),
+        (1, 0x100, 0, clip_words * ordinary_modes * (0x10000 - 0x100)),
+    )
+    result = []
+    for x_clip, record_height, editor_mode, multiplicity in rows:
+        result.append({
+            **editor_left_overflow_cue_path(
+                x_clip, record_height, editor_mode),
+            "projected_input_count": multiplicity,
+            "representative_states": [{
+                "x_clip": x_clip,
+                "record_height": record_height,
+                "editor_mode": editor_mode,
+                "bottom_bound": 0x3E,
+            }],
+        })
+    expected = 0x10000 * 0xFFFF * 0x100
+    if sum(row["projected_input_count"] for row in result) != expected:
+        raise AssertionError("left-cue classes do not partition their domain")
+    return result
+
+
 def glyph_viewport_path(
     logical_pen: int,
     advance: int,
@@ -2837,6 +2917,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             "34:6000–6015; 34:60A0–60B7",
             0xFFFF * 0x10000,
             symbolic_editor_vertical_cue_paths(),
+        ),
+        (
+            "editor_left_overflow_cue",
+            "34:5FF2–6079",
+            0x10000 * 0xFFFF * 0x100,
+            symbolic_editor_left_overflow_cue_paths(),
         ),
         (
             "glyph_viewport_gates",
