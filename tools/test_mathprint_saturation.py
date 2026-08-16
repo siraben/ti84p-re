@@ -40,6 +40,7 @@ from analyze_mathprint_saturation import (
     find_alpha_type_class_path,
     glyph_viewport_path,
     iter_oracle_cases,
+    large_glyph_hook_path,
     oracle_coverage,
     oracle_trace_features,
     predicate_state,
@@ -82,6 +83,7 @@ from analyze_mathprint_saturation import (
     symbolic_find_alpha_record_step_paths,
     symbolic_find_alpha_type_class_paths,
     symbolic_glyph_viewport_paths,
+    symbolic_large_glyph_hook_paths,
     symbolic_record_allocation_capacity_paths,
     symbolic_render_nesting_tail_paths,
     symbolic_model_corpus,
@@ -296,13 +298,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(3258, report["path_equivalence_class_count"])
-        self.assertEqual(3258, report["representative_path_corpus_count"])
-        self.assertEqual(340, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(3272, report["path_equivalence_class_count"])
+        self.assertEqual(3272, report["representative_path_corpus_count"])
+        self.assertEqual(356, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            161, report["per_domain_minimum_branch_outcome_corpus_count"]
+            169, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(32, len(report["domains"]))
+        self.assertEqual(33, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -1046,6 +1048,29 @@ class SymbolicHandlerTests(unittest.TestCase):
         descending = point_shaded_style_path(3, 1, 1, 3, 2, 5)
         self.assertEqual("sweep_zero_return", descending["terminal"])
 
+    def test_large_glyph_hook_dispatch_partitions_both_entries(self) -> None:
+        paths = symbolic_large_glyph_hook_paths()
+
+        self.assertEqual(14, len(paths))
+        self.assertEqual(32, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(
+            "font_hook_return",
+            large_glyph_hook_path("copy", 1, 1, 0, 0)["terminal"],
+        )
+        self.assertEqual(
+            "font_hook_pattern",
+            large_glyph_hook_path("shifted", 1, 1, 0, 0)["terminal"],
+        )
+        self.assertEqual(
+            "rom_pattern",
+            large_glyph_hook_path("copy", 0, 0, 0, 0)["terminal"],
+        )
+        localized = large_glyph_hook_path("shifted", 1, 0, 1, 1)
+        self.assertEqual("localize_hook_pattern", localized["terminal"])
+        self.assertEqual("07:45CE:taken", localized["branch_outcomes"][-1])
+
     def test_metric_marker_gate_distinguishes_all_local_outcomes(self) -> None:
         self.assertEqual(
             "return_nz_pointer_mismatch",
@@ -1530,7 +1555,7 @@ class CheckedReportTests(unittest.TestCase):
             matrix_entry["sha256"],
         )
         self.assertEqual(
-            3258,
+            3272,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(

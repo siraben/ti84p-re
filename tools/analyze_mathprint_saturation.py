@@ -383,7 +383,7 @@ TRANSLATION_SURFACES = (
         "name": "font, primitive, and LCD emission",
         "rom": [
             "01:6297", "01:6702", "04:4025–4315",
-            "04:42B5–42E3", "04:431D–43C7", "07:4588",
+            "04:42B5–42E3", "04:431D–43C7", "07:4588–4605",
         ],
         "javascript": [
             "settledPage4PointAddress", "settledPage4PointPreprocess",
@@ -391,7 +391,8 @@ TRANSLATION_SURFACES = (
             "settledPage4PointPipeline", "settledPage4PointOnTransition",
             "settledPage4DarkLineTrace", "settledVerticalOperation",
             "settledHorizontalOperation",
-            "settledOperationPixels", "settledBlits", "settledOperationWrites",
+            "settledPage7LargeGlyphRecord", "settledOperationPixels",
+            "settledBlits", "settledOperationWrites",
         ],
         "tests": ["tools/test-mathprint.js", "tools/test_mathprint_draw_trace.py"],
         "scope": (
@@ -399,7 +400,8 @@ TRANSLATION_SURFACES = (
             "clear/set/XOR/test modes, buffer routing, and the composed point pipeline; "
             "MathPrint's style-inactive LCD-only point transition; hook-disabled "
             "dark-line stepping and ordered horizontal/vertical viewport clipping; "
-            "and synchronous accepted LCD writes, including unchanged writes; "
+            "page-7 large-glyph stride, record building, and hook gates; and "
+            "synchronous accepted LCD writes, including unchanged writes; "
             "drawing-hook dispatch, font internals, and external LCD timing remain open"
         ),
     },
@@ -3665,6 +3667,108 @@ def symbolic_point_shaded_style_paths() -> list[dict[str, object]]:
     ]
 
 
+def large_glyph_hook_path(
+    entry: str,
+    font_hook_active: int,
+    font_hook_returns_z: int,
+    localize_hook_active: int,
+    localize_hook_returns_z: int,
+) -> dict[str, object]:
+    """Translate the hook gates at 07:4588–45D8."""
+
+    if entry not in {"copy", "shifted"}:
+        raise ValueError("large-glyph entry must be copy or shifted")
+    font_hook_active = int(bool(font_hook_active))
+    font_hook_returns_z = int(bool(font_hook_returns_z))
+    localize_hook_active = int(bool(localize_hook_active))
+    localize_hook_returns_z = int(bool(localize_hook_returns_z))
+    outcomes: list[str] = []
+    font_gate = 0x458C if entry == "copy" else 0x45BA
+    outcomes.append(
+        f"07:{font_gate:04X}:"
+        f"{'fallthrough' if font_hook_active else 'taken'}"
+    )
+    if font_hook_active:
+        font_return = 0x4595 if entry == "copy" else 0x45C1
+        if entry == "copy":
+            outcome = "returned" if font_hook_returns_z else "fallthrough"
+        else:
+            outcome = "taken" if font_hook_returns_z else "fallthrough"
+        outcomes.append(f"07:{font_return:04X}:{outcome}")
+        if font_hook_returns_z:
+            return {
+                "terminal": (
+                    "font_hook_return" if entry == "copy"
+                    else "font_hook_pattern"
+                ),
+                "branch_outcomes": outcomes,
+            }
+    localize_gate = 0x459A if entry == "copy" else 0x45C7
+    outcomes.append(
+        f"07:{localize_gate:04X}:"
+        f"{'fallthrough' if localize_hook_active else 'taken'}"
+    )
+    if localize_hook_active:
+        localize_return = 0x45A3 if entry == "copy" else 0x45CE
+        if entry == "copy":
+            outcome = (
+                "returned" if localize_hook_returns_z else "fallthrough"
+            )
+        else:
+            outcome = "taken" if localize_hook_returns_z else "fallthrough"
+        outcomes.append(f"07:{localize_return:04X}:{outcome}")
+        if localize_hook_returns_z:
+            return {
+                "terminal": (
+                    "localize_hook_return" if entry == "copy"
+                    else "localize_hook_pattern"
+                ),
+                "branch_outcomes": outcomes,
+            }
+    return {"terminal": "rom_pattern", "branch_outcomes": outcomes}
+
+
+def symbolic_large_glyph_hook_paths() -> list[dict[str, object]]:
+    """Partition both entries and all four hook predicates."""
+
+    classes: dict[tuple[str, tuple[str, ...]], dict[str, object]] = {}
+    for entry in ("copy", "shifted"):
+        for font_hook_active in (0, 1):
+            for font_hook_returns_z in (0, 1):
+                for localize_hook_active in (0, 1):
+                    for localize_hook_returns_z in (0, 1):
+                        result = large_glyph_hook_path(
+                            entry, font_hook_active, font_hook_returns_z,
+                            localize_hook_active, localize_hook_returns_z,
+                        )
+                        key = (
+                            str(result["terminal"]),
+                            tuple(str(item) for item in result["branch_outcomes"]),
+                        )
+                        row = classes.setdefault(key, {
+                            "projected_input_count": 0,
+                            "representative_states": [],
+                        })
+                        row["projected_input_count"] += 1
+                        states = row["representative_states"]
+                        if len(states) < 4:
+                            states.append({
+                                "entry": entry,
+                                "font_hook_active": font_hook_active,
+                                "font_hook_returns_z": font_hook_returns_z,
+                                "localize_hook_active": localize_hook_active,
+                                "localize_hook_returns_z": localize_hook_returns_z,
+                            })
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
 def symbolic_point_mode_routing_paths() -> list[dict[str, object]]:
     """Partition every routing byte, plotFlags.1 value, and point mode."""
 
@@ -3960,6 +4064,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             "04:40AD–4154",
             2 * 4 * 2 * 3 * 0x100**2,
             symbolic_point_shaded_style_paths(),
+        ),
+        (
+            "large_glyph_hook_dispatch",
+            "07:4588–45D8",
+            2**5,
+            symbolic_large_glyph_hook_paths(),
         ),
         (
             "metric_marker_tail_gate",
@@ -5495,6 +5605,20 @@ def build_report(
                 "scope": (
                     "complete graph-initialized phase, step, coordinate, and "
                     "style domain at the 64-row display limit"
+                ),
+            },
+            "large_glyph_hook_dispatch": {
+                "routine": "07:4588–45D8",
+                "state": [
+                    "entry in {copy,shifted}",
+                    "fontHookActive and hook Z return",
+                    "localizeHookActive and hook Z return",
+                ],
+                "projected_input_domain": 2**5,
+                "terminal_classes": symbolic_large_glyph_hook_paths(),
+                "scope": (
+                    "complete two-entry hook predicate domain; hook-provided "
+                    "pattern bytes remain external"
                 ),
             },
             "metric_marker_tail_gate": {
