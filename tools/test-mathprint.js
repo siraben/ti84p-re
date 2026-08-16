@@ -47,6 +47,9 @@ const editorStructuralMutationOracles = JSON.parse(fs.readFileSync(
     'mathprint-editor-structural-mutation-oracles.json')));
 const editorNavigationOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-editor-navigation-oracles.json')));
+const editorStructuralNavigationOracles = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools',
+    'mathprint-editor-structural-navigation-oracles.json')));
 const editorDeletionOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-editor-deletion-oracles.json')));
 const editorStructuralDeletionOracles = JSON.parse(fs.readFileSync(
@@ -3547,6 +3550,217 @@ expectThrows('editor navigation rejects a structural boundary',RangeError,
     {kind:'editorCursor',record_id:7,byte_offset:6,
       record_word0F:0,record_word11:0},
   ]},'left'));
+expectEqual('live editor structural-navigation oracle schema',
+  editorStructuralNavigationOracles.schema,1);
+const structuralNavigationProjection = state => ({
+  controller:state.controller,
+  cursor:{
+    recordId:state.editor.cursor.recordId,
+    byteOffset:state.editor.cursor.byteOffset,
+    left:state.editor.cursor.left,
+    right:state.editor.cursor.right,
+  },
+  expression:state.expression,
+  editorExpression:state.editor.expression,
+  nodes:state.nodes.map(node => ({
+    record_id:node.record_id === undefined ? node.id : node.record_id,
+    render_type:node.render_type === undefined ? node.type : node.render_type,
+    word05:node.word05,word0F:node.word0F,word11:node.word11,
+    child_ids:node.child_ids.slice(),payload:node.payload.slice(),
+  })),
+});
+const structuralNavigationStates = {};
+for (const [captureName,capture] of Object.entries(
+  editorStructuralNavigationOracles.captures)) {
+  expectEqual(`${captureName} structural-navigation capture macro hash`,
+    crypto.createHash('sha256').update(fs.readFileSync(path.join(
+      root,capture.macro))).digest('hex'),capture.macro_sha256);
+  structuralNavigationStates[captureName] = capture.states.map(state => {
+    const decoded = rom.decodeMathPrintEditorRam(sparseEditorRam(
+      state,`${captureName} structural-navigation ${state.name}`));
+    const reconstructed = rom.constructEditorExpressionProgram(
+      decoded.editor.expression,7,font);
+    const operations = rom.executeSettledRecordProgram(
+      reconstructed.nodes,reconstructed.wrapper_id,
+      {glyphAdvance:editorGlyphAdvance});
+    const lcd = rom.rasterizeSettledOperations(operations,font).grid;
+    expectEqual(
+      `${captureName} structural-navigation ${state.name} LCD bitmap`,
+      crypto.createHash('sha256').update(
+        packedLcdBytes(lcd)).digest('hex'),state.lcd_bitmap_sha256);
+    return decoded;
+  });
+}
+for (const transition of editorStructuralNavigationOracles.transitions) {
+  const states = structuralNavigationStates[transition.capture];
+  const before = states[transition.from_index];
+  const after = states[transition.to_index];
+  const moved = rom.editorMoveCursor(before,transition.direction);
+  expectEqual(
+    `${transition.capture} structural-navigation ${transition.from_index} status`,
+    {status:moved.mutation.status,direction:moved.mutation.direction,
+      routine:moved.mutation.routine},
+    {status:transition.status,direction:transition.direction,
+      routine:transition.routine});
+  expectEqual(
+    `${transition.capture} structural-navigation ${transition.from_index} state`,
+    structuralNavigationProjection(moved.state),
+    structuralNavigationProjection(after));
+}
+for (const [captureName,capture] of Object.entries(
+  editorStructuralNavigationOracles.captures)) {
+  const transitions = editorStructuralNavigationOracles.transitions.filter(
+    transition => transition.capture === captureName);
+  let state = structuralNavigationStates[captureName][0];
+  for (const transition of transitions) {
+    const moved = rom.editorMoveCursor(state,transition.direction);
+    const expected = structuralNavigationStates[captureName][
+      transition.to_index];
+    expectEqual(
+      `${captureName} composable structural-navigation ` +
+      `${transition.from_index} state`,
+      structuralNavigationProjection(moved.state),
+      structuralNavigationProjection(expected));
+    state = moved.state;
+  }
+}
+expectThrows('decoded editor cursor movement rejects an invalid direction',
+  RangeError,() => rom.editorMoveCursor(
+    structuralNavigationStates.right[0],'up'));
+const syntheticNavigationState = (
+  nodes,entryId,activeId,byteOffset,controllerId,structuralDepth) => {
+  const controller = nodes.find(node => node.id === controllerId);
+  const decoded = rom.decodeEditorExpressionGraph(
+    nodes,entryId,activeId,byteOffset);
+  return {
+    entryId,nodes,
+    controller:{
+      recordId:controllerId,renderType:controller.type,
+      structuralDepth,activeLeafId:activeId,
+    },
+    expression:rom.decodeSettledExpressionGraph(nodes,entryId),
+    editor:{expression:decoded.expression,cursor:{
+      ...decoded.cursor,
+      left:nodes.find(node => node.id === activeId).payload.slice(0,byteOffset),
+      right:nodes.find(node => node.id === activeId).payload.slice(byteOffset),
+    }},
+  };
+};
+const structuralNavigationArena = (type,childCount,options = {}) => {
+  const structuralId = 3;
+  const childIds = Array.from({length:childCount},(_,index) => 4 + index);
+  const marker = [0xef,type,structuralId,0,0xef,0x2d];
+  const prefix = type === 0x2a ? [0x31] : [];
+  const structural = {
+    id:structuralId,type,word05:1,word0F:0,
+    word11:type === 0x2b ? (options.columns || 1) << 8 : 1,
+    byte13:type === 0x2b ? (options.rows || childCount) : 0,
+    child_ids:childIds,payload:[],
+  };
+  const nodes = [
+    {id:1,type:0x1f,word05:1,word0F:0,word11:0,
+      child_ids:[2],payload:[]},
+    structural,
+    {id:2,type:0,word05:0,word0F:prefix.length,
+      word11:prefix.length + marker.length,
+      child_ids:[],payload:[...prefix,...marker]},
+    ...childIds.map((id,index) => ({
+      id,type:0,word05:0,word0F:0,word11:index === 0 ? 2 : 1,
+      child_ids:[],payload:index === 0 ? [0x5d,0x00] : [0x31 + index],
+    })),
+  ];
+  return syntheticNavigationState(nodes,2,2,prefix.length,1,0);
+};
+for (const domain of [
+  {name:'fraction',type:0x20,children:2},
+  {name:'absolute value',type:0x21,children:1},
+  {name:'integral',type:0x22,children:4},
+  {name:'nDeriv',type:0x23,children:3},
+  {name:'nth root',type:0x24,children:2},
+  {name:'radical',type:0x25,children:1},
+  {name:'e power',type:0x26,children:1},
+  {name:'ten power',type:0x27,children:1},
+  {name:'log base',type:0x28,children:2},
+  {name:'summation',type:0x29,children:4},
+  {name:'power',type:0x2a,children:1},
+  {name:'six-child matrix',type:0x2b,children:6,rows:2,columns:3},
+]) {
+  const rootExitOffset = domain.type === 0x2a ? 7 : 6;
+  let state = structuralNavigationArena(
+    domain.type,domain.children,{rows:domain.rows,columns:domain.columns});
+  let moved = rom.editorMoveCursor(state,'right');
+  expectEqual(`${domain.name} enters its first child`,{
+    status:moved.mutation.status,recordId:moved.state.editor.cursor.recordId,
+    byteOffset:moved.state.editor.cursor.byteOffset,
+  },{status:'entered-structural-record',recordId:4,byteOffset:0});
+  state = moved.state;
+  for (let index = 0; index < domain.children; index++) {
+    moved = rom.editorMoveCursor(state,'right');
+    expectEqual(`${domain.name} moves through child ${index}`,
+      moved.mutation.status,'moved-packed-token');
+    state = moved.state;
+    moved = rom.editorMoveCursor(state,'right');
+    const last = index === domain.children - 1;
+    expectEqual(`${domain.name} leaves child ${index}`,{
+      status:moved.mutation.status,recordId:moved.state.editor.cursor.recordId,
+      byteOffset:moved.state.editor.cursor.byteOffset,
+      depth:moved.state.controller.structuralDepth,
+    },last
+      ? {status:'exited-structural-record',recordId:2,
+        byteOffset:rootExitOffset,depth:0}
+      : {status:'selected-structural-sibling',recordId:5 + index,
+        byteOffset:0,depth:1});
+    state = moved.state;
+  }
+  moved = rom.editorMoveCursor(state,'left');
+  expectEqual(`${domain.name} re-enters its last child`,{
+    status:moved.mutation.status,recordId:moved.state.editor.cursor.recordId,
+    childIndex:moved.mutation.selected_child_index,
+  },{status:'entered-structural-record',recordId:3 + domain.children,
+    childIndex:domain.children - 1});
+}
+const nestedNavigationNodes = [
+  {id:1,type:0x1f,word05:1,word0F:0,word11:0,
+    child_ids:[2],payload:[]},
+  {id:3,type:0x21,word05:1,word0F:0,word11:1,
+    child_ids:[4],payload:[]},
+  {id:5,type:0x20,word05:1,word0F:0,word11:1,
+    child_ids:[6,7],payload:[]},
+  {id:2,type:0,word05:0,word0F:0,word11:6,child_ids:[],
+    payload:[0xef,0x21,3,0,0xef,0x2d]},
+  {id:4,type:0,word05:0,word0F:0,word11:6,child_ids:[],
+    payload:[0xef,0x20,5,0,0xef,0x2d]},
+  {id:6,type:0,word05:0,word0F:0,word11:1,child_ids:[],payload:[0x31]},
+  {id:7,type:0,word05:0,word0F:0,word11:1,child_ids:[],payload:[0x32]},
+];
+let nestedNavigation = syntheticNavigationState(
+  nestedNavigationNodes,2,2,0,1,0);
+nestedNavigation = rom.editorMoveCursor(nestedNavigation,'right').state;
+expectEqual('nested navigation enters the outer structural leaf',{
+  controller:nestedNavigation.controller.recordId,
+  record:nestedNavigation.editor.cursor.recordId,
+  depth:nestedNavigation.controller.structuralDepth,
+},{controller:3,record:4,depth:1});
+nestedNavigation = rom.editorMoveCursor(nestedNavigation,'right').state;
+expectEqual('nested navigation enters the inner structural leaf',{
+  controller:nestedNavigation.controller.recordId,
+  record:nestedNavigation.editor.cursor.recordId,
+  depth:nestedNavigation.controller.structuralDepth,
+},{controller:5,record:6,depth:2});
+nestedNavigation = rom.editorMoveCursor(nestedNavigation,'left').state;
+expectEqual('nested navigation exits to the containing outer leaf',{
+  controller:nestedNavigation.controller.recordId,
+  record:nestedNavigation.editor.cursor.recordId,
+  byteOffset:nestedNavigation.editor.cursor.byteOffset,
+  depth:nestedNavigation.controller.structuralDepth,
+},{controller:3,record:4,byteOffset:0,depth:1});
+nestedNavigation = rom.editorMoveCursor(nestedNavigation,'left').state;
+expectEqual('nested navigation exits to the root leaf',{
+  controller:nestedNavigation.controller.recordId,
+  record:nestedNavigation.editor.cursor.recordId,
+  byteOffset:nestedNavigation.editor.cursor.byteOffset,
+  depth:nestedNavigation.controller.structuralDepth,
+},{controller:1,record:2,byteOffset:0,depth:0});
 expectEqual('live editor deletion oracle schema',editorDeletionOracles.schema,1);
 for (const oracle of editorDeletionOracles.transitions) {
   expectEqual(`${oracle.name} deletion capture macro hash`,
