@@ -154,6 +154,18 @@ const renderNestingTailRomSpans = [
     '01c81814fe2320087bfe01c8fe021807fe2920077bfe04c0c3c979c9', 'hex')},
   {address:0x79c9, bytes:Buffer.from('e521158535e1c9', 'hex')},
 ];
+const pointAddressRomSpan = {address:0x42b5, bytes:Buffer.from(
+  'd521e442160078e6075f195e62cb38cb38cb3878f620324f843e3f91f68032' +
+  '5184e67f87874f6f297b59195819d1c98040201008040201', 'hex')};
+const pointAddressByteMap = new Map(Array.from(
+  pointAddressRomSpan.bytes,
+  (value, offset) => [pointAddressRomSpan.address + offset,value]));
+const pointAddressByte = address => {
+  if (!pointAddressByteMap.has(address))
+    throw new Error(
+      `point-address oracle reached unpinned byte 04:${address.toString(16)}`);
+  return pointAddressByteMap.get(address);
+};
 const renderNestingTailByteMap = new Map(renderNestingTailRomSpans.flatMap(span =>
   Array.from(span.bytes,
     (value, offset) => [span.address + offset, value])));
@@ -227,6 +239,81 @@ function runRawRenderNestingTail(renderType, childIndex, nestingCounter) {
     }
   }
   throw new Error('render-nesting-tail oracle exceeded its instruction bound');
+}
+
+function runRawPointAddress(graphX, graphY) {
+  let pc = 0x42b5, a = 0, b = graphX, c = graphY;
+  let de = 0xa55a, hl = 0, carry = false;
+  const stack = [];
+  const memory = new Map();
+  const word = address =>
+    pointAddressByte(address) | pointAddressByte(address + 1) << 8;
+  for (let instructions = 0; instructions < 64; instructions++) {
+    const opcode = pointAddressByte(pc);
+    if (opcode === 0xd5) {
+      stack.push(de); pc++;
+    } else if (opcode === 0x21) {
+      hl = word(pc + 1); pc += 3;
+    } else if (opcode === 0x16) {
+      de = pointAddressByte(pc + 1) << 8 | de & 0xff; pc += 2;
+    } else if (opcode === 0x78) {
+      a = b; pc++;
+    } else if (opcode === 0xe6) {
+      a &= pointAddressByte(pc + 1); pc += 2;
+    } else if (opcode === 0x5f) {
+      de = de & 0xff00 | a; pc++;
+    } else if (opcode === 0x19) {
+      hl = (hl + de) & 0xffff; pc++;
+    } else if (opcode === 0x5e) {
+      de = de & 0xff00 | pointAddressByte(hl); pc++;
+    } else if (opcode === 0x62) {
+      hl = de & 0xff00 | hl & 0xff; pc++;
+    } else if (opcode === 0xcb && pointAddressByte(pc + 1) === 0x38) {
+      carry = (b & 1) !== 0; b >>>= 1; pc += 2;
+    } else if (opcode === 0xf6) {
+      a |= pointAddressByte(pc + 1); pc += 2;
+    } else if (opcode === 0x32) {
+      memory.set(word(pc + 1),a); pc += 3;
+    } else if (opcode === 0x3e) {
+      a = pointAddressByte(pc + 1); pc += 2;
+    } else if (opcode === 0x91) {
+      const result = a - c;
+      carry = result < 0; a = result & 0xff; pc++;
+    } else if (opcode === 0x87) {
+      const result = a << 1;
+      carry = result > 0xff; a = result & 0xff; pc++;
+    } else if (opcode === 0x4f) {
+      c = a; pc++;
+    } else if (opcode === 0x6f) {
+      hl = hl & 0xff00 | a; pc++;
+    } else if (opcode === 0x29) {
+      const result = hl << 1;
+      carry = result > 0xffff; hl = result & 0xffff; pc++;
+    } else if (opcode === 0x7b) {
+      a = de & 0xff; pc++;
+    } else if (opcode === 0x59) {
+      de = de & 0xff00 | c; pc++;
+    } else if (opcode === 0x58) {
+      de = de & 0xff00 | b; pc++;
+    } else if (opcode === 0xd1) {
+      de = stack.pop(); pc++;
+    } else if (opcode === 0xc9) {
+      return {
+        graphX,graphY,bitMask:a,byteColumn:b,
+        displayRow:(memory.get(0x8451) || 0) & 0x7f,
+        rowTimesFour:c,bufferOffset:hl,
+        plotBufferAddress:(0x9872 + hl) & 0xffff,
+        backupBufferAddress:(0x9340 + hl) & 0xffff,
+        lcdColumnCommand:memory.get(0x844f),
+        lcdRowCommand:memory.get(0x8451),
+        routine:'04:42B5–42E3',
+      };
+    } else {
+      throw new Error(
+        `point-address oracle reached unsupported opcode 0x${opcode.toString(16)}`);
+    }
+  }
+  throw new Error('point-address oracle exceeded its instruction bound');
 }
 const overflowCueRomSpan = {address:0x66e9, bytes:Buffer.from(
   '3ae28521e08596fe08d83aa6973d6f26013e1f18052101013e1eed5b4b84' +
@@ -1099,6 +1186,12 @@ if (fs.existsSync(localRomPath)) {
     expectEqual(`34:${span.address.toString(16)} raw render-nesting-tail bytes`,
       localRom.subarray(offset,offset + span.bytes.length),span.bytes);
   }
+  const pointAddressOffset = 0x04 * 0x4000 +
+    (pointAddressRomSpan.address & 0x3fff);
+  expectEqual('04:42B5–42EB raw point-address bytes',
+    localRom.subarray(
+      pointAddressOffset,pointAddressOffset + pointAddressRomSpan.bytes.length),
+    pointAddressRomSpan.bytes);
   const overflowOffset = 0x39 * 0x4000 +
     (overflowCueRomSpan.address & 0x3fff);
   expectEqual('39:66E9–6711 raw overflow-cue bytes',
@@ -2443,6 +2536,54 @@ expectEqual('39:6B1C endpoint', rom.fractionEndpoint(2, 0x17),
 expectEqual('39:5949 class-6 low slot', rom.multiArgumentRowStep(6, 2), 2);
 expectEqual('39:5949 class-6 high slot', rom.multiArgumentRowStep(6, 3), 1);
 expectEqual('39:5949 other class', rom.multiArgumentRowStep(5, 2), 1);
+for (let graphX = 0; graphX <= 0xff; graphX++) {
+  for (let graphY = 0; graphY <= 0xff; graphY++) {
+    expectEqual('04:42B5 exhaustive point-address byte flow',
+      rom.settledPage4PointAddress(graphX,graphY),
+      runRawPointAddress(graphX,graphY));
+  }
+}
+expectEqual('04:42B5 preserves byte-sized row aliasing',
+  rom.settledPage4PointAddress(0xff,0xff),{
+    graphX:0xff,graphY:0xff,bitMask:1,byteColumn:0x1f,
+    displayRow:0x40,rowTimesFour:0,bufferOffset:0x1f,
+    plotBufferAddress:0x9891,backupBufferAddress:0x935f,
+    lcdColumnCommand:0x3f,lcdRowCommand:0xc0,routine:'04:42B5–42E3',
+  });
+expectEqual('04:4155 point-on byte transition',
+  rom.settledPage4PointOnTransition(9,2,0x80),{
+    x:9,y:2,before:0x80,after:0xc0,changed:true,pointer:[1,2],
+    graphX:9,graphY:0x3d,bitMask:0x40,byteColumn:1,displayRow:2,
+    rowTimesFour:8,bufferOffset:25,
+    plotBufferAddress:0x988b,backupBufferAddress:0x9359,
+    lcdColumnCommand:0x21,lcdRowCommand:0x82,
+    routine:'34:5E98–5EA6 → 04:4155 → 04:42B5–42E3',
+    mode:1,operation:'OR',
+  });
+let pointOnTransitionStates = 0;
+for (let x = 0; x < 0x60; x++) {
+  for (let y = 0; y < 0x40; y++) {
+    const mask = 0x80 >> (x & 7);
+    for (let before = 0; before <= 0xff; before++) {
+      const transition = rom.settledPage4PointOnTransition(x,y,before);
+      if (transition.after !== (before | mask) ||
+          transition.changed !== ((before & mask) === 0) ||
+          transition.pointer[0] !== (x >> 3) || transition.pointer[1] !== y)
+        throw new Error('04:4155 exhaustive point-on transition mismatch');
+      pointOnTransitionStates++;
+    }
+  }
+}
+expectEqual('04:4155 exhaustive visible point-on state count',
+  pointOnTransitionStates,0x180000);
+expectEqual('04:4155 accepts byte coordinates beyond the MathPrint clip',
+  rom.settledPage4PointOnTransition(0x60,0,0).pointer,[12,0]);
+expectEqual('04:4155 accepts a byte row beyond the MathPrint clip',
+  rom.settledPage4PointOnTransition(0,0x40,0).pointer,[0,0x40]);
+expectThrows('04:4155 rejects a non-byte x coordinate',RangeError,
+  () => rom.settledPage4PointOnTransition(0x100,0,0));
+expectThrows('04:4155 rejects a non-byte y coordinate',RangeError,
+  () => rom.settledPage4PointOnTransition(0,0x100,0));
 expectEqual('34:5E98 top integral hook point', rom.settledPointOperation(3, 0), {
   kind:'point', x:3, y:0, registers:{b:3,c:0x3f,d:1},
   routine:'34:5E98–5EA6 → 04:4155',
