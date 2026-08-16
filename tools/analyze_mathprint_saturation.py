@@ -1508,6 +1508,102 @@ def symbolic_editor_left_overflow_cue_paths() -> list[dict[str, object]]:
     return result
 
 
+def editor_right_overflow_cue_path(
+    wrapper_width: int,
+    x_origin: int,
+    x_clip: int,
+    right_bound: int = 0x5F,
+) -> dict[str, object]:
+    """Return one path through 34:607A–608E and its 34:5FFD caller."""
+
+    wrapper_width &= 0xFFFF
+    x_origin &= 0xFFFF
+    x_clip &= 0xFFFF
+    right_bound &= 0xFF
+    if wrapper_width == 0:
+        return {
+            "terminal": "width_zero",
+            "translated_endpoint": None,
+            "comparison_coordinate": None,
+            "branch_outcomes": [
+                "34:607F:returned", "34:5FFD:fallthrough",
+            ],
+        }
+    endpoint = wrapper_width - 1
+    origin_endpoint = (endpoint + x_origin) & 0xFFFF
+    subtraction_carry = origin_endpoint < x_clip
+    translated_endpoint = (origin_endpoint - x_clip) & 0xFFFF
+    outcomes = [
+        "34:607F:fallthrough",
+        f"34:6085:{'taken' if subtraction_carry else 'fallthrough'}",
+    ]
+    if subtraction_carry:
+        outcomes.append("34:5FFD:fallthrough")
+        return {
+            "terminal": "translated_left",
+            "translated_endpoint": translated_endpoint,
+            "comparison_coordinate": None,
+            "branch_outcomes": outcomes,
+        }
+    translated_zero = translated_endpoint == 0
+    outcomes.append(
+        f"34:6087:{'taken' if translated_zero else 'fallthrough'}"
+    )
+    comparison_coordinate = (
+        0 if translated_zero else translated_endpoint - 1
+    )
+    show_right = comparison_coordinate >= right_bound
+    outcomes.extend([
+        f"34:5DE1:{'taken' if show_right else 'fallthrough'}",
+        f"34:5FFD:{'taken' if show_right else 'fallthrough'}",
+    ])
+    return {
+        "terminal": (
+            "draw_right_cue" if show_right
+            else "translated_zero" if translated_zero
+            else "within_bound"
+        ),
+        "translated_endpoint": translated_endpoint,
+        "comparison_coordinate": comparison_coordinate,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_editor_right_overflow_cue_paths() -> list[dict[str, object]]:
+    """Partition all wrapper-width, logical-origin, and clip words."""
+
+    word_count = 0x10000
+    nonzero_widths = word_count - 1
+    right_bound = 0x5F
+    within_positive = sum(word_count - value
+                          for value in range(1, right_bound + 1))
+    draw_right = sum(word_count - value
+                     for value in range(right_bound + 1, word_count))
+    rows = (
+        (0, 0, 0, word_count**2),
+        (1, 0, 1, nonzero_widths**2 * word_count // 2),
+        (1, 0, 0, nonzero_widths * word_count),
+        (2, 0, 0, nonzero_widths * within_positive),
+        (right_bound + 2, 0, 0, nonzero_widths * draw_right),
+    )
+    result = []
+    for wrapper_width, x_origin, x_clip, multiplicity in rows:
+        result.append({
+            **editor_right_overflow_cue_path(
+                wrapper_width,x_origin,x_clip,right_bound),
+            "projected_input_count": multiplicity,
+            "representative_states": [{
+                "wrapper_width": wrapper_width,
+                "x_origin": x_origin,
+                "x_clip": x_clip,
+                "right_bound": right_bound,
+            }],
+        })
+    if sum(row["projected_input_count"] for row in result) != word_count**3:
+        raise AssertionError("right-cue classes do not partition their domain")
+    return result
+
+
 def glyph_viewport_path(
     logical_pen: int,
     advance: int,
@@ -2923,6 +3019,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             "34:5FF2–6079",
             0x10000 * 0xFFFF * 0x100,
             symbolic_editor_left_overflow_cue_paths(),
+        ),
+        (
+            "editor_right_overflow_cue",
+            "34:5FFA–608F",
+            0x10000**3,
+            symbolic_editor_right_overflow_cue_paths(),
         ),
         (
             "glyph_viewport_gates",
