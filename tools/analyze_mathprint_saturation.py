@@ -388,6 +388,7 @@ TRANSLATION_SURFACES = (
         ],
         "javascript": [
             "settledPage4PointAddress", "settledPage4PointPreprocess",
+            "settledPage4DrawingHookDispatch",
             "settledPage4PointTransition", "settledPage4PointStateTransition",
             "settledPage4PointPipeline", "settledPage4PointOnTransition",
             "settledPage4DarkLineTrace", "settledVerticalOperation",
@@ -411,7 +412,7 @@ TRANSLATION_SURFACES = (
             "root-versus-raised MathPrint row and right-edge states; "
             "page-7 large-glyph stride, record building, and hook gates; and "
             "synchronous accepted LCD writes, including unchanged writes; "
-            "drawing-hook dispatch, font internals, and external LCD timing remain open"
+            "drawing-hook bodies, font internals, and external LCD timing remain open"
         ),
     },
     {
@@ -3616,6 +3617,57 @@ def point_style_dispatch_path(
     return {"terminal": terminal, "branch_outcomes": outcomes}
 
 
+def drawing_hook_dispatch_path(
+    hook_active: int,
+    hook_returns_z: int,
+) -> dict[str, object]:
+    """Translate drawing-hook command 0 dispatch at 04:4157–4164."""
+
+    hook_active = int(bool(hook_active))
+    hook_returns_z = int(bool(hook_returns_z))
+    continue_local = not hook_active or bool(hook_returns_z)
+    return {
+        "terminal": "continue_local" if continue_local else "hook_handled",
+        "hook_command": 0,
+        "branch_outcomes": [
+            f"04:415E:{'taken' if hook_active else 'fallthrough'}",
+            f"04:4161:{'taken' if continue_local else 'fallthrough'}",
+        ],
+    }
+
+
+def symbolic_drawing_hook_dispatch_paths() -> list[dict[str, object]]:
+    """Partition every active/return-Z predicate combination."""
+
+    classes: dict[
+        tuple[str, tuple[str, ...]], dict[str, object]
+    ] = {}
+    for hook_active in (0, 1):
+        for hook_returns_z in (0, 1):
+            result = drawing_hook_dispatch_path(hook_active, hook_returns_z)
+            key = (
+                str(result["terminal"]),
+                tuple(str(item) for item in result["branch_outcomes"]),
+            )
+            row = classes.setdefault(key, {
+                "projected_input_count": 0,
+                "representative_states": [],
+            })
+            row["projected_input_count"] = int(row["projected_input_count"]) + 1
+            row["representative_states"].append({
+                "hook_active": hook_active,
+                "hook_returns_z": hook_returns_z,
+            })
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
 def symbolic_point_style_dispatch_paths() -> list[dict[str, object]]:
     """Partition both style-active states and every style byte."""
 
@@ -4769,6 +4821,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             "04:4215–42B4",
             0x100 * 2 * 4,
             symbolic_point_mode_routing_paths(),
+        ),
+        (
+            "drawing_hook_dispatch",
+            "04:4157–4164",
+            4,
+            symbolic_drawing_hook_dispatch_paths(),
         ),
         (
             "point_style_dispatch",
@@ -6338,6 +6396,18 @@ def build_report(
                 "projected_input_domain": 2 * 0x100,
                 "terminal_classes": symbolic_point_style_dispatch_paths(),
                 "scope": "complete style-active flag and style-byte domain",
+            },
+            "drawing_hook_dispatch": {
+                "routine": "04:4157–4164",
+                "state": [
+                    "drawing-hook-active flag", "hook return Z flag",
+                ],
+                "projected_input_domain": 4,
+                "terminal_classes": symbolic_drawing_hook_dispatch_paths(),
+                "scope": (
+                    "complete command-0 dispatch predicate domain; arbitrary "
+                    "hook body behavior remains external"
+                ),
             },
             "point_bounds": {
                 "routine": "04:41F9–4207; 04:42EC–4315",
