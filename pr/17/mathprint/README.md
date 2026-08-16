@@ -189,7 +189,9 @@ exercise the other two added kinds. Radical insertion covers every cursor
 class in the root leaf, both children of one outer fraction, and the radicand
 of one prefixed radical. A one-child insertion leaves the left segment in its
 parent and replaces one packed token to the cursor's right; a captured `5D 00`
-list token proves the two-byte boundary.
+list token proves the two-byte boundary. A structural marker to the right is
+retained instead. Seven natural captures exercise that rule for the one-child,
+nth-root, power, log-base, integral, nDeriv, and summation constructor paths.
 Integral source token `24` selects type `0x22`. It creates lower-bound,
 upper-bound, body, and variable children, then selects the lower bound. Payload
 left of the cursor remains in the parent. Leading and mid-leaf insertion replace
@@ -223,12 +225,13 @@ boundary. Initialization through `34:4928` skips physical byte `+13h`, so the
 new structural record retains that byte from the old entry record. A nested
 radical and fraction below a root `3` retain `33h`; the value is not a depth
 proxy or the active child's first byte.
-The function consumes the decoded arena because new record IDs and the
-structural-depth byte are not present in the semantic cursor tree alone.
-Sixty reset-origin transitions verify the markers, controller states,
-cursor ASTs, every reconstructed record field, and complete LCD output. Deeper
-structural positions beyond the captured outer fraction and radical, and the
-remaining structural types, remain separate.
+The function consumes the decoded arena because new record IDs,
+structural-depth bytes, and retained child selectors are not present in the
+semantic tree alone. Sixty cursor-class transitions and seven
+template-before-fraction transitions verify markers, controller states, cursor
+ASTs, every reconstructed record field, and complete LCD output. Deeper
+structural positions beyond the captured outer fraction and radical remain
+separate.
 `editorMovePackedTokenCursor()` translates ordinary in-leaf LEFT and RIGHT
 movement. A reset-origin `12` capture verifies the end, middle, and returned
 cursor states. The middle state also establishes that a cursor before existing
