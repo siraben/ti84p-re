@@ -303,6 +303,7 @@ TRANSLATION_SURFACES = (
             "decodeEditorExpressionGraph",
             "decodeMathPrintEditorRam",
             "constructEditorExpressionProgram",
+            "editorStateFromProgram",
         ],
         "tests": [
             "tools/test-mathprint.js",
@@ -332,7 +333,8 @@ TRANSLATION_SURFACES = (
             "through structural "
             "entry, child selection, structural exit, root endpoint no-ops, the "
             "type-01h atomic variable leaf, and a depth-two fraction whose empty-slot "
-            "leaf is atomic; a summation fill sequence covers type-01h post-insertion "
+            "leaf is atomic; structural insertion returns a composable decoded arena, "
+            "and a blank-root summation fill sequence covers type-01h post-insertion "
             "auto-advance and composable ordinary child writes; decoded-arena "
             "transition tests also cover types 20h–2Bh and depth-two nesting; "
             "packed-token deletion with empty-slot restoration and blank-child structural "
@@ -4160,7 +4162,8 @@ def open_paths(
                 "sibling promotion and protected multi-argument no-ops; one fraction-in-radical "
                 "case verifies nested empty-slot restoration; live fraction, integral, and "
                 "summation boundary traversal includes a depth-two fraction and atomic "
-                "type-01h and EF1Eh leaves; a summation fill sequence covers type-01h "
+                "type-01h and EF1Eh leaves; structural insertion returns a composable "
+                "decoded arena, and a blank-root summation fill sequence covers type-01h "
                 "post-insertion auto-advance and composable ordinary child writes; other "
                 "nested traversal states, matrix deletion, and live "
                 "navigation for the remaining structural types are open"

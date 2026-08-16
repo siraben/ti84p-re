@@ -869,7 +869,8 @@ semantic cursor tree does not contain the next record ID or structural-depth
 byte. For this capture, it produces `EF 20 08 00 EF 2D`, moves the cursor into
 the empty numerator, and creates an `EF 1E` token in both children. The decoded
 post-key tree, all five record headers, and the complete cursor-off LCD bitmap
-match the calculator. [confirmed]
+match the calculator. The constructor also returns that decoded arena directly,
+so a following translated edit does not need to import RAM again. [confirmed]
 
 A second reset-origin transition begins with root payload `31` and a leaf-end
 cursor. The same template path moves `31` into numerator record `9`, creates an
@@ -1178,8 +1179,11 @@ child automatically. Lower-bound, upper-bound, and body insertion remain in
 their current child. The following **RIGHT** commits that child's payload length
 to `+11h` and either selects its sibling or exits the summation.
 `editorInsertPackedToken()` and `editorMoveCursor()` reproduce all seven
-transitions as one composable decoded-arena sequence. Each reconstructed state
-matches the calculator's record fields and cursor-off LCD bitmap. [confirmed]
+transitions as one composable decoded-arena sequence. The sequence starts from
+the decoded arena returned by `editorInsertStructuralTemplate()` for a blank
+root rather than from the first recorded summation state. Each reconstructed
+state matches the calculator's record fields and cursor-off LCD bitmap.
+[confirmed]
 
 The generic transition tests apply the same decoded-arena rules to types
 `0x20`–`0x2B`, a six-child matrix, two-byte child tokens, and depth-two nested
