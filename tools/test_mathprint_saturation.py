@@ -1281,9 +1281,9 @@ class CheckedReportTests(unittest.TestCase):
         )
 
         self.assertEqual(2, report["schema"])
-        self.assertEqual(261, len(report["traces"]))
+        self.assertEqual(263, len(report["traces"]))
         self.assertEqual(
-            260,
+            262,
             sum(
                 row["provenance"] == TRACE_PROVENANCE_NATURAL
                 for row in report["traces"]
@@ -1678,25 +1678,37 @@ class CheckedReportTests(unittest.TestCase):
             "mathprint_editor_structural_delete_nested_fraction":
                 "81677bcc262c11872ea13f7c9916477c9b6770ca54a97a0149f4b26e55521975",
         }, structural_deletions)
+        structural_navigation = {
+            row["label"]: row["sha256"]
+            for row in report["traces"]
+            if row["label"].startswith("mathprint_editor_fraction_")
+            and row["label"].endswith("_navigation")
+        }
+        self.assertEqual({
+            "mathprint_editor_fraction_right_navigation":
+                "6b503adda30aa233525fce2a194e161e3a0ffaa383d3851c584399f90a0ffe52",
+            "mathprint_editor_fraction_left_navigation":
+                "49d9c58414ef57776f4611dff4ee1bc27bf1ce866618b76a974bdf88cd2942c9",
+        }, structural_navigation)
         self.assertEqual(
             114, report["record_oracles"]["cases"]
         )
         self.assertEqual(
-            1343,
+            1359,
             report["minimized_dynamic_feature_corpus"]["covered_features"],
         )
         self.assertEqual(
-            199,
+            201,
             report["minimized_dynamic_feature_corpus"]["selected_trace_count"],
         )
         self.assertEqual(
-            1340,
+            1356,
             report["minimized_natural_dynamic_feature_corpus"][
                 "covered_features"
             ],
         )
         self.assertEqual(
-            198,
+            200,
             report["minimized_natural_dynamic_feature_corpus"][
                 "selected_trace_count"
             ],

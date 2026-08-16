@@ -524,10 +524,10 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, large-glyph output, and alphabetic VAT selection. It
 recursively follows direct ROM edges from named entries, seeds decoded table
-destinations, overlays exact next-PC outcomes from 261 reset-origin traces, and
+destinations, overlays exact next-PC outcomes from 263 reset-origin traces, and
 lists direct external targets. Computed dispatch destinations are manually
 seeded; bcall and RAM bjump bodies remain outside the direct-edge walk. Of those
-traces, 260 reach their state through calculator input. One explicitly
+traces, 262 reach their state through calculator input. One explicitly
 classified synthetic trace inserts an `EF36h` editor buffer through direct RAM
 writes. The report keeps the two provenance classes separate.
 `tools/mathprint-saturation.json` records the resulting branches and trace
@@ -537,9 +537,9 @@ The analyzer can restore trace identities, provenance, and per-trace summaries
 from a prior report and the digest-keyed cache. Regeneration therefore scans a
 new trace once without reopening the other retained TLMT files. [confirmed]
 
-None of the 261 report traces executes `39:5167`, `39:523B`, the saved-operand
+None of the 263 report traces executes `39:5167`, `39:523B`, the saved-operand
 wrappers at `39:5B10`–`39:5B38`, or the dispatchers at `39:59E0`/`39:59F9`.
-The 261-digest trace cache also has no hit at those entries. [confirmed]
+The 263-digest trace cache also has no hit at those entries. [confirmed]
 `_FindAlphaUp` at `07:50B5` executes once in 112 report traces, but every call
 comes from the type-`16h` cleanup loop at `07:5544`. Each observed call returns
 carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
@@ -696,12 +696,12 @@ bytes, respectively.
 
 The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,343 tags and needs 199
-traces. The natural-only universe has 1,340 tags and needs 198 traces. Every
+independent oracle case. Its all-evidence universe has 1,359 tags and needs 201
+traces. The natural-only universe has 1,356 tags and needs 200 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The retained byte totals are
-29,731,301,070 and 29,635,417,152, respectively. The broad set remains the RE
+30,053,639,484 and 29,957,755,566, respectively. The broad set remains the RE
 and regression corpus; the public gallery uses a smaller, diverse selection.
 [confirmed]
 
@@ -745,7 +745,7 @@ and `A` at each discriminator were checked before admission. [confirmed]
 The synthetic `EF36h` trace uses
 `tools/macros/mathprint-ef36-injected-buffer.macro`. Its two `memwrite`
 commands place `EF 36 31 11` at the editor cursor. It is the sole synthetic
-source in the 261-trace report. It supplies the only evidence for
+source in the 263-trace report. It supplies the only evidence for
 `34:5A23` fallthrough, `34:6992` taken, and `34:6B94` taken. The full minimum
 retains it; the natural minimum excludes it by construction. [confirmed]
 
@@ -1083,16 +1083,16 @@ matches the decoded post-key tree, reconstruction matches every record field,
 and execution matches all 768 LCD bytes. The fraction discriminator has the
 same record and LCD parity. Radical and fraction insertion at other deeper
 structural positions, remaining structural template types, structural
-boundary navigation remain open. [confirmed]
+boundary-navigation captures outside the fraction case remain open. [confirmed]
 
-Ordinary in-leaf navigation uses the page-6 gap movers. LEFT reaches
-`06:4294–42C7` through `34:42B4` and `00:3B49`; RIGHT reaches
+Ordinary in-leaf navigation uses the page-6 gap movers. **LEFT** reaches
+`06:4294–42C7` through `34:42B4` and `00:3B49`; **RIGHT** reaches
 `06:42C8–4301` through `34:4193` and `00:367B`. Both paths call
 `00:1FE7` so a two-byte native token crosses the gap as one unit. Structural
 record markers remain on separate page-34 paths. [confirmed]
 
 `tools/mathprint-editor-navigation-oracles.json` captures `12` with the cursor
-at the end, after LEFT places it between the digits, and after RIGHT returns it
+at the end, after **LEFT** places it between the digits, and after **RIGHT** returns it
 to the end. The middle state splits the logical payload into left byte `31h`
 and right byte `32h`; its cursor offset is one. Its active leaf width is 12
 pixels, not 18: before existing payload the cursor overlays the following cell
@@ -1101,10 +1101,47 @@ and the width returns to 18. All three reconstructed record sets and complete
 cursor-off LCD bitmaps match their calculator states. [confirmed]
 
 `editorMovePackedTokenCursor()` translates both directions and rejects a
-structural boundary rather than applying the ordinary token rule there. The
-same regression also closes an AST-decoder bug: after emitting a cursor inside
-a numeric run, the following digit must begin a new atom before the two sides
-are recombined around the cursor. [confirmed]
+structural boundary rather than applying the ordinary token rule there. After
+the decoder emits a cursor inside a numeric run, the following digit begins a
+new atom before the two sides recombine around the cursor. [confirmed]
+
+A structural marker occupies six bytes:
+`EF type id_lo id_hi EF 2D`. **RIGHT** immediately before the marker selects the
+first child at byte offset zero. **LEFT** immediately after the marker selects the
+last child at the end of its payload. Both paths store the marker's starting
+offset in the containing leaf, set the structural record's one-based child
+selector at `+05h`, and increment the controller depth. The **RIGHT** route follows
+`34:4193–419B`, `34:41E6–41F5`, and `34:4285–4290`. The **LEFT** route follows
+`34:42B4–42BC` and `34:4311–4338`. [confirmed]
+
+**RIGHT** at a non-final child endpoint selects the next child at byte offset zero
+through `34:4193–41D7`. **LEFT** at a non-first child start selects the preceding
+child at its payload end through `34:42B4–42EA`. Each route stores the old
+child endpoint in that leaf's `+0Fh` word and updates the one-based selector.
+Ordinary movement within a child changes only the active gap split; its stored
+`+0Fh` word remains unchanged until a structural transition commits the
+endpoint. [confirmed]
+
+**RIGHT** at the final child endpoint returns to the containing leaf immediately
+after the marker through `34:41DC–4245`. **LEFT** at the first child start returns
+immediately before the marker through `34:42ED–430E`. The containing structural
+record becomes the controller, and the depth decreases by one. At the root
+leaf's outer endpoints, `34:41AE–41DF` and `34:42C5–42CC` return without
+changing the arena. [confirmed]
+
+`tools/mathprint-editor-structural-navigation-oracles.json` retains two
+reset-origin traces and seven adjacent RAM states for each direction. The 12
+key transitions cover entry, ordinary child movement, sibling selection, exit,
+and the root endpoint no-op. `editorMoveCursor()` reproduces every controller,
+active-leaf, cursor-offset, payload, child-list, `+05h`, `+0Fh`, and `+11h`
+transition. Its returned decoded arena feeds the next movement directly; the
+six-step **RIGHT** and **LEFT** sequences reach every subsequent captured state without
+replaying a recorded result. [confirmed]
+
+The generic transition tests apply the same decoded-arena rules to types
+`0x20`–`0x2B`, a six-child matrix, two-byte child tokens, and depth-two nested
+markers. Live sequence parity for structural types other than fraction remains
+open. [confirmed]
 
 **DEL** removes the packed token at the right edge of the gap through
 `34:4570`, `00:3687`, and `06:4393–43A4`. `06:43A5` reads the token and calls

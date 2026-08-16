@@ -276,17 +276,23 @@ TRANSLATION_SURFACES = (
             "packed-token deletion, and blank-child structural deletion across insertable "
             "types 20h–2Ah, including bidirectional fraction/nth-root sibling promotion "
             "and protected multi-argument no-ops, plus nested empty-slot restoration for a "
-            "fraction inside a radical; other deeper nested deletion states, matrix "
-            "deletion, and boundary navigation remain open"
+            "fraction inside a radical; bidirectional fraction boundary navigation covers "
+            "entry, sibling selection, exit, and root endpoints; other deeper nested "
+            "deletion states, matrix deletion, and live boundary-navigation captures for "
+            "other structural types remain open"
         ),
     },
     {
         "name": "live editor record graph and gap cursor",
-        "rom": ["34:4A83–4ACD", "34:4ACE–4B01", "0x8DAF–0x8DC2", "0x96F4–0x96FA"],
+        "rom": [
+            "34:4193–4245", "34:42B4–4338", "34:4A83–4ACD",
+            "34:4ACE–4B01", "0x8DAF–0x8DC2", "0x96F4–0x96FA",
+        ],
         "javascript": [
             "editorPayloadCursorBoundaries",
             "editorInsertPackedToken",
             "editorInsertStructuralTemplate",
+            "editorMoveCursor",
             "editorMovePackedTokenCursor",
             "editorDeletePackedToken",
             "editorDeleteStructuralTemplate",
@@ -300,6 +306,7 @@ TRANSLATION_SURFACES = (
             "tools/mathprint-editor-mutation-oracles.json",
             "tools/mathprint-editor-structural-mutation-oracles.json",
             "tools/mathprint-editor-navigation-oracles.json",
+            "tools/mathprint-editor-structural-navigation-oracles.json",
             "tools/mathprint-editor-deletion-oracles.json",
             "tools/mathprint-editor-structural-deletion-oracles.json",
         ],
@@ -316,11 +323,15 @@ TRANSLATION_SURFACES = (
             "other two added types; radical insertion at every cursor class in the root "
             "leaf, both fraction children, and that radical's radicand with packed-token "
             "replacement; in-leaf packed-token navigation, and "
+            "bidirectional fraction boundary navigation through structural entry, both "
+            "children, structural exit, and both root endpoint no-ops; decoded-arena "
+            "transition tests also cover types 20h–2Bh and depth-two nesting; "
             "packed-token deletion with empty-slot restoration and blank-child structural "
             "deletion across insertable types 20h–2Ah, including bidirectional "
             "fraction/nth-root sibling promotion and protected multi-argument no-ops, plus "
             "nested empty-slot restoration for a fraction inside a radical; other deeper "
-            "nested deletion states, matrix deletion, and boundary navigation remain open"
+            "nested deletion states, matrix deletion, and live boundary-navigation "
+            "captures for other structural types remain open"
         ),
     },
     {
@@ -765,6 +776,27 @@ def oracle_trace_features(paths: Iterable[Path]) -> dict[str, set[str]]:
         document = json.loads(path.read_text())
         if not isinstance(document, dict):
             continue
+        captures = document.get("captures")
+        if isinstance(captures, dict):
+            for capture_name, capture in captures.items():
+                if not isinstance(capture_name, str) or not isinstance(capture, dict):
+                    continue
+                trace_sha256 = capture.get("trace_sha256")
+                if not isinstance(trace_sha256, str):
+                    continue
+                tags = features[trace_sha256]
+                tags.add(
+                    f"oracle_case:{path.stem}:captures:{capture_name}:{trace_sha256}"
+                )
+                states = capture.get("states")
+                if isinstance(states, list):
+                    for state in states:
+                        name = state.get("name") if isinstance(state, dict) else None
+                        if isinstance(name, str):
+                            tags.add(
+                                f"editor_navigation_state:{path.stem}:"
+                                f"{capture_name}:{name}"
+                            )
         for family, raw_cases in document.items():
             if not isinstance(raw_cases, list):
                 continue
