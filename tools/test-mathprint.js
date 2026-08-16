@@ -34,6 +34,8 @@ const nestedBaselineOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-nested-baseline-oracles.json')));
 const matrixOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-matrix-oracles.json')));
+const matrixBaselineOracles = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools', 'mathprint-matrix-baseline-oracles.json')));
 const liveEditorOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-live-editor-oracles.json')));
 const groupingOracles = JSON.parse(fs.readFileSync(
@@ -4609,6 +4611,26 @@ for (const oracle of matrixOracles.cases) {
   expectEqual(`${oracle.expression} independently reproduces synchronous accepted-write stream`,
     crypto.createHash('sha256').update(writeBytes).digest('hex'),
     oracle.accepted_write_sha256);
+}
+for (const oracle of matrixBaselineOracles.cases) {
+  const program = rom.constructSettledExpressionProgram(
+    oracle.spec, oracle.entry_id, font);
+  expectEqual(`${oracle.expression} aligns matrix cells to captured baselines`,
+    {entry_id:program.entry_id, origin:program.origin, nodes:program.nodes},
+    {entry_id:oracle.entry_id, origin:oracle.display_origin, nodes:oracle.nodes});
+  const operations = rom.executeSettledRecordProgram(
+    program.nodes, program.entry_id, {
+      origin:{x:0,y:0},
+      glyphAdvance:settledGlyphAdvance,
+    });
+  const crop = cropInk(rom.rasterizeSettledOperations(operations, font).grid);
+  expectEqual(`${oracle.expression} reproduces the mixed-baseline matrix pixels`,
+    {
+      width:crop[0].length,
+      height:crop.length,
+      sha256:crypto.createHash('sha256').update(
+        Buffer.from(crop.flat())).digest('hex'),
+    }, oracle.final_crop);
 }
 expectEqual('browser selects translated absolute record construction',
   mp.constructedProgramForExpression('abs(X-3)').nodes,

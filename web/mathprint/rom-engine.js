@@ -4961,13 +4961,18 @@
           elements.push(element);
         }
         const columnWidths = Array.from({length:expression.columns}, () => 0);
-        const rowHeights = Array.from({length:expression.rows}, () => 0);
+        const rowBaselines = Array.from({length:expression.rows}, () => 0);
+        const rowDescents = Array.from({length:expression.rows}, () => 0);
         for (let row = 0; row < expression.rows; row++)
           for (let column = 0; column < expression.columns; column++) {
             const element = elements[row * expression.columns + column];
             columnWidths[column] = Math.max(columnWidths[column], element.word07);
-            rowHeights[row] = Math.max(rowHeights[row], element.word05);
+            rowBaselines[row] = Math.max(rowBaselines[row], element.word09);
+            rowDescents[row] = Math.max(
+              rowDescents[row], element.word05 - element.word09);
           }
+        const rowHeights = rowBaselines.map(
+          (baseline, row) => baseline + rowDescents[row]);
         const columnStarts = [];
         let x = 6;
         for (const width of columnWidths) {
@@ -4988,8 +4993,7 @@
               Math.floor((columnWidths[column] - element.word07) / 2),
               'matrix element x');
             element.word0D = checkedWord(
-              rowStarts[row] +
-              Math.floor((rowHeights[row] - element.word05 + 1) / 2),
+              rowStarts[row] + rowBaselines[row] - element.word09,
               'matrix element y');
           }
         structural.word07 = checkedWord(y - 2, 'matrix height');
