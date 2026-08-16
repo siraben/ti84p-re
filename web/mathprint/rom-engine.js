@@ -5304,6 +5304,9 @@
   // it stores the packed native token at editCursor and advances editCursor by
   // one or two bytes. EF 1Eh is the editable empty-slot token; inserting at a
   // cursor immediately before it replaces the slot instead of retaining both.
+  // Consume the decoded arena rather than editing its semantic AST directly:
+  // the same payload decoder must regroup list and delimiter frames after each
+  // byte write.
   function editorInsertPackedToken(input, tokenInput) {
     const inserted = Array.from(tokenInput || [], (value, index) =>
       byte(value, `editor inserted token byte ${index}`));
@@ -5315,124 +5318,56 @@
       throw new RangeError(
         'editor structural markers require the structural insertion path');
 
-    const cursorCount = value => {
-      if (!value || typeof value !== 'object') return 0;
-      if (value.kind === 'editorCursor') return 1;
-      if (Array.isArray(value) || value instanceof Uint8Array)
-        return Array.from(value).reduce(
-          (count, item) => count + cursorCount(item),0);
-      return Object.values(value).reduce(
-        (count, item) => count + cursorCount(item),0);
-    };
-    const count = cursorCount(input);
-    if (count !== 1)
+    if (!input || typeof input !== 'object' || !input.editor ||
+        !input.editor.cursor || !Array.isArray(input.nodes) ||
+        !Number.isInteger(input.entryId))
+      throw new TypeError(
+        'ordinary insertion requires a decoded MathPrint editor state');
+    const recordId = input.editor.cursor.recordId;
+    const before = input.editor.cursor.byteOffset;
+    if (!Number.isInteger(recordId) || recordId < 0 || recordId > 0xffff ||
+        !Number.isInteger(before) || before < 0)
+      throw new RangeError('decoded editor state has no valid active cursor');
+    const active = input.nodes.find(node =>
+      (node.record_id === undefined ? node.id : node.record_id) === recordId);
+    if (!active)
       throw new RangeError(
-        `editor insertion requires one cursor, found ${count}`);
+        `editor active leaf ID 0x${recordId.toString(16)} is absent`);
+    const type = active.render_type === undefined
+      ? active.type : active.render_type;
+    if (!Number.isInteger(type) || type < 0 || type >= 0x1f ||
+        !Array.isArray(active.payload))
+      throw new RangeError('editor active record is not a decoded leaf');
+    const payload = Array.from(active.payload, (value, index) =>
+      byte(value, `editor active payload byte ${index}`));
+    if (!editorPayloadCursorBoundaries(payload).includes(before))
+      throw new RangeError(
+        `editor cursor byte ${before} bisects a native unit`);
 
-    const tokenBytes = value => {
-      if (Array.isArray(value) || value instanceof Uint8Array)
-        return Array.from(value);
-      if (value && (value.kind === 'tokens' ||
-                    value.kind === 'extendedToken') &&
-          (Array.isArray(value.tokens) || value.tokens instanceof Uint8Array))
-        return Array.from(value.tokens);
-      return null;
-    };
-    const appendToken = value => {
-      const bytes = tokenBytes(value);
-      if (!bytes) return null;
-      if (Array.isArray(value) || value instanceof Uint8Array)
-        return [...bytes,...inserted];
-      return {...value,tokens:[...bytes,...inserted]};
-    };
-    const stripLeadingEmptySlot = value => {
-      const bytes = tokenBytes(value);
-      if (bytes && bytes[0] === 0xef && bytes[1] === 0x1e) {
-        const rest = bytes.slice(2);
-        if (!rest.length) return {value:null,replaced:true};
-        if (Array.isArray(value) || value instanceof Uint8Array)
-          return {value:rest,replaced:true};
-        return {value:{...value,tokens:rest},replaced:true};
-      }
-      if (value && value.kind === 'sequence' &&
-          Array.isArray(value.parts) && value.parts.length) {
-        const stripped = stripLeadingEmptySlot(value.parts[0]);
-        if (!stripped.replaced) return {value,replaced:false};
-        const parts = stripped.value === null
-          ? value.parts.slice(1) : [stripped.value,...value.parts.slice(1)];
-        return {
-          value:parts.length ? {...value,parts} : null,
-          replaced:true,
-        };
-      }
-      return {value,replaced:false};
-    };
-
-    let mutation = null;
-    const updatedCursor = cursor => {
-      const before = cursor.byte_offset;
-      const after = before === undefined ? undefined : before + inserted.length;
-      mutation = {
+    const replaced = payload[before] === 0xef && payload[before + 1] === 0x1e;
+    const after = before + inserted.length;
+    const updatedPayload = [
+      ...payload.slice(0,before),
+      ...inserted,
+      ...payload.slice(before + (replaced ? 2 : 0)),
+    ];
+    const nodes = input.nodes.map(node => {
+      const id = node.record_id === undefined ? node.id : node.record_id;
+      return id === recordId ? {...node,payload:updatedPayload} : node;
+    });
+    const decoded = decodeEditorExpressionGraph(
+      nodes,input.entryId,recordId,after);
+    return {
+      expression:decoded.expression,
+      mutation:{
         inserted:inserted.slice(),
-        record_id:cursor.record_id,
+        record_id:recordId,
         before_byte_offset:before,
         after_byte_offset:after,
-        replaced_empty_slot:false,
+        replaced_empty_slot:replaced,
         routine:'34:4775–47A4 → 34:4BB9–4C0D → 00:3699 → 06:4341–4388',
-      };
-      return {
-        ...cursor,
-        ...(after === undefined ? {} : {byte_offset:after}),
-      };
+      },
     };
-    const visit = value => {
-      if (!value || typeof value !== 'object') return value;
-      if (value.kind === 'editorCursor')
-        return {kind:'sequence',parts:[inserted.slice(),updatedCursor(value)]};
-      if (Array.isArray(value) || value instanceof Uint8Array) return value;
-      if (value.kind === 'sequence' && Array.isArray(value.parts)) {
-        const direct = value.parts.findIndex(
-          part => part && part.kind === 'editorCursor');
-        if (direct >= 0) {
-          const parts = value.parts.slice();
-          const cursor = updatedCursor(parts[direct]);
-          const appended = direct > 0 ? appendToken(parts[direct - 1]) : null;
-          if (appended) {
-            parts[direct - 1] = appended;
-            parts[direct] = cursor;
-          } else {
-            parts.splice(direct,0,inserted.slice());
-            parts[direct + 1] = cursor;
-          }
-          const cursorIndex = appended ? direct : direct + 1;
-          if (cursorIndex + 1 < parts.length) {
-            const stripped = stripLeadingEmptySlot(parts[cursorIndex + 1]);
-            if (stripped.replaced) {
-              mutation.replaced_empty_slot = true;
-              if (stripped.value === null) parts.splice(cursorIndex + 1,1);
-              else parts[cursorIndex + 1] = stripped.value;
-            }
-          }
-          return {...value,parts};
-        }
-      }
-      const result = {};
-      for (const [key,child] of Object.entries(value)) {
-        if (Array.isArray(child) && child.every(item =>
-          Number.isInteger(item))) {
-          result[key] = child.slice();
-        } else if (Array.isArray(child)) {
-          result[key] = child.map(visit);
-        } else {
-          result[key] = visit(child);
-        }
-      }
-      return result;
-    };
-    const expression = visit(input);
-    if (!mutation)
-      throw new RangeError('editor insertion could not locate the cursor');
-    return {expression,mutation};
   }
 
   // Structural-template insertion consumes the live arena state as well as

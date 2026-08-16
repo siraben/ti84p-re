@@ -300,7 +300,8 @@ TRANSLATION_SURFACES = (
         ],
         "scope": (
             "complete captured arenas, active-leaf substitution, nested cursor paths, "
-            "cursor-aware record reconstruction, ordinary packed-token insertion, fraction "
+            "cursor-aware record reconstruction, ordinary packed-token insertion with "
+            "post-write nested-list regrouping, fraction "
             "insertion at every cursor class in the root leaf and both child leaves of one "
             "outer fraction plus a blank radicand of one prefixed radical, integral, "
             "nDeriv, summation, nth-root, log-base, and postfix-power insertion at every root cursor class, "
