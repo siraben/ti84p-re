@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-01513b92.js";
+            window.path_to_searchindex_js = "searchindex-3fce7450.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -946,6 +946,25 @@ reconstructing it matches every record field by ID. Executing the reconstructed
 record program in the cursor-off phase also matches the complete 96×64
 calculator screenshot bitmap. The hashes in the last column cover all 768 LCD
 bytes. [confirmed]</p>
+<p>Ordinary token insertion follows <code>34:4775–47A4</code> into <code>34:4BB9–4C0D</code>. The
+non-structural branch reaches the page-6 gap writer through <code>00:3699</code>.
+<code>06:4341–4388</code> checks available space, stores the one- or two-byte packed token
+at <code>editCursor</code>, and advances the pointer. In the captured root-leaf transition,
+the write at <code>06:437A</code> stores <code>32h</code> at <code>9DE1h</code>; <code>06:437C</code> then changes
+<code>editCursor</code> from <code>9DE1h</code> to <code>9DE2h</code>. [confirmed]</p>
+<p><code>tools/mathprint-editor-mutation-oracles.json</code> retains two adjacent pre/post
+transitions. Appending <code>2</code> after root token <code>1</code> changes the active payload from
+<code>31h</code> to <code>31h 32h</code>. Inserting <code>2</code> into an empty fraction numerator advances the
+right gap boundary past <code>EF 1E</code>, so the token replaces the empty slot. The
+second transition also shows that the type-<code>0x20</code> record keeps <code>EFh</code> at <code>+13h</code>
+instead of recomputing that byte from the new <code>32h</code> numerator. The editor AST
+therefore retains structural <code>+13h</code> state in addition to the active leaf’s
+<code>+0Fh</code> and <code>+11h</code> words. [confirmed]</p>
+<p><code>editorInsertPackedToken()</code> translates this mutation. For both transitions,
+the mutated cursor tree equals the decoded post-key tree, reconstruction
+matches every post-key record field, and execution matches the complete
+cursor-off LCD bitmap. Structural template insertion, deletion, and cursor
+navigation remain open. [confirmed]</p>
 <p><code>34:789A</code> first distinguishes the table-equation context from other editors.
 On its fallthrough, <code>34:75AB</code> reads the marker type from <code>editTail + 1</code>.
 <code>34:40F9</code> groups fraction (<code>0x20</code>), nth-root (<code>0x24</code>), and power (<code>0x2A</code>)
@@ -2188,9 +2207,11 @@ timeline row records the previous byte, replacement byte, all eight destination
 bits, and which bits changed. Accepted writes with equal previous and replacement
 bytes therefore remain visible in the trace. [confirmed]</p>
 <p>The text field uses a preview-specific semantic grammar for ordinary input. It
-does not emulate TI-OS key-to-graph state transitions. The ROM engine separately
+does not drive the TI-OS editor state machine. The ROM engine separately
 decodes a captured live editor arena, active gap leaf, and cursor into a semantic
-tree. An input prefixed with <code>hex:</code> bypasses the preview grammar and passes the
+tree and translates ordinary packed-token insertion on that state. The browser
+does not yet expose the mutation API as an interactive calculator editor. An
+input prefixed with <code>hex:</code> bypasses the preview grammar and passes the
 listed native bytes to the translated constructor. Malformed streams and
 untranslated structural types produce an error; this path does not select the
 model compositor. Each accepted LCD byte remains available as eight ordered
