@@ -175,7 +175,9 @@ An eight-state summation construction capture also verifies the type-`0x01`
 post-insertion path. Filling the variable automatically selects the lower
 bound; filling the other children does not. Packed-token insertion now returns
 a decoded arena state that composes directly with the next insertion or cursor
-movement.
+movement. Structural-template insertion returns the same state shape. The
+blank-root summation constructor therefore feeds the entire seven-key fill and
+exit sequence without importing an intermediate calculator state.
 `editorInsertStructuralTemplate()` translates fraction insertion from source
 token `EF 2E` at every cursor class in the root leaf and both child leaves of
 one outer fraction, plus the blank radicand of one prefixed radical. A
@@ -199,7 +201,9 @@ adds a two-pixel body gap and uses a solid focus box when repeated after the
 evaluation bar. Four reset-origin captures cover every root cursor class.
 Summation source token `EF 33` selects type `0x29`. It creates variable, lower,
 upper, and body children, then selects the variable. Four reset-origin captures
-cover every root cursor class and preserve the constructor's child order.
+cover every root cursor class and preserve the constructor's child order. The
+returned decoded arena matches every captured post-key record field, not only
+the cursor-annotated expression.
 Nth-root source token `F1` selects type `0x24`. A blank root receives `Ans` in
 the index and an empty radicand. Leaf-end and mid-leaf insertion migrate the
 left payload into the index. Leading insertion creates two empty children and
