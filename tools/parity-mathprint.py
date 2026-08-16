@@ -83,6 +83,18 @@ EXAMPLES = {
                                  "GRAPHVAR", "SUB", "3", "RIGHT"]),
     "nth_root": ("nthroot(3,X+1)", ["3", "MATH", "5", "GRAPHVAR",
                                          "ADD", "1", "RIGHT"]),
+    "nested_radical_fraction": (
+        "sqrt(sqrt(1//2))",
+        ["2ND", "SQUARE", "2ND", "SQUARE",
+         "ALPHA", "YEQU", "WAIT", "1", "WAIT", "1", "DOWN", "2",
+         "RIGHT", "RIGHT", "RIGHT"],
+    ),
+    "structural_power_exponent": (
+        "X^sqrt(1//2)",
+        ["GRAPHVAR", "POWER", "2ND", "SQUARE",
+         "ALPHA", "YEQU", "WAIT", "1", "WAIT", "1", "DOWN", "2",
+         "RIGHT", "RIGHT", "RIGHT"],
+    ),
     "summation": ("sum(N,1,3,N^2)",
                   ["MATH", "0", "WAIT", "ALPHA", "LOG", "1", "RIGHT", "3",
                    "RIGHT", "ALPHA", "LOG", "POWER", "2", "RIGHT", "RIGHT"]),

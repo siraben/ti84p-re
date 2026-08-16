@@ -599,7 +599,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 42 finite models. It also computes an
+complete path-equivalence class in 43 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -622,6 +622,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Shaded-point expansion | 3,145,728 | 1,850 | 30 | 8 |
 | Small-font pointer selection | 65,536 | 16 | 31 | 16 |
 | Token-hook dispatch | 1,048,576 | 9 | 10 | 5 |
+| Glyph advance and delimiter padding | 131,072 | 6 | 10 | 4 |
 | `_VPutMap` byte-boundary gate | 56 | 2 | 2 | 2 |
 | MathPrint `_VPutMap` right-edge gate | 3,584 | 4 | 6 | 2 |
 | MathPrint `_VPutMap` row state | 112 | 4 | 10 | 2 |
@@ -649,8 +650,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 | FindAlpha OP scratch transition | 33,554,432 | 2 | 5 | 2 |
 
-The 42 models contain 3,348 path classes and 443 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 208 representatives. Each
+The 43 models contain 3,354 path classes and 453 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 212 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -2166,6 +2167,16 @@ one-row source skip and a five-row count, so `01:6354`–`01:6374` advances past
 the first small-font padding row. The selected count also omits the trailing
 padding row. Vertical viewport clipping changes the skip and count before the
 page-1 call. [confirmed]
+
+`34:6C4D` loads the width byte from the selected font record. When
+`fontFlags.2` is clear, `34:6CBC` adds three columns for display codes `28h`
+and `29h`, and two for `7Bh` and `7Dh`. Other codes retain the record width.
+The addition at `34:6C5A` is byte-sized and can wrap. The translated metric and
+draw paths use this result for delimiter cells instead of a separate fixed
+width. Root calls set `fontFlags.2` and retain the six-column large-font cell.
+Raised parentheses begin with width three and raised braces with width four;
+the correction expands both families to six columns. A pinned-byte interpreter
+covers both flag values and every display-code and width-byte pair. [confirmed]
 
 The two states use different right-edge comparisons. The root state compares
 the endpoint with `0x61` at `01:630A`, while the raised state compares it with

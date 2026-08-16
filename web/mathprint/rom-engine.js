@@ -4215,6 +4215,51 @@
     };
   }
 
+  // 34:6C4F–6C5B starts with the width byte loaded from the selected font
+  // record. fontFlags.2 bypasses the delimiter correction. Otherwise 34:6CBC
+  // classifies parentheses before braces: parentheses add three columns,
+  // braces add two, and every other display code retains the record width.
+  // ADD A,L is byte-sized, so expose its wraparound rather than widening it.
+  function settledPage34GlyphAdvance(
+      codeValue, recordWidthValue, fontFlagsBit2Value) {
+    const code = byte(codeValue, 'page-34 display code');
+    const recordWidth = byte(
+      recordWidthValue, 'page-34 font-record width');
+    const fontFlagsBit2 = boolean(
+      fontFlagsBit2Value, 'page-34 fontFlags bit 2');
+    const branchOutcomes = [];
+    const branch = (address, outcome) => branchOutcomes.push(
+      `34:${address.toString(16).toUpperCase()}:${outcome}`);
+
+    branch(0x6c53,fontFlagsBit2 ? 'taken' : 'fallthrough');
+    let adjustment = 0;
+    let delimiter = null;
+    if (!fontFlagsBit2) {
+      const openParenthesis = code === 0x28;
+      branch(0x6139,openParenthesis ? 'returned' : 'fallthrough');
+      const parenthesis = openParenthesis || code === 0x29;
+      branch(0x6cbf,parenthesis ? 'fallthrough' : 'taken');
+      if (parenthesis) {
+        adjustment = 3;
+        delimiter = code === 0x28 ? 'open-parenthesis' : 'close-parenthesis';
+      } else {
+        const openBrace = code === 0x7b;
+        branch(0x613f,openBrace ? 'returned' : 'fallthrough');
+        const brace = openBrace || code === 0x7d;
+        if (brace) {
+          adjustment = 2;
+          delimiter = code === 0x7b ? 'open-brace' : 'close-brace';
+        }
+      }
+      branch(0x6c58,delimiter === null ? 'taken' : 'fallthrough');
+    }
+    return {
+      code,recordWidth,fontFlagsBit2,adjustment,delimiter,
+      advance:(recordWidth + adjustment) & 0xff,
+      branchOutcomes,routine:'34:6C4F–6C5B → 34:6CBC–6CC9',
+    };
+  }
+
   // 34:6C37 prepares one of two page-1 _VPutMap states. A root glyph uses the
   // seven-row, six-pixel record built by 07:45B6 and admits an endpoint of 60h.
   // A raised glyph skips the small-font record's first padding row, emits five
@@ -4342,18 +4387,18 @@
       if (!resolved)
         throw new RangeError(`token 0x${token.toString(16)} has no translated spelling`);
       for (const code of resolved.codes) {
-        if (depth === 0 || code === 0x28 || code === 0x29 ||
-            code === 0x7b || code === 0x7d) {
-          width += 6;
-          continue;
+        let recordWidth = 6;
+        if (depth !== 0) {
+          const glyph = font && font.small && font.small.glyphs
+            ? font.small.glyphs[code]
+            : null;
+          if (!glyph || !Number.isInteger(glyph.w) || glyph.w < 0)
+            throw new RangeError(
+              `small glyph 0x${code.toString(16)} requires ROM font metrics`);
+          recordWidth = glyph.w;
         }
-        const glyph = font && font.small && font.small.glyphs
-          ? font.small.glyphs[code]
-          : null;
-        if (!glyph || !Number.isInteger(glyph.w) || glyph.w < 0)
-          throw new RangeError(
-            `small glyph 0x${code.toString(16)} requires ROM font metrics`);
-        width += glyph.w;
+        width += settledPage34GlyphAdvance(
+          code,recordWidth,depth === 0).advance;
       }
       index += resolved.length - 1;
     }
@@ -10044,12 +10089,16 @@
               mode, pen.x, record.word09 - metrics.baseline,
               metrics.height);
           for (const operation of operations) controls.emit(operation);
-          pen.x += 6;
+          pen.x += settledPage34GlyphAdvance(
+            code,fontAdvance(controls.state.depth,code),
+            controls.state.depth === 0).advance;
           return;
         }
         controls.emit({kind:'glyph', code, x:pen.x, y:pen.y,
           tokenBytes, routine:'34:660A–6704 → 34:6C37'});
-        pen.x += fontAdvance(controls.state.depth, code);
+        pen.x += settledPage34GlyphAdvance(
+          code,fontAdvance(controls.state.depth,code),
+          controls.state.depth === 0).advance;
       };
 
       for (let index = 0; index < record.payload.length;) {
@@ -10095,7 +10144,9 @@
             const code = 0xf7;
             controls.emit({kind:'glyph', code, x:pen.x, y:pen.y,
               tokenBytes:[0xef,subtype], routine:'34:660A–6704 → 34:6C37'});
-            pen.x += fontAdvance(controls.state.depth, code);
+            pen.x += settledPage34GlyphAdvance(
+              code,fontAdvance(controls.state.depth,code),
+              controls.state.depth === 0).advance;
             index += 2;
             continue;
           }
@@ -10128,7 +10179,9 @@
         if (code !== null) {
           controls.emit({kind:'glyph', code, x:pen.x, y:pen.y,
             tokenBytes:[token], routine:'34:660A–6704 → 34:6C37'});
-          pen.x += fontAdvance(controls.state.depth, code);
+          pen.x += settledPage34GlyphAdvance(
+            code,fontAdvance(controls.state.depth,code),
+            controls.state.depth === 0).advance;
         } else {
           controls.emit({kind:'unresolved-token', bytes:[token], x:pen.x, y:pen.y,
             routine:'34:660A–6704 token/string path'});
@@ -10828,6 +10881,7 @@
     settledPage1TokenHookDispatch,
     settledPage1VPutMapCompose,
     settledPage1VPutMapRow,
+    settledPage34GlyphAdvance,
     settledPage1MathPrintGlyphPlan,
     settledTokenGlyph,
     settledTokenSpelling,
