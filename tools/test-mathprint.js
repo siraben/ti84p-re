@@ -157,6 +157,36 @@ const renderNestingTailRomSpans = [
 const pointAddressRomSpan = {address:0x42b5, bytes:Buffer.from(
   'd521e442160078e6075f195e62cb38cb38cb3878f620324f843e3f91f68032' +
   '5184e67f87874f6f297b59195819d1c98040201008040201', 'hex')};
+const pointPreprocessRomSpans = [
+  {address:0x026b,bytes:Buffer.from('c54f9706102917b93802912c10f7c1c9','hex')},
+  {address:0x4000,bytes:Buffer.from('26003a6c96c36b02','hex')},
+  {address:0x40a8,bytes:Buffer.from('e1d1c1f1c9','hex')},
+  {address:0x40ad,bytes:Buffer.from(
+    '2168967eb72037fdcb1e7e20053e02326c9668cd00405f3a6c963dbbc03e01' +
+    '326c96af217597cb462802ed4481c84f216d96bed01601cdeb413a6c9618e5' +
+    'fe023026fdcb1e7e20053e02326c9669cd0040217597cb4620085f3a6c963d' +
+    '9318c3f53a6c965ff118bbf5fdcb1e7e20053e03326c9669cd0040f568cd00' +
+    '40d15ff128067b92301018097b3a6c963d939230055f3a6c9683217597cb46' +
+    '2886b728835f3a6c9693c3d0401601f53e00fdcb357ec44935280ff1c9f578' +
+    'fe60300579fe403802f1c9c5fdcb146ecaed413a7597fe012815daed41fe0430' +
+    '65fdcb19f6e5d5cdad40d1e1c11856cdeb41e5c579ed4b1593b92829381004' +
+    'cdeb41050c0df1b8282e382d0d182b04cdeb41050dcdeb41f1b8202104181b' +
+    '05cdeb410418f6f10db8280ff5cdeb41f13803041805051802040ccdeb41e1' +
+    'c1ed431593f1c9f5c53aa18d80473aa28d814fd5e5fdcb2b562805cd064318' +
+    '03cdec42daa840cdb542','hex')},
+  {address:0x42ec,bytes:Buffer.from(
+    'f5e52aa38d2578bc300c79fe403007b72804e1f1b7c9e1f137c9f5e52aa38d' +
+    '78bc30f379fe4030ee18e8','hex')},
+];
+const pointPreprocessByteMap = new Map(pointPreprocessRomSpans.flatMap(span =>
+  Array.from(span.bytes,
+    (value, offset) => [span.address + offset,value])));
+const pointPreprocessByte = address => {
+  if (!pointPreprocessByteMap.has(address))
+    throw new Error(
+      `point-preprocess oracle reached unpinned byte at ${address.toString(16)}`);
+  return pointPreprocessByteMap.get(address);
+};
 const pointModeRomSpan = {address:0x4215, bytes:Buffer.from(
   'fdcb3c5e2803e5182d21409319e5fdcb3c462022f33a5184cdbf20cdc30cd3' +
   '10cdc9203a4f84cdc30cd310cdf13be1e5fdcb024e20017e041003b118071003' +
@@ -537,6 +567,249 @@ function runRawPointState(
     }
   }
   throw new Error('point-state oracle exceeded its instruction bound');
+}
+
+function runRawPointPreprocess(x, y, mode, state) {
+  let pc = 0x4157, sp = 0xff00;
+  let a = 0x5a, f = 0, b = x, c = y, d = mode, e = 0, h = 0, l = 0;
+  const memory = new Map([
+    [0x9668,state.stylePhase], [0x966c,state.styleStep],
+    [0x966d,state.styleLimit], [0x9775,state.style],
+    [0x9315,state.previousY], [0x9316,state.previousX],
+    [0x8da1,state.xOffset], [0x8da2,state.yOffset],
+    [0x8da3,0x40], [0x8da4,state.screenWidth],
+  ]);
+  const iyBytes = new Map([
+    [0x14,state.styleActive ? 0x20 : 0],
+    [0x19,state.graphStyleFlagBit6 ? 0x40 : 0],
+    [0x1e,state.styleAxisFlag ? 0x80 : 0],
+    [0x2b,state.fullScreenDraw ? 0x04 : 0], [0x35,0],
+  ]);
+  const attempts = [], points = [], branchOutcomes = [];
+  let pendingAttempt = null;
+  const read = address => memory.get(address & 0xffff) || 0;
+  const write = (address, value) => memory.set(address & 0xffff,value & 0xff);
+  const pair = (high, low) => high << 8 | low;
+  const split = value => [value >>> 8 & 0xff,value & 0xff];
+  const zero = () => (f & 0x40) !== 0;
+  const carry = () => (f & 1) !== 0;
+  const setZeroCarry = (z, cy) => {
+    f = (f & ~0x41) | (z ? 0x40 : 0) | (cy ? 1 : 0);
+  };
+  const setZeroPreserveCarry = z => {
+    f = (f & ~0x40) | (z ? 0x40 : 0);
+  };
+  const push = value => {
+    sp = (sp - 1) & 0xffff; write(sp,value >>> 8);
+    sp = (sp - 1) & 0xffff; write(sp,value);
+  };
+  const pop = () => {
+    const value = read(sp) | read((sp + 1) & 0xffff) << 8;
+    sp = (sp + 2) & 0xffff;
+    return value;
+  };
+  const word = address =>
+    pointPreprocessByte(address) | pointPreprocessByte(address + 1) << 8;
+  const relative = address => {
+    const value = pointPreprocessByte(address);
+    return value < 0x80 ? value : value - 0x100;
+  };
+  const branch = (address, outcome) => {
+    if (address >= 0x4000) branchOutcomes.push(
+      `04:${address.toString(16).toUpperCase()}:${outcome}`);
+  };
+  const conditional = (opcode, address) => {
+    const taken = opcode === 0x20 || opcode === 0xc0
+      ? !zero() : opcode === 0x28 || opcode === 0xc8 || opcode === 0xca
+        ? zero() : opcode === 0x30 || opcode === 0xd0
+          ? !carry() : carry();
+    const isReturn = [0xc0,0xc8,0xd0].includes(opcode);
+    branch(address,isReturn ? (taken ? 'returned' : 'fallthrough') :
+      (taken ? 'taken' : 'fallthrough'));
+    return taken;
+  };
+  push(0xffff);
+  for (let instructions = 0; instructions < 20000; instructions++) {
+    if (pc === 0x41ed) pendingAttempt = {rawX:b,rawY:c,mode:d};
+    const opcode = pointPreprocessByte(pc);
+    if (opcode === 0x21) {
+      [h,l] = split(word(pc + 1)); pc += 3;
+    } else if (opcode === 0x2a) {
+      const address = word(pc + 1);
+      [h,l] = split(read(address) | read(address + 1) << 8); pc += 3;
+    } else if (opcode === 0x7e) {
+      a = read(pair(h,l)); pc++;
+    } else if (opcode === 0x3a) {
+      a = read(word(pc + 1)); pc += 3;
+    } else if (opcode === 0x32) {
+      write(word(pc + 1),a); pc += 3;
+    } else if (opcode === 0xed && pointPreprocessByte(pc + 1) === 0x4b) {
+      const address = word(pc + 2);
+      c = read(address); b = read(address + 1); pc += 4;
+    } else if (opcode === 0xed && pointPreprocessByte(pc + 1) === 0x43) {
+      const address = word(pc + 2);
+      write(address,c); write(address + 1,b); pc += 4;
+    } else if (opcode === 0xfd && pointPreprocessByte(pc + 1) === 0xcb) {
+      const displacement = pointPreprocessByte(pc + 2);
+      const extension = pointPreprocessByte(pc + 3);
+      const value = iyBytes.get(displacement) || 0;
+      const bit = extension === 0x7e ? 7 : extension === 0x6e ? 5 :
+        extension === 0x56 ? 2 : -1;
+      if (extension === 0xf6) iyBytes.set(displacement,value | 0x40);
+      else if (bit >= 0) setZeroPreserveCarry((value & 1 << bit) === 0);
+      else throw new Error('point-preprocess oracle reached an unknown IY bit');
+      pc += 4;
+    } else if (opcode === 0xcb && pointPreprocessByte(pc + 1) === 0x46) {
+      setZeroPreserveCarry((read(pair(h,l)) & 1) === 0); pc += 2;
+    } else if (opcode === 0xb7) {
+      setZeroCarry(a === 0,false); pc++;
+    } else if (opcode === 0xaf || opcode === 0x97) {
+      a = 0; setZeroCarry(true,false); pc++;
+    } else if (opcode === 0x3e || opcode === 0x06 || opcode === 0x16 ||
+               opcode === 0x26) {
+      const value = pointPreprocessByte(pc + 1);
+      if (opcode === 0x3e) a = value;
+      else if (opcode === 0x06) b = value;
+      else if (opcode === 0x16) d = value;
+      else h = value;
+      pc += 2;
+    } else if ([0x78,0x79,0x7b].includes(opcode)) {
+      a = opcode === 0x78 ? b : opcode === 0x79 ? c : e; pc++;
+    } else if ([0x47,0x4f,0x5f,0x68,0x69].includes(opcode)) {
+      if (opcode === 0x47) b = a;
+      else if (opcode === 0x4f) c = a;
+      else if (opcode === 0x5f) e = a;
+      else if (opcode === 0x68) l = b;
+      else l = c;
+      pc++;
+    } else if ([0xf5,0xc5,0xd5,0xe5].includes(opcode)) {
+      push(opcode === 0xf5 ? pair(a,f) : opcode === 0xc5 ? pair(b,c) :
+        opcode === 0xd5 ? pair(d,e) : pair(h,l)); pc++;
+    } else if ([0xf1,0xc1,0xd1,0xe1].includes(opcode)) {
+      const [high,low] = split(pop());
+      if (opcode === 0xf1) { a = high; f = low; }
+      else if (opcode === 0xc1) { b = high; c = low; }
+      else if (opcode === 0xd1) { d = high; e = low; }
+      else { h = high; l = low; }
+      pc++;
+    } else if (opcode === 0xfe || [0xb8,0xb9,0xbb,0xbc,0xbe].includes(opcode)) {
+      const operand = opcode === 0xfe ? pointPreprocessByte(pc + 1) :
+        opcode === 0xb8 ? b : opcode === 0xb9 ? c : opcode === 0xbb ? e :
+          opcode === 0xbc ? h : read(pair(h,l));
+      setZeroCarry(a === operand,a < operand);
+      pc += opcode === 0xfe ? 2 : 1;
+    } else if ([0x80,0x81,0x83].includes(opcode)) {
+      const operand = opcode === 0x80 ? b : opcode === 0x81 ? c : e;
+      const result = a + operand;
+      a = result & 0xff; setZeroCarry(a === 0,result > 0xff); pc++;
+    } else if ([0x91,0x92,0x93].includes(opcode)) {
+      const operand = opcode === 0x91 ? c : opcode === 0x92 ? d : e;
+      const result = a - operand;
+      a = result & 0xff; setZeroCarry(a === 0,result < 0); pc++;
+    } else if (opcode === 0xed && pointPreprocessByte(pc + 1) === 0x44) {
+      const previous = a;
+      a = (-a) & 0xff; setZeroCarry(a === 0,previous !== 0); pc += 2;
+    } else if (opcode === 0xf6) {
+      a |= pointPreprocessByte(pc + 1);
+      setZeroCarry(a === 0,false); pc += 2;
+    } else if ([0x04,0x05,0x0c,0x0d,0x25,0x2c,0x3d].includes(opcode)) {
+      let value;
+      if (opcode === 0x04) value = b = (b + 1) & 0xff;
+      else if (opcode === 0x05) value = b = (b - 1) & 0xff;
+      else if (opcode === 0x0c) value = c = (c + 1) & 0xff;
+      else if (opcode === 0x0d) value = c = (c - 1) & 0xff;
+      else if (opcode === 0x25) value = h = (h - 1) & 0xff;
+      else if (opcode === 0x2c) value = l = (l + 1) & 0xff;
+      else value = a = (a - 1) & 0xff;
+      setZeroPreserveCarry(value === 0); pc++;
+    } else if (opcode === 0x29) {
+      const value = pair(h,l), result = value << 1;
+      [h,l] = split(result & 0xffff);
+      setZeroCarry(zero(),result > 0xffff); pc++;
+    } else if (opcode === 0x17) {
+      const oldCarry = carry(), newCarry = (a & 0x80) !== 0;
+      a = ((a << 1) | Number(oldCarry)) & 0xff;
+      f = (f & ~1) | Number(newCarry); pc++;
+    } else if (opcode === 0x10) {
+      b = (b - 1) & 0xff;
+      const taken = b !== 0;
+      branch(pc,taken ? 'taken' : 'fallthrough');
+      pc = taken ? pc + 2 + relative(pc + 1) : pc + 2;
+    } else if ([0x20,0x28,0x30,0x38].includes(opcode)) {
+      const taken = conditional(opcode,pc);
+      pc = taken ? pc + 2 + relative(pc + 1) : pc + 2;
+    } else if (opcode === 0x18) {
+      pc = pc + 2 + relative(pc + 1);
+    } else if ([0xc0,0xc8,0xd0].includes(opcode)) {
+      if (conditional(opcode,pc)) pc = pop(); else pc++;
+    } else if (opcode === 0xc4) {
+      const taken = !zero();
+      branch(pc,taken ? 'taken' : 'fallthrough');
+      if (taken) throw new Error('point-preprocess oracle entered drawing hook');
+      pc += 3;
+    } else if (opcode === 0xcd) {
+      const target = word(pc + 1);
+      if (target === 0x42b5) pc = 0x40a8;
+      else { push(pc + 3); pc = target; }
+    } else if (opcode === 0xc3) {
+      pc = word(pc + 1);
+    } else if ([0xca,0xda].includes(opcode)) {
+      const taken = conditional(opcode,pc);
+      if (pc === 0x4207) {
+        if (!pendingAttempt) throw new Error('point-preprocess oracle lost attempt');
+        const event = {...pendingAttempt,effectiveX:b,effectiveY:c,accepted:!taken};
+        attempts.push(event);
+        if (!taken) points.push({x:b,y:c,mode:pendingAttempt.mode});
+        pendingAttempt = null;
+      }
+      pc = taken ? word(pc + 1) : pc + 3;
+    } else if (opcode === 0x37) {
+      f |= 1; pc++;
+    } else if (opcode === 0xc9) {
+      pc = pop();
+      if (pc === 0xffff) break;
+    } else {
+      throw new Error(
+        `point-preprocess oracle reached unsupported opcode 0x${opcode.toString(16)} at 04:${pc.toString(16)}`);
+    }
+  }
+  if (pc !== 0xffff)
+    throw new Error('point-preprocess oracle exceeded its instruction bound');
+  return {
+    styleStep:read(0x966c),previousX:read(0x9316),previousY:read(0x9315),
+    graphStyleFlagBit6:((iyBytes.get(0x19) || 0) & 0x40) !== 0,
+    attempts,points,branchOutcomes,
+  };
+}
+
+function runRawPointPipeline(x, y, mode, state) {
+  const preprocess = runRawPointPreprocess(x,y,mode,state.preprocess);
+  const lcdBytes = state.lcdBytes.slice();
+  const plotScreenBytes = state.plotScreenBytes.slice();
+  const appBackupScreenBytes = state.appBackupScreenBytes.slice();
+  const transitions = [];
+  const acceptedAttempts = preprocess.attempts.filter(attempt => attempt.accepted);
+  for (let index = 0; index < acceptedAttempts.length; index++) {
+    const point = acceptedAttempts[index];
+    const address = runRawPointAddress(point.effectiveX,point.effectiveY);
+    const offset = address.bufferOffset;
+    const raw = runRawPointState(
+      state.routing.pointFlags,state.routing.plotFlags,point.mode,
+      address.bitMask,lcdBytes[offset],plotScreenBytes[offset],
+      appBackupScreenBytes[offset],state.routing.lcdLowBitWorkaround,
+      address.lcdColumnCommand,address.lcdRowCommand,offset);
+    lcdBytes[offset] = raw.lcdByte;
+    plotScreenBytes[offset] = raw.plotScreenByte;
+    appBackupScreenBytes[offset] = raw.appBackupScreenByte;
+    transitions.push({
+      screenX:point.effectiveX,screenY:0x3f - point.effectiveY,
+      bufferOffset:offset,lcdByte:raw.lcdByte,
+      plotScreenByte:raw.plotScreenByte,
+      appBackupScreenByte:raw.appBackupScreenByte,
+      writes:raw.writes,
+    });
+  }
+  return {preprocess,transitions,lcdBytes,plotScreenBytes,appBackupScreenBytes};
 }
 
 function runRawDarkLine(graphX1, graphY1, graphX2, graphY2) {
@@ -2947,6 +3220,163 @@ expectEqual('39:6B1C endpoint', rom.fractionEndpoint(2, 0x17),
 expectEqual('39:5949 class-6 low slot', rom.multiArgumentRowStep(6, 2), 2);
 expectEqual('39:5949 class-6 high slot', rom.multiArgumentRowStep(6, 3), 1);
 expectEqual('39:5949 other class', rom.multiArgumentRowStep(5, 2), 1);
+const pointPreprocessBaseState = {
+  styleActive:false,fullScreenDraw:true,styleAxisFlag:false,
+  graphStyleFlagBit6:false,
+  style:0,stylePhase:0,styleStep:1,styleLimit:0x40,
+  previousX:0,previousY:0,xOffset:0,yOffset:0,screenWidth:0x60,
+};
+const normalizedPointPreprocess = result => ({
+  styleStep:result.styleStep,
+  previousX:result.previousX,previousY:result.previousY,
+  graphStyleFlagBit6:result.graphStyleFlagBit6,
+  attempts:result.attempts.map(event => ({
+    rawX:event.rawX,rawY:event.rawY,effectiveX:event.effectiveX,
+    effectiveY:event.effectiveY,mode:event.mode,accepted:event.accepted,
+  })),
+  points:result.points,
+  branchOutcomes:result.branchOutcomes,
+});
+expectEqual('04:4157 point preprocessing representative',
+  normalizedPointPreprocess(
+    rom.settledPage4PointPreprocess(9,2,1,pointPreprocessBaseState)),
+  normalizedPointPreprocess(
+    runRawPointPreprocess(9,2,1,pointPreprocessBaseState)));
+expectEqual('04:4157 preserves an existing graph-style flag bit',
+  rom.settledPage4PointPreprocess(9,2,1,{
+    ...pointPreprocessBaseState,graphStyleFlagBit6:true,
+  }).graphStyleFlagBit6,true);
+const expectPointPreprocessParity = (label, x, y, mode, state) => expectEqual(
+  label,
+  normalizedPointPreprocess(
+    rom.settledPage4PointPreprocess(x,y,mode,state)),
+  normalizedPointPreprocess(runRawPointPreprocess(x,y,mode,state)));
+let pointPreprocessStates = 0;
+for (const fullScreenDraw of [false,true]) {
+  for (let x = 0; x <= 0xff; x++) {
+    for (let y = 0; y <= 0xff; y++) {
+      const state = {...pointPreprocessBaseState,fullScreenDraw};
+      expectPointPreprocessParity(
+        `04:4157 direct bounds ${fullScreenDraw}/${x}/${y}`,
+        x,y,(x + y) & 3,state);
+      pointPreprocessStates++;
+    }
+  }
+}
+for (const screenWidth of [0,1,2,0x5f,0x60,0xff]) {
+  for (const fullScreenDraw of [false,true]) {
+    for (const xOffset of [0,1,0x7f,0xff]) {
+      for (const yOffset of [0,1,0x7f,0xff]) {
+        for (const x of [0,1,0x5e,0x5f,0x60,0xff]) {
+          for (const y of [0,1,0x3f,0x40,0xff]) {
+            const state = {...pointPreprocessBaseState,
+              screenWidth,fullScreenDraw,xOffset,yOffset};
+            expectPointPreprocessParity(
+              `04:4157 offset bounds ${screenWidth}/${fullScreenDraw}/${xOffset}/${yOffset}/${x}/${y}`,
+              x,y,(x ^ y) & 3,state);
+            pointPreprocessStates++;
+          }
+        }
+      }
+    }
+  }
+}
+for (const currentX of [0,1,2,0x3f,0x40,0x5f,0x60,0xfe,0xff]) {
+  for (const currentY of [0,1,2,0x3f,0x40,0xfe,0xff]) {
+    for (const previousX of [0,1,2,0x5f,0x60,0xfe,0xff]) {
+      for (const previousY of [0,1,2,0x3f,0x40,0xfe,0xff]) {
+        const state = {...pointPreprocessBaseState,
+          styleActive:true,style:1,previousX,previousY};
+        expectPointPreprocessParity(
+          `04:4196 thick ${currentX}/${currentY}/${previousX}/${previousY}`,
+          currentX,currentY,(currentX + currentY) & 3,state);
+        pointPreprocessStates++;
+      }
+    }
+  }
+}
+for (const style of [2,3]) {
+  for (const stylePhase of [0,1,2,3]) {
+    for (const styleStep of [1,2,3]) {
+      for (const styleAxisFlag of [false,true]) {
+        const effectiveStep = styleAxisFlag
+          ? styleStep : stylePhase < 2 ? 2 : 3;
+        for (let xRemainder = 0; xRemainder < effectiveStep; xRemainder++) {
+          for (let y = 0; y <= 0xff; y++) {
+            const state = {...pointPreprocessBaseState,
+              styleActive:true,style,stylePhase,styleStep,
+              styleAxisFlag,styleLimit:0x40};
+            expectPointPreprocessParity(
+              `04:40AD shade full ${style}/${stylePhase}/${styleStep}/${styleAxisFlag}/${xRemainder}/${y}`,
+              xRemainder,y,(xRemainder + y) & 3,state);
+            pointPreprocessStates++;
+          }
+          for (const styleLimit of [0,1,4]) {
+            for (const y of [0,1,2,0x3f,0xff]) {
+              const state = {...pointPreprocessBaseState,
+                styleActive:true,style,stylePhase,styleStep,
+                styleAxisFlag,styleLimit};
+              expectPointPreprocessParity(
+                `04:40AD shade limit ${style}/${stylePhase}/${styleStep}/${styleAxisFlag}/${styleLimit}/${xRemainder}/${y}`,
+                xRemainder,y,(xRemainder + y) & 3,state);
+              pointPreprocessStates++;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+for (let style = 0; style <= 0xff; style++) {
+  const state = {...pointPreprocessBaseState,styleActive:true,style};
+  expectPointPreprocessParity(`04:417A style dispatch ${style}`,
+    9,2,style & 3,state);
+  pointPreprocessStates++;
+}
+expectEqual('04:4157 point preprocessing differential state count',
+  pointPreprocessStates,0x20000 + 0x1680 + 0x3f * 0x31 + 0x6c00 +
+    0x654 + 0x100);
+const pointPipelineBytes = Array.from({length:0x300}, (_, index) =>
+  (index * 73 + 19) & 0xff);
+const normalizePointPipeline = result => ({
+  preprocess:normalizedPointPreprocess(result.preprocess),
+  transitions:result.transitions.map(item => {
+    const transition = item.transition || item;
+    return {
+      screenX:item.screenX,screenY:item.screenY,bufferOffset:item.bufferOffset,
+      lcdByte:transition.lcdByte,
+      plotScreenByte:transition.plotScreenByte,
+      appBackupScreenByte:transition.appBackupScreenByte,
+      writes:transition.writes.map(write => ({
+        target:write.target,address:write.address,
+        before:write.before,value:write.value,changed:write.changed,
+      })),
+    };
+  }),
+  lcdBytes:result.lcdBytes,
+  plotScreenBytes:result.plotScreenBytes,
+  appBackupScreenBytes:result.appBackupScreenBytes,
+});
+for (const [label,x,y,mode,preprocess,routing] of [
+  ['direct',9,2,1,pointPreprocessBaseState,
+    {pointFlags:0,plotFlags:2,lcdLowBitWorkaround:false}],
+  ['thick',0,1,1,{...pointPreprocessBaseState,
+    styleActive:true,style:1,previousX:0,previousY:0},
+    {pointFlags:4,plotFlags:0,lcdLowBitWorkaround:false}],
+  ['shaded',1,1,2,{...pointPreprocessBaseState,
+    styleActive:true,style:2,stylePhase:0,styleStep:1,styleLimit:8},
+    {pointFlags:8,plotFlags:2,lcdLowBitWorkaround:false}],
+]) {
+  const state = {
+    preprocess,routing,
+    lcdBytes:pointPipelineBytes,
+    plotScreenBytes:pointPipelineBytes.map(value => value ^ 0x55),
+    appBackupScreenBytes:pointPipelineBytes.map(value => value ^ 0xaa),
+  };
+  expectEqual(`04:4157 composed ${label} point pipeline`,
+    normalizePointPipeline(rom.settledPage4PointPipeline(x,y,mode,state)),
+    normalizePointPipeline(runRawPointPipeline(x,y,mode,state)));
+}
 for (let graphX = 0; graphX <= 0xff; graphX++) {
   for (let graphY = 0; graphY <= 0xff; graphY++) {
     expectEqual('04:42B5 exhaustive point-address byte flow',
