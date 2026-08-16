@@ -22,6 +22,7 @@ from analyze_mathprint_saturation import (
     editor_action03_controller_path,
     editor_action04_controller_path,
     editor_horizontal_viewport_path,
+    editor_vertical_viewport_path,
     editor_reverse_overflow_cue_path,
     editor_saved_operand_wrapper_path,
     embedded_viewport_path,
@@ -56,6 +57,7 @@ from analyze_mathprint_saturation import (
     symbolic_editor_action03_paths,
     symbolic_editor_action04_paths,
     symbolic_editor_horizontal_viewport_paths,
+    symbolic_editor_vertical_viewport_paths,
     symbolic_editor_reverse_overflow_cue_paths,
     symbolic_editor_saved_operand_wrapper_paths,
     symbolic_embedded_viewport_paths,
@@ -254,13 +256,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(1314, report["path_equivalence_class_count"])
-        self.assertEqual(1314, report["representative_path_corpus_count"])
-        self.assertEqual(181, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(1322, report["path_equivalence_class_count"])
+        self.assertEqual(1322, report["representative_path_corpus_count"])
+        self.assertEqual(187, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            95, report["per_domain_minimum_branch_outcome_corpus_count"]
+            97, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(20, len(report["domains"]))
+        self.assertEqual(21, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -334,6 +336,23 @@ class SymbolicHandlerTests(unittest.TestCase):
         wrapped = editor_horizontal_viewport_path(0xFFFF, 0, 1, 0)
         self.assertEqual(5, wrapped["comparison_coordinate"])
         self.assertEqual("return_before_right_bound", wrapped["terminal"])
+
+    def test_vertical_viewport_partitions_words_flags_and_callers(self) -> None:
+        paths = symbolic_editor_vertical_viewport_paths()
+
+        self.assertEqual(0x10000 * 0x10000 * 2 * 2, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(8, len(paths))
+        self.assertEqual({
+            "return_before_bottom_bound", "store_vertical_clip",
+        }, {row["terminal"] for row in paths})
+        reset = editor_vertical_viewport_path(2, 100, 1, 0)
+        self.assertTrue(reset["reset_previous_clip"])
+        self.assertEqual(0, reset["y_clip"])
+        wrapped = editor_vertical_viewport_path(0xFFFF, 0, 1, 0)
+        self.assertEqual(6, wrapped["comparison_coordinate"])
+        self.assertEqual("return_before_bottom_bound", wrapped["terminal"])
 
     def test_glyph_viewport_partitions_pen_clip_words_and_advances(self) -> None:
         paths = symbolic_glyph_viewport_paths()
@@ -947,6 +966,10 @@ class OracleCoverageTests(unittest.TestCase):
                 "accepted_write_sha256": "def",
                 "nodes": [{"render_type": 0}, {"render_type": 0x2A}],
             }],
+            "viewport_cases": [{
+                "expression": "1//1", "trace_sha256": "ghi",
+                "final_lcd_sha256": "jkl",
+            }],
         }
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "mathprint-test-oracles.json"
@@ -958,6 +981,9 @@ class OracleCoverageTests(unittest.TestCase):
             "record_oracle:type=0x00", "record_oracle:type=0x2A",
             "lcd_oracle:type=0x00", "lcd_oracle:type=0x2A",
         }, features["abc"])
+        self.assertEqual({
+            "oracle_case:mathprint-test-oracles:viewport_cases:jkl",
+        }, features["ghi"])
 
     def test_minimizes_trace_outcomes_deterministically(self) -> None:
         a = ("page_34", 0x5000, "taken")
@@ -1140,13 +1166,13 @@ class CheckedReportTests(unittest.TestCase):
         )
 
         self.assertEqual(2, report["schema"])
-        self.assertEqual(189, len(report["traces"]))
-        self.assertEqual(989, report["summary"]["branch_outcomes_observed"])
+        self.assertEqual(190, len(report["traces"]))
+        self.assertEqual(1005, report["summary"]["branch_outcomes_observed"])
         self.assertEqual(
-            986, report["summary"]["natural_branch_outcomes_observed"]
+            1002, report["summary"]["natural_branch_outcomes_observed"]
         )
         self.assertEqual(
-            1314,
+            1322,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(
@@ -1187,11 +1213,19 @@ class CheckedReportTests(unittest.TestCase):
             "7635aa5c7747a41132ab527b826b79d5dfeb87a5a472e404f3c332732b738203",
             list_radical["sha256"],
         )
+        vertical = next(
+            row for row in report["traces"]
+            if row["label"] == "nested-fraction-vclip"
+        )
+        self.assertEqual(
+            "14550292df84b68282500c4e19ccfd9f4ee160e6428585600ba2e1f37f699b3c",
+            vertical["sha256"],
+        )
         self.assertEqual(
             114, report["record_oracles"]["cases"]
         )
         self.assertEqual(
-            1252,
+            1269,
             report["minimized_dynamic_feature_corpus"]["covered_features"],
         )
 
