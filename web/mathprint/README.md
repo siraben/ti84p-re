@@ -162,13 +162,14 @@ record field, and the complete cursor-off LCD. The fraction case also retains
 the structural record's pre-edit `+13h` byte while replacing the `EF 1E`
 empty-slot token. Structural insertion, structural deletion, and boundary
 navigation remain outside this mutation slice.
-`editorInsertStructuralTemplate()` translates blank-root fraction insertion
-from source token `EF 2E`. It consumes the decoded arena because the next three
+`editorInsertStructuralTemplate()` translates fraction insertion from source
+token `EF 2E` at blank and populated root leaf-end cursors. A populated leaf
+moves its complete left payload into the numerator and selects the empty
+denominator. The function consumes the decoded arena because the next three
 record IDs and structural-depth byte are not present in the semantic cursor
-tree alone. A reset-origin transition verifies the marker, controller state,
-cursor AST, every reconstructed record field, and complete LCD output.
-Insertion into populated or nested leaves and other structural types remain
-separate.
+tree alone. Two reset-origin transitions verify the marker, controller state,
+cursor AST, every reconstructed record field, and complete LCD output. Nested
+or mid-leaf insertion and other structural types remain separate.
 `editorMovePackedTokenCursor()` translates ordinary in-leaf LEFT and RIGHT
 movement. A reset-origin `12` capture verifies the end, middle, and returned
 cursor states. The middle state also establishes that a cursor before existing
@@ -293,7 +294,7 @@ The text field accepts two input paths. Ordinary text uses a preview-specific
 semantic frontend; it does not drive the translated TI-OS editor state machine.
 A separate ROM-derived decoder reads captured live editor RAM, including its
 active gap leaf and cursor. The ROM engine can advance that state through an
-ordinary packed-token insertion, blank-root fraction-template insertion,
+ordinary packed-token insertion, root leaf-end fraction-template insertion,
 in-leaf cursor move, or packed-token deletion, but the browser does
 not yet expose the mutation API as an interactive calculator editor. A `hex:`
 prefix supplies

@@ -263,9 +263,10 @@ TRANSLATION_SURFACES = (
         "tests": ["tools/test-mathprint.js", "tools/mathprint-*-oracles.json"],
         "scope": (
             "supported native expression grammar plus one- and two-byte ordinary "
-            "editor insertion, blank-root fraction-template insertion, in-leaf packed-token "
-            "navigation, and packed-token deletion; other structural insertion, structural "
-            "deletion, and boundary navigation remain open"
+            "editor insertion, blank and populated root leaf-end fraction-template insertion, "
+            "in-leaf packed-token navigation, and packed-token deletion; nested or mid-leaf "
+            "structural insertion, other structural types, structural deletion, and boundary "
+            "navigation remain open"
         ),
     },
     {
@@ -291,10 +292,10 @@ TRANSLATION_SURFACES = (
         ],
         "scope": (
             "complete captured arenas, active-leaf substitution, nested cursor paths, "
-            "cursor-aware record reconstruction, ordinary packed-token insertion, "
-            "blank-root fraction-template insertion, in-leaf packed-token navigation, and "
-            "packed-token deletion with empty-slot restoration; populated or nested "
-            "structural insertion, other structural types, structural deletion, and "
+            "cursor-aware record reconstruction, ordinary packed-token insertion, blank and "
+            "populated root leaf-end fraction-template insertion, in-leaf packed-token "
+            "navigation, and packed-token deletion with empty-slot restoration; nested or "
+            "mid-leaf structural insertion, other structural types, structural deletion, and "
             "boundary navigation remain open"
         ),
     },
@@ -3994,10 +3995,11 @@ def open_paths(
             "reason": (
                 "the live 34:4A83/4ACE arena and 34:4AAF gap substitution round-trip "
                 "through cursor-annotated ASTs and reconstructed records; ordinary "
-                "one- and two-byte insertion, blank-root fraction-template insertion, "
-                "in-leaf packed-token navigation, and packed-token deletion with empty-slot "
-                "restoration are translated, but populated or nested structural insertion, "
-                "other structural types, structural deletion, and boundary navigation are not"
+                "one- and two-byte insertion, blank and populated root leaf-end fraction-template "
+                "insertion, in-leaf packed-token navigation, and packed-token deletion with "
+                "empty-slot restoration are translated, but nested or mid-leaf structural "
+                "insertion, other structural types, structural deletion, and boundary "
+                "navigation are not"
             ),
         },
         {
