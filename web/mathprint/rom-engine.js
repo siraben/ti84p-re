@@ -6496,9 +6496,11 @@
   // DEL on an EF 1Eh child can remove its containing structural record rather
   // than the empty-slot token. 34:44F4–4548 removes the six-byte marker from
   // the containing leaf, frees the structural record and its direct child
-  // leaves, and makes the containing leaf active. For the second child of a
-  // fraction (20h) or nth-root (24h), 34:451F–4534 first copies the first
-  // child's payload into the containing leaf; EF 1Eh contributes no bytes.
+  // leaves, and makes the containing leaf active. A fraction (20h) or nth-root
+  // (24h) takes 34:451F–4534, switches to the sibling child with XOR 3, and
+  // copies that child's payload into the containing leaf; EF 1Eh contributes
+  // no bytes. Other multi-argument types fall through to ordinary DEL, which
+  // leaves an EF 1Eh child unchanged.
   function editorDeleteStructuralTemplate(input) {
     if (!input || typeof input !== 'object' || !input.editor ||
         !input.editor.cursor || !Array.isArray(input.nodes) ||
@@ -6543,11 +6545,24 @@
       throw new RangeError(
         'active editor leaf is not one unique controller child');
 
+    if (children.length !== 1 && renderType !== 0x20 &&
+        renderType !== 0x24) return {
+      expression:input.editor.expression,
+      mutation:{
+        status:'protected-multi-argument-template',render_type:renderType,
+        structural_record_id:structuralId,child_count:children.length,
+        active_child_index:activeChildIndex,record_id:activeId,
+        byte_offset:activeOffset,
+        before_structural_depth:structuralDepth,
+        after_structural_depth:structuralDepth,
+        routine:'34:44F4–451C → 34:456C',
+      },
+    };
+
     let promotedChildId = null;
     let promoted = [];
-    if ((renderType === 0x20 || renderType === 0x24) &&
-        activeChildIndex === 1) {
-      promotedChildId = children[0];
+    if (renderType === 0x20 || renderType === 0x24) {
+      promotedChildId = children[activeChildIndex ^ 1];
       const sibling = input.nodes.find(node => nodeId(node) === promotedChildId);
       if (!sibling || nodeType(sibling) >= 0x1f ||
           !Array.isArray(sibling.payload))
@@ -6577,15 +6592,25 @@
     const parentId = nodeId(matches[0].node);
     const parentOffset = matches[0].index;
     const removed = new Set([structuralId,...children]);
-    const parentPayload = [
+    let parentPayload = [
       ...matches[0].node.payload.slice(0,parentOffset),
       ...promoted,
       ...matches[0].node.payload.slice(parentOffset + marker.length),
     ];
-    const nodes = input.nodes.filter(node => !removed.has(nodeId(node)))
+    const retained = input.nodes.filter(node => !removed.has(nodeId(node)));
+    const parentController = retained.find(node =>
+      nodeType(node) >= 0x1f && Array.isArray(nodeChildren(node)) &&
+      nodeChildren(node).includes(parentId));
+    if (!parentController)
+      throw new RangeError(
+        'structural deletion cannot find the containing controller');
+    const restoredEmptySlot = !parentPayload.length &&
+      nodeType(parentController) !== 0x1f;
+    if (restoredEmptySlot) parentPayload = [0xef,0x1e];
+    const nodes = retained
       .map(node => nodeId(node) === parentId ? {
         ...node,payload:parentPayload,word0F:parentOffset,
-        word11:parentPayload.length,
+        word11:restoredEmptySlot ? 0 : parentPayload.length,
       } : node);
     const decoded = decodeEditorExpressionGraph(
       nodes,input.entryId,parentId,parentOffset);
@@ -6600,9 +6625,10 @@
         promoted_payload:promoted,
         parent_record_id:parentId,
         parent_byte_offset:parentOffset,
+        restored_empty_slot:restoredEmptySlot,
         before_structural_depth:structuralDepth,
         after_structural_depth:structuralDepth - 1,
-        routine:'34:44F4–4548 → 34:47FF; 34:451F–4534 for 20h/24h second-child promotion',
+        routine:'34:44F4–4548 → 34:47FF; 34:451F–4534 for 20h/24h sibling promotion',
       },
     };
   }
