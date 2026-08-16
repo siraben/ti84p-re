@@ -1,0 +1,27 @@
+# MathPrint list whose first element raises the brace baseline.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key 2ND
+key LPAREN
+key 2ND
+key SQUARE
+key 2
+key RIGHT
+wait 0.35s
+wait 0.8s
+key COMMA
+key 1
+key 2ND
+key RPAREN
+key RIGHT
+wait 0.35s
+wait 0.8s
+wait 0.6s
+memdump /tmp/mathprint-list-radical.ram ram-logical
+screenshot /tmp/mathprint-list-radical.png

@@ -50,6 +50,8 @@ const editorOverflowOracle = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-editor-overflow-oracle.json')));
 const radicalViewportOracle = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-radical-viewport-oracles.json'))).cases[0];
+const listOracles = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools', 'mathprint-list-oracles.json')));
 
 function expectEqual(label, actual, expected) {
   if (JSON.stringify(actual) !== JSON.stringify(expected))
@@ -2534,6 +2536,30 @@ expectEqual('34:5D07 tall compound',
     {kind:'line',axis:'vertical',from:{x:23,y:8},to:{x:23,y:10},
      routine:'34:5D07 → 34:5D96'},
   ]);
+expectEqual('34:5E0F asymmetric opening brace order',
+  rom.settledBraceOperations('open', 10, 4, 9, 5), [
+    {kind:'point',x:14,y:4,routine:'34:5E0F → 34:5E85'},
+    {kind:'point',x:13,y:4,routine:'34:5E0F → 34:5E85'},
+    {kind:'line',axis:'vertical',from:{x:12,y:5},to:{x:12,y:8},
+     routine:'34:5E0F → 34:5D96'},
+    {kind:'point',x:11,y:9,routine:'34:5E0F → 34:5E85'},
+    {kind:'line',axis:'vertical',from:{x:12,y:10},to:{x:12,y:11},
+     routine:'34:5E0F → 34:5D96'},
+    {kind:'point',x:13,y:12,routine:'34:5E0F → 34:5E85'},
+    {kind:'point',x:14,y:12,routine:'34:5E0F → 34:5E85'},
+  ]);
+expectEqual('34:5E14 asymmetric closing brace order',
+  rom.settledBraceOperations('close', 20, 6, 9, 5), [
+    {kind:'point',x:20,y:6,routine:'34:5E14 → 34:5E85'},
+    {kind:'point',x:21,y:6,routine:'34:5E14 → 34:5E85'},
+    {kind:'line',axis:'vertical',from:{x:22,y:7},to:{x:22,y:10},
+     routine:'34:5E14 → 34:5D96'},
+    {kind:'point',x:23,y:11,routine:'34:5E14 → 34:5E85'},
+    {kind:'line',axis:'vertical',from:{x:22,y:12},to:{x:22,y:13},
+     routine:'34:5E14 → 34:5D96'},
+    {kind:'point',x:21,y:14,routine:'34:5E14 → 34:5E85'},
+    {kind:'point',x:20,y:14,routine:'34:5E14 → 34:5E85'},
+  ]);
 const settledRecord = (id, type, fields = {}, childIds = [], payload = []) => ({
   id, type, word03:0, word05:0, word07:0, word09:0, word0B:0,
   word0D:0, word0F:0, word11:0, byte13:0, ...fields, childIds, payload,
@@ -4289,6 +4315,34 @@ for (const oracle of groupingOracles.cases) {
   expectEqual(`${oracle.expression} browser grammar preserves the grouping AST`,
     browser.nodes, expectedBrowser.nodes);
 }
+for (const listCase of listOracles.cases) {
+  expectEqual(`${listCase.expression} encodes native list delimiters`,
+    rom.encodeSettledExpressionTokens(listCase.spec), listCase.native_tokens);
+  const program = rom.constructSettledProgramFromTokens(
+    listCase.native_tokens, 1, font);
+  expectEqual(`${listCase.expression} decodes semantic list elements`,
+    rom.decodeSettledExpressionGraph(program.nodes,program.entry_id),
+    listCase.spec);
+  const operations = rom.executeSettledRecordProgram(
+    program.nodes,program.entry_id,{glyphAdvance:settledGlyphAdvance});
+  const crop = cropInk(rom.rasterizeSettledOperations(operations,font).grid);
+  expectEqual(`${listCase.expression} reproduces captured list dimensions`,
+    [crop[0].length,crop.length],
+    [listCase.cropped_bitmap.width,listCase.cropped_bitmap.height]);
+  expectEqual(`${listCase.expression} reproduces captured list pixels`,
+    crypto.createHash('sha256').update(Buffer.from(crop.flat())).digest('hex'),
+    listCase.cropped_bitmap.sha256);
+  const browser = mp.constructedProgramForExpression(listCase.expression);
+  if (!browser)
+    throw new Error(`${listCase.expression} has no browser-constructed program`);
+  expectEqual(`${listCase.expression} browser grammar preserves list bytes`,
+    browser.native_tokens,listCase.native_tokens);
+}
+expectEqual('nested list payload retains semantic element boundaries',
+  rom.decodeSettledExpressionGraph(
+    rom.constructSettledProgramFromTokens(
+      [0x08,0x31,0x2b,0x08,0x32,0x2b,0x33,0x09,0x09],1,font).nodes,1),
+  {kind:'list',elements:[[0x31],{kind:'list',elements:[[0x32],[0x33]]}]});
 for (const oracle of structuralBaseOracles.cases) {
   const program = rom.constructSettledExpressionProgram(
     oracle.spec, oracle.entry_id, font);

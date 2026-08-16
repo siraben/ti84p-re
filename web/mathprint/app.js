@@ -343,6 +343,44 @@ function parens(box) {
   return hcat([lp, box, rp], 2);
 }
 
+// Native 08h/09h list delimiters use the brace geometry at 34:5E0F/5E14.
+// Each delimiter retains a six-pixel token advance. The waist follows the
+// enclosed expression's baseline, including an asymmetric structural child.
+function braces(box) {
+  const body = bh(box) ? box : text(' ');
+  const h = bh(body), baseline = body.baseline;
+  const bodyWidth = recordWidth(body);
+  const width = 6 + bodyWidth + 6;
+  const out = blank(h,width);
+  const marks = [];
+  const operations = ROM_ENGINE ? [
+    ...ROM_ENGINE.settledBraceOperations('open',0,0,h,baseline),
+    ...ROM_ENGINE.settledBraceOperations('close',6 + bodyWidth,0,h,baseline),
+  ] : [];
+  const set = (x,y) => {
+    if (0 <= x && x < width && 0 <= y && y < h) out[y][x] = 1;
+  };
+  for (const operation of operations) {
+    if (operation.kind === 'point') set(operation.x,operation.y);
+    else for (let y = operation.from.y; y <= operation.to.y; y++)
+      set(operation.from.x,y);
+    marks.push({
+      ch:operation.routine.startsWith('34:5E0F') ? '{' : '}',
+      x:operation.kind === 'point' ? operation.x : operation.from.x,
+      y:operation.kind === 'point' ? operation.y : operation.from.y,
+      w:1,
+      h:operation.kind === 'point' ? 1 : operation.to.y - operation.from.y + 1,
+      type:operation.kind === 'point' ? 'point' : 'rule',
+      via:operation.routine,
+    });
+  }
+  for (let y = 0; y < bh(body); y++)
+    for (let x = 0; x < bw(body); x++) if (body.rows[y][x])
+      out[y][6 + x] = 1;
+  marks.splice(7,0,...shift(body.marks,6,0));
+  return {rows:out,baseline,marks,recordWidth:width};
+}
+
 // Absolute-value record type 21h emits structural bars rather than large-font
 // "|" glyphs. The child is placed three pixels from the left record edge; the
 // handler draws both bars before entering the child renderer.
@@ -705,7 +743,9 @@ function parse(src, options = {}) {
     }
     return b;
   }
-  function isAtomStart(c) { return c && (/[A-Za-z0-9.]/.test(c) || c === '('); }
+  function isAtomStart(c) {
+    return c && (/[A-Za-z0-9.]/.test(c) || c === '(' || c === '{');
+  }
   function ident() { let j = i; while (/[A-Za-z]/.test(peek())) i++; return s.slice(j, i); }
   function number() { let j = i; while (/[0-9.]/.test(peek())) i++; return s.slice(j, i); }
 
@@ -731,6 +771,17 @@ function parse(src, options = {}) {
         marks: shift(p.marks, 1, 0),
       };
       return { ...lp, adv: bw(lp) + 1 };
+    }
+    if (eat('{')) {
+      const parts = [];
+      if (peek() !== '}' && peek()) parts.push(expr());
+      while (eat(',')) {
+        parts.push(text(','));
+        if (peek() === '}' || !peek()) break;
+        parts.push(expr());
+      }
+      eat('}');
+      return braces(parts.length ? hcatRun(parts,runGap()) : text(' '));
     }
     if (eat('-')) return hcat([glyphFor(0x1a), atom()], runGap());
     if (/[0-9.]/.test(peek())) return text(number());
@@ -1244,6 +1295,22 @@ function constructedSettledSpec(source) {
       return grouped.kind === 'fraction'
         ? grouped : {kind:'group',expression:grouped};
     }
+    if (source[offset] === '{') {
+      offset++;
+      const elements = [];
+      const first = expression();
+      if (!first) return null;
+      elements.push(first);
+      while (source[offset] === ',') {
+        offset++;
+        const element = expression();
+        if (!element) return null;
+        elements.push(element);
+      }
+      if (source[offset] !== '}') return null;
+      offset++;
+      return {kind:'list',elements};
+    }
     if (source[offset] === '-') {
       offset++;
       const operand = atom();
@@ -1440,6 +1507,7 @@ function constructedSettledSpec(source) {
     if (!first) return null;
     parts.push(first);
     const beginsImplicitFactor = () => source[offset] === '('
+      || source[offset] === '{'
       || source[offset] === '['
       || /[A-Z0-9.]/.test(source[offset] || '')
       || ['int(', 'integral(', 'fnInt(', 'sum(', 'nDeriv(', 'nthroot(', 'sqrt(',

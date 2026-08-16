@@ -290,6 +290,33 @@ class MathPrintRecordTests(unittest.TestCase):
             decode_settled_expression(nodes, 7),
         )
 
+    def test_decodes_nested_lists_and_structural_elements(self):
+        nodes = [
+            {"record_id": 1, "render_type": 0, "child_ids": [],
+             "payload": [
+                 0x08, 0x31, 0x2B, 0x08,
+                 0xEF, 0x27, 2, 0, 0xEF, 0x2D,
+                 0x2B, 0x33, 0x09, 0x09,
+             ]},
+            {"record_id": 2, "render_type": 0x27, "child_ids": [3],
+             "payload": []},
+            {"record_id": 3, "render_type": 0, "child_ids": [],
+             "payload": [0x32]},
+        ]
+        self.assertEqual(
+            {
+                "kind": "list",
+                "elements": [
+                    [0x31],
+                    {"kind": "list", "elements": [
+                        {"kind": "radical", "radicand": [0x32]},
+                        [0x33],
+                    ]},
+                ],
+            },
+            decode_settled_expression(nodes, 1),
+        )
+
     def test_group_tokens_do_not_split_a_two_byte_native_token(self):
         self.assertEqual(
             [0x5E, 0x10],
@@ -469,6 +496,20 @@ class MathPrintRecordTests(unittest.TestCase):
             case["spec"],
             decode_settled_expression(case["nodes"], case["wrapper_id"]),
         )
+
+    def test_decodes_the_captured_list_oracles(self):
+        document = json.loads(
+            Path(__file__).with_name(
+                "mathprint-list-oracles.json"
+            ).read_text()
+        )
+        for case in document["cases"]:
+            with self.subTest(expression=case["expression"]):
+                self.assertEqual(
+                    case["spec"],
+                    decode_settled_expression(
+                        case["nodes"], case["wrapper_id"]),
+                )
 
     def test_captures_leaf_payload_from_offset_13(self):
         memory = bytearray(0x10000)

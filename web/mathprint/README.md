@@ -26,6 +26,7 @@ reader-facing write-up is
 | `tools/mathprint-structural-base-oracles.json` | fresh structural power-base and nested absolute/radical graphs plus accepted-write hashes |
 | `tools/mathprint-named-token-oracles.json` | fresh counted-token spelling graphs plus accepted-write hashes in flat, raised, and structural contexts |
 | `tools/mathprint-two-byte-token-oracles.json` | fresh list, matrix-name, equation-variable, and string-variable graphs plus accepted-write and framebuffer hashes |
+| `tools/mathprint-list-oracles.json` | natural flat and radical-element list graphs, traces, screenshots, and cropped pixel hashes |
 
 `rom-engine.js` translates handler lookup, row-cell emission, direct-glyph and
 delimiter classification, `_KeyToString` index arithmetic, descriptor selection
@@ -280,6 +281,11 @@ body contains a power. Parentheses remain `0x10`/`0x11` leaf tokens. The
 renderer routes them through the compound-shape routines at `34:5D1A` and
 `34:5D07`, matching every accepted LCD write. The browser does not fetch
 `record-programs.json` for generated rendering.
+Two native-list traces cover `{1,2}` and `{sqrt(2),1}`. The parser preserves
+`08h`/`09h` element boundaries in semantic list nodes. The renderer follows the
+brace paths at `34:5E0F` and `34:5E14`; the waist aligns with the enclosed
+baseline. Both generated cropped bitmaps match the calculator exactly. Nested
+lists and structural elements use the same native-byte constructor.
 Three structural-composition traces cover `sqrt(X)^2`, `abs(X)^2`, and
 `abs(sqrt(X^2+1))`. Their generated graphs match every record field. Their
 complete accepted LCD streams contain 35, 33, and 113 writes, respectively.
