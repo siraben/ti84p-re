@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-72d2cd3e.js";
+            window.path_to_searchindex_js = "searchindex-3109203f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -13910,15 +13910,23 @@ a menu covers it). [confirmed]</li>
 <pre><code class="language-pseudocode">(0x844F) = (x &gt;&gt; 3) | 0x20     ; LCD byte-column command for the horizontal group
 (0x8451) = (0x3F - y) | 0x80   ; LCD row command, vertically mirrored
 returns (table_42E4)[x &amp; 7]    ; the 1-of-8 bit mask within the byte (bit = x mod 8)
+HL = 3 * ((4 * display_row) &amp; 0xFF) + (x &gt;&gt; 3)
 </code></pre>
 <p>This maps a <code>(x,y)</code> pixel to a byte+bit in the buffer and produces the matching LCD
-command bytes. [confirmed]</p>
-<p><code>_IPoint</code> (<code>04:4157</code>): set/clear/test one pixel in <code>plotSScreen</code>. Honors the current
-pen mode / plot style: reads style at <code>(IY+0x14)</code> and a style selector at <code>0x9775</code>
-(<code>0x9775</code> = 1 selects the “thick/line connect” branch that draws an extra adjacent
-pixel; 1..3 select dotted/animated styles), clips against the X-offset (<code>XOffset</code>) and the
-buffer bounds (<code>_IBounds</code>), then OR/AND/XORs the mask from <code>_IOffset</code>. <code>_PointOn</code>
-(<code>04:4155</code>) is the plain set-pixel entry. [confirmed]</p>
+command bytes. Adding <code>HL</code> to <code>0x9340</code> addresses <code>plotSScreen</code>; adding it to
+<code>0x9872</code> addresses <code>appBackUpScreen</code>. [confirmed]</p>
+<p><code>_IPoint</code> (<code>04:4157</code>) applies one of four byte operations selected by <code>D</code>: <code>0</code>
+clears the mask, <code>1</code> sets it, <code>2</code> XORs it, and <code>3</code> tests it without writing.
+<code>_PointOn</code> (<code>04:4155</code>) fixes <code>D=1</code>. The style path at <code>04:4173</code> can emit adjacent
+points before the byte operation; the drawing hook at <code>04:415A</code> can replace the
+normal path. [confirmed]</p>
+<p>The normal path routes the byte through <code>(IY+3Ch)</code> and <code>plotFlags.1</code> at
+<code>(IY+02h)</code>. Routing bit 3 selects <code>appBackUpScreen</code> without LCD I/O. Bit 0
+selects the corresponding direct <code>plotSScreen</code> route. When both are clear,
+the routine reads and writes the LCD controller. <code>plotFlags.1</code> preserves
+<code>plotSScreen</code> and uses the LCD byte as the source; clearing it uses and rewrites
+the RAM byte. Routing bit 2 also stores the result in <code>appBackUpScreen</code>.
+[confirmed]</p>
 <p><code>_PixelTest</code> (<code>04:79E7</code>): the <code>pxl-Test(</code> command — validates the row/col against the
 current graph dimensions <code>lcdTallP</code> (<code>0x8DA3</code>) and <code>pixWide_m_1</code> (<code>0x8DA5</code>) — 63 and 95 on a
 full screen, smaller when split — maps the split-screen offset, and returns whether that buffer
@@ -15004,7 +15012,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 27 finite models. It also computes an
+complete path-equivalence class in 28 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -15022,6 +15030,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Eight-byte raised-name loop</td><td style="text-align: right">24,977,631,672,321</td><td style="text-align: right">1,021</td><td style="text-align: right">10</td><td style="text-align: right">4</td></tr>
 <tr><td>Shared marker draw helper</td><td style="text-align: right">33,554,432</td><td style="text-align: right">14</td><td style="text-align: right">26</td><td style="text-align: right">13</td></tr>
 <tr><td>Settled render nesting tail</td><td style="text-align: right">16,777,216</td><td style="text-align: right">15</td><td style="text-align: right">24</td><td style="text-align: right">11</td></tr>
+<tr><td>Point mode and buffer routing</td><td style="text-align: right">2,048</td><td style="text-align: right">28</td><td style="text-align: right">22</td><td style="text-align: right">5</td></tr>
 <tr><td>Metric marker-tail gate</td><td style="text-align: right">16</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">5</td></tr>
 <tr><td>Editor action <code>0x03</code> controller</td><td style="text-align: right">131,072</td><td style="text-align: right">11</td><td style="text-align: right">9</td><td style="text-align: right">4</td></tr>
 <tr><td>Editor action <code>0x04</code> controller</td><td style="text-align: right">131,072</td><td style="text-align: right">5</td><td style="text-align: right">5</td><td style="text-align: right">3</td></tr>
@@ -15044,8 +15053,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 27 models contain 1,360 path classes and 252 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 128 representatives. Each
+<p>The 28 models contain 1,388 path classes and 274 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 133 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -16004,12 +16013,32 @@ and <code>34:5DEF</code>. Its closed tail at <code>34:5E98</code>–<code>34:5EA
 <code>C=63-y</code>, and <code>D=1</code> to <code>_PointOn</code> at <code>04:4155</code>. Dynamic samples include
 <code>(x,y)=(3,0)</code> → <code>BC=033Fh</code> and <code>(32,20)</code> → <code>BC=202Bh</code>. [confirmed]</p>
 <p><code>04:42B5</code>–<code>04:42E3</code> converts the graph coordinate into the point mask, LCD
-commands, and plot-buffer offset. It selects <code>80h &gt;&gt; (x &amp; 7)</code>, uses <code>x &gt;&gt; 3</code>
+commands, and buffer offset. It selects <code>80h &gt;&gt; (x &amp; 7)</code>, uses <code>x &gt;&gt; 3</code>
 as the byte column, and computes <code>3 * ((4 * display_row) &amp; FFh) + byte_column</code>.
 The row multiplication keeps its intermediate in one byte. Rows <code>40h</code>–<code>7Fh</code>
 therefore alias rows <code>00h</code>–<code>3Fh</code> before the column is added. <code>_PointOn</code> fixes
 <code>D=1</code>, so <code>04:424D</code>–<code>04:4254</code> ORs that mask into the current byte. MathPrint’s
 wrapper clips to the 96×64 display before this entry. [confirmed]</p>
+<p>The offset addresses <code>plotSScreen</code> at <code>0x9340</code> and <code>appBackUpScreen</code> at
+<code>0x9872</code>. <code>04:424C</code>–<code>04:42B4</code> maps <code>D=0</code>, <code>1</code>, <code>2</code>, and <code>3</code> to clear, set,
+XOR, and test. Test returns the masked bit without writing. The other modes
+route the resulting byte according to <code>(IY+3Ch)</code> and <code>plotFlags.1</code> at
+<code>(IY+02h)</code>. Bit 3 selects <code>appBackUpScreen</code> and bypasses LCD I/O. Otherwise,
+bit 0 selects the same direct-RAM route through <code>plotSScreen</code>. With both bits
+clear, the routine reads and writes the LCD. <code>plotFlags.1</code> chooses the LCD byte
+as the source and preserves <code>plotSScreen</code>; clearing it selects and rewrites the
+RAM byte. Bit 2 mirrors the result to <code>appBackUpScreen</code>. [confirmed]</p>
+<p>Retained MathPrint traces take the LCD route: <code>(IY+3Ch)</code> bits 3, 2, and 0 are
+clear, while <code>plotFlags.1</code> is set. The translated renderer therefore reads the
+current LCD byte, applies the point mode, and emits the accepted controller
+write without modifying either RAM buffer. A raw interpreter checks all four
+modes, every source byte, all eight masks, every <code>(IY+3Ch)</code> byte, and both
+values of <code>plotFlags.1</code>. This covers 524,288 routing transitions in addition to
+the 8,192 isolated mode/mask transitions. [confirmed]</p>
+<p><code>04:426B</code> contains a controller-dependent workaround. When the hardware check
+returns NZ, byte column 5 and rows before command <code>B7h</code> force result bit 0 on
+the LCD write. The state transition exposes that condition explicitly. It does
+not apply the modified LCD byte to either RAM destination. [confirmed]</p>
 <p>The JavaScript translation matches a raw interpreter of the pinned helper
 bytes for all 65,536 input-coordinate pairs. A second exhaustive comparison
 covers every previous byte for each visible coordinate: 1,572,864 point-on
@@ -16045,9 +16074,9 @@ visits. [confirmed]</p>
 endpoint pairs for horizontal and vertical lines. It also checks all 65,536
 nonnegative delta pairs, which covers every major/minor ratio and signed-error
 sequence. Separate reverse-direction cases cover the direction branches.
-Physical MathPrint lines now compose this stepper with the translated point-on
-byte transition. Drawing-hook dispatch and non-dark point modes remain outside
-this translation. [confirmed]</p>
+Physical MathPrint lines now compose this stepper with the translated point
+state transition. Drawing-hook dispatch remains outside this translation.
+[confirmed]</p>
 <p>The structural handlers retain coordinates and dimensions as 16-bit words.
 For example, <code>34:62B4</code>–<code>34:62C3</code> reads a radical child’s width word, increments
 <code>DE</code> three times, and passes the resulting word endpoint to <code>34:5DA6</code>.

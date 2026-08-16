@@ -1486,34 +1486,144 @@
       displayRow,
       rowTimesFour,
       bufferOffset,
-      plotBufferAddress:(0x9872 + bufferOffset) & 0xffff,
-      backupBufferAddress:(0x9340 + bufferOffset) & 0xffff,
+      appBackupScreenAddress:(0x9872 + bufferOffset) & 0xffff,
+      plotScreenAddress:(0x9340 + bufferOffset) & 0xffff,
       lcdColumnCommand,
       lcdRowCommand,
       routine:'04:42B5–42E3',
     };
   }
 
-  // MathPrint clips to the 96x64 visible screen before entering _PointOn at
-  // 04:4155, although the entry itself accepts byte coordinates. It fixes D=1,
-  // so 04:424D–4254 selects OR and sets exactly the bit returned by the address
-  // helper. Supplying the current LCD byte makes the byte transition explicit.
-  function settledPage4PointOnTransition(xValue, yValue, beforeValue) {
+  // With the drawing hook disabled, 04:424C–42B4 dispatches D=0 through D=3
+  // as clear, set, XOR, and test. The test path returns before any LCD or RAM
+  // store. Supplying the selected source byte makes that transition explicit;
+  // buffer-source and destination flags are modeled separately from the mode.
+  function settledPage4PointTransition(
+    xValue, yValue, modeValue, beforeValue) {
     const x = byte(xValue, 'page-4 point-on x');
     const y = byte(yValue, 'page-4 point-on y');
+    const mode = byte(modeValue, 'page-4 point mode');
+    if (mode > 3)
+      throw new RangeError('page-4 point mode must be 0, 1, 2, or 3');
     const before = byte(beforeValue, 'page-4 point-on previous byte');
     const address = settledPage4PointAddress(x,(0x3f - y) & 0xff);
-    const after = before | address.bitMask;
+    const testValue = before & address.bitMask;
+    const after = mode === 0 ? before & ~address.bitMask :
+      mode === 1 ? before | address.bitMask :
+      mode === 2 ? before ^ address.bitMask : before;
+    const write = mode !== 3;
     return {
       x,
       y,
+      mode,
       before,
       after,
-      changed:before !== after,
+      write,
+      changed:write && before !== after,
+      testValue:mode === 3 ? testValue : null,
+      testZero:mode === 3 ? testValue === 0 : null,
       pointer:[address.byteColumn,y],
       ...address,
-      mode:1,
-      operation:'OR',
+      operation:['CLEAR','SET','XOR','TEST'][mode],
+      routine:'04:4157 → 04:424C–42B4 → 04:42B5–42E3',
+    };
+  }
+
+  // 04:4215–4299 selects the source and destinations around the byte-mode
+  // transition. Bit 3 substitutes appBackUpScreen for plotSScreen, bit 0
+  // suppresses controller I/O, and bit 2 mirrors the result to
+  // appBackUpScreen. (IY+02h).1 independently preserves the selected RAM
+  // byte. MathPrint uses pointFlags=00h and
+  // plotFlags.1=1: read and write only the LCD controller byte.
+  function settledPage4PointStateTransition(
+    xValue, yValue, modeValue, state) {
+    if (!state || typeof state !== 'object' || Array.isArray(state))
+      throw new TypeError('page-4 point state must be an object');
+    const pointFlags = byte(state.pointFlags, 'page-4 point flags');
+    const plotFlags = byte(state.plotFlags, 'page-4 plot flags');
+    const lcdByte = byte(state.lcdByte, 'page-4 point LCD byte');
+    const plotScreenByte = byte(
+      state.plotScreenByte, 'page-4 point plotSScreen byte');
+    const appBackupScreenByte = byte(
+      state.appBackupScreenByte, 'page-4 point appBackUpScreen byte');
+    if (state.lcdLowBitWorkaround !== undefined &&
+        typeof state.lcdLowBitWorkaround !== 'boolean')
+      throw new TypeError('page-4 LCD low-bit workaround must be boolean');
+    const address = settledPage4PointAddress(
+      byte(xValue, 'page-4 point-state x'),
+      (0x3f - byte(yValue, 'page-4 point-state y')) & 0xff);
+    const useAppAsSecondary = (pointFlags & 0x08) !== 0;
+    const suppressLcd = (pointFlags & 0x01) !== 0;
+    const preserveSecondary = (plotFlags & 0x02) !== 0;
+    const mirrorApp = (pointFlags & 0x04) !== 0;
+    const secondaryKind = useAppAsSecondary
+      ? 'appBackUpScreen' : 'plotSScreen';
+    const secondaryByte = useAppAsSecondary
+      ? appBackupScreenByte : plotScreenByte;
+    const bypassLcd = useAppAsSecondary || suppressLcd;
+    const sourceKind = bypassLcd || !preserveSecondary
+      ? secondaryKind : 'lcd';
+    const sourceValue = bypassLcd || !preserveSecondary
+      ? secondaryByte : lcdByte;
+    const transition = settledPage4PointTransition(
+      xValue,yValue,modeValue,sourceValue);
+    const writes = [];
+    let nextLcdByte = lcdByte;
+    let nextPlotScreenByte = plotScreenByte;
+    let nextAppBackupScreenByte = appBackupScreenByte;
+    if (transition.write) {
+      if (!useAppAsSecondary && !suppressLcd) {
+        const workaround = state.lcdLowBitWorkaround === true &&
+          address.lcdColumnCommand === 0x25 && address.lcdRowCommand < 0xb7;
+        const value = transition.after | (workaround ? 1 : 0);
+        writes.push({
+          target:'lcd',pointer:[address.byteColumn,transition.y],
+          before:lcdByte,value,changed:lcdByte !== value,
+        });
+        nextLcdByte = value;
+      }
+      if (bypassLcd || !preserveSecondary) {
+        const before = useAppAsSecondary
+          ? nextAppBackupScreenByte : nextPlotScreenByte;
+        writes.push({
+          target:secondaryKind,
+          address:useAppAsSecondary
+            ? address.appBackupScreenAddress : address.plotScreenAddress,
+          before,value:transition.after,changed:before !== transition.after,
+        });
+        if (useAppAsSecondary) nextAppBackupScreenByte = transition.after;
+        else nextPlotScreenByte = transition.after;
+      }
+      if (mirrorApp) {
+        writes.push({
+          target:'appBackUpScreen',address:address.appBackupScreenAddress,
+          before:nextAppBackupScreenByte,value:transition.after,
+          changed:nextAppBackupScreenByte !== transition.after,
+        });
+        nextAppBackupScreenByte = transition.after;
+      }
+    }
+    return {
+      ...transition,
+      pointFlags,
+      plotFlags,
+      sourceKind,
+      sourceValue,
+      lcdRead:!bypassLcd,
+      secondaryKind,
+      lcdByte:nextLcdByte,
+      plotScreenByte:nextPlotScreenByte,
+      appBackupScreenByte:nextAppBackupScreenByte,
+      writes,
+      routine:'04:4157 → 04:4215–42B4 → 04:42B5–42E3',
+    };
+  }
+
+  // MathPrint clips to the 96x64 visible screen before entering _PointOn at
+  // 04:4155. That entry fixes D=1 and therefore selects the set transition.
+  function settledPage4PointOnTransition(xValue, yValue, beforeValue) {
+    return {
+      ...settledPage4PointTransition(xValue,yValue,1,beforeValue),
       routine:'34:5E98–5EA6 → 04:4155 → 04:42B5–42E3',
     };
   }
@@ -9561,7 +9671,14 @@
         // audit canvases retain object pixels beyond FFh so long expressions
         // can be inspected, although those coordinates cannot reach 04:4155.
         const after = x <= 0xff && y <= 0xff
-          ? settledPage4PointOnTransition(x,y,before).after
+          ? settledPage4PointStateTransition(x,y,1,{
+            pointFlags:0,
+            plotFlags:0x02,
+            lcdByte:before,
+            plotScreenByte:0,
+            appBackupScreenByte:0,
+            lcdLowBitWorkaround:false,
+          }).lcdByte
           : before | 1 << (7 - (x & 7));
         write(byteColumn,y,after,true);
       }
@@ -9790,6 +9907,8 @@
     multiArgumentRowStep,
     settledPointOperation,
     settledPage4PointAddress,
+    settledPage4PointTransition,
+    settledPage4PointStateTransition,
     settledPage4PointOnTransition,
     settledPage4DarkLineTrace,
     settledVerticalOperation,
