@@ -1347,6 +1347,87 @@ def symbolic_editor_vertical_viewport_paths() -> list[dict[str, object]]:
     ]
 
 
+def editor_vertical_cue_path(
+    record_height: int,
+    y_clip: int,
+    bottom_bound: int = 0x3E,
+) -> dict[str, object]:
+    """Return one path through 34:6000–6015 and 34:60A0–60B7."""
+
+    if not 1 <= record_height <= 0xFFFF:
+        raise ValueError("vertical-cue record height must be 1..65535")
+    y_clip &= 0xFFFF
+    bottom_bound &= 0xFF
+    show_up = y_clip != 0
+    endpoint = record_height - 1
+    endpoint_before_clip = endpoint < y_clip
+    outcomes = [f"34:6009:{'fallthrough' if show_up else 'taken'}"]
+    outcomes.append(
+        f"34:60B3:{'fallthrough' if endpoint_before_clip else 'taken'}"
+    )
+    visible_endpoint = None
+    show_down = False
+    if not endpoint_before_clip:
+        visible_endpoint = endpoint - y_clip
+        show_down = visible_endpoint >= bottom_bound
+        outcomes.append(
+            f"34:5E01:{'taken' if show_down else 'fallthrough'}"
+        )
+    outcomes.append(
+        f"34:6011:{'fallthrough' if show_down else 'returned'}"
+    )
+    return {
+        "terminal": (
+            "draw_both_cues" if show_up and show_down
+            else "draw_upper_cue" if show_up
+            else "draw_lower_cue" if show_down
+            else "return_without_cue"
+        ),
+        "show_up": show_up,
+        "show_down": show_down,
+        "endpoint": endpoint,
+        "endpoint_before_clip": endpoint_before_clip,
+        "visible_endpoint": visible_endpoint,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_editor_vertical_cue_paths() -> list[dict[str, object]]:
+    """Partition every valid record-height/clip word pair analytically."""
+
+    low_endpoints = 0x3E
+    high_endpoints = 0xFFFF - low_endpoints
+    borrow_count = 0xFFFF * 0x10000 // 2
+    clipped_hidden_count = (
+        low_endpoints * (low_endpoints + 1) // 2
+        + (0xFFFF - low_endpoints - 1) * low_endpoints
+    )
+    clipped_shown_count = sum(range(1, 0xFFFF - low_endpoints))
+    rows = (
+        (1, 0, low_endpoints),
+        (low_endpoints + 1, 0, high_endpoints),
+        (1, 1, borrow_count),
+        (2, 1, clipped_hidden_count),
+        (low_endpoints + 2, 1, clipped_shown_count),
+    )
+    result = []
+    for record_height, y_clip, multiplicity in rows:
+        path = editor_vertical_cue_path(record_height, y_clip)
+        result.append({
+            **path,
+            "projected_input_count": multiplicity,
+            "representative_states": [{
+                "record_height": record_height,
+                "y_clip": y_clip,
+                "bottom_bound": 0x3E,
+            }],
+        })
+    expected = 0xFFFF * 0x10000
+    if sum(row["projected_input_count"] for row in result) != expected:
+        raise AssertionError("vertical-cue classes do not partition their domain")
+    return result
+
+
 def glyph_viewport_path(
     logical_pen: int,
     advance: int,
@@ -2750,6 +2831,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             "34:5F8B",
             0x10000 * 0x10000 * 2 * 2,
             symbolic_editor_vertical_viewport_paths(),
+        ),
+        (
+            "editor_vertical_cues",
+            "34:6000–6015; 34:60A0–60B7",
+            0xFFFF * 0x10000,
+            symbolic_editor_vertical_cue_paths(),
         ),
         (
             "glyph_viewport_gates",

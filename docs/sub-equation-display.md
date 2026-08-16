@@ -573,7 +573,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 21 finite models. It also computes an
+complete path-equivalence class in 22 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -592,6 +592,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Reverse argument-overflow cue | 65,536 | 2 | 2 | 2 |
 | Editor horizontal viewport | 17,179,869,184 | 8 | 6 | 2 |
 | Editor vertical viewport | 17,179,869,184 | 8 | 6 | 2 |
+| Editor vertical overflow cues | 4,294,901,760 | 5 | 8 | 3 |
 | Glyph viewport gates | 30,064,771,072 | 3 | 4 | 3 |
 | Embedded-record viewport gate | 4,294,967,296 | 2 | 2 | 2 |
 | Record-allocation capacity | 36,893,488,147,419,103,232 | 6 | 6 | 2 |
@@ -602,8 +603,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha candidate reducer | 288 | 25 | 17 | 10 |
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 
-The 21 models contain 1,322 path classes and 187 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 97 representatives. Each
+The 22 models contain 1,327 path classes and 195 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 100 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -1935,8 +1936,23 @@ pixel. Its SHA-256 is
 `tools/mathprint-vertical-viewport-oracle.json` records the ROM, trace, RAM,
 LCD-write, and crop hashes;
 `tools/macros/mathprint-nested-fraction-vertical.macro` reproduces the natural
-entry. Editor up/down chrome is a separate write stream and is not included in
-the settled-expression crop. [confirmed]
+entry. [confirmed]
+
+`34:6000`–`34:6015` appends the vertical editor chrome after the settled
+expression. A nonzero `ram:8E04` clip calls bcall `53DAh`; its body at
+`35:7116` draws the upper cue from the four rows at `35:717D`. `34:60A0` loads
+the root height, subtracts one and the clip, and applies the same bottom-bound
+comparison as `34:5DF8`. A remaining endpoint at or beyond the bound calls
+bcall `53D7h`; `35:715B` draws the lower cue from `35:7182`. [confirmed]
+
+The normal home editor centers both seven-pixel cells from the horizontal
+bound at `ram:8DFC`, giving $x=44$. Their top rows are 0–3 and 58–61. The final
+16 accepted writes in the natural trace exactly match the translated byte
+columns, rows, values, and order. Appending them produces the complete 96×64
+calculator LCD with zero pixel differences; its flat-byte SHA-256 is
+`5e34c3710b0dbe45c5f8a8152fbc9db81ac098faa5698df429f5793ec6876d99`.
+The 17×61 crop above deliberately excludes this separate chrome stream.
+[confirmed]
 
 The visible expression therefore begins at effective $x=-17$, while the cursor
 cell begins at $x=89$. When `ram:8E02` is nonzero, `34:5FF2` calls `34:6031`.
