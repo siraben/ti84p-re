@@ -3,16 +3,17 @@
 MathPrint is the OS subsystem that turns a tokenized expression into a two-dimensional
 screen layout. It is used by the homescreen entry line, the Y= editor, the Solver
 equation line, and the template menus. Page `39` handles template editing and
-record selection. The settled homescreen redraw traverses display objects on
-page `34`. Both paths drive the services described in [Display and LCD](display-lcd.md).
+record selection. The live editor and settled homescreen redraw traverse
+display objects on page `34`. Both paths drive the services described in
+[Display and LCD](display-lcd.md).
 It consumes the token stream described in [Tokenizer & TI-BASIC](tokenizer-basic.md)
 and preserves the OP registers described in [Floating-point engine](floating-point.md).
 
 The editor path is a cell-grid typesetter. The OS classifies each token, selects
 a compact handler record, walks the expression into rows and slots, maps each
 cell to pixel coordinates, and emits glyphs or graph-buffer rules. A page `34`
-object walker redraws the settled expression through page `01` glyph output and
-page `04` line and point routines. [confirmed]
+object walker redraws the record graph through page `01` glyph output and page
+`04` line and point routines. [confirmed]
 
 ```mermaid
 flowchart TD
@@ -30,40 +31,44 @@ flowchart TD
 ```
 
 The diagram shows the page `39` editor path. It does not describe the page `34`
-settled-expression walker. [confirmed]
+record-graph walker. [confirmed]
 
-## Two equation representations
+## Editor state and record graph
 
-MathPrint uses two related representations. The page `39` editor path treats an
-expression as token classes, handler rows, argument slots, and packed `D:E`
-display cells. The class table at `39:5E45` contains 68 entries. Sixty-six
-entries point to decoded handler records; the class-`0x00` pointer does not
-decode as a page `39` handler, and class `0x13` has a null pointer. [confirmed]
+MathPrint keeps native token bytes in an editor gap buffer and maintains a live
+arena of numbered records. Page `39` treats the active expression as token
+classes, handler rows, argument slots, and packed `D:E` display cells. The
+class table at `39:5E45` contains 68 entries. Sixty-six entries point to decoded
+handler records; the class-`0x00` pointer does not decode as a page `39`
+handler, and class `0x13` has a null pointer. [confirmed]
 
-The settled page `34` path uses an arena of numbered records. A leaf record
+Page `34` allocates the record arena while the editor is active. A leaf record
 contains a token program. A structural record contains a fixed header followed
-by child record IDs. The two representations therefore are not one shared AST:
-page `39` composes editable rows and cells, while page `34` traverses a settled
-record graph. The conversion from the complete in-progress editor state to the
-first record allocated by `34:4900` remains open. [confirmed]
+by child record IDs. `34:4ACE` walks the structural region, and `34:4A83` walks
+the leaf region. `34:4AAF` substitutes the active gap-buffer payload when the
+leaf pointer equals the word at `0x8DC2`. The record graph therefore preserves
+the editable equation tree before evaluation; page `39` row and cell state is
+the transient layout view of that live equation. [confirmed]
 
 ```mermaid
 flowchart LR
-    tokens["Native token bytes"] --> editor["Page 39 editor state<br/>classes, rows, slots, D:E cells"]
-    editor -. "conversion boundary still open" .-> build["34:4900 construction pass"]
-    tokens --> scan["34:58F9 / 34:5A99<br/>token and argument scans"]
+    tokens["Native token bytes"] --> gap["Editor gap buffer<br/>active leaf bytes"]
+    gap --> editor["Page 39 layout state<br/>classes, rows, slots, D:E cells"]
+    gap --> scan["34:58F9 / 34:5A99<br/>token and argument scans"]
     scan --> build
-    build --> graph["Settled record arena<br/>leaf programs + structural child IDs"]
+    build["34:4900 record allocation"] --> graph["Live record arena<br/>leaf programs + structural child IDs"]
+    gap --> substitute["34:4AAF<br/>active-leaf substitution"]
+    substitute --> graph
     graph --> metrics["34:7393 / 34:7609<br/>metrics and geometry"]
     metrics --> render["34:6105 / 34:660A<br/>record and leaf rendering"]
     render --> primitive["Page 1 / 4 / 7<br/>glyphs, points, and lines"]
     primitive --> lcd["Accepted LCD data writes"]
 ```
 
-This distinction matters when describing semantic structure. The settled graph
-can be decoded as an expression tree because structural child IDs preserve
-argument order. The handler records describe how an editable token class is
-laid out; they do not by themselves encode one whole equation tree. [confirmed]
+The record graph decodes as an expression tree because structural child IDs
+preserve argument order. The handler records describe how an editable token
+class is laid out; they do not by themselves encode one whole equation tree.
+[confirmed]
 
 ## Core state
 
@@ -750,7 +755,7 @@ that boundary makes the metric walker enter `34:759C` with its parsed pointer
 at `editTail + 6`. The comparison at `34:75A1` then returns Z, so `34:75A5`
 falls through. [confirmed]
 
-The final live expression graph spans two record regions. `34:4ACE` starts at
+The live expression graph spans two record regions. `34:4ACE` starts at
 the structural-record pointer in `0x8DAF` and stops at the entry pointer in
 `0x8DBC`. `34:4AF0` advances by the structural record size. The child words
 after each 20-byte header remain record IDs. `34:4A83` starts its leaf-record
@@ -762,9 +767,33 @@ and the current record equals the pointer in `0x8DC2`, `34:4ABF` substitutes
 `editBtm` as the next record pointer. Every other leaf advances by its 19-byte
 prefix plus the payload length at `+0x11`. The active record's logical payload
 is the concatenation of `editTop`–`editCursor` and `editTail`–`editBtm`.
-This explains why a final RAM dump can hold structural headers below the entry,
+This explains why a RAM dump can hold structural headers below the entry,
 the active leaf in the gap, and later leaf records near the top of RAM.
 [confirmed]
+
+Four reset-origin RAM snapshots pin the cursor-to-record mapping. The compact
+bytes and expected trees are in `tools/mathprint-editor-gap-oracles.json`.
+Each reproduction uses key input only. [confirmed]
+
+| Editor state | Active leaf | Logical gap payload | Cursor path | Sparse-state SHA-256 |
+|--------------|-------------|---------------------|-------------|----------------------|
+| Empty fraction numerator | `9` | cursor, `EF 1E` | numerator | `bcabb3961e1f37fe21b4e66c8bbfffb9a3812a162324e85273fdeed0beccc019` |
+| Integral upper bound after `2` | `10` | `32`, cursor | upper bound | `1dab216a05a2604bdb51eaa8a347a881f4dcccb7c8f19965503d73812422f8d5` |
+| Fraction denominator nested in an integral body | `15` | `32`, cursor | body → denominator | `7da6d7fdbb5ea848dda0afb1105237280a06b6dff994879df0a8c0b63e1a5f10` |
+| Immediately after a completed integral | `7` | `EF 22 08 00 EF 2D`, cursor | root sequence after integral | `89dd708b40f3c77f2cb5392783256576be8f0014beea2b411b6ba860dd441ef4` |
+
+The empty numerator keeps `EF 1E` in the right gap segment, while its sibling
+denominator leaf resides near the high-memory boundary. The nested case links
+integral body leaf `11` to fraction record `13`, whose second child is active
+leaf `15`. The completed-integral case moves the active gap back to entry leaf
+`7`; its cursor follows the complete six-byte type-`0x22` marker. These states
+show that the graph itself preserves the editable nesting. [confirmed]
+
+`decodeMathPrintEditorRam()` translates both record walks and the active-leaf
+substitution. `decodeEditorExpressionGraph()` inserts a cursor at
+`editCursor - editTop`, after checking the native token and six-byte marker
+boundaries. It recovers the nested cursor path from record IDs and leaf bytes;
+the screenshots do not participate in the decode. [confirmed]
 
 `34:789A` first distinguishes the table-equation context from other editors.
 On its fallthrough, `34:75AB` reads the marker type from `editTail + 1`.
@@ -827,7 +856,7 @@ bitmap. No retained natural trace combines `0x8DE7=0x1F` with `34:6105` →
 `34:6143`, so the latter remains a decoded table ABI without a natural record
 dispatch. [confirmed]
 
-Editor layout is also open. The page `39` class and handler tables, argument
+Page `39` layout control remains incomplete. Its class and handler tables, argument
 order, row composition, descriptor mapping, and draw paths are decoded. The
 browser-side ROM engine now translates the `39:4A74` token/action dispatch and
 its `IY+2` exponent-context and `IY+9` fraction-context class adjustments
@@ -962,8 +991,9 @@ action-`0x04` branch, and the flag-controlled tails. The tests exhaust all
 controller. The walker tests separately exhaust its layout-class and row
 predicates. [confirmed]
 The retained corpus observes 255 of 1,098 declared editor branch outcomes. It
-does not decode every in-progress editor state into a general AST, and it does not
-reach every cursor, menu, error, or row-composition path. [confirmed]
+does not translate every key-to-graph mutation, cursor action, menu, error, or
+row-composition path. The live RAM decoder covers a complete captured graph;
+it does not predict the next graph from an arbitrary key action. [confirmed]
 
 Accepted LCD-write parity is a separate result. The translated cases compare
 every synchronous accepted data write, including writes that leave the byte
@@ -1239,8 +1269,9 @@ token. The renderer maps the pair to display code `0xF7`, so the decoded tree
 exposes an unfilled template slot. The tree identifies the expression in a
 trace without using LCD pixels or a screenshot. It describes the settled graph
 consumed by `34:660A`. The browser-side ROM engine exposes the same decoder for
-its generated AST view as `settledAst`. The editor/parser representation before
-`34:4900` remains open. [confirmed]
+its generated AST view as `settledAst`. The live-editor wrapper applies this
+decoder after `34:4AAF` substitutes the active gap payload, then inserts the
+cursor at the byte boundary selected by `editCursor`. [confirmed]
 
 A live matrix entry demonstrates why leaf decoding cannot treat every payload
 as a flat token sequence. Before evaluation, wrapper ID `6` points to a leaf
@@ -1889,9 +1920,9 @@ physical origin at `ram:8DFA`: [confirmed]
 $$
 x_{\mathrm{LCD}}
 = x_{\mathrm{screen}}
-+ x_{\mathrm{local}}
-+ x_{\mathrm{record}}
-- x_{\mathrm{clip}}.
+{}+ x_{\mathrm{local}}
+{}+ x_{\mathrm{record}}
+{}- x_{\mathrm{clip}}.
 $$
 
 `34:5F5D` updates the clip for the cursor at the expression endpoint. The
@@ -2190,12 +2221,13 @@ bits, and which bits changed. Accepted writes with equal previous and replacemen
 bytes therefore remain visible in the trace. [confirmed]
 
 The text field uses a preview-specific semantic grammar for ordinary input. It
-does not emulate the TI-OS editor or decode its in-progress template AST. An
-input prefixed with `hex:` bypasses that grammar and passes the listed native
-bytes to the translated constructor. Malformed streams and untranslated
-structural types produce an error; this path does not select the model
-compositor. Each accepted LCD byte remains available as eight ordered pixel
-results in the live timeline. [confirmed]
+does not emulate TI-OS key-to-graph state transitions. The ROM engine separately
+decodes a captured live editor arena, active gap leaf, and cursor into a semantic
+tree. An input prefixed with `hex:` bypasses the preview grammar and passes the
+listed native bytes to the translated constructor. Malformed streams and
+untranslated structural types produce an error; this path does not select the
+model compositor. Each accepted LCD byte remains available as eight ordered
+pixel results in the live timeline. [confirmed]
 
 The 5,019-case Node test remains a deterministic parser/layout smoke test. Six
 settled record programs provide exact final-pixel and complete accepted-write

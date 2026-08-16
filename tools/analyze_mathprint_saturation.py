@@ -261,7 +261,24 @@ TRANSLATION_SURFACES = (
             "constructSettledExpressionProgram",
         ],
         "tests": ["tools/test-mathprint.js", "tools/mathprint-*-oracles.json"],
-        "scope": "supported expression grammar; not the in-progress editor representation",
+        "scope": "supported native expression grammar; key-to-graph editor mutations remain open",
+    },
+    {
+        "name": "live editor record graph and gap cursor",
+        "rom": ["34:4A83–4ACD", "34:4ACE–4B01", "0x8DAF–0x8DC2", "0x96F4–0x96FA"],
+        "javascript": [
+            "editorPayloadCursorBoundaries",
+            "decodeEditorExpressionGraph",
+            "decodeMathPrintEditorRam",
+        ],
+        "tests": [
+            "tools/test-mathprint.js",
+            "tools/mathprint-editor-gap-oracles.json",
+        ],
+        "scope": (
+            "complete captured arenas, active-leaf substitution, and nested cursor paths; "
+            "the next graph after an arbitrary key action remains open"
+        ),
     },
     {
         "name": "settled record graph and leaf program",
@@ -3954,12 +3971,12 @@ def open_paths(
             ),
         },
         {
-            "area": "editor equation representation",
+            "area": "editor graph mutation",
             "status": "open",
             "reason": (
-                "page 39 proves class/handler cell grids and operand walking, but the "
-                "in-progress editor data structure before 34:4900 is not decoded as a "
-                "general AST"
+                "the live 34:4A83/4ACE arena and 34:4AAF gap substitution decode to a "
+                "cursor-annotated AST, but the key-action routines that mutate one live "
+                "arena into the next are not yet translated"
             ),
         },
         {

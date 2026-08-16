@@ -144,11 +144,12 @@ the final settled record program, its reachable nodes, and a semantic
 type-`0x2A` records bind to the expression immediately before their embedded
 marker. `EF 1E` remains an explicit extended token because the renderer maps it
 to display code `0xF7`, the empty template square. This tree identifies what the
-trace contains without inspecting its screenshot. It describes the settled
-render graph, not the editor/parser representation before `34:4900`. The
-browser's generated record result exposes the same graph-derived tree as
-`settledAst`; it is decoded from record IDs and leaf payloads after native
-construction.
+trace contains without inspecting its screenshot. `decodeMathPrintEditorRam()`
+also translates the live arena walks at `34:4A83` and `34:4ACE`. It substitutes
+the gap payload at the leaf selected by `0x8DC2`, decodes the same record IDs,
+and inserts the cursor at `editCursor - editTop`. The browser's generated
+record result exposes its graph-derived tree as `settledAst`; the RAM decoder
+exposes both cursor-free and cursor-annotated live trees.
 The analyzer selects the first post-key `34:660A` entry at the shallowest Z80
 stack depth. The exporter pairs
 parent/index observations at `34:6CCD` with the resolved child ID and record
@@ -258,12 +259,13 @@ accepts only `30h`–`39h` and `41h`–`5Bh`, with limits of eight and five byte
 The parser keeps the designator and accepted name bytes in one atom. [confirmed]
 
 The text field accepts two input paths. Ordinary text uses a preview-specific
-semantic frontend; it is not a translation of the TI-OS editor or its
-in-progress template AST. A `hex:` prefix supplies space- or comma-separated
+semantic frontend; it does not translate TI-OS key-to-graph state transitions.
+A separate ROM-derived decoder reads captured live editor RAM, including its
+active gap leaf and cursor. A `hex:` prefix supplies space- or comma-separated
 native bytes directly to record construction. The raw path reports malformed
 streams and untranslated structural types instead of selecting the model
-compositor. Both translated paths construct records and LCD writes without
-replaying a captured graph or write stream. [confirmed]
+compositor. Both translated input paths construct records and LCD writes
+without replaying a captured graph or write stream. [confirmed]
 
 Five changed-input regressions start from native byte arrays for summation,
 integral, `nDeriv(`, matrix, and a three-level raised fraction. They construct
