@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-555c0f70.js";
+            window.path_to_searchindex_js = "searchindex-ef38135a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -587,6 +587,12 @@ selects their height remains unidentified. [confirmed]</p>
 </tbody>
 </table>
 </div>
+<p><code>39:6675</code> saves a matched delimiter cell’s <code>E</code> byte in <code>keyExtend</code> and passes
+its <code>D</code> byte to <code>07:44DE</code>. The JavaScript cell classifier executes that remap.
+The committed layout artifact contains every table entry addressable from the
+main entry. A pinned-byte interpreter compares all 65,536 combinations of
+display byte and <code>keyExtend</code>; they reduce to seven paths and 12 branch outcomes.
+The separate public entry at <code>07:44FE</code> is outside this main-entry domain. [confirmed]</p>
 <p>The page-7 large-font service copies fixed glyph rows. It does not measure a radicand or
 stretch a glyph by itself. [confirmed]</p>
 <p>The caller enters <code>07:4588</code> with the glyph code in <code>A</code> and its eight-byte
@@ -721,7 +727,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 44 finite models. It also computes an
+complete path-equivalence class in 45 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -748,6 +754,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Small-font pointer selection</td><td style="text-align: right">65,536</td><td style="text-align: right">16</td><td style="text-align: right">31</td><td style="text-align: right">16</td></tr>
 <tr><td>Token-hook dispatch</td><td style="text-align: right">1,048,576</td><td style="text-align: right">9</td><td style="text-align: right">10</td><td style="text-align: right">5</td></tr>
 <tr><td>Direct cell-to-large-glyph selection</td><td style="text-align: right">65,536</td><td style="text-align: right">9</td><td style="text-align: right">16</td><td style="text-align: right">9</td></tr>
+<tr><td>Display-byte remapper</td><td style="text-align: right">65,536</td><td style="text-align: right">7</td><td style="text-align: right">12</td><td style="text-align: right">7</td></tr>
 <tr><td>Glyph advance and delimiter padding</td><td style="text-align: right">131,072</td><td style="text-align: right">6</td><td style="text-align: right">10</td><td style="text-align: right">4</td></tr>
 <tr><td><code>_VPutMap</code> byte-boundary gate</td><td style="text-align: right">56</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
 <tr><td>MathPrint <code>_VPutMap</code> right-edge gate</td><td style="text-align: right">3,584</td><td style="text-align: right">4</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
@@ -778,8 +785,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 44 models contain 3,363 path classes and 469 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 221 representatives. Each
+<p>The 45 models contain 3,370 path classes and 481 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 228 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -2991,8 +2998,9 @@ tall-summation input above, the final trace reaches <code>34:62D0</code> with
 word removes the final two-pixel difference from the reset-origin screenshot.
 [confirmed]</p>
 <h2 id="extracted-records-and-interactive-model"><a class="header" href="#extracted-records-and-interactive-model">Extracted records and interactive model</a></h2>
-<p>The class table, decoded handler records, and selected descriptors are extracted to
-<code>web/mathprint/layout.json</code> by <code>tools/export-layout.py</code>;
+<p>The class table, decoded handler records, selected descriptors, and page-7
+display-byte tables are extracted to <code>web/mathprint/layout.json</code> by
+<code>tools/export-layout.py</code>;
 the fonts to <code>web/mathprint/font.json</code> by <code>tools/export-font.py</code>; and the
 single- and two-byte token spellings to
 <code>web/mathprint/token-strings.json</code> by <code>tools/export-token-strings.py</code>. The font
@@ -3000,8 +3008,9 @@ data appears on the interactive
 renderer’s font-table tab. <code>tools/interp-cells.js</code> and the browser share the executable
 translations in <code>web/mathprint/rom-engine.js</code>. The translated routines consume
 <code>layout.json</code> for handler lookup, row-cell iteration, direct glyph and delimiter
-classification, descriptor iteration, fraction endpoints, and class-6 row
-stepping. <code>web/mathprint/record-programs.json</code> contains six retained record
+classification, display-byte remapping, descriptor iteration, fraction
+endpoints, and class-6 row stepping. <code>web/mathprint/record-programs.json</code>
+contains six retained record
 snapshots for offline comparison. The browser does not fetch them. Closed
 expressions accepted by the native constructor use the translated record graph
 and primitive stream for both the generated LCD view and the model view.
