@@ -1281,17 +1281,17 @@ class CheckedReportTests(unittest.TestCase):
         )
 
         self.assertEqual(2, report["schema"])
-        self.assertEqual(227, len(report["traces"]))
+        self.assertEqual(231, len(report["traces"]))
         self.assertEqual(
-            226,
+            230,
             sum(
                 row["provenance"] == TRACE_PROVENANCE_NATURAL
                 for row in report["traces"]
             ),
         )
-        self.assertEqual(1006, report["summary"]["branch_outcomes_observed"])
+        self.assertEqual(1008, report["summary"]["branch_outcomes_observed"])
         self.assertEqual(
-            1003, report["summary"]["natural_branch_outcomes_observed"]
+            1005, report["summary"]["natural_branch_outcomes_observed"]
         )
         self.assertEqual(
             1343,
@@ -1525,25 +1525,45 @@ class CheckedReportTests(unittest.TestCase):
             "mathprint_editor_tenpower_blank":
                 "dfe59bfc4215926720393963af7805c33f6f8e1e424f1e364e0e2e2427ecc5ce",
         }, one_child_insertions)
+        nth_root_insertions = {
+            row["label"]: row["sha256"]
+            for row in report["traces"]
+            if row["label"] in {
+                "mathprint_editor_nthroot_blank",
+                "mathprint_editor_nthroot_end",
+                "mathprint_editor_nthroot_leading",
+                "mathprint_editor_nthroot_mid_leaf",
+            }
+        }
+        self.assertEqual({
+            "mathprint_editor_nthroot_blank":
+                "260a5717b3023667518d6c9359d33b3cc8fce3366ad7f5cda91d010d3c012f47",
+            "mathprint_editor_nthroot_end":
+                "774d552d27510f3a0cd53bb52429e8f8a6285005a25a9934e8672413d2c89992",
+            "mathprint_editor_nthroot_leading":
+                "0c6fc62cd38128920e62478b2be96ca894bd6a4d0538cbd4ce5ab968127b46a3",
+            "mathprint_editor_nthroot_mid_leaf":
+                "b64878e61eea3aa5d5cca5b7b4d820e90f2184f455982b56dd47df11528aa2b2",
+        }, nth_root_insertions)
         self.assertEqual(
             114, report["record_oracles"]["cases"]
         )
         self.assertEqual(
-            1307,
+            1313,
             report["minimized_dynamic_feature_corpus"]["covered_features"],
         )
         self.assertEqual(
-            165,
+            169,
             report["minimized_dynamic_feature_corpus"]["selected_trace_count"],
         )
         self.assertEqual(
-            1304,
+            1310,
             report["minimized_natural_dynamic_feature_corpus"][
                 "covered_features"
             ],
         )
         self.assertEqual(
-            164,
+            168,
             report["minimized_natural_dynamic_feature_corpus"][
                 "selected_trace_count"
             ],
