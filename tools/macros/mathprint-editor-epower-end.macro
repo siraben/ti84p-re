@@ -1,0 +1,18 @@
+# Capture e-power insertion after root payload.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key 1
+wait 0.6s
+memdump /tmp/mathprint-editor-epower-end-pre.ram ram-logical
+screenshot /tmp/mathprint-editor-epower-end-pre.png
+key 2ND
+key LN
+wait 0.8s
+memdump /tmp/mathprint-editor-epower-end-post.ram ram-logical
+screenshot /tmp/mathprint-editor-epower-end-post.png

@@ -47,6 +47,7 @@ from analyze_mathprint_saturation import (
     raised_name_loop_path,
     source_lookup_domain,
     structural_depth_gate_path,
+    structural_insertion_dispatch_path,
     indexed_table_domain,
     load_trace_cache,
     routine_path_terminal,
@@ -79,6 +80,7 @@ from analyze_mathprint_saturation import (
     symbolic_raised_name_loop_paths,
     symbolic_scan_kind_paths,
     symbolic_structural_depth_gate_paths,
+    symbolic_structural_insertion_dispatch_paths,
     symbolic_type1f_paths,
     type1f_entry_abis,
     type1f_path,
@@ -262,13 +264,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(1337, report["path_equivalence_class_count"])
-        self.assertEqual(1337, report["representative_path_corpus_count"])
-        self.assertEqual(213, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(1343, report["path_equivalence_class_count"])
+        self.assertEqual(1343, report["representative_path_corpus_count"])
+        self.assertEqual(223, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            109, report["per_domain_minimum_branch_outcome_corpus_count"]
+            115, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(24, len(report["domains"]))
+        self.assertEqual(25, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -304,6 +306,35 @@ class SymbolicHandlerTests(unittest.TestCase):
             ["35:7B42:fallthrough"], rejected["branch_outcomes"]
         )
         self.assertEqual("preserve_a", structural_depth_gate_path(0xFF)["terminal"])
+
+    def test_structural_insertion_dispatch_partitions_every_a_e_pair(self) -> None:
+        paths = symbolic_structural_insertion_dispatch_paths()
+
+        self.assertEqual(0x10000, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual({
+            "fraction_alternate": 0xFF,
+            "fraction_standard": 1,
+            "matrix_dispatch": 0x100,
+            "nth_root_dispatch": 0x100,
+            "power_dispatch": 0x100,
+            "shared_marker_dispatch": 0xFC00,
+        }, {
+            row["terminal"]: row["projected_input_count"] for row in paths
+        })
+        self.assertEqual(
+            "fraction_standard",
+            structural_insertion_dispatch_path(0x20, 0x2E)["terminal"],
+        )
+        self.assertEqual(
+            "fraction_alternate",
+            structural_insertion_dispatch_path(0x20, 0x2F)["terminal"],
+        )
+        self.assertEqual(
+            "shared_marker_dispatch",
+            structural_insertion_dispatch_path(0x27, 0xBC)["terminal"],
+        )
 
     def test_reverse_overflow_cue_partitions_every_byte_pair(self) -> None:
         paths = symbolic_editor_reverse_overflow_cue_paths()
@@ -1250,9 +1281,9 @@ class CheckedReportTests(unittest.TestCase):
         )
 
         self.assertEqual(2, report["schema"])
-        self.assertEqual(221, len(report["traces"]))
+        self.assertEqual(227, len(report["traces"]))
         self.assertEqual(
-            220,
+            226,
             sum(
                 row["provenance"] == TRACE_PROVENANCE_NATURAL
                 for row in report["traces"]
@@ -1263,7 +1294,7 @@ class CheckedReportTests(unittest.TestCase):
             1003, report["summary"]["natural_branch_outcomes_observed"]
         )
         self.assertEqual(
-            1337,
+            1343,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(
@@ -1468,25 +1499,51 @@ class CheckedReportTests(unittest.TestCase):
             },
             radical_insertions,
         )
+        one_child_insertions = {
+            row["label"]: row["sha256"]
+            for row in report["traces"]
+            if row["label"] in {
+                "mathprint_editor_absolute_blank",
+                "mathprint_editor_epower_blank",
+                "mathprint_editor_epower_end",
+                "mathprint_editor_epower_leading",
+                "mathprint_editor_epower_mid_leaf",
+                "mathprint_editor_tenpower_blank",
+            }
+        }
+        self.assertEqual({
+            "mathprint_editor_absolute_blank":
+                "9cfc96a214324b420c7a2132e63f33366b695c576eb38ac2dcc08cb98e5deab8",
+            "mathprint_editor_epower_blank":
+                "6d7b10adea1a590d07c9fe5cee711f91561919ed9da1ab9197656188c14a7100",
+            "mathprint_editor_epower_end":
+                "a3d70dbd89e965005aef8464e5ffa3c592e80ed251be98012ae310ad40760c00",
+            "mathprint_editor_epower_leading":
+                "e80e7ae77af8d6fc04111f707c8e4bfc71e7fb322132a4bf42fa1091e8597841",
+            "mathprint_editor_epower_mid_leaf":
+                "ac7d77cc3c22710a258e3b08244479a3d1bda8083b748f0e1df5059222b33ec1",
+            "mathprint_editor_tenpower_blank":
+                "dfe59bfc4215926720393963af7805c33f6f8e1e424f1e364e0e2e2427ecc5ce",
+        }, one_child_insertions)
         self.assertEqual(
             114, report["record_oracles"]["cases"]
         )
         self.assertEqual(
-            1301,
+            1307,
             report["minimized_dynamic_feature_corpus"]["covered_features"],
         )
         self.assertEqual(
-            159,
+            165,
             report["minimized_dynamic_feature_corpus"]["selected_trace_count"],
         )
         self.assertEqual(
-            1298,
+            1304,
             report["minimized_natural_dynamic_feature_corpus"][
                 "covered_features"
             ],
         )
         self.assertEqual(
-            158,
+            164,
             report["minimized_natural_dynamic_feature_corpus"][
                 "selected_trace_count"
             ],
