@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ee0da7e.js";
+            window.path_to_searchindex_js = "searchindex-555c0f70.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -721,7 +721,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 43 finite models. It also computes an
+complete path-equivalence class in 44 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -747,6 +747,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Shaded-point expansion</td><td style="text-align: right">3,145,728</td><td style="text-align: right">1,850</td><td style="text-align: right">30</td><td style="text-align: right">8</td></tr>
 <tr><td>Small-font pointer selection</td><td style="text-align: right">65,536</td><td style="text-align: right">16</td><td style="text-align: right">31</td><td style="text-align: right">16</td></tr>
 <tr><td>Token-hook dispatch</td><td style="text-align: right">1,048,576</td><td style="text-align: right">9</td><td style="text-align: right">10</td><td style="text-align: right">5</td></tr>
+<tr><td>Direct cell-to-large-glyph selection</td><td style="text-align: right">65,536</td><td style="text-align: right">9</td><td style="text-align: right">16</td><td style="text-align: right">9</td></tr>
 <tr><td>Glyph advance and delimiter padding</td><td style="text-align: right">131,072</td><td style="text-align: right">6</td><td style="text-align: right">10</td><td style="text-align: right">4</td></tr>
 <tr><td><code>_VPutMap</code> byte-boundary gate</td><td style="text-align: right">56</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
 <tr><td>MathPrint <code>_VPutMap</code> right-edge gate</td><td style="text-align: right">3,584</td><td style="text-align: right">4</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
@@ -777,8 +778,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 43 models contain 3,354 path classes and 453 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 212 representatives. Each
+<p>The 44 models contain 3,363 path classes and 469 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 221 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -2568,6 +2569,11 @@ otherwise a counted-string selection (<code>39:6B66</code> → <code>_KeyToStrin
 <code>tools/token-name-spec.md</code>; the placement geometry
 (<code>683D</code>, <code>6B1C</code>, <code>5167</code>/<code>5949</code>, pen conversion) is in
 <code>tools/geometry-spec.md</code>. [confirmed]</p>
+<p>The JavaScript translation of <code>39:4F1A</code> preserves the returned accumulator,
+carry flag, and every conditional outcome through <code>39:4F43</code>. The handler-cell
+classifier consumes that translation rather than a separate mapping table. A
+pinned-byte interpreter compares all 65,536 <code>D:E</code> inputs. They reduce to nine
+complete paths and 16 branch outcomes. [confirmed]</p>
 <h2 id="trace-replay-and-renderer-checks"><a class="header" href="#trace-replay-and-renderer-checks">Trace replay and renderer checks</a></h2>
 <p>The renderer writes through the LCD ports rather than a RAM framebuffer.
 <code>tools/trace_lcd.py</code> replays reset-origin TilEm TLMT v2 LCD I/O through the
