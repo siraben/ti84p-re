@@ -265,9 +265,11 @@ TRANSLATION_SURFACES = (
             "supported native expression grammar plus one- and two-byte ordinary "
             "editor insertion, fraction insertion at every cursor class in the root leaf "
             "and both child leaves of one outer fraction plus a blank radicand of one "
-            "prefixed radical, radical insertion at every cursor class in the root leaf, "
-            "both fraction children, and that radical's radicand with packed-token "
-            "replacement, in-leaf "
+            "prefixed radical; the shared one-child path for absolute value, e-power, "
+            "ten-power, and radical insertion, with every root cursor class captured for "
+            "e-power and blank captures for the other two added types; radical insertion "
+            "at every cursor class in the root leaf, both fraction children, and that "
+            "radical's radicand with packed-token replacement; in-leaf "
             "packed-token navigation, "
             "and packed-token deletion; deeper nested positions, remaining structural types, "
             "structural deletion, and boundary navigation remain open"
@@ -298,10 +300,12 @@ TRANSLATION_SURFACES = (
             "complete captured arenas, active-leaf substitution, nested cursor paths, "
             "cursor-aware record reconstruction, ordinary packed-token insertion, fraction "
             "insertion at every cursor class in the root leaf and both child leaves of one "
-            "outer fraction plus a blank radicand of one prefixed radical, radical insertion "
-            "at every cursor class in the root leaf, both fraction children, and that "
-            "radical's radicand with packed-token replacement, in-leaf packed-token "
-            "navigation, and "
+            "outer fraction plus a blank radicand of one prefixed radical; the shared "
+            "one-child path for absolute value, e-power, ten-power, and radical insertion, "
+            "with every root cursor class captured for e-power and blank captures for the "
+            "other two added types; radical insertion at every cursor class in the root "
+            "leaf, both fraction children, and that radical's radicand with packed-token "
+            "replacement; in-leaf packed-token navigation, and "
             "packed-token deletion with "
             "empty-slot restoration; deeper nested positions, remaining structural types, "
             "structural deletion, and boundary navigation remain open"
@@ -925,6 +929,79 @@ def symbolic_structural_depth_gate_paths() -> list[dict[str, object]]:
         states = row["representative_states"]
         if len(states) < 4:
             states.append({"structural_depth": structural_depth})
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
+def structural_insertion_dispatch_path(
+    render_type: int,
+    source_low: int,
+) -> dict[str, object]:
+    """Translate the complete A/E dispatcher at 34:5043–5057 and 51B8."""
+
+    render_type &= 0xFF
+    source_low &= 0xFF
+    outcomes = []
+
+    def branch(address: int, taken: bool) -> None:
+        outcomes.append(
+            f"34:{address:04X}:{'taken' if taken else 'fallthrough'}"
+        )
+
+    branch(0x5045, render_type == 0x2B)
+    if render_type == 0x2B:
+        return {"terminal": "matrix_dispatch", "branch_outcomes": outcomes}
+    branch(0x504A, render_type == 0x20)
+    if render_type == 0x20:
+        branch(0x51BB, source_low != 0x2E)
+        return {
+            "terminal": (
+                "fraction_alternate" if source_low != 0x2E
+                else "fraction_standard"
+            ),
+            "branch_outcomes": outcomes,
+        }
+    branch(0x504F, render_type == 0x24)
+    if render_type == 0x24:
+        return {"terminal": "nth_root_dispatch", "branch_outcomes": outcomes}
+    branch(0x5054, render_type == 0x2A)
+    return {
+        "terminal": (
+            "power_dispatch" if render_type == 0x2A
+            else "shared_marker_dispatch"
+        ),
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_structural_insertion_dispatch_paths() -> list[dict[str, object]]:
+    """Partition all 65,536 projected A/E states for structural insertion."""
+
+    classes: dict[tuple[str, tuple[str, ...]], dict[str, object]] = {}
+    for render_type in range(0x100):
+        for source_low in range(0x100):
+            result = structural_insertion_dispatch_path(render_type, source_low)
+            key = (
+                str(result["terminal"]),
+                tuple(str(item) for item in result["branch_outcomes"]),
+            )
+            row = classes.setdefault(key, {
+                "projected_input_count": 0,
+                "representative_states": [],
+            })
+            row["projected_input_count"] += 1
+            states = row["representative_states"]
+            if len(states) < 4:
+                states.append({
+                    "render_type": render_type,
+                    "source_low": source_low,
+                })
     return [
         {
             "terminal": terminal,
@@ -2993,6 +3070,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             symbolic_structural_depth_gate_paths(),
         ),
         (
+            "structural_insertion_dispatch",
+            "34:5043–5057; 34:51B8–51BB",
+            0x10000,
+            symbolic_structural_insertion_dispatch_paths(),
+        ),
+        (
             "raised_extended_token_classifier",
             "34:580C",
             sum(1 for _state in raised_classifier_caller_states()),
@@ -4005,9 +4088,12 @@ def open_paths(
                 "through cursor-annotated ASTs and reconstructed records; ordinary "
                 "one- and two-byte insertion, fraction insertion at every cursor class in "
                 "the root leaf and both child leaves of one outer fraction plus a blank "
-                "radicand of one prefixed radical, radical insertion at every cursor class "
-                "in the root leaf, both fraction children, and that radical's radicand with "
-                "packed-token replacement, "
+                "radicand of one prefixed radical; the shared one-child path for absolute "
+                "value, e-power, ten-power, and radical insertion, with every root cursor "
+                "class captured for e-power and blank captures for the other two added "
+                "types; radical insertion at every cursor class in the root leaf, both "
+                "fraction children, and that radical's radicand with packed-token "
+                "replacement, "
                 "in-leaf packed-token navigation, and packed-token deletion with empty-slot "
                 "restoration are translated, but deeper nested positions, remaining "
                 "structural types, "

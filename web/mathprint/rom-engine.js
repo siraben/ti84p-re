@@ -5411,7 +5411,8 @@
   // Structural-template insertion consumes the live arena state as well as
   // the semantic tree: newly allocated record IDs and the structural-depth
   // gate are not recoverable from the cursor AST alone. EF 2Eh/EF 2Fh map to
-  // type 20h, while the one-byte BCh source maps to type 27h at 34:5935.
+  // type 20h. B2h, BFh, C1h, and BCh map to the one-child types 21h and
+  // 25h–27h at 34:5935; all four use the shared insertion path at 34:5057.
   function editorInsertStructuralTemplate(input, sourceToken = [0xef,0x2e]) {
     if (!input || typeof input !== 'object' || !input.editor ||
         !Array.isArray(input.nodes))
@@ -5427,7 +5428,13 @@
     const renderType = source.length === 1
       ? settledStructuralTokenType(0,source[0])
       : settledStructuralTokenType(source[0],source[1]);
-    if (renderType !== 0x20 && renderType !== 0x27)
+    const unaryStructuralSpec = {
+      0x21:{kind:'absolute',child:'body'},
+      0x25:{kind:'ePower',child:'exponent'},
+      0x26:{kind:'tenPower',child:'exponent'},
+      0x27:{kind:'radical',child:'radicand'},
+    }[renderType];
+    if (renderType !== 0x20 && !unaryStructuralSpec)
       throw new RangeError(
         'the structural source type has no translated insertion path');
     const depth = input.controller && input.controller.structuralDepth;
@@ -5514,17 +5521,17 @@
         tokens = Array.from(value.tokens);
       else
         throw new RangeError(
-          'radical insertion before a structural boundary remains open');
+          'one-child insertion before a structural boundary remains open');
       const unitBoundaries = editorPayloadCursorBoundaries(tokens);
       if (unitBoundaries.length < 2)
         throw new RangeError(
-          'radical insertion has no packed token to replace');
+          'one-child insertion has no packed token to replace');
       replacedRightToken = tokens.slice(0,unitBoundaries[1]);
       const remainder = tokens.slice(unitBoundaries[1]);
       if (!remainder.length) return null;
       return remainder;
     };
-    const radicalAtCursor = leaf => {
+    const unaryStructuralAtCursor = leaf => {
       let left = [];
       let right = [];
       if (leaf && leaf.kind === 'editorCursor') {
@@ -5535,7 +5542,7 @@
           part => part && part.kind === 'editorCursor');
         if (cursorIndex < 0)
           throw new RangeError(
-            'radical insertion sequence has no direct cursor');
+            'one-child insertion sequence has no direct cursor');
         originalCursor = leaf.parts[cursorIndex];
         left = leaf.parts.slice(0,cursorIndex).map(clone);
         right = leaf.parts.slice(cursorIndex + 1).map(clone);
@@ -5548,14 +5555,14 @@
           originalCursor.byte_offset < 0 ||
           originalCursor.byte_offset > active.payload.length)
         throw new RangeError(
-          'radical insertion requires a valid active payload split');
+          'one-child insertion requires a valid active payload split');
       if (right.length) {
         const remainder = stripFirstPackedUnit(right[0]);
         if (remainder === null) right.shift();
         else right[0] = remainder;
       }
       const childId = structuralId + 1;
-      const radicand = {
+      const child = {
         kind:'sequence',parts:[
           {
             kind:'editorCursor',record_id:childId,byte_offset:0,
@@ -5565,14 +5572,15 @@
           {kind:'extendedToken',tokens:[0xef,0x1e]},
         ],editor_leaf_record_id:childId,
       };
-      const radical = {
-        kind:'radical',radicand,
+      const structural = {
+        kind:unaryStructuralSpec.kind,
+        [unaryStructuralSpec.child]:child,
         editor_record_id:structuralId,
         editor_record_byte13:retainedStructuralByte13(originalCursor,active),
       };
-      const parts = [...left,radical,...right];
+      const parts = [...left,structural,...right];
       return parts.length === 1 ? {
-        ...radical,editor_leaf_record_id:originalCursor.record_id,
+        ...structural,editor_leaf_record_id:originalCursor.record_id,
       } : {
         kind:'sequence',parts,
         editor_leaf_record_id:originalCursor.record_id,
@@ -5709,14 +5717,14 @@
       if (!value || typeof value !== 'object') return value;
       if (value.kind === 'editorCursor') {
         replaced = true;
-        return renderType === 0x27
-          ? radicalAtCursor(value) : fractionAtCursor(value);
+        return unaryStructuralSpec
+          ? unaryStructuralAtCursor(value) : fractionAtCursor(value);
       }
       if (value.kind === 'sequence' && Array.isArray(value.parts) &&
           value.parts.some(part => part && part.kind === 'editorCursor')) {
         replaced = true;
-        return renderType === 0x27
-          ? radicalAtCursor(value) : fractionAtCursor(value);
+        return unaryStructuralSpec
+          ? unaryStructuralAtCursor(value) : fractionAtCursor(value);
       }
       if (Array.isArray(value) || value instanceof Uint8Array)
         return Array.from(value,item =>
@@ -5729,7 +5737,7 @@
     if (!replaced || !expression)
       throw new RangeError(
         'structural insertion outside the translated leaf cases is open');
-    if (renderType === 0x27) return {
+    if (unaryStructuralSpec) return {
       expression,
       mutation:{
         status:'inserted',source_token:source,render_type:renderType,
