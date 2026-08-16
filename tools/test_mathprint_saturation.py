@@ -62,6 +62,8 @@ from analyze_mathprint_saturation import (
     serialize_trace_summary,
     scan_kind_path,
     smallfont_pointer_selection_path,
+    vputmap_alignment_gate_path,
+    vputmap_byte_composition_path,
     minimize_trace_corpus,
     metric_marker_callers,
     metric_marker_path,
@@ -97,6 +99,8 @@ from analyze_mathprint_saturation import (
     symbolic_raised_name_loop_paths,
     symbolic_scan_kind_paths,
     symbolic_smallfont_pointer_selection_paths,
+    symbolic_vputmap_alignment_gate_paths,
+    symbolic_vputmap_byte_composition_paths,
     symbolic_structural_depth_gate_paths,
     symbolic_structural_insertion_dispatch_paths,
     symbolic_type1f_paths,
@@ -327,13 +331,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(3288, report["path_equivalence_class_count"])
-        self.assertEqual(3288, report["representative_path_corpus_count"])
-        self.assertEqual(387, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(3292, report["path_equivalence_class_count"])
+        self.assertEqual(3292, report["representative_path_corpus_count"])
+        self.assertEqual(391, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            185, report["per_domain_minimum_branch_outcome_corpus_count"]
+            189, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(34, len(report["domains"]))
+        self.assertEqual(36, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -1121,6 +1125,43 @@ class SymbolicHandlerTests(unittest.TestCase):
         self.assertEqual("EF", high["terminal"])
         self.assertEqual("01:6762:taken", high["branch_outcomes"][-1])
 
+    def test_vputmap_alignment_gate_partitions_all_valid_positions(self) -> None:
+        paths = symbolic_vputmap_alignment_gate_paths()
+
+        self.assertEqual(2, len(paths))
+        self.assertEqual(8 * 7, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(
+            {
+                ("one_byte_row", "01:6378:fallthrough"),
+                ("two_byte_row", "01:6378:taken"),
+            },
+            {(row["terminal"], row["branch_outcomes"][0]) for row in paths},
+        )
+        self.assertEqual(
+            0, vputmap_alignment_gate_path(4, 4)["alignment_count"]
+        )
+        self.assertEqual(
+            1, vputmap_alignment_gate_path(7, 2)["alignment_count"]
+        )
+
+    def test_vputmap_composition_partitions_complete_byte_domain(self) -> None:
+        paths = symbolic_vputmap_byte_composition_paths()
+
+        self.assertEqual(2, len(paths))
+        self.assertEqual(7 * 2 * 0x100**2, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        ordinary = vputmap_byte_composition_path(0xA5, 4, 0x0E, 0)
+        inverse = vputmap_byte_composition_path(0xA5, 4, 0x0E, 1)
+        self.assertEqual((0xA5 & 0xF0) ^ 0x0E, ordinary["composed_byte"])
+        self.assertEqual(((0x0F | 0xA5) ^ 0x0E), inverse["composed_byte"])
+        self.assertEqual("01:6435:taken", ordinary["branch_outcomes"][0])
+        self.assertEqual(
+            "01:6435:fallthrough", inverse["branch_outcomes"][0]
+        )
+
     def test_metric_marker_gate_distinguishes_all_local_outcomes(self) -> None:
         self.assertEqual(
             "return_nz_pointer_mismatch",
@@ -1619,7 +1660,7 @@ class CheckedReportTests(unittest.TestCase):
             matrix_entry["sha256"],
         )
         self.assertEqual(
-            3288,
+            3292,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(

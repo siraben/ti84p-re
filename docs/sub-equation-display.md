@@ -599,7 +599,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 34 finite models. It also computes an
+complete path-equivalence class in 36 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -620,6 +620,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Thick-point expansion | 4,294,967,296 | 8 | 14 | 8 |
 | Shaded-point expansion | 3,145,728 | 1,850 | 30 | 8 |
 | Small-font pointer selection | 65,536 | 16 | 31 | 16 |
+| `_VPutMap` byte-boundary gate | 56 | 2 | 2 | 2 |
+| `_VPutMap` aligned-byte composition | 917,504 | 2 | 2 | 2 |
 | Large-glyph hook dispatch | 32 | 14 | 16 | 8 |
 | Metric marker-tail gate | 16 | 5 | 8 | 5 |
 | Editor action `0x03` controller | 131,072 | 11 | 9 | 4 |
@@ -641,8 +643,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 | FindAlpha OP scratch transition | 33,554,432 | 2 | 5 | 2 |
 
-The 34 models contain 3,288 path classes and 387 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 185 representatives. Each
+The 36 models contain 3,292 path classes and 391 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 189 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -2131,6 +2133,23 @@ the five interior rows. It retains an interior zero row, but it does not emit
 the padding row above or below the glyph. A row that crosses an LCD byte
 boundary writes the right byte before the left byte at `01:63CE`–`01:641A`.
 The large-font path emits all seven rows of its fixed cell. [confirmed]
+
+`01:6360`–`01:6378` computes $8-o-w$, where $o$ is the LCD bit offset and
+$w$ is the glyph width. A nonnegative result selects the one-byte path. Its
+`DJNZ` entry arrangement rotates the screen byte by the remaining-space count,
+calls `01:6431`, and reverses the rotation. A negative result selects the
+two-byte path, negates the value to obtain the overflow count, and circularly
+rotates the two-byte screen window. [confirmed]
+
+The width-mask table at `01:6446` contains `FE FC F8 F0 E0 C0 80`. For an
+aligned screen byte $s$, mask $m$, and glyph row $g$, `01:6431`–`01:6445`
+computes $(s \mathbin{\\&} m) \mathbin{\mathtt{xor}} g$ for ordinary text.
+When `textFlags.3` is set, it computes
+$((\mathord{\sim}m) \mathbin{\vert} s) \mathbin{\mathtt{xor}} g$ instead.
+The translated composition matches a pinned-byte interpreter for all 917,504
+screen-byte, width, glyph-row, and inverse-flag inputs. An independent row test
+covers 7,340,032 screen-window, offset, width, and inverse states, including
+both sides of every LCD byte boundary. [confirmed]
 
 The absolute-value constructor translates a closed slice of the earlier record
 pass. `34:5935` maps source token `00B2h` through the table at `34:594D` to

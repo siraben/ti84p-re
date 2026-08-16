@@ -59,9 +59,9 @@
     "external_direct_targets": 236,
     "structural_types_with_oracles": 13,
     "structural_type_domain": 13,
-    "symbolic_path_equivalence_classes": 3288,
-    "symbolic_distinct_branch_outcomes": 387,
-    "symbolic_per_domain_minimum_representatives": 185,
+    "symbolic_path_equivalence_classes": 3292,
+    "symbolic_distinct_branch_outcomes": 391,
+    "symbolic_per_domain_minimum_representatives": 189,
     "globally_saturated": false
   },
   "tables": {
@@ -8682,16 +8682,16 @@
     }
   },
   "symbolic_model_corpus": {
-    "scope": "all projected inputs and complete path equivalence classes in the 34 declared finite symbolic models",
+    "scope": "all projected inputs and complete path equivalence classes in the 36 declared finite symbolic models",
     "not_claimed": [
       "all Z80 register and RAM states",
       "calculator reachability of every representative",
       "all paths outside the declared finite models"
     ],
-    "path_equivalence_class_count": 3288,
-    "representative_path_corpus_count": 3288,
-    "distinct_modeled_branch_outcomes": 387,
-    "per_domain_minimum_branch_outcome_corpus_count": 185,
+    "path_equivalence_class_count": 3292,
+    "representative_path_corpus_count": 3292,
+    "distinct_modeled_branch_outcomes": 391,
+    "per_domain_minimum_branch_outcome_corpus_count": 189,
     "domains": [
       {
         "name": "structural_scan_kind_dispatch",
@@ -225922,6 +225922,158 @@
             "01:6765:fallthrough",
             "01:6769:fallthrough",
             "01:6769:taken"
+          ],
+          "algorithm": "exact outcome-subset dynamic programming; minimum cases, then serialized input bytes, then class order",
+          "proven_minimum": true
+        }
+      },
+      {
+        "name": "vputmap_alignment_gate",
+        "routine": "01:6360\u20136378",
+        "projected_input_domain": 56,
+        "path_equivalence_class_count": 2,
+        "path_equivalence_classes": [
+          {
+            "class_index": 0,
+            "terminal": "one_byte_row",
+            "projected_input_count": 35,
+            "representative_state": {
+              "bit_offset": 0,
+              "width": 1
+            },
+            "branch_outcomes": [
+              "01:6378:fallthrough"
+            ]
+          },
+          {
+            "class_index": 1,
+            "terminal": "two_byte_row",
+            "projected_input_count": 21,
+            "representative_state": {
+              "bit_offset": 2,
+              "width": 7
+            },
+            "branch_outcomes": [
+              "01:6378:taken"
+            ]
+          }
+        ],
+        "branch_outcome_count": 2,
+        "minimum_branch_outcome_corpus": {
+          "class_indices": [
+            0,
+            1
+          ],
+          "selected_classes": [
+            {
+              "class_index": 0,
+              "terminal": "one_byte_row",
+              "projected_input_count": 35,
+              "representative_state": {
+                "bit_offset": 0,
+                "width": 1
+              },
+              "branch_outcomes": [
+                "01:6378:fallthrough"
+              ]
+            },
+            {
+              "class_index": 1,
+              "terminal": "two_byte_row",
+              "projected_input_count": 21,
+              "representative_state": {
+                "bit_offset": 2,
+                "width": 7
+              },
+              "branch_outcomes": [
+                "01:6378:taken"
+              ]
+            }
+          ],
+          "selected_case_count": 2,
+          "covered_outcomes": [
+            "01:6378:fallthrough",
+            "01:6378:taken"
+          ],
+          "algorithm": "exact outcome-subset dynamic programming; minimum cases, then serialized input bytes, then class order",
+          "proven_minimum": true
+        }
+      },
+      {
+        "name": "vputmap_byte_composition",
+        "routine": "01:6431\u20136445",
+        "projected_input_domain": 917504,
+        "path_equivalence_class_count": 2,
+        "path_equivalence_classes": [
+          {
+            "class_index": 0,
+            "terminal": "ordinary_cell",
+            "projected_input_count": 458752,
+            "representative_state": {
+              "screen": 0,
+              "width": 1,
+              "glyph_row": 0,
+              "inverse": 0
+            },
+            "branch_outcomes": [
+              "01:6435:taken"
+            ]
+          },
+          {
+            "class_index": 1,
+            "terminal": "inverse_cell",
+            "projected_input_count": 458752,
+            "representative_state": {
+              "screen": 0,
+              "width": 1,
+              "glyph_row": 0,
+              "inverse": 1
+            },
+            "branch_outcomes": [
+              "01:6435:fallthrough"
+            ]
+          }
+        ],
+        "branch_outcome_count": 2,
+        "minimum_branch_outcome_corpus": {
+          "class_indices": [
+            0,
+            1
+          ],
+          "selected_classes": [
+            {
+              "class_index": 0,
+              "terminal": "ordinary_cell",
+              "projected_input_count": 458752,
+              "representative_state": {
+                "screen": 0,
+                "width": 1,
+                "glyph_row": 0,
+                "inverse": 0
+              },
+              "branch_outcomes": [
+                "01:6435:taken"
+              ]
+            },
+            {
+              "class_index": 1,
+              "terminal": "inverse_cell",
+              "projected_input_count": 458752,
+              "representative_state": {
+                "screen": 0,
+                "width": 1,
+                "glyph_row": 0,
+                "inverse": 1
+              },
+              "branch_outcomes": [
+                "01:6435:fallthrough"
+              ]
+            }
+          ],
+          "selected_case_count": 2,
+          "covered_outcomes": [
+            "01:6435:fallthrough",
+            "01:6435:taken"
           ],
           "algorithm": "exact outcome-subset dynamic programming; minimum cases, then serialized input bytes, then class order",
           "proven_minimum": true
@@ -472538,6 +472690,110 @@
       ],
       "scope": "complete raw selector byte domain through the pointer-word address; token-hook dispatch at 01:6788 remains external"
     },
+    "vputmap_alignment_gate": {
+      "routine": "01:6360\u20136378",
+      "state": [
+        "LCD bit offset",
+        "glyph width in 1..7"
+      ],
+      "projected_input_domain": 56,
+      "terminal_classes": [
+        {
+          "terminal": "one_byte_row",
+          "branch_outcomes": [
+            "01:6378:fallthrough"
+          ],
+          "projected_input_count": 35,
+          "representative_states": [
+            {
+              "bit_offset": 0,
+              "width": 1
+            },
+            {
+              "bit_offset": 0,
+              "width": 2
+            },
+            {
+              "bit_offset": 0,
+              "width": 3
+            },
+            {
+              "bit_offset": 0,
+              "width": 4
+            }
+          ]
+        },
+        {
+          "terminal": "two_byte_row",
+          "branch_outcomes": [
+            "01:6378:taken"
+          ],
+          "projected_input_count": 21,
+          "representative_states": [
+            {
+              "bit_offset": 2,
+              "width": 7
+            },
+            {
+              "bit_offset": 3,
+              "width": 6
+            },
+            {
+              "bit_offset": 3,
+              "width": 7
+            },
+            {
+              "bit_offset": 4,
+              "width": 5
+            }
+          ]
+        }
+      ],
+      "scope": "complete byte-boundary predicate domain; the following screen-dependent rotate carry paths remain in the static CFG"
+    },
+    "vputmap_byte_composition": {
+      "routine": "01:6431\u20136445",
+      "state": [
+        "aligned screen byte",
+        "glyph width in 1..7",
+        "glyph row byte",
+        "textFlags.3 inverse flag"
+      ],
+      "projected_input_domain": 917504,
+      "terminal_classes": [
+        {
+          "terminal": "ordinary_cell",
+          "branch_outcomes": [
+            "01:6435:taken"
+          ],
+          "projected_input_count": 458752,
+          "representative_states": [
+            {
+              "screen": 0,
+              "width": 1,
+              "glyph_row": 0,
+              "inverse": 0
+            }
+          ]
+        },
+        {
+          "terminal": "inverse_cell",
+          "branch_outcomes": [
+            "01:6435:fallthrough"
+          ],
+          "projected_input_count": 458752,
+          "representative_states": [
+            {
+              "screen": 0,
+              "width": 1,
+              "glyph_row": 0,
+              "inverse": 1
+            }
+          ]
+        }
+      ],
+      "scope": "complete raw aligned-byte composition domain"
+    },
     "large_glyph_hook_dispatch": {
       "routine": "07:4588\u201345D8",
       "state": [
@@ -552972,6 +553228,7 @@
       "name": "font, primitive, and LCD emission",
       "rom": [
         "01:6297",
+        "01:6360\u20136445",
         "01:6702",
         "04:4025\u20134315",
         "04:42B5\u201342E3",
@@ -552989,6 +553246,8 @@
         "settledVerticalOperation",
         "settledHorizontalOperation",
         "settledPage1GlyphPointerSelection",
+        "settledPage1VPutMapCompose",
+        "settledPage1VPutMapRow",
         "settledPage7LargeGlyphRecord",
         "settledOperationPixels",
         "settledBlits",
@@ -552998,7 +553257,7 @@
         "tools/test-mathprint.js",
         "tools/test_mathprint_draw_trace.py"
       ],
-      "scope": "hook-disabled page-4 style expansion, offsets, bounds, point address, clear/set/XOR/test modes, buffer routing, and the composed point pipeline; MathPrint's style-inactive LCD-only point transition; hook-disabled dark-line stepping and ordered horizontal/vertical viewport clipping; the complete page-1 glyph-pointer selector byte domain; page-7 large-glyph stride, record building, and hook gates; and synchronous accepted LCD writes, including unchanged writes; drawing-hook dispatch, font internals, and external LCD timing remain open"
+      "scope": "hook-disabled page-4 style expansion, offsets, bounds, point address, clear/set/XOR/test modes, buffer routing, and the composed point pipeline; MathPrint's style-inactive LCD-only point transition; hook-disabled dark-line stepping and ordered horizontal/vertical viewport clipping; the complete page-1 glyph-pointer selector byte domain; small-font byte-boundary selection, row alignment, ordinary and inverse byte composition, and crossing-byte write order; page-7 large-glyph stride, record building, and hook gates; and synchronous accepted LCD writes, including unchanged writes; drawing-hook dispatch, font internals, and external LCD timing remain open"
     },
     {
       "name": "glyph viewport and timer run indicator",
