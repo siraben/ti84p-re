@@ -156,9 +156,13 @@ records. It includes the cursor cell in leaf metrics before applying the
 structural formulas. The four reset-origin gap oracles round-trip every record
 field and reproduce the complete cursor-off LCD bitmap.
 `editorInsertPackedToken()` translates ordinary one- or two-byte insertion
-through `34:4BB9–4C0D` and `06:4341–4388`. Adjacent root-leaf and fraction
-numerator snapshots verify the resulting cursor AST, every reconstructed
-record field, and the complete cursor-off LCD. The fraction case also retains
+through `34:4BB9–4C0D` and `06:4341–4388`. It consumes the decoded live arena,
+writes the active leaf payload, and runs the record-graph decoder again. This
+regroups delimiters after every byte write instead of preserving the previous
+semantic tree. Adjacent root-leaf and fraction-numerator snapshots verify the
+resulting cursor AST, every reconstructed record field, and the complete
+cursor-off LCD. A five-key `[[1]]` sequence additionally verifies both partial
+list frames and the two completed nested-list nodes. The fraction case retains
 the structural record's pre-edit `+13h` byte while replacing the `EF 1E`
 empty-slot token. Structural templates use the separate mutation path below;
 structural deletion and boundary navigation remain open.
