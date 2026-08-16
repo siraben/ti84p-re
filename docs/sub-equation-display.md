@@ -745,6 +745,22 @@ that boundary makes the metric walker enter `34:759C` with its parsed pointer
 at `editTail + 6`. The comparison at `34:75A1` then returns Z, so `34:75A5`
 falls through. [confirmed]
 
+The final live expression graph spans two record regions. `34:4ACE` starts at
+the structural-record pointer in `0x8DAF` and stops at the entry pointer in
+`0x8DBC`. `34:4AF0` advances by the structural record size. The child words
+after each 20-byte header remain record IDs. `34:4A83` starts its leaf-record
+walk at `0x8DBC`. It normally uses `0x8DBE` as the boundary. Bit 2 of
+`(IY+1)` instead selects the extended boundary at `0x8DB1`. [confirmed]
+
+`34:4AAF` handles the active gap during that leaf walk. When the gap bit is set
+and the current record equals the pointer in `0x8DC2`, `34:4ABF` substitutes
+`editBtm` as the next record pointer. Every other leaf advances by its 19-byte
+prefix plus the payload length at `+0x11`. The active record's logical payload
+is the concatenation of `editTop`–`editCursor` and `editTail`–`editBtm`.
+This explains why a final RAM dump can hold structural headers below the entry,
+the active leaf in the gap, and later leaf records near the top of RAM.
+[confirmed]
+
 `34:789A` first distinguishes the table-equation context from other editors.
 On its fallthrough, `34:75AB` reads the marker type from `editTail + 1`.
 `34:40F9` groups fraction (`0x20`), nth-root (`0x24`), and power (`0x2A`)
@@ -1752,6 +1768,21 @@ synthetic tests confirm the replay implementation.
 
 `tools/parity-mathprint.py` selects that replay when tracing is enabled.
 The local ignored `tools/rom.bin` enables pinned-ROM reproduction when present.
+For screenshot differentials, the tool also decodes the final RAM graph through
+the `34:4ACE` and `34:4A83` walks above. It compares that calculator-decoded
+semantic expression with the JavaScript graph before comparing pixels. A
+dropped key or incomplete template exit therefore rejects the run instead of
+appearing as a renderer mismatch. [confirmed]
+
+The RAM oracle avoids an instruction trace for each fuzz case. TilEm still runs
+the calculator to accept the key sequence and produce the screen, but the
+ordinary case retains only a RAM dump and screenshot. A mismatched graph gets
+one slower key-cadence retry. The depth-four seed-505 corpus has 20 calculator
+graphs matching their requested ASTs and 20 exact pixel matches. In case 14,
+the first calculator entry omits native multiply token `82h`; the graph check
+rejects that entry. The slower accepted graph contains the token and matches
+the translated framebuffer. [confirmed]
+
 The browser's generated path encodes native calculator bytes, scans their
 one- and two-byte token boundaries through translations of `34:58F9` and
 `34:5911`, and splits nested arguments through the page-`34` parse-ahead state
