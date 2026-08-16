@@ -263,9 +263,9 @@ TRANSLATION_SURFACES = (
         "tests": ["tools/test-mathprint.js", "tools/mathprint-*-oracles.json"],
         "scope": (
             "supported native expression grammar plus one- and two-byte ordinary "
-            "editor insertion, fraction insertion at every root and nested-numerator cursor "
-            "class, blank and leaf-end nested-denominator fraction insertion, in-leaf "
-            "packed-token navigation, and packed-token deletion; other nested positions, structural types, "
+            "editor insertion, fraction insertion at every cursor class in the root leaf "
+            "and both child leaves of one outer fraction, in-leaf packed-token navigation, "
+            "and packed-token deletion; deeper nested positions, structural types, "
             "structural deletion, and boundary navigation remain open"
         ),
     },
@@ -293,9 +293,9 @@ TRANSLATION_SURFACES = (
         "scope": (
             "complete captured arenas, active-leaf substitution, nested cursor paths, "
             "cursor-aware record reconstruction, ordinary packed-token insertion, fraction "
-            "insertion at every root and nested-numerator cursor class, blank and leaf-end "
-            "nested-denominator fraction insertion, in-leaf packed-token navigation, and "
-            "packed-token deletion with empty-slot restoration; other nested positions, "
+            "insertion at every cursor class in the root leaf and both child leaves of one "
+            "outer fraction, in-leaf packed-token navigation, and packed-token deletion "
+            "with empty-slot restoration; deeper nested positions, "
             "structural types, structural deletion, and boundary navigation remain open"
         ),
     },
@@ -3995,11 +3995,10 @@ def open_paths(
             "reason": (
                 "the live 34:4A83/4ACE arena and 34:4AAF gap substitution round-trip "
                 "through cursor-annotated ASTs and reconstructed records; ordinary "
-                "one- and two-byte insertion, fraction insertion at every root cursor class, "
-                "every nested-numerator cursor class, blank and leaf-end "
-                "nested-denominator fraction insertion, "
+                "one- and two-byte insertion, fraction insertion at every cursor class in "
+                "the root leaf and both child leaves of one outer fraction, "
                 "in-leaf packed-token navigation, and packed-token deletion with empty-slot "
-                "restoration are translated, but other nested positions, structural types, "
+                "restoration are translated, but deeper nested positions, structural types, "
                 "structural deletion, and boundary navigation are not"
             ),
         },

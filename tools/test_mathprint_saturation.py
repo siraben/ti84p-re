@@ -1250,9 +1250,9 @@ class CheckedReportTests(unittest.TestCase):
         )
 
         self.assertEqual(2, report["schema"])
-        self.assertEqual(201, len(report["traces"]))
+        self.assertEqual(203, len(report["traces"]))
         self.assertEqual(
-            200,
+            202,
             sum(
                 row["provenance"] == TRACE_PROVENANCE_NATURAL
                 for row in report["traces"]
@@ -1400,25 +1400,41 @@ class CheckedReportTests(unittest.TestCase):
             "4cda557c3a0dfcd8e014ef96fcfe01fca3c23d53bde78d4572350857dfab9f1e",
             denominator_end_structural_insert["sha256"],
         )
+        denominator_leading_structural_insert = next(
+            row for row in report["traces"]
+            if row["label"] == "mathprint_editor_fraction_denominator_leading"
+        )
+        self.assertEqual(
+            "1e7545fdab675ab151d97db291d71b5ab6665a9ad375b5927f72ffff7512b839",
+            denominator_leading_structural_insert["sha256"],
+        )
+        denominator_mid_leaf_structural_insert = next(
+            row for row in report["traces"]
+            if row["label"] == "mathprint_editor_fraction_denominator_mid_leaf"
+        )
+        self.assertEqual(
+            "7e52bade21b0d1b5b5453265abc7dc7059d1b22a9badff33778748d8fbb2926e",
+            denominator_mid_leaf_structural_insert["sha256"],
+        )
         self.assertEqual(
             114, report["record_oracles"]["cases"]
         )
         self.assertEqual(
-            1281,
+            1283,
             report["minimized_dynamic_feature_corpus"]["covered_features"],
         )
         self.assertEqual(
-            139,
+            141,
             report["minimized_dynamic_feature_corpus"]["selected_trace_count"],
         )
         self.assertEqual(
-            1278,
+            1280,
             report["minimized_natural_dynamic_feature_corpus"][
                 "covered_features"
             ],
         )
         self.assertEqual(
-            138,
+            140,
             report["minimized_natural_dynamic_feature_corpus"][
                 "selected_trace_count"
             ],
