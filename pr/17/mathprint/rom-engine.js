@@ -9795,6 +9795,85 @@
       clip.top <= y && y < clip.bottomExclusive) : pixels;
   }
 
+  // 07:4588 and 07:45B6 convert the caller's code*8 offset to the seven-byte
+  // large-font stride at 07:45FF. The first entry copies eight consecutive ROM
+  // bytes. The second builds the _PutMap record [6, row0<<1, ..., row6<<1, 0].
+  // Active hooks remain explicit delegation boundaries because their returned
+  // pattern pointer is external state.
+  function settledPage7LargeGlyphRecord(codeValue, font, inputState) {
+    const code = byte(codeValue, 'page-7 large glyph code');
+    if (!font || !font.large || font.large.page !== 0x07 ||
+        font.large.addr !== 0x45ff || font.large.stride !== 7 ||
+        font.large.width !== 5 || font.large.rows !== 7 ||
+        !Array.isArray(font.large.glyphs) || font.large.glyphs.length !== 0x100)
+      throw new TypeError('expected the decoded 07:45FF large-font artifact');
+    if (!inputState || typeof inputState !== 'object' || Array.isArray(inputState))
+      throw new TypeError('page-7 large-glyph state must be an object');
+    const entry = inputState.entry;
+    if (entry !== 'copy' && entry !== 'shifted')
+      throw new RangeError('page-7 large-glyph entry must be copy or shifted');
+    const fontHookActive = boolean(
+      inputState.fontHookActive, 'page-7 font-hook-active flag');
+    const fontHookReturnsZ = boolean(
+      inputState.fontHookReturnsZ, 'page-7 font-hook return flag');
+    const localizeHookActive = boolean(
+      inputState.localizeHookActive, 'page-7 localize-hook-active flag');
+    const localizeHookReturnsZ = boolean(
+      inputState.localizeHookReturnsZ, 'page-7 localize-hook return flag');
+    const branchOutcomes = [];
+    const branch = (address, outcome) => branchOutcomes.push(
+      `07:${address.toString(16).toUpperCase()}:${outcome}`);
+    const fontGate = entry === 'copy' ? 0x458c : 0x45ba;
+    branch(fontGate,fontHookActive ? 'fallthrough' : 'taken');
+    if (fontHookActive) {
+      const fontReturn = entry === 'copy' ? 0x4595 : 0x45c1;
+      branch(fontReturn,entry === 'copy'
+        ? (fontHookReturnsZ ? 'returned' : 'fallthrough')
+        : (fontHookReturnsZ ? 'taken' : 'fallthrough'));
+      if (fontHookReturnsZ) return {
+        code,entry,source:'fontHook',hookCommand:entry === 'copy' ? 1 : 3,
+        record:null,sourceAddress:null,branchOutcomes,
+        continuation:entry === 'copy' ? 'returned' : 'copy-hook-pattern',
+        routine:entry === 'copy' ? '07:4588–45B5' : '07:45B6–4605',
+      };
+    }
+    const localizeGate = entry === 'copy' ? 0x459a : 0x45c7;
+    branch(localizeGate,localizeHookActive ? 'fallthrough' : 'taken');
+    if (localizeHookActive) {
+      const localizeReturn = entry === 'copy' ? 0x45a3 : 0x45ce;
+      branch(localizeReturn,entry === 'copy'
+        ? (localizeHookReturnsZ ? 'returned' : 'fallthrough')
+        : (localizeHookReturnsZ ? 'taken' : 'fallthrough'));
+      if (localizeHookReturnsZ) return {
+        code,entry,source:'localizeHook',
+        hookCommand:entry === 'copy' ? 0x76 : 0x78,
+        record:null,sourceAddress:null,branchOutcomes,
+        continuation:entry === 'copy' ? 'returned' : 'copy-hook-pattern',
+        routine:entry === 'copy' ? '07:4588–45B5' : '07:45B6–4605',
+      };
+    }
+    const rows = font.large.glyphs[code];
+    if (!Array.isArray(rows) || rows.length !== 7)
+      throw new TypeError(`large-font glyph 0x${code.toString(16)} is invalid`);
+    const normalizedRows = rows.map((row, index) =>
+      byte(row, `large-font glyph 0x${code.toString(16)} row ${index}`));
+    const sourceAddress = 0x45ff + code * 7;
+    let record;
+    if (entry === 'copy') {
+      const followingByte = code === 0xff
+        ? byte(font.large.trailingByte, 'large-font trailing byte')
+        : byte(font.large.glyphs[code + 1][0], 'next large-font row byte');
+      record = normalizedRows.concat(followingByte);
+    } else {
+      record = [6,...normalizedRows.map(row => row << 1 & 0xff),0];
+    }
+    return {
+      code,entry,source:'rom',hookCommand:null,record,sourceAddress,
+      callerOffset:code << 3,branchOutcomes,continuation:'return-pattern',
+      routine:entry === 'copy' ? '07:4588–45B5' : '07:45B6–4605',
+    };
+  }
+
   function settledBlits(operation, font) {
     if (!font || !font.large || !font.small)
       throw new TypeError('settled blit translation requires font data');
@@ -9805,13 +9884,16 @@
         : {w:font.large.width,rows:font.large.glyphs[operation.code]};
       if (!glyph || !Array.isArray(glyph.rows))
         throw new RangeError(`font has no glyph 0x${operation.code.toString(16)}`);
+      const largeRecord = small ? null : settledPage7LargeGlyphRecord(
+        operation.code,font,{
+          entry:'shifted',fontHookActive:false,fontHookReturnsZ:false,
+          localizeHookActive:false,localizeHookReturnsZ:false,
+        });
       return [{
         x:operation.x,
         y:operation.y - (small ? 1 : 0),
-        // 07:45B6 gives the large-font pattern a six-pixel cell and shifts
-        // each five-pixel row left, leaving the pen-advance column clear.
-        width:small ? glyph.w : font.large.width + 1,
-        rows:small ? glyph.rows : glyph.rows.map(row => row << 1),
+        width:small ? glyph.w : largeRecord.record[0],
+        rows:small ? glyph.rows : largeRecord.record.slice(1,8),
       }];
     }
     if (operation.kind === 'glyph-run') {
@@ -10252,6 +10334,7 @@
     executeSettledRecordGraph,
     executeSettledRecordProgram,
     settledOperationPixels,
+    settledPage7LargeGlyphRecord,
     settledOperationWrites,
     rasterizeSettledOperations,
     settledTokenGlyph,

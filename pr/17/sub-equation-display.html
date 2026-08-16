@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-93857d36.js";
+            window.path_to_searchindex_js = "searchindex-a1e6ebd1.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -589,6 +589,22 @@ selects their height remains unidentified. [confirmed]</p>
 </div>
 <p>The page-7 large-font service copies fixed glyph rows. It does not measure a radicand or
 stretch a glyph by itself. [confirmed]</p>
+<p>The caller enters <code>07:4588</code> with the glyph code in <code>A</code> and its eight-byte
+offset in <code>HL</code>. <code>07:45EB</code> converts that offset to the seven-byte table address
+<code>07:45FF + 7 * code</code>. The entry then copies eight consecutive bytes to
+<code>ram:845A</code>. The eighth byte is the first row of the next glyph. Code <code>FFh</code>
+instead reads the byte <code>CDh</code> at <code>07:4CFF</code>, immediately after the 256-glyph
+table. [confirmed]</p>
+<p>The alternate entry at <code>07:45B6</code> uses the same address conversion and builds
+the nine-byte map record <code>[06h, row0 &lt;&lt; 1, ..., row6 &lt;&lt; 1, 00h]</code>. The leading
+width gives each five-pixel glyph a clear advance column. A pinned byte
+interpreter matches the JavaScript translation for all 256 glyph codes at both
+entries. [confirmed]</p>
+<p><code>(IY+35h).5</code> enables the font hook, and <code>(IY+35h).1</code> enables the localization
+hook. A hook that returns Z either completes the copy entry or supplies the
+pattern pointer consumed by the shifted entry. The 32 hook predicate states
+reduce to 14 complete branch paths. Hook-provided pattern bytes remain external
+to the translation. [confirmed]</p>
 <h2 id="algorithm-summary"><a class="header" href="#algorithm-summary">Algorithm summary</a></h2>
 <pre><code class="language-pseudocode">\begin{algorithm}
 \caption{MathPrint layout}
@@ -705,7 +721,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 32 finite models. It also computes an
+complete path-equivalence class in 33 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -728,6 +744,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Point bounds</td><td style="text-align: right">33,554,432</td><td style="text-align: right">7</td><td style="text-align: right">14</td><td style="text-align: right">7</td></tr>
 <tr><td>Thick-point expansion</td><td style="text-align: right">4,294,967,296</td><td style="text-align: right">8</td><td style="text-align: right">14</td><td style="text-align: right">8</td></tr>
 <tr><td>Shaded-point expansion</td><td style="text-align: right">3,145,728</td><td style="text-align: right">1,850</td><td style="text-align: right">30</td><td style="text-align: right">8</td></tr>
+<tr><td>Large-glyph hook dispatch</td><td style="text-align: right">32</td><td style="text-align: right">14</td><td style="text-align: right">16</td><td style="text-align: right">8</td></tr>
 <tr><td>Metric marker-tail gate</td><td style="text-align: right">16</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">5</td></tr>
 <tr><td>Editor action <code>0x03</code> controller</td><td style="text-align: right">131,072</td><td style="text-align: right">11</td><td style="text-align: right">9</td><td style="text-align: right">4</td></tr>
 <tr><td>Editor action <code>0x04</code> controller</td><td style="text-align: right">131,072</td><td style="text-align: right">5</td><td style="text-align: right">5</td><td style="text-align: right">3</td></tr>
@@ -750,8 +767,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 32 models contain 3,258 path classes and 340 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 161 representatives. Each
+<p>The 33 models contain 3,272 path classes and 356 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 169 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
