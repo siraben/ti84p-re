@@ -1250,9 +1250,9 @@ class CheckedReportTests(unittest.TestCase):
         )
 
         self.assertEqual(2, report["schema"])
-        self.assertEqual(208, len(report["traces"]))
+        self.assertEqual(216, len(report["traces"]))
         self.assertEqual(
-            207,
+            215,
             sum(
                 row["provenance"] == TRACE_PROVENANCE_NATURAL
                 for row in report["traces"]
@@ -1433,6 +1433,22 @@ class CheckedReportTests(unittest.TestCase):
                     "ec4f811fd7d2bb5cb064e3a3509a38a0e53e4766fa2c8776087125a9e42248df",
                 "mathprint_editor_radical_two_byte_replace":
                     "1447a6ec76bd23ca5901a9b81249a4b000179b7829e496fc90cf1368918ef228",
+                "mathprint_editor_radical_numerator_blank":
+                    "4501024f1aa4a50760872b536a8b494b8c18f74407b0eed2f72b38e88894aa4c",
+                "mathprint_editor_radical_numerator_end":
+                    "c421b5d59418bc87c3af072b9d7d625017023058681ac003f2f8684aef04d248",
+                "mathprint_editor_radical_numerator_leading":
+                    "46d27e465d5b85cc9e55cda62715837f251fe88638450897cfed4e0909bdb147",
+                "mathprint_editor_radical_numerator_mid_leaf":
+                    "0b1be1a6d7949b4fa11096c7b5b1b18b6797a347445b37f53e5c58d5dd557555",
+                "mathprint_editor_radical_denominator_blank":
+                    "ca34c735010590a2e54da9569837ee6b19c283aee6876ac0d34e310267f16f22",
+                "mathprint_editor_radical_denominator_end":
+                    "15aa3a3be88aa0d46c9a7ac1e4a71de7d70336d02c843888b88ed76ba35035c6",
+                "mathprint_editor_radical_denominator_leading":
+                    "65b368f1f6c11e504c454d5fe5d4f8e340d9bc2c53763143f4eabfa437f89aee",
+                "mathprint_editor_radical_denominator_mid_leaf":
+                    "7a73d8b6aeb5c86f0b526ffe945fb66e0518eb31f9c165890e88991408658732",
             },
             radical_insertions,
         )
@@ -1440,21 +1456,21 @@ class CheckedReportTests(unittest.TestCase):
             114, report["record_oracles"]["cases"]
         )
         self.assertEqual(
-            1288,
+            1296,
             report["minimized_dynamic_feature_corpus"]["covered_features"],
         )
         self.assertEqual(
-            146,
+            154,
             report["minimized_dynamic_feature_corpus"]["selected_trace_count"],
         )
         self.assertEqual(
-            1285,
+            1293,
             report["minimized_natural_dynamic_feature_corpus"][
                 "covered_features"
             ],
         )
         self.assertEqual(
-            145,
+            153,
             report["minimized_natural_dynamic_feature_corpus"][
                 "selected_trace_count"
             ],
