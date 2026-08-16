@@ -382,18 +382,22 @@ TRANSLATION_SURFACES = (
     {
         "name": "font, primitive, and LCD emission",
         "rom": [
-            "01:6297", "01:6702", "04:4155", "04:42B5–42E3",
-            "04:431D", "04:4382", "07:4588",
+            "01:6297", "01:6702", "04:4025–40AC", "04:4155",
+            "04:42B5–42E3", "04:431D–43C7", "07:4588",
         ],
         "javascript": [
             "settledPage4PointAddress", "settledPage4PointOnTransition",
+            "settledPage4DarkLineTrace", "settledVerticalOperation",
+            "settledHorizontalOperation",
             "settledOperationPixels", "settledBlits", "settledOperationWrites",
         ],
         "tests": ["tools/test-mathprint.js", "tools/test_mathprint_draw_trace.py"],
         "scope": (
-            "page-4 point-on address, mask, and OR byte transitions plus synchronous "
-            "accepted LCD writes, including unchanged writes; general point modes, "
-            "line internals, font internals, and external LCD timing remain open"
+            "page-4 point-on address, mask, and OR byte transitions; hook-disabled "
+            "dark-line stepping and ordered horizontal/vertical viewport clipping; "
+            "and synchronous accepted LCD writes, including unchanged writes; "
+            "hook dispatch, general point modes, font internals, and external LCD "
+            "timing remain open"
         ),
     },
     {

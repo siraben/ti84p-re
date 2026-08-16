@@ -1702,6 +1702,30 @@ fraction rule enters `34:5DA6` with object coordinates `x=1`–`5`, `y=6` and
 origins `x=16`, `y=5`. Page `04` receives endpoints `(17,52)` and `(21,52)`.
 [confirmed]
 
+The callers supply ordered endpoints. The wrappers treat the two varying
+coordinates asymmetrically. An underflow of the first coordinate against the
+logical clip clamps to zero. A first coordinate at or beyond the exclusive
+screen bound returns without drawing. The second coordinate instead returns
+on underflow and clamps at `bound-1` on overflow. `04:4379` performs the
+exclusive-bound test, while `04:43C0` selects the smaller ending coordinate.
+The JavaScript transition keeps the word-sized logical origins and clips
+separate from the byte-sized physical origins. [confirmed]
+
+`_DarkLine` at `04:4025` fixes `H=1` before entering `_ILine` at `04:4029`.
+`04:4042`–`04:4069` computes the absolute byte deltas, direction bits, major
+axis, doubled minor increment, and signed error. `04:4078` calls `_IPoint` at
+`04:4157` before each step, so both endpoints produce writes. The major delta
+is incremented as a byte; a delta of `FFh` therefore produces 256 point
+visits. [confirmed]
+
+A raw interpreter of the pinned `_DarkLine` bytes checks all 131,072 ordered
+endpoint pairs for horizontal and vertical lines. It also checks all 65,536
+nonnegative delta pairs, which covers every major/minor ratio and signed-error
+sequence. Separate reverse-direction cases cover the direction branches.
+Physical MathPrint lines now compose this stepper with the translated point-on
+byte transition. Drawing-hook dispatch and non-dark point modes remain outside
+this translation. [confirmed]
+
 The structural handlers retain coordinates and dimensions as 16-bit words.
 For example, `34:62B4`–`34:62C3` reads a radical child's width word, increments
 `DE` three times, and passes the resulting word endpoint to `34:5DA6`.
