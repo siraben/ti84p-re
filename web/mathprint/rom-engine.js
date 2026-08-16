@@ -3135,12 +3135,26 @@
       const editorRecordState = editor &&
         input.editor_record_byte13 !== undefined ? {
           editor_record_byte13:byte(
-            input.editor_record_byte13,`${label} retained record +13h byte`),
+          input.editor_record_byte13,`${label} retained record +13h byte`),
         } : {};
-      if (kind === 'tokens')
-        return settledExpressionSpec(input.tokens, label, active, editor);
-      if (editor && kind === 'extendedToken')
-        return settledExpressionSpec(input.tokens, label, active, editor);
+      const editorLeafState = {};
+      if (editor) for (const [property,field] of [
+        ['editor_leaf_word0F','leaf +0Fh word'],
+        ['editor_leaf_word11','leaf +11h word'],
+      ]) if (input[property] !== undefined) {
+        if (!Number.isInteger(input[property]) || input[property] < 0 ||
+            input[property] > 0xffff)
+          throw new RangeError(`${label} ${field} must be an unsigned word`);
+        editorLeafState[property] = input[property];
+      }
+      if (kind === 'tokens') return {
+        ...settledExpressionSpec(input.tokens, label, active, editor),
+        ...editorLeafState,
+      };
+      if (editor && kind === 'extendedToken') return {
+        ...settledExpressionSpec(input.tokens, label, active, editor),
+        ...editorLeafState,
+      };
       if (editor && kind === 'editorCursor') {
         const recordId = input.record_id;
         const byteOffset = input.byte_offset;
@@ -3166,7 +3180,7 @@
       if (kind === 'sequence') {
         if (!Array.isArray(input.parts) || !input.parts.length)
           throw new RangeError(`${label} sequence must contain at least one part`);
-        return {kind, parts:input.parts.map((part, index) =>
+        return {kind,...editorLeafState, parts:input.parts.map((part, index) =>
           settledExpressionSpec(part, `${label} part ${index}`, active, editor))};
       }
       if (kind === 'group') return {
@@ -5181,7 +5195,20 @@
           frames.pop();
           appendAtom(collapse([unfinished.opener,...publicParts(unfinished)]));
         }
-        return collapse(publicParts(frame()));
+        let result = collapse(publicParts(frame()));
+        if (editorCursorState && editorCursorState.recordId !== recordId &&
+            Array.isArray(result)) {
+          const emptySlot = payload.length === 2 &&
+            payload[0] === 0xef && payload[1] === 0x1e;
+          const expectedWord0F = emptySlot ? 0 : payload.length;
+          if (node.word0F !== expectedWord0F ||
+              node.word11 !== payload.length) result = {
+            kind:'tokens',tokens:result,
+            editor_leaf_word0F:node.word0F,
+            editor_leaf_word11:node.word11,
+          };
+        }
+        return result;
       } finally {
         active.delete(recordId);
       }
@@ -5409,39 +5436,85 @@
     const structuralId = firstId;
     const numeratorId = firstId + 1;
     const denominatorId = firstId + 2;
-    let originalCursor = null;
-    let insertions = 0;
-    const fraction = () => ({
-      kind:'fraction',
-      numerator:{kind:'sequence',parts:[
+    const clone = value => {
+      if (!value || typeof value !== 'object') return value;
+      if (Array.isArray(value) || value instanceof Uint8Array)
+        return Array.from(value,clone);
+      const result = {};
+      for (const [key,child] of Object.entries(value)) result[key] = clone(child);
+      return result;
+    };
+    const cursorCount = value => {
+      if (!value || typeof value !== 'object') return 0;
+      if (value.kind === 'editorCursor') return 1;
+      return Object.values(value).reduce((count,child) =>
+        count + cursorCount(child),0);
+    };
+    const root = input.editor.expression;
+    const count = cursorCount(root);
+    if (count !== 1)
+      throw new RangeError(
+        `structural insertion requires one cursor, found ${count}`);
+    let originalCursor;
+    let numerator;
+    let denominator;
+    let recordByte13;
+    let afterRecordId;
+    if (root && root.kind === 'editorCursor') {
+      originalCursor = root;
+      numerator = {kind:'sequence',parts:[
         {
           kind:'editorCursor', record_id:numeratorId, byte_offset:0,
           record_word0F:0, record_word11:2,
         },
         {kind:'extendedToken',tokens:[0xef,0x1e]},
-      ]},
-      denominator:{kind:'extendedToken',tokens:[0xef,0x1e]},
-      editor_record_byte13:0xef,
-    });
-    const visit = value => {
-      if (!value || typeof value !== 'object') return value;
-      if (Array.isArray(value) || value instanceof Uint8Array) {
-        if (Array.from(value).every(Number.isInteger)) return Array.from(value);
-        return Array.from(value,visit);
-      }
-      if (value.kind === 'editorCursor') {
-        originalCursor = value;
-        insertions++;
-        return fraction();
-      }
-      const result = {};
-      for (const [key,child] of Object.entries(value)) result[key] = visit(child);
-      return result;
-    };
-    const expression = visit(input.editor.expression);
-    if (insertions !== 1)
+      ]};
+      denominator = {kind:'extendedToken',tokens:[0xef,0x1e]};
+      recordByte13 = 0xef;
+      afterRecordId = numeratorId;
+    } else if (root && root.kind === 'sequence' &&
+               Array.isArray(root.parts)) {
+      const cursorIndex = root.parts.findIndex(
+        part => part && part.kind === 'editorCursor');
+      if (cursorIndex <= 0 || cursorIndex !== root.parts.length - 1)
+        throw new RangeError(
+          'populated fraction insertion requires a leaf-end cursor');
+      originalCursor = root.parts[cursorIndex];
+      const activeId = originalCursor.record_id;
+      const active = input.nodes.find(node =>
+        (node.record_id === undefined ? node.id : node.record_id) === activeId);
+      if (!active || !Array.isArray(active.payload) || !active.payload.length ||
+          originalCursor.byte_offset !== active.payload.length)
+        throw new RangeError(
+          'populated fraction insertion requires the complete active payload');
+      const left = root.parts.slice(0,cursorIndex).map(clone);
+      const content = left.length === 1 ? left[0] : {kind:'sequence',parts:left};
+      numerator = Array.isArray(content) ? {
+        kind:'tokens',tokens:content,
+        editor_leaf_word0F:0,
+        editor_leaf_word11:active.payload.length,
+      } : {
+        ...content,
+        editor_leaf_word0F:0,
+        editor_leaf_word11:active.payload.length,
+      };
+      denominator = {kind:'sequence',parts:[
+        {
+          kind:'editorCursor', record_id:denominatorId, byte_offset:0,
+          record_word0F:0, record_word11:2,
+        },
+        {kind:'extendedToken',tokens:[0xef,0x1e]},
+      ]};
+      recordByte13 = active.payload[0];
+      afterRecordId = denominatorId;
+    } else {
       throw new RangeError(
-        `structural insertion requires one cursor, found ${insertions}`);
+        'fraction insertion outside the translated root-leaf cases is open');
+    }
+    const expression = {
+      kind:'fraction',numerator,denominator,
+      editor_record_byte13:recordByte13,
+    };
     const marker = [
       0xef,renderType,structuralId & 0xff,structuralId >> 8,0xef,0x2d,
     ];
@@ -5451,7 +5524,7 @@
         status:'inserted', source_token:source, render_type:renderType,
         marker, parent_record_id:originalCursor.record_id,
         before_byte_offset:originalCursor.byte_offset,
-        after_record_id:numeratorId, after_byte_offset:0,
+        after_record_id:afterRecordId, after_byte_offset:0,
         structural_record_id:structuralId,
         child_record_ids:[numeratorId,denominatorId],
         before_structural_depth:depth,
@@ -6223,6 +6296,10 @@
       if (editorMode && leaf.payload.length === 2 &&
           leaf.payload[0] === 0xef && leaf.payload[1] === 0x1e)
         leaf.word0F = 0;
+      if (editorMode && prepared.editor_leaf_word0F !== undefined)
+        leaf.word0F = prepared.editor_leaf_word0F;
+      if (editorMode && prepared.editor_leaf_word11 !== undefined)
+        leaf.word11 = prepared.editor_leaf_word11;
       if (leaf.editor_cursor_offset !== undefined) {
         if (leaf.editor_cursor_record_word0F !== undefined)
           leaf.word0F = leaf.editor_cursor_record_word0F;
@@ -6255,6 +6332,12 @@
         const leading = parts.find(part => part.fractionByte13 !== undefined);
         return {
           kind:'sequence', parts,
+          ...(expression.editor_leaf_word0F === undefined ? {} : {
+            editor_leaf_word0F:expression.editor_leaf_word0F,
+          }),
+          ...(expression.editor_leaf_word11 === undefined ? {} : {
+            editor_leaf_word11:expression.editor_leaf_word11,
+          }),
           fractionByte13:leading ? leading.fractionByte13 : undefined,
         };
       }
