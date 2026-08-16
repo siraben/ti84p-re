@@ -847,6 +847,50 @@ def symbolic_scan_kind_paths(
     return annotate_symbolic_outcome_coverage(paths, observed_outcomes)
 
 
+def structural_depth_gate_path(structural_depth: int) -> dict[str, object]:
+    """Translate the complete byte predicate at 35:7B37–7B45."""
+
+    depth = structural_depth & 0xFF
+    incremented_depth = (depth + 1) & 0xFF
+    accepted = incremented_depth < 5
+    return {
+        "terminal": "preserve_a" if accepted else "return_a_03",
+        "incremented_depth": incremented_depth,
+        "carry": not accepted,
+        "branch_outcomes": [
+            f"35:7B42:{'returned' if accepted else 'fallthrough'}"
+        ],
+    }
+
+
+def symbolic_structural_depth_gate_paths() -> list[dict[str, object]]:
+    """Partition all 256 structural-depth bytes for the shared editor gate."""
+
+    classes: dict[tuple[str, tuple[str, ...]], dict[str, object]] = {}
+    for structural_depth in range(0x100):
+        result = structural_depth_gate_path(structural_depth)
+        key = (
+            str(result["terminal"]),
+            tuple(str(item) for item in result["branch_outcomes"]),
+        )
+        row = classes.setdefault(key, {
+            "projected_input_count": 0,
+            "representative_states": [],
+        })
+        row["projected_input_count"] += 1
+        states = row["representative_states"]
+        if len(states) < 4:
+            states.append({"structural_depth": structural_depth})
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
 def editor_action03_controller_path(
     argument_index: int,
     argument_count: int,
@@ -2530,6 +2574,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             "34:5678",
             0x100,
             symbolic_scan_kind_paths(),
+        ),
+        (
+            "structural_depth_gate",
+            "35:7B37",
+            0x100,
+            symbolic_structural_depth_gate_paths(),
         ),
         (
             "raised_extended_token_classifier",
