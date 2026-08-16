@@ -381,12 +381,20 @@ TRANSLATION_SURFACES = (
     },
     {
         "name": "font, primitive, and LCD emission",
-        "rom": ["01:6297", "01:6702", "04:4155", "04:431D", "04:4382", "07:4588"],
+        "rom": [
+            "01:6297", "01:6702", "04:4155", "04:42B5–42E3",
+            "04:431D", "04:4382", "07:4588",
+        ],
         "javascript": [
+            "settledPage4PointAddress", "settledPage4PointOnTransition",
             "settledOperationPixels", "settledBlits", "settledOperationWrites",
         ],
         "tests": ["tools/test-mathprint.js", "tools/test_mathprint_draw_trace.py"],
-        "scope": "synchronous accepted LCD writes, including unchanged writes",
+        "scope": (
+            "page-4 point-on address, mask, and OR byte transitions plus synchronous "
+            "accepted LCD writes, including unchanged writes; general point modes, "
+            "line internals, font internals, and external LCD timing remain open"
+        ),
     },
     {
         "name": "glyph viewport and timer run indicator",

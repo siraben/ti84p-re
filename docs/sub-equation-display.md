@@ -1674,6 +1674,21 @@ and `34:5DEF`. Its closed tail at `34:5E98`–`34:5EA6` passes `B=x`,
 `C=63-y`, and `D=1` to `_PointOn` at `04:4155`. Dynamic samples include
 `(x,y)=(3,0)` → `BC=033Fh` and `(32,20)` → `BC=202Bh`. [confirmed]
 
+`04:42B5`–`04:42E3` converts the graph coordinate into the point mask, LCD
+commands, and plot-buffer offset. It selects `80h >> (x & 7)`, uses `x >> 3`
+as the byte column, and computes `3 * ((4 * display_row) & FFh) + byte_column`.
+The row multiplication keeps its intermediate in one byte. Rows `40h`–`7Fh`
+therefore alias rows `00h`–`3Fh` before the column is added. `_PointOn` fixes
+`D=1`, so `04:424D`–`04:4254` ORs that mask into the current byte. MathPrint's
+wrapper clips to the 96×64 display before this entry. [confirmed]
+
+The JavaScript translation matches a raw interpreter of the pinned helper
+bytes for all 65,536 input-coordinate pairs. A second exhaustive comparison
+covers every previous byte for each visible coordinate: 1,572,864 point-on
+transitions. The wider diagnostic canvas used for overflow inspection can have
+coordinates above `FFh`; those pixels cannot enter the page-4 byte ABI and are
+kept separate from the physical LCD claim. [confirmed]
+
 The line wrappers share the viewport state at `0x8DFA`–`0x8E04`. The byte at
 `ram:8DFA` is the physical screen $x$ origin, while the word at `ram:8DFE` is
 the logical record $x$ origin. `ram:8DFB` and `ram:8E00` are the corresponding
