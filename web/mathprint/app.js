@@ -1089,6 +1089,15 @@ function generateRecordProgram(program, options = {}) {
         ? 0 : options.previousXClip,
       previousYClip:options.previousYClip === undefined
         ? 0 : options.previousYClip,
+      xOrigin:options.xOrigin,
+      yOrigin:options.yOrigin,
+      screenXOrigin:options.screenXOrigin,
+      screenYOrigin:options.screenYOrigin,
+      rightBound:options.rightBound,
+      bottomBound:options.bottomBound,
+      iy44Bit3:options.iy44Bit3,
+      extraWidth:options.extraWidth,
+      extraHeight:options.extraHeight,
     }) : null;
   const recordOperations = ROM_ENGINE.executeSettledRecordProgram(
     program.nodes, program.entry_id, {
@@ -1102,11 +1111,27 @@ function generateRecordProgram(program, options = {}) {
         glyphAdvance:(depth, code) => depth ? FONT.small.glyphs[code].w : 6,
       })
     : recordOperations;
-  const editorChrome = editorViewport &&
+  const editorRightCue = editorViewport &&
+      typeof ROM_ENGINE.settledEditorRightCue === 'function'
+    ? ROM_ENGINE.settledEditorRightCue(
+      (recordWidth + editorViewport.cursorWidth +
+        editorViewport.extraWidth) & 0xffff,
+      editorViewport,recordHeight,{editorMode:options.editorMode})
+    : null;
+  const editorVerticalCues = editorViewport &&
       typeof ROM_ENGINE.settledEditorVerticalCueOperations === 'function'
     ? ROM_ENGINE.settledEditorVerticalCueOperations(
-      editorViewport, recordHeight)
+      editorViewport,recordHeight,{editorMode:options.editorMode})
     : null;
+  const editorChrome = editorViewport ? {
+    rightCue:editorRightCue,
+    verticalCues:editorVerticalCues,
+    operations:[
+      ...(editorRightCue && editorRightCue.operation
+        ? [editorRightCue.operation] : []),
+      ...(editorVerticalCues ? editorVerticalCues.operations : []),
+    ],
+  } : null;
   const operations = editorChrome
     ? settledOperations.concat(editorChrome.operations)
     : settledOperations;
