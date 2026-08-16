@@ -402,7 +402,8 @@ TRANSLATION_SURFACES = (
             "hook-disabled page-4 style expansion, offsets, bounds, point address, "
             "clear/set/XOR/test modes, buffer routing, and the composed point pipeline; "
             "MathPrint's style-inactive LCD-only point transition; hook-disabled "
-            "dark-line stepping and ordered horizontal/vertical viewport clipping; "
+            "dark-line stepping and ordered horizontal/vertical viewport clipping, "
+            "including the complete glyph row-window transition; "
             "the complete page-1 glyph-pointer selector byte domain; "
             "small-font byte-boundary selection, row alignment, ordinary and "
             "inverse byte composition, crossing-byte write order, and the "
@@ -1694,6 +1695,224 @@ def symbolic_editor_vertical_cue_paths() -> list[dict[str, object]]:
     expected = 0xFFFF * 0x10000
     if sum(row["projected_input_count"] for row in result) != expected:
         raise AssertionError("vertical-cue classes do not partition their domain")
+    return result
+
+
+def glyph_vertical_viewport_path(
+    logical_top: int,
+    depth: int,
+    y_clip: int,
+    bottom_bound: int = 0x3E,
+) -> dict[str, object]:
+    """Return the complete state transition through 34:67C8–6872."""
+
+    logical_top &= 0xFFFF
+    depth &= 0xFF
+    y_clip &= 0xFFFF
+    bottom_bound &= 0xFF
+    raised = depth != 0
+    cell_height = 5 if raised else 7
+    endpoint = (logical_top + cell_height) & 0xFFFF
+    bottom_exclusive = (y_clip + bottom_bound) & 0xFFFF
+    outcomes: list[str] = []
+
+    above = logical_top < y_clip
+    outcomes.append(
+        f"34:67E6:{'fallthrough' if above else 'taken'}"
+    )
+    top_rows = 0
+    if above:
+        outcomes.append(
+            f"34:67EE:{'fallthrough' if raised else 'taken'}"
+        )
+        endpoint_before_clip = endpoint < y_clip
+        outcomes.append(
+            f"34:67F7:{'taken' if endpoint_before_clip else 'fallthrough'}"
+        )
+        if endpoint_before_clip:
+            return {
+                "terminal": "skip_above",
+                "endpoint": endpoint,
+                "top_rows": 0,
+                "bottom_rows": 0,
+                "source_row_start": 0,
+                "visible_rows": 0,
+                "row_count_active": False,
+                "branch_outcomes": outcomes,
+            }
+        endpoint_at_clip = endpoint == y_clip
+        outcomes.append(
+            f"34:67FA:{'taken' if endpoint_at_clip else 'fallthrough'}"
+        )
+        if endpoint_at_clip:
+            return {
+                "terminal": "skip_above",
+                "endpoint": endpoint,
+                "top_rows": 0,
+                "bottom_rows": 0,
+                "source_row_start": 0,
+                "visible_rows": 0,
+                "row_count_active": False,
+                "branch_outcomes": outcomes,
+            }
+        top_rows = y_clip - logical_top
+
+    below = bottom_exclusive < logical_top
+    outcomes.append(f"34:6827:{'taken' if below else 'fallthrough'}")
+    if below:
+        return {
+            "terminal": "skip_below",
+            "endpoint": endpoint,
+            "top_rows": top_rows,
+            "bottom_rows": 0,
+            "source_row_start": top_rows,
+            "visible_rows": 0,
+            "row_count_active": False,
+            "branch_outcomes": outcomes,
+        }
+    at_bottom = bottom_exclusive == logical_top
+    outcomes.append(f"34:6829:{'taken' if at_bottom else 'fallthrough'}")
+    if at_bottom:
+        return {
+            "terminal": "skip_below",
+            "endpoint": endpoint,
+            "top_rows": top_rows,
+            "bottom_rows": 0,
+            "source_row_start": top_rows,
+            "visible_rows": 0,
+            "row_count_active": False,
+            "branch_outcomes": outcomes,
+        }
+
+    endpoint_before_bottom = endpoint < bottom_exclusive
+    outcomes.append(
+        f"34:6836:{'taken' if endpoint_before_bottom else 'fallthrough'}"
+    )
+    bottom_rows = 0
+    bottom_clipped = False
+    if not endpoint_before_bottom:
+        endpoint_at_bottom = endpoint == bottom_exclusive
+        outcomes.append(
+            f"34:6838:{'taken' if endpoint_at_bottom else 'fallthrough'}"
+        )
+        if not endpoint_at_bottom:
+            bottom_clipped = True
+            bottom_rows = (endpoint - bottom_exclusive) & 0xFFFF
+
+    outcomes.append(f"34:6846:{'fallthrough' if raised else 'taken'}")
+    source_row_start = top_rows + int(raised)
+    source_skip_active = source_row_start != 0
+    outcomes.append(
+        f"34:6855:{'taken' if bottom_clipped else 'fallthrough'}"
+    )
+    if not bottom_clipped:
+        outcomes.append(
+            f"34:685B:{'taken' if source_skip_active else 'fallthrough'}"
+        )
+    terminal = (
+        "clip_both" if top_rows and bottom_clipped
+        else "clip_top" if top_rows
+        else "clip_bottom" if bottom_clipped
+        else "draw"
+    )
+    return {
+        "terminal": terminal,
+        "endpoint": endpoint,
+        "top_rows": top_rows,
+        "bottom_rows": bottom_rows,
+        "source_row_start": source_row_start,
+        "visible_rows": max(0, cell_height - top_rows - bottom_rows),
+        "row_count_active": bottom_clipped or not source_skip_active,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_glyph_vertical_viewport_paths() -> list[dict[str, object]]:
+    """Partition every top/clip/depth byte for the 3Eh MathPrint window."""
+
+    word_count = 0x10000
+    bottom_bound = 0x3E
+    classes: dict[
+        tuple[str, tuple[str, ...]], dict[str, object]
+    ] = {}
+
+    def add_interval(
+        logical_top: int,
+        interval_end: int,
+        depth: int,
+        y_clip: int,
+        depth_multiplicity: int,
+    ) -> None:
+        result = glyph_vertical_viewport_path(
+            logical_top, depth, y_clip, bottom_bound
+        )
+        if interval_end - logical_top > 1:
+            tail = glyph_vertical_viewport_path(
+                interval_end - 1, depth, y_clip, bottom_bound
+            )
+            if (
+                tail["terminal"] != result["terminal"]
+                or tail["branch_outcomes"] != result["branch_outcomes"]
+            ):
+                raise AssertionError(
+                    "glyph vertical-viewport interval crosses a path boundary"
+                )
+        key = (
+            str(result["terminal"]),
+            tuple(str(item) for item in result["branch_outcomes"]),
+        )
+        row = classes.setdefault(key, {
+            "projected_input_count": 0,
+            "representative_states": [],
+        })
+        row["projected_input_count"] += (
+            interval_end - logical_top
+        ) * depth_multiplicity
+        states = row["representative_states"]
+        if len(states) < 4:
+            states.append({
+                "logical_top": logical_top,
+                "depth": depth,
+                "y_clip": y_clip,
+                "bottom_bound": bottom_bound,
+            })
+
+    for depth, depth_multiplicity in ((0, 1), (1, 0xFF)):
+        cell_height = 7 if depth == 0 else 5
+        wrap = word_count - cell_height
+        for y_clip in range(word_count):
+            bottom_exclusive = (y_clip + bottom_bound) & 0xFFFF
+            cuts = {0, word_count}
+            for boundary in (
+                y_clip,
+                bottom_exclusive,
+                wrap,
+                (y_clip - cell_height) & 0xFFFF,
+                (bottom_exclusive - cell_height) & 0xFFFF,
+            ):
+                cuts.add(boundary)
+                if boundary < word_count - 1:
+                    cuts.add(boundary + 1)
+            ordered = sorted(cuts)
+            for start, end in zip(ordered, ordered[1:]):
+                if start < end:
+                    add_interval(
+                        start, end, depth, y_clip, depth_multiplicity
+                    )
+
+    result = [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+    expected = word_count * word_count * 0x100
+    if sum(row["projected_input_count"] for row in result) != expected:
+        raise AssertionError(
+            "glyph vertical-viewport classes do not partition their domain"
+        )
     return result
 
 
@@ -4555,6 +4774,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             symbolic_editor_right_overflow_cue_paths(),
         ),
         (
+            "glyph_vertical_viewport",
+            "34:67C8–6872",
+            0x10000 * 0x10000 * 0x100,
+            symbolic_glyph_vertical_viewport_paths(),
+        ),
+        (
             "glyph_viewport_gates",
             "34:6C5F–6C87",
             0x10000 * 0x10000 * 7,
@@ -6104,6 +6329,19 @@ def build_report(
                 "scope": (
                     "complete two-entry hook predicate domain; hook-provided "
                     "pattern bytes remain external"
+                ),
+            },
+            "glyph_vertical_viewport": {
+                "routine": "34:67C8–6872",
+                "state": [
+                    "logical glyph-top word", "vertical-clip word",
+                    "render-depth byte", "fixed MathPrint bottom bound 0x3E",
+                ],
+                "projected_input_domain": 0x10000 * 0x10000 * 0x100,
+                "terminal_classes": symbolic_glyph_vertical_viewport_paths(),
+                "scope": (
+                    "complete top, clip, and depth-byte domain for the active "
+                    "MathPrint window, including word wrap and dual-edge clipping"
                 ),
             },
             "metric_marker_tail_gate": {

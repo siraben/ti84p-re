@@ -599,7 +599,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 38 finite models. It also computes an
+complete path-equivalence class in 39 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -634,6 +634,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Editor vertical overflow cues | 4,294,901,760 | 5 | 8 | 3 |
 | Editor left-overflow cue | 1,099,494,850,560 | 5 | 8 | 5 |
 | Editor right-overflow cue | 281,474,976,710,656 | 5 | 10 | 4 |
+| Glyph vertical viewport | 1,099,511,627,776 | 16 | 22 | 6 |
 | Glyph viewport gates | 30,064,771,072 | 3 | 4 | 3 |
 | Embedded-record viewport gate | 4,294,967,296 | 2 | 2 | 2 |
 | Record-allocation capacity | 36,893,488,147,419,103,232 | 6 | 6 | 2 |
@@ -645,8 +646,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 | FindAlpha OP scratch transition | 33,554,432 | 2 | 5 | 2 |
 
-The 38 models contain 3,300 path classes and 405 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 193 representatives. Each
+The 39 models contain 3,316 path classes and 427 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 200 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -2773,6 +2774,21 @@ cursor top 59, and bottom bound 62. The first pass changes the clip from 0 to
 translated upward by eight rows before the LCD writer applies the visible
 window. `34:67C8`–`34:6872` rejects complete glyph cells above or below that
 window and admits crossing cells for row clipping. [confirmed]
+
+The glyph gate continues to the lower-edge comparison after an accepted
+upper-edge crossing. `34:6807` stores the number of rows above the window in
+`0x9D01`. Raised glyphs add their leading padding-row skip at `34:6848`–`34:684C`.
+An endpoint below the lower edge stores the explicit row count in `0x9B72` at
+`34:683A`–`34:683F`. Bit 0 of `(IY-1)` marks an active source-row skip, bit 1
+marks a rejected glyph, and bit 7 of `(IY+32h)` marks an active row-count byte.
+A viewport shorter than the glyph can therefore clip both edges in one call.
+[confirmed]
+
+The finite model partitions every logical-top word, vertical-clip word, and
+render-depth byte at the MathPrint bottom bound `0x3E`. Its 16 path classes
+cover 1,099,511,627,776 projected states. Pinned-byte differential tests also
+exercise 229,456 boundary states across nine byte-sized bounds, including word
+wrap and dual-edge clipping. [confirmed]
 
 The translated LCD crop is 17×61 pixels and matches the calculator pixel for
 pixel. Its SHA-256 is
