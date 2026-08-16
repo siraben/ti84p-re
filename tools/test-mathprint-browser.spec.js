@@ -15,6 +15,8 @@ const contentTypes = {
   '.json':'application/json',
 };
 const doubledIntegral = 'int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)';
+const verticalViewportOracle = JSON.parse(fs.readFileSync(path.join(
+  __dirname, 'mathprint-vertical-viewport-oracle.json'))).cases[0];
 
 let server;
 let baseUrl;
@@ -95,6 +97,52 @@ test('preserves a long expression typed while assets load', async ({ page }) => 
   await expect(page.locator('#screen')).toHaveAttribute('height', '186');
   expect(pageErrors).toEqual([]);
 });
+
+test('renders the depth-four vertical viewport at calculator pixels',
+  async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(String(error)));
+    await page.goto(baseUrl, {waitUntil:'domcontentloaded'});
+    await page.locator('#expr').fill(verticalViewportOracle.expression);
+    await expect(page.locator('#err')).toHaveText('');
+    await expect(page.locator('#dims')).toContainText('editor y clip 8 px');
+    await expect(page.locator('#dims')).toContainText('write 103/103');
+
+    const grid = await page.locator('#screen').evaluate((canvas) => {
+      const context = canvas.getContext('2d');
+      const pixels = context.getImageData(
+        0, 0, canvas.width, canvas.height).data;
+      const background = Array.from(pixels.slice(0, 4));
+      const scale = 6, pad = 2, width = 96, height = 64;
+      return Array.from({length:height}, (_, y) =>
+        Array.from({length:width}, (_, x) => {
+          const sampleX = Math.floor((x + pad + 0.5) * scale);
+          const sampleY = Math.floor((y + pad + 0.5) * scale);
+          const offset = 4 * (sampleY * canvas.width + sampleX);
+          return background.some((value, channel) =>
+            pixels[offset + channel] !== value) ? 1 : 0;
+        }));
+    });
+    const occupied = grid.flatMap((row, y) =>
+      row.flatMap((value, x) => value ? [[x,y]] : []));
+    const left = Math.min(...occupied.map(([x]) => x));
+    const right = Math.max(...occupied.map(([x]) => x));
+    const top = Math.min(...occupied.map(([,y]) => y));
+    const bottom = Math.max(...occupied.map(([,y]) => y));
+    const crop = grid.slice(top,bottom + 1).map(row =>
+      row.slice(left,right + 1));
+    expect({
+      width:right - left + 1,
+      height:bottom - top + 1,
+      sha256:crypto.createHash('sha256').update(
+        Buffer.from(crop.flat())).digest('hex'),
+    }).toEqual({
+      width:verticalViewportOracle.entry_crop.width,
+      height:verticalViewportOracle.entry_crop.height,
+      sha256:verticalViewportOracle.entry_crop.sha256,
+    });
+    expect(pageErrors).toEqual([]);
+  });
 
 test('keeps growing the model and LCD viewport after a second overflow',
   async ({ page }) => {

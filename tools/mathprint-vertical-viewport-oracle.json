@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "source": "natural reset-origin TilEm entry with a bounded full-address backtrace ring, RAM snapshot, and pre-ENTER screenshot",
+  "rom_sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d",
+  "capture_executable_sha256": "40cf1f9ff975217ede238cd02bfd6a85fa6bfecf8cbcea173b0d7705b144330b",
+  "cases": [
+    {
+      "expression": "((((1//1)//(1//1))//((1//1)//(1//1)))//(((1//1)//(1//1))//((1//1)//(1//1))))",
+      "macro": "tools/macros/mathprint-nested-fraction-vertical.macro",
+      "trace_capture": "600000000-byte full-address TilEm backtrace ring",
+      "trace_sha256": "14550292df84b68282500c4e19ccfd9f4ee160e6428585600ba2e1f37f699b3c",
+      "trace_bytes": 600065538,
+      "trace_instructions": 12027444,
+      "ram_sha256": "50597ca50adab3d624038a87b5f973dea92ba3c6fb38903e365b2ca1d164cc18",
+      "screenshot_png_sha256": "85710dd5a53d4cf7f4f8340b8f8a8d45f4f48165a62297ed697c52afff0cf4d7",
+      "native_tokens": [
+        16, 16, 16, 49, 239, 46, 49, 17, 239, 46, 16, 49, 239, 46, 49,
+        17, 17, 239, 46, 16, 16, 49, 239, 46, 49, 17, 239, 46, 16, 49,
+        239, 46, 49, 17, 17, 17, 239, 46, 16, 16, 16, 49, 239, 46, 49,
+        17, 239, 46, 16, 49, 239, 46, 49, 17, 17, 239, 46, 16, 16, 49,
+        239, 46, 49, 17, 239, 46, 16, 49, 239, 46, 49, 17, 17, 17
+      ],
+      "calculator": {
+        "wrapper_id": 6,
+        "entry_id": 7,
+        "word05_height": 125,
+        "word07_width_with_cursor": 26,
+        "word09_baseline": 62,
+        "ram_8518_cursor_top": 59,
+        "ram_8dfd_bottom_bound": 62,
+        "ram_8e04_y_clip": 8
+      },
+      "translated": {
+        "entry_id": 1,
+        "node_count": 46,
+        "word05_height": 125,
+        "expression_endpoint": 20,
+        "word09_baseline": 62,
+        "first_vertical_clip": 4,
+        "second_vertical_clip": 8,
+        "operation_count": 23,
+        "accepted_write_count": 103,
+        "accepted_write_sha256": "7726e5823bdea3dbd5f4f09feacb560f2f03bce4ef0c9fbfd47acc4570bd806e",
+        "final_lcd_sha256": "6d472b704f7904735153b836a2ebb1e1ea4f27f3771e1122ae224110aa2729db"
+      },
+      "entry_crop": {
+        "width": 17,
+        "height": 61,
+        "sha256": "7516b14104afaa3259d45b4b1577d0a9ae96df4a9bbc65bb52b147e3cb59910d",
+        "match_percent": 100
+      }
+    }
+  ]
+}
