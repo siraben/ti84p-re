@@ -1659,6 +1659,22 @@
       if ((positioned.kind === 'glyph' || positioned.kind === 'glyph-run') &&
           positioned.x < 0)
         continue;
+      // 34:630C enters the same 34:6C37 display-unit path as a glyph. The
+      // bitmap header supplies its five-pixel advance before 34:6C5F compares
+      // the unit's logical left edge with ram:8E02. A root hook that begins
+      // left of the clip is therefore omitted as a unit instead of raster-
+      // clipping its visible columns.
+      if (operation.viewportAdvance !== undefined) {
+        if (!Number.isInteger(operation.viewportAdvance) ||
+            operation.viewportAdvance < 0 || operation.viewportAdvance > 0xffff)
+          throw new RangeError(
+            'settled editor operation viewport advance must fit an unsigned word');
+        const logicalPen = (operation.x + viewport.xOrigin) & 0xffff;
+        if (settledGlyphViewportDecision(
+          logicalPen,operation.viewportAdvance,
+          viewport.xClip,viewport.rightBound).action !== 'draw')
+          continue;
+      }
       // 34:6C6B–6C7F adds the glyph advance to the logical pen, derives the
       // one-past-right viewport coordinate, and skips the whole glyph when
       // that endpoint is larger. Equality is accepted: a four-pixel advance
@@ -6049,7 +6065,7 @@
     return [
       {kind:'child', index:1, routine:'34:6315 → 34:636C'},
       {kind:'bitmap', x:hookX, y:hookY, width:5, height:rows.length,
-       rows, retainUnchanged:true,
+       rows, retainUnchanged:true, viewportAdvance:5,
        routine:'34:6321 → 34:62D0 → 34:630C'},
       {kind:'line', axis:'vertical', from:{x:addWord(hookX,2),y:3},
        to:{x:addWord(hookX,2),y:hookY}, routine:'34:6331 → 34:5D96'},
@@ -6080,7 +6096,7 @@
     return [
       {kind:'bitmap', x:0, y:hookY, width:5, height:rows.length,
        rows,
-       retainUnchanged:true,
+       retainUnchanged:true, viewportAdvance:5,
        routine:'34:62A4 → 34:62D0 → 34:630C'},
       {kind:'line', axis:'vertical', from:{x:2,y:1}, to:{x:2,y:stemEnd},
        routine:'34:62AE → 34:5D96'},

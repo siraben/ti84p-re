@@ -48,6 +48,8 @@ const twoByteTokenOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-two-byte-token-oracles.json')));
 const editorOverflowOracle = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-editor-overflow-oracle.json')));
+const radicalViewportOracle = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools', 'mathprint-radical-viewport-oracles.json'))).cases[0];
 
 function expectEqual(label, actual, expected) {
   if (JSON.stringify(actual) !== JSON.stringify(expected))
@@ -2391,6 +2393,16 @@ expectEqual('34:6C5F skips a glyph whose left edge precedes the editor clip',
   ], rom.settledEditorViewport(106), 10).slice(0,-1), [
     {kind:'glyph',code:0x41,x:0,y:3,depth:0,routine:'test'},
   ]);
+expectEqual('34:6C5F skips a root-hook bitmap whose left edge precedes the editor clip',
+  rom.settledEditorViewportOperations([
+    {kind:'bitmap',x:6,y:4,width:5,height:1,rows:[0x04],
+     retainUnchanged:true,viewportAdvance:5,routine:'34:630C → 34:6C37'},
+    {kind:'bitmap',x:7,y:4,width:5,height:1,rows:[0x04],
+     retainUnchanged:true,viewportAdvance:5,routine:'34:630C → 34:6C37'},
+  ], rom.settledEditorViewport(96), 10).slice(0,-1), [
+    {kind:'bitmap',x:0,y:4,width:5,height:1,rows:[0x04],
+     retainUnchanged:true,viewportAdvance:5,routine:'34:630C → 34:6C37'},
+  ]);
 expectEqual('34:6C6B skips only glyphs past the one-past-right endpoint',
   rom.settledEditorViewportOperations([
     {kind:'glyph',code:0x41,x:91,y:3,depth:1,routine:'test'},
@@ -2480,7 +2492,7 @@ expectEqual('34:6315 nth-root primitive order', rom.settledNthRootOperations(4, 
   {kind:'child', index:1, routine:'34:6315 → 34:636C'},
   {kind:'bitmap', x:3, y:4, width:5, height:7,
    rows:[0x04,0x04,0x04,0x04,0x14,0x0c,0x04],
-   retainUnchanged:true,
+   retainUnchanged:true, viewportAdvance:5,
    routine:'34:6321 → 34:62D0 → 34:630C'},
   {kind:'line', axis:'vertical', from:{x:5,y:3}, to:{x:5,y:4},
    routine:'34:6331 → 34:5D96'},
@@ -3432,6 +3444,73 @@ expectEqual('long integral sum exposes its settled extent and editor scrolling',
     .translated_expression_and_left_cue_write_sha256,
   lcdHash:editorOverflowOracle.settled_editor_redraw
     .translated_expression_and_left_cue_lcd_sha256,
+});
+const radicalViewportProgram = mp.constructedProgramForExpression(
+  radicalViewportOracle.expression);
+expectEqual('left-clipped radical input preserves calculator native tokens',
+  radicalViewportProgram.native_tokens,radicalViewportOracle.native_tokens);
+expectEqual('left-clipped radical decodes the calculator RAM graph',
+  rom.decodeSettledExpressionGraph(
+    radicalViewportOracle.nodes,radicalViewportOracle.wrapper_id),
+  radicalViewportOracle.spec);
+const radicalViewport = mp.generatedForExpression(radicalViewportOracle.expression);
+expectEqual('left-clipped radical reproduces the editor viewport', {
+  recordHeight:radicalViewportProgram.nodes[0].word05,
+  recordWidth:radicalViewport.recordWidth,
+  xClip:radicalViewport.editorViewport.xClip,
+  effectiveX:radicalViewport.editorViewport.effectiveX,
+  cursorX:radicalViewport.editorViewport.cursorX,
+}, {
+  recordHeight:radicalViewportOracle.record.word05_height,
+  recordWidth:radicalViewportOracle.record.expression_endpoint,
+  xClip:radicalViewportOracle.viewport.ram_8e02_x_clip,
+  effectiveX:radicalViewportOracle.viewport.effective_x,
+  cursorX:radicalViewportOracle.viewport.cursor_x,
+});
+expectEqual('34:6C69 reproduces the traced radical-hook skip',
+  rom.settledGlyphViewportDecision(
+    radicalViewportOracle.hook_gate.logical_pen,
+    5,
+    radicalViewportOracle.hook_gate.clip), {
+    action:radicalViewportOracle.hook_gate.action,
+    logicalPen:radicalViewportOracle.hook_gate.logical_pen,
+    endpoint:null,
+    rightExclusive:null,
+    branchOutcomes:[
+      `${radicalViewportOracle.hook_gate.comparison_address}:taken`,
+    ],
+  });
+if (radicalViewport.operations.some(operation =>
+  operation.kind === 'bitmap' && operation.recordType === 0x27 &&
+  operation.routine.includes('34:630C')))
+  throw new Error('34:6C69 retained a radical-hook bitmap left of the editor clip');
+for (const routine of ['34:62AE → 34:5D96','34:62C3 → 34:5DA6'])
+  if (!radicalViewport.operations.some(operation => operation.routine === routine))
+    throw new Error(`left-clipped radical lost ${routine}`);
+const radicalViewportCrop = cropInk(radicalViewport.final);
+expectEqual('left-clipped radical reproduces the calculator entry crop', {
+  dimensions:[radicalViewportCrop[0].length,radicalViewportCrop.length],
+  sha256:crypto.createHash('sha256').update(
+    Buffer.from(radicalViewportCrop.flat())).digest('hex'),
+}, {
+  dimensions:[radicalViewportOracle.entry_crop.width,
+    radicalViewportOracle.entry_crop.height],
+  sha256:radicalViewportOracle.entry_crop.sha256,
+});
+expectEqual('left-clipped radical retains the translated LCD write stream', {
+  operations:radicalViewport.operations.length,
+  writes:radicalViewport.events.length,
+  writeSha256:crypto.createHash('sha256').update(Buffer.from(
+    radicalViewport.events.flatMap(write => [...write.pointer,write.value])))
+    .digest('hex'),
+  lcdSha256:crypto.createHash('sha256').update(Buffer.from(
+    radicalViewport.final.flatMap(row => Array.from(row,Number))))
+    .digest('hex'),
+}, {
+  operations:radicalViewportOracle.translated.operation_count,
+  writes:radicalViewportOracle.translated.accepted_write_count,
+  writeSha256:radicalViewportOracle.translated.accepted_write_sha256,
+  lcdSha256:radicalViewportOracle.translated.final_lcd_sha256,
 });
 const spacedLongIntegral = mp.constructedProgramForExpression(
   ' int(1, 3, (1 // 2) X, X) + int(1, 3, (1 // 2) X, X) ');
@@ -5239,6 +5318,7 @@ expectThrows('transient type-1F root rejects multiple children', RangeError,
 expectEqual('34:62A1 radical primitive order', rom.settledRadicalOperations(12, 0x1d), [
   {kind:'bitmap', x:0, y:5, width:5, height:7,
    rows:[0x04,0x04,0x04,0x04,0x14,0x0c,0x04], retainUnchanged:true,
+   viewportAdvance:5,
    routine:'34:62A4 → 34:62D0 → 34:630C'},
   {kind:'line', axis:'vertical', from:{x:2,y:1}, to:{x:2,y:4},
    routine:'34:62AE → 34:5D96'},
@@ -5251,6 +5331,7 @@ expectEqual('34:62D0 raised radical selects the final five bitmap rows',
   rom.settledRadicalOperations(7, 6, 1)[0], {
     kind:'bitmap', x:0, y:2, width:5, height:5,
     rows:[0x04,0x04,0x14,0x0c,0x04], retainUnchanged:true,
+    viewportAdvance:5,
     routine:'34:62A4 → 34:62D0 → 34:630C',
   });
 expectEqual('34:62A7 extends a tall raised-radical stem below five hook rows',
@@ -5275,6 +5356,7 @@ expectEqual('34:62D0 raised nth root selects the final five bitmap rows',
   rom.settledNthRootOperations(4, 4, 9, 1)[1], {
     kind:'bitmap', x:3, y:4, width:5, height:5,
     rows:[0x04,0x04,0x14,0x0c,0x04], retainUnchanged:true,
+    viewportAdvance:5,
     routine:'34:6321 → 34:62D0 → 34:630C',
   });
 expectEqual('34:622F integral primitive order', rom.settledIntegralOperations(0x17), [

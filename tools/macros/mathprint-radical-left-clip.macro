@@ -1,0 +1,47 @@
+# MathPrint: place a five-pixel radical hook one pixel left of ram:8E02.
+# The 34:6C37 display-unit path skips the complete hook bitmap at 34:6C69;
+# the radical stem and vinculum still draw through their line primitives.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key LPAREN
+key 2ND
+key SQUARE
+key MATH
+key 8
+wait 0.8s
+key ALPHA
+key MATH
+wait 0.8s
+key 1
+key RIGHT
+wait 0.35s
+wait 0.8s
+key 1
+key RIGHT
+wait 0.35s
+wait 0.8s
+key ADD
+key 1
+wait 0.35s
+key 1
+wait 0.35s
+key 1
+wait 0.35s
+key 1
+wait 0.35s
+key 1
+key RIGHT
+wait 0.35s
+key RPAREN
+key RIGHT
+wait 0.35s
+wait 0.8s
+wait 0.6s
+memdump /tmp/mathprint-radical-left-clip.ram ram-logical
+screenshot /tmp/mathprint-radical-left-clip.png

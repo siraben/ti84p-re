@@ -302,6 +302,12 @@ bitmap from `34:60B8`. Its 198 accepted writes match the natural calculator
 redraw after removing the separate eight-write right-side cue. The calculator
 trace remains a comparison oracle; the browser computes the record graph,
 viewport state, bitmap operation, and LCD writes from translated logic.
+Radical and nth-root hooks enter `34:6C37` through `34:630C`. The five-pixel
+bitmap header therefore uses the same `34:6C5F` display-unit gate as a glyph.
+An anchor left of `ram:8E02` skips the complete hook while the stem and
+vinculum retain their separate line paths. The natural oracle in
+`tools/mathprint-radical-viewport-oracles.json` pins the carry branch and final
+pixel result.
 The generated frontend also exercises three-way and mixed nested expressions
 with endpoints above 130 pixels. It rejects record metrics that exceed the
 unsigned 16-bit fields used by `34:7393` and `34:7609`, while model mode remains
