@@ -1,0 +1,22 @@
+# Capture fraction insertion into an empty radicand after root payload.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key 3
+key 2ND
+key SQUARE
+wait 0.6s
+memdump /tmp/mathprint-editor-fraction-radicand-blank-pre.ram ram-logical
+screenshot /tmp/mathprint-editor-fraction-radicand-blank-pre.png
+key ALPHA
+key YEQU
+wait 0.4s
+key 1
+wait 0.8s
+memdump /tmp/mathprint-editor-fraction-radicand-blank-post.ram ram-logical
+screenshot /tmp/mathprint-editor-fraction-radicand-blank-post.png

@@ -1250,9 +1250,9 @@ class CheckedReportTests(unittest.TestCase):
         )
 
         self.assertEqual(2, report["schema"])
-        self.assertEqual(216, len(report["traces"]))
+        self.assertEqual(221, len(report["traces"]))
         self.assertEqual(
-            215,
+            220,
             sum(
                 row["provenance"] == TRACE_PROVENANCE_NATURAL
                 for row in report["traces"]
@@ -1416,6 +1416,14 @@ class CheckedReportTests(unittest.TestCase):
             "7e52bade21b0d1b5b5453265abc7dc7059d1b22a9badff33778748d8fbb2926e",
             denominator_mid_leaf_structural_insert["sha256"],
         )
+        radicand_fraction_insert = next(
+            row for row in report["traces"]
+            if row["label"] == "mathprint_editor_fraction_radicand_blank"
+        )
+        self.assertEqual(
+            "746454979929d3017137f167f608c25502e7b3c21cdacd05b287e02c3e9a0817",
+            radicand_fraction_insert["sha256"],
+        )
         radical_insertions = {
             row["label"]: row["sha256"]
             for row in report["traces"]
@@ -1449,6 +1457,14 @@ class CheckedReportTests(unittest.TestCase):
                     "65b368f1f6c11e504c454d5fe5d4f8e340d9bc2c53763143f4eabfa437f89aee",
                 "mathprint_editor_radical_denominator_mid_leaf":
                     "7a73d8b6aeb5c86f0b526ffe945fb66e0518eb31f9c165890e88991408658732",
+                "mathprint_editor_radical_radicand_blank":
+                    "fa0f6d47773012ad3205f667daad763c720676a131da6d40934c4b1a57b76166",
+                "mathprint_editor_radical_radicand_end":
+                    "a9cd7e3d34231f9211c61e5690bd823092866af859292196ccf70f4835a8fa33",
+                "mathprint_editor_radical_radicand_leading":
+                    "1b57a7fe41762413ef73d08db71bcadd577ccf2605bbb5fc0decebd1ce86a66b",
+                "mathprint_editor_radical_radicand_mid_leaf":
+                    "acda65cfe0484740e7d51a3f180161e982f74e10efb072b078cde6482e915829",
             },
             radical_insertions,
         )
@@ -1456,21 +1472,21 @@ class CheckedReportTests(unittest.TestCase):
             114, report["record_oracles"]["cases"]
         )
         self.assertEqual(
-            1296,
+            1301,
             report["minimized_dynamic_feature_corpus"]["covered_features"],
         )
         self.assertEqual(
-            154,
+            159,
             report["minimized_dynamic_feature_corpus"]["selected_trace_count"],
         )
         self.assertEqual(
-            1293,
+            1298,
             report["minimized_natural_dynamic_feature_corpus"][
                 "covered_features"
             ],
         )
         self.assertEqual(
-            153,
+            158,
             report["minimized_natural_dynamic_feature_corpus"][
                 "selected_trace_count"
             ],
