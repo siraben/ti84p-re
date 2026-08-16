@@ -3117,7 +3117,8 @@
             baseline:depth === 0 ? 3 : 2};
   }
 
-  function settledExpressionSpec(input, label = 'settled expression', active = new Set()) {
+  function settledExpressionSpec(input, label = 'settled expression',
+                                 active = new Set(), editor = false) {
     if (Array.isArray(input) || input instanceof Uint8Array) {
       const tokens = Array.from(input, (value, index) =>
         byte(value, `${label} token ${index}`));
@@ -3132,17 +3133,41 @@
       const kind = input.kind ||
         (Object.prototype.hasOwnProperty.call(input, 'base') ? 'power' : null);
       if (kind === 'tokens')
-        return settledExpressionSpec(input.tokens, label, active);
+        return settledExpressionSpec(input.tokens, label, active, editor);
+      if (editor && kind === 'extendedToken')
+        return settledExpressionSpec(input.tokens, label, active, editor);
+      if (editor && kind === 'editorCursor') {
+        const recordId = input.record_id;
+        const byteOffset = input.byte_offset;
+        if (recordId !== undefined &&
+            (!Number.isInteger(recordId) || recordId < 0 || recordId > 0xffff))
+          throw new RangeError(`${label} record ID must be an unsigned word`);
+        if (byteOffset !== undefined &&
+            (!Number.isInteger(byteOffset) || byteOffset < 0 || byteOffset > 0xffff))
+          throw new RangeError(`${label} byte offset must be an unsigned word`);
+        const recordWord0F = input.record_word0F;
+        const recordWord11 = input.record_word11;
+        for (const [value,field] of [
+          [recordWord0F,'record +0Fh word'],
+          [recordWord11,'record +11h word'],
+        ]) if (value !== undefined &&
+               (!Number.isInteger(value) || value < 0 || value > 0xffff))
+          throw new RangeError(`${label} ${field} must be an unsigned word`);
+        return {
+          kind,record_id:recordId,byte_offset:byteOffset,
+          record_word0F:recordWord0F,record_word11:recordWord11,
+        };
+      }
       if (kind === 'sequence') {
         if (!Array.isArray(input.parts) || !input.parts.length)
           throw new RangeError(`${label} sequence must contain at least one part`);
         return {kind, parts:input.parts.map((part, index) =>
-          settledExpressionSpec(part, `${label} part ${index}`, active))};
+          settledExpressionSpec(part, `${label} part ${index}`, active, editor))};
       }
       if (kind === 'group') return {
         kind,
         expression:settledExpressionSpec(
-          input.expression, `${label} grouped expression`, active),
+          input.expression, `${label} grouped expression`, active, editor),
       };
       if (kind === 'list') {
         if (!Array.isArray(input.elements) || !input.elements.length)
@@ -3150,28 +3175,34 @@
         return {
           kind,
           elements:input.elements.map((element, index) =>
-            settledExpressionSpec(element, `${label} list element ${index}`, active)),
+            settledExpressionSpec(
+              element, `${label} list element ${index}`, active, editor)),
         };
       }
       if (kind === 'power') {
         return {
           kind,
-          base:settledExpressionSpec(input.base, `${label} power base`, active),
-          exponent:settledExpressionSpec(input.exponent, `${label} exponent`, active),
+          base:settledExpressionSpec(
+            input.base, `${label} power base`, active, editor),
+          exponent:settledExpressionSpec(
+            input.exponent, `${label} exponent`, active, editor),
         };
       }
       if (kind === 'absolute') return {
         kind,
-        body:settledExpressionSpec(input.body, `${label} absolute body`, active),
+        body:settledExpressionSpec(
+          input.body, `${label} absolute body`, active, editor),
       };
       if (kind === 'ePower' || kind === 'tenPower') return {
         kind,
-        exponent:settledExpressionSpec(input.exponent, `${label} exponent`, active),
+        exponent:settledExpressionSpec(
+          input.exponent, `${label} exponent`, active, editor),
       };
       if (kind === 'logBase') return {
         kind,
-        base:settledExpressionSpec(input.base, `${label} base`, active),
-        argument:settledExpressionSpec(input.argument, `${label} argument`, active),
+        base:settledExpressionSpec(input.base, `${label} base`, active, editor),
+        argument:settledExpressionSpec(
+          input.argument, `${label} argument`, active, editor),
       };
       if (kind === 'matrix') {
         if (!Number.isInteger(input.rows) || input.rows < 1 || input.rows > 0xff ||
@@ -3185,50 +3216,56 @@
         return {
           kind, rows:input.rows, columns:input.columns,
           elements:input.elements.map((element, index) =>
-            settledExpressionSpec(element, `${label} element ${index}`, active)),
+            settledExpressionSpec(
+              element, `${label} element ${index}`, active, editor)),
         };
       }
       if (kind === 'radical') return {
         kind,
         radicand:settledExpressionSpec(
-          input.radicand, `${label} radicand`, active),
+          input.radicand, `${label} radicand`, active, editor),
       };
       if (kind === 'nthRoot') return {
         kind,
-        index:settledExpressionSpec(input.index, `${label} index`, active),
+        index:settledExpressionSpec(
+          input.index, `${label} index`, active, editor),
         radicand:settledExpressionSpec(
-          input.radicand, `${label} radicand`, active),
+          input.radicand, `${label} radicand`, active, editor),
       };
       if (kind === 'fraction') return {
         kind,
         numerator:settledExpressionSpec(
-          input.numerator, `${label} numerator`, active),
+          input.numerator, `${label} numerator`, active, editor),
         denominator:settledExpressionSpec(
-          input.denominator, `${label} denominator`, active),
+          input.denominator, `${label} denominator`, active, editor),
       };
       if (kind === 'integral') return {
         kind,
-        lower:settledExpressionSpec(input.lower, `${label} lower bound`, active),
-        upper:settledExpressionSpec(input.upper, `${label} upper bound`, active),
-        body:settledExpressionSpec(input.body, `${label} body`, active),
+        lower:settledExpressionSpec(
+          input.lower, `${label} lower bound`, active, editor),
+        upper:settledExpressionSpec(
+          input.upper, `${label} upper bound`, active, editor),
+        body:settledExpressionSpec(input.body, `${label} body`, active, editor),
         variable:settledExpressionSpec(
-          input.variable, `${label} variable`, active),
+          input.variable, `${label} variable`, active, editor),
       };
       if (kind === 'nDeriv') return {
         kind,
         variable:settledExpressionSpec(
-          input.variable, `${label} variable`, active),
-        body:settledExpressionSpec(input.body, `${label} body`, active),
+          input.variable, `${label} variable`, active, editor),
+        body:settledExpressionSpec(input.body, `${label} body`, active, editor),
         value:settledExpressionSpec(
-          input.value, `${label} evaluation value`, active),
+          input.value, `${label} evaluation value`, active, editor),
       };
       if (kind === 'summation') return {
         kind,
         variable:settledExpressionSpec(
-          input.variable, `${label} variable`, active),
-        lower:settledExpressionSpec(input.lower, `${label} lower bound`, active),
-        upper:settledExpressionSpec(input.upper, `${label} upper bound`, active),
-        body:settledExpressionSpec(input.body, `${label} body`, active),
+          input.variable, `${label} variable`, active, editor),
+        lower:settledExpressionSpec(
+          input.lower, `${label} lower bound`, active, editor),
+        upper:settledExpressionSpec(
+          input.upper, `${label} upper bound`, active, editor),
+        body:settledExpressionSpec(input.body, `${label} body`, active, editor),
       };
       throw new RangeError(`${label} has unsupported kind ${JSON.stringify(kind)}`);
     } finally {
@@ -5194,6 +5231,8 @@
     const cursorNode = Object.freeze({
       kind:'editorCursor', record_id:activeLeafId,
       byte_offset:cursorByteOffset,
+      record_word0F:active.word0F,
+      record_word11:active.word11,
     });
     const state = {
       recordId:activeLeafId, byteOffset:cursorByteOffset,
@@ -5411,10 +5450,43 @@
   // fill the record metrics. A leaf can therefore interleave ordinary tokens
   // with embedded structural IDs. This builder retains that allocation and
   // payload order so different translated object types can compose.
-  function constructSettledExpressionProgram(input, firstId = 1, font = null) {
-    const spec = settledExpressionSpec(input);
+  function constructExpressionProgram(spec, firstId = 1, font = null,
+                                      editorState = null) {
     if (!Number.isInteger(firstId) || firstId < 1 || firstId > 0xffff)
       throw new RangeError('settled first record ID must be an unsigned word');
+    const editorMode = editorState !== null;
+    const editorCursorCount = expression => {
+      if (!expression || typeof expression !== 'object') return 0;
+      if (expression.kind === 'editorCursor') return 1;
+      if (expression.kind === 'tokens') return 0;
+      let count = 0;
+      for (const value of Object.values(expression)) {
+        if (Array.isArray(value)) {
+          for (const item of value) count += editorCursorCount(item);
+        } else if (value && typeof value === 'object') {
+          count += editorCursorCount(value);
+        }
+      }
+      return count;
+    };
+    const cursorCount = editorCursorCount(spec);
+    if (editorMode && cursorCount !== 1)
+      throw new RangeError(
+        `editor expression must contain one cursor, found ${cursorCount}`);
+    if (!editorMode && cursorCount)
+      throw new RangeError('settled expression must not contain an editor cursor');
+    const editorChildSelector = (expression, children, fallback) => {
+      if (!editorMode) return fallback;
+      const selected = [];
+      for (let index = 0; index < children.length; index++)
+        if (editorCursorCount(children[index])) selected.push(index + 1);
+      if (selected.length > 1)
+        throw new RangeError(
+          `${expression.kind} contains an editor cursor in multiple children`);
+      // A completed template retains its last child as the editor selector.
+      // An ancestor of the active leaf instead names the selected child.
+      return selected.length ? selected[0] : children.length;
+    };
     const nodes = [];
     // A type-2Ah record is allocated after its base has been prepared, but the
     // base's trailing structural record is updated only after the exponent
@@ -5436,7 +5508,13 @@
       [0xef, renderType, recordId & 0xff, recordId >> 8, 0xef, 0x2d];
     const leadingByte = expression => {
       if (expression.kind === 'tokens') return expression.tokens[0];
-      if (expression.kind === 'sequence') return leadingByte(expression.parts[0]);
+      if (expression.kind === 'sequence') {
+        const first = expression.parts.find(
+          part => part.kind !== 'editorCursor');
+        if (!first)
+          throw new RangeError('editor cursor has no following expression byte');
+        return leadingByte(first);
+      }
       if (expression.kind === 'group') return 0x10;
       if (expression.kind === 'list') return 0x08;
       if (expression.kind === 'power') return leadingByte(expression.base);
@@ -5539,17 +5617,68 @@
         embeddedStructures.push(structural);
       };
 
-      const addPart = part => {
+      const addEditorCursor = (cursor, beforeEmptySlot) => {
+        if (!editorMode)
+          throw new RangeError('settled leaf contains an editor cursor');
+        if (editorState.activeLeafId !== null)
+          throw new RangeError('editor expression contains multiple active leaves');
+        const byteOffset = leaf.payload.length;
+        if (cursor.record_id !== undefined && cursor.record_id !== leaf.record_id)
+          throw new RangeError(
+            `editor cursor record ID 0x${cursor.record_id.toString(16)} ` +
+            `does not match constructed leaf 0x${leaf.record_id.toString(16)}`);
+        if (cursor.byte_offset !== undefined && cursor.byte_offset !== byteOffset)
+          throw new RangeError(
+            `editor cursor byte ${cursor.byte_offset} does not match ` +
+            `constructed byte ${byteOffset}`);
+        const height = renderDepth === 0 ? 7 : 5;
+        const baseline = renderDepth === 0 ? 3 : 2;
+        const width = beforeEmptySlot ? 0 : renderDepth === 0 ? 6 : 5;
+        if (!beforeEmptySlot) {
+          mergeVerticalMetrics(height,baseline);
+          leaf.word07 = checkedWord(
+            leaf.word07 + width, 'editor cursor leaf width');
+        }
+        leaf.editor_cursor_offset = byteOffset;
+        leaf.editor_cursor_width = width;
+        leaf.editor_cursor_height = height;
+        leaf.editor_cursor_baseline = baseline;
+        leaf.editor_cursor_uses_empty_slot = beforeEmptySlot;
+        leaf.editor_cursor_record_word0F = cursor.record_word0F;
+        leaf.editor_cursor_record_word11 = cursor.record_word11;
+        editorState.activeLeafId = leaf.record_id;
+        editorState.byteOffset = byteOffset;
+        editorState.width = width;
+        editorState.height = height;
+        editorState.baseline = baseline;
+        editorState.usesEmptySlot = beforeEmptySlot;
+      };
+
+      const beginsWithEmptySlot = part => {
+        if (!part || typeof part !== 'object') return false;
+        if (part.kind === 'tokens')
+          return part.tokens.length === 2 &&
+            part.tokens[0] === 0xef && part.tokens[1] === 0x1e;
+        return part.kind === 'sequence' && part.parts.length &&
+          beginsWithEmptySlot(part.parts[0]);
+      };
+
+      const addPart = (part, nextPart = null) => {
         if (part.kind === 'tokens') {
           addTokens(part.tokens);
           return;
         }
         if (part.kind === 'sequence') {
-          for (const child of part.parts) addPart(child);
+          for (let index = 0; index < part.parts.length; index++)
+            addPart(part.parts[index],part.parts[index + 1] || nextPart);
           return;
         }
         if (part.kind === 'embedded') {
           addStructural(part.structural);
+          return;
+        }
+        if (part.kind === 'editorCursor') {
+          addEditorCursor(part,beginsWithEmptySlot(nextPart));
           return;
         }
         throw new RangeError(`unsupported settled expression part ${part.kind}`);
@@ -5565,7 +5694,17 @@
         structural.word0F = checkedWord(
           leaf.word09 - structural.word0B,
           'embedded structural baseline delta');
-      return finishLeaf(leaf);
+      finishLeaf(leaf);
+      if (editorMode && leaf.payload.length === 2 &&
+          leaf.payload[0] === 0xef && leaf.payload[1] === 0x1e)
+        leaf.word0F = 0;
+      if (leaf.editor_cursor_offset !== undefined) {
+        if (leaf.editor_cursor_record_word0F !== undefined)
+          leaf.word0F = leaf.editor_cursor_record_word0F;
+        if (leaf.editor_cursor_record_word11 !== undefined)
+          leaf.word11 = leaf.editor_cursor_record_word11;
+      }
+      return leaf;
     };
 
     const materializeLeaf = (prepared, renderDepth, parentId) =>
@@ -5578,16 +5717,20 @@
     // Preparing a leaf separately from materializing it retains that ROM order.
     const prepare = (expression, renderDepth, structuralDepth,
                      fractionNumerator = false) => {
+      if (expression.kind === 'editorCursor') return expression;
       if (expression.kind === 'tokens') return {
         ...expression, fractionByte13:expression.tokens[0],
       };
       if (expression.kind === 'sequence') {
+        const firstPayloadIndex = expression.parts.findIndex(
+          part => part.kind !== 'editorCursor');
         const parts = expression.parts.map((part, index) =>
           prepare(part, renderDepth, structuralDepth,
-                  fractionNumerator && index === 0));
+                  fractionNumerator && index === firstPayloadIndex));
+        const leading = parts.find(part => part.fractionByte13 !== undefined);
         return {
           kind:'sequence', parts,
-          fractionByte13:parts[0].fractionByte13,
+          fractionByte13:leading ? leading.fractionByte13 : undefined,
         };
       }
       if (expression.kind === 'group') {
@@ -5742,7 +5885,8 @@
           // the active-child selector at 1. Template-key navigation can leave
           // the same completed record at 2; that editor state is not a metric
           // and is not derived from structural depth.
-          word05:metadata[2],
+          word05:editorChildSelector(
+            expression,[expression.base,expression.argument],metadata[2]),
           word07:0, word09:0, word0B:0, word0D:0, word0F:0,
           word11:structuralDepth + 1,
           byte13:fractionNumerator ? 0x10 : 0,
@@ -5799,7 +5943,9 @@
         const structuralId = allocate();
         const structural = {
           record_id:structuralId, render_type:renderType, word03:0,
-          word05:expression.rows * expression.columns,
+          word05:editorChildSelector(
+            expression,expression.elements,
+            expression.rows * expression.columns),
           word07:0, word09:0, word0B:0, word0D:0, word0F:0,
           word11:(expression.columns << 8) | (structuralDepth + 1),
           byte13:expression.rows,
@@ -5898,7 +6044,9 @@
         const structuralId = allocate();
         const structural = {
           record_id:structuralId, render_type:renderType, word03:0,
-          word05:settledRecordMetadata(renderType)[2],
+          word05:editorChildSelector(
+            expression,[expression.index,expression.radicand],
+            settledRecordMetadata(renderType)[2]),
           word07:0, word09:0, word0B:0, word0D:0,
           word0F:0, word11:structuralDepth + 1,
           byte13:fractionNumerator ? 0x10
@@ -5932,7 +6080,9 @@
         const structuralId = allocate();
         const structural = {
           record_id:structuralId, render_type:renderType, word03:0,
-          word05:settledRecordMetadata(renderType)[0],
+          word05:editorChildSelector(
+            expression,[expression.numerator,expression.denominator],
+            settledRecordMetadata(renderType)[0]),
           word07:0, word09:0, word0B:0, word0D:0, word0F:0,
           word11:structuralDepth + 1,
           byte13:fractionNumerator ? 0x10
@@ -5942,7 +6092,7 @@
         nodes.push(structural);
         const numerator = materializeLeaf(
           numeratorPrepared, renderDepth + 1, structuralId);
-        numerator.word0F = 0;
+        if (!editorMode) numerator.word0F = 0;
         const denominator = build(
           expression.denominator, renderDepth + 1,
           structuralId, structuralDepth + 1);
@@ -5973,7 +6123,10 @@
         const structuralId = allocate();
         const structural = {
           record_id:structuralId, render_type:renderType, word03:0,
-          word05:settledRecordMetadata(renderType)[4],
+          word05:editorChildSelector(expression,[
+            expression.lower,expression.upper,expression.body,
+            expression.variable,
+          ],settledRecordMetadata(renderType)[4]),
           word07:0, word09:0, word0B:0, word0D:0, word0F:0,
           word11:structuralDepth + 1,
           byte13:fractionNumerator ? 0x10 : 0xef,
@@ -6045,7 +6198,9 @@
         const structural = {
           record_id:structuralId, render_type:renderType, word03:0,
           // Type 23h selects the fourth byte in the 34:5996 metadata row.
-          word05:settledRecordMetadata(renderType)[3],
+          word05:editorChildSelector(expression,[
+            expression.variable,expression.body,expression.value,
+          ],settledRecordMetadata(renderType)[3]),
           word07:0, word09:0, word0B:0, word0D:0, word0F:0,
           word11:structuralDepth + 1,
           byte13:fractionNumerator ? 0x10 : 0xef,
@@ -6114,7 +6269,10 @@
         const structuralId = allocate();
         const structural = {
           record_id:structuralId, render_type:renderType, word03:0,
-          word05:3,
+          word05:editorChildSelector(expression,[
+            expression.variable,expression.lower,expression.upper,
+            expression.body,
+          ],3),
           word07:0, word09:0, word0B:0, word0D:0, word0F:0,
           word11:structuralDepth + 1,
           byte13:fractionNumerator ? 0x10 : 0xef,
@@ -6201,9 +6359,44 @@
 
     const root = build(spec, 0, firstId - 1, 0);
     for (const node of nodes)
-      if (node.render_type >= 0x1f && node.byte13 === 0)
+      if (node.render_type >= 0x1f &&
+          (node.byte13 === 0 || node.byte13 === undefined))
         node.byte13 = root.payload[0];
     const nodeMap = new Map(nodes.map(node => [node.record_id,node]));
+    if (editorMode) {
+      // While the gap sits inside a structural descendant, +0Fh in each
+      // containing leaf points to that descendant's six-byte marker. Moving
+      // back to the containing leaf finalizes the marker and advances +0Fh.
+      // Follow the constructed parent chain instead of inferring this retained
+      // state from the current gap payload.
+      const cursorAncestors = new Set();
+      let current = nodeMap.get(editorState.activeLeafId);
+      while (current && !cursorAncestors.has(current.record_id)) {
+        cursorAncestors.add(current.record_id);
+        const parent = nodeMap.get(current.word03);
+        if (!parent) break;
+        if (current.render_type >= 0x1f && parent.render_type < 0x1f) {
+          let markerOffset = -1;
+          for (let index = 0; index + 5 < parent.payload.length; index++) {
+            if (parent.payload[index] === 0xef &&
+                parent.payload[index + 1] === current.render_type &&
+                (parent.payload[index + 2] |
+                 parent.payload[index + 3] << 8) === current.record_id &&
+                parent.payload[index + 4] === 0xef &&
+                parent.payload[index + 5] === 0x2d) {
+              markerOffset = index;
+              break;
+            }
+          }
+          if (markerOffset < 0)
+            throw new RangeError(
+              `editor ancestor record 0x${current.record_id.toString(16)} ` +
+              'has no containing marker');
+          parent.word0F = markerOffset;
+        }
+        current = parent;
+      }
+    }
     const orderedNodes = [];
     const visited = new Set();
     const visit = recordId => {
@@ -6235,16 +6428,52 @@
     };
     visit(root.record_id);
     const matrixResult = spec.kind === 'matrix';
+    const wrapper = editorMode ? {
+      record_id:firstId - 1, render_type:0x1f, word03:0, word05:1,
+      word07:root.word05, word09:root.word07, word0B:root.word09,
+      word0D:0, word0F:0, word11:0, byte13:0,
+      child_ids:[root.record_id], payload:[],
+    } : null;
     return {
       entry_id:root.record_id,
+      ...(editorMode ? {
+        wrapper_id:wrapper.record_id,
+        editor:{
+          active_record_id:editorState.activeLeafId,
+          cursor_byte_offset:editorState.byteOffset,
+          width:editorState.width,
+          height:editorState.height,
+          baseline:editorState.baseline,
+          uses_empty_slot:editorState.usesEmptySlot,
+        },
+      } : {}),
       // The answer-display path places a matrix against the right edge and
       // begins its first row at LCD row 9. Scalar results enter at (0,0).
       origin:matrixResult ? {x:95 - root.word07,y:9} : {x:0,y:0},
-      source:matrixResult
+      source:editorMode
+        ? '34:4A83, 34:4AAF, 34:4ACE, 34:7393, and 34:7609 translated live-editor construction'
+        : matrixResult
         ? '34:4900, 34:5935, 34:65AA, 34:7393, and 34:7609 translated matrix construction'
         : '34:4900, 34:5935, 34:7393, and 34:7609 translated compositional construction',
-      nodes:orderedNodes,
+      nodes:editorMode ? [wrapper,...orderedNodes] : orderedNodes,
     };
+  }
+
+  function constructSettledExpressionProgram(input, firstId = 1, font = null) {
+    return constructExpressionProgram(
+      settledExpressionSpec(input),firstId,font);
+  }
+
+  function constructEditorExpressionProgram(input, firstId = 7, font = null) {
+    if (!Number.isInteger(firstId) || firstId < 2 || firstId > 0xffff)
+      throw new RangeError(
+        'editor first leaf record ID must leave room for a wrapper ID');
+    return constructExpressionProgram(
+      settledExpressionSpec(input,'editor expression',new Set(),true),
+      firstId,font,{
+        activeLeafId:null, byteOffset:null, width:null,
+        height:null, baseline:null, usesEmptySlot:null,
+      });
   }
 
   // Compatibility entry for the closed power slice. The exponent may itself
@@ -6350,6 +6579,41 @@
         x:0,
         y:controls.state.depth === 0 ? record.word09 - 3 : record.word09 - 2,
       };
+      const cursorOffset = record.editor_cursor_offset;
+      const cursorWidth = record.editor_cursor_width;
+      const cursorHeight = record.editor_cursor_height;
+      const cursorBaseline = record.editor_cursor_baseline;
+      const hasEditorCursor = cursorOffset !== undefined;
+      if (hasEditorCursor) {
+        const boundaries = editorPayloadCursorBoundaries(record.payload);
+        if (!boundaries.includes(cursorOffset))
+          throw new RangeError(
+            `record 0x${record.id.toString(16)} editor cursor bisects a native unit`);
+        for (const [value,label] of [
+          [cursorWidth,'width'],[cursorHeight,'height'],
+          [cursorBaseline,'baseline'],
+        ]) if (!Number.isInteger(value) || value < 0 || value > 0xffff)
+          throw new RangeError(`editor cursor ${label} must fit an unsigned word`);
+        if (cursorBaseline > cursorHeight)
+          throw new RangeError('editor cursor baseline exceeds its height');
+      }
+      let cursorEmissions = 0;
+      const emitEditorCursor = index => {
+        if (!hasEditorCursor || cursorOffset !== index) return;
+        cursorEmissions++;
+        if (cursorEmissions > 1)
+          throw new RangeError('editor cursor was emitted more than once');
+        if (cursorWidth) {
+          controls.emit({
+            kind:'editor-cursor-cell', x:pen.x,
+            y:record.word09 - cursorBaseline,
+            width:cursorWidth, height:cursorHeight, baseline:cursorBaseline,
+            visible:false,
+            routine:'34:785E–7876 → 34:779F and 34:79A9',
+          });
+          pen.x += cursorWidth;
+        }
+      };
       const delimiterMetrics = new Map();
       const stack = [];
       const delimiterKey = (index, codeIndex = 0) => `${index}:${codeIndex}`;
@@ -6365,6 +6629,10 @@
       const rangeMetrics = (start, end) => {
         let result = null;
         for (let cursor = start; cursor < end;) {
+          if (hasEditorCursor && cursorOffset === cursor)
+            result = mergeMetrics(result,{
+              height:cursorHeight,baseline:cursorBaseline,
+            });
           const token = record.payload[cursor];
           const grouped = delimiterMetrics.get(delimiterKey(cursor));
           if ((token === 0x10 || token === 0x08) && grouped) {
@@ -6392,6 +6660,10 @@
           const resolved = settledTokenSpelling(record.payload, cursor);
           cursor += resolved ? resolved.length : 1;
         }
+        if (hasEditorCursor && cursorOffset === end)
+          result = mergeMetrics(result,{
+            height:cursorHeight,baseline:cursorBaseline,
+          });
         return result;
       };
       for (let cursor = 0; cursor < record.payload.length;) {
@@ -6457,6 +6729,7 @@
       };
 
       for (let index = 0; index < record.payload.length;) {
+        emitEditorCursor(index);
         const token = record.payload[index];
         if (token === 0xef && index + 1 < record.payload.length) {
           const subtype = record.payload[index + 1];
@@ -6538,6 +6811,9 @@
         }
         index++;
       }
+      emitEditorCursor(record.payload.length);
+      if (hasEditorCursor && cursorEmissions !== 1)
+        throw new RangeError('editor cursor was not emitted at its byte boundary');
     };
 
     return executeSettledRecordGraph(inputs, entryId, {
@@ -6620,6 +6896,10 @@
         for (let column = 0; column < operation.width; column++)
           if (operation.rows[row] & 1 << (operation.width - 1 - column))
             point(operation.x + column, operation.y + row);
+    } else if (operation.kind === 'editor-cursor-cell') {
+      if (operation.visible)
+        throw new RangeError(
+          'visible editor cursor rasterization requires a captured blink bitmap');
     } else if (!operation.kind.startsWith('unresolved-')) {
       throw new RangeError(`cannot rasterize settled operation kind ${operation.kind}`);
     }
@@ -7088,6 +7368,7 @@
     replaySettledLcdWrites,
     traceSettledLcdWrites,
     constructSettledAbsoluteProgram,
+    constructEditorExpressionProgram,
     constructSettledExpressionProgram,
     constructSettledFractionProgram,
     constructSettledIntegralProgram,

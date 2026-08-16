@@ -3166,9 +3166,25 @@ expectThrows('editor graph decoder rejects a cursor inside a packed token', Rang
     {id:1,type:0,payload:[0xef,0x1e]},
   ],1,1,1));
 
-expectEqual('live editor gap oracle schema', editorGapOracles.schema, 1);
+expectEqual('live editor gap oracle schema', editorGapOracles.schema, 2);
 const editorCursorAtPath = (value, path) => path.reduce(
   (current, component) => current[component], value);
+const editorGlyphAdvance = (depth, code) => {
+  if (depth === 0) return 6;
+  const glyph = font.small.glyphs[code];
+  if (!glyph) throw new Error(`small glyph 0x${code.toString(16)} is absent`);
+  return glyph.w;
+};
+const canonicalEditorRecord = node => ({
+  record_id:node.record_id === undefined ? node.id : node.record_id,
+  render_type:node.render_type === undefined ? node.type : node.render_type,
+  word03:node.word03, word05:node.word05, word07:node.word07,
+  word09:node.word09, word0B:node.word0B, word0D:node.word0D,
+  word0F:node.word0F, word11:node.word11, byte13:node.byte13,
+  child_ids:node.child_ids.slice(), payload:node.payload.slice(),
+});
+const editorRecordsById = nodes => nodes.map(canonicalEditorRecord)
+  .sort((left,right) => left.record_id - right.record_id);
 for (const oracle of editorGapOracles.cases) {
   const macro = fs.readFileSync(path.join(root, oracle.macro));
   expectEqual(`${oracle.name} capture macro hash`,
@@ -3203,8 +3219,78 @@ for (const oracle of editorGapOracles.cases) {
       kind:'editorCursor',
       record_id:oracle.expected.active_record_id,
       byte_offset:oracle.expected.cursor_byte_offset,
+      record_word0F:decoded.nodes.find(
+        node => node.id === oracle.expected.active_record_id).word0F,
+      record_word11:decoded.nodes.find(
+        node => node.id === oracle.expected.active_record_id).word11,
     });
+  const reconstructed = rom.constructEditorExpressionProgram(
+    decoded.editor.expression,7,font);
+  expectEqual(`${oracle.name} live editor constructor identity`, {
+    entry_id:reconstructed.entry_id,
+    wrapper_id:reconstructed.wrapper_id,
+    active_record_id:reconstructed.editor.active_record_id,
+    cursor_byte_offset:reconstructed.editor.cursor_byte_offset,
+  }, {
+    entry_id:oracle.expected.entry_id,
+    wrapper_id:6,
+    active_record_id:oracle.expected.active_record_id,
+    cursor_byte_offset:oracle.expected.cursor_byte_offset,
+  });
+  expectEqual(`${oracle.name} reconstructed live record fields`,
+    editorRecordsById(reconstructed.nodes),editorRecordsById(decoded.nodes));
+  expectEqual(`${oracle.name} reconstructed graph retains cursor AST`,
+    rom.decodeEditorExpressionGraph(
+      reconstructed.nodes,reconstructed.entry_id,
+      reconstructed.editor.active_record_id,
+      reconstructed.editor.cursor_byte_offset).expression,
+    decoded.editor.expression);
+  const reconstructedOperations = rom.executeSettledRecordProgram(
+    reconstructed.nodes,reconstructed.wrapper_id,
+    {glyphAdvance:editorGlyphAdvance});
+  const reconstructedLcd = rom.rasterizeSettledOperations(
+    reconstructedOperations,font).grid;
+  expectEqual(`${oracle.name} reconstructed cursor-off LCD bitmap`,
+    crypto.createHash('sha256').update(
+      packedLcdBytes(reconstructedLcd)).digest('hex'),
+    oracle.lcd_bitmap_sha256);
 }
+expectThrows('live editor constructor requires exactly one cursor', RangeError,
+  () => rom.constructEditorExpressionProgram([0x31],7,font));
+expectThrows('live editor constructor validates retained cursor record identity',
+  RangeError, () => rom.constructEditorExpressionProgram({
+    kind:'sequence', parts:[[0x31],{
+      kind:'editorCursor',record_id:8,byte_offset:1,
+      record_word0F:1,record_word11:1,
+    }],
+  },7,font));
+const inlineCursorProgram = rom.constructEditorExpressionProgram({
+  kind:'sequence', parts:[
+    [0x31], {
+      kind:'editorCursor',record_id:7,byte_offset:1,
+      record_word0F:1,record_word11:1,
+    }, [0x32],
+  ],
+},7,font);
+expectEqual('live cursor participates in leaf metrics before following tokens',
+  canonicalEditorRecord(
+    inlineCursorProgram.nodes.find(node => node.record_id === 7)), {
+    record_id:7,render_type:0,word03:6,word05:7,word07:18,word09:3,
+    word0B:0,word0D:0,word0F:1,word11:1,byte13:0x31,
+    child_ids:[],payload:[0x31,0x32],
+  });
+expectEqual('live cursor cell advances the translated leaf pen at its byte boundary',
+  rom.executeSettledRecordProgram(
+    inlineCursorProgram.nodes,inlineCursorProgram.wrapper_id).map(operation => ({
+      kind:operation.kind,x:operation.x,y:operation.y,
+      ...(operation.kind === 'glyph' ? {code:operation.code} : {
+        width:operation.width,height:operation.height,visible:operation.visible,
+      }),
+    })), [
+    {kind:'glyph',x:0,y:0,code:0x31},
+    {kind:'editor-cursor-cell',x:6,y:0,width:6,height:7,visible:false},
+    {kind:'glyph',x:12,y:0,code:0x32},
+  ]);
 
 const settledGlyphAdvance = (depth, code) => {
   if (depth === 0) return 6;
