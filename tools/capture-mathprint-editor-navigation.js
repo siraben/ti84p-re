@@ -183,13 +183,17 @@ function mergedRanges(ranges) {
 
 function sparseSegments(raw) {
   // 34:4ACE/4A83 consume the arena from structuralStart through mainTail.
-  // When the gap is active, editTail through editorBoundary contains the
-  // right payload and every leaf record relocated after it.
+  // When the gap is active, editTop through editCursor contains the left
+  // payload. editTail through editorBoundary contains the right payload and
+  // every leaf record relocated after it. A root leaf with no following
+  // records can have mainTail == editTop, so the left range is independently
+  // necessary.
   const ranges = mergedRanges([
     [0x89f1,0x89f2],
     [0x8daf,0x8dc4],
     [0x96f4,0x96fc],
     [readWord(raw,0x8daf),readWord(raw,0x8dbe)],
+    [readWord(raw,0x96f4),readWord(raw,0x96f6)],
     [readWord(raw,0x96f8),readWord(raw,0x8db1)],
   ]);
   const hasher = crypto.createHash('sha256');
