@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-340bd54d.js";
+            window.path_to_searchindex_js = "searchindex-3ecb30e0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15028,7 +15028,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 40 finite models. It also computes an
+complete path-equivalence class in 41 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -15047,6 +15047,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Shared marker draw helper</td><td style="text-align: right">33,554,432</td><td style="text-align: right">14</td><td style="text-align: right">26</td><td style="text-align: right">13</td></tr>
 <tr><td>Settled render nesting tail</td><td style="text-align: right">16,777,216</td><td style="text-align: right">15</td><td style="text-align: right">24</td><td style="text-align: right">11</td></tr>
 <tr><td>Point mode and buffer routing</td><td style="text-align: right">2,048</td><td style="text-align: right">28</td><td style="text-align: right">22</td><td style="text-align: right">5</td></tr>
+<tr><td>Drawing-hook dispatch</td><td style="text-align: right">4</td><td style="text-align: right">3</td><td style="text-align: right">4</td><td style="text-align: right">2</td></tr>
 <tr><td>Point style dispatch</td><td style="text-align: right">512</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">5</td></tr>
 <tr><td>Point bounds</td><td style="text-align: right">33,554,432</td><td style="text-align: right">7</td><td style="text-align: right">14</td><td style="text-align: right">7</td></tr>
 <tr><td>Thick-point expansion</td><td style="text-align: right">4,294,967,296</td><td style="text-align: right">8</td><td style="text-align: right">14</td><td style="text-align: right">8</td></tr>
@@ -15081,8 +15082,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 40 models contain 3,336 path classes and 429 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 201 representatives. Each
+<p>The 41 models contain 3,339 path classes and 433 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 203 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -16046,9 +16047,14 @@ line and point routines and page <code>01:6297</code> small-font output. [confir
 and <code>34:5DEF</code>. Its closed tail at <code>34:5E98</code>–<code>34:5EA6</code> passes <code>B=x</code>,
 <code>C=63-y</code>, and <code>D=1</code> to <code>_PointOn</code> at <code>04:4155</code>. Dynamic samples include
 <code>(x,y)=(3,0)</code> → <code>BC=033Fh</code> and <code>(32,20)</code> → <code>BC=202Bh</code>. [confirmed]</p>
-<p>The hook-disabled <code>_IPoint</code> preprocessor at <code>04:4157</code> first tests
-<code>sGrFlags.g_style_active</code>. Retained MathPrint calls have this bit clear, so
-<code>04:4177</code> jumps directly to the coordinate path. That path adds the bytes at
+<p><code>_IPoint</code> first supplies drawing-hook command <code>0</code> at <code>04:4158</code>. An inactive
+hook preserves Z from the bit test and takes <code>04:4161</code> into the local point
+path. An active hook can return Z to request the same continuation; NZ restores
+the caller’s AF and returns without a local write. The translated dispatcher
+keeps the hook body as an explicit external boundary. [confirmed]</p>
+<p>The local preprocessor then tests <code>sGrFlags.g_style_active</code>. Retained MathPrint
+calls have both the drawing hook and this style bit clear, so <code>04:4177</code> jumps
+directly to the coordinate path. That path adds the bytes at
 <code>ram:8DA1</code> and <code>ram:8DA2</code> to <code>B</code> and <code>C</code>, with byte wraparound, before checking
 the display bounds. <code>apiFlg4.fullScrnDraw</code> selects <code>04:4306</code>, which admits
 $x$ bytes below <code>ram:8DA4</code> and $y$ bytes below 64. Clearing the flag selects
@@ -16073,7 +16079,7 @@ classes, every style-dispatch byte, and valid shaded phase/step samples. The
 symbolic report separately partitions all 512 style-dispatch states, all
 33,554,432 effective-coordinate bounds states, all 4,294,967,296 thick-point
 coordinate relations, and all 3,145,728 graph-initialized shaded states at the
-64-row limit. Drawing-hook dispatch remains outside this translation.
+64-row limit. Arbitrary drawing-hook body behavior remains external.
 [confirmed]</p>
 <p><code>04:42B5</code>–<code>04:42E3</code> converts the graph coordinate into the point mask, LCD
 commands, and buffer offset. It selects <code>80h &gt;&gt; (x &amp; 7)</code>, uses <code>x &gt;&gt; 3</code>
@@ -16138,7 +16144,8 @@ endpoint pairs for horizontal and vertical lines. It also checks all 65,536
 nonnegative delta pairs, which covers every major/minor ratio and signed-error
 sequence. Separate reverse-direction cases cover the direction branches.
 Physical MathPrint lines now compose this stepper with the translated point
-state transition. Drawing-hook dispatch remains outside this translation.
+state transition. A hook-handled point remains delegated to the external hook
+body and produces no inferred local LCD write.
 [confirmed]</p>
 <p>The structural handlers retain coordinates and dimensions as 16-bit words.
 For example, <code>34:62B4</code>–<code>34:62C3</code> reads a radical child’s width word, increments
