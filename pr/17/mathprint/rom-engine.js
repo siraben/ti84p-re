@@ -3213,6 +3213,7 @@
               element, `${label} list element ${index}`, active, editor)),
         };
       }
+      if (editor && kind === 'emptyPowerBase') return {kind};
       if (kind === 'power') {
         return {
           kind,...editorRecordState,...editorLeafState,
@@ -4757,7 +4758,8 @@
   // leaf payload markers.  Type 2Ah is postfix, so its marker binds to the
   // expression immediately before EF 2A id_lo id_hi.
   function decodeSettledExpressionGraph(inputs, entryId, activeLeafIds = null,
-                                        editorCursorState = null) {
+                                        editorCursorState = null,
+                                        allowTransientEmptyPowerBase = false) {
     if (!Array.isArray(inputs))
       throw new TypeError('settled expression graph must be an array');
     if (!Number.isInteger(entryId) || entryId < 0 || entryId > 0xffff)
@@ -4978,7 +4980,7 @@
           return decodeSettledExpressionGraph([
             ...inputs,
             {record_id:inlineId,render_type:0,child_ids:[],payload:bytes},
-          ],inlineId,active);
+          ],inlineId,active,null,allowTransientEmptyPowerBase);
         };
         const matrixContainer = start => {
           if (payload[start] !== 0x06 || payload[start + 1] !== 0x06)
@@ -5143,18 +5145,35 @@
                      current.items[candidateIndex].role === 'editor-cursor')
                 candidateIndex--;
               const candidate = current.items[candidateIndex];
-              if (!candidate || candidate.role !== 'atom')
-                throw new RangeError(
-                  `settled power ID 0x${embeddedId.toString(16)} in leaf ` +
-                  `0x${recordId.toString(16)} has no preceding base; payload ` +
-                  payload.map(value => value.toString(16).padStart(2,'0')).join(' '));
-              candidate.value = {
-                kind:'power',base:candidate.value,
-                exponent:embedded.exponent,
-                ...(embedded.editor_record_byte13 === undefined ? {} : {
-                  editor_record_byte13:embedded.editor_record_byte13,
-                }),
-              };
+              if (!candidate || candidate.role !== 'atom') {
+                if (!allowTransientEmptyPowerBase)
+                  throw new RangeError(
+                    `settled power ID 0x${embeddedId.toString(16)} in leaf ` +
+                    `0x${recordId.toString(16)} has no preceding base; payload ` +
+                    payload.map(value =>
+                      value.toString(16).padStart(2,'0')).join(' '));
+                appendAtom({
+                  kind:'power',base:{kind:'emptyPowerBase'},
+                  exponent:embedded.exponent,
+                  ...(embedded.editor_record_id === undefined ? {} : {
+                    editor_record_id:embedded.editor_record_id,
+                  }),
+                  ...(embedded.editor_record_byte13 === undefined ? {} : {
+                    editor_record_byte13:embedded.editor_record_byte13,
+                  }),
+                });
+              } else {
+                candidate.value = {
+                  kind:'power',base:candidate.value,
+                  exponent:embedded.exponent,
+                  ...(embedded.editor_record_id === undefined ? {} : {
+                    editor_record_id:embedded.editor_record_id,
+                  }),
+                  ...(embedded.editor_record_byte13 === undefined ? {} : {
+                    editor_record_byte13:embedded.editor_record_byte13,
+                  }),
+                };
+              }
             } else appendAtom(embedded);
             index += 4;
             continue;
@@ -5411,9 +5430,9 @@
   // Structural-template insertion consumes the live arena state as well as
   // the semantic tree: newly allocated record IDs and the structural-depth
   // gate are not recoverable from the cursor AST alone. EF 2Eh/EF 2Fh map to
-  // type 20h. F1h maps to nth-root type 24h. B2h, BFh, C1h, and BCh map
-  // to the one-child types 21h and 25h–27h at 34:5935; all four use the
-  // shared insertion path at 34:5057.
+  // type 20h. F1h maps to nth-root type 24h, and F0h maps to postfix-power
+  // type 2Ah. B2h, BFh, C1h, and BCh map to the one-child types 21h and
+  // 25h–27h at 34:5935; all four use the shared path at 34:5057.
   function editorInsertStructuralTemplate(input, sourceToken = [0xef,0x2e]) {
     if (!input || typeof input !== 'object' || !input.editor ||
         !Array.isArray(input.nodes))
@@ -5435,7 +5454,8 @@
       0x26:{kind:'tenPower',child:'exponent'},
       0x27:{kind:'radical',child:'radicand'},
     }[renderType];
-    if (renderType !== 0x20 && renderType !== 0x24 && !unaryStructuralSpec)
+    if (renderType !== 0x20 && renderType !== 0x24 &&
+        renderType !== 0x2a && !unaryStructuralSpec)
       throw new RangeError(
         'the structural source type has no translated insertion path');
     const depth = input.controller && input.controller.structuralDepth;
@@ -5825,6 +5845,70 @@
         editor_leaf_record_id:originalCursor.record_id,
       };
     };
+    const powerAtCursor = leaf => {
+      const exponentId = numeratorId;
+      let base;
+      let parentPrefix = [];
+      let trailingParts = [];
+      if (leaf && leaf.kind === 'editorCursor') {
+        originalCursor = leaf;
+        const active = activeNode(originalCursor);
+        if (!active || !Array.isArray(active.payload) || active.payload.length)
+          throw new RangeError(
+            'blank power insertion requires an empty active leaf');
+        base = [0x72];
+        recordByte13 = 0x72;
+      } else if (leaf && leaf.kind === 'sequence' &&
+                 Array.isArray(leaf.parts)) {
+        const cursorIndex = leaf.parts.findIndex(
+          part => part && part.kind === 'editorCursor');
+        if (cursorIndex < 0)
+          throw new RangeError(
+            'power insertion sequence has no direct cursor');
+        originalCursor = leaf.parts[cursorIndex];
+        const active = activeNode(originalCursor);
+        if (!active || !Array.isArray(active.payload) || !active.payload.length ||
+            !Number.isInteger(originalCursor.byte_offset) ||
+            originalCursor.byte_offset < 0 ||
+            originalCursor.byte_offset > active.payload.length)
+          throw new RangeError(
+            'power insertion requires a valid active payload split');
+        parentPrefix = leaf.parts.slice(0,cursorIndex).map(clone);
+        trailingParts = leaf.parts.slice(cursorIndex + 1).map(clone);
+        if (trailingParts.length) {
+          const remainder = stripFirstPackedUnit(trailingParts[0]);
+          if (remainder === null) trailingParts.shift();
+          else trailingParts[0] = remainder;
+        }
+        base = parentPrefix.length
+          ? parentPrefix.pop() : {kind:'emptyPowerBase'};
+        recordByte13 = retainedStructuralByte13(originalCursor,active);
+      } else {
+        return null;
+      }
+      const exponent = {
+        kind:'sequence',parts:[
+          {
+            kind:'editorCursor',record_id:exponentId,byte_offset:0,
+            record_word0F:0,record_word11:2,
+            editor_leaf_record_id:exponentId,
+          },
+          {kind:'extendedToken',tokens:[0xef,0x1e]},
+        ],editor_leaf_record_id:exponentId,
+      };
+      const insertedPower = {
+        kind:'power',base,exponent,
+        editor_record_id:structuralId,
+        editor_record_byte13:recordByte13,
+      };
+      const parts = [...parentPrefix,insertedPower,...trailingParts];
+      return parts.length === 1 ? {
+        ...insertedPower,editor_leaf_record_id:originalCursor.record_id,
+      } : {
+        kind:'sequence',parts,
+        editor_leaf_record_id:originalCursor.record_id,
+      };
+    };
     let replaced = false;
     const visit = value => {
       if (!value || typeof value !== 'object') return value;
@@ -5833,6 +5917,7 @@
         return unaryStructuralSpec
           ? unaryStructuralAtCursor(value)
           : renderType === 0x24 ? nthRootAtCursor(value)
+          : renderType === 0x2a ? powerAtCursor(value)
           : fractionAtCursor(value);
       }
       if (value.kind === 'sequence' && Array.isArray(value.parts) &&
@@ -5841,6 +5926,7 @@
         return unaryStructuralSpec
           ? unaryStructuralAtCursor(value)
           : renderType === 0x24 ? nthRootAtCursor(value)
+          : renderType === 0x2a ? powerAtCursor(value)
           : fractionAtCursor(value);
       }
       if (Array.isArray(value) || value instanceof Uint8Array)
@@ -5882,6 +5968,21 @@
         before_structural_depth:depth,
         after_structural_depth:gate.incrementedDepth,
         routine:'34:473A → 35:7B37 → 34:4169 → 34:5026 → 34:51C0–51D9 → 34:5473–547B → 34:58A0–58B4 → 34:4862–492B',
+      },
+    };
+    if (renderType === 0x2a) return {
+      expression,
+      mutation:{
+        status:'inserted',source_token:source,render_type:renderType,
+        marker,parent_record_id:originalCursor.record_id,
+        before_byte_offset:originalCursor.byte_offset,
+        after_record_id:structuralId + 1,after_byte_offset:0,
+        structural_record_id:structuralId,
+        child_record_ids:[structuralId + 1],
+        replaced_right_token:replacedRightToken,
+        before_structural_depth:depth,
+        after_structural_depth:gate.incrementedDepth,
+        routine:'34:473A → 35:7B37 → 34:4169 → 34:5026 → 34:50EF–511D → 34:5057 → 34:5473–547B → 34:58A0–58B4 → 34:4862–491D',
       },
     };
     return {
@@ -6185,7 +6286,7 @@
       node:cursorNode, insertions:0,
     };
     const expression = decodeSettledExpressionGraph(
-      inputs,entryId,null,state);
+      inputs,entryId,null,state,true);
     if (state.insertions !== 1)
       throw new RangeError(
         `editor cursor was inserted ${state.insertions} times`);
@@ -6359,7 +6460,8 @@
     if (!entry)
       throw new RangeError('MathPrint entry pointer is not a record boundary');
     const expression = entry === activeNode && !entry.payload.length
-      ? null : decodeSettledExpressionGraph(nodes,entry.id);
+      ? null : decodeSettledExpressionGraph(
+        nodes,entry.id,null,null,gapActive);
     let editor = null;
     if (gapActive) {
       if (!activeNode)
@@ -6505,6 +6607,7 @@
       }
       if (expression.kind === 'group') return 0x10;
       if (expression.kind === 'list') return 0x08;
+      if (expression.kind === 'emptyPowerBase') return 0xef;
       if (expression.kind === 'power') return leadingByte(expression.base);
       if (expression.kind === 'absolute') return 0xef;
       if (expression.kind === 'ePower') return 0xef;
@@ -6657,6 +6760,7 @@
       };
 
       const addPart = (part, nextPart = null) => {
+        if (part.kind === 'emptyPowerBase') return;
         if (part.kind === 'tokens') {
           addTokens(part.tokens);
           return;
@@ -6758,6 +6862,12 @@
         }
         parts.push({kind:'tokens',tokens:[0x09]});
         return {kind:'sequence',parts,fractionByte13:0x08};
+      }
+      if (expression.kind === 'emptyPowerBase') {
+        if (!editorMode)
+          throw new RangeError(
+            'empty power base is valid only in a live editor state');
+        return {kind:'emptyPowerBase'};
       }
       if (expression.kind === 'power') {
         // The base belongs to the containing leaf. Prepare it before allocating

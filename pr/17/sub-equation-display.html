@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-e244c804.js";
+            window.path_to_searchindex_js = "searchindex-5f4c41b9.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -655,10 +655,10 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, large-glyph output, and alphabetic VAT selection. It
 recursively follows direct ROM edges from named entries, seeds decoded table
-destinations, overlays exact next-PC outcomes from 231 reset-origin traces, and
+destinations, overlays exact next-PC outcomes from 235 reset-origin traces, and
 lists direct external targets. Computed dispatch destinations are manually
 seeded; bcall and RAM bjump bodies remain outside the direct-edge walk. Of those
-traces, 230 reach their state through calculator input. One explicitly
+traces, 234 reach their state through calculator input. One explicitly
 classified synthetic trace inserts an <code>EF36h</code> editor buffer through direct RAM
 writes. The report keeps the two provenance classes separate.
 <code>tools/mathprint-saturation.json</code> records the resulting branches and trace
@@ -666,9 +666,9 @@ hashes. [confirmed]</p>
 <p>The analyzer can restore trace identities, provenance, and per-trace summaries
 from a prior report and the digest-keyed cache. Regeneration therefore scans a
 new trace once without reopening the other retained TLMT files. [confirmed]</p>
-<p>None of the 231 report traces executes <code>39:5167</code>, <code>39:523B</code>, the saved-operand
+<p>None of the 235 report traces executes <code>39:5167</code>, <code>39:523B</code>, the saved-operand
 wrappers at <code>39:5B10</code>–<code>39:5B38</code>, or the dispatchers at <code>39:59E0</code>/<code>39:59F9</code>.
-The 231-digest trace cache also has no hit at those entries. [confirmed]
+The 235-digest trace cache also has no hit at those entries. [confirmed]
 <code>_FindAlphaUp</code> at <code>07:50B5</code> executes once in 112 report traces, but every call
 comes from the type-<code>16h</code> cleanup loop at <code>07:5544</code>. Each observed call returns
 carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
@@ -823,8 +823,8 @@ traces. They preserve 1,008 and 1,005 outcomes in 3,987,022,530 and 4,081,707,15
 bytes, respectively.</p>
 <p>The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,313 tags and needs 169
-traces. The natural-only universe has 1,310 tags and needs 168 traces. Every
+independent oracle case. Its all-evidence universe has 1,317 tags and needs 173
+traces. The natural-only universe has 1,314 tags and needs 172 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The broad set remains the RE and
@@ -878,7 +878,7 @@ and <code>A</code> at each discriminator were checked before admission. [confirm
 <p>The synthetic <code>EF36h</code> trace uses
 <code>tools/macros/mathprint-ef36-injected-buffer.macro</code>. Its two <code>memwrite</code>
 commands place <code>EF 36 31 11</code> at the editor cursor. It is the sole synthetic
-source in the 231-trace report. It supplies the only evidence for
+source in the 235-trace report. It supplies the only evidence for
 <code>34:5A23</code> fallthrough, <code>34:6992</code> taken, and <code>34:6B94</code> taken. The full minimum
 retains it; the natural minimum excludes it by construction. [confirmed]</p>
 <p>The in-progress editor is a gap buffer. <code>editTop</code> (<code>0x96F4</code>) and <code>editCursor</code>
@@ -1067,6 +1067,19 @@ insertion replace the packed token immediately to the cursor’s right.
 <code>tools/mathprint-editor-structural-mutation-oracles.json</code> captures the four
 states. The translated AST, every record field, and all 768 LCD bytes match
 their calculator states. [confirmed]</p>
+<p>Source token <code>F0h</code> maps to postfix-power type <code>0x2A</code> at <code>34:594D</code>. The editor
+dispatcher enters <code>34:50EF–511D</code>, then joins the shared marker and allocation
+path at <code>34:5057</code>. Blank-root insertion supplies <code>Ans</code> (<code>72h</code>) as the base.
+Leaf-end and mid-leaf insertion bind the atom immediately left of the cursor.
+Leading insertion has no base and replaces the packed token immediately to the
+cursor’s right. [confirmed]</p>
+<p>The leading state contains <code>EF 2A id_lo id_hi EF 2D</code> without a preceding base.
+It is valid while the editor gap is active, and the LCD draws the exponent
+cursor above an empty base position. The JavaScript graph uses an editor-only
+<code>emptyPowerBase</code> node for this state. Settled graph decoding continues to reject
+a postfix-power marker without a base. Four reset-origin captures cover every
+root cursor class and match the cursor AST, every record field, and all 768 LCD
+bytes. [confirmed]</p>
 <p>The radical template supplies source token <code>00BCh</code>; <code>34:5935</code> maps it to type
 <code>0x27</code>. Insertion follows <code>34:473A</code>, the depth gate at <code>35:7B37</code>, and
 <code>34:4169</code> into the type dispatcher at <code>34:5026</code>. The type-<code>0x27</code> path calls
