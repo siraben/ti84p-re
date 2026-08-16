@@ -255,10 +255,13 @@ TRANSLATION_SURFACES = (
     },
     {
         "name": "settled record construction",
-        "rom": ["34:4900", "34:5935", "34:7393", "34:7609"],
+        "rom": [
+            "34:4900", "34:5935", "34:7393", "34:759C–75C1", "34:7609",
+        ],
         "javascript": [
             "constructSettledProgramFromTokens",
             "constructSettledExpressionProgram",
+            "settledMetricMarkerTailGate",
         ],
         "tests": ["tools/test-mathprint.js", "tools/mathprint-*-oracles.json"],
         "scope": (
@@ -451,6 +454,22 @@ OUTCOME_CLASSIFICATIONS = {
             "calculator entries 34:737A, 34:7380, and 34:7377 pass through "
             "34:7386, which loads B=0; the only recursive dispatcher path at "
             "34:75F4 reloads the same saved zero before 34:7606"
+        ),
+    },
+    ("page_34", 0x75A9, "taken"): {
+        "status": "infeasible_under_entry_invariant",
+        "scope": "valid page-6 Y= editor states with tblFlags bit 0 set",
+        "precondition": (
+            "cxCurApp is kYequ and tblFlags bit 0 selects the one-byte "
+            "equals-sign field before the equation token stream"
+        ),
+        "reason": (
+            "34:75A0 subtracts six from the record pointer and 34:4075 "
+            "requires that source pointer to equal editTail before 34:789A "
+            "can return Z; page-6 selection-mode construction advances past "
+            "the one-byte field prefix, so its first source pointer is "
+            "editTail+1 and later record sources advance farther through the "
+            "bounded edit buffer; every call therefore returns NZ at 34:75A5"
         ),
     },
 }
@@ -2954,7 +2973,7 @@ def type1f_entry_abis(
 
 def metric_marker_path(
     at_tail_boundary: int,
-    yequ_table_flag: int,
+    yequ_selection_guard: int,
     marker_class: str,
     nested: int,
 ) -> dict[str, object]:
@@ -2968,10 +2987,10 @@ def metric_marker_path(
             "branch_outcomes": ["34:75A5:returned"],
         }
     outcomes.append("34:75A5:fallthrough")
-    if yequ_table_flag:
+    if yequ_selection_guard:
         outcomes.append("34:75A9:taken")
         return {
-            "terminal": "return_nz_yequ_table",
+            "terminal": "return_nz_yequ_selection",
             "returned_flags": "NZ",
             "branch_outcomes": outcomes,
         }
@@ -3001,11 +3020,11 @@ def symbolic_metric_marker_paths(
 
     classes: dict[tuple[str, tuple[str, ...]], list[dict[str, object]]] = defaultdict(list)
     for at_tail in (0, 1):
-        for yequ_table in (0, 1):
+        for yequ_selection in (0, 1):
             for marker_class in ("fraction_nthroot_power", "other"):
                 for nested in (0, 1):
                     result = metric_marker_path(
-                        at_tail, yequ_table, marker_class, nested
+                        at_tail, yequ_selection, marker_class, nested
                     )
                     key = (
                         str(result["terminal"]),
@@ -3013,13 +3032,13 @@ def symbolic_metric_marker_paths(
                     )
                     classes[key].append({
                         "at_edit_tail_plus_6": at_tail,
-                        "yequ_and_tblflags_bit0": yequ_table,
+                        "yequ_selection_guard": yequ_selection,
                         "marker_class": marker_class,
                         "nesting_nonzero": nested,
                     })
     path_discriminators = {
         "return_nz_pointer_mismatch": "34:75A5:returned",
-        "return_nz_yequ_table": "34:75A9:taken",
+        "return_nz_yequ_selection": "34:75A9:taken",
         "return_nz_other_marker": "34:75B0:fallthrough",
         "return_z_special_marker_nested": "34:75BB:fallthrough",
         "return_z_special_marker_top_level": "34:75BB:taken",
@@ -4638,7 +4657,7 @@ def build_report(
                 "routine": "34:759C",
                 "state": [
                     "parsed pointer == editTail + 6",
-                    "cxCurApp == kYequ and tblFlags.0",
+                    "cxCurApp == kYequ and tblFlags.0 (equals-sign selection)",
                     "marker type in {0x20,0x24,0x2A}",
                     "nesting counter 0x8515",
                 ],

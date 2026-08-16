@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "rom_sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d",
+  "captures": {
+    "short_power_selection": {
+      "macro": "tools/macros/mathprint-yequ-state-sweep.macro",
+      "macro_sha256": "718c32f49c25b3049cf81f964bcef0eeb2183e856e3acd893a66483732d3cd81",
+      "trace_sha256": "56733273b52ab4281ca2998ec2b89ece3083deb75c01160f97b936f30b73fe2f",
+      "trace_bytes": 246416832,
+      "states": [
+        {
+          "name": "equals_sign_selected",
+          "source_ram_sha256": "98166eb78ce37978ebde389c8095e6d8e54b30d7f1215977f938a6d215491893",
+          "screenshot_sha256": "a7825bf9e4d496b4bfa5e356bbc8e3c7f030f99a8712b521210abfbb0669ce9f",
+          "segments": [
+            {"address": 34202, "bytes": "49"},
+            {"address": 35331, "bytes": "41"},
+            {"address": 38644, "bytes": "669e669e9afca1fc"}
+          ]
+        }
+      ],
+      "selection_entry": {
+        "setter": "06:6DDB",
+        "instruction_index": 3365363,
+        "edit_tail": "0xFC9A",
+        "metric_calls": [
+          {
+            "instruction_index": 3366809,
+            "incoming_a": "0x1F",
+            "record_pointer": "0xFCA1",
+            "compared_source_pointer": "0xFC9B",
+            "tail_delta": 1,
+            "terminal": "34:75A5 returned NZ"
+          },
+          {
+            "instruction_index": 3369614,
+            "incoming_a": "0x2B",
+            "record_pointer": "0xFCA1",
+            "compared_source_pointer": "0xFC9B",
+            "tail_delta": 1,
+            "terminal": "34:75A5 returned NZ"
+          }
+        ]
+      }
+    },
+    "empty_selection": {
+      "macro": "tools/macros/mathprint-yequ-empty-selection.macro",
+      "macro_sha256": "b19716aa114574fd413fb9078d9d7a821640062c9b8d6f1f5ec6bf7b2b45376e",
+      "trace_sha256": "d7e1bc5602d30f19624aca15c760cfdc985c9e0a334994fcde2e361e9c488f80",
+      "trace_bytes": 131661594,
+      "states": [
+        {
+          "name": "empty_equals_sign_selected",
+          "source_ram_sha256": "1e10bdcdb708c97f8b56cae3735b9650ebcc708c409b33d0e41134b032581f1c",
+          "screenshot_sha256": "7797caab4a388bdf20270136bea54acef08a9c6a2e39b7e6dd780c81ea67078c",
+          "segments": [
+            {"address": 34202, "bytes": "49"},
+            {"address": 35331, "bytes": "41"},
+            {"address": 38644, "bytes": "509e509eb5fcb5fc"}
+          ]
+        }
+      ],
+      "selection_entry": {
+        "setter": "06:6DDB",
+        "instruction_index": 2589185,
+        "edit_tail": "0xFCB5",
+        "metric_call_count_while_selected": 0
+      }
+    },
+    "overflowing_power_sequence": {
+      "macro": "tools/macros/mathprint-yequ-overflow-selection.macro",
+      "macro_sha256": "5bad6ee1b1c00987f94de8b22b9dcff621926224cb9016252057636f578b3ebd",
+      "trace_sha256": "1358211b3478c27de4df5aa6859021a0003b3ce54b2d321f74f01bed8fe2714f",
+      "trace_bytes": 452741220,
+      "selection_entry": {
+        "setter": "06:6DDB",
+        "instruction_index": 8622015,
+        "edit_tail": "0xFC0E",
+        "metric_call_count_while_selected": 12,
+        "incoming_a_values": ["0x1F", "0x2B"],
+        "source_pointer_tail_deltas_per_pass": [1, 9, 17, 25, 33, 41],
+        "terminal": "every call returns NZ at 34:75A5"
+      }
+    }
+  }
+}

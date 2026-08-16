@@ -82,6 +82,8 @@ const verticalViewportOracle = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-vertical-viewport-oracle.json'))).cases[0];
 const combinedViewportOracle = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-combined-viewport-oracle.json')));
+const yEquSelectionOracle = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools', 'mathprint-yequ-selection-oracle.json')));
 
 function expectEqual(label, actual, expected) {
   if (JSON.stringify(actual) !== JSON.stringify(expected))
@@ -6911,6 +6913,122 @@ expectThrows('34:6143 rejects a non-Boolean editor flag',TypeError,
   () => rom.settledSharedMarkerPrimitive(0x2b,{iy44Bit3:1}));
 expectThrows('34:6143 rejects an oversized matrix state word',RangeError,
   () => rom.settledSharedMarkerPrimitive(0x2b,{word8520:0x10000}));
+
+expectEqual('34:759C returns before the Y= guard on a pointer mismatch',
+  rom.settledMetricMarkerTailGate({
+    recordPointer:0x9007,editTail:0x9000,incomingA:0x2b,
+    cxCurApp:0x49,tblFlags:1,markerType:0x20,nestingCounter:0,
+  }),{
+    recordPointer:0x9007,editTail:0x9000,incomingA:0x2b,
+    cxCurApp:0x49,tblFlags:1,markerType:0x20,nestingCounter:0,
+    terminal:'return_nz_pointer_mismatch',returnA:0x2b,zero:false,
+    returnedFlags:'NZ',branchOutcomes:['34:75A5:returned'],
+    routine:'34:759C–75C1',
+  });
+expectEqual('34:789A preserves the raw Y= selection early return',
+  rom.settledMetricMarkerTailGate({
+    recordPointer:0x9006,editTail:0x9000,incomingA:0x2a,
+    cxCurApp:0x49,tblFlags:0x41,markerType:0x20,nestingCounter:0,
+  }),{
+    recordPointer:0x9006,editTail:0x9000,incomingA:0x2a,
+    cxCurApp:0x49,tblFlags:0x41,markerType:0x20,nestingCounter:0,
+    terminal:'return_nz_yequ_selection',returnA:0x2b,zero:false,
+    returnedFlags:'NZ',branchOutcomes:[
+      '34:75A5:fallthrough','34:75A9:taken'],
+    routine:'34:759C–75C1',
+  });
+expectEqual('34:759C wraps the six-byte source-pointer subtraction',
+  rom.settledMetricMarkerTailGate({
+    recordPointer:4,editTail:0xfffe,incomingA:0,
+    cxCurApp:0,tblFlags:0,markerType:0x24,nestingCounter:1,
+  }).terminal,'return_z_special_marker_nested');
+expectEqual('34:75B0 rejects an ordinary marker',
+  rom.settledMetricMarkerTailGate({
+    recordPointer:0x9006,editTail:0x9000,incomingA:0x1f,
+    cxCurApp:0,tblFlags:0,markerType:0x29,nestingCounter:0,
+  }),{
+    recordPointer:0x9006,editTail:0x9000,incomingA:0x1f,
+    cxCurApp:0,tblFlags:0,markerType:0x29,nestingCounter:0,
+    terminal:'return_nz_other_marker',returnA:0x29,zero:false,
+    returnedFlags:'NZ',branchOutcomes:[
+      '34:75A5:fallthrough','34:75A9:fallthrough','34:75B0:fallthrough'],
+    routine:'34:759C–75C1',
+  });
+expectEqual('34:75BB selects six outer pixels and five nested pixels',[
+  rom.settledMetricMarkerTailGate({
+    recordPointer:0x9006,editTail:0x9000,incomingA:0,
+    cxCurApp:0,tblFlags:0,markerType:0x20,nestingCounter:0,
+  }).returnA,
+  rom.settledMetricMarkerTailGate({
+    recordPointer:0x9006,editTail:0x9000,incomingA:0,
+    cxCurApp:0,tblFlags:0,markerType:0x2a,nestingCounter:1,
+  }).returnA,
+],[6,5]);
+const metricMarkerClasses = new Set(), metricMarkerOutcomes = new Set();
+for (const atTail of [false,true]) {
+  for (const cxCurApp of [0,0x49]) {
+    for (const tblFlags of [0,1]) {
+      for (let markerType = 0; markerType <= 0xff; markerType++) {
+        for (const nestingCounter of [0,1]) {
+          const result = rom.settledMetricMarkerTailGate({
+            recordPointer:atTail ? 0x9006 : 0x9007,editTail:0x9000,
+            incomingA:0x2a,cxCurApp,tblFlags,markerType,nestingCounter,
+          });
+          metricMarkerClasses.add(
+            `${result.terminal}|${result.branchOutcomes.join(',')}`);
+          for (const outcome of result.branchOutcomes)
+            metricMarkerOutcomes.add(outcome);
+        }
+      }
+    }
+  }
+}
+expectEqual('34:759C exhausts its representative raw-state projection',{
+  states:2 * 2 * 2 * 0x100 * 2,
+  classes:metricMarkerClasses.size,outcomes:metricMarkerOutcomes.size,
+},{states:4096,classes:5,outcomes:8});
+expectThrows('34:759C rejects an oversized record pointer',RangeError,
+  () => rom.settledMetricMarkerTailGate({
+    recordPointer:0x10000,editTail:0,cxCurApp:0,tblFlags:0,
+    markerType:0,nestingCounter:0,
+  }));
+for (const [captureName,capture] of
+  Object.entries(yEquSelectionOracle.captures)) {
+  expectEqual(`${captureName} Y= selection macro identity`,
+    crypto.createHash('sha256').update(
+      fs.readFileSync(path.join(root,capture.macro))).digest('hex'),
+    capture.macro_sha256);
+}
+const shortYEquSelection =
+  yEquSelectionOracle.captures.short_power_selection.selection_entry;
+for (const call of shortYEquSelection.metric_calls) {
+  const result = rom.settledMetricMarkerTailGate({
+    recordPointer:Number(call.record_pointer),
+    editTail:Number(shortYEquSelection.edit_tail),
+    incomingA:Number(call.incoming_a),cxCurApp:0x49,tblFlags:1,
+    markerType:0x20,nestingCounter:0,
+  });
+  expectEqual('natural Y= selection returns at the pointer comparison',{
+    terminal:result.terminal,
+    sourcePointer:(result.recordPointer - 6) & 0xffff,
+    tailDelta:call.tail_delta,
+  },{
+    terminal:'return_nz_pointer_mismatch',
+    sourcePointer:(Number(shortYEquSelection.edit_tail) + call.tail_delta) & 0xffff,
+    tailDelta:1,
+  });
+}
+const overflowYEquSelection =
+  yEquSelectionOracle.captures.overflowing_power_sequence.selection_entry;
+expectEqual('overflowing Y= selection keeps every record past the prefix',{
+  calls:overflowYEquSelection.metric_call_count_while_selected,
+  allPastPrefix:overflowYEquSelection.source_pointer_tail_deltas_per_pass
+    .every(delta => delta > 0),
+  passes:overflowYEquSelection.incoming_a_values.length,
+},{calls:12,allPastPrefix:true,passes:2});
+expectEqual('empty Y= selection has no metric record to test',
+  yEquSelectionOracle.captures.empty_selection.selection_entry
+    .metric_call_count_while_selected,0);
 
 expectEqual('34:6119 fixes type-1F table dispatch to the default bitmap',
   rom.executeSettledRecordGraph([settledRecord(1,0x1f)],1), [{

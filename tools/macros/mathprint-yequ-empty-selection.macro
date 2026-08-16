@@ -1,0 +1,16 @@
+# Move from an empty Y= expression to its equals-sign selection field.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key YEQU
+wait 1s
+key CLEAR
+wait 0.5s
+key LEFT
+wait 0.8s
+memdump /tmp/mp-yequ-empty-selection.ram ram-logical
+screenshot /tmp/mp-yequ-empty-selection.png
