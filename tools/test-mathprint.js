@@ -3579,7 +3579,7 @@ for (const oracle of editorDeletionOracles.transitions) {
     oracle.post.lcd_bitmap_sha256);
 }
 expectEqual('live editor structural-deletion oracle schema',
-  editorStructuralDeletionOracles.schema,2);
+  editorStructuralDeletionOracles.schema,4);
 for (const oracle of editorStructuralDeletionOracles.transitions) {
   expectEqual(`${oracle.name} structural-deletion capture macro hash`,
     crypto.createHash('sha256').update(fs.readFileSync(path.join(
@@ -3593,9 +3593,20 @@ for (const oracle of editorStructuralDeletionOracles.transitions) {
     deleted.mutation,oracle.mutation);
   expectEqual(`${oracle.name} decoded structural-deletion transition`,
     deleted.expression,after.editor.expression);
-  expectEqual(`${oracle.name} post-deletion controller`,after.controller,{
-    recordId:6,renderType:0x1f,structuralDepth:0,activeLeafId:7,
-  });
+  let expectedController = before.controller;
+  if (oracle.mutation.status === 'deleted-structural-template') {
+    const owner = after.nodes.find(node =>
+      node.child_ids.includes(oracle.mutation.parent_record_id));
+    if (!owner)
+      throw new Error(`${oracle.name} post-deletion parent controller is absent`);
+    expectedController = {
+      recordId:owner.id,renderType:owner.type,
+      structuralDepth:oracle.mutation.after_structural_depth,
+      activeLeafId:oracle.mutation.parent_record_id,
+    };
+  }
+  expectEqual(`${oracle.name} post-deletion controller`,
+    after.controller,expectedController);
   const reconstructed = rom.constructEditorExpressionProgram(
     deleted.expression,7,font);
   const canonicalLiveRecord = node => {
@@ -3618,6 +3629,34 @@ for (const oracle of editorStructuralDeletionOracles.transitions) {
   expectEqual(`${oracle.name} reconstructed post-deletion LCD bitmap`,
     crypto.createHash('sha256').update(packedLcdBytes(lcd)).digest('hex'),
     oracle.post.lcd_bitmap_sha256);
+}
+const blankStructuralDeletionClasses = new Map([
+  ['blank_root_insert_fraction',[0x20,'deleted-structural-template']],
+  ['blank_root_insert_absolute',[0x21,'deleted-structural-template']],
+  ['blank_root_insert_integral',[0x22,'protected-multi-argument-template']],
+  ['blank_root_insert_nderiv',[0x23,'protected-multi-argument-template']],
+  ['blank_root_insert_nthroot',[0x24,'deleted-structural-template']],
+  ['blank_root_insert_epower',[0x25,'deleted-structural-template']],
+  ['blank_root_insert_tenpower',[0x26,'deleted-structural-template']],
+  ['blank_root_insert_radical',[0x27,'deleted-structural-template']],
+  ['blank_root_insert_logbase',[0x28,'protected-multi-argument-template']],
+  ['blank_root_insert_summation',[0x29,'protected-multi-argument-template']],
+  ['blank_root_insert_power',[0x2a,'deleted-structural-template']],
+]);
+for (const [name,[renderType,status]] of blankStructuralDeletionClasses) {
+  const insertion = editorStructuralMutationOracles.transitions.find(
+    oracle => oracle.name === name);
+  if (!insertion)
+    throw new Error(`${name} structural insertion oracle is absent`);
+  const before = rom.decodeMathPrintEditorRam(sparseEditorRam(
+    insertion.post,`${name} blank structural-deletion class`));
+  const deleted = rom.editorDeleteStructuralTemplate(before);
+  expectEqual(`${name} blank structural-deletion dispatch`,{
+    render_type:deleted.mutation.render_type,status:deleted.mutation.status,
+  },{render_type:renderType,status});
+  if (status === 'protected-multi-argument-template')
+    expectEqual(`${name} protected deletion preserves the cursor tree`,
+      deleted.expression,before.editor.expression);
 }
 const packedDelete = rom.editorDeletePackedToken({
   kind:'sequence',parts:[

@@ -1,5 +1,5 @@
 {
-  "schema": 2,
+  "schema": 4,
   "transitions": [
     {
       "name": "blank_fraction_first_child",
@@ -8,7 +8,7 @@
       "trace_sha256": "f9a71a90596988b589d1338b768e2aea90178f13a67ba67766ded2328261a35f",
       "trace": {
         "key_instruction": 2121690,
-        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h second-child promotion"
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h sibling promotion"
       },
       "mutation": {
         "status": "deleted-structural-template",
@@ -20,13 +20,14 @@
           9,
           10
         ],
-        "promoted_child_id": null,
+        "promoted_child_id": 10,
         "promoted_payload": [],
         "parent_record_id": 7,
         "parent_byte_offset": 0,
+        "restored_empty_slot": false,
         "before_structural_depth": 1,
         "after_structural_depth": 0,
-        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h second-child promotion"
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h sibling promotion"
       },
       "pre": {
         "source_ram_sha256": "278a5c62930cec7dadb6e5744ec33d2d61ebcec73af46bb6512c8918ec58b2a6",
@@ -92,7 +93,7 @@
       "trace_sha256": "6086133fa5ff264f995e071e923a98bfce78a4c827f88f4ff42c0368df874a71",
       "trace": {
         "key_instruction": 2289422,
-        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h second-child promotion"
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h sibling promotion"
       },
       "mutation": {
         "status": "deleted-structural-template",
@@ -110,9 +111,10 @@
         ],
         "parent_record_id": 7,
         "parent_byte_offset": 0,
+        "restored_empty_slot": false,
         "before_structural_depth": 1,
         "after_structural_depth": 0,
-        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h second-child promotion"
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h sibling promotion"
       },
       "pre": {
         "source_ram_sha256": "d3c100d9594f006f01bc0d47c0fa20a07dc878c3578f9d2b1568cbe29b9a3aea",
@@ -178,7 +180,7 @@
       "trace_sha256": "ccfbc027ef177f02be1e51f8a85f843b33b96142971bf2d136a1ef96a138ebd6",
       "trace": {
         "key_instruction": 2041698,
-        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h second-child promotion"
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h sibling promotion"
       },
       "mutation": {
         "status": "deleted-structural-template",
@@ -196,9 +198,10 @@
         ],
         "parent_record_id": 7,
         "parent_byte_offset": 0,
+        "restored_empty_slot": false,
         "before_structural_depth": 1,
         "after_structural_depth": 0,
-        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h second-child promotion"
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h sibling promotion"
       },
       "pre": {
         "source_ram_sha256": "bec24b02749f9b56a5f985e6497406b1c1eb9494a9b7731e015f1d736cf738a9",
@@ -264,7 +267,7 @@
       "trace_sha256": "788fe5c31ab1e269e318aa5e682b5536cbfefb6a8bad471b55794707de8fbe4a",
       "trace": {
         "key_instruction": 1789009,
-        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h second-child promotion"
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h sibling promotion"
       },
       "mutation": {
         "status": "deleted-structural-template",
@@ -279,9 +282,10 @@
         "promoted_payload": [],
         "parent_record_id": 7,
         "parent_byte_offset": 0,
+        "restored_empty_slot": false,
         "before_structural_depth": 1,
         "after_structural_depth": 0,
-        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h second-child promotion"
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h sibling promotion"
       },
       "pre": {
         "source_ram_sha256": "cd763c1e01dae3c2bbbd21bffa06c59fa730925e45b1e9caf9d793f82062a4b1",
@@ -336,6 +340,427 @@
           {
             "address": 64581,
             "bytes": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "fraction_numerator_promotes_denominator",
+      "macro": "tools/macros/mathprint-editor-structural-delete-fraction-promote-denominator.macro",
+      "macro_sha256": "72578cc764ba0bc7873217f9a14730a5d2c2f21359376d54dd4e23ca10bed078",
+      "trace_sha256": "3c843ff3e5ce65a790ec5a81cc165cd62b15645f71daa5a0544bae0f84af48b7",
+      "trace": {
+        "key_instruction": 2319936,
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h sibling promotion"
+      },
+      "mutation": {
+        "status": "deleted-structural-template",
+        "render_type": 32,
+        "structural_record_id": 8,
+        "active_child_index": 0,
+        "removed_record_ids": [
+          8,
+          9,
+          10
+        ],
+        "promoted_child_id": 10,
+        "promoted_payload": [
+          50
+        ],
+        "parent_record_id": 7,
+        "parent_byte_offset": 0,
+        "restored_empty_slot": false,
+        "before_structural_depth": 1,
+        "after_structural_depth": 0,
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h sibling promotion"
+      },
+      "pre": {
+        "source_ram_sha256": "aa863faf0d2044bfc49cf0e0145dd0195ce8b4feb88aaf6606f40444b9fce525",
+        "screenshot_sha256": "990e726a4ab5d8606454de16ff83ee9a2b650e619c869b3220eefe6d03336f97",
+        "lcd_bitmap_sha256": "e766b2aa2d5cf71c7b6858132920dc1e8b1e5d1991dae53c4c4aa8fb77e92502",
+        "sparse_state_sha256": "1b056f0eed0b83621a8480a5b81aef6d76f6fd17d9f37dc671d40065d3eb3ca5",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc080020010900000200e59d279ecd9dfe9d"
+          },
+          {
+            "address": 38644,
+            "bytes": "119e119e2ffc31fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f000001000d000a000600000000000000000700080020070001000d000a000600000000000100ef09000a0007000006000d000a0006000000000000000600ef200800ef2d09000008000500060002000200000000000200ef"
+          },
+          {
+            "address": 64559,
+            "bytes": "ef1e0a00000800050004000200030008000100010032"
+          }
+        ]
+      },
+      "post": {
+        "source_ram_sha256": "da99b9cabcbb7d002a2757256ccd9203606253f87c641b24f602ec489d991b8a",
+        "screenshot_sha256": "cd568021dc2f57646d51895ba7c1ee75393a92bb7f745b3c73f23112f4230b8d",
+        "lcd_bitmap_sha256": "0fc9af3879603ead985a113daa2e4d2480088d816cc0f37f8e6297c7a1b0d942",
+        "sparse_state_sha256": "e176ed00194d83747921257d5ddcaaa5ee8684c1471a236ed95030bed2e03e0b",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc06001f000700000100cd9de19db79dcd9d"
+          },
+          {
+            "address": 38644,
+            "bytes": "e09de09d44fc45fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f000001000700060003000000000000000007000700000600070006000300000000000000010032"
+          },
+          {
+            "address": 64580,
+            "bytes": "32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "nthroot_index_promotes_radicand",
+      "macro": "tools/macros/mathprint-editor-structural-delete-nthroot-promote-radicand.macro",
+      "macro_sha256": "c7560661642296351392f15e1027bc57cb3f7ea197ecb7479ea00dfe06bda249",
+      "trace_sha256": "e74c8d49ce58be7b2da5727e4755ccce736998f167f78fd5ca8326d596b52aa2",
+      "trace": {
+        "key_instruction": 2546877,
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h sibling promotion"
+      },
+      "mutation": {
+        "status": "deleted-structural-template",
+        "render_type": 36,
+        "structural_record_id": 8,
+        "active_child_index": 0,
+        "removed_record_ids": [
+          8,
+          9,
+          10
+        ],
+        "promoted_child_id": 10,
+        "promoted_payload": [
+          51
+        ],
+        "parent_record_id": 7,
+        "parent_byte_offset": 0,
+        "restored_empty_slot": false,
+        "before_structural_depth": 1,
+        "after_structural_depth": 0,
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h sibling promotion"
+      },
+      "pre": {
+        "source_ram_sha256": "43d109bbfe2b3091c7f1e5c1b5b695a590d6a87c145de8b509a6e4935aae09c5",
+        "screenshot_sha256": "b357526a466ece1239055b3e9649c419d2f4c8a9c50ce1389745b62a2f2d17a3",
+        "lcd_bitmap_sha256": "988904de470c82f14a448e861c2c2cf6f4dcb4ff141108128749bbcd3e1cf49d",
+        "sparse_state_sha256": "caa7a04d94c39290592917a3f7db8d4a6fa1344993dd39c1f3f58396114d2a09",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc080024010900000200e59d269ecd9dfe9d"
+          },
+          {
+            "address": 38644,
+            "bytes": "119e119e2ffc31fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f000001000b0010000700000000000000000700080024070001000b00100007000000000001003209000a0007000006000b00100007000000000000000600ef240800ef2d09000008000500060002000000000001000100ef"
+          },
+          {
+            "address": 64559,
+            "bytes": "ef1e0a000008000700060003000a0004000000010033"
+          }
+        ]
+      },
+      "post": {
+        "source_ram_sha256": "37b3c5496c4b7feef6a24b62733d0556dff1173d68e39e551ddd1176081b7465",
+        "screenshot_sha256": "2f628846f566316e8b8040b55cfc8365cd7e9f55426f12b351b3e7af29e459e8",
+        "lcd_bitmap_sha256": "f912ede84c5bfc5954ff16c8c9b4930114a647d1139a177213fbd345bc547ad7",
+        "sparse_state_sha256": "89db947157b6c87df29c8e6661592dc18810c52720b1f0822159ccf76626cca8",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc06001f000700000100cd9de19db79dcd9d"
+          },
+          {
+            "address": 38644,
+            "bytes": "e09de09d44fc45fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f000001000700060003000000000000000007000700000600070006000300000000000000010033"
+          },
+          {
+            "address": 64580,
+            "bytes": "33"
+          }
+        ]
+      }
+    },
+    {
+      "name": "blank_power_retains_base",
+      "macro": "tools/macros/mathprint-editor-structural-delete-power.macro",
+      "macro_sha256": "f73291bfefa7eb390131ddfe6284cc4d6e971c9219f99872ed375d7725badd0f",
+      "trace_sha256": "f7a00403b27d35961b89e6238c9de05cfb224bd007a1db4a87c34c0f7ca84752",
+      "trace": {
+        "key_instruction": 1761361,
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h sibling promotion"
+      },
+      "mutation": {
+        "status": "deleted-structural-template",
+        "render_type": 42,
+        "structural_record_id": 8,
+        "active_child_index": 0,
+        "removed_record_ids": [
+          8,
+          9
+        ],
+        "promoted_child_id": null,
+        "promoted_payload": [],
+        "parent_record_id": 7,
+        "parent_byte_offset": 1,
+        "restored_empty_slot": false,
+        "before_structural_depth": 1,
+        "after_structural_depth": 0,
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h sibling promotion"
+      },
+      "pre": {
+        "source_ram_sha256": "6d24a8c9c441efed8b782e67618cb77a102020503e4baea1213e6e6fda5ddf0f",
+        "screenshot_sha256": "0d7347c593187952f39d8514888bbecbf8796be1ba4a561727a46feb6c53f0df",
+        "lcd_bitmap_sha256": "1944dfca4f9b7505d148dde1a8c5d2d32f3121b60ee82683644444135c627c2c",
+        "sparse_state_sha256": "52466179754f646b828c7da806f3aa5e40aaa6db218d44f6233d58eff8a8d9c6",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc08002a010900000100e39d129ecd9dfd9d"
+          },
+          {
+            "address": 38644,
+            "bytes": "109e109e43fc45fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f000001000a001800060000000000000000070008002a070001000a000600060012000000010072090007000006000a0018000600000000000100070072ef2a0800ef2d09000008000500060002000000000000000200ef"
+          },
+          {
+            "address": 64579,
+            "bytes": "ef1e"
+          }
+        ]
+      },
+      "post": {
+        "source_ram_sha256": "f00491c511566b624fdbe0b8ef3488125d70642b393d0d88a7aacf5dc954d10b",
+        "screenshot_sha256": "c9d261a404bdab2d29cfc1b43cbb0a1a01a9a8665651a8be2ed51932a277f93d",
+        "lcd_bitmap_sha256": "3d71937c4e7a6c5703564cfd342cc357d1f3f97fc04d528aff08f90983961cae",
+        "sparse_state_sha256": "904556d4a72506cf1a3204af81c00423d09a9b136a4914894fa02523d903d621",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc06001f000700000100cd9de19db79dcd9d"
+          },
+          {
+            "address": 38644,
+            "bytes": "e09de19d45fc45fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f000001000700180003000000000000000007000700000600070018000300000000000100010072"
+          },
+          {
+            "address": 64581,
+            "bytes": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "integral_blank_child_is_protected",
+      "macro": "tools/macros/mathprint-editor-structural-delete-integral-noop.macro",
+      "macro_sha256": "7651ba25e6bbd287b0e907b9d67fd4a07d708f475b793e4ecb4649cef7fa487d",
+      "trace_sha256": "02a3c1b8f21722dd79d973fbd5e4fcef6d353cc3c64cb6c8bfce4626c2db161e",
+      "trace": {
+        "key_instruction": 1979916,
+        "routine": "34:44F4\u2013451C \u2192 34:456C"
+      },
+      "mutation": {
+        "status": "protected-multi-argument-template",
+        "render_type": 34,
+        "structural_record_id": 8,
+        "child_count": 4,
+        "active_child_index": 0,
+        "record_id": 9,
+        "byte_offset": 0,
+        "before_structural_depth": 1,
+        "after_structural_depth": 1,
+        "routine": "34:44F4\u2013451C \u2192 34:456C"
+      },
+      "pre": {
+        "source_ram_sha256": "f6f9f4ad8be358f7a089a1635ba70ef6a92e43dfac473a16f8ae0d0ec96d281e",
+        "screenshot_sha256": "680bb9ed5d2f7521d750e8b5dcbc9696847dead47b779e2dee8af804a91613a2",
+        "lcd_bitmap_sha256": "5777e697bc8da0d492ead12abf16af19601f760b88ff4bf573b00119f5fcf16d",
+        "sparse_state_sha256": "d210bb71a1fa01f0c3c25539b38e4ecb0605174aa3aa243124d62834265c6a3c",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc080022010900000400e99d569ecd9d029e"
+          },
+          {
+            "address": 38644,
+            "bytes": "159e159e04fc06fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f0000010011002c0008000000000000000007000800220700010011002c000800000000000100ef09000a000b000c00070000060011002c0008000000000000000600ef220800ef2d090000080005000600020006000c0000000200ef"
+          },
+          {
+            "address": 64516,
+            "bytes": "ef1e0a000008000500060002000600000000000200ef1e0b000008000700060003001200050000000200ef1e0c000108000700060003002400050000000200ef1e"
+          }
+        ]
+      },
+      "post": {
+        "source_ram_sha256": "38c068b40b5b0b8e7a498a58050965284fcb9cc7f0966a5aee959970de3be597",
+        "screenshot_sha256": "680bb9ed5d2f7521d750e8b5dcbc9696847dead47b779e2dee8af804a91613a2",
+        "lcd_bitmap_sha256": "5777e697bc8da0d492ead12abf16af19601f760b88ff4bf573b00119f5fcf16d",
+        "sparse_state_sha256": "d210bb71a1fa01f0c3c25539b38e4ecb0605174aa3aa243124d62834265c6a3c",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc080022010900000400e99d569ecd9d029e"
+          },
+          {
+            "address": 38644,
+            "bytes": "159e159e04fc06fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f0000010011002c0008000000000000000007000800220700010011002c000800000000000100ef09000a000b000c00070000060011002c0008000000000000000600ef220800ef2d090000080005000600020006000c0000000200ef"
+          },
+          {
+            "address": 64516,
+            "bytes": "ef1e0a000008000500060002000600000000000200ef1e0b000008000700060003001200050000000200ef1e0c000108000700060003002400050000000200ef1e"
+          }
+        ]
+      }
+    },
+    {
+      "name": "nested_fraction_restores_parent_empty_slot",
+      "macro": "tools/macros/mathprint-editor-structural-delete-nested-fraction.macro",
+      "macro_sha256": "c097b3bca85b1cd739ecdcfd428f833c6231e967cbcbce5e67fc14c1c6dc9c54",
+      "trace_sha256": "81677bcc262c11872ea13f7c9916477c9b6770ca54a97a0149f4b26e55521975",
+      "trace": {
+        "key_instruction": 2415137,
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h sibling promotion"
+      },
+      "mutation": {
+        "status": "deleted-structural-template",
+        "render_type": 32,
+        "structural_record_id": 10,
+        "active_child_index": 0,
+        "removed_record_ids": [
+          10,
+          11,
+          12
+        ],
+        "promoted_child_id": 12,
+        "promoted_payload": [],
+        "parent_record_id": 9,
+        "parent_byte_offset": 0,
+        "restored_empty_slot": true,
+        "before_structural_depth": 2,
+        "after_structural_depth": 1,
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h sibling promotion"
+      },
+      "pre": {
+        "source_ram_sha256": "9f416f7ff4b9662dbc65efe79cb39d65694f14cc621c6ebd0ddf33bb0343b9d1",
+        "screenshot_sha256": "402ddabc969b8218c9464c8e09fcf43b6c26ed54314882340bb62cd0b6216eff",
+        "lcd_bitmap_sha256": "dc7093fdf5019c24ea68c1cc3049cdaf7884dd26ff3282d1ecf7dd4f91dc2dfb",
+        "sparse_state_sha256": "0c5cbf60272848249e5b72581617532c5e06cb61240358c0aed0da69c63374d0",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc0a0020020b00000200fb9d589ee39d2e9e"
+          },
+          {
+            "address": 38644,
+            "bytes": "419e419e2efc30fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f000001000f0015000800000000000000000700080027070001000f000f0008000600000001003309000a0020090001000d000a000600000000000200330b000c0007000006000f0015000800000000000100070033ef270800ef2d09000008000d000a0006000500020000000600ef200a00ef2d0b00000a000500060002000200000000000200ef"
+          },
+          {
+            "address": 64558,
+            "bytes": "ef1e0c00000a000500060002000200080000000200ef1e"
+          }
+        ]
+      },
+      "post": {
+        "source_ram_sha256": "89abd4a7e5376d988870a9e623bb4894d1d112bfbcacb0d71759a7e6e7deadb3",
+        "screenshot_sha256": "2e957f2d64162ab3f56ebb06d3a4a497df02bfd4597757a1c40233756dbb9a1f",
+        "lcd_bitmap_sha256": "e1ee8d72293233f72006edc61e8479f13b96eea4c16509ea72e41ae4d512b961",
+        "sparse_state_sha256": "74c576409a80f741a50fecbdf1c60b710e17cb4105543a77c87447ac8768a514",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc080027010900000100e39d109ecd9dfd9d"
+          },
+          {
+            "address": 38644,
+            "bytes": "109e109e43fc45fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f000001000900110005000000000000000007000800270700010009000b0005000600000001003309000700000600090011000500000000000100070033ef270800ef2d09000008000700060003000500020000000000ef"
+          },
+          {
+            "address": 64579,
+            "bytes": "ef1e"
           }
         ]
       }

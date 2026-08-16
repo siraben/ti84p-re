@@ -1,0 +1,24 @@
+# Delete an empty fraction nested inside a radical radicand.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key 3
+key 2ND
+key SQUARE
+wait 0.6s
+key ALPHA
+key YEQU
+wait 0.4s
+key 1
+wait 0.8s
+memdump /tmp/mathprint-editor-structural-delete-nested-fraction-pre.ram ram-logical
+screenshot /tmp/mathprint-editor-structural-delete-nested-fraction-pre.png
+key DEL
+wait 0.8s
+memdump /tmp/mathprint-editor-structural-delete-nested-fraction-post.ram ram-logical
+screenshot /tmp/mathprint-editor-structural-delete-nested-fraction-post.png

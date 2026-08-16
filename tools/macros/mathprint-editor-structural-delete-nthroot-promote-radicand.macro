@@ -1,0 +1,26 @@
+# Empty an nth-root index, then delete it and promote the populated radicand.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key 2
+key MATH
+key 5
+key 3
+key LEFT
+key LEFT
+key LEFT
+key DEL
+wait 0.6s
+key DEL
+wait 0.8s
+memdump /tmp/mathprint-editor-structural-delete-nthroot-promote-radicand-pre.ram ram-logical
+screenshot /tmp/mathprint-editor-structural-delete-nthroot-promote-radicand-pre.png
+key DEL
+wait 0.8s
+memdump /tmp/mathprint-editor-structural-delete-nthroot-promote-radicand-post.ram ram-logical
+screenshot /tmp/mathprint-editor-structural-delete-nthroot-promote-radicand-post.png
