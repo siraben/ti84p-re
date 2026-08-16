@@ -1464,6 +1464,60 @@
     };
   }
 
+  // 04:42B5–42E3 converts the graph coordinate in B:C into the one-bit mask,
+  // LCD command bytes, and row-major offset consumed by the point primitive.
+  // Its row multiplication is deliberately byte-sized: rows 40h–7Fh alias
+  // rows 00h–3Fh before the byte-column offset is added.
+  function settledPage4PointAddress(graphX, graphY) {
+    const x = byte(graphX, 'page-4 point graph x');
+    const y = byte(graphY, 'page-4 point graph y');
+    const bitMask = 0x80 >> (x & 7);
+    const byteColumn = x >> 3;
+    const lcdColumnCommand = byteColumn | 0x20;
+    const lcdRowCommand = ((0x3f - y) & 0xff) | 0x80;
+    const displayRow = lcdRowCommand & 0x7f;
+    const rowTimesFour = (displayRow << 2) & 0xff;
+    const bufferOffset = (rowTimesFour * 3 + byteColumn) & 0xffff;
+    return {
+      graphX:x,
+      graphY:y,
+      bitMask,
+      byteColumn,
+      displayRow,
+      rowTimesFour,
+      bufferOffset,
+      plotBufferAddress:(0x9872 + bufferOffset) & 0xffff,
+      backupBufferAddress:(0x9340 + bufferOffset) & 0xffff,
+      lcdColumnCommand,
+      lcdRowCommand,
+      routine:'04:42B5–42E3',
+    };
+  }
+
+  // MathPrint clips to the 96x64 visible screen before entering _PointOn at
+  // 04:4155, although the entry itself accepts byte coordinates. It fixes D=1,
+  // so 04:424D–4254 selects OR and sets exactly the bit returned by the address
+  // helper. Supplying the current LCD byte makes the byte transition explicit.
+  function settledPage4PointOnTransition(xValue, yValue, beforeValue) {
+    const x = byte(xValue, 'page-4 point-on x');
+    const y = byte(yValue, 'page-4 point-on y');
+    const before = byte(beforeValue, 'page-4 point-on previous byte');
+    const address = settledPage4PointAddress(x,(0x3f - y) & 0xff);
+    const after = before | address.bitMask;
+    return {
+      x,
+      y,
+      before,
+      after,
+      changed:before !== after,
+      pointer:[address.byteColumn,y],
+      ...address,
+      mode:1,
+      operation:'OR',
+      routine:'34:5E98–5EA6 → 04:4155 → 04:42B5–42E3',
+    };
+  }
+
   function settledViewport(viewport) {
     if (!viewport || typeof viewport !== 'object')
       throw new TypeError('settled viewport is required');
@@ -9414,8 +9468,14 @@
       for (const [x,y] of settledOperationPixels(operation, font)) {
         if (x < 0 || y < 0 || x >= width || y >= height) continue;
         const byteColumn = x >> 3;
-        write(byteColumn, y,
-              settledGridByte(grid, byteColumn, y) | 1 << (7 - (x & 7)), true);
+        const before = settledGridByte(grid,byteColumn,y);
+        // The 96x64 LCD always enters the translated page-4 byte ABI. Wider
+        // audit canvases retain object pixels beyond FFh so long expressions
+        // can be inspected, although those coordinates cannot reach 04:4155.
+        const after = x <= 0xff && y <= 0xff
+          ? settledPage4PointOnTransition(x,y,before).after
+          : before | 1 << (7 - (x & 7));
+        write(byteColumn,y,after,true);
       }
       return writes;
     }
@@ -9641,6 +9701,8 @@
     fractionEndpoint,
     multiArgumentRowStep,
     settledPointOperation,
+    settledPage4PointAddress,
+    settledPage4PointOnTransition,
     settledVerticalOperation,
     settledHorizontalOperation,
     settledEditorViewport,
