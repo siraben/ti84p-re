@@ -261,13 +261,17 @@ TRANSLATION_SURFACES = (
             "constructSettledExpressionProgram",
         ],
         "tests": ["tools/test-mathprint.js", "tools/mathprint-*-oracles.json"],
-        "scope": "supported native expression grammar; key-to-graph editor mutations remain open",
+        "scope": (
+            "supported native expression grammar plus one- and two-byte ordinary "
+            "editor insertion; structural insertion, deletion, and navigation remain open"
+        ),
     },
     {
         "name": "live editor record graph and gap cursor",
         "rom": ["34:4A83–4ACD", "34:4ACE–4B01", "0x8DAF–0x8DC2", "0x96F4–0x96FA"],
         "javascript": [
             "editorPayloadCursorBoundaries",
+            "editorInsertPackedToken",
             "decodeEditorExpressionGraph",
             "decodeMathPrintEditorRam",
             "constructEditorExpressionProgram",
@@ -275,11 +279,12 @@ TRANSLATION_SURFACES = (
         "tests": [
             "tools/test-mathprint.js",
             "tools/mathprint-editor-gap-oracles.json",
+            "tools/mathprint-editor-mutation-oracles.json",
         ],
         "scope": (
             "complete captured arenas, active-leaf substitution, nested cursor paths, "
-            "and cursor-aware record reconstruction; the next graph after an arbitrary "
-            "key action remains open"
+            "cursor-aware record reconstruction, and ordinary packed-token insertion; "
+            "structural insertion, deletion, and navigation remain open"
         ),
     },
     {
@@ -3977,9 +3982,9 @@ def open_paths(
             "status": "open",
             "reason": (
                 "the live 34:4A83/4ACE arena and 34:4AAF gap substitution round-trip "
-                "through cursor-annotated ASTs and reconstructed records, but the "
-                "key-action routines that mutate one live arena into the next are not "
-                "yet translated"
+                "through cursor-annotated ASTs and reconstructed records; ordinary "
+                "one- and two-byte insertion through 34:4BB9 and 06:4341 is translated, "
+                "but structural insertion, deletion, and navigation are not"
             ),
         },
         {
