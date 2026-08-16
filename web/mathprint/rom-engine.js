@@ -1244,14 +1244,75 @@
     };
   }
 
-  // 39:4F1A. A null result is the routine's carry-set return.
+  // 39:4F1A–4F43 maps three D:E cell families to large-font codes. Preserve
+  // the accumulator, carry flag, and complete conditional path because the
+  // caller distinguishes a mapped glyph from the carry-set fallback.
+  function settledPage39DirectGlyphSelection(dValue, eValue) {
+    const d = byte(dValue, 'cell D');
+    const e = byte(eValue, 'cell E');
+    const branchOutcomes = [];
+    const branch = (address, outcome) => branchOutcomes.push(
+      `39:${address.toString(16).toUpperCase()}:${outcome}`);
+    let accumulator = d;
+    let carry = false;
+
+    const fc = accumulator === 0xfc;
+    branch(0x4f1d,fc ? 'fallthrough' : 'taken');
+    if (fc) {
+      accumulator = e;
+      const atOrAboveEnd = accumulator >= 0x41;
+      branch(0x4f22,atOrAboveEnd ? 'taken' : 'fallthrough');
+      if (!atOrAboveEnd) {
+        carry = accumulator < 0x3c;
+        accumulator = accumulator - 0x3c & 0xff;
+        branch(0x4f26,carry ? 'returned' : 'fallthrough');
+        if (!carry) accumulator = accumulator + 5 & 0xff;
+        return {
+          d,e,accumulator,carry,glyph:carry ? null : accumulator,
+          branchOutcomes,routine:'39:4F1A–4F43',
+        };
+      }
+    } else {
+      const fe = accumulator === 0xfe;
+      accumulator = e;
+      branch(0x4f2d,fe ? 'fallthrough' : 'taken');
+      if (fe) {
+        const atOrAboveEnd = accumulator >= 0x82;
+        branch(0x4f31,atOrAboveEnd ? 'taken' : 'fallthrough');
+        if (!atOrAboveEnd) {
+          carry = accumulator < 0x7d;
+          accumulator = accumulator - 0x7d & 0xff;
+          branch(0x4f35,carry ? 'returned' : 'fallthrough');
+          return {
+            d,e,accumulator,carry,glyph:carry ? null : accumulator,
+            branchOutcomes,routine:'39:4F1A–4F43',
+          };
+        }
+      } else {
+        const lowByte42 = accumulator === 0x42;
+        branch(0x4f39,lowByte42 ? 'fallthrough' : 'taken');
+        if (lowByte42) {
+          accumulator = d;
+          const outsideDigitFamily = accumulator >= 0x0a;
+          branch(0x4f3e,outsideDigitFamily ? 'taken' : 'fallthrough');
+          if (!outsideDigitFamily) return {
+            d,e,accumulator,carry:false,glyph:accumulator,
+            branchOutcomes,routine:'39:4F1A–4F43',
+          };
+        }
+      }
+    }
+    carry = true;
+    return {
+      d,e,accumulator,carry,glyph:null,
+      branchOutcomes,routine:'39:4F1A–4F43',
+    };
+  }
+
+  // Retain the original result-only interface for cell classification while
+  // making its decision come from the executable flag-preserving translation.
   function mapDirectGlyph(d, e) {
-    byte(d, 'cell D');
-    byte(e, 'cell E');
-    if (d === 0xfc && e >= 0x3c && e < 0x41) return e - 0x3c + 5;
-    if (d === 0xfe && e >= 0x7d && e < 0x82) return e - 0x7d;
-    if (e === 0x42 && d < 0x0a) return d;
-    return null;
+    return settledPage39DirectGlyphSelection(d,e).glyph;
   }
 
   function delimiterFamily(layout, d, e) {
@@ -10881,6 +10942,7 @@
     settledPage1TokenHookDispatch,
     settledPage1VPutMapCompose,
     settledPage1VPutMapRow,
+    settledPage39DirectGlyphSelection,
     settledPage34GlyphAdvance,
     settledPage1MathPrintGlyphPlan,
     settledTokenGlyph,

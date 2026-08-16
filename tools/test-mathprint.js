@@ -243,6 +243,18 @@ const glyphAdvanceByte = address => {
       `glyph-advance oracle reached unpinned byte 34:${address.toString(16)}`);
   return glyphAdvanceByteMap.get(address);
 };
+const directGlyphRomSpan = {address:0x4f1a,bytes:Buffer.from(
+  '7afefc200b7bfe41301ed63cd8c605c9fefe7b2008fe82300fd67dd8c9' +
+  'fe4220077afe0a3002b7c937c9','hex')};
+const directGlyphByteMap = new Map(Array.from(
+  directGlyphRomSpan.bytes,
+  (value, offset) => [directGlyphRomSpan.address + offset,value]));
+const directGlyphByte = address => {
+  if (!directGlyphByteMap.has(address))
+    throw new Error(
+      `direct-glyph oracle reached unpinned byte 39:${address.toString(16)}`);
+  return directGlyphByteMap.get(address);
+};
 const vputMapComposeRomSpan = {address:0x6431,bytes:Buffer.from(
   'fdcb055e2807473effaab01801a2ddae00dd2341c9','hex')};
 const vputMapComposeByteMap = new Map(Array.from(
@@ -1250,6 +1262,62 @@ function runRawGlyphAdvance(code, recordWidth, fontFlagsBit2) {
     }
   }
   throw new Error('glyph-advance oracle exceeded its instruction bound');
+}
+
+function runRawDirectGlyphSelection(d, e) {
+  let pc = 0x4f1a, a = 0;
+  let zero = false, carry = false;
+  const branchOutcomes = [];
+  const relative = address => {
+    const value = directGlyphByte(address);
+    return value < 0x80 ? value : value - 0x100;
+  };
+  const branch = (address, condition, returned = false) => {
+    branchOutcomes.push(
+      `39:${address.toString(16).toUpperCase()}:` +
+      `${condition ? (returned ? 'returned' : 'taken') : 'fallthrough'}`);
+    pc = condition
+      ? returned ? 0xffff : address + 2 + relative(address + 1)
+      : address + (returned ? 1 : 2);
+  };
+  for (let instructions = 0; instructions < 32 && pc !== 0xffff; instructions++) {
+    const opcode = directGlyphByte(pc);
+    if (opcode === 0x7a || opcode === 0x7b) {
+      a = opcode === 0x7a ? d : e; pc++;
+    } else if (opcode === 0xfe) {
+      const value = directGlyphByte(pc + 1);
+      zero = a === value; carry = a < value; pc += 2;
+    } else if (opcode === 0x20) {
+      branch(pc,!zero);
+    } else if (opcode === 0x30) {
+      branch(pc,!carry);
+    } else if (opcode === 0xd6) {
+      const value = directGlyphByte(pc + 1);
+      carry = a < value; a = a - value & 0xff; zero = a === 0; pc += 2;
+    } else if (opcode === 0xd8) {
+      branch(pc,carry,true);
+    } else if (opcode === 0xc6) {
+      const value = directGlyphByte(pc + 1);
+      const result = a + value;
+      carry = result > 0xff; a = result & 0xff; zero = a === 0; pc += 2;
+    } else if (opcode === 0xb7) {
+      zero = a === 0; carry = false; pc++;
+    } else if (opcode === 0x37) {
+      carry = true; pc++;
+    } else if (opcode === 0xc9) {
+      pc = 0xffff;
+    } else {
+      throw new Error(
+        `direct-glyph oracle reached unsupported opcode 0x${opcode.toString(16)} ` +
+        `at 39:${pc.toString(16)}`);
+    }
+  }
+  if (pc !== 0xffff)
+    throw new Error('direct-glyph oracle exceeded its instruction bound');
+  return {
+    d,e,accumulator:a,carry,glyph:carry ? null : a,
+    branchOutcomes,routine:'39:4F1A–4F43',
+  };
 }
 
 function runRawVPutMapCompose(screen, width, glyphRow, inverse) {
@@ -3940,6 +4008,17 @@ expectEqual('39:52A5 nonzero-delta count/index partition', [
   action04LowerIndexPairs,action04HigherIndexPairs,action04ZeroCountPairs,
 ], [32385,32640,255]);
 
+let directGlyphStates = 0;
+for (let d = 0; d <= 0xff; d++) {
+  for (let e = 0; e <= 0xff; e++) {
+    expectEqual(`39:4F1A direct-glyph state ${d}:${e}`,
+      rom.settledPage39DirectGlyphSelection(d,e),
+      runRawDirectGlyphSelection(d,e));
+    directGlyphStates++;
+  }
+}
+expectEqual('39:4F1A direct-glyph differential state count',
+  directGlyphStates,0x10000);
 for (const [[d, e], glyph] of [
   [[0xfc, 0x3c], 5], [[0xfc, 0x40], 9],
   [[0xfe, 0x7d], 0], [[0xfe, 0x81], 4], [[9, 0x42], 9],

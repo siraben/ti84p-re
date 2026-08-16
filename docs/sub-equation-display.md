@@ -599,7 +599,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 43 finite models. It also computes an
+complete path-equivalence class in 44 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -622,6 +622,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Shaded-point expansion | 3,145,728 | 1,850 | 30 | 8 |
 | Small-font pointer selection | 65,536 | 16 | 31 | 16 |
 | Token-hook dispatch | 1,048,576 | 9 | 10 | 5 |
+| Direct cell-to-large-glyph selection | 65,536 | 9 | 16 | 9 |
 | Glyph advance and delimiter padding | 131,072 | 6 | 10 | 4 |
 | `_VPutMap` byte-boundary gate | 56 | 2 | 2 | 2 |
 | MathPrint `_VPutMap` right-edge gate | 3,584 | 4 | 6 | 2 |
@@ -650,8 +651,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 | FindAlpha OP scratch transition | 33,554,432 | 2 | 5 | 2 |
 
-The 43 models contain 3,354 path classes and 453 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 212 representatives. Each
+The 44 models contain 3,363 path classes and 469 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 221 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -2678,6 +2679,12 @@ otherwise a counted-string selection (`39:6B66` → `_KeyToString = 45CAh` → `
 `tools/token-name-spec.md`; the placement geometry
 (`683D`, `6B1C`, `5167`/`5949`, pen conversion) is in
 `tools/geometry-spec.md`. [confirmed]
+
+The JavaScript translation of `39:4F1A` preserves the returned accumulator,
+carry flag, and every conditional outcome through `39:4F43`. The handler-cell
+classifier consumes that translation rather than a separate mapping table. A
+pinned-byte interpreter compares all 65,536 `D:E` inputs. They reduce to nine
+complete paths and 16 branch outcomes. [confirmed]
 
 ## Trace replay and renderer checks
 

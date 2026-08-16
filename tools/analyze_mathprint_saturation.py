@@ -383,7 +383,8 @@ TRANSLATION_SURFACES = (
     {
         "name": "font, primitive, and LCD emission",
         "rom": [
-            "01:6297", "01:6360–6445", "01:6702", "04:4025–4315",
+            "01:6297", "01:6360–6445", "01:6702", "39:4F1A–4F43",
+            "04:4025–4315",
             "04:42B5–42E3", "04:431D–43C7", "07:4588–4605",
         ],
         "javascript": [
@@ -396,6 +397,7 @@ TRANSLATION_SURFACES = (
             "settledPage1GlyphPointerSelection",
             "settledPage1VPutMapCompose", "settledPage1VPutMapRow",
             "settledPage1MathPrintGlyphPlan",
+            "settledPage39DirectGlyphSelection",
             "settledPage7LargeGlyphRecord", "settledOperationPixels",
             "settledBlits", "settledOperationWrites",
         ],
@@ -406,6 +408,7 @@ TRANSLATION_SURFACES = (
             "MathPrint's style-inactive LCD-only point transition; hook-disabled "
             "dark-line stepping and ordered horizontal/vertical viewport clipping, "
             "including the complete glyph row-window transition; "
+            "the complete page-39 direct cell-to-large-glyph byte domain; "
             "the complete page-1 glyph-pointer selector byte domain; "
             "small-font byte-boundary selection, row alignment, ordinary and "
             "inverse byte composition, crossing-byte write order, and the "
@@ -4300,6 +4303,112 @@ def symbolic_token_hook_dispatch_paths() -> list[dict[str, object]]:
     ]
 
 
+def direct_glyph_selection_path(d: int, e: int) -> dict[str, object]:
+    """Translate the direct cell-to-large-glyph selector at 39:4F1A–4F43."""
+
+    if not 0 <= d <= 0xFF or not 0 <= e <= 0xFF:
+        raise ValueError("direct-glyph cell bytes must be unsigned bytes")
+    outcomes: list[str] = []
+    accumulator = d
+    fc = accumulator == 0xFC
+    outcomes.append(f"39:4F1D:{'fallthrough' if fc else 'taken'}")
+    if fc:
+        accumulator = e
+        at_or_above_end = accumulator >= 0x41
+        outcomes.append(
+            f"39:4F22:{'taken' if at_or_above_end else 'fallthrough'}"
+        )
+        if not at_or_above_end:
+            carry = accumulator < 0x3C
+            accumulator = (accumulator - 0x3C) & 0xFF
+            outcomes.append(
+                f"39:4F26:{'returned' if carry else 'fallthrough'}"
+            )
+            if not carry:
+                accumulator = (accumulator + 5) & 0xFF
+            return {
+                "terminal": "carry" if carry else "fc_glyph",
+                "accumulator": accumulator,
+                "carry": carry,
+                "branch_outcomes": outcomes,
+            }
+    else:
+        fe = accumulator == 0xFE
+        accumulator = e
+        outcomes.append(f"39:4F2D:{'fallthrough' if fe else 'taken'}")
+        if fe:
+            at_or_above_end = accumulator >= 0x82
+            outcomes.append(
+                f"39:4F31:{'taken' if at_or_above_end else 'fallthrough'}"
+            )
+            if not at_or_above_end:
+                carry = accumulator < 0x7D
+                accumulator = (accumulator - 0x7D) & 0xFF
+                outcomes.append(
+                    f"39:4F35:{'returned' if carry else 'fallthrough'}"
+                )
+                return {
+                    "terminal": "carry" if carry else "fe_glyph",
+                    "accumulator": accumulator,
+                    "carry": carry,
+                    "branch_outcomes": outcomes,
+                }
+        else:
+            low_byte_42 = accumulator == 0x42
+            outcomes.append(
+                f"39:4F39:{'fallthrough' if low_byte_42 else 'taken'}"
+            )
+            if low_byte_42:
+                accumulator = d
+                outside_digit_family = accumulator >= 0x0A
+                outcomes.append(
+                    f"39:4F3E:"
+                    f"{'taken' if outside_digit_family else 'fallthrough'}"
+                )
+                if not outside_digit_family:
+                    return {
+                        "terminal": "low_digit_glyph",
+                        "accumulator": accumulator,
+                        "carry": False,
+                        "branch_outcomes": outcomes,
+                    }
+    return {
+        "terminal": "carry",
+        "accumulator": accumulator,
+        "carry": True,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_direct_glyph_selection_paths() -> list[dict[str, object]]:
+    """Partition every D:E cell pair by the complete 39:4F1A branch path."""
+
+    classes: dict[tuple[str, tuple[str, ...]], dict[str, object]] = {}
+    for d in range(0x100):
+        for e in range(0x100):
+            result = direct_glyph_selection_path(d, e)
+            key = (
+                str(result["terminal"]),
+                tuple(str(item) for item in result["branch_outcomes"]),
+            )
+            row = classes.setdefault(key, {
+                "projected_input_count": 0,
+                "representative_states": [],
+            })
+            row["projected_input_count"] += 1
+            states = row["representative_states"]
+            if len(states) < 4:
+                states.append({"d": d, "e": e})
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
 def glyph_advance_path(
     code: int,
     record_width: int,
@@ -5045,6 +5154,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             "01:6788–67B9; 3B:7B8D–7B9B",
             2 * 4 * 0x10000 * 2,
             symbolic_token_hook_dispatch_paths(),
+        ),
+        (
+            "direct_glyph_selection",
+            "39:4F1A–4F43",
+            0x100**2,
+            symbolic_direct_glyph_selection_paths(),
         ),
         (
             "glyph_advance",
@@ -6665,6 +6780,16 @@ def build_report(
                 "scope": (
                     "complete dispatch predicate and offset-word domain; "
                     "arbitrary installed hook body behavior remains external"
+                ),
+            },
+            "direct_glyph_selection": {
+                "routine": "39:4F1A–4F43",
+                "state": ["handler-cell D byte", "handler-cell E byte"],
+                "projected_input_domain": 0x100**2,
+                "terminal_classes": symbolic_direct_glyph_selection_paths(),
+                "scope": (
+                    "complete raw D:E cell domain, including accumulator and "
+                    "carry returns for unmapped cells"
                 ),
             },
             "glyph_advance": {
