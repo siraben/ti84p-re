@@ -1110,6 +1110,9 @@ function generateRecordProgram(program, options = {}) {
   const operations = editorChrome
     ? settledOperations.concat(editorChrome.operations)
     : settledOperations;
+  const settledRendered = editorChrome && editorChrome.operations.length
+    ? ROM_ENGINE.rasterizeSettledOperations(settledOperations, FONT)
+    : null;
   const rendered = ROM_ENGINE.rasterizeSettledOperations(operations, FONT);
   const overflowRight = Math.max(0, recordWidth - rendered.width);
   let clippedInkPixels = 0;
@@ -1133,6 +1136,7 @@ function generateRecordProgram(program, options = {}) {
     settledOperations,
     initial:Array.from({length:rendered.height}, () => '0'.repeat(rendered.width)),
     final:rendered.grid.map(row => row.join('')),
+    settledFinal:(settledRendered || rendered).grid.map(row => row.join('')),
     operations,
     settledAst,
     events:rendered.writes.map((write, index) => ({
