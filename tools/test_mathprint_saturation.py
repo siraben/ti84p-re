@@ -20,6 +20,7 @@ from analyze_mathprint_saturation import (
     classify_outcome,
     counted_string_viewport_path,
     deserialize_trace_summary,
+    drawing_hook_dispatch_path,
     editor_action03_controller_path,
     editor_action04_controller_path,
     editor_horizontal_viewport_path,
@@ -73,6 +74,7 @@ from analyze_mathprint_saturation import (
     metric_marker_path,
     minimize_trace_features,
     symbolic_counted_string_viewport_paths,
+    symbolic_drawing_hook_dispatch_paths,
     symbolic_metric_marker_paths,
     symbolic_editor_action03_paths,
     symbolic_editor_action04_paths,
@@ -339,13 +341,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(3336, report["path_equivalence_class_count"])
-        self.assertEqual(3336, report["representative_path_corpus_count"])
-        self.assertEqual(429, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(3339, report["path_equivalence_class_count"])
+        self.assertEqual(3339, report["representative_path_corpus_count"])
+        self.assertEqual(433, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            201, report["per_domain_minimum_branch_outcome_corpus_count"]
+            203, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(40, len(report["domains"]))
+        self.assertEqual(41, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -566,6 +568,26 @@ class SymbolicHandlerTests(unittest.TestCase):
         self.assertEqual((1, False), (
             raised["source_row_start"], raised["row_count_active"]
         ))
+
+    def test_drawing_hook_dispatch_partitions_active_and_return_flags(self) -> None:
+        paths = symbolic_drawing_hook_dispatch_paths()
+
+        self.assertEqual(4, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(3, len(paths))
+        self.assertEqual(4, len({
+            outcome for row in paths for outcome in row["branch_outcomes"]
+        }))
+        self.assertEqual(
+            "continue_local", drawing_hook_dispatch_path(0, 0)["terminal"]
+        )
+        self.assertEqual(
+            "continue_local", drawing_hook_dispatch_path(1, 1)["terminal"]
+        )
+        self.assertEqual(
+            "hook_handled", drawing_hook_dispatch_path(1, 0)["terminal"]
+        )
 
     def test_glyph_viewport_partitions_pen_clip_words_and_advances(self) -> None:
         paths = symbolic_glyph_viewport_paths()
@@ -1741,7 +1763,7 @@ class CheckedReportTests(unittest.TestCase):
             matrix_entry["sha256"],
         )
         self.assertEqual(
-            3336,
+            3339,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(

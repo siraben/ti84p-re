@@ -59,9 +59,9 @@
     "external_direct_targets": 236,
     "structural_types_with_oracles": 13,
     "structural_type_domain": 13,
-    "symbolic_path_equivalence_classes": 3336,
-    "symbolic_distinct_branch_outcomes": 429,
-    "symbolic_per_domain_minimum_representatives": 201,
+    "symbolic_path_equivalence_classes": 3339,
+    "symbolic_distinct_branch_outcomes": 433,
+    "symbolic_per_domain_minimum_representatives": 203,
     "globally_saturated": false
   },
   "tables": {
@@ -8682,16 +8682,16 @@
     }
   },
   "symbolic_model_corpus": {
-    "scope": "all projected inputs and complete path equivalence classes in the 40 declared finite symbolic models",
+    "scope": "all projected inputs and complete path equivalence classes in the 41 declared finite symbolic models",
     "not_claimed": [
       "all Z80 register and RAM states",
       "calculator reachability of every representative",
       "all paths outside the declared finite models"
     ],
-    "path_equivalence_class_count": 3336,
-    "representative_path_corpus_count": 3336,
-    "distinct_modeled_branch_outcomes": 429,
-    "per_domain_minimum_branch_outcome_corpus_count": 201,
+    "path_equivalence_class_count": 3339,
+    "representative_path_corpus_count": 3339,
+    "distinct_modeled_branch_outcomes": 433,
+    "per_domain_minimum_branch_outcome_corpus_count": 203,
     "domains": [
       {
         "name": "structural_scan_kind_dispatch",
@@ -73212,6 +73212,97 @@
             "04:4296:fallthrough",
             "04:4296:taken",
             "04:429D:fallthrough"
+          ],
+          "algorithm": "exact outcome-subset dynamic programming; minimum cases, then serialized input bytes, then class order",
+          "proven_minimum": true
+        }
+      },
+      {
+        "name": "drawing_hook_dispatch",
+        "routine": "04:4157\u20134164",
+        "projected_input_domain": 4,
+        "path_equivalence_class_count": 3,
+        "path_equivalence_classes": [
+          {
+            "class_index": 0,
+            "terminal": "continue_local",
+            "projected_input_count": 2,
+            "representative_state": {
+              "hook_active": 0,
+              "hook_returns_z": 0
+            },
+            "branch_outcomes": [
+              "04:415E:fallthrough",
+              "04:4161:taken"
+            ]
+          },
+          {
+            "class_index": 1,
+            "terminal": "continue_local",
+            "projected_input_count": 1,
+            "representative_state": {
+              "hook_active": 1,
+              "hook_returns_z": 1
+            },
+            "branch_outcomes": [
+              "04:415E:taken",
+              "04:4161:taken"
+            ]
+          },
+          {
+            "class_index": 2,
+            "terminal": "hook_handled",
+            "projected_input_count": 1,
+            "representative_state": {
+              "hook_active": 1,
+              "hook_returns_z": 0
+            },
+            "branch_outcomes": [
+              "04:415E:taken",
+              "04:4161:fallthrough"
+            ]
+          }
+        ],
+        "branch_outcome_count": 4,
+        "minimum_branch_outcome_corpus": {
+          "class_indices": [
+            0,
+            2
+          ],
+          "selected_classes": [
+            {
+              "class_index": 0,
+              "terminal": "continue_local",
+              "projected_input_count": 2,
+              "representative_state": {
+                "hook_active": 0,
+                "hook_returns_z": 0
+              },
+              "branch_outcomes": [
+                "04:415E:fallthrough",
+                "04:4161:taken"
+              ]
+            },
+            {
+              "class_index": 2,
+              "terminal": "hook_handled",
+              "projected_input_count": 1,
+              "representative_state": {
+                "hook_active": 1,
+                "hook_returns_z": 0
+              },
+              "branch_outcomes": [
+                "04:415E:taken",
+                "04:4161:fallthrough"
+              ]
+            }
+          ],
+          "selected_case_count": 2,
+          "covered_outcomes": [
+            "04:415E:fallthrough",
+            "04:415E:taken",
+            "04:4161:fallthrough",
+            "04:4161:taken"
           ],
           "algorithm": "exact outcome-subset dynamic programming; minimum cases, then serialized input bytes, then class order",
           "proven_minimum": true
@@ -294140,6 +294231,63 @@
         }
       ],
       "scope": "complete style-active flag and style-byte domain"
+    },
+    "drawing_hook_dispatch": {
+      "routine": "04:4157\u20134164",
+      "state": [
+        "drawing-hook-active flag",
+        "hook return Z flag"
+      ],
+      "projected_input_domain": 4,
+      "terminal_classes": [
+        {
+          "terminal": "continue_local",
+          "branch_outcomes": [
+            "04:415E:fallthrough",
+            "04:4161:taken"
+          ],
+          "projected_input_count": 2,
+          "representative_states": [
+            {
+              "hook_active": 0,
+              "hook_returns_z": 0
+            },
+            {
+              "hook_active": 0,
+              "hook_returns_z": 1
+            }
+          ]
+        },
+        {
+          "terminal": "continue_local",
+          "branch_outcomes": [
+            "04:415E:taken",
+            "04:4161:taken"
+          ],
+          "projected_input_count": 1,
+          "representative_states": [
+            {
+              "hook_active": 1,
+              "hook_returns_z": 1
+            }
+          ]
+        },
+        {
+          "terminal": "hook_handled",
+          "branch_outcomes": [
+            "04:415E:taken",
+            "04:4161:fallthrough"
+          ],
+          "projected_input_count": 1,
+          "representative_states": [
+            {
+              "hook_active": 1,
+              "hook_returns_z": 0
+            }
+          ]
+        }
+      ],
+      "scope": "complete command-0 dispatch predicate domain; arbitrary hook body behavior remains external"
     },
     "point_bounds": {
       "routine": "04:41F9\u20134207; 04:42EC\u20134315",
@@ -555797,6 +555945,7 @@
       "javascript": [
         "settledPage4PointAddress",
         "settledPage4PointPreprocess",
+        "settledPage4DrawingHookDispatch",
         "settledPage4PointTransition",
         "settledPage4PointStateTransition",
         "settledPage4PointPipeline",
@@ -555817,7 +555966,7 @@
         "tools/test-mathprint.js",
         "tools/test_mathprint_draw_trace.py"
       ],
-      "scope": "hook-disabled page-4 style expansion, offsets, bounds, point address, clear/set/XOR/test modes, buffer routing, and the composed point pipeline; MathPrint's style-inactive LCD-only point transition; hook-disabled dark-line stepping and ordered horizontal/vertical viewport clipping, including the complete glyph row-window transition; the complete page-1 glyph-pointer selector byte domain; small-font byte-boundary selection, row alignment, ordinary and inverse byte composition, crossing-byte write order, and the root-versus-raised MathPrint row and right-edge states; page-7 large-glyph stride, record building, and hook gates; and synchronous accepted LCD writes, including unchanged writes; drawing-hook dispatch, font internals, and external LCD timing remain open"
+      "scope": "hook-disabled page-4 style expansion, offsets, bounds, point address, clear/set/XOR/test modes, buffer routing, and the composed point pipeline; MathPrint's style-inactive LCD-only point transition; hook-disabled dark-line stepping and ordered horizontal/vertical viewport clipping, including the complete glyph row-window transition; the complete page-1 glyph-pointer selector byte domain; small-font byte-boundary selection, row alignment, ordinary and inverse byte composition, crossing-byte write order, and the root-versus-raised MathPrint row and right-edge states; page-7 large-glyph stride, record building, and hook gates; and synchronous accepted LCD writes, including unchanged writes; drawing-hook bodies, font internals, and external LCD timing remain open"
     },
     {
       "name": "glyph viewport and timer run indicator",

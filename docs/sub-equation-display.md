@@ -599,7 +599,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 40 finite models. It also computes an
+complete path-equivalence class in 41 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -615,6 +615,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Shared marker draw helper | 33,554,432 | 14 | 26 | 13 |
 | Settled render nesting tail | 16,777,216 | 15 | 24 | 11 |
 | Point mode and buffer routing | 2,048 | 28 | 22 | 5 |
+| Drawing-hook dispatch | 4 | 3 | 4 | 2 |
 | Point style dispatch | 512 | 5 | 8 | 5 |
 | Point bounds | 33,554,432 | 7 | 14 | 7 |
 | Thick-point expansion | 4,294,967,296 | 8 | 14 | 8 |
@@ -647,8 +648,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 | FindAlpha OP scratch transition | 33,554,432 | 2 | 5 | 2 |
 
-The 40 models contain 3,336 path classes and 429 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 201 representatives. Each
+The 41 models contain 3,339 path classes and 433 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 203 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -1713,9 +1714,15 @@ and `34:5DEF`. Its closed tail at `34:5E98`–`34:5EA6` passes `B=x`,
 `C=63-y`, and `D=1` to `_PointOn` at `04:4155`. Dynamic samples include
 `(x,y)=(3,0)` → `BC=033Fh` and `(32,20)` → `BC=202Bh`. [confirmed]
 
-The hook-disabled `_IPoint` preprocessor at `04:4157` first tests
-`sGrFlags.g_style_active`. Retained MathPrint calls have this bit clear, so
-`04:4177` jumps directly to the coordinate path. That path adds the bytes at
+`_IPoint` first supplies drawing-hook command `0` at `04:4158`. An inactive
+hook preserves Z from the bit test and takes `04:4161` into the local point
+path. An active hook can return Z to request the same continuation; NZ restores
+the caller's AF and returns without a local write. The translated dispatcher
+keeps the hook body as an explicit external boundary. [confirmed]
+
+The local preprocessor then tests `sGrFlags.g_style_active`. Retained MathPrint
+calls have both the drawing hook and this style bit clear, so `04:4177` jumps
+directly to the coordinate path. That path adds the bytes at
 `ram:8DA1` and `ram:8DA2` to `B` and `C`, with byte wraparound, before checking
 the display bounds. `apiFlg4.fullScrnDraw` selects `04:4306`, which admits
 $x$ bytes below `ram:8DA4` and $y$ bytes below 64. Clearing the flag selects
@@ -1742,7 +1749,7 @@ classes, every style-dispatch byte, and valid shaded phase/step samples. The
 symbolic report separately partitions all 512 style-dispatch states, all
 33,554,432 effective-coordinate bounds states, all 4,294,967,296 thick-point
 coordinate relations, and all 3,145,728 graph-initialized shaded states at the
-64-row limit. Drawing-hook dispatch remains outside this translation.
+64-row limit. Arbitrary drawing-hook body behavior remains external.
 [confirmed]
 
 `04:42B5`–`04:42E3` converts the graph coordinate into the point mask, LCD
@@ -1817,7 +1824,8 @@ endpoint pairs for horizontal and vertical lines. It also checks all 65,536
 nonnegative delta pairs, which covers every major/minor ratio and signed-error
 sequence. Separate reverse-direction cases cover the direction branches.
 Physical MathPrint lines now compose this stepper with the translated point
-state transition. Drawing-hook dispatch remains outside this translation.
+state transition. A hook-handled point remains delegated to the external hook
+body and produces no inferred local LCD write.
 [confirmed]
 
 The structural handlers retain coordinates and dimensions as 16-bit words.
