@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4b826ea8.js";
+            window.path_to_searchindex_js = "searchindex-340bd54d.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -721,7 +721,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 39 finite models. It also computes an
+complete path-equivalence class in 40 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -761,6 +761,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Editor right-overflow cue</td><td style="text-align: right">281,474,976,710,656</td><td style="text-align: right">5</td><td style="text-align: right">10</td><td style="text-align: right">4</td></tr>
 <tr><td>Glyph vertical viewport</td><td style="text-align: right">1,099,511,627,776</td><td style="text-align: right">16</td><td style="text-align: right">22</td><td style="text-align: right">6</td></tr>
 <tr><td>Glyph viewport gates</td><td style="text-align: right">30,064,771,072</td><td style="text-align: right">3</td><td style="text-align: right">4</td><td style="text-align: right">3</td></tr>
+<tr><td><code>logBASE</code> counted-string viewport</td><td style="text-align: right">8,589,934,592</td><td style="text-align: right">20</td><td style="text-align: right">6</td><td style="text-align: right">1</td></tr>
 <tr><td>Embedded-record viewport gate</td><td style="text-align: right">4,294,967,296</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
 <tr><td>Record-allocation capacity</td><td style="text-align: right">36,893,488,147,419,103,232</td><td style="text-align: right">6</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
 <tr><td>Saved-operand wrappers</td><td style="text-align: right">16</td><td style="text-align: right">12</td><td style="text-align: right">12</td><td style="text-align: right">8</td></tr>
@@ -773,8 +774,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 39 models contain 3,316 path classes and 427 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 200 representatives. Each
+<p>The 40 models contain 3,336 path classes and 429 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 201 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -2740,6 +2741,15 @@ viewport coordinate, and <code>34:6C7C</code> skips the glyph when its endpoint 
 Equality draws the glyph, so an endpoint of <code>96</code> may occupy pixel 95. The
 translated viewport applies both whole-glyph gates before rasterization.
 [confirmed]</p>
+<p>The <code>logBASE</code> prefix is a counted string, not one viewport unit. <code>34:6C26</code>
+loads one display code, <code>34:6C2A</code> calls the ordinary glyph path, and the
+<code>DJNZ</code> at <code>34:6C2F</code> repeats for the remaining codes. The word pen advances
+after a skipped code, so <code>l</code> may be left of the clip while <code>o</code> and <code>g</code> draw;
+the last code may likewise be rejected at the right edge without partially
+drawing it. The translated editor expands the <code>6Ch 6Fh 67h</code> string into three
+ordered glyph calls before applying either viewport gate. An exact finite
+model partitions every initial pen word and clip word for both the root widths
+<code>6,6,6</code> and the raised widths <code>3,4,4</code>, including pen wrap. [confirmed]</p>
 <p>The eight writes inserted at instruction index 56 come from
 <code>page_34:6CA8</code> → <code>ram:3CE1</code>. That call stack does not pass through <code>34:608F</code>, so
 the stream is separate from the right-side bitmap path and remains outside the

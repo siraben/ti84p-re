@@ -2548,6 +2548,38 @@
     return {...operation};
   }
 
+  // 34:6C26–6C31 consumes one display code, calls 34:6C37, and repeats with
+  // DJNZ. 34:6C37 advances the word pen even when either viewport gate skips
+  // that display unit, so a counted string must expose each code separately
+  // before the editor viewport is applied.
+  function settledGlyphRunOperations(operation, glyphAdvance) {
+    if (!operation || typeof operation !== 'object' ||
+        operation.kind !== 'glyph-run')
+      throw new TypeError('settled glyph run must be a glyph-run operation');
+    if (typeof glyphAdvance !== 'function')
+      throw new TypeError('settled glyph run requires a glyph advance function');
+    if (!Array.isArray(operation.codes) || !operation.codes.length)
+      throw new RangeError('settled glyph run must contain display codes');
+    unsignedWord(operation.x, 'settled glyph run x');
+    const depth = operation.depth === undefined
+      ? 0 : byte(operation.depth, 'settled glyph run depth');
+    const metadata = {...operation};
+    delete metadata.kind;
+    delete metadata.codes;
+    delete metadata.x;
+    let x = operation.x;
+    return operation.codes.map((codeValue, index) => {
+      const code = byte(codeValue, `settled glyph run code ${index}`);
+      const advance = glyphAdvance(depth,code);
+      if (!Number.isInteger(advance) || advance < 0 || advance > 0xffff)
+        throw new RangeError(
+          'settled editor glyph advance must fit an unsigned word');
+      const unit = {kind:'glyph',code,x,...metadata};
+      x = addWord(x,advance);
+      return unit;
+    });
+  }
+
   // 34:5FF2 selects the left-overflow cue whenever ram:8E02 is nonzero.
   // 34:6031 centers the seven-row bitmap at 34:60B8 against the current
   // record height and sends it through 34:61B2 after the expression draw.
@@ -2595,65 +2627,70 @@
       bottomExclusive:screenYOrigin + bottomBound,
     };
     const translated = [];
-    for (const operation of operations) {
-      const positioned = translateSettledOperation(
-        operation, viewport.effectiveX,
-        viewport.yOrigin - (hasVerticalViewport ? yClip : 0) + screenYOrigin);
-      // 34:6C5F–6C84 compares a glyph's left edge with ram:8E02 before
-      // entering either font blitter. A glyph that begins left of the clip is
-      // omitted as a unit; the ROM does not draw its still-visible suffix.
-      if (positioned.kind === 'glyph' || positioned.kind === 'glyph-run') {
-        const logicalPen = (operation.x + viewport.xOrigin) & 0xffff;
-        if (logicalPen < viewport.xClip) continue;
+    for (const sourceOperation of operations) {
+      const displayUnits = sourceOperation.kind === 'glyph-run'
+        ? settledGlyphRunOperations(sourceOperation,glyphAdvance)
+        : [sourceOperation];
+      for (const operation of displayUnits) {
+        const positioned = translateSettledOperation(
+          operation, viewport.effectiveX,
+          viewport.yOrigin - (hasVerticalViewport ? yClip : 0) + screenYOrigin);
+        // 34:6C5F–6C84 compares a glyph's left edge with ram:8E02 before
+        // entering either font blitter. A glyph that begins left of the clip is
+        // omitted as a unit; the ROM does not draw its still-visible suffix.
+        if (positioned.kind === 'glyph') {
+          const logicalPen = (operation.x + viewport.xOrigin) & 0xffff;
+          if (logicalPen < viewport.xClip) continue;
+        }
+        // 34:630C enters the same 34:6C37 display-unit path as a glyph. The
+        // bitmap header supplies its five-pixel advance before 34:6C5F compares
+        // the unit's logical left edge with ram:8E02. A root hook that begins
+        // left of the clip is therefore omitted as a unit instead of raster-
+        // clipping its visible columns.
+        if (operation.viewportAdvance !== undefined) {
+          if (!Number.isInteger(operation.viewportAdvance) ||
+              operation.viewportAdvance < 0 || operation.viewportAdvance > 0xffff)
+            throw new RangeError(
+              'settled editor operation viewport advance must fit an unsigned word');
+          const logicalPen = (operation.x + viewport.xOrigin) & 0xffff;
+          if (settledGlyphViewportDecision(
+            logicalPen,operation.viewportAdvance,
+            viewport.xClip,viewport.rightBound).action !== 'draw')
+            continue;
+        }
+        // 34:6C6B–6C7F adds the glyph advance to the logical pen, derives the
+        // one-past-right viewport coordinate, and skips the whole glyph when
+        // that endpoint is larger. Equality is accepted: a four-pixel advance
+        // from visible x=92 ends at 96 and can still occupy pixel 95.
+        if (positioned.kind === 'glyph' && glyphAdvance !== undefined) {
+          const advance = glyphAdvance(
+            positioned.depth === undefined ? 0 : positioned.depth,
+            positioned.code);
+          if (!Number.isInteger(advance) || advance < 0 || advance > 0xffff)
+            throw new RangeError(
+              'settled editor glyph advance must fit an unsigned word');
+          const logicalPen = (operation.x + viewport.xOrigin) & 0xffff;
+          if (settledGlyphViewportDecision(
+            logicalPen,advance,viewport.xClip,viewport.rightBound).action !== 'draw')
+            continue;
+        }
+        if (hasVerticalViewport &&
+            (positioned.kind === 'glyph' || operation.viewportAdvance !== undefined)) {
+          const logicalTop = addWord(operation.y,viewport.yOrigin);
+          const vertical = settledGlyphVerticalViewportDecision(
+            logicalTop,
+            operation.depth === undefined ? 0 : operation.depth,
+            yClip,bottomBound);
+          if (vertical.action === 'skip-above' ||
+              vertical.action === 'skip-below')
+            continue;
+        }
+        if (hasVerticalViewport)
+          Object.defineProperty(positioned,'clip',{
+            value:clip, enumerable:false, configurable:false, writable:false,
+          });
+        translated.push(positioned);
       }
-      // 34:630C enters the same 34:6C37 display-unit path as a glyph. The
-      // bitmap header supplies its five-pixel advance before 34:6C5F compares
-      // the unit's logical left edge with ram:8E02. A root hook that begins
-      // left of the clip is therefore omitted as a unit instead of raster-
-      // clipping its visible columns.
-      if (operation.viewportAdvance !== undefined) {
-        if (!Number.isInteger(operation.viewportAdvance) ||
-            operation.viewportAdvance < 0 || operation.viewportAdvance > 0xffff)
-          throw new RangeError(
-            'settled editor operation viewport advance must fit an unsigned word');
-        const logicalPen = (operation.x + viewport.xOrigin) & 0xffff;
-        if (settledGlyphViewportDecision(
-          logicalPen,operation.viewportAdvance,
-          viewport.xClip,viewport.rightBound).action !== 'draw')
-          continue;
-      }
-      // 34:6C6B–6C7F adds the glyph advance to the logical pen, derives the
-      // one-past-right viewport coordinate, and skips the whole glyph when
-      // that endpoint is larger. Equality is accepted: a four-pixel advance
-      // from visible x=92 ends at 96 and can still occupy pixel 95.
-      if (positioned.kind === 'glyph' && glyphAdvance !== undefined) {
-        const advance = glyphAdvance(
-          positioned.depth === undefined ? 0 : positioned.depth,
-          positioned.code);
-        if (!Number.isInteger(advance) || advance < 0 || advance > 0xffff)
-          throw new RangeError('settled editor glyph advance must fit an unsigned word');
-        const logicalPen = (operation.x + viewport.xOrigin) & 0xffff;
-        if (settledGlyphViewportDecision(
-          logicalPen,advance,viewport.xClip,viewport.rightBound).action !== 'draw')
-          continue;
-      }
-      if (hasVerticalViewport &&
-          (positioned.kind === 'glyph' || positioned.kind === 'glyph-run' ||
-           operation.viewportAdvance !== undefined)) {
-        const logicalTop = addWord(operation.y,viewport.yOrigin);
-        const vertical = settledGlyphVerticalViewportDecision(
-          logicalTop,
-          operation.depth === undefined ? 0 : operation.depth,
-          yClip,bottomBound);
-        if (vertical.action === 'skip-above' ||
-            vertical.action === 'skip-below')
-          continue;
-      }
-      if (hasVerticalViewport)
-        Object.defineProperty(positioned,'clip',{
-          value:clip, enumerable:false, configurable:false, writable:false,
-        });
-      translated.push(positioned);
     }
     if (viewport.xClip !== 0) {
       // 34:78A3 skips the root-height lookup in editor mode 49h. Otherwise,
@@ -10656,6 +10693,7 @@
     settledEmbeddedViewportDecision,
     settledEditorHorizontalCuePlacement,
     settledEditorVerticalCueOperations,
+    settledGlyphRunOperations,
     settledEditorViewportOperations,
     settledEditorRightCueDecision,
     settledEditorRightCueOperation,
