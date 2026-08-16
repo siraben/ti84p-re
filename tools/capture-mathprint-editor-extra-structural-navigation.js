@@ -36,6 +36,10 @@ const sources = {
     macro:'tools/macros/mathprint-editor-nested-fraction-left-navigation.macro',
     trace:'/tmp/mp-nested-fraction-left-navigation.trace',
   },
+  mixed:{
+    macro:'tools/macros/mathprint-editor-radical-fraction-navigation.macro',
+    trace:'/tmp/mp-radical-fraction-navigation.trace',
+  },
 };
 const specs = [
   {
@@ -192,6 +196,24 @@ const specs = [
       'outer_numerator_start','root_before','root_before_endpoint',
     ],
   },
+  {
+    source:'mixed',name:'radical_fraction_left',
+    prefix:'/tmp/mp-radical-fraction-left-walk',direction:'left',
+    states:[
+      'root_after','radicand_after_fraction','inner_denominator_end',
+      'inner_denominator_start','inner_numerator_end','inner_numerator_start',
+      'radicand_before_fraction','root_before','root_before_endpoint',
+    ],
+  },
+  {
+    source:'mixed',name:'radical_fraction_right',
+    prefix:'/tmp/mp-radical-fraction-right-walk',direction:'right',
+    states:[
+      'root_before','radicand_before_fraction','inner_numerator_start',
+      'inner_numerator_end','inner_denominator_start','inner_denominator_end',
+      'radicand_after_fraction','root_after','root_after_endpoint',
+    ],
+  },
 ];
 
 const digest = bytes =>
@@ -223,4 +245,4 @@ for (const spec of specs) {
   };
 }
 
-process.stdout.write(`${JSON.stringify({schema:4,captures,transitions},null,2)}\n`);
+process.stdout.write(`${JSON.stringify({schema:5,captures,transitions},null,2)}\n`);
