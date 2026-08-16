@@ -286,7 +286,8 @@ TRANSLATION_SURFACES = (
         "name": "glyph viewport and timer run indicator",
         "rom": ["34:6C5F–6C87", "ram:027B–0283", "01:6BBA–6BFA"],
         "javascript": [
-            "settledGlyphViewportDecision", "settledEditorViewportOperations",
+            "settledGlyphViewportDecision", "settledEmbeddedViewportDecision",
+            "settledEditorViewportOperations", "executeSettledRecordProgram",
             "settledRunIndicatorTick",
         ],
         "tests": [
@@ -1279,6 +1280,52 @@ def symbolic_glyph_viewport_paths() -> list[dict[str, object]]:
         })
     if sum(counts.values()) != word_count**2 * len(advances):
         raise AssertionError("glyph-viewport partition does not cover its domain")
+    return rows
+
+
+def embedded_viewport_path(
+    logical_endpoint: int,
+    x_clip: int,
+) -> dict[str, object]:
+    """Return one word-subtraction path through 34:6641–6659."""
+
+    logical_endpoint &= 0xFFFF
+    x_clip &= 0xFFFF
+    skip_left = logical_endpoint < x_clip
+    return {
+        "terminal": "skip_left" if skip_left else "draw",
+        "translated_endpoint": (logical_endpoint - x_clip) & 0xFFFF,
+        "branch_outcomes": [
+            f"34:6659:{'taken' if skip_left else 'fallthrough'}"
+        ],
+    }
+
+
+def symbolic_embedded_viewport_paths() -> list[dict[str, object]]:
+    """Partition all embedded endpoint and horizontal-clip word pairs."""
+
+    word_count = 0x10000
+    counts = {
+        "skip_left": word_count * (word_count - 1) // 2,
+        "draw": word_count * (word_count + 1) // 2,
+    }
+    representatives = {
+        "skip_left": {"logical_endpoint": 56, "x_clip": 63},
+        "draw": {"logical_endpoint": 63, "x_clip": 63},
+    }
+    rows = []
+    for terminal in ("skip_left", "draw"):
+        state = representatives[terminal]
+        result = embedded_viewport_path(**state)
+        if result["terminal"] != terminal:
+            raise AssertionError("embedded-viewport representative has the wrong terminal")
+        rows.append({
+            **result,
+            "projected_input_count": counts[terminal],
+            "representative_states": [state],
+        })
+    if sum(counts.values()) != word_count**2:
+        raise AssertionError("embedded-viewport partition does not cover its domain")
     return rows
 
 
@@ -2543,6 +2590,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             "34:6C5F–6C87",
             0x10000 * 0x10000 * 7,
             symbolic_glyph_viewport_paths(),
+        ),
+        (
+            "embedded_viewport_gate",
+            "34:6641–6659",
+            0x10000 * 0x10000,
+            symbolic_embedded_viewport_paths(),
         ),
         (
             "record_allocation_capacity",
