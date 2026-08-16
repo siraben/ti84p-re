@@ -386,18 +386,19 @@ TRANSLATION_SURFACES = (
             "04:42B5–42E3", "04:431D–43C7", "07:4588",
         ],
         "javascript": [
-            "settledPage4PointAddress", "settledPage4PointOnTransition",
+            "settledPage4PointAddress", "settledPage4PointTransition",
+            "settledPage4PointStateTransition", "settledPage4PointOnTransition",
             "settledPage4DarkLineTrace", "settledVerticalOperation",
             "settledHorizontalOperation",
             "settledOperationPixels", "settledBlits", "settledOperationWrites",
         ],
         "tests": ["tools/test-mathprint.js", "tools/test_mathprint_draw_trace.py"],
         "scope": (
-            "page-4 point-on address, mask, and OR byte transitions; hook-disabled "
+            "page-4 point address, clear/set/XOR/test modes, buffer routing, and "
+            "MathPrint's LCD-only point transition; hook-disabled "
             "dark-line stepping and ordered horizontal/vertical viewport clipping; "
             "and synchronous accepted LCD writes, including unchanged writes; "
-            "hook dispatch, general point modes, font internals, and external LCD "
-            "timing remain open"
+            "hook dispatch, font internals, and external LCD timing remain open"
         ),
     },
     {
@@ -3147,6 +3148,109 @@ def symbolic_render_nesting_tail_paths() -> list[dict[str, object]]:
     ]
 
 
+def point_mode_routing_path(
+    point_flags: int,
+    preserve_selected_ram: int,
+    mode: int,
+) -> dict[str, object]:
+    """Translate the normal point byte selector at 04:4215–42B4."""
+
+    point_flags &= 0xFF
+    preserve = bool(preserve_selected_ram)
+    mode &= 0x03
+    use_app = bool(point_flags & 0x08)
+    suppress_lcd = bool(point_flags & 0x01)
+    mirror_app = bool(point_flags & 0x04)
+    bypass_lcd = use_app or suppress_lcd
+    outcomes = []
+
+    def branch(address: int, outcome: str) -> None:
+        outcomes.append(f"04:{address:04X}:{outcome}")
+
+    branch(0x4219, "fallthrough" if use_app else "taken")
+    if not use_app:
+        branch(0x4227, "taken" if suppress_lcd else "fallthrough")
+        if not suppress_lcd:
+            branch(0x4249, "taken" if preserve else "fallthrough")
+
+    branch(0x424D, "fallthrough" if mode == 0 else "taken")
+    if mode >= 1:
+        branch(0x4252, "fallthrough" if mode == 1 else "taken")
+    if mode >= 2:
+        branch(0x4257, "fallthrough" if mode == 2 else "taken")
+    if mode == 3:
+        branch(0x429D, "fallthrough")
+        return {
+            "terminal": "test_without_write",
+            "source": "selected_ram" if bypass_lcd or not preserve else "lcd",
+            "destinations": [],
+            "branch_outcomes": outcomes,
+        }
+
+    branch(0x425E, "taken" if use_app else "fallthrough")
+    if not use_app:
+        branch(0x4264, "fallthrough" if suppress_lcd else "taken")
+        if not suppress_lcd:
+            # The finite routing model fixes the hardware-dependent 215Dh
+            # result to Z. The separate byte transition models the low-bit
+            # workaround when that call returns NZ.
+            branch(0x426E, "taken")
+            branch(0x428E, "taken" if preserve else "fallthrough")
+    branch(0x4296, "fallthrough" if mirror_app else "taken")
+    destinations = []
+    if not bypass_lcd:
+        destinations.append("lcd")
+    if bypass_lcd or not preserve:
+        destinations.append("selected_ram")
+    if mirror_app:
+        destinations.append("appBackUpScreen")
+    return {
+        "terminal": "write_" + "_".join(destinations or ["none"]),
+        "source": "selected_ram" if bypass_lcd or not preserve else "lcd",
+        "destinations": destinations,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_point_mode_routing_paths() -> list[dict[str, object]]:
+    """Partition every routing byte, plotFlags.1 value, and point mode."""
+
+    classes: dict[tuple[object, ...], dict[str, object]] = {}
+    for point_flags in range(0x100):
+        for preserve_selected_ram in range(2):
+            for mode in range(4):
+                result = point_mode_routing_path(
+                    point_flags, preserve_selected_ram, mode,
+                )
+                key = (
+                    str(result["terminal"]), str(result["source"]),
+                    tuple(str(item) for item in result["destinations"]),
+                    tuple(str(item) for item in result["branch_outcomes"]),
+                )
+                row = classes.setdefault(key, {
+                    "projected_input_count": 0,
+                    "representative_states": [],
+                })
+                row["projected_input_count"] += 1
+                states = row["representative_states"]
+                if len(states) < 4:
+                    states.append({
+                        "point_flags": point_flags,
+                        "plot_flags_bit_1": preserve_selected_ram,
+                        "mode": mode,
+                    })
+    return [
+        {
+            "terminal": terminal,
+            "source": source,
+            "destinations": list(destinations),
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, source, destinations, outcomes)],
+        }
+        for terminal, source, destinations, outcomes in sorted(classes)
+    ]
+
+
 def metric_marker_path(
     at_tail_boundary: int,
     yequ_selection_guard: int,
@@ -3373,6 +3477,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             "34:61CE–6209; 34:79C9",
             0x100**3,
             symbolic_render_nesting_tail_paths(),
+        ),
+        (
+            "point_mode_and_buffer_routing",
+            "04:4215–42B4",
+            0x100 * 2 * 4,
+            symbolic_point_mode_routing_paths(),
         ),
         (
             "metric_marker_tail_gate",
@@ -4844,6 +4954,21 @@ def build_report(
                 "scope": (
                     "complete byte domain; the counter affects only the preserved "
                     "or wrapping-decremented result"
+                ),
+            },
+            "point_mode_and_buffer_routing": {
+                "routine": "04:4215–42B4",
+                "state": [
+                    "point-routing byte at (IY+3Ch)",
+                    "plotFlags.1 at (IY+02h)",
+                    "point mode D in 0–3",
+                ],
+                "projected_input_domain": 0x100 * 2 * 4,
+                "terminal_classes": symbolic_point_mode_routing_paths(),
+                "scope": (
+                    "complete routing-byte and mode domain with the 215Dh "
+                    "hardware result fixed to Z; byte values and the NZ "
+                    "column-five low-bit workaround are tested separately"
                 ),
             },
             "metric_marker_tail_gate": {

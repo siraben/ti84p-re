@@ -59,9 +59,9 @@
     "external_direct_targets": 236,
     "structural_types_with_oracles": 13,
     "structural_type_domain": 13,
-    "symbolic_path_equivalence_classes": 1360,
-    "symbolic_distinct_branch_outcomes": 252,
-    "symbolic_per_domain_minimum_representatives": 128,
+    "symbolic_path_equivalence_classes": 1388,
+    "symbolic_distinct_branch_outcomes": 274,
+    "symbolic_per_domain_minimum_representatives": 133,
     "globally_saturated": false
   },
   "tables": {
@@ -8682,16 +8682,16 @@
     }
   },
   "symbolic_model_corpus": {
-    "scope": "all projected inputs and complete path equivalence classes in the 27 declared finite symbolic models",
+    "scope": "all projected inputs and complete path equivalence classes in the 28 declared finite symbolic models",
     "not_claimed": [
       "all Z80 register and RAM states",
       "calculator reachability of every representative",
       "all paths outside the declared finite models"
     ],
-    "path_equivalence_class_count": 1360,
-    "representative_path_corpus_count": 1360,
-    "distinct_modeled_branch_outcomes": 252,
-    "per_domain_minimum_branch_outcome_corpus_count": 128,
+    "path_equivalence_class_count": 1388,
+    "representative_path_corpus_count": 1388,
+    "distinct_modeled_branch_outcomes": 274,
+    "per_domain_minimum_branch_outcome_corpus_count": 133,
     "domains": [
       {
         "name": "structural_scan_kind_dispatch",
@@ -72514,6 +72514,704 @@
             "34:6200:taken",
             "34:6205:fallthrough",
             "34:6205:returned"
+          ],
+          "algorithm": "exact outcome-subset dynamic programming; minimum cases, then serialized input bytes, then class order",
+          "proven_minimum": true
+        }
+      },
+      {
+        "name": "point_mode_and_buffer_routing",
+        "routine": "04:4215\u201342B4",
+        "projected_input_domain": 2048,
+        "path_equivalence_class_count": 28,
+        "path_equivalence_classes": [
+          {
+            "class_index": 0,
+            "terminal": "test_without_write",
+            "projected_input_count": 64,
+            "representative_state": {
+              "point_flags": 0,
+              "plot_flags_bit_1": 1,
+              "mode": 3
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:fallthrough",
+              "04:4249:taken",
+              "04:424D:taken",
+              "04:4252:taken",
+              "04:4257:taken",
+              "04:429D:fallthrough"
+            ]
+          },
+          {
+            "class_index": 1,
+            "terminal": "test_without_write",
+            "projected_input_count": 256,
+            "representative_state": {
+              "point_flags": 8,
+              "plot_flags_bit_1": 0,
+              "mode": 3
+            },
+            "branch_outcomes": [
+              "04:4219:fallthrough",
+              "04:424D:taken",
+              "04:4252:taken",
+              "04:4257:taken",
+              "04:429D:fallthrough"
+            ]
+          },
+          {
+            "class_index": 2,
+            "terminal": "test_without_write",
+            "projected_input_count": 64,
+            "representative_state": {
+              "point_flags": 0,
+              "plot_flags_bit_1": 0,
+              "mode": 3
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:fallthrough",
+              "04:4249:fallthrough",
+              "04:424D:taken",
+              "04:4252:taken",
+              "04:4257:taken",
+              "04:429D:fallthrough"
+            ]
+          },
+          {
+            "class_index": 3,
+            "terminal": "test_without_write",
+            "projected_input_count": 128,
+            "representative_state": {
+              "point_flags": 1,
+              "plot_flags_bit_1": 0,
+              "mode": 3
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:taken",
+              "04:424D:taken",
+              "04:4252:taken",
+              "04:4257:taken",
+              "04:429D:fallthrough"
+            ]
+          },
+          {
+            "class_index": 4,
+            "terminal": "write_lcd",
+            "projected_input_count": 32,
+            "representative_state": {
+              "point_flags": 0,
+              "plot_flags_bit_1": 1,
+              "mode": 0
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:fallthrough",
+              "04:4249:taken",
+              "04:424D:fallthrough",
+              "04:425E:fallthrough",
+              "04:4264:taken",
+              "04:426E:taken",
+              "04:428E:taken",
+              "04:4296:taken"
+            ]
+          },
+          {
+            "class_index": 5,
+            "terminal": "write_lcd",
+            "projected_input_count": 32,
+            "representative_state": {
+              "point_flags": 0,
+              "plot_flags_bit_1": 1,
+              "mode": 1
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:fallthrough",
+              "04:4249:taken",
+              "04:424D:taken",
+              "04:4252:fallthrough",
+              "04:425E:fallthrough",
+              "04:4264:taken",
+              "04:426E:taken",
+              "04:428E:taken",
+              "04:4296:taken"
+            ]
+          },
+          {
+            "class_index": 6,
+            "terminal": "write_lcd",
+            "projected_input_count": 32,
+            "representative_state": {
+              "point_flags": 0,
+              "plot_flags_bit_1": 1,
+              "mode": 2
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:fallthrough",
+              "04:4249:taken",
+              "04:424D:taken",
+              "04:4252:taken",
+              "04:4257:fallthrough",
+              "04:425E:fallthrough",
+              "04:4264:taken",
+              "04:426E:taken",
+              "04:428E:taken",
+              "04:4296:taken"
+            ]
+          },
+          {
+            "class_index": 7,
+            "terminal": "write_lcd_appBackUpScreen",
+            "projected_input_count": 32,
+            "representative_state": {
+              "point_flags": 4,
+              "plot_flags_bit_1": 1,
+              "mode": 0
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:fallthrough",
+              "04:4249:taken",
+              "04:424D:fallthrough",
+              "04:425E:fallthrough",
+              "04:4264:taken",
+              "04:426E:taken",
+              "04:428E:taken",
+              "04:4296:fallthrough"
+            ]
+          },
+          {
+            "class_index": 8,
+            "terminal": "write_lcd_appBackUpScreen",
+            "projected_input_count": 32,
+            "representative_state": {
+              "point_flags": 4,
+              "plot_flags_bit_1": 1,
+              "mode": 1
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:fallthrough",
+              "04:4249:taken",
+              "04:424D:taken",
+              "04:4252:fallthrough",
+              "04:425E:fallthrough",
+              "04:4264:taken",
+              "04:426E:taken",
+              "04:428E:taken",
+              "04:4296:fallthrough"
+            ]
+          },
+          {
+            "class_index": 9,
+            "terminal": "write_lcd_appBackUpScreen",
+            "projected_input_count": 32,
+            "representative_state": {
+              "point_flags": 4,
+              "plot_flags_bit_1": 1,
+              "mode": 2
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:fallthrough",
+              "04:4249:taken",
+              "04:424D:taken",
+              "04:4252:taken",
+              "04:4257:fallthrough",
+              "04:425E:fallthrough",
+              "04:4264:taken",
+              "04:426E:taken",
+              "04:428E:taken",
+              "04:4296:fallthrough"
+            ]
+          },
+          {
+            "class_index": 10,
+            "terminal": "write_lcd_selected_ram",
+            "projected_input_count": 32,
+            "representative_state": {
+              "point_flags": 0,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:fallthrough",
+              "04:4249:fallthrough",
+              "04:424D:fallthrough",
+              "04:425E:fallthrough",
+              "04:4264:taken",
+              "04:426E:taken",
+              "04:428E:fallthrough",
+              "04:4296:taken"
+            ]
+          },
+          {
+            "class_index": 11,
+            "terminal": "write_lcd_selected_ram",
+            "projected_input_count": 32,
+            "representative_state": {
+              "point_flags": 0,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:fallthrough",
+              "04:4249:fallthrough",
+              "04:424D:taken",
+              "04:4252:fallthrough",
+              "04:425E:fallthrough",
+              "04:4264:taken",
+              "04:426E:taken",
+              "04:428E:fallthrough",
+              "04:4296:taken"
+            ]
+          },
+          {
+            "class_index": 12,
+            "terminal": "write_lcd_selected_ram",
+            "projected_input_count": 32,
+            "representative_state": {
+              "point_flags": 0,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:fallthrough",
+              "04:4249:fallthrough",
+              "04:424D:taken",
+              "04:4252:taken",
+              "04:4257:fallthrough",
+              "04:425E:fallthrough",
+              "04:4264:taken",
+              "04:426E:taken",
+              "04:428E:fallthrough",
+              "04:4296:taken"
+            ]
+          },
+          {
+            "class_index": 13,
+            "terminal": "write_lcd_selected_ram_appBackUpScreen",
+            "projected_input_count": 32,
+            "representative_state": {
+              "point_flags": 4,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:fallthrough",
+              "04:4249:fallthrough",
+              "04:424D:fallthrough",
+              "04:425E:fallthrough",
+              "04:4264:taken",
+              "04:426E:taken",
+              "04:428E:fallthrough",
+              "04:4296:fallthrough"
+            ]
+          },
+          {
+            "class_index": 14,
+            "terminal": "write_lcd_selected_ram_appBackUpScreen",
+            "projected_input_count": 32,
+            "representative_state": {
+              "point_flags": 4,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:fallthrough",
+              "04:4249:fallthrough",
+              "04:424D:taken",
+              "04:4252:fallthrough",
+              "04:425E:fallthrough",
+              "04:4264:taken",
+              "04:426E:taken",
+              "04:428E:fallthrough",
+              "04:4296:fallthrough"
+            ]
+          },
+          {
+            "class_index": 15,
+            "terminal": "write_lcd_selected_ram_appBackUpScreen",
+            "projected_input_count": 32,
+            "representative_state": {
+              "point_flags": 4,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:fallthrough",
+              "04:4249:fallthrough",
+              "04:424D:taken",
+              "04:4252:taken",
+              "04:4257:fallthrough",
+              "04:425E:fallthrough",
+              "04:4264:taken",
+              "04:426E:taken",
+              "04:428E:fallthrough",
+              "04:4296:fallthrough"
+            ]
+          },
+          {
+            "class_index": 16,
+            "terminal": "write_selected_ram",
+            "projected_input_count": 128,
+            "representative_state": {
+              "point_flags": 8,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            },
+            "branch_outcomes": [
+              "04:4219:fallthrough",
+              "04:424D:fallthrough",
+              "04:425E:taken",
+              "04:4296:taken"
+            ]
+          },
+          {
+            "class_index": 17,
+            "terminal": "write_selected_ram",
+            "projected_input_count": 128,
+            "representative_state": {
+              "point_flags": 8,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            },
+            "branch_outcomes": [
+              "04:4219:fallthrough",
+              "04:424D:taken",
+              "04:4252:fallthrough",
+              "04:425E:taken",
+              "04:4296:taken"
+            ]
+          },
+          {
+            "class_index": 18,
+            "terminal": "write_selected_ram",
+            "projected_input_count": 128,
+            "representative_state": {
+              "point_flags": 8,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            },
+            "branch_outcomes": [
+              "04:4219:fallthrough",
+              "04:424D:taken",
+              "04:4252:taken",
+              "04:4257:fallthrough",
+              "04:425E:taken",
+              "04:4296:taken"
+            ]
+          },
+          {
+            "class_index": 19,
+            "terminal": "write_selected_ram",
+            "projected_input_count": 64,
+            "representative_state": {
+              "point_flags": 1,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:taken",
+              "04:424D:fallthrough",
+              "04:425E:fallthrough",
+              "04:4264:fallthrough",
+              "04:4296:taken"
+            ]
+          },
+          {
+            "class_index": 20,
+            "terminal": "write_selected_ram",
+            "projected_input_count": 64,
+            "representative_state": {
+              "point_flags": 1,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:taken",
+              "04:424D:taken",
+              "04:4252:fallthrough",
+              "04:425E:fallthrough",
+              "04:4264:fallthrough",
+              "04:4296:taken"
+            ]
+          },
+          {
+            "class_index": 21,
+            "terminal": "write_selected_ram",
+            "projected_input_count": 64,
+            "representative_state": {
+              "point_flags": 1,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:taken",
+              "04:424D:taken",
+              "04:4252:taken",
+              "04:4257:fallthrough",
+              "04:425E:fallthrough",
+              "04:4264:fallthrough",
+              "04:4296:taken"
+            ]
+          },
+          {
+            "class_index": 22,
+            "terminal": "write_selected_ram_appBackUpScreen",
+            "projected_input_count": 128,
+            "representative_state": {
+              "point_flags": 12,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            },
+            "branch_outcomes": [
+              "04:4219:fallthrough",
+              "04:424D:fallthrough",
+              "04:425E:taken",
+              "04:4296:fallthrough"
+            ]
+          },
+          {
+            "class_index": 23,
+            "terminal": "write_selected_ram_appBackUpScreen",
+            "projected_input_count": 128,
+            "representative_state": {
+              "point_flags": 12,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            },
+            "branch_outcomes": [
+              "04:4219:fallthrough",
+              "04:424D:taken",
+              "04:4252:fallthrough",
+              "04:425E:taken",
+              "04:4296:fallthrough"
+            ]
+          },
+          {
+            "class_index": 24,
+            "terminal": "write_selected_ram_appBackUpScreen",
+            "projected_input_count": 128,
+            "representative_state": {
+              "point_flags": 12,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            },
+            "branch_outcomes": [
+              "04:4219:fallthrough",
+              "04:424D:taken",
+              "04:4252:taken",
+              "04:4257:fallthrough",
+              "04:425E:taken",
+              "04:4296:fallthrough"
+            ]
+          },
+          {
+            "class_index": 25,
+            "terminal": "write_selected_ram_appBackUpScreen",
+            "projected_input_count": 64,
+            "representative_state": {
+              "point_flags": 5,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:taken",
+              "04:424D:fallthrough",
+              "04:425E:fallthrough",
+              "04:4264:fallthrough",
+              "04:4296:fallthrough"
+            ]
+          },
+          {
+            "class_index": 26,
+            "terminal": "write_selected_ram_appBackUpScreen",
+            "projected_input_count": 64,
+            "representative_state": {
+              "point_flags": 5,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:taken",
+              "04:424D:taken",
+              "04:4252:fallthrough",
+              "04:425E:fallthrough",
+              "04:4264:fallthrough",
+              "04:4296:fallthrough"
+            ]
+          },
+          {
+            "class_index": 27,
+            "terminal": "write_selected_ram_appBackUpScreen",
+            "projected_input_count": 64,
+            "representative_state": {
+              "point_flags": 5,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            },
+            "branch_outcomes": [
+              "04:4219:taken",
+              "04:4227:taken",
+              "04:424D:taken",
+              "04:4252:taken",
+              "04:4257:fallthrough",
+              "04:425E:fallthrough",
+              "04:4264:fallthrough",
+              "04:4296:fallthrough"
+            ]
+          }
+        ],
+        "branch_outcome_count": 22,
+        "minimum_branch_outcome_corpus": {
+          "class_indices": [
+            0,
+            4,
+            10,
+            17,
+            27
+          ],
+          "selected_classes": [
+            {
+              "class_index": 0,
+              "terminal": "test_without_write",
+              "projected_input_count": 64,
+              "representative_state": {
+                "point_flags": 0,
+                "plot_flags_bit_1": 1,
+                "mode": 3
+              },
+              "branch_outcomes": [
+                "04:4219:taken",
+                "04:4227:fallthrough",
+                "04:4249:taken",
+                "04:424D:taken",
+                "04:4252:taken",
+                "04:4257:taken",
+                "04:429D:fallthrough"
+              ]
+            },
+            {
+              "class_index": 4,
+              "terminal": "write_lcd",
+              "projected_input_count": 32,
+              "representative_state": {
+                "point_flags": 0,
+                "plot_flags_bit_1": 1,
+                "mode": 0
+              },
+              "branch_outcomes": [
+                "04:4219:taken",
+                "04:4227:fallthrough",
+                "04:4249:taken",
+                "04:424D:fallthrough",
+                "04:425E:fallthrough",
+                "04:4264:taken",
+                "04:426E:taken",
+                "04:428E:taken",
+                "04:4296:taken"
+              ]
+            },
+            {
+              "class_index": 10,
+              "terminal": "write_lcd_selected_ram",
+              "projected_input_count": 32,
+              "representative_state": {
+                "point_flags": 0,
+                "plot_flags_bit_1": 0,
+                "mode": 0
+              },
+              "branch_outcomes": [
+                "04:4219:taken",
+                "04:4227:fallthrough",
+                "04:4249:fallthrough",
+                "04:424D:fallthrough",
+                "04:425E:fallthrough",
+                "04:4264:taken",
+                "04:426E:taken",
+                "04:428E:fallthrough",
+                "04:4296:taken"
+              ]
+            },
+            {
+              "class_index": 17,
+              "terminal": "write_selected_ram",
+              "projected_input_count": 128,
+              "representative_state": {
+                "point_flags": 8,
+                "plot_flags_bit_1": 0,
+                "mode": 1
+              },
+              "branch_outcomes": [
+                "04:4219:fallthrough",
+                "04:424D:taken",
+                "04:4252:fallthrough",
+                "04:425E:taken",
+                "04:4296:taken"
+              ]
+            },
+            {
+              "class_index": 27,
+              "terminal": "write_selected_ram_appBackUpScreen",
+              "projected_input_count": 64,
+              "representative_state": {
+                "point_flags": 5,
+                "plot_flags_bit_1": 0,
+                "mode": 2
+              },
+              "branch_outcomes": [
+                "04:4219:taken",
+                "04:4227:taken",
+                "04:424D:taken",
+                "04:4252:taken",
+                "04:4257:fallthrough",
+                "04:425E:fallthrough",
+                "04:4264:fallthrough",
+                "04:4296:fallthrough"
+              ]
+            }
+          ],
+          "selected_case_count": 5,
+          "covered_outcomes": [
+            "04:4219:fallthrough",
+            "04:4219:taken",
+            "04:4227:fallthrough",
+            "04:4227:taken",
+            "04:4249:fallthrough",
+            "04:4249:taken",
+            "04:424D:fallthrough",
+            "04:424D:taken",
+            "04:4252:fallthrough",
+            "04:4252:taken",
+            "04:4257:fallthrough",
+            "04:4257:taken",
+            "04:425E:fallthrough",
+            "04:425E:taken",
+            "04:4264:fallthrough",
+            "04:4264:taken",
+            "04:426E:taken",
+            "04:428E:fallthrough",
+            "04:428E:taken",
+            "04:4296:fallthrough",
+            "04:4296:taken",
+            "04:429D:fallthrough"
           ],
           "algorithm": "exact outcome-subset dynamic programming; minimum cases, then serialized input bytes, then class order",
           "proven_minimum": true
@@ -137710,6 +138408,1141 @@
         }
       ],
       "scope": "complete byte domain; the counter affects only the preserved or wrapping-decremented result"
+    },
+    "point_mode_and_buffer_routing": {
+      "routine": "04:4215\u201342B4",
+      "state": [
+        "point-routing byte at (IY+3Ch)",
+        "plotFlags.1 at (IY+02h)",
+        "point mode D in 0\u20133"
+      ],
+      "projected_input_domain": 2048,
+      "terminal_classes": [
+        {
+          "terminal": "test_without_write",
+          "source": "lcd",
+          "destinations": [],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:fallthrough",
+            "04:4249:taken",
+            "04:424D:taken",
+            "04:4252:taken",
+            "04:4257:taken",
+            "04:429D:fallthrough"
+          ],
+          "projected_input_count": 64,
+          "representative_states": [
+            {
+              "point_flags": 0,
+              "plot_flags_bit_1": 1,
+              "mode": 3
+            },
+            {
+              "point_flags": 2,
+              "plot_flags_bit_1": 1,
+              "mode": 3
+            },
+            {
+              "point_flags": 4,
+              "plot_flags_bit_1": 1,
+              "mode": 3
+            },
+            {
+              "point_flags": 6,
+              "plot_flags_bit_1": 1,
+              "mode": 3
+            }
+          ]
+        },
+        {
+          "terminal": "test_without_write",
+          "source": "selected_ram",
+          "destinations": [],
+          "branch_outcomes": [
+            "04:4219:fallthrough",
+            "04:424D:taken",
+            "04:4252:taken",
+            "04:4257:taken",
+            "04:429D:fallthrough"
+          ],
+          "projected_input_count": 256,
+          "representative_states": [
+            {
+              "point_flags": 8,
+              "plot_flags_bit_1": 0,
+              "mode": 3
+            },
+            {
+              "point_flags": 8,
+              "plot_flags_bit_1": 1,
+              "mode": 3
+            },
+            {
+              "point_flags": 9,
+              "plot_flags_bit_1": 0,
+              "mode": 3
+            },
+            {
+              "point_flags": 9,
+              "plot_flags_bit_1": 1,
+              "mode": 3
+            }
+          ]
+        },
+        {
+          "terminal": "test_without_write",
+          "source": "selected_ram",
+          "destinations": [],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:fallthrough",
+            "04:4249:fallthrough",
+            "04:424D:taken",
+            "04:4252:taken",
+            "04:4257:taken",
+            "04:429D:fallthrough"
+          ],
+          "projected_input_count": 64,
+          "representative_states": [
+            {
+              "point_flags": 0,
+              "plot_flags_bit_1": 0,
+              "mode": 3
+            },
+            {
+              "point_flags": 2,
+              "plot_flags_bit_1": 0,
+              "mode": 3
+            },
+            {
+              "point_flags": 4,
+              "plot_flags_bit_1": 0,
+              "mode": 3
+            },
+            {
+              "point_flags": 6,
+              "plot_flags_bit_1": 0,
+              "mode": 3
+            }
+          ]
+        },
+        {
+          "terminal": "test_without_write",
+          "source": "selected_ram",
+          "destinations": [],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:taken",
+            "04:424D:taken",
+            "04:4252:taken",
+            "04:4257:taken",
+            "04:429D:fallthrough"
+          ],
+          "projected_input_count": 128,
+          "representative_states": [
+            {
+              "point_flags": 1,
+              "plot_flags_bit_1": 0,
+              "mode": 3
+            },
+            {
+              "point_flags": 1,
+              "plot_flags_bit_1": 1,
+              "mode": 3
+            },
+            {
+              "point_flags": 3,
+              "plot_flags_bit_1": 0,
+              "mode": 3
+            },
+            {
+              "point_flags": 3,
+              "plot_flags_bit_1": 1,
+              "mode": 3
+            }
+          ]
+        },
+        {
+          "terminal": "write_lcd",
+          "source": "lcd",
+          "destinations": [
+            "lcd"
+          ],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:fallthrough",
+            "04:4249:taken",
+            "04:424D:fallthrough",
+            "04:425E:fallthrough",
+            "04:4264:taken",
+            "04:426E:taken",
+            "04:428E:taken",
+            "04:4296:taken"
+          ],
+          "projected_input_count": 32,
+          "representative_states": [
+            {
+              "point_flags": 0,
+              "plot_flags_bit_1": 1,
+              "mode": 0
+            },
+            {
+              "point_flags": 2,
+              "plot_flags_bit_1": 1,
+              "mode": 0
+            },
+            {
+              "point_flags": 16,
+              "plot_flags_bit_1": 1,
+              "mode": 0
+            },
+            {
+              "point_flags": 18,
+              "plot_flags_bit_1": 1,
+              "mode": 0
+            }
+          ]
+        },
+        {
+          "terminal": "write_lcd",
+          "source": "lcd",
+          "destinations": [
+            "lcd"
+          ],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:fallthrough",
+            "04:4249:taken",
+            "04:424D:taken",
+            "04:4252:fallthrough",
+            "04:425E:fallthrough",
+            "04:4264:taken",
+            "04:426E:taken",
+            "04:428E:taken",
+            "04:4296:taken"
+          ],
+          "projected_input_count": 32,
+          "representative_states": [
+            {
+              "point_flags": 0,
+              "plot_flags_bit_1": 1,
+              "mode": 1
+            },
+            {
+              "point_flags": 2,
+              "plot_flags_bit_1": 1,
+              "mode": 1
+            },
+            {
+              "point_flags": 16,
+              "plot_flags_bit_1": 1,
+              "mode": 1
+            },
+            {
+              "point_flags": 18,
+              "plot_flags_bit_1": 1,
+              "mode": 1
+            }
+          ]
+        },
+        {
+          "terminal": "write_lcd",
+          "source": "lcd",
+          "destinations": [
+            "lcd"
+          ],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:fallthrough",
+            "04:4249:taken",
+            "04:424D:taken",
+            "04:4252:taken",
+            "04:4257:fallthrough",
+            "04:425E:fallthrough",
+            "04:4264:taken",
+            "04:426E:taken",
+            "04:428E:taken",
+            "04:4296:taken"
+          ],
+          "projected_input_count": 32,
+          "representative_states": [
+            {
+              "point_flags": 0,
+              "plot_flags_bit_1": 1,
+              "mode": 2
+            },
+            {
+              "point_flags": 2,
+              "plot_flags_bit_1": 1,
+              "mode": 2
+            },
+            {
+              "point_flags": 16,
+              "plot_flags_bit_1": 1,
+              "mode": 2
+            },
+            {
+              "point_flags": 18,
+              "plot_flags_bit_1": 1,
+              "mode": 2
+            }
+          ]
+        },
+        {
+          "terminal": "write_lcd_appBackUpScreen",
+          "source": "lcd",
+          "destinations": [
+            "lcd",
+            "appBackUpScreen"
+          ],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:fallthrough",
+            "04:4249:taken",
+            "04:424D:fallthrough",
+            "04:425E:fallthrough",
+            "04:4264:taken",
+            "04:426E:taken",
+            "04:428E:taken",
+            "04:4296:fallthrough"
+          ],
+          "projected_input_count": 32,
+          "representative_states": [
+            {
+              "point_flags": 4,
+              "plot_flags_bit_1": 1,
+              "mode": 0
+            },
+            {
+              "point_flags": 6,
+              "plot_flags_bit_1": 1,
+              "mode": 0
+            },
+            {
+              "point_flags": 20,
+              "plot_flags_bit_1": 1,
+              "mode": 0
+            },
+            {
+              "point_flags": 22,
+              "plot_flags_bit_1": 1,
+              "mode": 0
+            }
+          ]
+        },
+        {
+          "terminal": "write_lcd_appBackUpScreen",
+          "source": "lcd",
+          "destinations": [
+            "lcd",
+            "appBackUpScreen"
+          ],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:fallthrough",
+            "04:4249:taken",
+            "04:424D:taken",
+            "04:4252:fallthrough",
+            "04:425E:fallthrough",
+            "04:4264:taken",
+            "04:426E:taken",
+            "04:428E:taken",
+            "04:4296:fallthrough"
+          ],
+          "projected_input_count": 32,
+          "representative_states": [
+            {
+              "point_flags": 4,
+              "plot_flags_bit_1": 1,
+              "mode": 1
+            },
+            {
+              "point_flags": 6,
+              "plot_flags_bit_1": 1,
+              "mode": 1
+            },
+            {
+              "point_flags": 20,
+              "plot_flags_bit_1": 1,
+              "mode": 1
+            },
+            {
+              "point_flags": 22,
+              "plot_flags_bit_1": 1,
+              "mode": 1
+            }
+          ]
+        },
+        {
+          "terminal": "write_lcd_appBackUpScreen",
+          "source": "lcd",
+          "destinations": [
+            "lcd",
+            "appBackUpScreen"
+          ],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:fallthrough",
+            "04:4249:taken",
+            "04:424D:taken",
+            "04:4252:taken",
+            "04:4257:fallthrough",
+            "04:425E:fallthrough",
+            "04:4264:taken",
+            "04:426E:taken",
+            "04:428E:taken",
+            "04:4296:fallthrough"
+          ],
+          "projected_input_count": 32,
+          "representative_states": [
+            {
+              "point_flags": 4,
+              "plot_flags_bit_1": 1,
+              "mode": 2
+            },
+            {
+              "point_flags": 6,
+              "plot_flags_bit_1": 1,
+              "mode": 2
+            },
+            {
+              "point_flags": 20,
+              "plot_flags_bit_1": 1,
+              "mode": 2
+            },
+            {
+              "point_flags": 22,
+              "plot_flags_bit_1": 1,
+              "mode": 2
+            }
+          ]
+        },
+        {
+          "terminal": "write_lcd_selected_ram",
+          "source": "selected_ram",
+          "destinations": [
+            "lcd",
+            "selected_ram"
+          ],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:fallthrough",
+            "04:4249:fallthrough",
+            "04:424D:fallthrough",
+            "04:425E:fallthrough",
+            "04:4264:taken",
+            "04:426E:taken",
+            "04:428E:fallthrough",
+            "04:4296:taken"
+          ],
+          "projected_input_count": 32,
+          "representative_states": [
+            {
+              "point_flags": 0,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            },
+            {
+              "point_flags": 2,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            },
+            {
+              "point_flags": 16,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            },
+            {
+              "point_flags": 18,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            }
+          ]
+        },
+        {
+          "terminal": "write_lcd_selected_ram",
+          "source": "selected_ram",
+          "destinations": [
+            "lcd",
+            "selected_ram"
+          ],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:fallthrough",
+            "04:4249:fallthrough",
+            "04:424D:taken",
+            "04:4252:fallthrough",
+            "04:425E:fallthrough",
+            "04:4264:taken",
+            "04:426E:taken",
+            "04:428E:fallthrough",
+            "04:4296:taken"
+          ],
+          "projected_input_count": 32,
+          "representative_states": [
+            {
+              "point_flags": 0,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            },
+            {
+              "point_flags": 2,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            },
+            {
+              "point_flags": 16,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            },
+            {
+              "point_flags": 18,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            }
+          ]
+        },
+        {
+          "terminal": "write_lcd_selected_ram",
+          "source": "selected_ram",
+          "destinations": [
+            "lcd",
+            "selected_ram"
+          ],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:fallthrough",
+            "04:4249:fallthrough",
+            "04:424D:taken",
+            "04:4252:taken",
+            "04:4257:fallthrough",
+            "04:425E:fallthrough",
+            "04:4264:taken",
+            "04:426E:taken",
+            "04:428E:fallthrough",
+            "04:4296:taken"
+          ],
+          "projected_input_count": 32,
+          "representative_states": [
+            {
+              "point_flags": 0,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            },
+            {
+              "point_flags": 2,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            },
+            {
+              "point_flags": 16,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            },
+            {
+              "point_flags": 18,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            }
+          ]
+        },
+        {
+          "terminal": "write_lcd_selected_ram_appBackUpScreen",
+          "source": "selected_ram",
+          "destinations": [
+            "lcd",
+            "selected_ram",
+            "appBackUpScreen"
+          ],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:fallthrough",
+            "04:4249:fallthrough",
+            "04:424D:fallthrough",
+            "04:425E:fallthrough",
+            "04:4264:taken",
+            "04:426E:taken",
+            "04:428E:fallthrough",
+            "04:4296:fallthrough"
+          ],
+          "projected_input_count": 32,
+          "representative_states": [
+            {
+              "point_flags": 4,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            },
+            {
+              "point_flags": 6,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            },
+            {
+              "point_flags": 20,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            },
+            {
+              "point_flags": 22,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            }
+          ]
+        },
+        {
+          "terminal": "write_lcd_selected_ram_appBackUpScreen",
+          "source": "selected_ram",
+          "destinations": [
+            "lcd",
+            "selected_ram",
+            "appBackUpScreen"
+          ],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:fallthrough",
+            "04:4249:fallthrough",
+            "04:424D:taken",
+            "04:4252:fallthrough",
+            "04:425E:fallthrough",
+            "04:4264:taken",
+            "04:426E:taken",
+            "04:428E:fallthrough",
+            "04:4296:fallthrough"
+          ],
+          "projected_input_count": 32,
+          "representative_states": [
+            {
+              "point_flags": 4,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            },
+            {
+              "point_flags": 6,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            },
+            {
+              "point_flags": 20,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            },
+            {
+              "point_flags": 22,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            }
+          ]
+        },
+        {
+          "terminal": "write_lcd_selected_ram_appBackUpScreen",
+          "source": "selected_ram",
+          "destinations": [
+            "lcd",
+            "selected_ram",
+            "appBackUpScreen"
+          ],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:fallthrough",
+            "04:4249:fallthrough",
+            "04:424D:taken",
+            "04:4252:taken",
+            "04:4257:fallthrough",
+            "04:425E:fallthrough",
+            "04:4264:taken",
+            "04:426E:taken",
+            "04:428E:fallthrough",
+            "04:4296:fallthrough"
+          ],
+          "projected_input_count": 32,
+          "representative_states": [
+            {
+              "point_flags": 4,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            },
+            {
+              "point_flags": 6,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            },
+            {
+              "point_flags": 20,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            },
+            {
+              "point_flags": 22,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            }
+          ]
+        },
+        {
+          "terminal": "write_selected_ram",
+          "source": "selected_ram",
+          "destinations": [
+            "selected_ram"
+          ],
+          "branch_outcomes": [
+            "04:4219:fallthrough",
+            "04:424D:fallthrough",
+            "04:425E:taken",
+            "04:4296:taken"
+          ],
+          "projected_input_count": 128,
+          "representative_states": [
+            {
+              "point_flags": 8,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            },
+            {
+              "point_flags": 8,
+              "plot_flags_bit_1": 1,
+              "mode": 0
+            },
+            {
+              "point_flags": 9,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            },
+            {
+              "point_flags": 9,
+              "plot_flags_bit_1": 1,
+              "mode": 0
+            }
+          ]
+        },
+        {
+          "terminal": "write_selected_ram",
+          "source": "selected_ram",
+          "destinations": [
+            "selected_ram"
+          ],
+          "branch_outcomes": [
+            "04:4219:fallthrough",
+            "04:424D:taken",
+            "04:4252:fallthrough",
+            "04:425E:taken",
+            "04:4296:taken"
+          ],
+          "projected_input_count": 128,
+          "representative_states": [
+            {
+              "point_flags": 8,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            },
+            {
+              "point_flags": 8,
+              "plot_flags_bit_1": 1,
+              "mode": 1
+            },
+            {
+              "point_flags": 9,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            },
+            {
+              "point_flags": 9,
+              "plot_flags_bit_1": 1,
+              "mode": 1
+            }
+          ]
+        },
+        {
+          "terminal": "write_selected_ram",
+          "source": "selected_ram",
+          "destinations": [
+            "selected_ram"
+          ],
+          "branch_outcomes": [
+            "04:4219:fallthrough",
+            "04:424D:taken",
+            "04:4252:taken",
+            "04:4257:fallthrough",
+            "04:425E:taken",
+            "04:4296:taken"
+          ],
+          "projected_input_count": 128,
+          "representative_states": [
+            {
+              "point_flags": 8,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            },
+            {
+              "point_flags": 8,
+              "plot_flags_bit_1": 1,
+              "mode": 2
+            },
+            {
+              "point_flags": 9,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            },
+            {
+              "point_flags": 9,
+              "plot_flags_bit_1": 1,
+              "mode": 2
+            }
+          ]
+        },
+        {
+          "terminal": "write_selected_ram",
+          "source": "selected_ram",
+          "destinations": [
+            "selected_ram"
+          ],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:taken",
+            "04:424D:fallthrough",
+            "04:425E:fallthrough",
+            "04:4264:fallthrough",
+            "04:4296:taken"
+          ],
+          "projected_input_count": 64,
+          "representative_states": [
+            {
+              "point_flags": 1,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            },
+            {
+              "point_flags": 1,
+              "plot_flags_bit_1": 1,
+              "mode": 0
+            },
+            {
+              "point_flags": 3,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            },
+            {
+              "point_flags": 3,
+              "plot_flags_bit_1": 1,
+              "mode": 0
+            }
+          ]
+        },
+        {
+          "terminal": "write_selected_ram",
+          "source": "selected_ram",
+          "destinations": [
+            "selected_ram"
+          ],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:taken",
+            "04:424D:taken",
+            "04:4252:fallthrough",
+            "04:425E:fallthrough",
+            "04:4264:fallthrough",
+            "04:4296:taken"
+          ],
+          "projected_input_count": 64,
+          "representative_states": [
+            {
+              "point_flags": 1,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            },
+            {
+              "point_flags": 1,
+              "plot_flags_bit_1": 1,
+              "mode": 1
+            },
+            {
+              "point_flags": 3,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            },
+            {
+              "point_flags": 3,
+              "plot_flags_bit_1": 1,
+              "mode": 1
+            }
+          ]
+        },
+        {
+          "terminal": "write_selected_ram",
+          "source": "selected_ram",
+          "destinations": [
+            "selected_ram"
+          ],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:taken",
+            "04:424D:taken",
+            "04:4252:taken",
+            "04:4257:fallthrough",
+            "04:425E:fallthrough",
+            "04:4264:fallthrough",
+            "04:4296:taken"
+          ],
+          "projected_input_count": 64,
+          "representative_states": [
+            {
+              "point_flags": 1,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            },
+            {
+              "point_flags": 1,
+              "plot_flags_bit_1": 1,
+              "mode": 2
+            },
+            {
+              "point_flags": 3,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            },
+            {
+              "point_flags": 3,
+              "plot_flags_bit_1": 1,
+              "mode": 2
+            }
+          ]
+        },
+        {
+          "terminal": "write_selected_ram_appBackUpScreen",
+          "source": "selected_ram",
+          "destinations": [
+            "selected_ram",
+            "appBackUpScreen"
+          ],
+          "branch_outcomes": [
+            "04:4219:fallthrough",
+            "04:424D:fallthrough",
+            "04:425E:taken",
+            "04:4296:fallthrough"
+          ],
+          "projected_input_count": 128,
+          "representative_states": [
+            {
+              "point_flags": 12,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            },
+            {
+              "point_flags": 12,
+              "plot_flags_bit_1": 1,
+              "mode": 0
+            },
+            {
+              "point_flags": 13,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            },
+            {
+              "point_flags": 13,
+              "plot_flags_bit_1": 1,
+              "mode": 0
+            }
+          ]
+        },
+        {
+          "terminal": "write_selected_ram_appBackUpScreen",
+          "source": "selected_ram",
+          "destinations": [
+            "selected_ram",
+            "appBackUpScreen"
+          ],
+          "branch_outcomes": [
+            "04:4219:fallthrough",
+            "04:424D:taken",
+            "04:4252:fallthrough",
+            "04:425E:taken",
+            "04:4296:fallthrough"
+          ],
+          "projected_input_count": 128,
+          "representative_states": [
+            {
+              "point_flags": 12,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            },
+            {
+              "point_flags": 12,
+              "plot_flags_bit_1": 1,
+              "mode": 1
+            },
+            {
+              "point_flags": 13,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            },
+            {
+              "point_flags": 13,
+              "plot_flags_bit_1": 1,
+              "mode": 1
+            }
+          ]
+        },
+        {
+          "terminal": "write_selected_ram_appBackUpScreen",
+          "source": "selected_ram",
+          "destinations": [
+            "selected_ram",
+            "appBackUpScreen"
+          ],
+          "branch_outcomes": [
+            "04:4219:fallthrough",
+            "04:424D:taken",
+            "04:4252:taken",
+            "04:4257:fallthrough",
+            "04:425E:taken",
+            "04:4296:fallthrough"
+          ],
+          "projected_input_count": 128,
+          "representative_states": [
+            {
+              "point_flags": 12,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            },
+            {
+              "point_flags": 12,
+              "plot_flags_bit_1": 1,
+              "mode": 2
+            },
+            {
+              "point_flags": 13,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            },
+            {
+              "point_flags": 13,
+              "plot_flags_bit_1": 1,
+              "mode": 2
+            }
+          ]
+        },
+        {
+          "terminal": "write_selected_ram_appBackUpScreen",
+          "source": "selected_ram",
+          "destinations": [
+            "selected_ram",
+            "appBackUpScreen"
+          ],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:taken",
+            "04:424D:fallthrough",
+            "04:425E:fallthrough",
+            "04:4264:fallthrough",
+            "04:4296:fallthrough"
+          ],
+          "projected_input_count": 64,
+          "representative_states": [
+            {
+              "point_flags": 5,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            },
+            {
+              "point_flags": 5,
+              "plot_flags_bit_1": 1,
+              "mode": 0
+            },
+            {
+              "point_flags": 7,
+              "plot_flags_bit_1": 0,
+              "mode": 0
+            },
+            {
+              "point_flags": 7,
+              "plot_flags_bit_1": 1,
+              "mode": 0
+            }
+          ]
+        },
+        {
+          "terminal": "write_selected_ram_appBackUpScreen",
+          "source": "selected_ram",
+          "destinations": [
+            "selected_ram",
+            "appBackUpScreen"
+          ],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:taken",
+            "04:424D:taken",
+            "04:4252:fallthrough",
+            "04:425E:fallthrough",
+            "04:4264:fallthrough",
+            "04:4296:fallthrough"
+          ],
+          "projected_input_count": 64,
+          "representative_states": [
+            {
+              "point_flags": 5,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            },
+            {
+              "point_flags": 5,
+              "plot_flags_bit_1": 1,
+              "mode": 1
+            },
+            {
+              "point_flags": 7,
+              "plot_flags_bit_1": 0,
+              "mode": 1
+            },
+            {
+              "point_flags": 7,
+              "plot_flags_bit_1": 1,
+              "mode": 1
+            }
+          ]
+        },
+        {
+          "terminal": "write_selected_ram_appBackUpScreen",
+          "source": "selected_ram",
+          "destinations": [
+            "selected_ram",
+            "appBackUpScreen"
+          ],
+          "branch_outcomes": [
+            "04:4219:taken",
+            "04:4227:taken",
+            "04:424D:taken",
+            "04:4252:taken",
+            "04:4257:fallthrough",
+            "04:425E:fallthrough",
+            "04:4264:fallthrough",
+            "04:4296:fallthrough"
+          ],
+          "projected_input_count": 64,
+          "representative_states": [
+            {
+              "point_flags": 5,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            },
+            {
+              "point_flags": 5,
+              "plot_flags_bit_1": 1,
+              "mode": 2
+            },
+            {
+              "point_flags": 7,
+              "plot_flags_bit_1": 0,
+              "mode": 2
+            },
+            {
+              "point_flags": 7,
+              "plot_flags_bit_1": 1,
+              "mode": 2
+            }
+          ]
+        }
+      ],
+      "scope": "complete routing-byte and mode domain with the 215Dh hardware result fixed to Z; byte values and the NZ column-five low-bit workaround are tested separately"
     },
     "metric_marker_tail_gate": {
       "routine": "34:759C",
@@ -217753,6 +219586,8 @@
       ],
       "javascript": [
         "settledPage4PointAddress",
+        "settledPage4PointTransition",
+        "settledPage4PointStateTransition",
         "settledPage4PointOnTransition",
         "settledPage4DarkLineTrace",
         "settledVerticalOperation",
@@ -217765,7 +219600,7 @@
         "tools/test-mathprint.js",
         "tools/test_mathprint_draw_trace.py"
       ],
-      "scope": "page-4 point-on address, mask, and OR byte transitions; hook-disabled dark-line stepping and ordered horizontal/vertical viewport clipping; and synchronous accepted LCD writes, including unchanged writes; hook dispatch, general point modes, font internals, and external LCD timing remain open"
+      "scope": "page-4 point address, clear/set/XOR/test modes, buffer routing, and MathPrint's LCD-only point transition; hook-disabled dark-line stepping and ordered horizontal/vertical viewport clipping; and synchronous accepted LCD writes, including unchanged writes; hook dispatch, font internals, and external LCD timing remain open"
     },
     {
       "name": "glyph viewport and timer run indicator",

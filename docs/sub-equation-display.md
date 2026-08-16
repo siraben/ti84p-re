@@ -580,7 +580,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 27 finite models. It also computes an
+complete path-equivalence class in 28 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -595,6 +595,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Eight-byte raised-name loop | 24,977,631,672,321 | 1,021 | 10 | 4 |
 | Shared marker draw helper | 33,554,432 | 14 | 26 | 13 |
 | Settled render nesting tail | 16,777,216 | 15 | 24 | 11 |
+| Point mode and buffer routing | 2,048 | 28 | 22 | 5 |
 | Metric marker-tail gate | 16 | 5 | 8 | 5 |
 | Editor action `0x03` controller | 131,072 | 11 | 9 | 4 |
 | Editor action `0x04` controller | 131,072 | 5 | 5 | 3 |
@@ -615,8 +616,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 | FindAlpha OP scratch transition | 33,554,432 | 2 | 5 | 2 |
 
-The 27 models contain 1,360 path classes and 252 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 128 representatives. Each
+The 28 models contain 1,388 path classes and 274 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 133 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -1675,12 +1676,35 @@ and `34:5DEF`. Its closed tail at `34:5E98`–`34:5EA6` passes `B=x`,
 `(x,y)=(3,0)` → `BC=033Fh` and `(32,20)` → `BC=202Bh`. [confirmed]
 
 `04:42B5`–`04:42E3` converts the graph coordinate into the point mask, LCD
-commands, and plot-buffer offset. It selects `80h >> (x & 7)`, uses `x >> 3`
+commands, and buffer offset. It selects `80h >> (x & 7)`, uses `x >> 3`
 as the byte column, and computes `3 * ((4 * display_row) & FFh) + byte_column`.
 The row multiplication keeps its intermediate in one byte. Rows `40h`–`7Fh`
 therefore alias rows `00h`–`3Fh` before the column is added. `_PointOn` fixes
 `D=1`, so `04:424D`–`04:4254` ORs that mask into the current byte. MathPrint's
 wrapper clips to the 96×64 display before this entry. [confirmed]
+
+The offset addresses `plotSScreen` at `0x9340` and `appBackUpScreen` at
+`0x9872`. `04:424C`–`04:42B4` maps `D=0`, `1`, `2`, and `3` to clear, set,
+XOR, and test. Test returns the masked bit without writing. The other modes
+route the resulting byte according to `(IY+3Ch)` and `plotFlags.1` at
+`(IY+02h)`. Bit 3 selects `appBackUpScreen` and bypasses LCD I/O. Otherwise,
+bit 0 selects the same direct-RAM route through `plotSScreen`. With both bits
+clear, the routine reads and writes the LCD. `plotFlags.1` chooses the LCD byte
+as the source and preserves `plotSScreen`; clearing it selects and rewrites the
+RAM byte. Bit 2 mirrors the result to `appBackUpScreen`. [confirmed]
+
+Retained MathPrint traces take the LCD route: `(IY+3Ch)` bits 3, 2, and 0 are
+clear, while `plotFlags.1` is set. The translated renderer therefore reads the
+current LCD byte, applies the point mode, and emits the accepted controller
+write without modifying either RAM buffer. A raw interpreter checks all four
+modes, every source byte, all eight masks, every `(IY+3Ch)` byte, and both
+values of `plotFlags.1`. This covers 524,288 routing transitions in addition to
+the 8,192 isolated mode/mask transitions. [confirmed]
+
+`04:426B` contains a controller-dependent workaround. When the hardware check
+returns NZ, byte column 5 and rows before command `B7h` force result bit 0 on
+the LCD write. The state transition exposes that condition explicitly. It does
+not apply the modified LCD byte to either RAM destination. [confirmed]
 
 The JavaScript translation matches a raw interpreter of the pinned helper
 bytes for all 65,536 input-coordinate pairs. A second exhaustive comparison
@@ -1722,9 +1746,9 @@ A raw interpreter of the pinned `_DarkLine` bytes checks all 131,072 ordered
 endpoint pairs for horizontal and vertical lines. It also checks all 65,536
 nonnegative delta pairs, which covers every major/minor ratio and signed-error
 sequence. Separate reverse-direction cases cover the direction branches.
-Physical MathPrint lines now compose this stepper with the translated point-on
-byte transition. Drawing-hook dispatch and non-dark point modes remain outside
-this translation. [confirmed]
+Physical MathPrint lines now compose this stepper with the translated point
+state transition. Drawing-hook dispatch remains outside this translation.
+[confirmed]
 
 The structural handlers retain coordinates and dimensions as 16-bit words.
 For example, `34:62B4`–`34:62C3` reads a radical child's width word, increments
