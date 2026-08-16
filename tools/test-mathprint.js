@@ -228,6 +228,25 @@ const vputMapComposeByte = address => {
       `VPutMap composition oracle reached unpinned byte 01:${address.toString(16)}`);
   return vputMapComposeByteMap.get(address);
 };
+const vputMapGateRomSpan = {address:0x62e1,bytes:Buffer.from(
+  'fdcb14662813cd5d21280efdcb115e2004fe30181afe171816fdcb115e2804' +
+  'fe30180cfdcb24662804fe611802fe603fda2864d532d786','hex')};
+const vputMapRowSetupRomSpan = {address:0x632d,bytes:Buffer.from(
+  '3a729b47fdcb327e20270607fdcb3276201ffdcb325620080606fdcb054e2811' +
+  '04fdcbff46280ae57821019d46903d47e13e0891dd9600dd23f5fdcbff4628' +
+  '0ac53a019d4f0600dd09c1f1fabe63','hex')};
+const vputMapDriverByteMap = new Map([
+  ...Array.from(vputMapGateRomSpan.bytes,
+    (value, offset) => [vputMapGateRomSpan.address + offset,value]),
+  ...Array.from(vputMapRowSetupRomSpan.bytes,
+    (value, offset) => [vputMapRowSetupRomSpan.address + offset,value]),
+]);
+const vputMapDriverByte = address => {
+  if (!vputMapDriverByteMap.has(address))
+    throw new Error(
+      `VPutMap driver oracle reached unpinned byte 01:${address.toString(16)}`);
+  return vputMapDriverByteMap.get(address);
+};
 const pointModeRomSpan = {address:0x4215, bytes:Buffer.from(
   'fdcb3c5e2803e5182d21409319e5fdcb3c462022f33a5184cdbf20cdc30cd3' +
   '10cdc9203a4f84cdc30cd310cdf13be1e5fdcb024e20017e041003b118071003' +
@@ -1076,6 +1095,140 @@ function runRawVPutMapCompose(screen, width, glyphRow, inverse) {
     }
   }
   throw new Error('VPutMap composition oracle exceeded its instruction bound');
+}
+
+function runRawMathPrintVPutMapGate(penColumn, width, raised) {
+  let pc = 0x62e1, a = penColumn + width & 0xff;
+  let zero = false, carry = false;
+  const branchOutcomes = [];
+  const relative = address => {
+    const value = vputMapDriverByte(address);
+    return value < 0x80 ? value : value - 0x100;
+  };
+  for (let instructions = 0; instructions < 32; instructions++) {
+    if (pc === 0x6428) return {accepted:false,endpoint:a,branchOutcomes};
+    if (pc === 0x6318) return {accepted:true,endpoint:a,branchOutcomes};
+    const opcode = vputMapDriverByte(pc);
+    if (opcode === 0xfd && vputMapDriverByte(pc + 1) === 0xcb) {
+      if (pc === 0x62e1 || pc === 0x62fa) zero = true;
+      else if (pc === 0x6304) zero = raised;
+      else throw new Error(`unexpected VPutMap gate BIT at 01:${pc.toString(16)}`);
+      pc += 4;
+    } else if (opcode === 0x28 || opcode === 0x20) {
+      const taken = opcode === 0x28 ? zero : !zero;
+      branchOutcomes.push(
+        `01:${pc.toString(16).toUpperCase()}:${taken ? 'taken' : 'fallthrough'}`);
+      pc = taken ? pc + 2 + relative(pc + 1) : pc + 2;
+    } else if (opcode === 0x18) {
+      pc = pc + 2 + relative(pc + 1);
+    } else if (opcode === 0xfe) {
+      const value = vputMapDriverByte(pc + 1);
+      carry = a < value; zero = a === value; pc += 2;
+    } else if (opcode === 0x3f) {
+      carry = !carry; pc++;
+    } else if (opcode === 0xda) {
+      branchOutcomes.push(
+        `01:${pc.toString(16).toUpperCase()}:${carry ? 'taken' : 'fallthrough'}`);
+      pc = carry
+        ? vputMapDriverByte(pc + 1) | vputMapDriverByte(pc + 2) << 8
+        : pc + 3;
+    } else if (opcode === 0xd5) {
+      pc++;
+    } else if (opcode === 0x32) {
+      pc += 3;
+    } else {
+      throw new Error(
+        `VPutMap gate oracle reached unsupported opcode 0x${opcode.toString(16)} ` +
+        `at 01:${pc.toString(16)}`);
+    }
+  }
+  throw new Error('VPutMap gate oracle exceeded its instruction bound');
+}
+
+function runRawMathPrintVPutMapRowSetup(bitOffset, width, raised) {
+  let pc = 0x632d, a = 0, b = 0, c = bitOffset;
+  let ix = 0x9000, zero = false, sign = false;
+  const stack = [], branchOutcomes = [];
+  const relative = address => {
+    const value = vputMapDriverByte(address);
+    return value < 0x80 ? value : value - 0x100;
+  };
+  const subtract = value => {
+    a = a - value & 0xff;
+    zero = a === 0; sign = Boolean(a & 0x80);
+  };
+  for (let instructions = 0; instructions < 64; instructions++) {
+    const opcode = vputMapDriverByte(pc);
+    if (opcode === 0x3a) {
+      const address = vputMapDriverByte(pc + 1) |
+        vputMapDriverByte(pc + 2) << 8;
+      a = address === 0x9b72 ? 7 : 1;
+      pc += 3;
+    } else if (opcode === 0x47 || opcode === 0x78) {
+      if (opcode === 0x47) b = a; else a = b;
+      pc++;
+    } else if (opcode === 0xfd && vputMapDriverByte(pc + 1) === 0xcb) {
+      if (pc === 0x6331) zero = raised;
+      else if (pc === 0x6339 || pc === 0x633f) zero = true;
+      else if (pc === 0x6347) zero = false;
+      else if (pc === 0x634e || pc === 0x6367) zero = !raised;
+      else throw new Error(`unexpected VPutMap row BIT at 01:${pc.toString(16)}`);
+      pc += 4;
+    } else if (opcode === 0x28 || opcode === 0x20) {
+      const taken = opcode === 0x28 ? zero : !zero;
+      branchOutcomes.push(
+        `01:${pc.toString(16).toUpperCase()}:${taken ? 'taken' : 'fallthrough'}`);
+      pc = taken ? pc + 2 + relative(pc + 1) : pc + 2;
+    } else if (opcode === 0x06 || opcode === 0x3e) {
+      if (opcode === 0x06) b = vputMapDriverByte(pc + 1);
+      else a = vputMapDriverByte(pc + 1);
+      pc += 2;
+    } else if (opcode === 0x04 || opcode === 0x3d) {
+      if (opcode === 0x04) b = b + 1 & 0xff;
+      else a = a - 1 & 0xff;
+      pc++;
+    } else if (opcode === 0xe5) {
+      stack.push({kind:'hl'}); pc++;
+    } else if (opcode === 0xe1) {
+      stack.pop(); pc++;
+    } else if (opcode === 0x21) {
+      pc += 3;
+    } else if (opcode === 0x46) {
+      b = 1; pc++;
+    } else if (opcode === 0x90 || opcode === 0x91) {
+      subtract(opcode === 0x90 ? b : c); pc++;
+    } else if (opcode === 0xdd && vputMapDriverByte(pc + 1) === 0x96) {
+      subtract(width); pc += 3;
+    } else if (opcode === 0xdd && vputMapDriverByte(pc + 1) === 0x23) {
+      ix = ix + 1 & 0xffff; pc += 2;
+    } else if (opcode === 0xf5) {
+      stack.push({kind:'af',a,zero,sign}); pc++;
+    } else if (opcode === 0xf1) {
+      const saved = stack.pop();
+      ({a,zero,sign} = saved); pc++;
+    } else if (opcode === 0xc5) {
+      stack.push({kind:'bc',b,c}); pc++;
+    } else if (opcode === 0xc1) {
+      const saved = stack.pop();
+      ({b,c} = saved); pc++;
+    } else if (opcode === 0x4f) {
+      c = a; pc++;
+    } else if (opcode === 0xdd && vputMapDriverByte(pc + 1) === 0x09) {
+      ix = ix + (b << 8 | c) & 0xffff; pc += 2;
+    } else if (opcode === 0xfa) {
+      branchOutcomes.push(
+        `01:${pc.toString(16).toUpperCase()}:${sign ? 'taken' : 'fallthrough'}`);
+      return {
+        rowCount:b,sourceRowStart:ix - 0x9000 - 1,
+        crossesByte:sign,alignmentValue:a,branchOutcomes,
+      };
+    } else {
+      throw new Error(
+        `VPutMap row-setup oracle reached unsupported opcode 0x${opcode.toString(16)} ` +
+        `at 01:${pc.toString(16)}`);
+    }
+  }
+  throw new Error('VPutMap row-setup oracle exceeded its instruction bound');
 }
 
 function runRawDarkLine(graphX1, graphY1, graphX2, graphY2) {
@@ -6991,6 +7144,121 @@ for (let width = 1; width <= 7; width++) {
 }
 expectEqual('01:637E VPutMap row alignment state count',
   vputMapRowStates,7 * 8 * 0x10000 * 2);
+
+expectEqual('34:6C37 root X trace selects the seven-row page-1 state',
+  rom.settledPage1MathPrintGlyphPlan(0,0,0,6), {
+    penColumn:0,recordTop:0,depth:0,width:6,raised:false,
+    endpoint:6,rightLimit:0x61,accepted:true,penColumnAfter:6,
+    sourceRowStart:0,rowCount:7,
+    rowPlans:Array.from({length:7},(_,row) => ({sourceRow:row,screenRow:row})),
+    screenTop:0,cellHeight:7,crossesByte:false,glyphPointerAdvance:8,
+    lcdColumnCommand:0x20,lcdRowCommand:0x80,
+    branchOutcomes:['01:62E5:taken','01:62FE:taken','01:6308:fallthrough',
+      '01:6311:fallthrough','01:6335:taken','01:636B:taken',
+      '01:6378:fallthrough'],
+    routine:'34:6C37–6CAB → 01:6297–6430',
+  });
+expectEqual('34:6C37 raised placeholder trace skips one row and emits five',
+  rom.settledPage1MathPrintGlyphPlan(6,-1,1,6), {
+    penColumn:6,recordTop:-1,depth:1,width:6,raised:true,
+    endpoint:12,rightLimit:0x60,accepted:true,penColumnAfter:12,
+    sourceRowStart:1,rowCount:5,
+    rowPlans:Array.from({length:5},(_,row) => ({sourceRow:row + 1,screenRow:row})),
+    screenTop:0,cellHeight:5,crossesByte:true,glyphPointerAdvance:7,
+    lcdColumnCommand:0x20,lcdRowCommand:0x80,
+    branchOutcomes:['01:62E5:taken','01:62FE:taken','01:6308:taken',
+      '01:6311:fallthrough','01:6335:fallthrough','01:633D:fallthrough',
+      '01:6343:fallthrough','01:634B:fallthrough','01:6352:fallthrough',
+      '01:636B:fallthrough','01:6378:taken'],
+    routine:'34:6C37–6CAB → 01:6297–6430',
+  });
+
+let vputMapDriverGateStates = 0;
+for (let raised = 0; raised <= 1; raised++) {
+  for (let penColumn = 0; penColumn <= 0xff; penColumn++) {
+    for (let width = 1; width <= 7; width++) {
+      const plan = rom.settledPage1MathPrintGlyphPlan(
+        penColumn,0,raised,width);
+      const raw = runRawMathPrintVPutMapGate(
+        penColumn,width,Boolean(raised));
+      if (plan.accepted !== raw.accepted || plan.endpoint !== raw.endpoint ||
+          plan.branchOutcomes.slice(0,4).join(',') !==
+            raw.branchOutcomes.join(','))
+        throw new Error(
+          `01:62E1 driver-gate mismatch for x=${penColumn}, width=${width}, ` +
+          `raised=${raised}`);
+      vputMapDriverGateStates++;
+    }
+  }
+}
+expectEqual('01:62E1 MathPrint driver-gate differential state count',
+  vputMapDriverGateStates,2 * 0x100 * 7);
+
+let vputMapDriverRowStates = 0;
+for (let raised = 0; raised <= 1; raised++) {
+  for (let bitOffset = 0; bitOffset <= 7; bitOffset++) {
+    for (let width = 1; width <= 7; width++) {
+      const plan = rom.settledPage1MathPrintGlyphPlan(
+        bitOffset,0,raised,width);
+      const raw = runRawMathPrintVPutMapRowSetup(
+        bitOffset,width,Boolean(raised));
+      if (plan.rowCount !== raw.rowCount ||
+          plan.sourceRowStart !== raw.sourceRowStart ||
+          plan.crossesByte !== raw.crossesByte ||
+          plan.branchOutcomes.slice(4).join(',') !==
+            raw.branchOutcomes.join(','))
+        throw new Error(
+          `01:632D driver-row mismatch for offset=${bitOffset}, width=${width}, ` +
+          `raised=${raised}: ${JSON.stringify({plan,raw})}`);
+      vputMapDriverRowStates++;
+    }
+  }
+}
+expectEqual('01:632D MathPrint driver-row differential state count',
+  vputMapDriverRowStates,2 * 8 * 7);
+
+let vputMapDriverClipStates = 0;
+for (let raised = 0; raised <= 1; raised++) {
+  const sourceBase = raised ? 1 : 0;
+  const cellHeight = raised ? 5 : 7;
+  for (let recordTop = -7; recordTop <= 0x3f; recordTop++) {
+    for (let clipTop = 0; clipTop <= 0x40; clipTop++) {
+      const clipBottom = Math.min(0x40,clipTop + 13);
+      const plan = rom.settledPage1MathPrintGlyphPlan(
+        0,recordTop,raised,4,{top:clipTop,bottomExclusive:clipBottom});
+      const contentTop = recordTop + sourceBase;
+      const expectedTop = Math.max(contentTop,clipTop,0);
+      const expectedBottom = Math.min(
+        contentTop + cellHeight,clipBottom,0x40);
+      const expectedRows = Math.max(0,expectedBottom - expectedTop);
+      if (plan.rowCount !== expectedRows ||
+          plan.sourceRowStart !==
+            sourceBase + Math.max(0,expectedTop - contentTop) ||
+          plan.rowPlans.some((row,index) =>
+            row.sourceRow !== plan.sourceRowStart + index ||
+            row.screenRow !== expectedTop + index))
+        throw new Error(
+          `01:632D clipped-row mismatch for top=${recordTop}, clip=${clipTop}, ` +
+          `raised=${raised}`);
+      vputMapDriverClipStates++;
+    }
+  }
+}
+expectEqual('01:632D MathPrint clipped-row state count',
+  vputMapDriverClipStates,2 * 71 * 65);
+
+expectEqual('01:630E raised endpoint 60h rejects the complete glyph',
+  rom.rasterizeSettledOperations([
+    {kind:'glyph',code:0x32,x:92,y:3,depth:1,routine:'test'},
+  ],font).writes.length,0);
+expectEqual('01:630A root endpoint 60h still emits all seven rows',
+  rom.rasterizeSettledOperations([
+    {kind:'glyph',code:0x58,x:90,y:3,depth:0,routine:'test'},
+  ],font).writes.length,7);
+expectEqual('01:630E raised endpoint 5Fh emits all five rows',
+  rom.rasterizeSettledOperations([
+    {kind:'glyph',code:0x32,x:91,y:3,depth:1,routine:'test'},
+  ],font).writes.length,5);
 
 for (const [bytes, expected] of [
   [[0x5c,0x00], {codes:[0xc1,0x41,0x5d],length:2,table:'5C',tableIndex:0}],
