@@ -5553,7 +5553,8 @@
       const radical = {
         kind:'radical',radicand,
         editor_record_id:structuralId,
-        editor_record_byte13:originalCursor.byte_offset ? active.payload[0] : 0xef,
+        editor_record_byte13:
+          originalCursor.byte_offset && depth === 0 ? active.payload[0] : 0xef,
       };
       const parts = [...left,radical,...right];
       return parts.length === 1 ? {

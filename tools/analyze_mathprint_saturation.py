@@ -264,8 +264,9 @@ TRANSLATION_SURFACES = (
         "scope": (
             "supported native expression grammar plus one- and two-byte ordinary "
             "editor insertion, fraction insertion at every cursor class in the root leaf "
-            "and both child leaves of one outer fraction, radical insertion at every root "
-            "cursor class with packed-token replacement, in-leaf packed-token navigation, "
+            "and both child leaves of one outer fraction, radical insertion at every cursor "
+            "class in those same three leaves with packed-token replacement, in-leaf "
+            "packed-token navigation, "
             "and packed-token deletion; deeper nested positions, remaining structural types, "
             "structural deletion, and boundary navigation remain open"
         ),
@@ -295,8 +296,9 @@ TRANSLATION_SURFACES = (
             "complete captured arenas, active-leaf substitution, nested cursor paths, "
             "cursor-aware record reconstruction, ordinary packed-token insertion, fraction "
             "insertion at every cursor class in the root leaf and both child leaves of one "
-            "outer fraction, radical insertion at every root cursor class with packed-token "
-            "replacement, in-leaf packed-token navigation, and packed-token deletion with "
+            "outer fraction, radical insertion at every cursor class in those same three "
+            "leaves with packed-token replacement, in-leaf packed-token navigation, and "
+            "packed-token deletion with "
             "empty-slot restoration; deeper nested positions, remaining structural types, "
             "structural deletion, and boundary navigation remain open"
         ),
@@ -3999,7 +4001,8 @@ def open_paths(
                 "through cursor-annotated ASTs and reconstructed records; ordinary "
                 "one- and two-byte insertion, fraction insertion at every cursor class in "
                 "the root leaf and both child leaves of one outer fraction, radical insertion "
-                "at every root cursor class with packed-token replacement, "
+                "at every cursor class in those same three leaves with packed-token "
+                "replacement, "
                 "in-leaf packed-token navigation, and packed-token deletion with empty-slot "
                 "restoration are translated, but deeper nested positions, remaining "
                 "structural types, "
