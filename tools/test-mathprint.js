@@ -235,6 +235,13 @@ const vputMapRowSetupRomSpan = {address:0x632d,bytes:Buffer.from(
   '3a729b47fdcb327e20270607fdcb3276201ffdcb325620080606fdcb054e2811' +
   '04fdcbff46280ae57821019d46903d47e13e0891dd9600dd23f5fdcbff4628' +
   '0ac53a019d4f0600dd09c1f1fabe63','hex')};
+const glyphVerticalViewportRomSpan = {address:0x67c8,bytes:Buffer.from(
+  'cde56baf32019dfdcbff86fdcb32befdcbff8e2a1885e5ed5b048ecdbb2130' +
+  '2e010700cdd379280301050009b7ed52da6b68ca6b682a048eed5b1885b7ed' +
+  '527d32019d3ad8868532d886fdcbffc62a048eed5bfd8d160019ed5b1885cd' +
+  'bb2138422840eb2a1885cd9f7909b7ed52380b2809799532729bfdcb32fecd' +
+  'd379280921019d34fdcbffc6bffdcb327e2011fdcbff46200bcd9f79793272' +
+  '9bfdcb32febfe1c9fdcbffcef601e1c9','hex')};
 const vputMapDriverByteMap = new Map([
   ...Array.from(vputMapGateRomSpan.bytes,
     (value, offset) => [vputMapGateRomSpan.address + offset,value]),
@@ -246,6 +253,14 @@ const vputMapDriverByte = address => {
     throw new Error(
       `VPutMap driver oracle reached unpinned byte 01:${address.toString(16)}`);
   return vputMapDriverByteMap.get(address);
+};
+const glyphVerticalViewportByte = address => {
+  const offset = address - glyphVerticalViewportRomSpan.address;
+  if (offset < 0 || offset >= glyphVerticalViewportRomSpan.bytes.length)
+    throw new Error(
+      `glyph vertical-viewport oracle reached unpinned byte ` +
+      `34:${address.toString(16)}`);
+  return glyphVerticalViewportRomSpan.bytes[offset];
 };
 const pointModeRomSpan = {address:0x4215, bytes:Buffer.from(
   'fdcb3c5e2803e5182d21409319e5fdcb3c462022f33a5184cdbf20cdc30cd3' +
@@ -1229,6 +1244,162 @@ function runRawMathPrintVPutMapRowSetup(bitOffset, width, raised) {
     }
   }
   throw new Error('VPutMap row-setup oracle exceeded its instruction bound');
+}
+
+function runRawGlyphVerticalViewport(logicalTop, depth, yClip, bottomBound) {
+  const word = value => value & 0xffff;
+  const memory = new Map([
+    [0x8518,logicalTop & 0xff], [0x8519,logicalTop >>> 8],
+    [0x8e04,yClip & 0xff], [0x8e05,yClip >>> 8],
+    [0x8dfd,bottomBound], [0x86d8,0], [0x9d01,0xa5], [0x9b72,0xa5],
+  ]);
+  const readByte = address => memory.get(address) || 0;
+  const writeByte = (address, value) => memory.set(address,value & 0xff);
+  const readWord = address => readByte(address) | readByte(address + 1) << 8;
+  let pc = 0x67cb, a = 0, bc = 0, de = 0, hl = 0;
+  let zero = false, carry = false;
+  let skipAction = null;
+  let bottomClipped = false;
+  let iyMinus1 = 0xff, iy32 = 0xff;
+  const stack = [], branchOutcomes = [];
+  const relative = address => {
+    const value = glyphVerticalViewportByte(address);
+    return value < 0x80 ? value : value - 0x100;
+  };
+  const branch = (address, taken) => branchOutcomes.push(
+    `34:${address.toString(16).toUpperCase()}:` +
+    `${taken ? 'taken' : 'fallthrough'}`);
+  for (let instructions = 0; instructions < 128; instructions++) {
+    const opcode = glyphVerticalViewportByte(pc);
+    if (opcode === 0xaf) {
+      a = 0; zero = true; carry = false; pc++;
+    } else if (opcode === 0x32) {
+      const address = glyphVerticalViewportByte(pc + 1) |
+        glyphVerticalViewportByte(pc + 2) << 8;
+      writeByte(address,a); pc += 3;
+    } else if (opcode === 0x3a) {
+      const address = glyphVerticalViewportByte(pc + 1) |
+        glyphVerticalViewportByte(pc + 2) << 8;
+      a = readByte(address); pc += 3;
+    } else if (opcode === 0x2a ||
+               opcode === 0xed && glyphVerticalViewportByte(pc + 1) === 0x5b) {
+      const prefixed = opcode === 0xed;
+      const address = glyphVerticalViewportByte(pc + (prefixed ? 2 : 1)) |
+        glyphVerticalViewportByte(pc + (prefixed ? 3 : 2)) << 8;
+      if (prefixed) de = readWord(address); else hl = readWord(address);
+      pc += prefixed ? 4 : 3;
+    } else if (opcode === 0xfd && glyphVerticalViewportByte(pc + 1) === 0xcb) {
+      const displacement = glyphVerticalViewportByte(pc + 2);
+      const operation = glyphVerticalViewportByte(pc + 3);
+      const target = displacement === 0xff ? 'minus1' : 'plus32';
+      let value = target === 'minus1' ? iyMinus1 : iy32;
+      const bit = operation >> 3 & 7;
+      if ((operation & 0xc0) === 0x80) value &= ~(1 << bit);
+      else if ((operation & 0xc0) === 0xc0) {
+        value |= 1 << bit;
+        if (pc === 0x683f) bottomClipped = true;
+      }
+      else if ((operation & 0xc0) === 0x40) zero = !(value & 1 << bit);
+      else throw new Error(`unsupported indexed opcode 0x${operation.toString(16)}`);
+      if (target === 'minus1') iyMinus1 = value; else iy32 = value;
+      pc += 4;
+    } else if (opcode === 0xe5) {
+      stack.push(hl); pc++;
+    } else if (opcode === 0xe1) {
+      hl = stack.pop(); pc++;
+    } else if (opcode === 0x01 || opcode === 0x21) {
+      const value = glyphVerticalViewportByte(pc + 1) |
+        glyphVerticalViewportByte(pc + 2) << 8;
+      if (opcode === 0x01) bc = value; else hl = value;
+      pc += 3;
+    } else if (opcode === 0x16) {
+      de = de & 0xff | glyphVerticalViewportByte(pc + 1) << 8;
+      pc += 2;
+    } else if (opcode === 0xcd) {
+      const address = glyphVerticalViewportByte(pc + 1) |
+        glyphVerticalViewportByte(pc + 2) << 8;
+      if (address === 0x21bb) {
+        zero = hl === de; carry = hl < de;
+      } else if (address === 0x79d3) {
+        a = depth; zero = a === 0; carry = false;
+      } else if (address === 0x799f) {
+        bc = depth === 0 ? 7 : 5;
+      } else throw new Error(
+        `glyph vertical oracle reached unsupported call 34:${address.toString(16)}`);
+      pc += 3;
+    } else if (opcode === 0x30 || opcode === 0x38 || opcode === 0x28 ||
+               opcode === 0x20) {
+      const taken = opcode === 0x30 ? !carry : opcode === 0x38 ? carry :
+        opcode === 0x28 ? zero : !zero;
+      branch(pc,taken);
+      if (taken && (pc === 0x6827 || pc === 0x6829))
+        skipAction = 'skip-below';
+      pc = taken ? pc + 2 + relative(pc + 1) : pc + 2;
+    } else if (opcode === 0xda || opcode === 0xca) {
+      const taken = opcode === 0xda ? carry : zero;
+      branch(pc,taken);
+      if (taken && (pc === 0x67f7 || pc === 0x67fa))
+        skipAction = 'skip-above';
+      pc = taken
+        ? glyphVerticalViewportByte(pc + 1) |
+          glyphVerticalViewportByte(pc + 2) << 8
+        : pc + 3;
+    } else if (opcode === 0x09 || opcode === 0x19) {
+      hl = word(hl + (opcode === 0x09 ? bc : de)); pc++;
+    } else if (opcode === 0xb7 || opcode === 0xbf) {
+      zero = opcode === 0xbf || a === 0; carry = false; pc++;
+    } else if (opcode === 0xed && glyphVerticalViewportByte(pc + 1) === 0x52) {
+      const difference = hl - de;
+      hl = word(difference); zero = hl === 0; carry = difference < 0; pc += 2;
+    } else if (opcode === 0xeb) {
+      [de,hl] = [hl,de]; pc++;
+    } else if (opcode === 0x7d || opcode === 0x79) {
+      a = opcode === 0x7d ? hl & 0xff : bc & 0xff; pc++;
+    } else if (opcode === 0x85) {
+      const sum = a + (hl & 0xff);
+      a = sum & 0xff; zero = a === 0; carry = sum > 0xff; pc++;
+    } else if (opcode === 0x95) {
+      const difference = a - (hl & 0xff);
+      a = difference & 0xff; zero = a === 0; carry = difference < 0; pc++;
+    } else if (opcode === 0x34) {
+      const value = readByte(hl) + 1 & 0xff;
+      writeByte(hl,value); zero = value === 0; pc++;
+    } else if (opcode === 0xf6) {
+      a |= glyphVerticalViewportByte(pc + 1);
+      zero = a === 0; carry = false; pc += 2;
+    } else if (opcode === 0xc9) {
+      const skipped = Boolean(iyMinus1 & 0x02);
+      const sourceRowStart = readByte(0x9d01);
+      const rowCount = readByte(0x9b72);
+      const topRows = Math.max(
+        0,sourceRowStart - (depth === 0 || skipped ? 0 : 1));
+      const rowCountActive = Boolean(iy32 & 0x80);
+      const endpoint = word(logicalTop + (depth === 0 ? 7 : 5));
+      const bottomExclusive = word(yClip + bottomBound);
+      const bottomRows = bottomClipped
+        ? word(endpoint - bottomExclusive) : 0;
+      const action = skipped
+        ? skipAction
+        : topRows && bottomClipped ? 'clip-both'
+        : topRows ? 'clip-top' : bottomClipped ? 'clip-bottom' : 'draw';
+      return {
+        action,endpoint,topRows,bottomRows,sourceRowStart,
+        visibleRows:skipped ? 0 : Math.max(
+          0,(depth === 0 ? 7 : 5) - topRows - bottomRows),
+        topClipped:topRows !== 0,bottomClipped,
+        sourceSkipActive:Boolean(iyMinus1 & 0x01),
+        rowCountActive,
+        iyMinus1Bit0:Boolean(iyMinus1 & 0x01),
+        iyMinus1Bit1:skipped,iy32Bit7:rowCountActive,
+        rowSkipByte:sourceRowStart,
+        rowCountByte:rowCount === 0xa5 ? null : rowCount,
+        branchOutcomes,
+      };
+    } else throw new Error(
+      `glyph vertical oracle reached unsupported opcode 0x${opcode.toString(16)} ` +
+      `at 34:${pc.toString(16)}`);
+  }
+  throw new Error('glyph vertical-viewport oracle exceeded its instruction bound');
 }
 
 function runRawDarkLine(graphX1, graphY1, graphX2, graphY2) {
@@ -4162,6 +4333,68 @@ expectEqual('34:67C8 partitions the vertical glyph window', [
   rom.settledGlyphVerticalViewportDecision(76,0,19).action,
   rom.settledGlyphVerticalViewportDecision(81,0,19).action,
 ], ['skip-above','skip-above','clip-top','clip-bottom','skip-below']);
+const glyphVerticalState = result => ({
+  action:result.action,endpoint:result.endpoint,
+  topRows:result.topRows,bottomRows:result.bottomRows,
+  sourceRowStart:result.sourceRowStart,visibleRows:result.visibleRows,
+  topClipped:result.topClipped,bottomClipped:result.bottomClipped,
+  sourceSkipActive:result.sourceSkipActive,
+  rowCountActive:result.rowCountActive,
+  iyMinus1Bit0:result.iyMinus1Bit0,
+  iyMinus1Bit1:result.iyMinus1Bit1,
+  iy32Bit7:result.iy32Bit7,
+  rowSkipByte:result.rowSkipByte,rowCountByte:result.rowCountByte,
+  branchOutcomes:result.branchOutcomes,
+});
+let glyphVerticalRawStates = 0;
+const glyphVerticalYClips = new Set([
+  ...Array.from({length:0x100},(_,value) => value),
+  ...Array.from({length:0x100},(_,value) => 0xff00 + value),
+  0x0100,0x3fff,0x7fff,0x8000,0xc000,
+]);
+for (const yClip of glyphVerticalYClips) {
+  for (const bottomBound of [0,1,4,5,6,7,8,0x3e,0xff]) {
+    const bottomExclusive = yClip + bottomBound & 0xffff;
+    for (const depth of [0,1]) {
+      const height = depth === 0 ? 7 : 5;
+      const logicalTops = new Set([0,0xffff,0x10000 - height]);
+      for (const boundary of [yClip,bottomExclusive])
+        for (let delta = -height - 1; delta <= height + 1; delta++)
+          logicalTops.add(boundary + delta & 0xffff);
+      for (const logicalTop of logicalTops) {
+        const translated = glyphVerticalState(
+          rom.settledGlyphVerticalViewportDecision(
+            logicalTop,depth,yClip,bottomBound));
+        const raw = runRawGlyphVerticalViewport(
+          logicalTop,depth,yClip,bottomBound);
+        if (JSON.stringify(translated) !== JSON.stringify(raw))
+          throw new Error(
+            `34:67C8 mismatch for top=${logicalTop.toString(16)}, ` +
+            `depth=${depth}, clip=${yClip.toString(16)}, ` +
+            `bound=${bottomBound.toString(16)}: ` +
+            JSON.stringify({translated,raw}));
+        glyphVerticalRawStates++;
+      }
+    }
+  }
+}
+expectEqual('34:67C8 pinned-byte boundary state count',
+  glyphVerticalRawStates,229456);
+expectEqual('34:67C8 can clip both glyph edges in a short viewport',
+  rom.settledGlyphVerticalViewportDecision(10,0,12,3), {
+    action:'clip-both',logicalTop:10,endpoint:17,cellHeight:7,raised:false,
+    yClip:12,bottomBound:3,bottomExclusive:15,topRows:2,bottomRows:2,
+    sourceRowStart:2,visibleRows:3,topClipped:true,bottomClipped:true,
+    sourceSkipActive:true,rowCountActive:true,
+    iyMinus1Bit0:true,iyMinus1Bit1:false,
+    iy32Bit7:true,rowSkipByte:2,rowCountByte:5,
+    branchOutcomes:['34:67E6:fallthrough','34:67EE:taken',
+      '34:67F7:fallthrough','34:67FA:fallthrough',
+      '34:6827:fallthrough','34:6829:fallthrough',
+      '34:6836:fallthrough','34:6838:fallthrough',
+      '34:6846:taken','34:6855:taken'],
+    routine:'34:67C8–6872',
+  });
 expectThrows('34:5F8B rejects a caller height outside its two call sites',
   RangeError,
   () => rom.settledEditorVerticalViewport(59,{extraHeight:1}));
