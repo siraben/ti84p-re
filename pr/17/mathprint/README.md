@@ -163,15 +163,14 @@ the structural record's pre-edit `+13h` byte while replacing the `EF 1E`
 empty-slot token. Structural templates use the separate mutation path below;
 structural deletion and boundary navigation remain open.
 `editorInsertStructuralTemplate()` translates fraction insertion from source
-token `EF 2E` at every root and nested-numerator cursor class. Blank and
-leaf-end insertion into a nested denominator are also translated. A populated
-leaf moves its left payload into the new numerator and retains its right payload
-after the six-byte marker. The function consumes the decoded arena because the
-next three record IDs and structural-depth byte are not present in the semantic
-cursor tree alone. Ten reset-origin transitions verify the marker, controller
-state, cursor AST, every reconstructed record field, and complete LCD output.
-Leading and mid-leaf denominator insertion and other structural types remain
-separate.
+token `EF 2E` at every cursor class in the root leaf and both child leaves of
+one outer fraction. A populated leaf moves its left payload into the new
+numerator and retains its right payload after the six-byte marker. The function
+consumes the decoded arena because the next three record IDs and
+structural-depth byte are not present in the semantic cursor tree alone. Twelve
+reset-origin transitions verify the marker, controller state, cursor AST, every
+reconstructed record field, and complete LCD output. Deeper nested positions
+and other structural types remain separate.
 `editorMovePackedTokenCursor()` translates ordinary in-leaf LEFT and RIGHT
 movement. A reset-origin `12` capture verifies the end, middle, and returned
 cursor states. The middle state also establishes that a cursor before existing
