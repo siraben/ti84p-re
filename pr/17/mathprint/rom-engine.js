@@ -2181,7 +2181,9 @@
     const emit = (record, origin, operation) => {
       const absolute = addOperationOrigin(operation, origin);
       if (options.acceptOperation && !options.acceptOperation(absolute, record, state)) return;
-      output.push({...absolute, recordId:record.id, recordType:record.type, depth:state.depth});
+      const depth = absolute.depth === undefined
+        ? state.depth : byte(absolute.depth, 'settled operation depth');
+      output.push({...absolute, recordId:record.id, recordType:record.type, depth});
     };
 
     const compound = (record, origin, mode, x, y, current) => {
@@ -2367,7 +2369,7 @@
         state.depth--;
         emit(record, origin, {
           kind:'glyph', code:record.type === 0x25 ? 0xdb : 0x1d,
-          x:0, y:record.word07 - 7,
+          x:0, y:record.word07 - 7, depth:0,
           condition:'34:67C8 accepts the vertical position',
           routine:record.type === 0x25 ? '34:637E → 34:6C37' : '34:63AD → 34:6C37',
         });
@@ -4717,7 +4719,12 @@
           exponent.word05 + 4, `${expression.kind} height`);
         structural.word09 = checkedWord(
           exponent.word07 + 6, `${expression.kind} width`);
-        structural.word0B = exponent.word05;
+        // 34:73DB seeds the raised metric path with six rows. The recursive
+        // child metric can increase that baseline, while the outer large-row
+        // path retains the exponent height used by the existing reset-origin
+        // exponential oracles.
+        structural.word0B = Math.max(
+          exponent.word05, renderDepth === 0 ? 0 : 6);
         structural.child_ids = [exponent.record_id];
         return {
           kind:'embedded', structural,

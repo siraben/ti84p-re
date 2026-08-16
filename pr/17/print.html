@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4880a9a8.js";
+            window.path_to_searchindex_js = "searchindex-d3331f58.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15726,7 +15726,18 @@ and three raised levels without supplying records or writes to the constructor.
 <code>00C1h</code> through <code>34:594D</code>. Both allocate one exponent child. The child begins at
 <code>x=6</code>, uses raised small-font metrics, and determines the parent height, width,
 and baseline. The handlers at <code>34:637E</code> and <code>34:63AD</code> emit fixed large-font
-display codes <code>0xDB</code> and <code>0x1D</code> before rendering that child. [confirmed]</p>
+display codes <code>0xDB</code> and <code>0x1D</code> before rendering that child. The fixed symbol
+stays in the large font when the containing expression is raised. [confirmed]</p>
+<p>For exponent metrics $(h,w)$ and render depth $r$, the shared metric path at
+<code>34:73DB</code> produces [confirmed]</p>
+<p>$$
+H=h+4,\qquad W=w+6,\qquad B=\max(h,6[r&gt;0]).
+$$</p>
+<p>The six-row seed affects an exponential nested in a raised child. A
+reset-origin <code>nDeriv(logBASE(1,2),X,e^2)</code> trace stores $(H,W,B)=(9,10,6)$ for
+the type-<code>0x25</code> record. Its containing evaluation-value leaf stores height 9
+and baseline 6, which places the value at row 4 in the type-<code>0x23</code> record.
+[confirmed]</p>
 <p>Reset-origin traces for <code>exp(12)</code>, <code>exp(X^2)</code>, <code>exp(1//2)</code>, and
 <code>tenpow(X^2)</code> match every constructed record field and accepted LCD data write.
 Each stream contains 22 writes. The JavaScript renderer generates the writes
