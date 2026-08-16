@@ -5411,8 +5411,9 @@
   // Structural-template insertion consumes the live arena state as well as
   // the semantic tree: newly allocated record IDs and the structural-depth
   // gate are not recoverable from the cursor AST alone. EF 2Eh/EF 2Fh map to
-  // type 20h. B2h, BFh, C1h, and BCh map to the one-child types 21h and
-  // 25h–27h at 34:5935; all four use the shared insertion path at 34:5057.
+  // type 20h. F1h maps to nth-root type 24h. B2h, BFh, C1h, and BCh map
+  // to the one-child types 21h and 25h–27h at 34:5935; all four use the
+  // shared insertion path at 34:5057.
   function editorInsertStructuralTemplate(input, sourceToken = [0xef,0x2e]) {
     if (!input || typeof input !== 'object' || !input.editor ||
         !Array.isArray(input.nodes))
@@ -5434,7 +5435,7 @@
       0x26:{kind:'tenPower',child:'exponent'},
       0x27:{kind:'radical',child:'radicand'},
     }[renderType];
-    if (renderType !== 0x20 && !unaryStructuralSpec)
+    if (renderType !== 0x20 && renderType !== 0x24 && !unaryStructuralSpec)
       throw new RangeError(
         'the structural source type has no translated insertion path');
     const depth = input.controller && input.controller.structuralDepth;
@@ -5461,7 +5462,7 @@
         new Set(ids).size !== ids.length)
       throw new RangeError('decoded editor state has an invalid record ID');
     const firstId = Math.max(...ids) + 1;
-    const allocationCount = renderType === 0x20 ? 3 : 2;
+    const allocationCount = renderType === 0x20 || renderType === 0x24 ? 3 : 2;
     if (firstId > 0x10000 - allocationCount)
       throw new RangeError(
         `structural insertion requires ${allocationCount} available record IDs`);
@@ -5712,19 +5713,135 @@
         editor_leaf_record_id:originalCursor.record_id,
       };
     };
+    const nthRootAtCursor = leaf => {
+      const indexId = numeratorId;
+      const radicandId = denominatorId;
+      let index;
+      let radicand;
+      let trailingParts = [];
+      if (leaf && leaf.kind === 'editorCursor') {
+        originalCursor = leaf;
+        const active = activeNode(originalCursor);
+        if (!active || !Array.isArray(active.payload) || active.payload.length)
+          throw new RangeError(
+            'blank nth-root insertion requires an empty active leaf');
+        index = {
+          kind:'tokens',tokens:[0x72],
+          editor_leaf_word0F:0,editor_leaf_word11:1,
+          editor_leaf_record_id:indexId,
+        };
+        radicand = {
+          kind:'sequence',parts:[
+            {
+              kind:'editorCursor',record_id:radicandId,byte_offset:0,
+              record_word0F:0,record_word11:2,
+              editor_leaf_record_id:radicandId,
+            },
+            {kind:'extendedToken',tokens:[0xef,0x1e]},
+          ],editor_leaf_record_id:radicandId,
+        };
+        recordByte13 = 0x72;
+        afterRecordId = radicandId;
+      } else if (leaf && leaf.kind === 'sequence' &&
+                 Array.isArray(leaf.parts)) {
+        const cursorIndex = leaf.parts.findIndex(
+          part => part && part.kind === 'editorCursor');
+        if (cursorIndex < 0)
+          throw new RangeError(
+            'nth-root insertion sequence has no direct cursor');
+        originalCursor = leaf.parts[cursorIndex];
+        const active = activeNode(originalCursor);
+        if (!active || !Array.isArray(active.payload) || !active.payload.length ||
+            !Number.isInteger(originalCursor.byte_offset) ||
+            originalCursor.byte_offset < 0 ||
+            originalCursor.byte_offset > active.payload.length)
+          throw new RangeError(
+            'nth-root insertion requires a valid active payload split');
+        const left = leaf.parts.slice(0,cursorIndex).map(clone);
+        trailingParts = leaf.parts.slice(cursorIndex + 1).map(clone);
+        if (trailingParts.length) {
+          const remainder = stripFirstPackedUnit(trailingParts[0]);
+          if (remainder === null) trailingParts.shift();
+          else trailingParts[0] = remainder;
+        }
+        if (cursorIndex === 0) {
+          if (originalCursor.byte_offset !== 0)
+            throw new RangeError(
+              'leading nth-root insertion requires cursor byte zero');
+          index = {
+            kind:'sequence',parts:[
+              {
+                kind:'editorCursor',record_id:indexId,byte_offset:0,
+                record_word0F:0,record_word11:2,
+                editor_leaf_record_id:indexId,
+              },
+              {kind:'extendedToken',tokens:[0xef,0x1e]},
+            ],editor_leaf_record_id:indexId,
+          };
+          radicand = {
+            kind:'extendedToken',tokens:[0xef,0x1e],
+            editor_leaf_record_id:radicandId,
+          };
+          afterRecordId = indexId;
+        } else {
+          const content = left.length === 1
+            ? left[0] : {kind:'sequence',parts:left};
+          index = Array.isArray(content) ? {
+            kind:'tokens',tokens:content,
+            editor_leaf_word0F:0,
+            editor_leaf_word11:originalCursor.byte_offset,
+            editor_leaf_record_id:indexId,
+          } : {
+            ...content,editor_leaf_word0F:0,
+            editor_leaf_word11:originalCursor.byte_offset,
+            editor_leaf_record_id:indexId,
+          };
+          radicand = {
+            kind:'sequence',parts:[
+              {
+                kind:'editorCursor',record_id:radicandId,byte_offset:0,
+                record_word0F:0,record_word11:2,
+                editor_leaf_record_id:radicandId,
+              },
+              {kind:'extendedToken',tokens:[0xef,0x1e]},
+            ],editor_leaf_record_id:radicandId,
+          };
+          afterRecordId = radicandId;
+        }
+        recordByte13 = retainedStructuralByte13(originalCursor,active);
+      } else {
+        return null;
+      }
+      const insertedNthRoot = {
+        kind:'nthRoot',index,radicand,
+        editor_record_id:structuralId,
+        editor_record_byte13:recordByte13,
+      };
+      return trailingParts.length ? {
+        kind:'sequence',parts:[insertedNthRoot,...trailingParts],
+        editor_leaf_record_id:originalCursor.record_id,
+      } : {
+        ...insertedNthRoot,
+        editor_leaf_record_id:originalCursor.record_id,
+      };
+    };
     let replaced = false;
     const visit = value => {
       if (!value || typeof value !== 'object') return value;
       if (value.kind === 'editorCursor') {
         replaced = true;
         return unaryStructuralSpec
-          ? unaryStructuralAtCursor(value) : fractionAtCursor(value);
+          ? unaryStructuralAtCursor(value)
+          : renderType === 0x24 ? nthRootAtCursor(value)
+          : fractionAtCursor(value);
       }
       if (value.kind === 'sequence' && Array.isArray(value.parts) &&
           value.parts.some(part => part && part.kind === 'editorCursor')) {
         replaced = true;
         return unaryStructuralSpec
-          ? unaryStructuralAtCursor(value) : fractionAtCursor(value);
+          ? unaryStructuralAtCursor(value)
+          : renderType === 0x24 ? nthRootAtCursor(value)
+          : fractionAtCursor(value);
       }
       if (Array.isArray(value) || value instanceof Uint8Array)
         return Array.from(value,item =>
@@ -5750,6 +5867,21 @@
         before_structural_depth:depth,
         after_structural_depth:gate.incrementedDepth,
         routine:'34:473A → 35:7B37 → 34:4169 → 34:5026–5057 → 34:5473–547B → 34:58A0–58B4 → 34:4862–491D',
+      },
+    };
+    if (renderType === 0x24) return {
+      expression,
+      mutation:{
+        status:'inserted',source_token:source,render_type:renderType,
+        marker,parent_record_id:originalCursor.record_id,
+        before_byte_offset:originalCursor.byte_offset,
+        after_record_id:afterRecordId,after_byte_offset:0,
+        structural_record_id:structuralId,
+        child_record_ids:[numeratorId,denominatorId],
+        replaced_right_token:replacedRightToken,
+        before_structural_depth:depth,
+        after_structural_depth:gate.incrementedDepth,
+        routine:'34:473A → 35:7B37 → 34:4169 → 34:5026 → 34:51C0–51D9 → 34:5473–547B → 34:58A0–58B4 → 34:4862–492B',
       },
     };
     return {
