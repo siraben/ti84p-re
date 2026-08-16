@@ -1244,6 +1244,102 @@
     };
   }
 
+  const requirePage7DisplayByteMap = artifact => {
+    if (!artifact || artifact.page !== 0x07 ||
+        artifact.routine !== '07:44DE–4538' ||
+        !artifact.ordinary || artifact.ordinary.address !== 0x4000 ||
+        !Array.isArray(artifact.ordinary.values) ||
+        artifact.ordinary.values.length !== 0x100 ||
+        !artifact.feLow || artifact.feLow.address !== 0x4099 ||
+        !Array.isArray(artifact.feLow.values) ||
+        artifact.feLow.values.length !== 0x69 ||
+        !artifact.feHigh || artifact.feHigh.address !== 0x4102 ||
+        !Array.isArray(artifact.feHigh.entries) ||
+        artifact.feHigh.entries.length !== 0x97 ||
+        !artifact.fc || artifact.fc.address !== 0x422c ||
+        !Array.isArray(artifact.fc.entries) ||
+        artifact.fc.entries.length !== 0x100 ||
+        !artifact.fb || artifact.fb.address !== 0x4426 ||
+        !Array.isArray(artifact.fb.entries) ||
+        artifact.fb.entries.length !== 0x8c)
+      throw new TypeError('expected the decoded 07:44DE display-byte tables');
+    return artifact;
+  };
+
+  // 07:44DE–4538 expands a classic display byte and keyExtend subcode into
+  // the D:E cell consumed by the following token/string path. The default and
+  // FE-low branches return D=0 and one mapped byte. FE-high, FC, and FB read a
+  // two-byte cell. Keep byte-wrapped index arithmetic for the full input ABI.
+  function settledPage7DisplayByteRemap(
+      displayByteValue, keyExtendValue, artifactValue) {
+    const displayByte = byte(displayByteValue, 'page-7 display byte');
+    const keyExtend = byte(keyExtendValue, 'page-7 keyExtend byte');
+    const artifact = requirePage7DisplayByteMap(artifactValue);
+    const branchOutcomes = [];
+    const branch = (address, outcome) => branchOutcomes.push(
+      `07:${address.toString(16).toUpperCase()}:${outcome}`);
+    const finish = (dValue, eValue, source, sourceAddress, normalizedIndex) => ({
+      displayByte,keyExtend,
+      d:byte(dValue, 'remapped D byte'),e:byte(eValue, 'remapped E byte'),
+      source,sourceAddress,normalizedIndex,branchOutcomes,
+      routine:'07:44DE–4538',
+    });
+    const pair = (table, index, label) => {
+      const entry = table.entries[index];
+      if (!Array.isArray(entry) || entry.length !== 2)
+        throw new TypeError(`${label} entry 0x${index.toString(16)} is invalid`);
+      return [
+        byte(entry[0], `${label} D byte`),
+        byte(entry[1], `${label} E byte`),
+      ];
+    };
+
+    const fe = displayByte === 0xfe;
+    branch(0x44e0,fe ? 'taken' : 'fallthrough');
+    if (fe) {
+      const high = keyExtend >= 0x69;
+      branch(0x4523,high ? 'taken' : 'fallthrough');
+      if (!high) {
+        const value = byte(
+          artifact.feLow.values[keyExtend], 'FE-low display byte');
+        return finish(0,value,'fe-low-table',
+          artifact.feLow.address + keyExtend,keyExtend);
+      }
+      const index = keyExtend - 0x69;
+      const [d,e] = pair(artifact.feHigh,index,'FE-high display-byte table');
+      return finish(d,e,'fe-high-table',
+        artifact.feHigh.address + 2 * index,index);
+    }
+
+    const fc = displayByte === 0xfc;
+    branch(0x44e4,fc ? 'taken' : 'fallthrough');
+    if (fc) {
+      const [d,e] = pair(artifact.fc,keyExtend,'FC display-byte table');
+      return finish(d,e,'fc-table',
+        artifact.fc.address + 2 * keyExtend,keyExtend);
+    }
+
+    const fb = displayByte === 0xfb;
+    branch(0x44e8,fb ? 'taken' : 'fallthrough');
+    if (fb) {
+      const lowIndex = keyExtend < 0x8c;
+      branch(0x450d,lowIndex ? 'taken' : 'fallthrough');
+      const index = lowIndex ? keyExtend : keyExtend - 0x7f;
+      const [d,e] = pair(artifact.fb,index,'FB display-byte table');
+      return finish(d,e,'fb-table',artifact.fb.address + 2 * index,index);
+    }
+
+    const ordinary = displayByte !== 0x05;
+    branch(0x44ec,ordinary ? 'taken' : 'fallthrough');
+    if (!ordinary)
+      return finish(0,0x3f,'special-05',null,null);
+    const index = displayByte - 0x5a & 0xff;
+    const value = byte(
+      artifact.ordinary.values[index], 'ordinary display-byte table value');
+    return finish(0,value,'ordinary-table',
+      artifact.ordinary.address + index,index);
+  }
+
   // 39:4F1A–4F43 maps three D:E cell families to large-font codes. Preserve
   // the accumulator, carry flag, and complete conditional path because the
   // caller distinguishes a mapped glyph from the carry-set fallback.
@@ -1360,8 +1456,14 @@
     if (d === 0x82)
       return { kind: 'indexedString', d, e, index: (e - 0x3e) & 0xff, routine: '39:4EBF' };
     const delimiter = delimiterFamily(layout, d, e);
-    if (delimiter)
-      return { kind: 'fixedDelimiter', d, e, ...delimiter, routine: '39:6675' };
+    if (delimiter) {
+      const remapped = settledPage7DisplayByteRemap(
+        d,e,layout.displayByteMap);
+      return {
+        kind:'fixedDelimiter',d,e,...delimiter,remapped,
+        routine:'39:6675 → 07:44DE',
+      };
+    }
     const glyph = mapDirectGlyph(d, e);
     if (glyph !== null)
       return { kind: 'directGlyph', d, e, glyph, routine: '39:4F1A' };
@@ -10942,6 +11044,7 @@
     settledPage1TokenHookDispatch,
     settledPage1VPutMapCompose,
     settledPage1VPutMapRow,
+    settledPage7DisplayByteRemap,
     settledPage39DirectGlyphSelection,
     settledPage34GlyphAdvance,
     settledPage1MathPrintGlyphPlan,

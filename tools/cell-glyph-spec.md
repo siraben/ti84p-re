@@ -141,6 +141,12 @@ lead bytes seen are 0x7E, 0x5D, 0x5C, 0x63, 0x60, 0x61, 0x62, 0xAA, 0xBB, 0xEF,
 token, which is then drawn by name or recursively classified. Only the default
 and `cp 0x05` cases yield a font glyph directly.
 
+`settledPage7DisplayByteRemap()` executes the main-entry branch and index
+logic. `web/mathprint/layout.json` contains every table entry that the two-byte
+input domain can address. A pinned-byte interpreter compares all 65,536
+display-byte and `keyExtend` pairs. The separate entry at `07:44FE` is outside
+this domain. [confirmed]
+
 ### Default table at `07:4000`
 Code to large-font glyph:
 

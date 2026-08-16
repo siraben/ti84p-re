@@ -385,7 +385,8 @@ TRANSLATION_SURFACES = (
         "rom": [
             "01:6297", "01:6360–6445", "01:6702", "39:4F1A–4F43",
             "04:4025–4315",
-            "04:42B5–42E3", "04:431D–43C7", "07:4588–4605",
+            "04:42B5–42E3", "04:431D–43C7", "07:44DE–4538",
+            "07:4588–4605",
         ],
         "javascript": [
             "settledPage4PointAddress", "settledPage4PointPreprocess",
@@ -398,6 +399,7 @@ TRANSLATION_SURFACES = (
             "settledPage1VPutMapCompose", "settledPage1VPutMapRow",
             "settledPage1MathPrintGlyphPlan",
             "settledPage39DirectGlyphSelection",
+            "settledPage7DisplayByteRemap",
             "settledPage7LargeGlyphRecord", "settledOperationPixels",
             "settledBlits", "settledOperationWrites",
         ],
@@ -409,6 +411,7 @@ TRANSLATION_SURFACES = (
             "dark-line stepping and ordered horizontal/vertical viewport clipping, "
             "including the complete glyph row-window transition; "
             "the complete page-39 direct cell-to-large-glyph byte domain; "
+            "the complete page-7 display-byte remapper input domain; "
             "the complete page-1 glyph-pointer selector byte domain; "
             "small-font byte-boundary selection, row alignment, ordinary and "
             "inverse byte composition, crossing-byte write order, and the "
@@ -4409,6 +4412,93 @@ def symbolic_direct_glyph_selection_paths() -> list[dict[str, object]]:
     ]
 
 
+def display_byte_remap_path(
+    display_byte: int,
+    key_extend: int,
+) -> dict[str, object]:
+    """Translate the main display-byte remapper entry at 07:44DE–4538."""
+
+    if not 0 <= display_byte <= 0xFF or not 0 <= key_extend <= 0xFF:
+        raise ValueError("display-byte inputs must be unsigned bytes")
+    outcomes: list[str] = []
+    fe = display_byte == 0xFE
+    outcomes.append(f"07:44E0:{'taken' if fe else 'fallthrough'}")
+    if fe:
+        high = key_extend >= 0x69
+        outcomes.append(f"07:4523:{'taken' if high else 'fallthrough'}")
+        return {
+            "terminal": "fe_high_pair" if high else "fe_low_byte",
+            "normalized_index": key_extend - 0x69 if high else key_extend,
+            "branch_outcomes": outcomes,
+        }
+
+    fc = display_byte == 0xFC
+    outcomes.append(f"07:44E4:{'taken' if fc else 'fallthrough'}")
+    if fc:
+        return {
+            "terminal": "fc_pair",
+            "normalized_index": key_extend,
+            "branch_outcomes": outcomes,
+        }
+
+    fb = display_byte == 0xFB
+    outcomes.append(f"07:44E8:{'taken' if fb else 'fallthrough'}")
+    if fb:
+        low_index = key_extend < 0x8C
+        outcomes.append(
+            f"07:450D:{'taken' if low_index else 'fallthrough'}"
+        )
+        return {
+            "terminal": "fb_pair",
+            "normalized_index": (
+                key_extend if low_index else key_extend - 0x7F
+            ),
+            "branch_outcomes": outcomes,
+        }
+
+    ordinary = display_byte != 0x05
+    outcomes.append(f"07:44EC:{'taken' if ordinary else 'fallthrough'}")
+    return {
+        "terminal": "ordinary_byte" if ordinary else "special_05_byte",
+        "normalized_index": (
+            (display_byte - 0x5A) & 0xFF if ordinary else None
+        ),
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_display_byte_remap_paths() -> list[dict[str, object]]:
+    """Partition every display-byte and keyExtend pair by its complete path."""
+
+    classes: dict[tuple[str, tuple[str, ...]], dict[str, object]] = {}
+    for display_byte in range(0x100):
+        for key_extend in range(0x100):
+            result = display_byte_remap_path(display_byte, key_extend)
+            key = (
+                str(result["terminal"]),
+                tuple(str(item) for item in result["branch_outcomes"]),
+            )
+            row = classes.setdefault(key, {
+                "projected_input_count": 0,
+                "representative_states": [],
+            })
+            row["projected_input_count"] += 1
+            states = row["representative_states"]
+            if len(states) < 4:
+                states.append({
+                    "display_byte": display_byte,
+                    "key_extend": key_extend,
+                })
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
 def glyph_advance_path(
     code: int,
     record_width: int,
@@ -5160,6 +5250,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             "39:4F1A–4F43",
             0x100**2,
             symbolic_direct_glyph_selection_paths(),
+        ),
+        (
+            "display_byte_remap",
+            "07:44DE–4538",
+            0x100**2,
+            symbolic_display_byte_remap_paths(),
         ),
         (
             "glyph_advance",
@@ -6790,6 +6886,16 @@ def build_report(
                 "scope": (
                     "complete raw D:E cell domain, including accumulator and "
                     "carry returns for unmapped cells"
+                ),
+            },
+            "display_byte_remap": {
+                "routine": "07:44DE–4538",
+                "state": ["display byte A", "keyExtend subcode byte"],
+                "projected_input_domain": 0x100**2,
+                "terminal_classes": symbolic_display_byte_remap_paths(),
+                "scope": (
+                    "complete main-entry byte domain, including wrapped "
+                    "ordinary indices and both FB index regions"
                 ),
             },
             "glyph_advance": {

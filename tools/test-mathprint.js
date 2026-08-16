@@ -255,6 +255,42 @@ const directGlyphByte = address => {
       `direct-glyph oracle reached unpinned byte 39:${address.toString(16)}`);
   return directGlyphByteMap.get(address);
 };
+const displayByteRemapRomSpan = {address:0x44de,bytes:Buffer.from(
+  'fefe283cfefc2830fefb281efe0520051e3f1600c9d65a2100405f160019' +
+  '5ec9252820fefc7b281318033a4684fe8c3802d67f11264418193a468411' +
+  '2c4218113a4684fe69300521994018ced6691102416f260029195e53235ec9',
+  'hex')};
+const displayByteRemapByteMap = new Map(Array.from(
+  displayByteRemapRomSpan.bytes,
+  (value, offset) => [displayByteRemapRomSpan.address + offset,value]));
+const displayByteRemapByte = address => {
+  if (!displayByteRemapByteMap.has(address))
+    throw new Error(
+      `display-byte oracle reached unpinned code byte 07:${address.toString(16)}`);
+  return displayByteRemapByteMap.get(address);
+};
+const displayByteTableMemoryCache = new WeakMap();
+const displayByteTableMemory = artifact => {
+  if (displayByteTableMemoryCache.has(artifact))
+    return displayByteTableMemoryCache.get(artifact);
+  const memory = new Map();
+  const add = (address, values, label) => values.forEach((value, offset) => {
+    const target = address + offset;
+    if (memory.has(target) && memory.get(target) !== value)
+      throw new Error(`${label} disagrees at 07:${target.toString(16)}`);
+    memory.set(target,value);
+  });
+  add(artifact.ordinary.address,artifact.ordinary.values,'ordinary table');
+  add(artifact.feLow.address,artifact.feLow.values,'FE-low table');
+  add(artifact.feHigh.address,artifact.feHigh.entries.flat(),'FE-high table');
+  add(artifact.fc.address,artifact.fc.entries.flat(),'FC table');
+  add(artifact.fb.address,artifact.fb.entries.flat(),'FB table');
+  for (const [address, value] of displayByteRemapByteMap)
+    if (memory.get(address) !== value)
+      throw new Error(`display-byte artifact disagrees at 07:${address.toString(16)}`);
+  displayByteTableMemoryCache.set(artifact,memory);
+  return memory;
+};
 const vputMapComposeRomSpan = {address:0x6431,bytes:Buffer.from(
   'fdcb055e2807473effaab01801a2ddae00dd2341c9','hex')};
 const vputMapComposeByteMap = new Map(Array.from(
@@ -1318,6 +1354,93 @@ function runRawDirectGlyphSelection(d, e) {
     d,e,accumulator:a,carry,glyph:carry ? null : a,
     branchOutcomes,routine:'39:4F1A–4F43',
   };
+}
+
+function runRawDisplayByteRemap(displayByte, keyExtend, artifact) {
+  let pc = 0x44de, a = displayByte, d = 0, e = 0, h = 0, l = 0;
+  let zero = false, carry = false, sourceAddress = null;
+  const branchOutcomes = [];
+  const memory = displayByteTableMemory(artifact);
+  const word = address => displayByteRemapByte(address) |
+    displayByteRemapByte(address + 1) << 8;
+  const relative = address => {
+    const value = displayByteRemapByte(address);
+    return value < 0x80 ? value : value - 0x100;
+  };
+  const pair = (high, low) => high << 8 | low;
+  const split = value => [value >>> 8 & 0xff,value & 0xff];
+  const branch = (address, condition) => {
+    branchOutcomes.push(
+      `07:${address.toString(16).toUpperCase()}:` +
+      `${condition ? 'taken' : 'fallthrough'}`);
+    pc = condition ? address + 2 + relative(address + 1) : address + 2;
+  };
+  for (let instructions = 0; instructions < 48; instructions++) {
+    const opcode = displayByteRemapByte(pc);
+    if (opcode === 0xfe) {
+      const value = displayByteRemapByte(pc + 1);
+      zero = a === value; carry = a < value; pc += 2;
+    } else if (opcode === 0x28) {
+      branch(pc,zero);
+    } else if (opcode === 0x20) {
+      branch(pc,!zero);
+    } else if (opcode === 0x38) {
+      branch(pc,carry);
+    } else if (opcode === 0x30) {
+      branch(pc,!carry);
+    } else if (opcode === 0x1e || opcode === 0x16 || opcode === 0x26) {
+      const value = displayByteRemapByte(pc + 1);
+      if (opcode === 0x1e) e = value;
+      else if (opcode === 0x16) d = value;
+      else h = value;
+      pc += 2;
+    } else if (opcode === 0xd6) {
+      const value = displayByteRemapByte(pc + 1);
+      carry = a < value; a = a - value & 0xff; zero = a === 0; pc += 2;
+    } else if (opcode === 0x21 || opcode === 0x11) {
+      const value = word(pc + 1);
+      if (opcode === 0x21) [h,l] = split(value);
+      else [d,e] = split(value);
+      pc += 3;
+    } else if (opcode === 0x5f) {
+      e = a; pc++;
+    } else if (opcode === 0x19) {
+      [h,l] = split(pair(h,l) + pair(d,e) & 0xffff); pc++;
+    } else if (opcode === 0x5e) {
+      const address = pair(h,l);
+      if (sourceAddress === null) sourceAddress = address;
+      if (!memory.has(address))
+        throw new Error(
+          `display-byte oracle read outside extracted tables at 07:${address.toString(16)}`);
+      e = memory.get(address); pc++;
+    } else if (opcode === 0x7b) {
+      a = e; pc++;
+    } else if (opcode === 0x18) {
+      pc = pc + 2 + relative(pc + 1);
+    } else if (opcode === 0x3a) {
+      if (word(pc + 1) !== 0x8446)
+        throw new Error('display-byte oracle read an unknown RAM byte');
+      a = keyExtend; pc += 3;
+    } else if (opcode === 0x6f) {
+      l = a; pc++;
+    } else if (opcode === 0x29) {
+      [h,l] = split(pair(h,l) << 1 & 0xffff); pc++;
+    } else if (opcode === 0x53) {
+      d = e; pc++;
+    } else if (opcode === 0x23) {
+      [h,l] = split(pair(h,l) + 1 & 0xffff); pc++;
+    } else if (opcode === 0xc9) {
+      return {
+        displayByte,keyExtend,d,e,sourceAddress,branchOutcomes,
+        routine:'07:44DE–4538',
+      };
+    } else {
+      throw new Error(
+        `display-byte oracle reached unsupported opcode 0x${opcode.toString(16)} ` +
+        `at 07:${pc.toString(16)}`);
+    }
+  }
+  throw new Error('display-byte oracle exceeded its instruction bound');
 }
 
 function runRawVPutMapCompose(screen, width, glyphRow, inverse) {
@@ -4008,6 +4131,41 @@ expectEqual('39:52A5 nonzero-delta count/index partition', [
   action04LowerIndexPairs,action04HigherIndexPairs,action04ZeroCountPairs,
 ], [32385,32640,255]);
 
+const displayByteProjection = result => ({
+  displayByte:result.displayByte,keyExtend:result.keyExtend,
+  d:result.d,e:result.e,sourceAddress:result.sourceAddress,
+  branchOutcomes:result.branchOutcomes,routine:result.routine,
+});
+let displayByteRemapStates = 0;
+for (let displayByte = 0; displayByte <= 0xff; displayByte++) {
+  for (let keyExtend = 0; keyExtend <= 0xff; keyExtend++) {
+    const translated = rom.settledPage7DisplayByteRemap(
+      displayByte,keyExtend,layout.displayByteMap);
+    const raw = runRawDisplayByteRemap(
+      displayByte,keyExtend,layout.displayByteMap);
+    expectEqual(`07:44DE display-byte state ${displayByte}:${keyExtend}`,
+      displayByteProjection(translated),raw);
+    displayByteRemapStates++;
+  }
+}
+expectEqual('07:44DE display-byte differential state count',
+  displayByteRemapStates,0x10000);
+for (const [label,displayByte,keyExtend,expected] of [
+  ['FE-low',0xfe,0x00,[0x00,0xa8,'fe-low-table',0x4099,0x00]],
+  ['FE-high',0xfe,0x69,[0x7e,0x00,'fe-high-table',0x4102,0x00]],
+  ['FC',0xfc,0x00,[0x61,0x00,'fc-table',0x422c,0x00]],
+  ['FB-low',0xfb,0x00,[0x5e,0x82,'fb-table',0x4426,0x00]],
+  ['FB-folded',0xfb,0x8c,[0xbb,0xdb,'fb-table',0x4440,0x0d]],
+  ['special 05',0x05,0xff,[0x00,0x3f,'special-05',null,null]],
+  ['ordinary',0x5a,0xff,[0x00,0x84,'ordinary-table',0x4000,0x00]],
+]) {
+  const result = rom.settledPage7DisplayByteRemap(
+    displayByte,keyExtend,layout.displayByteMap);
+  expectEqual(`07:44DE ${label} result`,
+    [result.d,result.e,result.source,result.sourceAddress,result.normalizedIndex],
+    expected);
+}
+
 let directGlyphStates = 0;
 for (let d = 0; d <= 0xff; d++) {
   for (let e = 0; e <= 0xff; e++) {
@@ -4034,7 +4192,23 @@ expectEqual('39:4E8E cursor branch', rom.classifyCell(layout, 0x1f, 0x12),
 expectEqual('39:4E8E indexed-string branch', rom.classifyCell(layout, 0x82, 0x42),
   {kind:'indexedString', d:0x82, e:0x42, index:4, routine:'39:4EBF'});
 expectEqual('39:6675 delimiter branch', rom.classifyCell(layout, 0xfc, 0x00),
-  {kind:'fixedDelimiter', d:0xfc, e:0, layoutClass:0x17, index:0, routine:'39:6675'});
+  {kind:'fixedDelimiter', d:0xfc, e:0, layoutClass:0x17, index:0,
+   remapped:{
+     displayByte:0xfc,keyExtend:0,d:0x61,e:0,source:'fc-table',
+     sourceAddress:0x422c,normalizedIndex:0,
+     branchOutcomes:['07:44E0:fallthrough','07:44E4:taken'],
+     routine:'07:44DE–4538',
+   },routine:'39:6675 → 07:44DE'});
+for (const [layoutClass,lead] of [[0x17,0x61],[0x18,0x60],[0x19,0xaa]]) {
+  const emissions = rom.emitHandlerRow(layout,layoutClass,0).emissions;
+  expectEqual(`39:6675 class ${layoutClass.toString(16)} remap count`,
+    emissions.length,10);
+  for (let index = 0; index < emissions.length; index++)
+    expectEqual(
+      `39:6675 class ${layoutClass.toString(16)} remap ${index}`,
+      [emissions[index].output.remapped.d,emissions[index].output.remapped.e],
+      [lead,index]);
+}
 expectEqual('01:6D10 E=1F index', rom.keyToStringIndex(6, 0x1f),
   {index:0x56, branch:'E=1F'});
 expectEqual('01:6D10 ordinary index', rom.keyToStringIndex(0, 0x10),
@@ -9789,7 +9963,10 @@ const CELL_CASES = [
   [[0xFC, 0x3C], { kind: 'glyph', code: 5 }],
   [[0xFC, 0x41], { kind: 'familyToken', d: 0xFC, e: 0x41 }],
   [[0xFE, 0x7D], { kind: 'glyph', code: 0 }],
-  [[0xFE, 0xA7], { kind: 'delimiterFamily', d: 0xFE, e: 0xA7, family: 0x18, index: 0 }],
+  [[0xFE, 0xA7], {
+    kind:'delimiterFamily',d:0xFE,e:0xA7,family:0x18,index:0,
+    remapped:[0x60,0x00],remapSource:'fe-high-table',
+  }],
   [[0xFB, 0xCA], { kind: 'inlineString', d: 0xFB, e: 0xCA }],
   [[0xFB, 0xC8], { kind: 'runtimeConditional', d: 0xFB, e: 0xC8, condition: 'bit 0,H' }],
   [[0x1F, 0], { kind: 'marker', what: 'cursor/answer-area (no draw)' }],

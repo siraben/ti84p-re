@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Extract selected page-0x39 MathPrint layout tables from the ROM into JSON.
+"""Extract MathPrint cell-layout and display-byte tables from the ROM.
 
 The page-0x39 typesetter is data-driven: a class table at 39:5E45 maps each
-layout class to a handler record, and each record encodes rows and cells. This
-artifact supports record inspection; the interactive renderer does not consume
-it.
+layout class to a handler record, and each record encodes rows and cells. The
+interactive renderer consumes this artifact for handler-cell classification
+and the related page-7 display-byte remap.
 
 Output: web/mathprint/layout.json
-  { handlerTable, classCount,
+  { handlerTable, classCount, displayByteMap,
     classes: [ {cls, ptr, rows, items:[{count, action, cells:[[d,e],...]}]} | {cls, ptr, null} ],
     descriptors: [ {addr, base_yx, box_yx, row_height, cols_rows, cell_ptr, cells:[[d,e],...]} ] }
 """
@@ -22,6 +22,7 @@ PAGE = 0x39
 HANDLER_TABLE = 0x5E45
 HANDLER_COUNT = 0x44
 DESCRIPTORS = [0x686F, 0x6880, 0x6893, 0x689C, 0x68A5]
+DISPLAY_BYTE_PAGE = 0x07
 
 
 def romoff(page, addr):
@@ -74,6 +75,45 @@ def parse_descriptor(rom, addr):
             "cell_ptr": cell_ptr, "cells": cells}
 
 
+def bytes_at(rom, page, addr, length):
+    start = romoff(page, addr)
+    return list(rom[start:start + length])
+
+
+def pair_table(rom, page, addr, count):
+    raw = bytes_at(rom, page, addr, 2 * count)
+    return [[raw[2 * index], raw[2 * index + 1]] for index in range(count)]
+
+
+def parse_display_byte_map(rom):
+    """Extract every table entry addressable from 07:44DE's main entry."""
+
+    return {
+        "page": DISPLAY_BYTE_PAGE,
+        "routine": "07:44DE–4538",
+        "ordinary": {
+            "address": 0x4000,
+            "values": bytes_at(rom, DISPLAY_BYTE_PAGE, 0x4000, 0x100),
+        },
+        "feLow": {
+            "address": 0x4099,
+            "values": bytes_at(rom, DISPLAY_BYTE_PAGE, 0x4099, 0x69),
+        },
+        "feHigh": {
+            "address": 0x4102,
+            "entries": pair_table(rom, DISPLAY_BYTE_PAGE, 0x4102, 0x97),
+        },
+        "fc": {
+            "address": 0x422C,
+            "entries": pair_table(rom, DISPLAY_BYTE_PAGE, 0x422C, 0x100),
+        },
+        "fb": {
+            "address": 0x4426,
+            "entries": pair_table(rom, DISPLAY_BYTE_PAGE, 0x4426, 0x8C),
+        },
+    }
+
+
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     root = os.path.dirname(here)
@@ -103,6 +143,7 @@ def main():
         "classCount": HANDLER_COUNT,
         "classes": classes,
         "descriptors": [parse_descriptor(rom, a) for a in DESCRIPTORS],
+        "displayByteMap": parse_display_byte_map(rom),
     }
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open(args.out, "w") as f:
@@ -110,7 +151,7 @@ def main():
         f.write("\n")
     decoded = sum(1 for c in classes if "rows" in c)
     print(f"wrote {args.out}: {decoded}/{HANDLER_COUNT} classes decoded, "
-          f"{len(data['descriptors'])} descriptors")
+          f"{len(data['descriptors'])} descriptors, complete 07:44DE tables")
 
 
 if __name__ == "__main__":

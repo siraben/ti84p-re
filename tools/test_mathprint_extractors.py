@@ -80,6 +80,32 @@ class ArtifactTests(unittest.TestCase):
             for item in record["items"]:
                 self.assertEqual(item["count"], len(item["cells"]))
 
+    def test_display_byte_tables_cover_the_complete_main_entry_domain(self):
+        tables = self.load("layout.json")["displayByteMap"]
+
+        self.assertEqual((0x07, "07:44DE–4538"),
+                         (tables["page"], tables["routine"]))
+        self.assertEqual((0x4000, 0x100, 0x84),
+                         (tables["ordinary"]["address"],
+                          len(tables["ordinary"]["values"]),
+                          tables["ordinary"]["values"][0]))
+        self.assertEqual((0x4099, 0x69, 0xA8),
+                         (tables["feLow"]["address"],
+                          len(tables["feLow"]["values"]),
+                          tables["feLow"]["values"][0]))
+        self.assertEqual((0x4102, 0x97, [0x7E, 0x00]),
+                         (tables["feHigh"]["address"],
+                          len(tables["feHigh"]["entries"]),
+                          tables["feHigh"]["entries"][0]))
+        self.assertEqual((0x422C, 0x100, [0x61, 0x00]),
+                         (tables["fc"]["address"],
+                          len(tables["fc"]["entries"]),
+                          tables["fc"]["entries"][0]))
+        self.assertEqual((0x4426, 0x8C, [0x5E, 0x82]),
+                         (tables["fb"]["address"],
+                          len(tables["fb"]["entries"]),
+                          tables["fb"]["entries"][0]))
+
 
 if __name__ == "__main__":
     unittest.main()

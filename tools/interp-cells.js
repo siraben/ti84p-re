@@ -24,7 +24,11 @@ function resolveCell(d, e) {
   if (decoded.kind === 'inlineString') return { kind: 'inlineString', d, e };
   if (decoded.kind === 'specialAction') return { kind: 'specialAction', d, e };
   if (decoded.kind === 'fixedDelimiter')
-    return { kind: 'delimiterFamily', d, e, family: decoded.layoutClass, index: decoded.index };
+    return {
+      kind:'delimiterFamily',d,e,family:decoded.layoutClass,index:decoded.index,
+      remapped:[decoded.remapped.d,decoded.remapped.e],
+      remapSource:decoded.remapped.source,
+    };
   if (d === 0xFB || d === 0xFC || d === 0xFE) return { kind: 'familyToken', d, e };
   return { kind: 'keyString', d, e };
 }
@@ -40,7 +44,11 @@ function fmt(d, e) {
   if (r.kind === 'inlineString') return `${hex} →inline string`;
   if (r.kind === 'specialAction') return `${hex} →special action`;
   if (r.kind === 'runtimeConditional') return `${hex} →conditional (${r.condition})`;
-  if (r.kind === 'delimiterFamily') return `${hex} →delimiter family ${r.family.toString(16)} #${r.index}`;
+  if (r.kind === 'delimiterFamily') {
+    const mapped = r.remapped.map(value =>
+      value.toString(16).padStart(2,'0')).join('');
+    return `${hex} →delimiter family ${r.family.toString(16)} #${r.index} →${mapped}`;
+  }
   return hex;
 }
 
