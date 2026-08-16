@@ -1,0 +1,75 @@
+# Walk right through all four children of a completed integral.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key MATH
+key 9
+key 1
+key RIGHT
+wait 0.35s
+key 2
+key RIGHT
+wait 0.35s
+key GRAPHVAR
+key RIGHT
+wait 0.35s
+key GRAPHVAR
+key RIGHT
+wait 0.5s
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+wait 0.5s
+memdump /tmp/mp-integral-right-walk-0.ram ram-logical
+screenshot /tmp/mp-integral-right-walk-0.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-integral-right-walk-1.ram ram-logical
+screenshot /tmp/mp-integral-right-walk-1.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-integral-right-walk-2.ram ram-logical
+screenshot /tmp/mp-integral-right-walk-2.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-integral-right-walk-3.ram ram-logical
+screenshot /tmp/mp-integral-right-walk-3.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-integral-right-walk-4.ram ram-logical
+screenshot /tmp/mp-integral-right-walk-4.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-integral-right-walk-5.ram ram-logical
+screenshot /tmp/mp-integral-right-walk-5.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-integral-right-walk-6.ram ram-logical
+screenshot /tmp/mp-integral-right-walk-6.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-integral-right-walk-7.ram ram-logical
+screenshot /tmp/mp-integral-right-walk-7.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-integral-right-walk-8.ram ram-logical
+screenshot /tmp/mp-integral-right-walk-8.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-integral-right-walk-9.ram ram-logical
+screenshot /tmp/mp-integral-right-walk-9.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-integral-right-walk-10.ram ram-logical
+screenshot /tmp/mp-integral-right-walk-10.png

@@ -3551,7 +3551,7 @@ expectThrows('editor navigation rejects a structural boundary',RangeError,
       record_word0F:0,record_word11:0},
   ]},'left'));
 expectEqual('live editor structural-navigation oracle schema',
-  editorStructuralNavigationOracles.schema,1);
+  editorStructuralNavigationOracles.schema,3);
 const structuralNavigationProjection = state => ({
   controller:state.controller,
   cursor:{
@@ -3651,6 +3651,7 @@ const structuralNavigationArena = (type,childCount,options = {}) => {
   const childIds = Array.from({length:childCount},(_,index) => 4 + index);
   const marker = [0xef,type,structuralId,0,0xef,0x2d];
   const prefix = type === 0x2a ? [0x31] : [];
+  const atomicChildren = new Set(options.atomicChildren || []);
   const structural = {
     id:structuralId,type,word05:1,word0F:0,
     word11:type === 0x2b ? (options.columns || 1) << 8 : 1,
@@ -3665,7 +3666,8 @@ const structuralNavigationArena = (type,childCount,options = {}) => {
       word11:prefix.length + marker.length,
       child_ids:[],payload:[...prefix,...marker]},
     ...childIds.map((id,index) => ({
-      id,type:0,word05:0,word0F:0,word11:index === 0 ? 2 : 1,
+      id,type:atomicChildren.has(index) ? 1 : 0,
+      word05:0,word0F:0,word11:index === 0 ? 2 : 1,
       child_ids:[],payload:index === 0 ? [0x5d,0x00] : [0x31 + index],
     })),
   ];
@@ -3674,20 +3676,21 @@ const structuralNavigationArena = (type,childCount,options = {}) => {
 for (const domain of [
   {name:'fraction',type:0x20,children:2},
   {name:'absolute value',type:0x21,children:1},
-  {name:'integral',type:0x22,children:4},
-  {name:'nDeriv',type:0x23,children:3},
+  {name:'integral',type:0x22,children:4,atomicChildren:[3]},
+  {name:'nDeriv',type:0x23,children:3,atomicChildren:[0]},
   {name:'nth root',type:0x24,children:2},
   {name:'radical',type:0x25,children:1},
   {name:'e power',type:0x26,children:1},
   {name:'ten power',type:0x27,children:1},
   {name:'log base',type:0x28,children:2},
-  {name:'summation',type:0x29,children:4},
+  {name:'summation',type:0x29,children:4,atomicChildren:[0]},
   {name:'power',type:0x2a,children:1},
   {name:'six-child matrix',type:0x2b,children:6,rows:2,columns:3},
 ]) {
   const rootExitOffset = domain.type === 0x2a ? 7 : 6;
   let state = structuralNavigationArena(
-    domain.type,domain.children,{rows:domain.rows,columns:domain.columns});
+    domain.type,domain.children,{rows:domain.rows,columns:domain.columns,
+      atomicChildren:domain.atomicChildren});
   let moved = rom.editorMoveCursor(state,'right');
   expectEqual(`${domain.name} enters its first child`,{
     status:moved.mutation.status,recordId:moved.state.editor.cursor.recordId,
@@ -3695,10 +3698,13 @@ for (const domain of [
   },{status:'entered-structural-record',recordId:4,byteOffset:0});
   state = moved.state;
   for (let index = 0; index < domain.children; index++) {
-    moved = rom.editorMoveCursor(state,'right');
-    expectEqual(`${domain.name} moves through child ${index}`,
-      moved.mutation.status,'moved-packed-token');
-    state = moved.state;
+    const atomic = (domain.atomicChildren || []).includes(index);
+    if (!atomic) {
+      moved = rom.editorMoveCursor(state,'right');
+      expectEqual(`${domain.name} moves through child ${index}`,
+        moved.mutation.status,'moved-packed-token');
+      state = moved.state;
+    }
     moved = rom.editorMoveCursor(state,'right');
     const last = index === domain.children - 1;
     expectEqual(`${domain.name} leaves child ${index}`,{
@@ -3716,8 +3722,11 @@ for (const domain of [
   expectEqual(`${domain.name} re-enters its last child`,{
     status:moved.mutation.status,recordId:moved.state.editor.cursor.recordId,
     childIndex:moved.mutation.selected_child_index,
+    byteOffset:moved.state.editor.cursor.byteOffset,
   },{status:'entered-structural-record',recordId:3 + domain.children,
-    childIndex:domain.children - 1});
+    childIndex:domain.children - 1,
+    byteOffset:(domain.atomicChildren || []).includes(domain.children - 1)
+      ? 0 : domain.children === 1 ? 2 : 1});
 }
 const nestedNavigationNodes = [
   {id:1,type:0x1f,word05:1,word0F:0,word11:0,
