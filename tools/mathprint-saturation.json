@@ -215981,10 +215981,12 @@
       "name": "settled record graph and leaf program",
       "rom": [
         "34:6105",
+        "34:6143\u201361BD",
         "34:660A",
         "34:6CCD"
       ],
       "javascript": [
+        "settledSharedMarkerPrimitive",
         "executeSettledRecordGraph",
         "executeSettledRecordProgram"
       ],
@@ -215992,7 +215994,7 @@
         "tools/test-mathprint.js",
         "tools/mathprint-*-oracles.json"
       ],
-      "scope": "types 20h\u20132Bh translated with oracles; the type-1Fh table ABI is fixed, but lacks a captured record oracle"
+      "scope": "types 20h\u20132Bh translated with oracles; all 14 projected paths through the shared type-1Fh/editor-marker helper are translated, while the fixed type-1Fh table ABI lacks a captured record oracle"
     },
     {
       "name": "font, primitive, and LCD emission",
