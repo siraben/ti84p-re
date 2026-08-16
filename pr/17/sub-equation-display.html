@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ecb30e0.js";
+            window.path_to_searchindex_js = "searchindex-79215a5c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -721,7 +721,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 41 finite models. It also computes an
+complete path-equivalence class in 42 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -746,6 +746,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Thick-point expansion</td><td style="text-align: right">4,294,967,296</td><td style="text-align: right">8</td><td style="text-align: right">14</td><td style="text-align: right">8</td></tr>
 <tr><td>Shaded-point expansion</td><td style="text-align: right">3,145,728</td><td style="text-align: right">1,850</td><td style="text-align: right">30</td><td style="text-align: right">8</td></tr>
 <tr><td>Small-font pointer selection</td><td style="text-align: right">65,536</td><td style="text-align: right">16</td><td style="text-align: right">31</td><td style="text-align: right">16</td></tr>
+<tr><td>Token-hook dispatch</td><td style="text-align: right">1,048,576</td><td style="text-align: right">9</td><td style="text-align: right">10</td><td style="text-align: right">5</td></tr>
 <tr><td><code>_VPutMap</code> byte-boundary gate</td><td style="text-align: right">56</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
 <tr><td>MathPrint <code>_VPutMap</code> right-edge gate</td><td style="text-align: right">3,584</td><td style="text-align: right">4</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
 <tr><td>MathPrint <code>_VPutMap</code> row state</td><td style="text-align: right">112</td><td style="text-align: right">4</td><td style="text-align: right">10</td><td style="text-align: right">2</td></tr>
@@ -775,8 +776,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 41 models contain 3,339 path classes and 433 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 203 representatives. Each
+<p>The 42 models contain 3,348 path classes and 443 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 208 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -2057,8 +2058,19 @@ That <code>JR NZ</code> therefore falls through under the <code>01:6702</code> e
 <code>CP 13h</code> clamp at <code>01:6774</code>–<code>01:6778</code> has no other predecessor and is
 unreachable from this entry. A pinned byte interpreter matches the JavaScript
 table, normalized index, pointer-word address, and complete branch sequence for
-all 65,536 <code>D:E</code> pairs. The token hook beginning at <code>01:6788</code> remains an
-external dispatch boundary. [confirmed]</p>
+all 65,536 <code>D:E</code> pairs. [confirmed]</p>
+<p><code>01:6788</code> skips the token hook when <code>(IY+35h).0</code> is clear. When it is set,
+<code>01:7C53</code> classifies the Catalog2 hook header and version before the token-hook
+call. An invalid header returns C and Z, an older version returns C and NZ, the
+exact version returns NC and Z, and a newer version returns NC and NZ. Only the
+invalid-header class reaches <code>01:67AC</code>: offsets through <code>0546h</code> retain <code>BC=0</code>
+and the offset in <code>DE</code>, while larger offsets pass the offset in <code>BC</code> and
+<code>000Ch</code> in <code>DE</code>. [confirmed]</p>
+<p>The page-3B wrapper at <code>3B:7B8D</code> either enters the installed hook or clears
+<code>(IY+35h).0</code> and returns to the ROM string. The finite model covers both flag
+values, four Catalog2 classes, all 65,536 offset words, and both wrapper
+outcomes. The installed hook body and any pointer or string that it returns
+remain external. [confirmed]</p>
 <p>Each selected pointer names one metadata byte followed by a counted
 display-code string. Token <code>72h</code> therefore expands to <code>A</code>, <code>n</code>, <code>s</code>. Token
 <code>C2h</code> expands to <code>s</code>, <code>i</code>, <code>n</code>, <code>(</code>. Two-byte token <code>5D 00</code> expands to <code>L</code> and
