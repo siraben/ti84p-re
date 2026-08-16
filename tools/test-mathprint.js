@@ -202,6 +202,21 @@ const largeGlyphByte = address => {
       `large-glyph oracle reached unpinned byte 07:${address.toString(16)}`);
   return largeGlyphByteMap.get(address);
 };
+const glyphPointerRomSpan = {address:0x6702,bytes:Buffer.from(
+  '6b26007ab72876115244fe5d3872116644286d117244fe6030207dcba5cb6720' +
+  '5f118644cbadcb6f2056119e44cbb5cb77204dcbbd11aa44184611b044fe6138' +
+  '3f11c444283a11ec44fe633833116645282efe7e282211d844febb382311fc4520' +
+  '0b7d200dfef638172ef6181311e847180efe1338022e1311d6451803115242',
+  'hex')};
+const glyphPointerByteMap = new Map(Array.from(
+  glyphPointerRomSpan.bytes,
+  (value, offset) => [glyphPointerRomSpan.address + offset,value]));
+const glyphPointerByte = address => {
+  if (!glyphPointerByteMap.has(address))
+    throw new Error(
+      `glyph-pointer oracle reached unpinned byte 01:${address.toString(16)}`);
+  return glyphPointerByteMap.get(address);
+};
 const pointModeRomSpan = {address:0x4215, bytes:Buffer.from(
   'fdcb3c5e2803e5182d21409319e5fdcb3c462022f33a5184cdbf20cdc30cd3' +
   '10cdc9203a4f84cdc30cd310cdf13be1e5fdcb024e20017e041003b118071003' +
@@ -936,6 +951,75 @@ function runRawLargeGlyphRecord(code, entry) {
     throw new Error('large-glyph oracle exceeded its instruction bound');
   const length = entry === 'copy' ? 8 : 9;
   return Array.from({length}, (_, index) => read(0x845a + index));
+}
+
+function runRawGlyphPointerSelection(lead, index) {
+  let pc = 0x6702, a = 0, d = lead, e = index, h = 0, l = 0;
+  let zero = false, carry = false;
+  const branchOutcomes = [];
+  const relative = address => {
+    const value = glyphPointerByte(address);
+    return value < 0x80 ? value : value - 0x100;
+  };
+  const branch = (condition, address) => {
+    branchOutcomes.push(
+      `01:${address.toString(16).toUpperCase()}:${condition ? 'taken' : 'fallthrough'}`);
+    pc = condition ? address + 2 + relative(address + 1) : address + 2;
+  };
+  for (let instructions = 0; instructions < 96 && pc !== 0x6782; instructions++) {
+    const opcode = glyphPointerByte(pc);
+    if (opcode === 0x6b) {
+      l = e; pc++;
+    } else if (opcode === 0x26 || opcode === 0x2e) {
+      if (opcode === 0x26) h = glyphPointerByte(pc + 1);
+      else l = glyphPointerByte(pc + 1);
+      pc += 2;
+    } else if (opcode === 0x7a || opcode === 0x7d) {
+      a = opcode === 0x7a ? d : l; pc++;
+    } else if (opcode === 0xb7) {
+      zero = a === 0; carry = false; pc++;
+    } else if (opcode === 0xfe) {
+      const value = glyphPointerByte(pc + 1);
+      zero = a === value; carry = a < value; pc += 2;
+    } else if (opcode === 0x28) {
+      branch(zero,pc);
+    } else if (opcode === 0x38) {
+      branch(carry,pc);
+    } else if (opcode === 0x30) {
+      branch(!carry,pc);
+    } else if (opcode === 0x20) {
+      branch(!zero,pc);
+    } else if (opcode === 0x11) {
+      e = glyphPointerByte(pc + 1);
+      d = glyphPointerByte(pc + 2);
+      pc += 3;
+    } else if (opcode === 0x18) {
+      pc = pc + 2 + relative(pc + 1);
+    } else if (opcode === 0xcb) {
+      const extension = glyphPointerByte(pc + 1);
+      if (extension === 0xa5) l &= ~0x10;
+      else if (extension === 0x67) zero = (a & 0x10) === 0;
+      else if (extension === 0xad) l &= ~0x20;
+      else if (extension === 0x6f) zero = (a & 0x20) === 0;
+      else if (extension === 0xb5) l &= ~0x40;
+      else if (extension === 0x77) zero = (a & 0x40) === 0;
+      else if (extension === 0xbd) l &= ~0x80;
+      else throw new Error(
+        `glyph-pointer oracle reached unknown CB opcode 0x${extension.toString(16)}`);
+      pc += 2;
+    } else {
+      throw new Error(
+        `glyph-pointer oracle reached unsupported opcode 0x${opcode.toString(16)} ` +
+        `at 01:${pc.toString(16)}`);
+    }
+  }
+  if (pc !== 0x6782)
+    throw new Error('glyph-pointer oracle exceeded its instruction bound');
+  return {
+    index:l,tableAddress:d << 8 | e,
+    pointerWordAddress:((d << 8 | e) + 2 * l) & 0xffff,
+    branchOutcomes,
+  };
 }
 
 function runRawDarkLine(graphX1, graphY1, graphX2, graphY2) {
@@ -6760,6 +6844,36 @@ expectEqual('pixel LCD trace final grid matches ordinary byte replay',
     {pointer:[1,2],value:0xa5},
     {pointer:[1,2],value:0x24},
   ]));
+
+let glyphPointerSelectionStates = 0;
+for (let lead = 0; lead <= 0xff; lead++) {
+  for (let index = 0; index <= 0xff; index++) {
+    const translated = rom.settledPage1GlyphPointerSelection(lead,index);
+    const raw = runRawGlyphPointerSelection(lead,index);
+    expectEqual(`01:6702 selector ${lead.toString(16)} ${index.toString(16)}`,{
+      index:translated.index,
+      tableAddress:translated.tableAddress,
+      pointerWordAddress:translated.pointerWordAddress,
+      branchOutcomes:translated.branchOutcomes,
+    },raw);
+    glyphPointerSelectionStates++;
+  }
+}
+expectEqual('01:6702 glyph-pointer selector differential state count',
+  glyphPointerSelectionStates,0x10000);
+expectEqual('01:6702 raw low-lead alias',
+  rom.settledPage1GlyphPointerSelection(0x01,0xff),{
+    lead:0x01,incomingIndex:0xff,index:0xff,table:'5C',tableAddress:0x4452,
+    pointerWordAddress:0x4650,nativeLead:false,
+    branchOutcomes:['01:6707:fallthrough','01:670E:taken'],
+    routine:'01:6702–6781',
+  });
+expectEqual('01:6702 raw 5Fh bank alias',
+  rom.settledPage1GlyphPointerSelection(0x5f,0x60).table,'5E20');
+expectEqual('01:6702 BBh clamp',
+  rom.settledPage1GlyphPointerSelection(0xbb,0xff).index,0xf6);
+expectEqual('01:6702 raw high-lead alias',
+  rom.settledPage1GlyphPointerSelection(0xff,0x41).table,'EF');
 
 for (const [bytes, expected] of [
   [[0x5c,0x00], {codes:[0xc1,0x41,0x5d],length:2,table:'5C',tableIndex:0}],
