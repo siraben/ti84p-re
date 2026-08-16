@@ -1,0 +1,68 @@
+{
+  "schema": 1,
+  "rom_sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d",
+  "tilem_source_commit": "d1bdc58dd321ae462a701e556fcb62bb925a78b1",
+  "gate": {
+    "entry": "35:7B37",
+    "depth_address": "0x8DB6",
+    "comparison": "((depth + 1) & 0xFF) < 5",
+    "accepted_return": "incoming A with carry clear",
+    "rejected_return": "A=0x03 with carry set",
+    "caller_error_path": "34:473D -> 34:54D2"
+  },
+  "power_boundary": {
+    "accepted": {
+      "expression": "int(1,1,nthroot(A,abs(2^2)),N)",
+      "structural_depth": 4,
+      "incoming_a": 42,
+      "depth_before_increment": 3,
+      "depth_after_increment": 4,
+      "macro": "tools/macros/mathprint-depth4-power-accept.macro",
+      "trace_sha256": "66c3c43dc306cbf43ba9579171824f180faff7377a23f33b584e07bf5dba78d5",
+      "path": [
+        "34:473A",
+        "35:7B37",
+        "35:7B42 return",
+        "34:473D -> 34:4744"
+      ]
+    },
+    "rejected": {
+      "requested_expression": "int(1,1,abs(nthroot(A,abs(2^2))),N)",
+      "structural_depth": 5,
+      "incoming_a": 42,
+      "depth_before_increment": 4,
+      "depth_after_increment": 5,
+      "return_a": 3,
+      "macro": "tools/macros/mathprint-depth5-power-reject.macro",
+      "trace_sha256": "b8355cb4a58eb2f0a97dd17238e900705c20c5d99ab80f60ee16aa1f876e1f3a",
+      "path": [
+        "34:473A",
+        "35:7B37",
+        "35:7B42 -> 35:7B43",
+        "34:473D -> 34:473F",
+        "34:54D2"
+      ]
+    }
+  },
+  "constructor_matrix": {
+    "cadence": {
+      "key_delay_seconds": 0.24,
+      "inter_key_wait_seconds": 0.12
+    },
+    "constructors": [
+      "power",
+      "fraction",
+      "radical",
+      "nth-root",
+      "absolute",
+      "integral",
+      "summation",
+      "nDeriv",
+      "e-power",
+      "ten-power",
+      "log-base"
+    ],
+    "depth_four": "all accepted with exact decoded graphs and pixel parity",
+    "depth_five": "all rejected before the requested structural record appeared"
+  }
+}

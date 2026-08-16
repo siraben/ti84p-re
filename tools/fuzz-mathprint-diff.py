@@ -34,7 +34,9 @@ parentheses. Fraction children, radicands, absolute-value bodies, and power base
 may contain structural records.
 The generator keeps raised slots and nth-root indices to entry sequences whose
 cursor behavior is independently pinned; this constrains input construction, not
-the JavaScript record renderer.
+the JavaScript record renderer. The calculator entry path accepts at most four
+nested structural records. Random differential cases stay within that entry
+boundary, while `--validate-entry-depth` checks both sides of the ROM gate.
 """
 import argparse
 import importlib.util
@@ -70,6 +72,17 @@ def _load_parity():
 
 VARS = ["X", "A", "N"]
 NUMS = ["1", "2", "3"]
+
+STRUCTURAL_KINDS = frozenset({
+    "pow", "sdiv", "sqrt", "nthroot", "abs", "int", "sum", "nderiv",
+    "epow", "tenpow", "logbase",
+})
+CALCULATOR_MAX_STRUCTURAL_DEPTH = 4
+CALCULATOR_INPUT_CADENCES = (
+    (0.1, 0.0),
+    (0.16, 0.03),
+    (0.24, 0.12),
+)
 
 
 # The variable and lower bound share the first summation field; RIGHT then
@@ -154,6 +167,85 @@ def gen_ast(rng, depth, *, in_small=False, avoid=()):
         return ("logbase", gen_ast(rng, d, in_small=True, avoid=avoid),
                 gen_ast(rng, d, avoid=avoid))
     raise AssertionError(k)
+
+
+def calculator_structural_depth(ast):
+    """Return the maximum structural-record nesting along any AST path.
+
+    Binary token sequences and explicit parentheses do not allocate a settled
+    structural record. Every kind in STRUCTURAL_KINDS adds one level before its
+    children are considered, matching the byte checked at 35:7B37.
+    """
+    child_depth = max(
+        (calculator_structural_depth(child) for child in ast[1:]
+         if isinstance(child, tuple)),
+        default=0,
+    )
+    return child_depth + (ast[0] in STRUCTURAL_KINDS)
+
+
+def gen_comparable_asts(rng, depth, count, *, max_structural_depth=4):
+    """Generate `count` ASTs accepted by the calculator's structural gate."""
+    if count < 0:
+        raise ValueError("count must be non-negative")
+    if not 0 <= max_structural_depth <= 0xff:
+        raise ValueError("maximum structural depth must be an unsigned byte")
+    accepted = []
+    rejected = 0
+    attempts = 0
+    attempt_limit = max(1000, count * 1000)
+    while len(accepted) < count and attempts < attempt_limit:
+        ast = gen_ast(rng, depth)
+        attempts += 1
+        if calculator_structural_depth(ast) > max_structural_depth:
+            rejected += 1
+            continue
+        accepted.append(ast)
+    if len(accepted) != count:
+        raise RuntimeError(
+            f"could not generate {count} calculator-admissible ASTs after "
+            f"{attempts} candidates"
+        )
+    return accepted, rejected
+
+
+def structural_depth_boundary_cases():
+    """Return paired depth-four/depth-five entry cases for each constructor."""
+    leaf = ("num", "2")
+    candidates = {
+        "power": ("pow", leaf, leaf),
+        "fraction": ("sdiv", ("num", "1"), leaf),
+        "radical": ("sqrt", leaf),
+        "nth-root": ("nthroot", ("var", "A"), leaf),
+        "absolute": ("abs", leaf),
+        "integral": (
+            "int", ("num", "1"), ("num", "1"), leaf, ("var", "N")),
+        "summation": (
+            "sum", ("var", "N"), ("num", "1"), ("num", "1"), leaf),
+        "nDeriv": ("nderiv", leaf, ("var", "N"), ("num", "1")),
+        "e-power": ("epow", leaf),
+        "ten-power": ("tenpow", leaf),
+        "log-base": ("logbase", leaf, leaf),
+    }
+
+    def at_depth_four(child):
+        return (
+            "int", ("num", "1"), ("num", "1"),
+            ("nthroot", ("var", "A"), ("abs", child)),
+            ("var", "N"),
+        )
+
+    def at_depth_five(child):
+        return (
+            "int", ("num", "1"), ("num", "1"),
+            ("abs", ("nthroot", ("var", "A"), ("abs", child))),
+            ("var", "N"),
+        )
+
+    return [
+        (name, at_depth_four(child), at_depth_five(child))
+        for name, child in candidates.items()
+    ]
 
 
 # ---- model expression string ----------------------------------------------
@@ -484,16 +576,49 @@ def run_one(parity, ast, outdir, name, *, trace=False):
         keys, outdir, name, trace=trace)
     actual_expression = calculator_expression(parity, ram_path)
     if actual_expression != expected_expression and not trace:
-        captures, ram_path, trace_path, _macro = parity.run_calc(
-            keys, outdir, f"{name}-slow", trace=False,
-            key_delay=0.16, inter_key_wait=0.03)
-        actual_expression = calculator_expression(parity, ram_path)
+        for retry, (key_delay, inter_key_wait) in enumerate(
+                CALCULATOR_INPUT_CADENCES[1:], start=1):
+            captures, ram_path, trace_path, _macro = parity.run_calc(
+                keys, outdir, f"{name}-retry{retry}", trace=False,
+                key_delay=key_delay, inter_key_wait=inter_key_wait)
+            actual_expression = calculator_expression(parity, ram_path)
+            if actual_expression == expected_expression:
+                break
     if actual_expression != expected_expression:
         raise CalculatorInputMismatch(expected_expression, actual_expression)
     calc = parity.calc_from_trace(trace_path) if trace \
         else parity.calc_entry_bitmap(captures)
     pct, bad, dim = parity.diff_metric(calc, model)
     return expr, keys, pct, bad, dim, calc, model
+
+
+def validate_entry_depth(parity, outdir):
+    """Exercise accepted depth four and rejected depth five on the calculator."""
+    failures = 0
+    key_delay, inter_key_wait = CALCULATOR_INPUT_CADENCES[-1]
+    for name, accepted, rejected in structural_depth_boundary_cases():
+        for label, ast, should_accept in (
+                ("depth4", accepted, True), ("depth5", rejected, False)):
+            model, _native, expected = parity.js_render_spec(to_spec(ast))
+            keys = emit(ast) + ["RIGHT", "WAIT"]
+            captures, ram_path, _trace, _macro = parity.run_calc(
+                keys, outdir, f"entry-{name}-{label}", trace=False,
+                key_delay=key_delay, inter_key_wait=inter_key_wait)
+            actual = calculator_expression(parity, ram_path)
+            admitted = actual == expected
+            pixels_match = None
+            if admitted:
+                calc = parity.calc_entry_bitmap(captures)
+                pixels_match = parity.diff_metric(calc, model)[0] == 100.0
+            clean = admitted == should_accept and (
+                not should_accept or pixels_match)
+            status = "OK" if clean else "BAD"
+            detail = "accepted" if admitted else "rejected"
+            if admitted:
+                detail += ", pixels exact" if pixels_match else ", pixel mismatch"
+            print(f"{status} {name:10} {label}: {detail}", flush=True)
+            failures += not clean
+    return failures
 
 
 def main():
@@ -503,6 +628,8 @@ def main():
     ap.add_argument("--depth", type=int, default=2)
     ap.add_argument("--validate", action="store_true",
                     help="run the curated examples through the emitter and trace diff")
+    ap.add_argument("--validate-entry-depth", action="store_true",
+                    help="check all structural constructors at accepted depth 4 and rejected depth 5")
     ap.add_argument("--dry-run", action="store_true",
                     help="print AST/expr/keys only; do not run the calculator")
     ap.add_argument("--threshold", type=float, default=100.0,
@@ -511,6 +638,9 @@ def main():
                     help="exclude Σ while diagnosing its calculator input sequence")
     ap.add_argument("--trace-every-case", action="store_true",
                     help="capture a reset-origin instruction trace before comparing each case")
+    ap.add_argument("--max-entry-depth", type=int,
+                    default=CALCULATOR_MAX_STRUCTURAL_DEPTH,
+                    help="maximum structural nesting admitted to random calculator comparison (default 4)")
     args = ap.parse_args()
 
     global INCLUDE_SUM
@@ -520,6 +650,14 @@ def main():
         parity.validate_inputs()
     outdir = tempfile.mkdtemp(prefix="mp-fuzz-")
     print(f"seed={args.seed} count={args.count} depth={args.depth} artifacts={outdir}\n")
+
+    if args.validate_entry_depth:
+        if args.dry_run:
+            ap.error("--validate-entry-depth requires calculator execution")
+        failures = validate_entry_depth(parity, outdir)
+        total = 2 * len(structural_depth_boundary_cases())
+        print(f"\nentry-depth validation: {total - failures}/{total} clean")
+        sys.exit(1 if failures else 0)
 
     if args.validate:
         # also pull the two examples whose keys the parity tool wrote with WAITs
@@ -551,8 +689,15 @@ def main():
         print(f"\nvalidate: {len(CURATED)-bad}/{len(CURATED)} clean")
         sys.exit(1 if bad else 0)
 
+    if not 0 <= args.max_entry_depth <= 0xff:
+        ap.error("--max-entry-depth must be between 0 and 255")
     rng = random.Random(args.seed)
-    asts = [gen_ast(rng, args.depth) for _ in range(args.count)]
+    asts, entry_rejects = gen_comparable_asts(
+        rng, args.depth, args.count,
+        max_structural_depth=args.max_entry_depth)
+    if entry_rejects:
+        print(f"entry-depth filter: rejected {entry_rejects} candidate ASTs above "
+              f"depth {args.max_entry_depth}\n")
     mismatches = 0
     inconclusive = 0
     for i, ast in enumerate(asts):
