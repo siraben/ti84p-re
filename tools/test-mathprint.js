@@ -40,6 +40,8 @@ const liveEditorOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-live-editor-oracles.json')));
 const editorGapOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-editor-gap-oracles.json')));
+const editorMutationOracles = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools', 'mathprint-editor-mutation-oracles.json')));
 const groupingOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-grouping-oracles.json')));
 const structuralBaseOracles = JSON.parse(fs.readFileSync(
@@ -3255,6 +3257,55 @@ for (const oracle of editorGapOracles.cases) {
       packedLcdBytes(reconstructedLcd)).digest('hex'),
     oracle.lcd_bitmap_sha256);
 }
+expectEqual('live editor mutation oracle schema', editorMutationOracles.schema, 1);
+const sparseEditorRam = (state, label) => {
+  const ram = new Uint8Array(0x8000);
+  const digest = crypto.createHash('sha256');
+  for (const segment of state.segments) {
+    const bytes = Buffer.from(segment.bytes,'hex');
+    ram.set(bytes,segment.address - 0x8000);
+    const address = Buffer.alloc(2);
+    address.writeUInt16LE(segment.address);
+    digest.update(address);
+    digest.update(bytes);
+  }
+  expectEqual(`${label} sparse RAM state hash`,
+    digest.digest('hex'),state.sparse_state_sha256);
+  return ram;
+};
+for (const oracle of editorMutationOracles.transitions) {
+  const macro = fs.readFileSync(path.join(root,oracle.macro));
+  expectEqual(`${oracle.name} capture macro hash`,
+    crypto.createHash('sha256').update(macro).digest('hex'),
+    oracle.macro_sha256);
+  const before = rom.decodeMathPrintEditorRam(
+    sparseEditorRam(oracle.pre,`${oracle.name} pre-insertion`));
+  const after = rom.decodeMathPrintEditorRam(
+    sparseEditorRam(oracle.post,`${oracle.name} post-insertion`));
+  const inserted = rom.editorInsertPackedToken(
+    before.editor.expression,oracle.inserted_token);
+  expectEqual(`${oracle.name} translated insertion path`,inserted.mutation,{
+    inserted:oracle.inserted_token,
+    record_id:before.editor.cursor.recordId,
+    before_byte_offset:before.editor.cursor.byteOffset,
+    after_byte_offset:after.editor.cursor.byteOffset,
+    replaced_empty_slot:oracle.replaced_empty_slot,
+    routine:oracle.trace.routine,
+  });
+  expectEqual(`${oracle.name} decoded editor transition`,
+    inserted.expression,after.editor.expression);
+  const reconstructed = rom.constructEditorExpressionProgram(
+    inserted.expression,7,font);
+  expectEqual(`${oracle.name} reconstructed post-insertion records`,
+    editorRecordsById(reconstructed.nodes),editorRecordsById(after.nodes));
+  const operations = rom.executeSettledRecordProgram(
+    reconstructed.nodes,reconstructed.wrapper_id,
+    {glyphAdvance:editorGlyphAdvance});
+  const lcd = rom.rasterizeSettledOperations(operations,font).grid;
+  expectEqual(`${oracle.name} reconstructed post-insertion LCD bitmap`,
+    crypto.createHash('sha256').update(packedLcdBytes(lcd)).digest('hex'),
+    oracle.post.lcd_bitmap_sha256);
+}
 expectThrows('live editor constructor requires exactly one cursor', RangeError,
   () => rom.constructEditorExpressionProgram([0x31],7,font));
 expectThrows('live editor constructor validates retained cursor record identity',
@@ -3310,6 +3361,47 @@ expectEqual('cursor before a structural numerator retains numerator allocation s
   radical_byte13:0x10,
   record_ids:[6,7,8,9,10,11,12],
 });
+const emptyNumeratorRam = sparseEditorRam(
+  editorGapOracles.cases.find(oracle =>
+    oracle.name === 'fraction_empty'),
+  'empty numerator insertion source');
+const emptyNumerator = rom.decodeMathPrintEditorRam(emptyNumeratorRam);
+const filledNumerator = rom.editorInsertPackedToken(
+  emptyNumerator.editor.expression,[0x31]);
+expectEqual('ordinary insertion replaces an empty-slot token', {
+  mutation:filledNumerator.mutation,
+  expression:filledNumerator.expression,
+}, {
+  mutation:{
+    inserted:[0x31],record_id:9,before_byte_offset:0,
+    after_byte_offset:1,replaced_empty_slot:true,
+    routine:'34:4775–47A4 → 34:4BB9–4C0D → 00:3699 → 06:4341–4388',
+  },
+  expression:{
+    kind:'fraction',
+    numerator:{kind:'sequence',parts:[
+      [0x31],{kind:'editorCursor',record_id:9,byte_offset:1,
+        record_word0F:0,record_word11:2},
+    ]},
+    denominator:{kind:'extendedToken',tokens:[0xef,0x1e]},
+    editor_record_byte13:0xef,
+  },
+});
+const filledNumeratorProgram = rom.constructEditorExpressionProgram(
+  filledNumerator.expression,7,font);
+expectEqual('filled numerator retains the active leaf and pre-gap header words',
+  canonicalEditorRecord(filledNumeratorProgram.nodes.find(
+    node => node.record_id === 9)), {
+    record_id:9,render_type:0,word03:8,word05:5,word07:9,word09:2,
+    word0B:2,word0D:0,word0F:0,word11:2,byte13:0x31,
+    child_ids:[],payload:[0x31],
+  });
+expectThrows('ordinary insertion rejects multiple packed tokens', RangeError,
+  () => rom.editorInsertPackedToken(
+    emptyNumerator.editor.expression,[0x31,0x32]));
+expectThrows('ordinary insertion rejects structural markers', RangeError,
+  () => rom.editorInsertPackedToken(emptyNumerator.editor.expression,
+    [0xef,0x20,8,0,0xef,0x2d]));
 
 const settledGlyphAdvance = (depth, code) => {
   if (depth === 0) return 6;

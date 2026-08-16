@@ -3132,6 +3132,11 @@
     try {
       const kind = input.kind ||
         (Object.prototype.hasOwnProperty.call(input, 'base') ? 'power' : null);
+      const editorRecordState = editor &&
+        input.editor_record_byte13 !== undefined ? {
+          editor_record_byte13:byte(
+            input.editor_record_byte13,`${label} retained record +13h byte`),
+        } : {};
       if (kind === 'tokens')
         return settledExpressionSpec(input.tokens, label, active, editor);
       if (editor && kind === 'extendedToken')
@@ -3181,7 +3186,7 @@
       }
       if (kind === 'power') {
         return {
-          kind,
+          kind,...editorRecordState,
           base:settledExpressionSpec(
             input.base, `${label} power base`, active, editor),
           exponent:settledExpressionSpec(
@@ -3189,17 +3194,17 @@
         };
       }
       if (kind === 'absolute') return {
-        kind,
+        kind,...editorRecordState,
         body:settledExpressionSpec(
           input.body, `${label} absolute body`, active, editor),
       };
       if (kind === 'ePower' || kind === 'tenPower') return {
-        kind,
+        kind,...editorRecordState,
         exponent:settledExpressionSpec(
           input.exponent, `${label} exponent`, active, editor),
       };
       if (kind === 'logBase') return {
-        kind,
+        kind,...editorRecordState,
         base:settledExpressionSpec(input.base, `${label} base`, active, editor),
         argument:settledExpressionSpec(
           input.argument, `${label} argument`, active, editor),
@@ -3214,33 +3219,33 @@
             input.elements.length !== input.rows * input.columns)
           throw new RangeError(`${label} matrix requires rows*columns elements`);
         return {
-          kind, rows:input.rows, columns:input.columns,
+          kind,...editorRecordState, rows:input.rows, columns:input.columns,
           elements:input.elements.map((element, index) =>
             settledExpressionSpec(
               element, `${label} element ${index}`, active, editor)),
         };
       }
       if (kind === 'radical') return {
-        kind,
+        kind,...editorRecordState,
         radicand:settledExpressionSpec(
           input.radicand, `${label} radicand`, active, editor),
       };
       if (kind === 'nthRoot') return {
-        kind,
+        kind,...editorRecordState,
         index:settledExpressionSpec(
           input.index, `${label} index`, active, editor),
         radicand:settledExpressionSpec(
           input.radicand, `${label} radicand`, active, editor),
       };
       if (kind === 'fraction') return {
-        kind,
+        kind,...editorRecordState,
         numerator:settledExpressionSpec(
           input.numerator, `${label} numerator`, active, editor),
         denominator:settledExpressionSpec(
           input.denominator, `${label} denominator`, active, editor),
       };
       if (kind === 'integral') return {
-        kind,
+        kind,...editorRecordState,
         lower:settledExpressionSpec(
           input.lower, `${label} lower bound`, active, editor),
         upper:settledExpressionSpec(
@@ -3250,7 +3255,7 @@
           input.variable, `${label} variable`, active, editor),
       };
       if (kind === 'nDeriv') return {
-        kind,
+        kind,...editorRecordState,
         variable:settledExpressionSpec(
           input.variable, `${label} variable`, active, editor),
         body:settledExpressionSpec(input.body, `${label} body`, active, editor),
@@ -3258,7 +3263,7 @@
           input.value, `${label} evaluation value`, active, editor),
       };
       if (kind === 'summation') return {
-        kind,
+        kind,...editorRecordState,
         variable:settledExpressionSpec(
           input.variable, `${label} variable`, active, editor),
         lower:settledExpressionSpec(
@@ -4781,6 +4786,10 @@
       const type = nodeType(node);
       activeStructural.add(recordId);
       try {
+        const withEditorRecordState = expression =>
+          editorCursorState && Number.isInteger(node.byte13) ? {
+            ...expression,editor_record_byte13:node.byte13,
+          } : expression;
         if (type === 0x1f) {
           const ids = children(node, 1);
           return leaf(ids[0]);
@@ -4792,7 +4801,9 @@
             throw new RangeError(
               `settled matrix record 0x${recordId.toString(16)} has zero dimensions`);
           const ids = children(node, rows * columns);
-          return {kind:'matrix',rows,columns,elements:ids.map(leaf)};
+          return withEditorRecordState({
+            kind:'matrix',rows,columns,elements:ids.map(leaf),
+          });
         }
         const count = {
           0x20:2, 0x21:1, 0x22:4, 0x23:3, 0x24:2,
@@ -4804,19 +4815,41 @@
             'has no translated expression decoder');
         const ids = children(node, count);
         switch (type) {
-        case 0x20: return {kind:'fraction',numerator:leaf(ids[0]),denominator:leaf(ids[1])};
-        case 0x21: return {kind:'absolute',body:leaf(ids[0])};
-        case 0x22: return {kind:'integral',lower:leaf(ids[0]),upper:leaf(ids[1]),
-          body:leaf(ids[2]),variable:leaf(ids[3])};
-        case 0x23: return {kind:'nDeriv',variable:leaf(ids[0]),body:leaf(ids[1]),value:leaf(ids[2])};
-        case 0x24: return {kind:'nthRoot',index:leaf(ids[0]),radicand:leaf(ids[1])};
-        case 0x25: return {kind:'ePower',exponent:leaf(ids[0])};
-        case 0x26: return {kind:'tenPower',exponent:leaf(ids[0])};
-        case 0x27: return {kind:'radical',radicand:leaf(ids[0])};
-        case 0x28: return {kind:'logBase',base:leaf(ids[0]),argument:leaf(ids[1])};
-        case 0x29: return {kind:'summation',variable:leaf(ids[0]),lower:leaf(ids[1]),
-          upper:leaf(ids[2]),body:leaf(ids[3])};
-        case 0x2a: return {kind:'powerExponent',exponent:leaf(ids[0])};
+        case 0x20: return withEditorRecordState({
+          kind:'fraction',numerator:leaf(ids[0]),denominator:leaf(ids[1]),
+        });
+        case 0x21: return withEditorRecordState({
+          kind:'absolute',body:leaf(ids[0]),
+        });
+        case 0x22: return withEditorRecordState({
+          kind:'integral',lower:leaf(ids[0]),upper:leaf(ids[1]),
+          body:leaf(ids[2]),variable:leaf(ids[3]),
+        });
+        case 0x23: return withEditorRecordState({
+          kind:'nDeriv',variable:leaf(ids[0]),body:leaf(ids[1]),value:leaf(ids[2]),
+        });
+        case 0x24: return withEditorRecordState({
+          kind:'nthRoot',index:leaf(ids[0]),radicand:leaf(ids[1]),
+        });
+        case 0x25: return withEditorRecordState({
+          kind:'ePower',exponent:leaf(ids[0]),
+        });
+        case 0x26: return withEditorRecordState({
+          kind:'tenPower',exponent:leaf(ids[0]),
+        });
+        case 0x27: return withEditorRecordState({
+          kind:'radical',radicand:leaf(ids[0]),
+        });
+        case 0x28: return withEditorRecordState({
+          kind:'logBase',base:leaf(ids[0]),argument:leaf(ids[1]),
+        });
+        case 0x29: return withEditorRecordState({
+          kind:'summation',variable:leaf(ids[0]),lower:leaf(ids[1]),
+          upper:leaf(ids[2]),body:leaf(ids[3]),
+        });
+        case 0x2a: return withEditorRecordState({
+          kind:'powerExponent',exponent:leaf(ids[0]),
+        });
         default: throw new Error('unreachable settled structural decoder case');
         }
       } finally {
@@ -5083,8 +5116,13 @@
                   `settled power ID 0x${embeddedId.toString(16)} in leaf ` +
                   `0x${recordId.toString(16)} has no preceding base; payload ` +
                   payload.map(value => value.toString(16).padStart(2,'0')).join(' '));
-              candidate.value = {kind:'power',base:candidate.value,
-                exponent:embedded.exponent};
+              candidate.value = {
+                kind:'power',base:candidate.value,
+                exponent:embedded.exponent,
+                ...(embedded.editor_record_byte13 === undefined ? {} : {
+                  editor_record_byte13:embedded.editor_record_byte13,
+                }),
+              };
             } else appendAtom(embedded);
             index += 4;
             continue;
@@ -5182,6 +5220,142 @@
       boundaries.push(index);
     }
     return boundaries;
+  }
+
+  // Ordinary MathPrint key insertion reaches 34:4BB9 after key-to-token
+  // conversion. Its non-structural path calls the page-6 gap-buffer writer:
+  // it stores the packed native token at editCursor and advances editCursor by
+  // one or two bytes. EF 1Eh is the editable empty-slot token; inserting at a
+  // cursor immediately before it replaces the slot instead of retaining both.
+  function editorInsertPackedToken(input, tokenInput) {
+    const inserted = Array.from(tokenInput || [], (value, index) =>
+      byte(value, `editor inserted token byte ${index}`));
+    const boundaries = editorPayloadCursorBoundaries(inserted);
+    if (boundaries.length !== 2 || boundaries[1] !== inserted.length)
+      throw new RangeError('editor insertion requires one packed native token');
+    if (inserted.length === 6 && inserted[0] === 0xef &&
+        0x1f <= inserted[1] && inserted[1] <= 0x2b)
+      throw new RangeError(
+        'editor structural markers require the structural insertion path');
+
+    const cursorCount = value => {
+      if (!value || typeof value !== 'object') return 0;
+      if (value.kind === 'editorCursor') return 1;
+      if (Array.isArray(value) || value instanceof Uint8Array)
+        return Array.from(value).reduce(
+          (count, item) => count + cursorCount(item),0);
+      return Object.values(value).reduce(
+        (count, item) => count + cursorCount(item),0);
+    };
+    const count = cursorCount(input);
+    if (count !== 1)
+      throw new RangeError(
+        `editor insertion requires one cursor, found ${count}`);
+
+    const tokenBytes = value => {
+      if (Array.isArray(value) || value instanceof Uint8Array)
+        return Array.from(value);
+      if (value && (value.kind === 'tokens' ||
+                    value.kind === 'extendedToken') &&
+          (Array.isArray(value.tokens) || value.tokens instanceof Uint8Array))
+        return Array.from(value.tokens);
+      return null;
+    };
+    const appendToken = value => {
+      const bytes = tokenBytes(value);
+      if (!bytes) return null;
+      if (Array.isArray(value) || value instanceof Uint8Array)
+        return [...bytes,...inserted];
+      return {...value,tokens:[...bytes,...inserted]};
+    };
+    const stripLeadingEmptySlot = value => {
+      const bytes = tokenBytes(value);
+      if (bytes && bytes[0] === 0xef && bytes[1] === 0x1e) {
+        const rest = bytes.slice(2);
+        if (!rest.length) return {value:null,replaced:true};
+        if (Array.isArray(value) || value instanceof Uint8Array)
+          return {value:rest,replaced:true};
+        return {value:{...value,tokens:rest},replaced:true};
+      }
+      if (value && value.kind === 'sequence' &&
+          Array.isArray(value.parts) && value.parts.length) {
+        const stripped = stripLeadingEmptySlot(value.parts[0]);
+        if (!stripped.replaced) return {value,replaced:false};
+        const parts = stripped.value === null
+          ? value.parts.slice(1) : [stripped.value,...value.parts.slice(1)];
+        return {
+          value:parts.length ? {...value,parts} : null,
+          replaced:true,
+        };
+      }
+      return {value,replaced:false};
+    };
+
+    let mutation = null;
+    const updatedCursor = cursor => {
+      const before = cursor.byte_offset;
+      const after = before === undefined ? undefined : before + inserted.length;
+      mutation = {
+        inserted:inserted.slice(),
+        record_id:cursor.record_id,
+        before_byte_offset:before,
+        after_byte_offset:after,
+        replaced_empty_slot:false,
+        routine:'34:4775–47A4 → 34:4BB9–4C0D → 00:3699 → 06:4341–4388',
+      };
+      return {
+        ...cursor,
+        ...(after === undefined ? {} : {byte_offset:after}),
+      };
+    };
+    const visit = value => {
+      if (!value || typeof value !== 'object') return value;
+      if (value.kind === 'editorCursor')
+        return {kind:'sequence',parts:[inserted.slice(),updatedCursor(value)]};
+      if (Array.isArray(value) || value instanceof Uint8Array) return value;
+      if (value.kind === 'sequence' && Array.isArray(value.parts)) {
+        const direct = value.parts.findIndex(
+          part => part && part.kind === 'editorCursor');
+        if (direct >= 0) {
+          const parts = value.parts.slice();
+          const cursor = updatedCursor(parts[direct]);
+          const appended = direct > 0 ? appendToken(parts[direct - 1]) : null;
+          if (appended) {
+            parts[direct - 1] = appended;
+            parts[direct] = cursor;
+          } else {
+            parts.splice(direct,0,inserted.slice());
+            parts[direct + 1] = cursor;
+          }
+          const cursorIndex = appended ? direct : direct + 1;
+          if (cursorIndex + 1 < parts.length) {
+            const stripped = stripLeadingEmptySlot(parts[cursorIndex + 1]);
+            if (stripped.replaced) {
+              mutation.replaced_empty_slot = true;
+              if (stripped.value === null) parts.splice(cursorIndex + 1,1);
+              else parts[cursorIndex + 1] = stripped.value;
+            }
+          }
+          return {...value,parts};
+        }
+      }
+      const result = {};
+      for (const [key,child] of Object.entries(value)) {
+        if (Array.isArray(child) && child.every(item =>
+          Number.isInteger(item))) {
+          result[key] = child.slice();
+        } else if (Array.isArray(child)) {
+          result[key] = child.map(visit);
+        } else {
+          result[key] = visit(child);
+        }
+      }
+      return result;
+    };
+    const expression = visit(input);
+    if (!mutation)
+      throw new RangeError('editor insertion could not locate the cursor');
+    return {expression,mutation};
   }
 
   function editorCursorIdentityPath(value, target, path = [], seen = new Set()) {
@@ -5488,6 +5662,7 @@
       return selected.length ? selected[0] : children.length;
     };
     const nodes = [];
+    const retainedStructuralByte13 = new Set();
     // A type-2Ah record is allocated after its base has been prepared, but the
     // base's trailing structural record is updated only after the exponent
     // metrics establish the power baseline. Keep that construction-only
@@ -5503,6 +5678,13 @@
       if (!Number.isInteger(value) || value < 0 || value > 0xffff)
         throw new RangeError(`${label} must fit an unsigned word`);
       return value;
+    };
+    const editorRecordByte13 = (expression, fallback, recordId) => {
+      if (!editorMode || expression.editor_record_byte13 === undefined)
+        return fallback;
+      retainedStructuralByte13.add(recordId);
+      return byte(expression.editor_record_byte13,
+        `${expression.kind} retained record +13h byte`);
     };
     const embedded = (renderType, recordId) =>
       [0xef, renderType, recordId & 0xff, recordId >> 8, 0xef, 0x2d];
@@ -5786,7 +5968,8 @@
           word05:settledRecordMetadata(renderType)[1],
           word07:0, word09:0, word0B:0, word0D:0, word0F:0,
           word11:structuralDepth + 1,
-          byte13:fractionNumerator ? 0x10 : 0,
+          byte13:editorRecordByte13(
+            expression,fractionNumerator ? 0x10 : 0,structuralId),
           child_ids:[], payload:[],
         };
         nodes.push(structural);
@@ -5818,7 +6001,8 @@
           word05:settledRecordMetadata(renderType)[1],
           word07:0, word09:0, word0B:0, word0D:0, word0F:0,
           word11:structuralDepth + 1,
-          byte13:fractionNumerator ? 0x10 : 0,
+          byte13:editorRecordByte13(
+            expression,fractionNumerator ? 0x10 : 0,structuralId),
           child_ids:[], payload:[],
         };
         nodes.push(structural);
@@ -5847,7 +6031,8 @@
           word05:settledRecordMetadata(renderType)[1],
           word07:0, word09:0, word0B:0, word0D:0, word0F:0,
           word11:structuralDepth + 1,
-          byte13:fractionNumerator ? 0x10 : 0,
+          byte13:editorRecordByte13(
+            expression,fractionNumerator ? 0x10 : 0,structuralId),
           child_ids:[], payload:[],
         };
         nodes.push(structural);
@@ -5889,7 +6074,8 @@
             expression,[expression.base,expression.argument],metadata[2]),
           word07:0, word09:0, word0B:0, word0D:0, word0F:0,
           word11:structuralDepth + 1,
-          byte13:fractionNumerator ? 0x10 : 0,
+          byte13:editorRecordByte13(
+            expression,fractionNumerator ? 0x10 : 0,structuralId),
           child_ids:[], payload:[],
         };
         nodes.push(structural);
@@ -5948,7 +6134,8 @@
             expression.rows * expression.columns),
           word07:0, word09:0, word0B:0, word0D:0, word0F:0,
           word11:(expression.columns << 8) | (structuralDepth + 1),
-          byte13:expression.rows,
+          byte13:editorRecordByte13(
+            expression,expression.rows,structuralId),
           child_ids:[], payload:[],
         };
         nodes.push(structural);
@@ -6020,7 +6207,8 @@
           word05:settledRecordMetadata(renderType)[1],
           word07:0, word09:0, word0B:0, word0D:0, word0F:0,
           word11:structuralDepth + 1,
-          byte13:fractionNumerator ? 0x10 : 0,
+          byte13:editorRecordByte13(
+            expression,fractionNumerator ? 0x10 : 0,structuralId),
           child_ids:[], payload:[],
         };
         nodes.push(structural);
@@ -6049,8 +6237,10 @@
             settledRecordMetadata(renderType)[2]),
           word07:0, word09:0, word0B:0, word0D:0,
           word0F:0, word11:structuralDepth + 1,
-          byte13:fractionNumerator ? 0x10
-            : structuralDepth === 0 ? leadingByte(expression.index) : 0,
+          byte13:editorRecordByte13(expression,
+            fractionNumerator ? 0x10
+              : structuralDepth === 0 ? leadingByte(expression.index) : 0,
+            structuralId),
           child_ids:[], payload:[],
         };
         nodes.push(structural);
@@ -6085,8 +6275,10 @@
             settledRecordMetadata(renderType)[0]),
           word07:0, word09:0, word0B:0, word0D:0, word0F:0,
           word11:structuralDepth + 1,
-          byte13:fractionNumerator ? 0x10
-            : structuralDepth === 0 ? numeratorPrepared.fractionByte13 : 0,
+          byte13:editorRecordByte13(expression,
+            fractionNumerator ? 0x10
+              : structuralDepth === 0 ? numeratorPrepared.fractionByte13 : 0,
+            structuralId),
           child_ids:[], payload:[],
         };
         nodes.push(structural);
@@ -6129,7 +6321,8 @@
           ],settledRecordMetadata(renderType)[4]),
           word07:0, word09:0, word0B:0, word0D:0, word0F:0,
           word11:structuralDepth + 1,
-          byte13:fractionNumerator ? 0x10 : 0xef,
+          byte13:editorRecordByte13(
+            expression,fractionNumerator ? 0x10 : 0xef,structuralId),
           child_ids:[], payload:[],
         };
         nodes.push(structural);
@@ -6203,7 +6396,8 @@
           ],settledRecordMetadata(renderType)[3]),
           word07:0, word09:0, word0B:0, word0D:0, word0F:0,
           word11:structuralDepth + 1,
-          byte13:fractionNumerator ? 0x10 : 0xef,
+          byte13:editorRecordByte13(
+            expression,fractionNumerator ? 0x10 : 0xef,structuralId),
           child_ids:[], payload:[],
         };
         nodes.push(structural);
@@ -6275,7 +6469,8 @@
           ],3),
           word07:0, word09:0, word0B:0, word0D:0, word0F:0,
           word11:structuralDepth + 1,
-          byte13:fractionNumerator ? 0x10 : 0xef,
+          byte13:editorRecordByte13(
+            expression,fractionNumerator ? 0x10 : 0xef,structuralId),
           child_ids:[], payload:[],
         };
         nodes.push(structural);
@@ -6360,6 +6555,7 @@
     const root = build(spec, 0, firstId - 1, 0);
     for (const node of nodes)
       if (node.render_type >= 0x1f &&
+          !retainedStructuralByte13.has(node.record_id) &&
           (node.byte13 === 0 || node.byte13 === undefined))
         node.byte13 = root.payload[0];
     const nodeMap = new Map(nodes.map(node => [node.record_id,node]));
@@ -7362,6 +7558,7 @@
     settledExpressionFromTokens,
     decodeSettledExpressionGraph,
     editorPayloadCursorBoundaries,
+    editorInsertPackedToken,
     decodeEditorExpressionGraph,
     decodeMathPrintEditorRam,
     constructSettledProgramFromTokens,

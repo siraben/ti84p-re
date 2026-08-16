@@ -1,0 +1,21 @@
+# Capture adjacent live states while replacing an empty fraction numerator.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key ALPHA
+key YEQU
+wait 0.8s
+key 1
+wait 0.8s
+wait 0.6s
+memdump /tmp/mathprint-editor-fraction-insert-pre.ram ram-logical
+screenshot /tmp/mathprint-editor-fraction-insert-pre.png
+key 2
+wait 0.6s
+memdump /tmp/mathprint-editor-fraction-insert-post.ram ram-logical
+screenshot /tmp/mathprint-editor-fraction-insert-post.png

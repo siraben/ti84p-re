@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "transitions": [
+    {
+      "name": "root_append_2",
+      "macro": "tools/macros/mathprint-editor-root-insert.macro",
+      "macro_sha256": "745bd6acbb1d9087d15d63513400d3932e78a8744900797550cb34fbb4eab2f7",
+      "inserted_token": [50],
+      "replaced_empty_slot": false,
+      "trace": {
+        "key_down_instruction": 1750989,
+        "token_route_instruction": 1755227,
+        "gap_write_instruction": 1755459,
+        "cursor_write_instruction": 1755461,
+        "routine": "34:4775–47A4 → 34:4BB9–4C0D → 00:3699 → 06:4341–4388"
+      },
+      "pre": {
+        "source_ram_sha256": "e740c15527619b9c594802cde006e51c0a86b0f156d80058433494ac4422f615",
+        "screenshot_sha256": "1d794e47806f3c0a57fccbe0c26e368949cc318bfc70ee682f89d39a1a899cfd",
+        "lcd_bitmap_sha256": "0e48965fb37697e4ef2e4c98f017d2c719b6a1a7486a105a2715052a55e85f14",
+        "sparse_state_sha256": "c6e48cc13e0b1ab72d8f977582737639e6709abd40d442d86f154a51746d4d8e",
+        "segments": [
+          {"address": 35313, "bytes": "04"},
+          {"address": 36271, "bytes": "b79d45fc06001f000700000100cd9de09db79dcd9d"},
+          {"address": 38644, "bytes": "e09de19d45fc45fc"},
+          {"address": 40375, "bytes": "06001f0000010007000c000300000000000000000700070000060007000c000300000000000000000031"}
+        ]
+      },
+      "post": {
+        "source_ram_sha256": "155bc68a575d3b4f4d24f7a3c9d8c14f6892b50a376c6bb5ef258e9facfc70d9",
+        "screenshot_sha256": "46c639e3469955a2c5791df1d9add27082e2a8f9545f2986c5ec4d470dcf18f9",
+        "lcd_bitmap_sha256": "ff63b46a887e90f3af093d41368ebfe15c2a87767cff1d0bb150f925bb40f6e1",
+        "sparse_state_sha256": "e21d1c071737d5cdbfb36cbb1eb1f5b1eb6f94b60f0650e4f87b38e9ab3e113c",
+        "segments": [
+          {"address": 35313, "bytes": "04"},
+          {"address": 36271, "bytes": "b79d45fc06001f000700000100cd9de09db79dcd9d"},
+          {"address": 38644, "bytes": "e09de29d45fc45fc"},
+          {"address": 40375, "bytes": "06001f00000100070012000300000000000000000700070000060007001200030000000000000000003132"}
+        ]
+      }
+    },
+    {
+      "name": "fraction_numerator_replace_empty_slot",
+      "macro": "tools/macros/mathprint-editor-fraction-insert.macro",
+      "macro_sha256": "ab91d806f2ee3a3c1bcb0dad37d9d3c12150f357f86e9fd0de96c2d4921ae760",
+      "inserted_token": [50],
+      "replaced_empty_slot": true,
+      "trace": {
+        "shared_route_witness": "root_append_2",
+        "routine": "34:4775–47A4 → 34:4BB9–4C0D → 00:3699 → 06:4341–4388"
+      },
+      "pre": {
+        "source_ram_sha256": "c37059412bab8ffdfaf905f23bb49051fc0c948ba68268c937fbb05b66116b6b",
+        "screenshot_sha256": "d6a7605bc697b229236472aa7455aa83159ef690808c7a8244d61528ba29fc93",
+        "lcd_bitmap_sha256": "450e82a31ced68ed319a1c2e8d18d3e2d3813f097de8be9dc2a89d48289cc4c9",
+        "sparse_state_sha256": "bcabb3961e1f37fe21b4e66c8bbfffb9a3812a162324e85273fdeed0beccc019",
+        "segments": [
+          {"address": 35313, "bytes": "04"},
+          {"address": 36271, "bytes": "b79d45fc080020010900000200e59d289ecd9dfe9d"},
+          {"address": 38644, "bytes": "119e119e2efc30fc"},
+          {"address": 40375, "bytes": "06001f000001000d000a000600000000000000000700080020070001000d000a000600000000000100ef09000a0007000006000d000a0006000000000000000600ef200800ef2d09000008000500060002000200000000000200ef"},
+          {"address": 64558, "bytes": "ef1e0a000008000500060002000200080000000200ef1e"}
+        ]
+      },
+      "post": {
+        "source_ram_sha256": "50525ce8edf6077658378a0d25f3001ee393f90615d692760dde6b2eef2c99c0",
+        "screenshot_sha256": "8f40f7586c134a34b4c6e7c09075880e744ac40cdd1ae274990b9919fb9c4f87",
+        "lcd_bitmap_sha256": "b2a7c53c2dad3423b382baab090bcf45c625a1d281e630116974f727f9419099",
+        "sparse_state_sha256": "3d6247e90bb53fc56dabb6ccf29d2ad11874f55853f79e9715ce1d000f95a566",
+        "segments": [
+          {"address": 35313, "bytes": "04"},
+          {"address": 36271, "bytes": "b79d45fc080020010900000200e59d289ecd9dfe9d"},
+          {"address": 38644, "bytes": "119e129e30fc30fc"},
+          {"address": 40375, "bytes": "06001f000001000d000d000600000000000000000700080020070001000d000d000600000000000100ef09000a0007000006000d000d0006000000000000000600ef200800ef2d0900000800050009000200020000000000020032"},
+          {"address": 64558, "bytes": "ef1e0a000008000500060002000300080000000200ef1e"}
+        ]
+      }
+    }
+  ]
+}
