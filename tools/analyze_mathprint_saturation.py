@@ -340,12 +340,17 @@ TRANSLATION_SURFACES = (
     },
     {
         "name": "settled record graph and leaf program",
-        "rom": ["34:6105", "34:660A", "34:6CCD"],
-        "javascript": ["executeSettledRecordGraph", "executeSettledRecordProgram"],
+        "rom": ["34:6105", "34:6143–61BD", "34:660A", "34:6CCD"],
+        "javascript": [
+            "settledSharedMarkerPrimitive",
+            "executeSettledRecordGraph",
+            "executeSettledRecordProgram",
+        ],
         "tests": ["tools/test-mathprint.js", "tools/mathprint-*-oracles.json"],
         "scope": (
-            "types 20h–2Bh translated with oracles; the type-1Fh table ABI "
-            "is fixed, but lacks a captured record oracle"
+            "types 20h–2Bh translated with oracles; all 14 projected paths "
+            "through the shared type-1Fh/editor-marker helper are translated, "
+            "while the fixed type-1Fh table ABI lacks a captured record oracle"
         ),
     },
     {

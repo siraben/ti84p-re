@@ -1283,6 +1283,20 @@ bitmap. No retained natural trace combines `0x8DE7=0x1F` with `34:6105` →
 `34:6143`, so the latter remains a decoded table ABI without a natural record
 dispatch. [confirmed]
 
+`settledSharedMarkerPrimitive()` translates every conditional at
+`34:6143–61BD`. Its finite test enumerates all 256 values of `A`, both states
+of `(IY+44h).3`, and all 65,536 values of `0x8520` when `A=0x2B`. Values of
+`0x8520` are irrelevant for other `A` values. The resulting 33,554,432-state
+projection has 14 path classes and 26 branch outcomes. [confirmed]
+
+For the type-`0x2B` matrix marker, a nonzero high byte at `0x8521` or a low
+byte at or above the active bound emits display code `0x7C` and sets
+`(IY+32h).2`. The bound is six when `(IY+44h).3` is clear and eight when it is
+set. A smaller low byte emits `0xC1` when that flag is set. When it is clear,
+the helper emits the five-row bitmap at `34:61C7` and clears `(IY-1).0`.
+Retained natural traces do not yet exercise the four matrix-only conditionals
+at `34:6178`–`34:618E`. [confirmed]
+
 Page `39` layout control remains incomplete. Its class and handler tables, argument
 order, row composition, descriptor mapping, and draw paths are decoded. The
 browser-side ROM engine now translates the `39:4A74` token/action dispatch and
