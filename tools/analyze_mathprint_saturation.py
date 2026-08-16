@@ -2788,7 +2788,11 @@ def table_report(rom: RomImage, oracle: dict[str, object]) -> dict[str, object]:
                 "geometry_handler": f"34:{geometry[index]:04X}",
                 "oracle_records": count,
                 "javascript_status": (
-                    "fixed_table_abi_without_record_oracle" if render_type == 0x1F
+                    (
+                        "translated_transient_root_with_record_oracle_and_"
+                        "fixed_table_abi_without_direct_oracle"
+                    ) if render_type == 0x1F and count
+                    else "fixed_table_abi_without_record_oracle" if render_type == 0x1F
                     else "translated_with_record_oracle" if count
                     else "translated_without_record_oracle"
                 ),
@@ -3549,11 +3553,13 @@ def open_paths(
     )
     return [
         {
-            "area": "render type 1Fh record oracle",
+            "area": "render type 1Fh table-dispatch oracle",
             "status": "open",
             "reason": (
-                "the 34:6119 table entry fixes A=43h and therefore the 61BEh "
-                "bitmap path, but no retained record oracle dispatches a type-1Fh node"
+                "a natural RAM and LCD oracle captures the transparent one-child "
+                "34:4FD9 wrapper and its direct 34:636C continuation; the separate "
+                "34:6119 table entry fixes A=43h and reaches the 61BEh bitmap, but no "
+                "natural record dispatch uses that ABI"
             ),
         },
         {
@@ -3617,7 +3623,11 @@ def open_paths(
         },
         {
             "area": "structural table oracle domain",
-            "status": "closed_except_1Fh" if missing_types == ["0x1F"] else "open",
+            "status": (
+                "closed" if not missing_types
+                else "closed_except_1Fh" if missing_types == ["0x1F"]
+                else "open"
+            ),
             "reason": f"record types without captured node oracles: {', '.join(missing_types) or 'none'}",
         },
         {

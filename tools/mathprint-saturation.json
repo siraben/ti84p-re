@@ -57,7 +57,7 @@
     },
     "unresolved_direct_control_transfers": 0,
     "external_direct_targets": 236,
-    "structural_types_with_oracles": 12,
+    "structural_types_with_oracles": 13,
     "structural_type_domain": 13,
     "symbolic_path_equivalence_classes": 1314,
     "symbolic_distinct_branch_outcomes": 181,
@@ -373,8 +373,8 @@
         "render_handler": "34:6143",
         "metric_handler": "34:73B9",
         "geometry_handler": "34:764A",
-        "oracle_records": 0,
-        "javascript_status": "fixed_table_abi_without_record_oracle"
+        "oracle_records": 1,
+        "javascript_status": "translated_transient_root_with_record_oracle_and_fixed_table_abi_without_direct_oracle"
       },
       {
         "render_type": "0x20",
@@ -533,7 +533,7 @@
         "render_handler": "34:62A1",
         "metric_handler": "34:7436",
         "geometry_handler": "34:76A4",
-        "oracle_records": 23,
+        "oracle_records": 24,
         "javascript_status": "translated_with_record_oracle"
       },
       {
@@ -593,7 +593,7 @@
         "render_handler": "34:6375",
         "metric_handler": "34:7455",
         "geometry_handler": "34:7647",
-        "oracle_records": 42,
+        "oracle_records": 43,
         "javascript_status": "translated_with_record_oracle"
       },
       {
@@ -140470,6 +140470,16 @@
         }
       },
       {
+        "path": "tools/mathprint-live-editor-oracles.json",
+        "cases": 1,
+        "record_types": {
+          "0x00": 3,
+          "0x1F": 1,
+          "0x27": 1,
+          "0x2A": 1
+        }
+      },
+      {
         "path": "tools/mathprint-matrix-oracles.json",
         "cases": 5,
         "record_types": {
@@ -140518,11 +140528,12 @@
         }
       }
     ],
-    "cases": 109,
-    "unique_expressions": 109,
+    "cases": 110,
+    "unique_expressions": 110,
     "record_types": {
-      "0x00": 430,
+      "0x00": 433,
       "0x01": 47,
+      "0x1F": 1,
       "0x20": 28,
       "0x21": 11,
       "0x22": 16,
@@ -140530,10 +140541,10 @@
       "0x24": 9,
       "0x25": 5,
       "0x26": 1,
-      "0x27": 23,
+      "0x27": 24,
       "0x28": 9,
       "0x29": 15,
-      "0x2A": 42,
+      "0x2A": 43,
       "0x2B": 5
     }
   },
@@ -143932,11 +143943,13 @@
       {
         "label": "mp_matrix_probes__matrix_structural_2x2_valid2",
         "provenance": "natural_calculator_input",
-        "total_features": 425,
-        "exclusive_features": 2,
+        "total_features": 430,
+        "exclusive_features": 4,
         "exclusive_feature_ids": [
           "dispatch_input:34:5935:DE=0x0007",
-          "dispatch_input:34:5935:DE=0x003A"
+          "dispatch_input:34:5935:DE=0x003A",
+          "oracle_case:mathprint-live-editor-oracles:cases:d208d9d884044fa2c3d8f407434db618e07594bbd78ade633bd85d3c2a70541a",
+          "record_oracle:type=0x1F"
         ]
       },
       {
@@ -144539,7 +144552,7 @@
       "tmp__mathprint_fraction",
       "tmp__mathprint_power"
     ],
-    "covered_features": 1247,
+    "covered_features": 1249,
     "feature_kind_counts": {
       "branch_outcome": 989,
       "dispatch_index": 33,
@@ -144548,8 +144561,8 @@
       "lcd_oracle": 14,
       "modeled_path": 12,
       "observed_path": 14,
-      "oracle_case": 106,
-      "record_oracle": 14
+      "oracle_case": 107,
+      "record_oracle": 15
     },
     "proven_minimum": true
   },
@@ -145229,11 +145242,13 @@
       {
         "label": "mp_matrix_probes__matrix_structural_2x2_valid2",
         "provenance": "natural_calculator_input",
-        "total_features": 425,
-        "exclusive_features": 2,
+        "total_features": 430,
+        "exclusive_features": 4,
         "exclusive_feature_ids": [
           "dispatch_input:34:5935:DE=0x0007",
-          "dispatch_input:34:5935:DE=0x003A"
+          "dispatch_input:34:5935:DE=0x003A",
+          "oracle_case:mathprint-live-editor-oracles:cases:d208d9d884044fa2c3d8f407434db618e07594bbd78ade633bd85d3c2a70541a",
+          "record_oracle:type=0x1F"
         ]
       },
       {
@@ -145836,7 +145851,7 @@
       "tmp__mathprint_fraction",
       "tmp__mathprint_power"
     ],
-    "covered_features": 1244,
+    "covered_features": 1246,
     "feature_kind_counts": {
       "branch_outcome": 986,
       "dispatch_index": 33,
@@ -145845,8 +145860,8 @@
       "lcd_oracle": 14,
       "modeled_path": 12,
       "observed_path": 14,
-      "oracle_case": 106,
-      "record_oracle": 14
+      "oracle_case": 107,
+      "record_oracle": 15
     },
     "proven_minimum": true
   },
@@ -211797,9 +211812,9 @@
   ],
   "open_paths": [
     {
-      "area": "render type 1Fh record oracle",
+      "area": "render type 1Fh table-dispatch oracle",
       "status": "open",
-      "reason": "the 34:6119 table entry fixes A=43h and therefore the 61BEh bitmap path, but no retained record oracle dispatches a type-1Fh node"
+      "reason": "a natural RAM and LCD oracle captures the transparent one-child 34:4FD9 wrapper and its direct 34:636C continuation; the separate 34:6119 table entry fixes A=43h and reaches the 61BEh bitmap, but no natural record dispatch uses that ABI"
     },
     {
       "area": "editor equation representation",
@@ -211838,8 +211853,8 @@
     },
     {
       "area": "structural table oracle domain",
-      "status": "closed_except_1Fh",
-      "reason": "record types without captured node oracles: 0x1F"
+      "status": "closed",
+      "reason": "record types without captured node oracles: none"
     },
     {
       "area": "editor branch outcomes",

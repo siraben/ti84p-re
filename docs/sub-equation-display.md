@@ -686,8 +686,8 @@ bytes, respectively.
 
 The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,247 tags and needs 125
-traces. The natural-only universe has 1,244 tags and needs 124 traces. Every
+independent oracle case. Its all-evidence universe has 1,249 tags and needs 125
+traces. The natural-only universe has 1,246 tags and needs 124 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The broad set remains the RE and
@@ -778,11 +778,13 @@ that each local path is feasible, but they do not prove calculator
 reachability. Those three `34:759C` injected-state probes are absent from both
 minimized corpora. [confirmed]
 
-The record-oracle corpus contains 109 captured cases. It includes types `0x20`
-through `0x2B`; the only missing structural type is `0x1F`. Each of those 12
-types has a decoded record node and accepted-write oracle. This saturates the
-ordinary 12-type structural table domain used by the translated constructor,
-but it does not saturate all internal branches of those handlers. [confirmed]
+The record-oracle corpus contains 110 captured cases and includes every type
+from `0x1F` through `0x2B`. Types `0x20`–`0x2B` have decoded record nodes and
+complete accepted-write oracles. The type-`0x1F` case is the transparent
+one-child wrapper described below: it has a captured node, child write stream,
+and pixel-exact entry screenshot, but it emits no primitive of its own. This
+saturates the 13-type record-node domain, not the internal branches of every
+handler. [confirmed]
 
 `34:6143` has two distinct entry ABIs. Render-table row 0 at `34:6119` contains
 the bytes `43 61`, the pointer `6143h`. `_LdHLind` at `00:0033` executes
@@ -805,16 +807,21 @@ $e^x$, $10^x$, log base, and summation add live paths for `A=0x21`, `0x25`,
 exceptional `0x2C` marker produced by the `EF36h` synthetic state. The default
 bitmap path handles it. [confirmed]
 
-Type `0x1F` remains open only as a captured record oracle. `34:4FD9` allocates
-it as a transient one-child root record. `34:6028` loads `A=0x1F`, and
-`34:602B` calls `34:7844` to store the current render type at `0x8DE7`. The
-following jump to `34:636C` renders child 1 without using the table at
-`34:6119`. No retained natural trace combines `0x8DE7=0x1F` with
-`34:6105` → `34:6143`. The JavaScript record walker implements the ROM-proven
-two entry ABIs: a childless type-`0x1F` node follows the table-dispatch row-0
-bitmap path, while a one-child node follows `34:636C` directly. It has no
-captured type-`0x1F` record/LCD oracle.
-[confirmed]
+`34:4FD9` allocates type `0x1F` as a transient one-child root record.
+`34:6028` loads `A=0x1F`, and `34:602B` calls `34:7844` to store the current
+render type at `0x8DE7`. The following jump to `34:636C` renders child 1 without
+using the table at `34:6119`. A natural matrix-entry capture contains wrapper
+ID `6` at `0x9DB7` and child leaf ID `7` at `0x9DF9`. Executing the captured
+graph through the JavaScript walker reproduces its 76-by-10-pixel entry image
+with zero differences. The wrapper contributes no pixel operation; all 175
+accepted writes come from its child program. [confirmed]
+
+The JavaScript record walker therefore keeps the two ROM-proven ABIs separate.
+A one-child type-`0x1F` node follows the natural `34:636C` continuation. A
+childless node models the independent `34:6119` table entry and its row-0
+bitmap. No retained natural trace combines `0x8DE7=0x1F` with `34:6105` →
+`34:6143`, so the latter remains a decoded table ABI without a natural record
+dispatch. [confirmed]
 
 Editor layout is also open. The page `39` class and handler tables, argument
 order, row composition, descriptor mapping, and draw paths are decoded. The
@@ -1181,8 +1188,8 @@ primitive and leaf operations. A settled expression enters this layer from a
 type-`0x00` leaf program at `34:660A`. The program executor consumes its payload
 in order and invokes embedded structural records against the same pen and depth
 state. Row 0 uses the bitmap bytes at `34:61BE`, as fixed by the table-load ABI;
-the missing type-`0x1F` record oracle remains separate from that byte-level
-translation. The `nDeriv(` handler renders child 1 again at `34:64B3`, then
+the captured type-`0x1F` wrapper instead uses the direct-child ABI above. The
+`nDeriv(` handler renders child 1 again at `34:64B3`, then
 places display code `0x3D` after that child's `+7` width. [confirmed]
 
 The trace analyzer recovers leaf records from the resolver path. At `34:6CCD`,
@@ -1213,6 +1220,18 @@ trace without using LCD pixels or a screenshot. It describes the settled graph
 consumed by `34:660A`. The browser-side ROM engine exposes the same decoder for
 its generated AST view as `settledAst`. The editor/parser representation before
 `34:4900` remains open. [confirmed]
+
+A live matrix entry demonstrates why leaf decoding cannot treat every payload
+as a flat token sequence. Before evaluation, wrapper ID `6` points to a leaf
+whose payload begins `06 06 EF 27 08 00 EF 2D`: the outer and first-row
+`06h` containers precede an embedded radical record. The next element contains
+an embedded type-`0x2A` power marker. The decoder balances `06h`/`07h` matrix,
+`08h`/`09h` list, and function/group delimiters, splits only on depth-zero
+`2Bh` or row-closing `07h`, and resolves structural markers inside each cell.
+It recovers `[[sqrt(2),X^2][3,4]]` as a 2-by-2 matrix AST from the captured RAM.
+This raw-container representation is distinct from the evaluated type-`0x2B`
+matrix record, although both decode to the same semantic matrix shape.
+[confirmed]
 
 Within that program, `EF type id_lo id_hi` invokes the structural record with
 the given little-endian ID. `EF 2D` terminates or separates the embedded object
