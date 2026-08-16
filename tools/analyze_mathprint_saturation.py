@@ -263,8 +263,8 @@ TRANSLATION_SURFACES = (
         "tests": ["tools/test-mathprint.js", "tools/mathprint-*-oracles.json"],
         "scope": (
             "supported native expression grammar plus one- and two-byte ordinary "
-            "editor insertion, fraction insertion at every root cursor class, one "
-            "populated nested-numerator leaf-end fraction insertion, in-leaf packed-token "
+            "editor insertion, fraction insertion at every root cursor class, blank and "
+            "populated leaf-end nested-numerator fraction insertion, in-leaf packed-token "
             "navigation, and packed-token deletion; other nested positions, structural types, "
             "structural deletion, and boundary navigation remain open"
         ),
@@ -293,8 +293,8 @@ TRANSLATION_SURFACES = (
         "scope": (
             "complete captured arenas, active-leaf substitution, nested cursor paths, "
             "cursor-aware record reconstruction, ordinary packed-token insertion, fraction "
-            "insertion at every root cursor class, one populated nested-numerator "
-            "leaf-end fraction insertion, in-leaf packed-token navigation, and packed-token "
+            "insertion at every root cursor class, blank and populated leaf-end "
+            "nested-numerator fraction insertion, in-leaf packed-token navigation, and packed-token "
             "deletion with empty-slot restoration; other nested positions, structural types, "
             "structural deletion, and boundary navigation remain open"
         ),
@@ -3996,7 +3996,7 @@ def open_paths(
                 "the live 34:4A83/4ACE arena and 34:4AAF gap substitution round-trip "
                 "through cursor-annotated ASTs and reconstructed records; ordinary "
                 "one- and two-byte insertion, fraction insertion at every root cursor class, "
-                "one populated nested-numerator leaf-end fraction insertion, "
+                "blank and populated leaf-end nested-numerator fraction insertion, "
                 "in-leaf packed-token navigation, and packed-token deletion with empty-slot "
                 "restoration are translated, but other nested positions, structural types, "
                 "structural deletion, and boundary navigation are not"
