@@ -59,9 +59,9 @@
     "external_direct_targets": 236,
     "structural_types_with_oracles": 13,
     "structural_type_domain": 13,
-    "symbolic_path_equivalence_classes": 1345,
-    "symbolic_distinct_branch_outcomes": 228,
-    "symbolic_per_domain_minimum_representatives": 117,
+    "symbolic_path_equivalence_classes": 1360,
+    "symbolic_distinct_branch_outcomes": 252,
+    "symbolic_per_domain_minimum_representatives": 128,
     "globally_saturated": false
   },
   "tables": {
@@ -8682,16 +8682,16 @@
     }
   },
   "symbolic_model_corpus": {
-    "scope": "all projected inputs and complete path equivalence classes in the 26 declared finite symbolic models",
+    "scope": "all projected inputs and complete path equivalence classes in the 27 declared finite symbolic models",
     "not_claimed": [
       "all Z80 register and RAM states",
       "calculator reachability of every representative",
       "all paths outside the declared finite models"
     ],
-    "path_equivalence_class_count": 1345,
-    "representative_path_corpus_count": 1345,
-    "distinct_modeled_branch_outcomes": 228,
-    "per_domain_minimum_branch_outcome_corpus_count": 117,
+    "path_equivalence_class_count": 1360,
+    "representative_path_corpus_count": 1360,
+    "distinct_modeled_branch_outcomes": 252,
+    "per_domain_minimum_branch_outcome_corpus_count": 128,
     "domains": [
       {
         "name": "structural_scan_kind_dispatch",
@@ -71996,6 +71996,524 @@
             "34:61A5:taken",
             "34:61AB:fallthrough",
             "34:61AB:taken"
+          ],
+          "algorithm": "exact outcome-subset dynamic programming; minimum cases, then serialized input bytes, then class order",
+          "proven_minimum": true
+        }
+      },
+      {
+        "name": "settled_render_nesting_tail",
+        "routine": "34:61CE\u20136209; 34:79C9",
+        "projected_input_domain": 16777216,
+        "path_equivalence_class_count": 15,
+        "path_equivalence_classes": [
+          {
+            "class_index": 0,
+            "terminal": "decrement",
+            "projected_input_count": 64768,
+            "representative_state": {
+              "render_type": 34,
+              "child_index": 3,
+              "nesting_counter": 0
+            },
+            "branch_outcomes": [
+              "34:61D0:fallthrough",
+              "34:61D5:fallthrough"
+            ]
+          },
+          {
+            "class_index": 1,
+            "terminal": "decrement",
+            "projected_input_count": 65280,
+            "representative_state": {
+              "render_type": 36,
+              "child_index": 0,
+              "nesting_counter": 0
+            },
+            "branch_outcomes": [
+              "34:61D0:taken",
+              "34:61DA:fallthrough",
+              "34:61DE:fallthrough",
+              "34:61E2:fallthrough",
+              "34:61E6:fallthrough",
+              "34:61EA:fallthrough",
+              "34:61EF:fallthrough"
+            ]
+          },
+          {
+            "class_index": 2,
+            "terminal": "decrement",
+            "projected_input_count": 256,
+            "representative_state": {
+              "render_type": 35,
+              "child_index": 2,
+              "nesting_counter": 0
+            },
+            "branch_outcomes": [
+              "34:61D0:taken",
+              "34:61DA:fallthrough",
+              "34:61DE:fallthrough",
+              "34:61E2:fallthrough",
+              "34:61E6:fallthrough",
+              "34:61EA:taken",
+              "34:61F4:fallthrough",
+              "34:61F9:fallthrough",
+              "34:6205:fallthrough"
+            ]
+          },
+          {
+            "class_index": 3,
+            "terminal": "decrement",
+            "projected_input_count": 256,
+            "representative_state": {
+              "render_type": 41,
+              "child_index": 4,
+              "nesting_counter": 0
+            },
+            "branch_outcomes": [
+              "34:61D0:taken",
+              "34:61DA:fallthrough",
+              "34:61DE:fallthrough",
+              "34:61E2:fallthrough",
+              "34:61E6:fallthrough",
+              "34:61EA:taken",
+              "34:61F4:taken",
+              "34:6200:fallthrough",
+              "34:6205:fallthrough"
+            ]
+          },
+          {
+            "class_index": 4,
+            "terminal": "decrement",
+            "projected_input_count": 65280,
+            "representative_state": {
+              "render_type": 40,
+              "child_index": 0,
+              "nesting_counter": 0
+            },
+            "branch_outcomes": [
+              "34:61D0:taken",
+              "34:61DA:fallthrough",
+              "34:61DE:fallthrough",
+              "34:61E2:fallthrough",
+              "34:61E6:taken",
+              "34:61EF:fallthrough"
+            ]
+          },
+          {
+            "class_index": 5,
+            "terminal": "decrement",
+            "projected_input_count": 65536,
+            "representative_state": {
+              "render_type": 43,
+              "child_index": 0,
+              "nesting_counter": 0
+            },
+            "branch_outcomes": [
+              "34:61D0:taken",
+              "34:61DA:fallthrough",
+              "34:61DE:fallthrough",
+              "34:61E2:taken"
+            ]
+          },
+          {
+            "class_index": 6,
+            "terminal": "decrement",
+            "projected_input_count": 65536,
+            "representative_state": {
+              "render_type": 33,
+              "child_index": 0,
+              "nesting_counter": 0
+            },
+            "branch_outcomes": [
+              "34:61D0:taken",
+              "34:61DA:fallthrough",
+              "34:61DE:taken"
+            ]
+          },
+          {
+            "class_index": 7,
+            "terminal": "decrement",
+            "projected_input_count": 65536,
+            "representative_state": {
+              "render_type": 39,
+              "child_index": 0,
+              "nesting_counter": 0
+            },
+            "branch_outcomes": [
+              "34:61D0:taken",
+              "34:61DA:taken"
+            ]
+          },
+          {
+            "class_index": 8,
+            "terminal": "preserve_derivative_other_child",
+            "projected_input_count": 65024,
+            "representative_state": {
+              "render_type": 35,
+              "child_index": 0,
+              "nesting_counter": 0
+            },
+            "branch_outcomes": [
+              "34:61D0:taken",
+              "34:61DA:fallthrough",
+              "34:61DE:fallthrough",
+              "34:61E2:fallthrough",
+              "34:61E6:fallthrough",
+              "34:61EA:taken",
+              "34:61F4:fallthrough",
+              "34:61F9:fallthrough",
+              "34:6205:returned"
+            ]
+          },
+          {
+            "class_index": 9,
+            "terminal": "preserve_derivative_other_child",
+            "projected_input_count": 256,
+            "representative_state": {
+              "render_type": 35,
+              "child_index": 1,
+              "nesting_counter": 0
+            },
+            "branch_outcomes": [
+              "34:61D0:taken",
+              "34:61DA:fallthrough",
+              "34:61DE:fallthrough",
+              "34:61E2:fallthrough",
+              "34:61E6:fallthrough",
+              "34:61EA:taken",
+              "34:61F4:fallthrough",
+              "34:61F9:returned"
+            ]
+          },
+          {
+            "class_index": 10,
+            "terminal": "preserve_integral_leading_child",
+            "projected_input_count": 768,
+            "representative_state": {
+              "render_type": 34,
+              "child_index": 0,
+              "nesting_counter": 0
+            },
+            "branch_outcomes": [
+              "34:61D0:fallthrough",
+              "34:61D5:returned"
+            ]
+          },
+          {
+            "class_index": 11,
+            "terminal": "preserve_other_type",
+            "projected_input_count": 16252928,
+            "representative_state": {
+              "render_type": 0,
+              "child_index": 0,
+              "nesting_counter": 0
+            },
+            "branch_outcomes": [
+              "34:61D0:taken",
+              "34:61DA:fallthrough",
+              "34:61DE:fallthrough",
+              "34:61E2:fallthrough",
+              "34:61E6:fallthrough",
+              "34:61EA:taken",
+              "34:61F4:taken",
+              "34:6200:taken"
+            ]
+          },
+          {
+            "class_index": 12,
+            "terminal": "preserve_shared_first_child",
+            "projected_input_count": 256,
+            "representative_state": {
+              "render_type": 36,
+              "child_index": 1,
+              "nesting_counter": 0
+            },
+            "branch_outcomes": [
+              "34:61D0:taken",
+              "34:61DA:fallthrough",
+              "34:61DE:fallthrough",
+              "34:61E2:fallthrough",
+              "34:61E6:fallthrough",
+              "34:61EA:fallthrough",
+              "34:61EF:returned"
+            ]
+          },
+          {
+            "class_index": 13,
+            "terminal": "preserve_shared_first_child",
+            "projected_input_count": 256,
+            "representative_state": {
+              "render_type": 40,
+              "child_index": 1,
+              "nesting_counter": 0
+            },
+            "branch_outcomes": [
+              "34:61D0:taken",
+              "34:61DA:fallthrough",
+              "34:61DE:fallthrough",
+              "34:61E2:fallthrough",
+              "34:61E6:taken",
+              "34:61EF:returned"
+            ]
+          },
+          {
+            "class_index": 14,
+            "terminal": "preserve_summation_other_child",
+            "projected_input_count": 65280,
+            "representative_state": {
+              "render_type": 41,
+              "child_index": 0,
+              "nesting_counter": 0
+            },
+            "branch_outcomes": [
+              "34:61D0:taken",
+              "34:61DA:fallthrough",
+              "34:61DE:fallthrough",
+              "34:61E2:fallthrough",
+              "34:61E6:fallthrough",
+              "34:61EA:taken",
+              "34:61F4:taken",
+              "34:6200:fallthrough",
+              "34:6205:returned"
+            ]
+          }
+        ],
+        "branch_outcome_count": 24,
+        "minimum_branch_outcome_corpus": {
+          "class_indices": [
+            0,
+            1,
+            2,
+            5,
+            6,
+            7,
+            9,
+            10,
+            11,
+            13,
+            14
+          ],
+          "selected_classes": [
+            {
+              "class_index": 0,
+              "terminal": "decrement",
+              "projected_input_count": 64768,
+              "representative_state": {
+                "render_type": 34,
+                "child_index": 3,
+                "nesting_counter": 0
+              },
+              "branch_outcomes": [
+                "34:61D0:fallthrough",
+                "34:61D5:fallthrough"
+              ]
+            },
+            {
+              "class_index": 1,
+              "terminal": "decrement",
+              "projected_input_count": 65280,
+              "representative_state": {
+                "render_type": 36,
+                "child_index": 0,
+                "nesting_counter": 0
+              },
+              "branch_outcomes": [
+                "34:61D0:taken",
+                "34:61DA:fallthrough",
+                "34:61DE:fallthrough",
+                "34:61E2:fallthrough",
+                "34:61E6:fallthrough",
+                "34:61EA:fallthrough",
+                "34:61EF:fallthrough"
+              ]
+            },
+            {
+              "class_index": 2,
+              "terminal": "decrement",
+              "projected_input_count": 256,
+              "representative_state": {
+                "render_type": 35,
+                "child_index": 2,
+                "nesting_counter": 0
+              },
+              "branch_outcomes": [
+                "34:61D0:taken",
+                "34:61DA:fallthrough",
+                "34:61DE:fallthrough",
+                "34:61E2:fallthrough",
+                "34:61E6:fallthrough",
+                "34:61EA:taken",
+                "34:61F4:fallthrough",
+                "34:61F9:fallthrough",
+                "34:6205:fallthrough"
+              ]
+            },
+            {
+              "class_index": 5,
+              "terminal": "decrement",
+              "projected_input_count": 65536,
+              "representative_state": {
+                "render_type": 43,
+                "child_index": 0,
+                "nesting_counter": 0
+              },
+              "branch_outcomes": [
+                "34:61D0:taken",
+                "34:61DA:fallthrough",
+                "34:61DE:fallthrough",
+                "34:61E2:taken"
+              ]
+            },
+            {
+              "class_index": 6,
+              "terminal": "decrement",
+              "projected_input_count": 65536,
+              "representative_state": {
+                "render_type": 33,
+                "child_index": 0,
+                "nesting_counter": 0
+              },
+              "branch_outcomes": [
+                "34:61D0:taken",
+                "34:61DA:fallthrough",
+                "34:61DE:taken"
+              ]
+            },
+            {
+              "class_index": 7,
+              "terminal": "decrement",
+              "projected_input_count": 65536,
+              "representative_state": {
+                "render_type": 39,
+                "child_index": 0,
+                "nesting_counter": 0
+              },
+              "branch_outcomes": [
+                "34:61D0:taken",
+                "34:61DA:taken"
+              ]
+            },
+            {
+              "class_index": 9,
+              "terminal": "preserve_derivative_other_child",
+              "projected_input_count": 256,
+              "representative_state": {
+                "render_type": 35,
+                "child_index": 1,
+                "nesting_counter": 0
+              },
+              "branch_outcomes": [
+                "34:61D0:taken",
+                "34:61DA:fallthrough",
+                "34:61DE:fallthrough",
+                "34:61E2:fallthrough",
+                "34:61E6:fallthrough",
+                "34:61EA:taken",
+                "34:61F4:fallthrough",
+                "34:61F9:returned"
+              ]
+            },
+            {
+              "class_index": 10,
+              "terminal": "preserve_integral_leading_child",
+              "projected_input_count": 768,
+              "representative_state": {
+                "render_type": 34,
+                "child_index": 0,
+                "nesting_counter": 0
+              },
+              "branch_outcomes": [
+                "34:61D0:fallthrough",
+                "34:61D5:returned"
+              ]
+            },
+            {
+              "class_index": 11,
+              "terminal": "preserve_other_type",
+              "projected_input_count": 16252928,
+              "representative_state": {
+                "render_type": 0,
+                "child_index": 0,
+                "nesting_counter": 0
+              },
+              "branch_outcomes": [
+                "34:61D0:taken",
+                "34:61DA:fallthrough",
+                "34:61DE:fallthrough",
+                "34:61E2:fallthrough",
+                "34:61E6:fallthrough",
+                "34:61EA:taken",
+                "34:61F4:taken",
+                "34:6200:taken"
+              ]
+            },
+            {
+              "class_index": 13,
+              "terminal": "preserve_shared_first_child",
+              "projected_input_count": 256,
+              "representative_state": {
+                "render_type": 40,
+                "child_index": 1,
+                "nesting_counter": 0
+              },
+              "branch_outcomes": [
+                "34:61D0:taken",
+                "34:61DA:fallthrough",
+                "34:61DE:fallthrough",
+                "34:61E2:fallthrough",
+                "34:61E6:taken",
+                "34:61EF:returned"
+              ]
+            },
+            {
+              "class_index": 14,
+              "terminal": "preserve_summation_other_child",
+              "projected_input_count": 65280,
+              "representative_state": {
+                "render_type": 41,
+                "child_index": 0,
+                "nesting_counter": 0
+              },
+              "branch_outcomes": [
+                "34:61D0:taken",
+                "34:61DA:fallthrough",
+                "34:61DE:fallthrough",
+                "34:61E2:fallthrough",
+                "34:61E6:fallthrough",
+                "34:61EA:taken",
+                "34:61F4:taken",
+                "34:6200:fallthrough",
+                "34:6205:returned"
+              ]
+            }
+          ],
+          "selected_case_count": 11,
+          "covered_outcomes": [
+            "34:61D0:fallthrough",
+            "34:61D0:taken",
+            "34:61D5:fallthrough",
+            "34:61D5:returned",
+            "34:61DA:fallthrough",
+            "34:61DA:taken",
+            "34:61DE:fallthrough",
+            "34:61DE:taken",
+            "34:61E2:fallthrough",
+            "34:61E2:taken",
+            "34:61E6:fallthrough",
+            "34:61E6:taken",
+            "34:61EA:fallthrough",
+            "34:61EA:taken",
+            "34:61EF:fallthrough",
+            "34:61EF:returned",
+            "34:61F4:fallthrough",
+            "34:61F4:taken",
+            "34:61F9:fallthrough",
+            "34:61F9:returned",
+            "34:6200:fallthrough",
+            "34:6200:taken",
+            "34:6205:fallthrough",
+            "34:6205:returned"
           ],
           "algorithm": "exact outcome-subset dynamic programming; minimum cases, then serialized input bytes, then class order",
           "proven_minimum": true
@@ -136719,6 +137237,479 @@
         }
       ],
       "dynamic_record_oracle": false
+    },
+    "settled_render_nesting_tail": {
+      "routine": "34:61CE\u20136209; 34:79C9",
+      "state": [
+        "incoming A record type",
+        "one-based child selector E",
+        "nesting counter byte at 0x8515"
+      ],
+      "projected_input_domain": 16777216,
+      "terminal_classes": [
+        {
+          "terminal": "decrement",
+          "decremented": true,
+          "counter_transition": "(counter - 1) & 0xFF",
+          "branch_outcomes": [
+            "34:61D0:fallthrough",
+            "34:61D5:fallthrough"
+          ],
+          "projected_input_count": 64768,
+          "representative_states": [
+            {
+              "render_type": 34,
+              "child_index": 3,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 34,
+              "child_index": 4,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 34,
+              "child_index": 5,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 34,
+              "child_index": 6,
+              "nesting_counter": 0
+            }
+          ]
+        },
+        {
+          "terminal": "decrement",
+          "decremented": true,
+          "counter_transition": "(counter - 1) & 0xFF",
+          "branch_outcomes": [
+            "34:61D0:taken",
+            "34:61DA:fallthrough",
+            "34:61DE:fallthrough",
+            "34:61E2:fallthrough",
+            "34:61E6:fallthrough",
+            "34:61EA:fallthrough",
+            "34:61EF:fallthrough"
+          ],
+          "projected_input_count": 65280,
+          "representative_states": [
+            {
+              "render_type": 36,
+              "child_index": 0,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 36,
+              "child_index": 2,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 36,
+              "child_index": 3,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 36,
+              "child_index": 4,
+              "nesting_counter": 0
+            }
+          ]
+        },
+        {
+          "terminal": "decrement",
+          "decremented": true,
+          "counter_transition": "(counter - 1) & 0xFF",
+          "branch_outcomes": [
+            "34:61D0:taken",
+            "34:61DA:fallthrough",
+            "34:61DE:fallthrough",
+            "34:61E2:fallthrough",
+            "34:61E6:fallthrough",
+            "34:61EA:taken",
+            "34:61F4:fallthrough",
+            "34:61F9:fallthrough",
+            "34:6205:fallthrough"
+          ],
+          "projected_input_count": 256,
+          "representative_states": [
+            {
+              "render_type": 35,
+              "child_index": 2,
+              "nesting_counter": 0
+            }
+          ]
+        },
+        {
+          "terminal": "decrement",
+          "decremented": true,
+          "counter_transition": "(counter - 1) & 0xFF",
+          "branch_outcomes": [
+            "34:61D0:taken",
+            "34:61DA:fallthrough",
+            "34:61DE:fallthrough",
+            "34:61E2:fallthrough",
+            "34:61E6:fallthrough",
+            "34:61EA:taken",
+            "34:61F4:taken",
+            "34:6200:fallthrough",
+            "34:6205:fallthrough"
+          ],
+          "projected_input_count": 256,
+          "representative_states": [
+            {
+              "render_type": 41,
+              "child_index": 4,
+              "nesting_counter": 0
+            }
+          ]
+        },
+        {
+          "terminal": "decrement",
+          "decremented": true,
+          "counter_transition": "(counter - 1) & 0xFF",
+          "branch_outcomes": [
+            "34:61D0:taken",
+            "34:61DA:fallthrough",
+            "34:61DE:fallthrough",
+            "34:61E2:fallthrough",
+            "34:61E6:taken",
+            "34:61EF:fallthrough"
+          ],
+          "projected_input_count": 65280,
+          "representative_states": [
+            {
+              "render_type": 40,
+              "child_index": 0,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 40,
+              "child_index": 2,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 40,
+              "child_index": 3,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 40,
+              "child_index": 4,
+              "nesting_counter": 0
+            }
+          ]
+        },
+        {
+          "terminal": "decrement",
+          "decremented": true,
+          "counter_transition": "(counter - 1) & 0xFF",
+          "branch_outcomes": [
+            "34:61D0:taken",
+            "34:61DA:fallthrough",
+            "34:61DE:fallthrough",
+            "34:61E2:taken"
+          ],
+          "projected_input_count": 65536,
+          "representative_states": [
+            {
+              "render_type": 43,
+              "child_index": 0,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 43,
+              "child_index": 1,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 43,
+              "child_index": 2,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 43,
+              "child_index": 3,
+              "nesting_counter": 0
+            }
+          ]
+        },
+        {
+          "terminal": "decrement",
+          "decremented": true,
+          "counter_transition": "(counter - 1) & 0xFF",
+          "branch_outcomes": [
+            "34:61D0:taken",
+            "34:61DA:fallthrough",
+            "34:61DE:taken"
+          ],
+          "projected_input_count": 65536,
+          "representative_states": [
+            {
+              "render_type": 33,
+              "child_index": 0,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 33,
+              "child_index": 1,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 33,
+              "child_index": 2,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 33,
+              "child_index": 3,
+              "nesting_counter": 0
+            }
+          ]
+        },
+        {
+          "terminal": "decrement",
+          "decremented": true,
+          "counter_transition": "(counter - 1) & 0xFF",
+          "branch_outcomes": [
+            "34:61D0:taken",
+            "34:61DA:taken"
+          ],
+          "projected_input_count": 65536,
+          "representative_states": [
+            {
+              "render_type": 39,
+              "child_index": 0,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 39,
+              "child_index": 1,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 39,
+              "child_index": 2,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 39,
+              "child_index": 3,
+              "nesting_counter": 0
+            }
+          ]
+        },
+        {
+          "terminal": "preserve_derivative_other_child",
+          "decremented": false,
+          "counter_transition": "counter",
+          "branch_outcomes": [
+            "34:61D0:taken",
+            "34:61DA:fallthrough",
+            "34:61DE:fallthrough",
+            "34:61E2:fallthrough",
+            "34:61E6:fallthrough",
+            "34:61EA:taken",
+            "34:61F4:fallthrough",
+            "34:61F9:fallthrough",
+            "34:6205:returned"
+          ],
+          "projected_input_count": 65024,
+          "representative_states": [
+            {
+              "render_type": 35,
+              "child_index": 0,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 35,
+              "child_index": 3,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 35,
+              "child_index": 4,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 35,
+              "child_index": 5,
+              "nesting_counter": 0
+            }
+          ]
+        },
+        {
+          "terminal": "preserve_derivative_other_child",
+          "decremented": false,
+          "counter_transition": "counter",
+          "branch_outcomes": [
+            "34:61D0:taken",
+            "34:61DA:fallthrough",
+            "34:61DE:fallthrough",
+            "34:61E2:fallthrough",
+            "34:61E6:fallthrough",
+            "34:61EA:taken",
+            "34:61F4:fallthrough",
+            "34:61F9:returned"
+          ],
+          "projected_input_count": 256,
+          "representative_states": [
+            {
+              "render_type": 35,
+              "child_index": 1,
+              "nesting_counter": 0
+            }
+          ]
+        },
+        {
+          "terminal": "preserve_integral_leading_child",
+          "decremented": false,
+          "counter_transition": "counter",
+          "branch_outcomes": [
+            "34:61D0:fallthrough",
+            "34:61D5:returned"
+          ],
+          "projected_input_count": 768,
+          "representative_states": [
+            {
+              "render_type": 34,
+              "child_index": 0,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 34,
+              "child_index": 1,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 34,
+              "child_index": 2,
+              "nesting_counter": 0
+            }
+          ]
+        },
+        {
+          "terminal": "preserve_other_type",
+          "decremented": false,
+          "counter_transition": "counter",
+          "branch_outcomes": [
+            "34:61D0:taken",
+            "34:61DA:fallthrough",
+            "34:61DE:fallthrough",
+            "34:61E2:fallthrough",
+            "34:61E6:fallthrough",
+            "34:61EA:taken",
+            "34:61F4:taken",
+            "34:6200:taken"
+          ],
+          "projected_input_count": 16252928,
+          "representative_states": [
+            {
+              "render_type": 0,
+              "child_index": 0,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 0,
+              "child_index": 1,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 0,
+              "child_index": 2,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 0,
+              "child_index": 3,
+              "nesting_counter": 0
+            }
+          ]
+        },
+        {
+          "terminal": "preserve_shared_first_child",
+          "decremented": false,
+          "counter_transition": "counter",
+          "branch_outcomes": [
+            "34:61D0:taken",
+            "34:61DA:fallthrough",
+            "34:61DE:fallthrough",
+            "34:61E2:fallthrough",
+            "34:61E6:fallthrough",
+            "34:61EA:fallthrough",
+            "34:61EF:returned"
+          ],
+          "projected_input_count": 256,
+          "representative_states": [
+            {
+              "render_type": 36,
+              "child_index": 1,
+              "nesting_counter": 0
+            }
+          ]
+        },
+        {
+          "terminal": "preserve_shared_first_child",
+          "decremented": false,
+          "counter_transition": "counter",
+          "branch_outcomes": [
+            "34:61D0:taken",
+            "34:61DA:fallthrough",
+            "34:61DE:fallthrough",
+            "34:61E2:fallthrough",
+            "34:61E6:taken",
+            "34:61EF:returned"
+          ],
+          "projected_input_count": 256,
+          "representative_states": [
+            {
+              "render_type": 40,
+              "child_index": 1,
+              "nesting_counter": 0
+            }
+          ]
+        },
+        {
+          "terminal": "preserve_summation_other_child",
+          "decremented": false,
+          "counter_transition": "counter",
+          "branch_outcomes": [
+            "34:61D0:taken",
+            "34:61DA:fallthrough",
+            "34:61DE:fallthrough",
+            "34:61E2:fallthrough",
+            "34:61E6:fallthrough",
+            "34:61EA:taken",
+            "34:61F4:taken",
+            "34:6200:fallthrough",
+            "34:6205:returned"
+          ],
+          "projected_input_count": 65280,
+          "representative_states": [
+            {
+              "render_type": 41,
+              "child_index": 0,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 41,
+              "child_index": 1,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 41,
+              "child_index": 2,
+              "nesting_counter": 0
+            },
+            {
+              "render_type": 41,
+              "child_index": 3,
+              "nesting_counter": 0
+            }
+          ]
+        }
+      ],
+      "scope": "complete byte domain; the counter affects only the preserved or wrapping-decremented result"
     },
     "metric_marker_tail_gate": {
       "routine": "34:759C",
@@ -216733,12 +217724,13 @@
       "name": "settled record graph and leaf program",
       "rom": [
         "34:6105",
-        "34:6143\u201361BD",
+        "34:6143\u20136209",
         "34:660A",
         "34:6CCD"
       ],
       "javascript": [
         "settledSharedMarkerPrimitive",
+        "settledRenderNestingTail",
         "executeSettledRecordGraph",
         "executeSettledRecordProgram"
       ],
@@ -216746,7 +217738,7 @@
         "tools/test-mathprint.js",
         "tools/mathprint-*-oracles.json"
       ],
-      "scope": "types 20h\u20132Bh translated with oracles; all 14 projected paths through the shared type-1Fh/editor-marker helper are translated, while the fixed type-1Fh table ABI lacks a captured record oracle"
+      "scope": "types 20h\u20132Bh translated with oracles; all 14 projected paths through the shared type-1Fh/editor-marker helper and every post-render nesting-tail type/child/counter state are translated, while the fixed type-1Fh table ABI lacks a captured record oracle"
     },
     {
       "name": "font, primitive, and LCD emission",
