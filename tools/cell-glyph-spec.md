@@ -93,6 +93,11 @@ b7 c9               or a ; ret              ; xx42: glyph = D  (carry clear)
 | `D, E=0x42`      | `D < 0x0A`           | `glyph = D`              → e.g. `0142`→1, `0942`→9 |
 | any other        | —                    | carry (handled elsewhere, usually a token name) |
 
+`settledPage39DirectGlyphSelection()` preserves the accumulator, carry flag,
+and all eight conditional sites through `39:4F43`. The handler-cell classifier
+uses that translation. A pinned-byte interpreter compares all 65,536 `D:E`
+inputs and reduces them to nine complete paths. [confirmed]
+
 The FC/FE codepoints `5`–`9` and `0`–`4` occupy consecutive font cells. In the
 ROM large font, `0x00`–`0x09` are small/subscript digit forms, and
 `0x05`–`0x09` are the alternate forms used by exponent layouts.
