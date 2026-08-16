@@ -1521,12 +1521,80 @@
     };
   }
 
+  // 34:6C5F–6C87 performs both glyph gates in logical word coordinates.
+  // The right comparison uses the glyph advance, not its set-pixel bounding
+  // box, and every addition wraps before the unsigned compare.
+  function settledGlyphViewportDecision(
+    logicalPen, advance, xClip, rightBound = 0x5f) {
+    for (const [value,label] of [
+      [logicalPen,'settled glyph logical pen'],
+      [advance,'settled glyph advance'],
+      [xClip,'settled glyph horizontal clip'],
+    ]) if (!Number.isInteger(value) || value < 0 || value > 0xffff)
+      throw new RangeError(`${label} must fit an unsigned word`);
+    byte(rightBound, 'settled glyph right bound');
+    if (logicalPen < xClip) return {
+      action:'skip-left',
+      logicalPen,
+      endpoint:null,
+      rightExclusive:null,
+      branchOutcomes:['34:6C69:taken'],
+    };
+    const endpoint = (logicalPen + advance) & 0xffff;
+    const rightExclusive = (xClip + rightBound + 1) & 0xffff;
+    const skipRight = rightExclusive < endpoint;
+    return {
+      action:skipRight ? 'skip-right' : 'draw',
+      logicalPen,
+      endpoint,
+      rightExclusive,
+      branchOutcomes:[
+        '34:6C69:fallthrough',
+        `34:6C7F:${skipRight ? 'fallthrough' : 'taken'}`,
+      ],
+    };
+  }
+
   const SETTLED_LEFT_OVERFLOW_ROWS = Object.freeze([
     0x00,0x02,0x06,0x0e,0x06,0x02,0x00,
   ]);
   const SETTLED_RIGHT_OVERFLOW_ROWS = Object.freeze([
     0x00,0x04,0x06,0x07,0x06,0x04,0x00,
   ]);
+
+  // ram:027B decrements indicCounter and returns until it reaches zero.
+  // 01:6BBA–6BFA then reloads 14h, rotates indicBusy right, and uses the
+  // rotated byte low-bit first to rewrite pixel 95 on LCD rows 0..7. The
+  // handler runs from the standard timer interrupt, so callers choose where
+  // its operation interleaves with a synchronous renderer stream.
+  function settledRunIndicatorTick(indicCounter, indicBusy) {
+    byte(indicCounter, 'run-indicator counter');
+    byte(indicBusy, 'run-indicator busy pattern');
+    const decremented = (indicCounter - 1) & 0xff;
+    if (decremented !== 0) return {
+      indicCounter:decremented,
+      indicBusy,
+      operation:null,
+      routine:'ram:027B–0283',
+    };
+    const rotated = (indicBusy >>> 1) | ((indicBusy & 1) << 7);
+    return {
+      indicCounter:0x14,
+      indicBusy:rotated,
+      operation:{
+        kind:'bitmap',
+        x:95,
+        y:0,
+        width:1,
+        height:8,
+        rows:Array.from({length:8}, (_, row) => (rotated >>> row) & 1),
+        retainUnchanged:true,
+        asynchronous:true,
+        routine:'ram:027B–0283 → 01:6BBA–6BFA',
+      },
+      routine:'ram:027B–0283 → 01:6BBA–6BFA',
+    };
+  }
 
   function translateSettledOperation(operation, dx, dy) {
     if (!operation || typeof operation !== 'object')
@@ -1546,7 +1614,8 @@
   // 34:5FF2 selects the left-overflow cue whenever ram:8E02 is nonzero.
   // 34:6031 centers the seven-row bitmap at 34:60B8 against the current
   // record height and sends it through 34:61B2 after the expression draw.
-  function settledEditorViewportOperations(operations, viewport, recordHeight) {
+  function settledEditorViewportOperations(
+    operations, viewport, recordHeight, options = {}) {
     if (!Array.isArray(operations))
       throw new TypeError('settled editor operations must be an array');
     if (!viewport || typeof viewport !== 'object' ||
@@ -1556,6 +1625,11 @@
       throw new TypeError('settled editor viewport state is invalid');
     if (!Number.isInteger(recordHeight) || recordHeight < 1 || recordHeight > 0xffff)
       throw new RangeError('settled editor record height must fit an unsigned word');
+    if (options === null || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('settled editor operation options must be an object');
+    const glyphAdvance = options.glyphAdvance;
+    if (glyphAdvance !== undefined && typeof glyphAdvance !== 'function')
+      throw new TypeError('settled editor glyph advance must be a function');
     const translated = [];
     for (const operation of operations) {
       const positioned = translateSettledOperation(
@@ -1566,6 +1640,21 @@
       if ((positioned.kind === 'glyph' || positioned.kind === 'glyph-run') &&
           positioned.x < 0)
         continue;
+      // 34:6C6B–6C7F adds the glyph advance to the logical pen, derives the
+      // one-past-right viewport coordinate, and skips the whole glyph when
+      // that endpoint is larger. Equality is accepted: a four-pixel advance
+      // from visible x=92 ends at 96 and can still occupy pixel 95.
+      if (positioned.kind === 'glyph' && glyphAdvance !== undefined) {
+        const advance = glyphAdvance(
+          positioned.depth === undefined ? 0 : positioned.depth,
+          positioned.code);
+        if (!Number.isInteger(advance) || advance < 0 || advance > 0xffff)
+          throw new RangeError('settled editor glyph advance must fit an unsigned word');
+        const logicalPen = (operation.x + viewport.xOrigin) & 0xffff;
+        if (settledGlyphViewportDecision(
+          logicalPen,advance,viewport.xClip,viewport.rightBound).action !== 'draw')
+          continue;
+      }
       translated.push(positioned);
     }
     if (viewport.xClip !== 0) translated.push({
@@ -5886,8 +5975,10 @@
     settledVerticalOperation,
     settledHorizontalOperation,
     settledEditorViewport,
+    settledGlyphViewportDecision,
     settledEditorViewportOperations,
     settledEditorRightCueOperation,
+    settledRunIndicatorTick,
     settledObjectHandler,
     settledStructuralTokenType,
     settledEf36SourcePath,

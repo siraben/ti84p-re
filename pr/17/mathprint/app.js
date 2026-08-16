@@ -1044,7 +1044,9 @@ function generateRecordProgram(program, options = {}) {
     }) : null;
   const operations = editorViewport
     ? ROM_ENGINE.settledEditorViewportOperations(
-      recordOperations, editorViewport, recordHeight)
+      recordOperations, editorViewport, recordHeight, {
+        glyphAdvance:(depth, code) => depth ? FONT.small.glyphs[code].w : 6,
+      })
     : recordOperations;
   const rendered = ROM_ENGINE.rasterizeSettledOperations(operations, FONT);
   const overflowRight = Math.max(0, recordWidth - rendered.width);

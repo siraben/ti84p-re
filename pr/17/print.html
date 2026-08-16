@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-12bbdc2f.js";
+            window.path_to_searchindex_js = "searchindex-4880a9a8.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14997,7 +14997,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 17 finite models. It also computes an
+complete path-equivalence class in 18 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -15017,6 +15017,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Editor action <code>0x04</code> controller</td><td style="text-align: right">131,072</td><td style="text-align: right">5</td><td style="text-align: right">5</td><td style="text-align: right">3</td></tr>
 <tr><td>Reverse argument-overflow cue</td><td style="text-align: right">65,536</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
 <tr><td>Editor horizontal viewport</td><td style="text-align: right">17,179,869,184</td><td style="text-align: right">8</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
+<tr><td>Glyph viewport gates</td><td style="text-align: right">30,064,771,072</td><td style="text-align: right">3</td><td style="text-align: right">4</td><td style="text-align: right">3</td></tr>
 <tr><td>Record-allocation capacity</td><td style="text-align: right">36,893,488,147,419,103,232</td><td style="text-align: right">6</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
 <tr><td>Saved-operand wrappers</td><td style="text-align: right">16</td><td style="text-align: right">12</td><td style="text-align: right">12</td><td style="text-align: right">8</td></tr>
 <tr><td>FindAlpha type normalization</td><td style="text-align: right">32</td><td style="text-align: right">31</td><td style="text-align: right">8</td><td style="text-align: right">4</td></tr>
@@ -15027,8 +15028,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 17 models contain 1,307 path classes and 173 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 88 representatives. Each
+<p>The 18 models contain 1,310 path classes and 177 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 91 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -15971,9 +15972,24 @@ supply comparison oracles, not constructor input. [confirmed]</p>
 evaluation value whose body contains a raised <code>logBASE(</code>. It proves the
 small-row type-<code>0x28</code> constants and the $B+4-b_e$ evaluation-value placement.
 The translated graph matches all 18 records and the final normalized
-88-by-19-pixel entry bitmap. The outer record-render interval contains 203
-accepted LCD writes; exact sequence parity for its editor viewport clears and
-right-overflow cue remains open. [confirmed]</p>
+88-by-19-pixel entry bitmap. The synchronous renderer contributes 195 accepted
+LCD writes. Their byte-column and row sequence matches the trace after removing
+an eight-write timer interrupt. [confirmed]</p>
+<p><code>34:6C6B</code> adds the four-pixel glyph advance to logical pen positions <code>87</code>,
+<code>91</code>, and <code>95</code>. <code>34:6C76</code> derives the one-past-right coordinate <code>96</code>.
+The compare at <code>34:6C7C</code> draws the first two glyphs because their endpoints are
+<code>91</code> and <code>95</code>; it skips the third glyph because its endpoint is <code>99</code>.
+The JavaScript applies the same whole-glyph gate. [confirmed]</p>
+<p>The interrupt reaches <code>run_indicator_tick</code> at <code>ram:027B</code> with
+<code>indicCounter=1</code> and <code>indicBusy=0x78</code>. <code>01:6BBA</code> reloads the counter to <code>0x14</code>,
+rotates the busy byte to <code>0x3C</code>, and rewrites pixel 95 across rows 0–7 as
+<code>0,0,1,1,1,1,0,0</code>. Inserting this translated operation after the captured 28th
+renderer operation reproduces all 203 accepted writes, including subsequent
+read-modify-write bytes, with SHA-256
+<code>1cd0a761fab7b948a1bd55cf47d627cdcab0c24620a2da0d3fe8204d1c3691a1</code>.
+The insertion point is timer phase, not expression-tree state. Generated
+expression timelines therefore keep this operation labeled as asynchronous UI
+state. [confirmed]</p>
 <p>Flat absolute-value bodies and expressions composed from ordinary token runs,
 the native <code>Ans</code>, <code>sin(</code>, <code>cos(</code>, <code>tan(</code>, <code>ln(</code>, and <code>log(</code> tokens,
 right-associated powers, $e^x$, $10^x$, <code>logBASE(</code>, radicals, nth roots,
@@ -16089,6 +16105,12 @@ suffix of a glyph that begins left of the viewport. The reset-origin expression
 three pixels left of the visible edge. Applying the whole-glyph skip, followed
 by the seven-row left-overflow cue, reproduces all 870 pixels of the cropped
 87×10 calculator frame. [confirmed]</p>
+<p>The right-edge gate uses the same logical glyph advance. <code>34:6C6B</code>–<code>34:6C71</code>
+adds the advance to the pen. <code>34:6C73</code>–<code>34:6C7A</code> derives the one-past-right
+viewport coordinate, and <code>34:6C7C</code> skips the glyph when its endpoint is larger.
+Equality draws the glyph, so an endpoint of <code>96</code> may occupy pixel 95. The
+translated viewport applies both whole-glyph gates before rasterization.
+[confirmed]</p>
 <p>The eight writes inserted at instruction index 56 come from
 <code>page_34:6CA8</code> → <code>ram:3CE1</code>. That call stack does not pass through <code>34:608F</code>, so
 the stream is separate from the right-side bitmap path and remains outside the
