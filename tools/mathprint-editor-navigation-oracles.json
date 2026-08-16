@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "macro": "tools/macros/mathprint-editor-root-navigation.macro",
+  "macro_sha256": "5b0d2cf52c9afbdb142801ad870c90f98e57f9382db7a45b6da1d700837db470",
+  "trace_sha256": "09f2eb7dd4fac060a1347171120ef238a9b659ef26072ab1db74969ab8d528b7",
+  "states": {
+    "end": {
+      "source_ram_sha256": "760e316301f7c5b7c734806c7d7464f11bda02e17e315f5ccad57442a2bd3932",
+      "screenshot_sha256": "46c639e3469955a2c5791df1d9add27082e2a8f9545f2986c5ec4d470dcf18f9",
+      "lcd_bitmap_sha256": "ff63b46a887e90f3af093d41368ebfe15c2a87767cff1d0bb150f925bb40f6e1",
+      "sparse_state_sha256": "e21d1c071737d5cdbfb36cbb1eb1f5b1eb6f94b60f0650e4f87b38e9ab3e113c",
+      "segments": [
+        {"address": 35313, "bytes": "04"},
+        {"address": 36271, "bytes": "b79d45fc06001f000700000100cd9de09db79dcd9d"},
+        {"address": 38644, "bytes": "e09de29d45fc45fc"},
+        {"address": 40375, "bytes": "06001f00000100070012000300000000000000000700070000060007001200030000000000000000003132"}
+      ]
+    },
+    "left": {
+      "source_ram_sha256": "08f28c1d8487bba7414062036285f2178ec8d989f7903e81e27fb89097499f49",
+      "screenshot_sha256": "46c639e3469955a2c5791df1d9add27082e2a8f9545f2986c5ec4d470dcf18f9",
+      "lcd_bitmap_sha256": "ff63b46a887e90f3af093d41368ebfe15c2a87767cff1d0bb150f925bb40f6e1",
+      "sparse_state_sha256": "7d2d18ab5127064562df38faaa521d1803bc4811c838271630c6f907d3cd11b9",
+      "segments": [
+        {"address": 35313, "bytes": "04"},
+        {"address": 36271, "bytes": "b79d45fc06001f000700000100cd9de09db79dcd9d"},
+        {"address": 38644, "bytes": "e09de19d44fc45fc"},
+        {"address": 40375, "bytes": "06001f0000010007000c000300000000000000000700070000060007000c000300000000000000000031"},
+        {"address": 64580, "bytes": "32"}
+      ]
+    },
+    "right": {
+      "source_ram_sha256": "7a5b4bfc04d755fb264aba220cdbc2e4256b8f83899a5dab2ce1d0e0ba6974d1",
+      "screenshot_sha256": "46c639e3469955a2c5791df1d9add27082e2a8f9545f2986c5ec4d470dcf18f9",
+      "lcd_bitmap_sha256": "ff63b46a887e90f3af093d41368ebfe15c2a87767cff1d0bb150f925bb40f6e1",
+      "sparse_state_sha256": "e21d1c071737d5cdbfb36cbb1eb1f5b1eb6f94b60f0650e4f87b38e9ab3e113c",
+      "segments": [
+        {"address": 35313, "bytes": "04"},
+        {"address": 36271, "bytes": "b79d45fc06001f000700000100cd9de09db79dcd9d"},
+        {"address": 38644, "bytes": "e09de29d45fc45fc"},
+        {"address": 40375, "bytes": "06001f00000100070012000300000000000000000700070000060007001200030000000000000000003132"}
+      ]
+    }
+  },
+  "transitions": [
+    {
+      "from": "end",
+      "to": "left",
+      "direction": "left",
+      "key_instruction": 1825473,
+      "gap_routine_instruction": 1829511,
+      "routine": "34:42B4 → 00:3B49 → 06:4294–42C7"
+    },
+    {
+      "from": "left",
+      "to": "right",
+      "direction": "right",
+      "key_instruction": 1930508,
+      "gap_routine_instruction": 1934399,
+      "routine": "34:4193 → 00:367B → 06:42C8–4301"
+    }
+  ]
+}
