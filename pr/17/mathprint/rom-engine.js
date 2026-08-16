@@ -5506,19 +5506,50 @@
                  Array.isArray(leaf.parts)) {
         const cursorIndex = leaf.parts.findIndex(
           part => part && part.kind === 'editorCursor');
-        if (cursorIndex <= 0)
+        if (cursorIndex < 0)
           throw new RangeError(
-            'populated fraction insertion requires payload left of the cursor');
+            'fraction insertion sequence has no direct cursor');
         originalCursor = leaf.parts[cursorIndex];
         const activeId = originalCursor.record_id;
         const active = input.nodes.find(node =>
           (node.record_id === undefined ? node.id : node.record_id) === activeId);
         if (!active || !Array.isArray(active.payload) || !active.payload.length ||
             !Number.isInteger(originalCursor.byte_offset) ||
-            originalCursor.byte_offset <= 0 ||
+            originalCursor.byte_offset < 0 ||
             originalCursor.byte_offset > active.payload.length)
           throw new RangeError(
             'populated fraction insertion requires a valid active payload split');
+        if (cursorIndex === 0) {
+          if (originalCursor.byte_offset !== 0)
+            throw new RangeError(
+              'leading fraction insertion requires cursor byte zero');
+          trailingParts = leaf.parts.slice(1).map(clone);
+          numerator = {
+            kind:'sequence',parts:[
+              {
+                kind:'editorCursor',record_id:numeratorId,byte_offset:0,
+                record_word0F:0,record_word11:2,
+                editor_leaf_record_id:numeratorId,
+              },
+              {kind:'extendedToken',tokens:[0xef,0x1e]},
+            ],editor_leaf_record_id:numeratorId,
+          };
+          denominator = {
+            kind:'extendedToken',tokens:[0xef,0x1e],
+            editor_leaf_record_id:denominatorId,
+          };
+          recordByte13 = 0xef;
+          afterRecordId = numeratorId;
+          const insertedFraction = {
+            kind:'fraction',numerator,denominator,
+            editor_record_id:structuralId,
+            editor_record_byte13:recordByte13,
+          };
+          return {
+            kind:'sequence',parts:[insertedFraction,...trailingParts],
+            editor_leaf_record_id:originalCursor.record_id,
+          };
+        }
         const left = leaf.parts.slice(0,cursorIndex).map(clone);
         trailingParts = leaf.parts.slice(cursorIndex + 1).map(clone);
         const content = left.length === 1 ? left[0] : {kind:'sequence',parts:left};
