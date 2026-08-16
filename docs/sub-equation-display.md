@@ -580,7 +580,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 28 finite models. It also computes an
+complete path-equivalence class in 32 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -596,6 +596,10 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Shared marker draw helper | 33,554,432 | 14 | 26 | 13 |
 | Settled render nesting tail | 16,777,216 | 15 | 24 | 11 |
 | Point mode and buffer routing | 2,048 | 28 | 22 | 5 |
+| Point style dispatch | 512 | 5 | 8 | 5 |
+| Point bounds | 33,554,432 | 7 | 14 | 7 |
+| Thick-point expansion | 4,294,967,296 | 8 | 14 | 8 |
+| Shaded-point expansion | 3,145,728 | 1,850 | 30 | 8 |
 | Metric marker-tail gate | 16 | 5 | 8 | 5 |
 | Editor action `0x03` controller | 131,072 | 11 | 9 | 4 |
 | Editor action `0x04` controller | 131,072 | 5 | 5 | 3 |
@@ -616,8 +620,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 | FindAlpha OP scratch transition | 33,554,432 | 2 | 5 | 2 |
 
-The 28 models contain 1,388 path classes and 274 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 133 representatives. Each
+The 32 models contain 3,258 path classes and 340 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 161 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -1674,6 +1678,38 @@ The point wrapper at `34:5E85` clips each object coordinate through `34:5DD1`
 and `34:5DEF`. Its closed tail at `34:5E98`–`34:5EA6` passes `B=x`,
 `C=63-y`, and `D=1` to `_PointOn` at `04:4155`. Dynamic samples include
 `(x,y)=(3,0)` → `BC=033Fh` and `(32,20)` → `BC=202Bh`. [confirmed]
+
+The hook-disabled `_IPoint` preprocessor at `04:4157` first tests
+`sGrFlags.g_style_active`. Retained MathPrint calls have this bit clear, so
+`04:4177` jumps directly to the coordinate path. That path adds the bytes at
+`ram:8DA1` and `ram:8DA2` to `B` and `C`, with byte wraparound, before checking
+the display bounds. `apiFlg4.fullScrnDraw` selects `04:4306`, which admits
+$x$ bytes below `ram:8DA4` and $y$ bytes below 64. Clearing the flag selects
+`04:42EC`, which decrements the width bound and also rejects row zero. Both
+flag states occur in retained MathPrint traces. [confirmed]
+
+The same translation covers the shared graph-style path rather than assuming
+that style state is always inactive. Style `1` at `04:4196` emits the current
+point and one to three neighboring attempts chosen from the unsigned
+current/previous coordinate relations. It stores the current `B:C` at
+`ram:9315` for the next call. Styles `2` and `3` enter `04:40AD`; the phase at
+`ram:9668`, step at `ram:966C`, style parity, and `(IY+1Eh).7` select an aligned
+ascending or descending point sweep. `04:6F84`–`04:6FAC` initializes the phase
+modulo four, while the graph update path keeps the step in `1`–`3`. Styles
+`0` and `4`–`FFh` emit only the original point. [confirmed]
+
+`settledPage4PointPipeline()` processes every accepted expanded point in ROM
+order through the existing LCD/`plotSScreen`/`appBackUpScreen` byte router.
+This ordering preserves repeated visits to one byte instead of evaluating the
+expanded points independently. A pinned-byte interpreter agrees with the
+JavaScript preprocessor across 169,443 states: every input coordinate under
+both bounds helpers, offset and width boundary cases, all thick-point relation
+classes, every style-dispatch byte, and valid shaded phase/step samples. The
+symbolic report separately partitions all 512 style-dispatch states, all
+33,554,432 effective-coordinate bounds states, all 4,294,967,296 thick-point
+coordinate relations, and all 3,145,728 graph-initialized shaded states at the
+64-row limit. Drawing-hook dispatch remains outside this translation.
+[confirmed]
 
 `04:42B5`–`04:42E3` converts the graph coordinate into the point mask, LCD
 commands, and buffer offset. It selects `80h >> (x & 7)`, uses `x >> 3`
