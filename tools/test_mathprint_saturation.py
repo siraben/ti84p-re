@@ -43,7 +43,11 @@ from analyze_mathprint_saturation import (
     oracle_coverage,
     oracle_trace_features,
     predicate_state,
+    point_bounds_path,
     point_mode_routing_path,
+    point_shaded_style_path,
+    point_style_dispatch_path,
+    point_thick_expansion_path,
     raised_classifier_caller_states,
     raised_extended_token_path,
     raised_name_loop_path,
@@ -82,6 +86,10 @@ from analyze_mathprint_saturation import (
     symbolic_render_nesting_tail_paths,
     symbolic_model_corpus,
     symbolic_point_mode_routing_paths,
+    symbolic_point_bounds_paths,
+    symbolic_point_shaded_style_paths,
+    symbolic_point_style_dispatch_paths,
+    symbolic_point_thick_expansion_paths,
     symbolic_raised_extended_token_paths,
     symbolic_raised_name_loop_paths,
     symbolic_scan_kind_paths,
@@ -288,13 +296,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(1388, report["path_equivalence_class_count"])
-        self.assertEqual(1388, report["representative_path_corpus_count"])
-        self.assertEqual(274, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(3258, report["path_equivalence_class_count"])
+        self.assertEqual(3258, report["representative_path_corpus_count"])
+        self.assertEqual(340, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            133, report["per_domain_minimum_branch_outcome_corpus_count"]
+            161, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(28, len(report["domains"]))
+        self.assertEqual(32, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -964,6 +972,80 @@ class SymbolicHandlerTests(unittest.TestCase):
             point_mode_routing_path(0x0D, 1, 2)["destinations"],
         )
 
+    def test_point_style_dispatch_partitions_every_style_byte(self) -> None:
+        paths = symbolic_point_style_dispatch_paths()
+
+        self.assertEqual(5, len(paths))
+        self.assertEqual(0x200, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(
+            "direct_point", point_style_dispatch_path(0, 1)["terminal"]
+        )
+        self.assertEqual(
+            "thick_expansion", point_style_dispatch_path(1, 1)["terminal"]
+        )
+        self.assertEqual(
+            "shaded_expansion", point_style_dispatch_path(1, 3)["terminal"]
+        )
+        self.assertEqual(
+            "direct_point", point_style_dispatch_path(1, 4)["terminal"]
+        )
+
+    def test_point_bounds_partitions_complete_byte_domain(self) -> None:
+        paths = symbolic_point_bounds_paths()
+
+        self.assertEqual(7, len(paths))
+        self.assertEqual(2 * 0x100**3, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(
+            "reject_first_row", point_bounds_path(0, 0, 0x60, 0)["terminal"]
+        )
+        self.assertEqual(
+            "reject_x", point_bounds_path(0x5F, 1, 0x60, 0)["terminal"]
+        )
+        self.assertEqual(
+            "accept", point_bounds_path(0x5F, 0, 0x60, 1)["terminal"]
+        )
+        self.assertEqual(
+            "reject_y", point_bounds_path(0, 0x40, 0x60, 1)["terminal"]
+        )
+
+    def test_thick_point_expansion_partitions_all_coordinate_relations(self) -> None:
+        paths = symbolic_point_thick_expansion_paths()
+
+        self.assertEqual(8, len(paths))
+        self.assertEqual(0x100**4, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(
+            2, point_thick_expansion_path(1, 1, 1, 1)["attempt_count"]
+        )
+        self.assertEqual(
+            4, point_thick_expansion_path(1, 0, 1, 1)["attempt_count"]
+        )
+        self.assertEqual(
+            "04:41D6:taken",
+            point_thick_expansion_path(0, 1, 1, 1)["branch_outcomes"][-1],
+        )
+
+    def test_shaded_point_style_partitions_valid_caller_domain(self) -> None:
+        paths = symbolic_point_shaded_style_paths()
+
+        self.assertEqual(2 * 4 * 2 * 3 * 0x100**2, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(
+            "phase_alignment_return",
+            point_shaded_style_path(2, 0, 0, 1, 0, 1)["terminal"],
+        )
+        aligned = point_shaded_style_path(2, 0, 0, 1, 1, 1)
+        self.assertEqual(63, aligned["emission_count"])
+        self.assertEqual("sweep_limit_return", aligned["terminal"])
+        descending = point_shaded_style_path(3, 1, 1, 3, 2, 5)
+        self.assertEqual("sweep_zero_return", descending["terminal"])
+
     def test_metric_marker_gate_distinguishes_all_local_outcomes(self) -> None:
         self.assertEqual(
             "return_nz_pointer_mismatch",
@@ -1448,7 +1530,7 @@ class CheckedReportTests(unittest.TestCase):
             matrix_entry["sha256"],
         )
         self.assertEqual(
-            1388,
+            3258,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(

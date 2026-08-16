@@ -382,23 +382,25 @@ TRANSLATION_SURFACES = (
     {
         "name": "font, primitive, and LCD emission",
         "rom": [
-            "01:6297", "01:6702", "04:4025–40AC", "04:4155",
+            "01:6297", "01:6702", "04:4025–4315",
             "04:42B5–42E3", "04:431D–43C7", "07:4588",
         ],
         "javascript": [
-            "settledPage4PointAddress", "settledPage4PointTransition",
-            "settledPage4PointStateTransition", "settledPage4PointOnTransition",
+            "settledPage4PointAddress", "settledPage4PointPreprocess",
+            "settledPage4PointTransition", "settledPage4PointStateTransition",
+            "settledPage4PointPipeline", "settledPage4PointOnTransition",
             "settledPage4DarkLineTrace", "settledVerticalOperation",
             "settledHorizontalOperation",
             "settledOperationPixels", "settledBlits", "settledOperationWrites",
         ],
         "tests": ["tools/test-mathprint.js", "tools/test_mathprint_draw_trace.py"],
         "scope": (
-            "page-4 point address, clear/set/XOR/test modes, buffer routing, and "
-            "MathPrint's LCD-only point transition; hook-disabled "
+            "hook-disabled page-4 style expansion, offsets, bounds, point address, "
+            "clear/set/XOR/test modes, buffer routing, and the composed point pipeline; "
+            "MathPrint's style-inactive LCD-only point transition; hook-disabled "
             "dark-line stepping and ordered horizontal/vertical viewport clipping; "
             "and synchronous accepted LCD writes, including unchanged writes; "
-            "hook dispatch, font internals, and external LCD timing remain open"
+            "drawing-hook dispatch, font internals, and external LCD timing remain open"
         ),
     },
     {
@@ -3212,6 +3214,457 @@ def point_mode_routing_path(
     }
 
 
+def point_style_dispatch_path(
+    style_active: int,
+    style: int,
+) -> dict[str, object]:
+    """Translate the hook-disabled style dispatch at 04:4173–4196."""
+
+    style_active = int(bool(style_active))
+    style &= 0xFF
+    outcomes = [
+        f"04:4177:{'fallthrough' if style_active else 'taken'}"
+    ]
+    if not style_active:
+        terminal = "direct_point"
+    else:
+        thick = style == 1
+        outcomes.append(f"04:417F:{'taken' if thick else 'fallthrough'}")
+        if thick:
+            terminal = "thick_expansion"
+        else:
+            below_one = style < 1
+            outcomes.append(
+                f"04:4181:{'taken' if below_one else 'fallthrough'}"
+            )
+            if below_one:
+                terminal = "direct_point"
+            else:
+                direct = style >= 4
+                outcomes.append(
+                    f"04:4186:{'taken' if direct else 'fallthrough'}"
+                )
+                terminal = "direct_point" if direct else "shaded_expansion"
+    return {"terminal": terminal, "branch_outcomes": outcomes}
+
+
+def symbolic_point_style_dispatch_paths() -> list[dict[str, object]]:
+    """Partition both style-active states and every style byte."""
+
+    classes: dict[tuple[str, tuple[str, ...]], dict[str, object]] = {}
+    for style_active in (0, 1):
+        for style in range(0x100):
+            result = point_style_dispatch_path(style_active, style)
+            key = (
+                str(result["terminal"]),
+                tuple(str(item) for item in result["branch_outcomes"]),
+            )
+            row = classes.setdefault(key, {
+                "projected_input_count": 0,
+                "representative_states": [],
+            })
+            row["projected_input_count"] += 1
+            states = row["representative_states"]
+            if len(states) < 4:
+                states.append({"style_active": style_active, "style": style})
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
+def point_bounds_path(
+    effective_x: int,
+    effective_y: int,
+    screen_width: int,
+    full_screen_draw: int,
+) -> dict[str, object]:
+    """Translate 04:41F9–4207 and the selected page-4 bounds helper."""
+
+    effective_x &= 0xFF
+    effective_y &= 0xFF
+    screen_width &= 0xFF
+    full_screen_draw = int(bool(full_screen_draw))
+    outcomes = [
+        f"04:41FD:{'fallthrough' if full_screen_draw else 'taken'}"
+    ]
+    if full_screen_draw:
+        outside_x = effective_x >= screen_width
+        outcomes.append(
+            f"04:430D:{'taken' if outside_x else 'fallthrough'}"
+        )
+        if outside_x:
+            terminal = "reject_x"
+        else:
+            outside_y = effective_y >= 0x40
+            outcomes.append(
+                f"04:4312:{'taken' if outside_y else 'fallthrough'}"
+            )
+            terminal = "reject_y" if outside_y else "accept"
+    else:
+        exclusive_x = (screen_width - 1) & 0xFF
+        outside_x = effective_x >= exclusive_x
+        outcomes.append(
+            f"04:42F4:{'taken' if outside_x else 'fallthrough'}"
+        )
+        if outside_x:
+            terminal = "reject_x"
+        else:
+            outside_y = effective_y >= 0x40
+            outcomes.append(
+                f"04:42F9:{'taken' if outside_y else 'fallthrough'}"
+            )
+            if outside_y:
+                terminal = "reject_y"
+            else:
+                first_row = effective_y == 0
+                outcomes.append(
+                    f"04:42FC:{'taken' if first_row else 'fallthrough'}"
+                )
+                terminal = "reject_first_row" if first_row else "accept"
+    outcomes.append(
+        f"04:4207:{'fallthrough' if terminal == 'accept' else 'taken'}"
+    )
+    return {"terminal": terminal, "branch_outcomes": outcomes}
+
+
+def symbolic_point_bounds_paths() -> list[dict[str, object]]:
+    """Partition the full effective-coordinate, width, and bounds-flag domain."""
+
+    classes: dict[tuple[str, tuple[str, ...]], dict[str, object]] = {}
+
+    def add(
+        effective_x: int,
+        effective_y: int,
+        screen_width: int,
+        full_screen_draw: int,
+        multiplicity: int,
+    ) -> None:
+        if not multiplicity:
+            return
+        result = point_bounds_path(
+            effective_x, effective_y, screen_width, full_screen_draw
+        )
+        key = (
+            str(result["terminal"]),
+            tuple(str(item) for item in result["branch_outcomes"]),
+        )
+        row = classes.setdefault(key, {
+            "projected_input_count": 0,
+            "representative_states": [],
+        })
+        row["projected_input_count"] += multiplicity
+        states = row["representative_states"]
+        if len(states) < 4:
+            states.append({
+                "effective_x": effective_x,
+                "effective_y": effective_y,
+                "screen_width": screen_width,
+                "full_screen_draw": full_screen_draw,
+            })
+
+    for screen_width in range(0x100):
+        # 04:4306 accepts x < width and y < 64.
+        add(screen_width, 0, screen_width, 1,
+            (0x100 - screen_width) * 0x100)
+        if screen_width:
+            add(0, 0x40, screen_width, 1, screen_width * 0xC0)
+            add(0, 0, screen_width, 1, screen_width * 0x40)
+
+        # 04:42EC decrements the width byte and also excludes y=0.
+        exclusive_x = (screen_width - 1) & 0xFF
+        add(exclusive_x, 0, screen_width, 0,
+            (0x100 - exclusive_x) * 0x100)
+        if exclusive_x:
+            add(0, 0x40, screen_width, 0, exclusive_x * 0xC0)
+            add(0, 0, screen_width, 0, exclusive_x)
+            add(0, 1, screen_width, 0, exclusive_x * 0x3F)
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
+def point_thick_expansion_path(
+    current_x: int,
+    current_y: int,
+    previous_x: int,
+    previous_y: int,
+) -> dict[str, object]:
+    """Translate the coordinate-selection branches at 04:4196–41E3."""
+
+    current_x &= 0xFF
+    current_y &= 0xFF
+    previous_x &= 0xFF
+    previous_y &= 0xFF
+    outcomes: list[str] = []
+    if current_y == previous_y:
+        outcomes.append("04:41A1:taken")
+        same_x = current_x == previous_x
+        outcomes.append(f"04:41CF:{'taken' if same_x else 'fallthrough'}")
+        if not same_x:
+            outcomes.append(
+                f"04:41D6:{'taken' if current_x < previous_x else 'fallthrough'}"
+            )
+        attempts = 2 if same_x else 3
+        terminal = "same_y_same_x" if same_x else "same_y_side_pair"
+    else:
+        outcomes.append("04:41A1:fallthrough")
+        above_previous = current_y < previous_y
+        outcomes.append(
+            f"04:41A3:{'taken' if above_previous else 'fallthrough'}"
+        )
+        if above_previous:
+            different_x = current_x != previous_x
+            outcomes.append(
+                f"04:41C0:{'taken' if different_x else 'fallthrough'}"
+            )
+            attempts = 3 if different_x else 4
+            terminal = (
+                "rising_different_x" if different_x else "rising_same_x"
+            )
+        else:
+            same_x = current_x == previous_x
+            outcomes.append(f"04:41AE:{'taken' if same_x else 'fallthrough'}")
+            if not same_x:
+                outcomes.append(
+                    f"04:41B0:{'taken' if current_x < previous_x else 'fallthrough'}"
+                )
+            attempts = 3
+            terminal = "falling_neighbor_pair"
+    return {
+        "terminal": terminal,
+        "attempt_count": attempts,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_point_thick_expansion_paths() -> list[dict[str, object]]:
+    """Partition all four-byte current/previous coordinate relations."""
+
+    relations = (
+        ("less", 0, 1, 0x7F80),
+        ("equal", 0, 0, 0x100),
+        ("greater", 1, 0, 0x7F80),
+    )
+    classes: dict[tuple[object, ...], dict[str, object]] = {}
+    for _x_name, current_x, previous_x, x_count in relations:
+        for _y_name, current_y, previous_y, y_count in relations:
+            result = point_thick_expansion_path(
+                current_x, current_y, previous_x, previous_y
+            )
+            key = (
+                str(result["terminal"]), int(result["attempt_count"]),
+                tuple(str(item) for item in result["branch_outcomes"]),
+            )
+            row = classes.setdefault(key, {
+                "projected_input_count": 0,
+                "representative_states": [],
+            })
+            row["projected_input_count"] += x_count * y_count
+            states = row["representative_states"]
+            if len(states) < 4:
+                states.append({
+                    "current_x": current_x, "current_y": current_y,
+                    "previous_x": previous_x, "previous_y": previous_y,
+                })
+    return [
+        {
+            "terminal": terminal,
+            "attempt_count": attempt_count,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, attempt_count, outcomes)],
+        }
+        for terminal, attempt_count, outcomes in sorted(classes)
+    ]
+
+
+def point_shaded_style_path(
+    style: int,
+    phase: int,
+    axis_flag: int,
+    step: int,
+    x: int,
+    y: int,
+    limit: int = 0x40,
+) -> dict[str, object]:
+    """Translate the valid graph-style caller domain at 04:40AD–4154."""
+
+    if style not in {2, 3}:
+        raise ValueError("shaded point style must be 2 or 3")
+    if phase not in range(4):
+        raise ValueError("shaded point phase must be in 0..3")
+    if step not in {1, 2, 3}:
+        raise ValueError("shaded point step must be in 1..3")
+    axis_flag = int(bool(axis_flag))
+    x &= 0xFF
+    y &= 0xFF
+    limit &= 0xFF
+    outcomes: list[str] = []
+    phase_zero = phase == 0
+    outcomes.append(f"04:40B2:{'fallthrough' if phase_zero else 'taken'}")
+    seed = 0
+    if phase_zero:
+        outcomes.append(f"04:40B8:{'taken' if axis_flag else 'fallthrough'}")
+        if not axis_flag:
+            step = 2
+        aligned = x % step == step - 1
+        outcomes.append(f"04:40C9:{'fallthrough' if aligned else 'returned'}")
+        if not aligned:
+            return {
+                "terminal": "phase_alignment_return", "emission_count": 0,
+                "step_after": step, "branch_outcomes": outcomes,
+            }
+        step = 1
+        seed = 0
+    else:
+        phase_at_least_two = phase >= 2
+        outcomes.append(
+            f"04:40ED:{'taken' if phase_at_least_two else 'fallthrough'}"
+        )
+        if not phase_at_least_two:
+            outcomes.append(
+                f"04:40F3:{'taken' if axis_flag else 'fallthrough'}"
+            )
+            if not axis_flag:
+                step = 2
+            remainder = y % step
+            odd_style = bool(style & 1)
+            outcomes.append(
+                f"04:4103:{'taken' if odd_style else 'fallthrough'}"
+            )
+            seed = remainder if odd_style else (step - 1 - remainder) & 0xFF
+        else:
+            outcomes.append(
+                f"04:411A:{'taken' if axis_flag else 'fallthrough'}"
+            )
+            if not axis_flag:
+                step = 3
+            y_remainder = y % step
+            x_remainder = x % step
+            phase_two = phase == 2
+            outcomes.append(
+                f"04:412D:{'taken' if phase_two else 'fallthrough'}"
+            )
+            if phase_two:
+                difference = step - 1 - x_remainder - y_remainder
+                outcomes.append(
+                    f"04:413C:{'taken' if difference >= 0 else 'fallthrough'}"
+                )
+            else:
+                difference = x_remainder - y_remainder
+                outcomes.append(
+                    f"04:4131:{'taken' if difference >= 0 else 'fallthrough'}"
+                )
+            seed = difference if difference >= 0 else step + difference
+            even_style = not (style & 1)
+            outcomes.append(
+                f"04:4148:{'taken' if even_style else 'fallthrough'}"
+            )
+            if not even_style:
+                outcomes.append(
+                    f"04:414B:{'taken' if seed == 0 else 'fallthrough'}"
+                )
+                if seed:
+                    seed = (step - seed) & 0xFF
+
+    sweep_y = y
+    delta = seed
+    emission_count = 0
+    for _iteration in range(0x100):
+        odd_style = bool(style & 1)
+        outcomes.append(
+            f"04:40D5:{'fallthrough' if odd_style else 'taken'}"
+        )
+        if odd_style:
+            delta = (-delta) & 0xFF
+        next_y = (sweep_y + delta) & 0xFF
+        outcomes.append(
+            f"04:40DA:{'returned' if next_y == 0 else 'fallthrough'}"
+        )
+        if next_y == 0:
+            terminal = "sweep_zero_return"
+            break
+        sweep_y = next_y
+        outside = sweep_y >= limit
+        outcomes.append(
+            f"04:40E0:{'returned' if outside else 'fallthrough'}"
+        )
+        if outside:
+            terminal = "sweep_limit_return"
+            break
+        emission_count += 1
+        delta = step
+    else:
+        raise AssertionError("valid shaded-style caller state did not terminate")
+    return {
+        "terminal": terminal,
+        "emission_count": emission_count,
+        "step_after": step,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_point_shaded_style_paths() -> list[dict[str, object]]:
+    """Partition all valid style, phase, step, x/y, and axis caller states."""
+
+    classes: dict[tuple[object, ...], dict[str, object]] = {}
+    for style in (2, 3):
+        for phase in range(4):
+            for axis_flag in (0, 1):
+                for input_step in (1, 2, 3):
+                    effective_step = input_step if axis_flag else (
+                        2 if phase < 2 else 3
+                    )
+                    for x_remainder in range(effective_step):
+                        x_multiplicity = (
+                            (0xFF - x_remainder) // effective_step + 1
+                        )
+                        for y in range(0x100):
+                            result = point_shaded_style_path(
+                                style, phase, axis_flag, input_step,
+                                x_remainder, y,
+                            )
+                            key = (
+                                str(result["terminal"]),
+                                int(result["emission_count"]),
+                                int(result["step_after"]),
+                                tuple(str(item) for item in result["branch_outcomes"]),
+                            )
+                            row = classes.setdefault(key, {
+                                "projected_input_count": 0,
+                                "representative_states": [],
+                            })
+                            row["projected_input_count"] += x_multiplicity
+                            states = row["representative_states"]
+                            if len(states) < 4:
+                                states.append({
+                                    "style": style, "phase": phase,
+                                    "axis_flag": axis_flag,
+                                    "step": input_step,
+                                    "x": x_remainder, "y": y,
+                                    "limit": 0x40,
+                                })
+    return [
+        {
+            "terminal": terminal,
+            "emission_count": emission_count,
+            "step_after": step_after,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, emission_count, step_after, outcomes)],
+        }
+        for terminal, emission_count, step_after, outcomes in sorted(classes)
+    ]
+
+
 def symbolic_point_mode_routing_paths() -> list[dict[str, object]]:
     """Partition every routing byte, plotFlags.1 value, and point mode."""
 
@@ -3483,6 +3936,30 @@ def symbolic_model_corpus() -> dict[str, object]:
             "04:4215–42B4",
             0x100 * 2 * 4,
             symbolic_point_mode_routing_paths(),
+        ),
+        (
+            "point_style_dispatch",
+            "04:4173–4196",
+            2 * 0x100,
+            symbolic_point_style_dispatch_paths(),
+        ),
+        (
+            "point_bounds",
+            "04:41F9–4207; 04:42EC–4315",
+            2 * 0x100**3,
+            symbolic_point_bounds_paths(),
+        ),
+        (
+            "point_thick_expansion",
+            "04:4196–41E3",
+            0x100**4,
+            symbolic_point_thick_expansion_paths(),
+        ),
+        (
+            "point_shaded_style",
+            "04:40AD–4154",
+            2 * 4 * 2 * 3 * 0x100**2,
+            symbolic_point_shaded_style_paths(),
         ),
         (
             "metric_marker_tail_gate",
@@ -4969,6 +5446,55 @@ def build_report(
                     "complete routing-byte and mode domain with the 215Dh "
                     "hardware result fixed to Z; byte values and the NZ "
                     "column-five low-bit workaround are tested separately"
+                ),
+            },
+            "point_style_dispatch": {
+                "routine": "04:4173–4196",
+                "state": [
+                    "sGrFlags.g_style_active",
+                    "style byte at 0x9775",
+                ],
+                "projected_input_domain": 2 * 0x100,
+                "terminal_classes": symbolic_point_style_dispatch_paths(),
+                "scope": "complete style-active flag and style-byte domain",
+            },
+            "point_bounds": {
+                "routine": "04:41F9–4207; 04:42EC–4315",
+                "state": [
+                    "effective x byte after 0x8DA1 offset",
+                    "effective y byte after 0x8DA2 offset",
+                    "screen-width byte at 0x8DA4",
+                    "apiFlg4.fullScrnDraw",
+                ],
+                "projected_input_domain": 2 * 0x100**3,
+                "terminal_classes": symbolic_point_bounds_paths(),
+                "scope": (
+                    "complete effective-coordinate, width, and bounds-flag "
+                    "domain; byte offsets are an exhaustive permutation of "
+                    "the effective-coordinate domain"
+                ),
+            },
+            "point_thick_expansion": {
+                "routine": "04:4196–41E3",
+                "state": [
+                    "current x/y bytes", "previous x/y bytes at 0x9315",
+                ],
+                "projected_input_domain": 0x100**4,
+                "terminal_classes": symbolic_point_thick_expansion_paths(),
+                "scope": "complete four-coordinate relation domain",
+            },
+            "point_shaded_style": {
+                "routine": "04:40AD–4154",
+                "state": [
+                    "style in {2,3}", "phase at 0x9668 in 0..3",
+                    "axis flag (IY+1Eh).7", "step at 0x966C in 1..3",
+                    "x/y bytes", "fixed caller limit 0x40 at 0x966D",
+                ],
+                "projected_input_domain": 2 * 4 * 2 * 3 * 0x100**2,
+                "terminal_classes": symbolic_point_shaded_style_paths(),
+                "scope": (
+                    "complete graph-initialized phase, step, coordinate, and "
+                    "style domain at the 64-row display limit"
                 ),
             },
             "metric_marker_tail_gate": {
