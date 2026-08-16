@@ -30,7 +30,8 @@ Construct coverage
 The default generator covers number, variable, + - *, ^ (incl. nested a^b^c and
 parenthesised/abs/fraction bases with *, /, +, - exponents), / (linear), // (stacked
 fraction), sqrt, nthroot, abs, int, sum, nDeriv, e^x, 10^x, logBASE, and
-parentheses. Fraction children, radicands, absolute-value bodies, and power bases
+parentheses. Optional list cases cover native 08h/09h braces and nested list
+elements. Fraction children, radicands, absolute-value bodies, and power bases
 may contain structural records.
 The generator keeps raised slots and nth-root indices to entry sequences whose
 cursor behavior is independently pinned; this constrains input construction, not
@@ -69,6 +70,7 @@ def _load_parity():
 #   ('nderiv', body, var, value)
 #   ('epow'|'tenpow', exponent) ('logbase', base, argument)
 #   ('sin'|'cos'|'tan'|'ln'|'log', argument)
+#   ('list', element, ...)
 #   ('matrix1x1'|'matrix1x2'|'matrix2x2', element, ...)
 # ---------------------------------------------------------------------------
 
@@ -103,6 +105,8 @@ INCLUDE_MATRIX = False
 MATRIX_ONLY = False
 INCLUDE_FUNCTION = False
 FUNCTION_ONLY = False
+INCLUDE_LIST = False
+LIST_ONLY = False
 
 
 def gen_frac_operand(rng, depth):
@@ -151,6 +155,8 @@ def gen_ast(rng, depth, *, in_small=False, avoid=()):
                    "epow", "tenpow", "logbase"]
         if INCLUDE_SUM:
             choices.append("sum")
+        if INCLUDE_LIST:
+            choices.append("list")
     if INCLUDE_FUNCTION:
         choices.extend(FUNCTION_KINDS)
     choices = [c for c in choices if c not in avoid] or ["leaf"]
@@ -204,6 +210,9 @@ def gen_ast(rng, depth, *, in_small=False, avoid=()):
     if k == "logbase":
         return ("logbase", gen_ast(rng, d, in_small=True, avoid=avoid),
                 gen_ast(rng, d, avoid=avoid))
+    if k == "list":
+        return ("list", gen_ast(rng, d, avoid=avoid),
+                gen_ast(rng, d, avoid=avoid))
     if k in FUNCTION_KINDS:
         return (k, gen_ast(rng, d, in_small=in_small, avoid=avoid))
     if k in MATRIX_SHAPES:
@@ -240,7 +249,13 @@ def gen_comparable_asts(rng, depth, count, *, max_structural_depth=4):
     attempts = 0
     attempt_limit = max(1000, count * 1000)
     while len(accepted) < count and attempts < attempt_limit:
-        if FUNCTION_ONLY:
+        if LIST_ONLY:
+            ast = (
+                "list",
+                gen_ast(rng, max(0, depth - 1)),
+                gen_ast(rng, max(0, depth - 1)),
+            )
+        elif FUNCTION_ONLY:
             ast = (
                 rng.choice(FUNCTION_KINDS),
                 gen_ast(rng, max(0, depth - 1)),
@@ -377,6 +392,8 @@ def to_expr(ast):
         return f"tenpow({to_expr(ast[1])})"
     if k == "logbase":
         return f"logbase({to_expr(ast[1])},{to_expr(ast[2])})"
+    if k == "list":
+        return "{" + ",".join(to_expr(element) for element in ast[1:]) + "}"
     if k in FUNCTION_KINDS:
         return f"{k}({to_expr(ast[1])})"
     if k in MATRIX_SHAPES:
@@ -454,6 +471,10 @@ def to_spec(ast):
             "kind": "logBase", "base": to_spec(ast[1]),
             "argument": to_spec(ast[2]),
         }
+    if k == "list":
+        return {"kind": "list", "elements": [
+            to_spec(element) for element in ast[1:]
+        ]}
     if k in FUNCTION_KINDS:
         return {
             "kind": "sequence",
@@ -575,6 +596,14 @@ def emit(ast):
     if k == "logbase":
         return (["MATH", "ALPHA", "MATH", "WAIT"] + emit(ast[1]) +
                 ["RIGHT", "WAIT"] + emit(ast[2]) + ["RIGHT", "WAIT"])
+    if k == "list":
+        keys = ["2ND", "LPAREN"]
+        for index, element in enumerate(ast[1:]):
+            if index:
+                keys.append("COMMA")
+            keys.extend(emit(element))
+        keys.extend(["2ND", "RPAREN"])
+        return keys
     if k in FUNCTION_KINDS:
         return [k.upper()] + emit(ast[1]) + ["RPAREN"]
     if k in MATRIX_SHAPES:
@@ -748,6 +777,10 @@ def main():
                     help="generate only top-level generic function frames")
     ap.add_argument("--with-function", action="store_true",
                     help="include generic function frames in random generation")
+    ap.add_argument("--with-list", action="store_true",
+                    help="include native list literals in random generation")
+    ap.add_argument("--list-only", action="store_true",
+                    help="generate only top-level native list literals")
     ap.add_argument("--trace-every-case", action="store_true",
                     help="capture a reset-origin instruction trace before comparing each case")
     ap.add_argument("--no-trace-on-mismatch", action="store_true",
@@ -758,14 +791,16 @@ def main():
     args = ap.parse_args()
 
     global INCLUDE_SUM, INCLUDE_MATRIX, MATRIX_ONLY
-    global INCLUDE_FUNCTION, FUNCTION_ONLY
+    global INCLUDE_FUNCTION, FUNCTION_ONLY, INCLUDE_LIST, LIST_ONLY
     INCLUDE_SUM = not args.without_sum
     INCLUDE_MATRIX = args.with_matrix or args.matrix_only
     MATRIX_ONLY = args.matrix_only
     INCLUDE_FUNCTION = args.with_function or args.function_only
     FUNCTION_ONLY = args.function_only
-    if MATRIX_ONLY and FUNCTION_ONLY:
-        ap.error("--matrix-only and --function-only are mutually exclusive")
+    INCLUDE_LIST = args.with_list or args.list_only
+    LIST_ONLY = args.list_only
+    if sum((MATRIX_ONLY, FUNCTION_ONLY, LIST_ONLY)) > 1:
+        ap.error("--matrix-only, --function-only, and --list-only are mutually exclusive")
     parity = _load_parity()
     if not args.dry_run:
         parity.validate_inputs()

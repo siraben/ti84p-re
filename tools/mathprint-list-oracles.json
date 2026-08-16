@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "source": "natural calculator input captured from reset with the pinned TilEm build; final RAM graph, instruction trace, pre-ENTER screenshot, and independently translated cropped bitmap",
+  "cropped_bitmap_sha256_format": "row-major cropped 1bpp bytes, one byte per pixel",
+  "rom_sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d",
+  "capture_executable_sha256": "40cf1f9ff975217ede238cd02bfd6a85fa6bfecf8cbcea173b0d7705b144330b",
+  "cases": [
+    {
+      "expression": "{1,2}",
+      "macro": "tools/macros/mathprint-list-flat.macro",
+      "trace_sha256": "e62ba429764da46bb639decbca3ad2cf5460311771055d58f6b17641ffc57600",
+      "ram_sha256": "172a9393392ac0969bfe6109e6f63cf7d3b79a170b733c2ae705a732da8fb021",
+      "screenshot_png_sha256": "2bd5ee59f0857f9c45eb69f933c9eff9614d0ac12afb8310bdb7ab4ef4c5feaa",
+      "native_tokens": [8,49,43,50,9],
+      "spec": {"kind":"list","elements":[[49],[50]]},
+      "wrapper_id": 6,
+      "entry_id": 7,
+      "nodes": [
+        {"record_id":6,"render_type":31,"word03":0,"word05":1,"word07":7,"word09":36,"word0B":3,"word0D":0,"word0F":0,"word11":0,"byte13":0,"child_ids":[7],"payload":[]},
+        {"record_id":7,"render_type":0,"word03":6,"word05":7,"word07":36,"word09":3,"word0B":0,"word0D":0,"word0F":0,"word11":0,"byte13":8,"child_ids":[],"payload":[8,49,43,50,9]}
+      ],
+      "cropped_bitmap": {"width":27,"height":7,"sha256":"02ec6864c3e37a0ebd6808063b2a85914dee98836550dc080bf0e257e380e5ae"}
+    },
+    {
+      "expression": "{sqrt(2),1}",
+      "macro": "tools/macros/mathprint-list-radical.macro",
+      "trace_sha256": "7635aa5c7747a41132ab527b826b79d5dfeb87a5a472e404f3c332732b738203",
+      "ram_sha256": "f3ea56c7769a3e333390b0b973dfcdcf95f2c91bfd931add6eeddf75b4631372",
+      "screenshot_png_sha256": "88e994e6f6580d602e7e2a0d7e98030b78e288086168fbb224be4e075c683018",
+      "native_tokens": [8,188,50,17,43,49,9],
+      "spec": {"kind":"list","elements":[{"kind":"radical","radicand":[50]},[49]]},
+      "wrapper_id": 6,
+      "entry_id": 7,
+      "nodes": [
+        {"record_id":6,"render_type":31,"word03":0,"word05":1,"word07":9,"word09":41,"word0B":5,"word0D":0,"word0F":0,"word11":0,"byte13":0,"child_ids":[7],"payload":[]},
+        {"record_id":8,"render_type":39,"word03":7,"word05":1,"word07":9,"word09":11,"word0B":5,"word0D":6,"word0F":0,"word11":1,"byte13":8,"child_ids":[9],"payload":[]},
+        {"record_id":7,"render_type":0,"word03":6,"word05":9,"word07":41,"word09":5,"word0B":0,"word0D":0,"word0F":7,"word11":7,"byte13":8,"child_ids":[],"payload":[8,239,39,8,0,239,45,43,49,9]},
+        {"record_id":9,"render_type":0,"word03":8,"word05":7,"word07":6,"word09":3,"word0B":5,"word0D":2,"word0F":1,"word11":1,"byte13":50,"child_ids":[],"payload":[50]}
+      ],
+      "cropped_bitmap": {"width":32,"height":9,"sha256":"231abd789d78a7aaa3634ac331ac6753943ebf07f39b8e35376d51f7a2a12534"}
+    }
+  ]
+}

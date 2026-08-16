@@ -647,6 +647,14 @@ def decode_settled_expression(
                         raise ValueError("settled parenthesized expression is empty")
                     append_atom({"kind": "group", "expression": collapse(parts)})
                     return
+                if frame["kind"] == "list":
+                    if not parts:
+                        raise ValueError("settled list has an empty element")
+                    elements = frame["elements"]
+                    assert isinstance(elements, list)
+                    elements.append(collapse(parts))
+                    append_atom({"kind": "list", "elements": elements})
+                    return
                 opener = frame["opener"]
                 assert isinstance(opener, list)
                 append_atom(collapse([opener, *parts, closing]))
@@ -778,8 +786,23 @@ def decode_settled_expression(
                     })
                     index += 1
                     continue
+                if token == 0x08:
+                    frames.append({
+                        "kind": "list", "items": [], "elements": [],
+                        "opener": [0x08], "pending_negations": 0,
+                    })
+                    index += 1
+                    continue
                 if token == 0x11:
-                    if len(frames) == 1:
+                    if len(frames) == 1 or current_frame()["kind"] == "list":
+                        append_atom([token])
+                        index += 1
+                        continue
+                    close_frame([token])
+                    index += 1
+                    continue
+                if token == 0x09:
+                    if len(frames) == 1 or current_frame()["kind"] != "list":
                         append_atom([token])
                         index += 1
                         continue
@@ -872,7 +895,17 @@ def decode_settled_expression(
                         index += 1
                     append_atom(number)
                     continue
-                if is_raw_operator(prefix, subtype):
+                if prefix == 0 and subtype == 0x2B and current_frame()["kind"] == "list":
+                    frame = current_frame()
+                    flush_negations(frame)
+                    parts = public_parts(frame)
+                    if not parts:
+                        raise ValueError("settled list has an empty element")
+                    elements = frame["elements"]
+                    assert isinstance(elements, list)
+                    elements.append(collapse(parts))
+                    frame["items"] = []
+                elif is_raw_operator(prefix, subtype):
                     append_raw(unit_bytes)
                 else:
                     append_atom(unit_bytes)

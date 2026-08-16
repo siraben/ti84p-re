@@ -175,6 +175,37 @@ class InputEmitterTests(unittest.TestCase):
             "2ND", "SUB", "2ND", "SUB",
         ])
 
+    def test_list_literal_maps_ast_tokens_and_keys(self) -> None:
+        ast = (
+            "list", ("sqrt", ("num", "2")),
+            ("sub", ("var", "A"), ("num", "1")),
+        )
+        self.assertEqual(FUZZ.to_expr(ast), "{sqrt(2),A-1}")
+        self.assertEqual(FUZZ.to_spec(ast), {
+            "kind": "list",
+            "elements": [
+                {"kind": "radical", "radicand": [0x32]},
+                {"kind": "sequence", "parts": [
+                    [0x41], [0x71], [0x31],
+                ]},
+            ],
+        })
+        self.assertEqual(FUZZ.emit(ast), [
+            "2ND", "LPAREN", "2ND", "SQUARE", "2", "RIGHT",
+            "COMMA", "ALPHA", "MATH", "SUB", "1", "2ND", "RPAREN",
+        ])
+        self.assertEqual(FUZZ.calculator_structural_depth(ast), 1)
+
+    def test_list_only_generator_keeps_literals_at_the_root(self) -> None:
+        previous = FUZZ.LIST_ONLY
+        FUZZ.LIST_ONLY = True
+        try:
+            asts, _rejected = FUZZ.gen_comparable_asts(
+                random.Random(13), 3, 20)
+        finally:
+            FUZZ.LIST_ONLY = previous
+        self.assertTrue(all(ast[0] == "list" for ast in asts))
+
     def test_matrix_generator_keeps_cells_evaluable(self) -> None:
         for seed in range(30):
             cell = FUZZ.gen_matrix_element(random.Random(seed), 3)

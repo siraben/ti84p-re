@@ -2169,6 +2169,44 @@
     return operations;
   }
 
+  // 34:5E0F and 34:5E14 draw an opening or closing brace around the metrics
+  // selected by 34:6873. The waist follows the enclosed expression's baseline,
+  // rather than the geometric midpoint, so an asymmetric radical moves the
+  // notch down with its axis. Preserve the ROM's point/line emission order.
+  function settledBraceOperations(mode, x, y, height, baseline) {
+    if (mode !== 'open' && mode !== 'close')
+      throw new RangeError('settled brace mode must be open or close');
+    unsignedWord(x, 'settled brace x');
+    unsignedWord(y, 'settled brace y');
+    unsignedWord(height, 'settled brace height');
+    unsignedWord(baseline, 'settled brace baseline');
+    if (height < 3 || baseline < 1 || baseline >= height - 1)
+      throw new RangeError(
+        'settled brace baseline must leave rows above and below the waist');
+    const routine = mode === 'open' ? '34:5E0F' : '34:5E14';
+    const outerX = addWord(x, mode === 'open' ? 4 : 0);
+    const innerX = addWord(x, mode === 'open' ? 3 : 1);
+    const stemX = addWord(x,2);
+    const waistX = addWord(x,mode === 'open' ? 1 : 3);
+    const bottom = addWord(y,height - 1);
+    return [
+      {kind:'point',x:outerX,y,routine:`${routine} → 34:5E85`},
+      {kind:'point',x:innerX,y,routine:`${routine} → 34:5E85`},
+      {kind:'line',axis:'vertical',
+       from:{x:stemX,y:addWord(y,1)},
+       to:{x:stemX,y:addWord(y,baseline - 1)},
+       routine:`${routine} → 34:5D96`},
+      {kind:'point',x:waistX,y:addWord(y,baseline),
+       routine:`${routine} → 34:5E85`},
+      {kind:'line',axis:'vertical',
+       from:{x:stemX,y:addWord(y,baseline + 1)},
+       to:{x:stemX,y:addWord(y,height - 2)},
+       routine:`${routine} → 34:5D96`},
+      {kind:'point',x:innerX,y:bottom,routine:`${routine} → 34:5E85`},
+      {kind:'point',x:outerX,y:bottom,routine:`${routine} → 34:5E85`},
+    ];
+  }
+
   const addPointOrigin = (operation, origin) => ({
     ...operation, x: operation.x + origin.x, y: operation.y + origin.y,
   });
@@ -2634,7 +2672,8 @@
       if (!resolved)
         throw new RangeError(`token 0x${token.toString(16)} has no translated spelling`);
       for (const code of resolved.codes) {
-        if (depth === 0 || code === 0x28 || code === 0x29) {
+        if (depth === 0 || code === 0x28 || code === 0x29 ||
+            code === 0x7b || code === 0x7d) {
           width += 6;
           continue;
         }
@@ -2679,6 +2718,15 @@
         expression:settledExpressionSpec(
           input.expression, `${label} grouped expression`, active),
       };
+      if (kind === 'list') {
+        if (!Array.isArray(input.elements) || !input.elements.length)
+          throw new RangeError(`${label} list must contain at least one element`);
+        return {
+          kind,
+          elements:input.elements.map((element, index) =>
+            settledExpressionSpec(element, `${label} list element ${index}`, active)),
+        };
+      }
       if (kind === 'power') {
         return {
           kind,
@@ -3663,6 +3711,15 @@
         part.kind === 'fraction' ? [0x10,...encode(part),0x11] : encode(part));
       if (expression.kind === 'group')
         return [0x10,...encode(expression.expression),0x11];
+      if (expression.kind === 'list') {
+        const result = [0x08];
+        for (let index = 0; index < expression.elements.length; index++) {
+          if (index) result.push(0x2b);
+          result.push(...encode(expression.elements[index]));
+        }
+        result.push(0x09);
+        return result;
+      }
       if (expression.kind === 'power') {
         const exponent = encode(expression.exponent);
         const numeric = expression.exponent.kind === 'tokens' &&
@@ -3877,6 +3934,24 @@
       };
     };
 
+    const parseList = () => {
+      expect(0,0x08,'list opening brace');
+      if (peek(0,0x09))
+        throw new RangeError('settled native list is empty');
+      const elements = [];
+      for (;;) {
+        const element = expression();
+        if (!element)
+          throw new RangeError(
+            `settled native list element ${elements.length + 1} is empty`);
+        elements.push(element);
+        if (!peek(0,0x2b)) break;
+        take();
+      }
+      expect(0,0x09,'list closing brace');
+      return {kind:'list',elements};
+    };
+
     atom = () => {
       if (atLimit() || peek(0,0x11) || peek(0,0x07) ||
           peek(0,0x09) ||
@@ -3890,6 +3965,7 @@
         if (grouped.kind === 'fraction') return grouped;
         return {kind:'group',expression:grouped};
       }
+      if (peek(0,0x08)) return parseList();
       if (peek(0,0x06) && peek(0,0x06,1)) return parseMatrix();
       if (peek(0,0xb0)) {
         const sign = take();
@@ -4341,6 +4417,13 @@
             appendAtom({kind:'group',expression:collapse(parts)});
             return;
           }
+          if (current.kind === 'list') {
+            if (!parts.length)
+              throw new RangeError('settled list has an empty element');
+            current.elements.push(collapse(parts));
+            appendAtom({kind:'list',elements:current.elements});
+            return;
+          }
           appendAtom(collapse([current.opener,...parts,closing]));
         };
         const isRawOperator = (prefix, token) => prefix === 0 &&
@@ -4456,8 +4539,24 @@
             index++;
             continue;
           }
+          if (token === 0x08) {
+            frames.push({kind:'list',items:[],elements:[],opener:[0x08],
+              pendingNegations:0});
+            index++;
+            continue;
+          }
           if (token === 0x11) {
-            if (frames.length === 1) {
+            if (frames.length === 1 || frame().kind === 'list') {
+              appendAtom([token]);
+              index++;
+              continue;
+            }
+            closeFrame([token]);
+            index++;
+            continue;
+          }
+          if (token === 0x09) {
+            if (frames.length === 1 || frame().kind !== 'list') {
               appendAtom([token]);
               index++;
               continue;
@@ -4540,7 +4639,15 @@
             appendAtom(bytes);
             continue;
           }
-          if (isRawOperator(prefix,subtype)) appendRaw(unitBytes);
+          if (prefix === 0 && subtype === 0x2b && frame().kind === 'list') {
+            const current = frame();
+            flushNegations(current);
+            const parts = publicParts(current);
+            if (!parts.length)
+              throw new RangeError('settled list has an empty element');
+            current.elements.push(collapse(parts));
+            current.items = [];
+          } else if (isRawOperator(prefix,subtype)) appendRaw(unitBytes);
           else appendAtom(unitBytes);
           index += unitBytes.length;
         }
@@ -4607,6 +4714,7 @@
       if (expression.kind === 'tokens') return expression.tokens[0];
       if (expression.kind === 'sequence') return leadingByte(expression.parts[0]);
       if (expression.kind === 'group') return 0x10;
+      if (expression.kind === 'list') return 0x08;
       if (expression.kind === 'power') return leadingByte(expression.base);
       if (expression.kind === 'absolute') return 0xef;
       if (expression.kind === 'ePower') return 0xef;
@@ -4768,6 +4876,17 @@
                  {kind:'tokens',tokens:[0x11]}],
           fractionByte13:0x10,
         };
+      }
+      if (expression.kind === 'list') {
+        const parts = [{kind:'tokens',tokens:[0x08]}];
+        for (let index = 0; index < expression.elements.length; index++) {
+          if (index) parts.push({kind:'tokens',tokens:[0x2b]});
+          parts.push(prepare(
+            expression.elements[index], renderDepth, structuralDepth,
+            fractionNumerator && index === 0));
+        }
+        parts.push({kind:'tokens',tokens:[0x09]});
+        return {kind:'sequence',parts,fractionByte13:0x08};
       }
       if (expression.kind === 'power') {
         // The base belongs to the containing leaf. Prepare it before allocating
@@ -5507,9 +5626,9 @@
         x:0,
         y:controls.state.depth === 0 ? record.word09 - 3 : record.word09 - 2,
       };
-      const parenthesisMetrics = new Map();
+      const delimiterMetrics = new Map();
       const stack = [];
-      const parenthesisKey = (index, codeIndex = 0) => `${index}:${codeIndex}`;
+      const delimiterKey = (index, codeIndex = 0) => `${index}:${codeIndex}`;
       const mergeMetrics = (left, right) => {
         if (!left) return right;
         const baseline = Math.max(left.baseline, right.baseline);
@@ -5523,8 +5642,8 @@
         let result = null;
         for (let cursor = start; cursor < end;) {
           const token = record.payload[cursor];
-          const grouped = parenthesisMetrics.get(parenthesisKey(cursor));
-          if (token === 0x10 && grouped) {
+          const grouped = delimiterMetrics.get(delimiterKey(cursor));
+          if ((token === 0x10 || token === 0x08) && grouped) {
             result = mergeMetrics(result, grouped);
             cursor = grouped.close + 1;
             continue;
@@ -5567,35 +5686,44 @@
         const codes = resolved ? resolved.codes : [record.payload[cursor]];
         for (let codeIndex = 0; codeIndex < codes.length; codeIndex++) {
           const code = codes[codeIndex];
-          const key = parenthesisKey(cursor, codeIndex);
-          if (code === 0x28)
-            stack.push({cursor,key,after:cursor + (resolved ? resolved.length : 1)});
-          else if (code === 0x29 && stack.length) {
+          const key = delimiterKey(cursor, codeIndex);
+          if (code === 0x28 || code === 0x7b)
+            stack.push({cursor,key,code,
+              after:cursor + (resolved ? resolved.length : 1)});
+          else if ((code === 0x29 || code === 0x7d) && stack.length &&
+                   stack[stack.length - 1].code ===
+                     (code === 0x29 ? 0x28 : 0x7b)) {
             const open = stack.pop();
             const metrics = rangeMetrics(open.after, cursor) ||
               (controls.state.depth === 0
                 ? {height:7,baseline:3} : {height:5,baseline:2});
-            const pair = {...metrics,open:open.cursor,close:cursor};
-            parenthesisMetrics.set(open.key, pair);
-            parenthesisMetrics.set(key, pair);
+            const pair = {...metrics,open:open.cursor,close:cursor,
+              kind:code === 0x29 ? 'parenthesis' : 'brace'};
+            delimiterMetrics.set(open.key, pair);
+            delimiterMetrics.set(key, pair);
           }
         }
         cursor += resolved ? resolved.length : 1;
       }
 
       const emitDisplayCode = (code, tokenBytes, codeIndex, payloadIndex) => {
-        // 34:6873 applies after token detokenization, so a parenthesis embedded
-        // in a spelling such as `sin(` takes the same compound-shape path as an
-        // encoded 10h/11h parenthesis token.
-        if (code === 0x28 || code === 0x29) {
-          const mode = code === 0x28 ? 'open' : 'close';
-          const metrics = parenthesisMetrics.get(
-            parenthesisKey(payloadIndex, codeIndex)) ||
+        // 34:6873 applies after token detokenization. Parentheses embedded in
+        // spellings and direct 10h/11h tokens use 34:5D28/5D15; list braces
+        // 08h/09h use the separate 34:5E0F/5E14 draw path.
+        if (code === 0x28 || code === 0x29 || code === 0x7b || code === 0x7d) {
+          const mode = code === 0x28 || code === 0x7b ? 'open' : 'close';
+          const metrics = delimiterMetrics.get(
+            delimiterKey(payloadIndex, codeIndex)) ||
             (controls.state.depth === 0
               ? {height:7,baseline:3} : {height:5,baseline:2});
-          for (const operation of settledCompoundOperations(
-            mode, pen.x, record.word09 - metrics.baseline,
-            metrics.height)) controls.emit(operation);
+          const operations = code === 0x7b || code === 0x7d
+            ? settledBraceOperations(
+              mode, pen.x, record.word09 - metrics.baseline,
+              metrics.height, metrics.baseline)
+            : settledCompoundOperations(
+              mode, pen.x, record.word09 - metrics.baseline,
+              metrics.height);
+          for (const operation of operations) controls.emit(operation);
           pen.x += 6;
           return;
         }
@@ -6175,6 +6303,7 @@
     decodeSettledRecord,
     settledRenderHandler,
     settledCompoundOperations,
+    settledBraceOperations,
     matrixChildCount,
     executeSettledRecordGraph,
     executeSettledRecordProgram,

@@ -681,13 +681,13 @@ The report computes two exact Z3 covers. The first preserves every individual
 branch outcome observed in the supplied traces. It does not preserve complete
 invocation paths, register or RAM states, dispatch indices, record cases, or LCD
 write cases. The all-evidence and natural-only branch covers each select 21
-traces. They preserve 989 and 986 outcomes in 4,011,991,848 and 4,106,676,468
+traces. They preserve 989 and 986 outcomes in 3,925,423,230 and 4,020,107,850
 bytes, respectively.
 
 The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,250 tags and needs 126
-traces. The natural-only universe has 1,247 tags and needs 125 traces. Every
+independent oracle case. Its all-evidence universe has 1,252 tags and needs 127
+traces. The natural-only universe has 1,249 tags and needs 126 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The broad set remains the RE and
@@ -778,7 +778,7 @@ that each local path is feasible, but they do not prove calculator
 reachability. Those three `34:759C` injected-state probes are absent from both
 minimized corpora. [confirmed]
 
-The record-oracle corpus contains 112 captured cases and includes every type
+The record-oracle corpus contains 114 captured cases and includes every type
 from `0x1F` through `0x2B`. Types `0x20`–`0x2B` have decoded record nodes and
 complete accepted-write oracles. The type-`0x1F` case is the transparent
 one-child wrapper described below: it has a captured node, child write stream,
@@ -1271,11 +1271,11 @@ the subscript-1 display code. `_GetTokLen = 4591h` reads the count, and
 ROM-extracted tables in `web/mathprint/token-strings.json`; it preserves native
 token boundaries while constructing the settled record. [confirmed]
 
-`34:6873` receives each resulting display code. It diverts `28h` and `29h` to
-the compound-parenthesis emitters, including `28h` embedded in the spelling of
-`sin(`. The open shape therefore uses the point and line order from `34:5D1A`
-instead of the large-font glyph-row order. An explicit closing token `11h`
-resolves to `29h` and uses `34:5D07`. [confirmed]
+`34:6873` receives each resulting display code. It diverts parentheses `28h`
+and `29h`, and braces `7Bh` and `7Dh`, to delimiter geometry. This includes
+`28h` embedded in the spelling of `sin(`. `34:678C` dispatches parentheses to
+`34:5D28` and `34:5D15`, and braces to `34:5E0F` and `34:5E14`. The four paths
+emit points and lines instead of a large-font glyph bitmap. [confirmed]
 
 Six reset-origin traces cover `Ans+1`, `Ans^2`, `sqrt(Ans)`, `X^Ans`,
 `sin(X)`, and `sin(sqrt(X))`. Their generated graphs match every record field.
@@ -1362,6 +1362,22 @@ Five reset-origin traces cover `(X+1)`, `(X^2+1)`, `(X+1)^2`, `X^(1+2)`, and
 `abs(X^2+1)`. The generated record graphs and complete accepted-write streams
 match these traces. The streams contain 49, 60, 59, 32, and 60 writes,
 respectively. [confirmed]
+
+List braces remain leaf tokens `0x08` and `0x09`; `0x2B` separates elements.
+Their display codes `0x7B` and `0x7D` enter the same matching-delimiter scans
+at `34:689A` and `34:6951` as parentheses. The final renderer uses the brace
+paths at `34:5E0F` and `34:5E14`. Each path emits two top points, an upper
+vertical segment, a waist point, a lower vertical segment, and two bottom
+points. The waist row equals the enclosed payload's baseline. It can differ
+from the geometric midpoint. [confirmed]
+
+Natural traces for `{1,2}` and `{sqrt(2),1}` pin the seven-row symmetric case
+and the nine-row case whose baseline is row five. The translated native parser
+retains element boundaries in a `list` node, including nested lists and
+structural elements. Both oracle bitmaps match the calculator pixel for pixel.
+Three seed-13 list-only differential cases add fractions, roots, variables, and
+ordinary operators; all three match their natural calculator screenshots.
+[confirmed]
 
 When the immediate base of a power ends in a structural object, `34:70C1`–`7084`
 merges that object's baseline and lower extent into the type-`0x2A` metrics.
@@ -2123,7 +2139,9 @@ absolute-value child. The deepest power oracle has three raised levels. Six name
 spellings, raised small-font widths, compound parentheses, structural children,
 and complete accepted-write streams. Five two-byte-token cases verify list,
 matrix-name, equation-variable, and string-variable tables in large and raised
-contexts. Two longer trace scenarios cover the editor and display activity
+contexts. Two native-list cases verify `08h`/`09h` parsing, brace geometry,
+baseline-sensitive stretching, and semantic graph decoding. Two longer trace
+scenarios cover the editor and display activity
 around the final key press.
 [confirmed]
 
@@ -2146,6 +2164,12 @@ depth-four entry gate. Seed 917 at depth four produces 20 calculator inputs;
 all 20 translated LCD bitmaps match their reset-origin screenshots exactly.
 The corpus includes the left-clipped radical case
 `log(sqrt(int(3,1,nDeriv(1,A,3),N)))`. [confirmed]
+
+The opt-in list domain wraps two arbitrary admitted trees in native `08h` and
+`09h` tokens. It types the braces with **[2nd]** **(** and **[2nd]** **)**, then
+compares the decoded element tree and pixels. List containers do not allocate a
+structural record, but structural elements still contribute to the depth-four
+entry gate. [confirmed]
 
 `34:62D0` selects seven root-hook rows when `ram:8515` is zero and five rows
 when it is nonzero. The routine subtracts that row count from the radical
