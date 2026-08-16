@@ -4166,7 +4166,7 @@
   // native bytes, while this routine reads the graph's actual child IDs and
   // leaf payload markers.  Type 2Ah is postfix, so its marker binds to the
   // expression immediately before EF 2A id_lo id_hi.
-  function decodeSettledExpressionGraph(inputs, entryId) {
+  function decodeSettledExpressionGraph(inputs, entryId, activeLeafIds = null) {
     if (!Array.isArray(inputs))
       throw new TypeError('settled expression graph must be an array');
     if (!Number.isInteger(entryId) || entryId < 0 || entryId > 0xffff)
@@ -4185,7 +4185,7 @@
     if (!byId.has(entryId))
       throw new RangeError(`settled expression entry ID 0x${entryId.toString(16)} is absent`);
 
-    const active = new Set();
+    const active = new Set(activeLeafIds || []);
     const activeStructural = new Set();
     const children = (node, count) => {
       const raw = node.child_ids === undefined ? node.childIds : node.child_ids;
@@ -4333,8 +4333,108 @@
         const isNameCharacter = token =>
           (0x30 <= token && token <= 0x39) ||
           (0x41 <= token && token <= 0x5b);
+        const decodeInline = bytes => {
+          let inlineId = 0xffff;
+          while (inlineId >= 0 && byId.has(inlineId)) inlineId--;
+          if (inlineId < 0)
+            throw new RangeError('settled graph has no free inline record ID');
+          return decodeSettledExpressionGraph([
+            ...inputs,
+            {record_id:inlineId,render_type:0,child_ids:[],payload:bytes},
+          ],inlineId,active);
+        };
+        const matrixContainer = start => {
+          if (payload[start] !== 0x06 || payload[start + 1] !== 0x06)
+            throw new RangeError('settled matrix has no outer and row opener');
+          let cursor = start + 1;
+          const rows = [];
+          for (;;) {
+            if (cursor >= payload.length)
+              throw new RangeError(
+                'settled matrix has no outer closing 07h token');
+            if (payload[cursor] === 0x07) {
+              if (!rows.length)
+                throw new RangeError('settled matrix has no rows');
+              cursor++;
+              break;
+            }
+            if (payload[cursor] !== 0x06)
+              throw new RangeError(
+                'settled matrix row-opening 06h token is missing');
+            cursor++;
+            const row = [];
+            for (;;) {
+              const elementStart = cursor;
+              const closers = [];
+              while (cursor < payload.length) {
+                const token = payload[cursor];
+                if (!closers.length && (token === 0x2b || token === 0x07))
+                  break;
+                if (token === 0xef && cursor + 1 < payload.length &&
+                    0x1f <= payload[cursor + 1] &&
+                    payload[cursor + 1] <= 0x2b) {
+                  if (cursor + 5 >= payload.length ||
+                      payload[cursor + 4] !== 0xef ||
+                      payload[cursor + 5] !== 0x2d)
+                    throw new RangeError(
+                      'settled matrix element has a truncated record marker');
+                  cursor += 6;
+                  continue;
+                }
+                let prefix = 0, subtype = token, length = 1;
+                if (SETTLED_TWO_BYTE_LEADS.has(token)) {
+                  if (cursor + 1 >= payload.length)
+                    throw new RangeError(
+                      'settled matrix element ends in a two-byte token lead');
+                  prefix = token;
+                  subtype = payload[cursor + 1];
+                  length = 2;
+                }
+                if (prefix === 0 &&
+                    (subtype === 0x10 || subtype === 0x08 || subtype === 0x06))
+                  closers.push({0x10:0x11,0x08:0x09,0x06:0x07}[subtype]);
+                else if (settledParseAheadFunctionToken(prefix,subtype))
+                  closers.push(0x11);
+                else if (prefix === 0 &&
+                         (subtype === 0x11 || subtype === 0x09 || subtype === 0x07)) {
+                  if (!closers.length || closers[closers.length - 1] !== subtype)
+                    throw new RangeError(
+                      'settled matrix element has an unmatched delimiter');
+                  closers.pop();
+                }
+                cursor += length;
+              }
+              if (closers.length)
+                throw new RangeError(
+                  'settled matrix element has an unclosed delimiter');
+              if (cursor === elementStart)
+                throw new RangeError('settled matrix row has an empty element');
+              row.push(decodeInline(payload.slice(elementStart,cursor)));
+              if (cursor >= payload.length)
+                throw new RangeError(
+                  'settled matrix row has no closing 07h token');
+              const delimiter = payload[cursor++];
+              if (delimiter === 0x07) break;
+            }
+            rows.push(row);
+          }
+          const columns = rows[0].length;
+          if (!columns || rows.some(row => row.length !== columns))
+            throw new RangeError('settled matrix rows must have equal width');
+          return {
+            end:cursor,
+            expression:{kind:'matrix',rows:rows.length,columns,
+              elements:rows.flat()},
+          };
+        };
         for (let index = 0; index < payload.length;) {
           const token = payload[index];
+          if (token === 0x06 && payload[index + 1] === 0x06) {
+            const matrix = matrixContainer(index);
+            appendAtom(matrix.expression);
+            index = matrix.end;
+            continue;
+          }
           if (token === 0x10) {
             frames.push({kind:'group',items:[],opener:[0x10],pendingNegations:0});
             index++;
