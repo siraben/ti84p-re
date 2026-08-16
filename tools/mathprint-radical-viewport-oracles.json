@@ -1,0 +1,123 @@
+{
+  "schema": 1,
+  "source": "reset-origin TilEm RAM, trace, and pre-ENTER screenshot for a radical hook one pixel left of the editor clip",
+  "rom_sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d",
+  "capture_executable_sha256": "40cf1f9ff975217ede238cd02bfd6a85fa6bfecf8cbcea173b0d7705b144330b",
+  "cases": [
+    {
+      "expression": "(sqrt(nDeriv(1,A,1)+11111))",
+      "macro": "tools/macros/mathprint-radical-left-clip.macro",
+      "trace_sha256": "45ad4ff889771fd9317d89e266977e5fa42f417a291ca0b2543e24d09386bd09",
+      "ram_sha256": "941476755d52a086c1c6ac638390b93c724979b84ee49a75a62fd7ff2ee220a0",
+      "screenshot_png_sha256": "4bcb1e6a9d07cb6fe10c95d7dd81732f78276f3e7bc97aca4a52b802b8c05e78",
+      "native_tokens": [
+        16, 188, 37, 49, 43, 65, 43, 49, 17,
+        112, 49, 49, 49, 49, 49, 17, 17
+      ],
+      "spec": {
+        "kind": "group",
+        "expression": {
+          "kind": "radical",
+          "radicand": {
+            "kind": "sequence",
+            "parts": [
+              {
+                "kind": "nDeriv",
+                "variable": [65],
+                "body": [49],
+                "value": [49]
+              },
+              [112, 49, 49, 49, 49, 49]
+            ]
+          }
+        }
+      },
+      "wrapper_id": 6,
+      "entry_id": 7,
+      "nodes": [
+        {
+          "record_id": 6, "render_type": 31,
+          "word03": 0, "word05": 1, "word07": 15, "word09": 102,
+          "word0B": 8, "word0D": 0, "word0F": 0, "word11": 0,
+          "byte13": 0, "child_ids": [7], "payload": []
+        },
+        {
+          "record_id": 8, "render_type": 39,
+          "word03": 7, "word05": 1, "word07": 15, "word09": 84,
+          "word0B": 8, "word0D": 6, "word0F": 0, "word11": 1,
+          "byte13": 16, "child_ids": [9], "payload": []
+        },
+        {
+          "record_id": 10, "render_type": 35,
+          "word03": 9, "word05": 3, "word07": 13, "word09": 43,
+          "word0B": 6, "word0D": 0, "word0F": 0, "word11": 2,
+          "byte13": 16, "child_ids": [11, 12, 13], "payload": []
+        },
+        {
+          "record_id": 7, "render_type": 0,
+          "word03": 6, "word05": 15, "word07": 102, "word09": 8,
+          "word0B": 0, "word0D": 0, "word0F": 7, "word11": 7,
+          "byte13": 16, "child_ids": [],
+          "payload": [16, 239, 39, 8, 0, 239, 45, 17]
+        },
+        {
+          "record_id": 9, "render_type": 0,
+          "word03": 8, "word05": 13, "word07": 79, "word09": 6,
+          "word0B": 5, "word0D": 2, "word0F": 12, "word11": 12,
+          "byte13": 239, "child_ids": [],
+          "payload": [239, 35, 10, 0, 239, 45, 112, 49, 49, 49, 49, 49]
+        },
+        {
+          "record_id": 11, "render_type": 1,
+          "word03": 10, "word05": 5, "word07": 4, "word09": 2,
+          "word0B": 5, "word0D": 8, "word0F": 1, "word11": 1,
+          "byte13": 65, "child_ids": [], "payload": [65]
+        },
+        {
+          "record_id": 12, "render_type": 0,
+          "word03": 10, "word05": 7, "word07": 6, "word09": 3,
+          "word0B": 16, "word0D": 3, "word0F": 1, "word11": 1,
+          "byte13": 49, "child_ids": [], "payload": [49]
+        },
+        {
+          "record_id": 13, "render_type": 0,
+          "word03": 10, "word05": 5, "word07": 4, "word09": 2,
+          "word0B": 39, "word0D": 8, "word0F": 1, "word11": 1,
+          "byte13": 49, "child_ids": [], "payload": [49]
+        }
+      ],
+      "record": {
+        "word05_height": 15,
+        "expression_endpoint": 96,
+        "radical_width": 84,
+        "radical_logical_x": 6
+      },
+      "viewport": {
+        "ram_8e02_x_clip": 7,
+        "effective_x": -7,
+        "cursor_x": 89
+      },
+      "hook_gate": {
+        "call_instruction": 4686278,
+        "comparison_instruction": 4686306,
+        "comparison_address": "34:6C69",
+        "logical_pen": 6,
+        "clip": 7,
+        "subtraction_result": 65535,
+        "outcome": "taken",
+        "action": "skip-left"
+      },
+      "translated": {
+        "operation_count": 38,
+        "accepted_write_count": 279,
+        "accepted_write_sha256": "a1c344aa379c3e475fc4c606ec2328a0b33e9b2538f1f94f17d5172eb8b83710",
+        "final_lcd_sha256": "c1ef758a6685842a47b5ca359d087bc3bca0903eeab88a12f2d4e351c2b638e2"
+      },
+      "entry_crop": {
+        "width": 87,
+        "height": 15,
+        "sha256": "0ee3c3010c685584587b62291a11e4983fd54c05ad6efaad34bfdf49722847a2"
+      }
+    }
+  ]
+}

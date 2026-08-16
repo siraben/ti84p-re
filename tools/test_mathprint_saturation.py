@@ -1140,7 +1140,7 @@ class CheckedReportTests(unittest.TestCase):
         )
 
         self.assertEqual(2, report["schema"])
-        self.assertEqual(186, len(report["traces"]))
+        self.assertEqual(187, len(report["traces"]))
         self.assertEqual(989, report["summary"]["branch_outcomes_observed"])
         self.assertEqual(
             986, report["summary"]["natural_branch_outcomes_observed"]
@@ -1164,6 +1164,21 @@ class CheckedReportTests(unittest.TestCase):
         self.assertEqual(
             "e11c011b74df79165c55f7f64b699e3aa393bf8087f45ec89a73d616b73cdbb5",
             nested["sha256"],
+        )
+        radical = next(
+            row for row in report["traces"]
+            if row["label"] == "radical_left_clip"
+        )
+        self.assertEqual(
+            "45ad4ff889771fd9317d89e266977e5fa42f417a291ca0b2543e24d09386bd09",
+            radical["sha256"],
+        )
+        self.assertEqual(
+            112, report["record_oracles"]["cases"]
+        )
+        self.assertEqual(
+            1250,
+            report["minimized_dynamic_feature_corpus"]["covered_features"],
         )
 
 

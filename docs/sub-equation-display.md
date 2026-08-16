@@ -686,8 +686,8 @@ bytes, respectively.
 
 The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,249 tags and needs 125
-traces. The natural-only universe has 1,246 tags and needs 124 traces. Every
+independent oracle case. Its all-evidence universe has 1,250 tags and needs 126
+traces. The natural-only universe has 1,247 tags and needs 125 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The broad set remains the RE and
@@ -778,7 +778,7 @@ that each local path is feasible, but they do not prove calculator
 reachability. Those three `34:759C` injected-state probes are absent from both
 minimized corpora. [confirmed]
 
-The record-oracle corpus contains 111 captured cases and includes every type
+The record-oracle corpus contains 112 captured cases and includes every type
 from `0x1F` through `0x2B`. Types `0x20`–`0x2B` have decoded record nodes and
 complete accepted-write oracles. The type-`0x1F` case is the transparent
 one-child wrapper described below: it has a captured node, child write stream,
@@ -1915,6 +1915,17 @@ three pixels left of the visible edge. Applying the whole-glyph skip, followed
 by the seven-row left-overflow cue, reproduces all 870 pixels of the cropped
 87×10 calculator frame. [confirmed]
 
+Root-hook bitmaps use the same display-unit gate. `34:630C` enters `34:6C37`,
+whose bitmap header supplies a five-pixel advance before `34:6C5F` performs the
+left-edge comparison. The reset-origin expression
+`(sqrt(nDeriv(1,A,1)+11111))` reaches `34:6C69` with logical pen 6 and clip 7.
+The subtraction produces `FFFFh` with carry, so the ROM omits the complete
+five-pixel hook. The vertical stem and vinculum continue through `34:5D96` and
+`34:5DA6`. Translating that unit skip reproduces all pixels in the cropped
+87×15 calculator frame. `tools/mathprint-radical-viewport-oracles.json` pins
+the input, trace, viewport state, branch witness, LCD writes, and final bitmap.
+[confirmed]
+
 Embedded records have an earlier whole-subtree gate. `34:6641`–`34:6655` adds
 the embedded record's `+09h` width to the current logical pen and record origin,
 then subtracts `ram:8E02`. Carry at `34:6659` skips the embedded renderer;
@@ -2127,6 +2138,14 @@ instruction trace for branch and LCD-write diagnosis; exact cases do not pay
 the trace cost.
 Trace-limit cases leave the screenshot mismatch intact and report only the
 trace diagnosis as inconclusive. [confirmed]
+
+The opt-in generic-function domain wraps arbitrary admitted trees in the
+single-byte `sin(`, `cos(`, `tan(`, `ln(`, and `log(` tokens. Their arguments
+include nested functions and every structural constructor accepted by the
+depth-four entry gate. Seed 917 at depth four produces 20 calculator inputs;
+all 20 translated LCD bitmaps match their reset-origin screenshots exactly.
+The corpus includes the left-clipped radical case
+`log(sqrt(int(3,1,nDeriv(1,A,3),N)))`. [confirmed]
 
 `34:62D0` selects seven root-hook rows when `ram:8515` is zero and five rows
 when it is nonzero. The routine subtracts that row count from the radical
