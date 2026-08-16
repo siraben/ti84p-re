@@ -44,6 +44,8 @@ const editorMutationOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-editor-mutation-oracles.json')));
 const editorNavigationOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-editor-navigation-oracles.json')));
+const editorDeletionOracles = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools', 'mathprint-editor-deletion-oracles.json')));
 const groupingOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-grouping-oracles.json')));
 const structuralBaseOracles = JSON.parse(fs.readFileSync(
@@ -3383,6 +3385,64 @@ expectThrows('editor navigation rejects a structural boundary',RangeError,
     {kind:'editorCursor',record_id:7,byte_offset:6,
       record_word0F:0,record_word11:0},
   ]},'left'));
+expectEqual('live editor deletion oracle schema',editorDeletionOracles.schema,1);
+for (const oracle of editorDeletionOracles.transitions) {
+  expectEqual(`${oracle.name} deletion capture macro hash`,
+    crypto.createHash('sha256').update(fs.readFileSync(path.join(
+      root,oracle.macro))).digest('hex'),oracle.macro_sha256);
+  const before = rom.decodeMathPrintEditorRam(sparseEditorRam(
+    oracle.pre,`${oracle.name} pre-deletion`));
+  const after = rom.decodeMathPrintEditorRam(sparseEditorRam(
+    oracle.post,`${oracle.name} post-deletion`));
+  const deleted = rom.editorDeletePackedToken(before.editor.expression);
+  expectEqual(`${oracle.name} translated deletion path`,deleted.mutation,{
+    deleted:oracle.deleted_token,
+    record_id:before.editor.cursor.recordId,
+    byte_offset:before.editor.cursor.byteOffset,
+    restored_empty_slot:oracle.restored_empty_slot,
+    routine:oracle.trace.routine,
+  });
+  expectEqual(`${oracle.name} decoded editor transition`,
+    deleted.expression,after.editor.expression);
+  const reconstructed = rom.constructEditorExpressionProgram(
+    deleted.expression,7,font);
+  expectEqual(`${oracle.name} reconstructed post-deletion records`,
+    editorRecordsById(reconstructed.nodes),editorRecordsById(after.nodes));
+  const operations = rom.executeSettledRecordProgram(
+    reconstructed.nodes,reconstructed.wrapper_id,
+    {glyphAdvance:editorGlyphAdvance});
+  const lcd = rom.rasterizeSettledOperations(operations,font).grid;
+  expectEqual(`${oracle.name} reconstructed post-deletion LCD bitmap`,
+    crypto.createHash('sha256').update(packedLcdBytes(lcd)).digest('hex'),
+    oracle.post.lcd_bitmap_sha256);
+}
+const packedDelete = rom.editorDeletePackedToken({
+  kind:'sequence',parts:[
+    {kind:'editorCursor',record_id:7,byte_offset:0,
+      record_word0F:0,record_word11:0},
+    [0x5d,0x00,0x31],
+  ],
+});
+expectEqual('editor deletion removes a two-byte native token as one unit',
+  packedDelete,{
+    expression:{kind:'sequence',parts:[
+      {kind:'editorCursor',record_id:7,byte_offset:0,
+        record_word0F:0,record_word11:0},
+      [0x31],
+    ]},
+    mutation:{deleted:[0x5d,0x00],record_id:7,byte_offset:0,
+      restored_empty_slot:false,
+      routine:'34:4570 → 00:3687 → 06:4393–43A4'},
+  });
+expectThrows('editor deletion rejects a leaf endpoint',RangeError,
+  () => rom.editorDeletePackedToken(
+    editorNavigationStates.end.editor.expression));
+expectThrows('editor deletion rejects a structural boundary',RangeError,
+  () => rom.editorDeletePackedToken({kind:'sequence',parts:[
+    {kind:'editorCursor',record_id:7,byte_offset:0,
+      record_word0F:0,record_word11:0},
+    {kind:'fraction',numerator:[0x31],denominator:[0x32]},
+  ]}));
 expectThrows('live editor constructor requires exactly one cursor', RangeError,
   () => rom.constructEditorExpressionProgram([0x31],7,font));
 expectThrows('live editor constructor validates retained cursor record identity',
