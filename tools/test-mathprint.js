@@ -4012,6 +4012,44 @@ expectEqual('34:5935 maps the log-base token through 34:594D',
 expectEqual('34:5996 selects the exponential metadata rows',
   [rom.settledRecordMetadata(0x25),rom.settledRecordMetadata(0x26)],
   [[0x03,0x01,0x00,0x00,0x00],[0x03,0x01,0x00,0x00,0x00]]);
+const raisedExponentialNDeriv = rom.constructSettledExpressionProgram({
+  kind:'nDeriv',
+  variable:[0x58],
+  body:{kind:'logBase',base:[0x31],argument:[0x32]},
+  value:{kind:'ePower',exponent:[0x32]},
+},1,font);
+const raisedExponentialById = new Map(
+  raisedExponentialNDeriv.nodes.map(node => [node.record_id,node]));
+const raisedExponentialRoot = raisedExponentialNDeriv.nodes.find(
+  node => node.render_type === 0x23);
+const raisedExponentialValue = raisedExponentialById.get(
+  raisedExponentialRoot.child_ids[2]);
+const raisedExponentialRecord = raisedExponentialNDeriv.nodes.find(
+  node => node.render_type === 0x25);
+expectEqual(
+  '34:73DB retains the six-row seed for a raised exponential value', {
+    root:[raisedExponentialRoot.word07,raisedExponentialRoot.word09,
+      raisedExponentialRoot.word0B],
+    value:[raisedExponentialValue.word05,raisedExponentialValue.word09,
+      raisedExponentialValue.word0D],
+    exponential:[raisedExponentialRecord.word07,raisedExponentialRecord.word09,
+      raisedExponentialRecord.word0B],
+  }, {
+    // Reset-origin trace SHA-256
+    // 772b3db49ce913dcf1ccbe457da4bf3b4f34d537fc2f0dbca98d723775e071d1.
+    root:[13,83,6], value:[9,6,4], exponential:[9,10,6],
+  });
+const raisedExponentialGlyph = rom.executeSettledRecordProgram(
+  raisedExponentialNDeriv.nodes,raisedExponentialNDeriv.entry_id,{
+    origin:raisedExponentialNDeriv.origin,
+    glyphAdvance:settledGlyphAdvance,
+  }).find(operation => operation.recordType === 0x25 &&
+    operation.kind === 'glyph' && operation.code === 0xdb);
+expectEqual('34:637E keeps the nested exponential marker in the large font', {
+  x:raisedExponentialGlyph.x,
+  y:raisedExponentialGlyph.y,
+  depth:raisedExponentialGlyph.depth,
+}, {x:73,y:6,depth:0});
 expectEqual('34:5996 selects the log-base metadata row',
   rom.settledRecordMetadata(0x28), [0x04,0x02,0x01,0x00,0x00]);
 expectEqual('34:5935 maps the matrix token through 34:594D',

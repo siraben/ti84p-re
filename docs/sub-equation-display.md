@@ -1370,7 +1370,21 @@ The type-`0x25` and type-`0x26` constructors map source tokens `00BFh` and
 `00C1h` through `34:594D`. Both allocate one exponent child. The child begins at
 `x=6`, uses raised small-font metrics, and determines the parent height, width,
 and baseline. The handlers at `34:637E` and `34:63AD` emit fixed large-font
-display codes `0xDB` and `0x1D` before rendering that child. [confirmed]
+display codes `0xDB` and `0x1D` before rendering that child. The fixed symbol
+stays in the large font when the containing expression is raised. [confirmed]
+
+For exponent metrics $(h,w)$ and render depth $r$, the shared metric path at
+`34:73DB` produces [confirmed]
+
+$$
+H=h+4,\qquad W=w+6,\qquad B=\max(h,6[r>0]).
+$$
+
+The six-row seed affects an exponential nested in a raised child. A
+reset-origin `nDeriv(logBASE(1,2),X,e^2)` trace stores $(H,W,B)=(9,10,6)$ for
+the type-`0x25` record. Its containing evaluation-value leaf stores height 9
+and baseline 6, which places the value at row 4 in the type-`0x23` record.
+[confirmed]
 
 Reset-origin traces for `exp(12)`, `exp(X^2)`, `exp(1//2)`, and
 `tenpow(X^2)` match every constructed record field and accepted LCD data write.
