@@ -423,7 +423,7 @@ def js_bitmap(expr, *, generated=False):
     render = (
         "const result=mp.generatedForExpression(process.argv[2]);"
         "if(!result)throw new Error('expression has no translated record program');"
-        "process.stdout.write(result.final.map(row=>"
+        "process.stdout.write(result.settledFinal.map(row=>"
         "Array.from(row,value=>Number(value)?'#':'.').join('')).join('\\n'));"
         if generated else
         "process.stdout.write(mp.toText(mp.parse(process.argv[2])));"
@@ -456,7 +456,7 @@ def js_render_spec(spec):
         "const result=mp.generateRecordProgram(program,{editor:true});"
         "const expression=rom.decodeSettledExpressionGraph("
         "program.nodes,program.entry_id);"
-        "process.stdout.write(JSON.stringify({native,expression,final:result.final}));"
+        "process.stdout.write(JSON.stringify({native,expression,final:result.settledFinal}));"
     )
     out = subprocess.run(
         ["node", "-e", code, ROOT, json.dumps(spec, separators=(",", ":"))],
