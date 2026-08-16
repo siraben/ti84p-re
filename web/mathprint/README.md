@@ -165,12 +165,15 @@ structural deletion and boundary navigation remain open.
 `editorInsertStructuralTemplate()` translates fraction insertion from source
 token `EF 2E` at every cursor class in the root leaf and both child leaves of
 one outer fraction. A populated leaf moves its left payload into the new
-numerator and retains its right payload after the six-byte marker. The function
-consumes the decoded arena because the next three record IDs and
-structural-depth byte are not present in the semantic cursor tree alone. Twelve
-reset-origin transitions verify the marker, controller state, cursor AST, every
-reconstructed record field, and complete LCD output. Deeper nested positions
-and other structural types remain separate.
+numerator and retains its right payload after the six-byte marker. The same
+function translates root-level radical insertion from source token `BC`. A
+radical leaves the left segment in its parent and replaces one packed token to
+the cursor's right; a captured `5D 00` list token proves the two-byte boundary.
+The function consumes the decoded arena because new record IDs and the
+structural-depth byte are not present in the semantic cursor tree alone.
+Seventeen reset-origin transitions verify the markers, controller states,
+cursor ASTs, every reconstructed record field, and complete LCD output. Deeper
+nested positions and the remaining structural types remain separate.
 `editorMovePackedTokenCursor()` translates ordinary in-leaf LEFT and RIGHT
 movement. A reset-origin `12` capture verifies the end, middle, and returned
 cursor states. The middle state also establishes that a cursor before existing
