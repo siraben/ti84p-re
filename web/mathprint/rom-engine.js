@@ -1521,6 +1521,158 @@
     };
   }
 
+  // 34:5F8B–5FC0 is the vertical counterpart to 34:5F5D. 8518h holds
+  // the logical top row of the entry cursor. The routine subtracts the
+  // previous 8E04h clip, adds a seven-row cursor when (IY+44h).3 is set or a
+  // five-row cursor when it is clear, adds the caller's optional four rows,
+  // and keeps the result below the low byte at 8DFDh. All arithmetic before
+  // the low-byte bound comparison is 16-bit and wraps like the Z80.
+  function settledEditorVerticalViewport(cursorTop, options = {}) {
+    const unsignedWord = (value, label) => {
+      if (!Number.isInteger(value) || value < 0 || value > 0xffff)
+        throw new RangeError(`${label} must fit an unsigned word`);
+      return value;
+    };
+    const top = unsignedWord(cursorTop, 'settled editor cursor top');
+    const previousYClip = unsignedWord(
+      options.previousYClip === undefined ? 0 : options.previousYClip,
+      'settled editor previous vertical clip');
+    const iy44Bit3 = options.iy44Bit3 === undefined ? true :
+      boolean(options.iy44Bit3, 'settled editor IY+44h bit 3');
+    const cursorHeight = iy44Bit3 ? 7 : 5;
+    const extraHeight = unsignedWord(
+      options.extraHeight === undefined ? 0 : options.extraHeight,
+      'settled editor vertical caller height');
+    if (extraHeight !== 0 && extraHeight !== 4)
+      throw new RangeError(
+        'settled editor vertical caller height must be zero or four');
+    const bottomBound = byte(
+      options.bottomBound === undefined ? 0x3e : options.bottomBound,
+      'settled editor vertical bound');
+    const yOrigin = unsignedWord(
+      options.yOrigin === undefined ? 0 : options.yOrigin,
+      'settled editor y origin');
+    const screenYOrigin = byte(
+      options.screenYOrigin === undefined ? 0 : options.screenYOrigin,
+      'settled editor screen y origin');
+    const resetPreviousClip = top < previousYClip;
+    let yClip = resetPreviousClip ? 0 : previousYClip;
+    let comparisonCoordinate = resetPreviousClip
+      ? top : (top - previousYClip) & 0xffff;
+    comparisonCoordinate = (comparisonCoordinate + cursorHeight) & 0xffff;
+    comparisonCoordinate = (comparisonCoordinate + extraHeight) & 0xffff;
+    const beforeBottomBound = comparisonCoordinate < bottomBound;
+    if (!beforeBottomBound)
+      yClip = (comparisonCoordinate - bottomBound + yClip) & 0xffff;
+    return {
+      cursorTop:top,
+      previousYClip,
+      resetPreviousClip,
+      iy44Bit3,
+      cursorHeight,
+      extraHeight,
+      bottomBound,
+      yOrigin,
+      screenYOrigin,
+      yClip,
+      effectiveY:yOrigin - yClip + screenYOrigin,
+      cursorY:top + yOrigin - yClip + screenYOrigin,
+      comparisonCoordinate,
+      branch:beforeBottomBound ? 'return-before-bottom-bound' :
+        'store-vertical-clip',
+      branchOutcomes:[
+        `34:5F96:${resetPreviousClip ? 'fallthrough' : 'taken'}`,
+        `34:5FA7:${iy44Bit3 ? 'taken' : 'fallthrough'}`,
+        `34:5FB7:${beforeBottomBound ? 'returned' : 'fallthrough'}`,
+      ],
+      routine:'34:5F8B–5FC0; applied by 34:6BE5–6BFC and 34:67C8–6872',
+    };
+  }
+
+  // The live editor calls 34:5F8B first with DE=0 and, on the MathPrint
+  // redraw path, again with DE=4. Preserve both state transitions rather than
+  // collapsing them into one arithmetic shortcut: the first call can clear a
+  // stale clip before the second call observes it.
+  function settledEditorViewport2D(expressionEndpoint, cursorTop, options = {}) {
+    if (!options || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('settled 2-D editor viewport options must be an object');
+    const horizontal = settledEditorViewport(expressionEndpoint, options);
+    const firstVertical = settledEditorVerticalViewport(cursorTop, {
+      previousYClip:options.previousYClip,
+      iy44Bit3:options.iy44Bit3,
+      extraHeight:0,
+      bottomBound:options.bottomBound,
+      yOrigin:options.yOrigin,
+      screenYOrigin:options.screenYOrigin,
+    });
+    const secondVertical = settledEditorVerticalViewport(cursorTop, {
+      previousYClip:firstVertical.yClip,
+      iy44Bit3:options.iy44Bit3,
+      extraHeight:options.extraHeight === undefined ? 4 : options.extraHeight,
+      bottomBound:options.bottomBound,
+      yOrigin:options.yOrigin,
+      screenYOrigin:options.screenYOrigin,
+    });
+    return {
+      ...horizontal,
+      cursorTop:secondVertical.cursorTop,
+      previousYClip:firstVertical.previousYClip,
+      yClip:secondVertical.yClip,
+      effectiveY:secondVertical.effectiveY,
+      cursorY:secondVertical.cursorY,
+      cursorHeight:secondVertical.cursorHeight,
+      extraHeight:secondVertical.extraHeight,
+      bottomBound:secondVertical.bottomBound,
+      screenYOrigin:secondVertical.screenYOrigin,
+      verticalPasses:[firstVertical,secondVertical],
+    };
+  }
+
+  // 34:67C8–6872 rejects a complete glyph cell above or below the active
+  // vertical window. A crossing cell remains admitted; 9D01h and 9B72h then
+  // select its visible rows. The small-font path uses a five-row cell and the
+  // large-font path uses seven rows.
+  function settledGlyphVerticalViewportDecision(
+    logicalTop, depth, yClip, bottomBound = 0x3e) {
+    unsignedWord(logicalTop, 'settled glyph logical top');
+    byte(depth, 'settled glyph depth');
+    unsignedWord(yClip, 'settled glyph vertical clip');
+    byte(bottomBound, 'settled glyph vertical bound');
+    const cellHeight = depth === 0 ? 7 : 5;
+    const bottomExclusive = addWord(yClip,bottomBound);
+    if (logicalTop < yClip) {
+      const endpoint = addWord(logicalTop,cellHeight);
+      if (endpoint <= yClip) return {
+        action:'skip-above', logicalTop, endpoint, cellHeight,
+        yClip, bottomExclusive,
+        branchOutcomes:['34:67E6:fallthrough',
+          `34:67EE:${depth === 0 ? 'taken' : 'fallthrough'}`,
+          `34:67F7:${endpoint < yClip ? 'taken' : 'fallthrough'}`,
+          ...(endpoint === yClip ? ['34:67FA:taken'] : []),
+        ],
+      };
+      return {
+        action:'clip-top', logicalTop, endpoint, cellHeight,
+        yClip, bottomExclusive, topRows:yClip - logicalTop,
+        visibleRows:cellHeight - (yClip - logicalTop),
+      };
+    }
+    if (bottomExclusive <= logicalTop) return {
+      action:'skip-below', logicalTop, endpoint:addWord(logicalTop,cellHeight),
+      cellHeight, yClip, bottomExclusive,
+      branchOutcomes:['34:67E6:taken','34:6827:taken'],
+    };
+    const endpoint = addWord(logicalTop,cellHeight);
+    if (endpoint > bottomExclusive) return {
+      action:'clip-bottom', logicalTop, endpoint, cellHeight,
+      yClip, bottomExclusive, visibleRows:bottomExclusive - logicalTop,
+    };
+    return {
+      action:'draw', logicalTop, endpoint, cellHeight,
+      yClip, bottomExclusive, visibleRows:cellHeight,
+    };
+  }
+
   // 34:6C5F–6C87 performs both glyph gates in logical word coordinates.
   // The right comparison uses the glyph advance, not its set-pixel bounding
   // box, and every addition wraps before the unsigned compare.
@@ -1649,10 +1801,29 @@
     const glyphAdvance = options.glyphAdvance;
     if (glyphAdvance !== undefined && typeof glyphAdvance !== 'function')
       throw new TypeError('settled editor glyph advance must be a function');
+    const hasVerticalViewport = viewport.yClip !== undefined;
+    const yClip = hasVerticalViewport ? viewport.yClip : 0;
+    const screenYOrigin = viewport.screenYOrigin === undefined
+      ? 0 : viewport.screenYOrigin;
+    const bottomBound = viewport.bottomBound === undefined
+      ? 0x3e : viewport.bottomBound;
+    for (const [value,label] of [
+      [yClip,'settled editor vertical clip'],
+      [screenYOrigin,'settled editor screen y origin'],
+    ]) if (!Number.isInteger(value) || value < 0 || value > 0xffff)
+      throw new RangeError(`${label} must fit an unsigned word`);
+    byte(bottomBound, 'settled editor vertical bound');
+    const clip = {
+      left:viewport.xOrigin,
+      rightExclusive:viewport.xOrigin + viewport.rightBound + 1,
+      top:screenYOrigin,
+      bottomExclusive:screenYOrigin + bottomBound,
+    };
     const translated = [];
     for (const operation of operations) {
       const positioned = translateSettledOperation(
-        operation, viewport.effectiveX, viewport.yOrigin);
+        operation, viewport.effectiveX,
+        viewport.yOrigin - (hasVerticalViewport ? yClip : 0) + screenYOrigin);
       // 34:6C5F–6C84 compares a glyph's left edge with ram:8E02 before
       // entering either font blitter. A glyph that begins left of the clip is
       // omitted as a unit; the ROM does not draw its still-visible suffix.
@@ -1690,6 +1861,22 @@
           logicalPen,advance,viewport.xClip,viewport.rightBound).action !== 'draw')
           continue;
       }
+      if (hasVerticalViewport &&
+          (positioned.kind === 'glyph' || positioned.kind === 'glyph-run' ||
+           operation.viewportAdvance !== undefined)) {
+        const logicalTop = addWord(operation.y,viewport.yOrigin);
+        const vertical = settledGlyphVerticalViewportDecision(
+          logicalTop,
+          operation.depth === undefined ? 0 : operation.depth,
+          yClip,bottomBound);
+        if (vertical.action === 'skip-above' ||
+            vertical.action === 'skip-below')
+          continue;
+      }
+      if (hasVerticalViewport)
+        Object.defineProperty(positioned,'clip',{
+          value:clip, enumerable:false, configurable:false, writable:false,
+        });
       translated.push(positioned);
     }
     if (viewport.xClip !== 0) translated.push({
@@ -5821,13 +6008,31 @@
     });
   }
 
+  function settledOperationClip(operation) {
+    if (operation.clip === undefined) return null;
+    const clip = operation.clip;
+    if (!clip || typeof clip !== 'object' ||
+        !Number.isInteger(clip.left) ||
+        !Number.isInteger(clip.rightExclusive) ||
+        !Number.isInteger(clip.top) ||
+        !Number.isInteger(clip.bottomExclusive) ||
+        clip.rightExclusive < clip.left ||
+        clip.bottomExclusive < clip.top)
+      throw new RangeError(
+        'settled operation clip must contain ordered integer bounds');
+    return clip;
+  }
+
   function settledOperationPixels(operation, font) {
     if (!operation || typeof operation !== 'object')
       throw new TypeError('settled operation must be an object');
+    const clip = settledOperationClip(operation);
     const pixels = [];
     const point = (x, y) => {
       if (!Number.isInteger(x) || !Number.isInteger(y))
         throw new RangeError('settled pixel coordinate must be an integer');
+      if (clip && (x < clip.left || x >= clip.rightExclusive ||
+                   y < clip.top || y >= clip.bottomExclusive)) return;
       pixels.push([x,y,1]);
     };
     if (operation.kind === 'point') {
@@ -5881,7 +6086,9 @@
     } else if (!operation.kind.startsWith('unresolved-')) {
       throw new RangeError(`cannot rasterize settled operation kind ${operation.kind}`);
     }
-    return pixels;
+    return clip ? pixels.filter(([x,y]) =>
+      clip.left <= x && x < clip.rightExclusive &&
+      clip.top <= y && y < clip.bottomExclusive) : pixels;
   }
 
   function settledBlits(operation, font) {
@@ -6042,6 +6249,7 @@
     const height = grid.length, width = grid[0].length;
     if (width % 8)
       throw new RangeError('settled LCD write grid width must be byte-aligned');
+    const clip = settledOperationClip(operation);
     const writes = [];
     const write = (byteColumn, row, value, retainUnchanged = false) => {
       if (byteColumn < 0 || row < 0 || byteColumn >= width / 8 || row >= height) return;
@@ -6078,6 +6286,7 @@
       for (let row = 0; row < blit.rows.length; row++) {
         if (smallGlyph && (row < firstRow || row > lastRow)) continue;
         const y = blit.y + row;
+        if (clip && (y < clip.top || y >= clip.bottomExclusive)) continue;
         if (y < 0 || y >= height) continue;
         const firstByte = Math.floor(blit.x / 8);
         const lastByte = Math.floor((blit.x + blit.width - 1) / 8);
@@ -6086,6 +6295,7 @@
           let coverage = 0, ink = 0;
           for (let column = 0; column < blit.width; column++) {
             const x = blit.x + column;
+            if (clip && (x < clip.left || x >= clip.rightExclusive)) continue;
             if ((x >> 3) !== byteColumn) continue;
             const screenMask = 1 << (7 - (x & 7));
             coverage |= screenMask;
@@ -6287,7 +6497,10 @@
     settledVerticalOperation,
     settledHorizontalOperation,
     settledEditorViewport,
+    settledEditorVerticalViewport,
+    settledEditorViewport2D,
     settledGlyphViewportDecision,
+    settledGlyphVerticalViewportDecision,
     settledEmbeddedViewportDecision,
     settledEditorViewportOperations,
     settledEditorRightCueOperation,

@@ -48,6 +48,18 @@ class InputEmitterTests(unittest.TestCase):
             FUZZ.calculator_structural_depth(ast) <= 4 for ast in asts))
         self.assertGreater(rejected, 0)
 
+    def test_vertical_viewport_case_is_tall_but_entry_valid(self) -> None:
+        ast = FUZZ.CURATED["vertical_viewport"]
+
+        self.assertEqual(FUZZ.calculator_structural_depth(ast), 4)
+        self.assertEqual(
+            FUZZ.to_expr(ast),
+            "1//1//1//1//1//1//1//1//1//1//1//1//1//1//1//1",
+        )
+        self.assertEqual(FUZZ.show_ast(ast).count("sdiv("), 15)
+        self.assertEqual(FUZZ.emit(ast).count("ALPHA"), 15)
+        self.assertEqual(FUZZ.emit(ast).count("YEQU"), 15)
+
     def test_input_retries_include_the_observed_very_slow_cadence(self) -> None:
         self.assertEqual(FUZZ.CALCULATOR_INPUT_CADENCES, (
             (0.1, 0.0), (0.16, 0.03), (0.24, 0.12),

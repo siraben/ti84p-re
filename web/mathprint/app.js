@@ -981,7 +981,7 @@ const PRESETS = Object.freeze([
 ]);
 
 let CUR = null, CUR_TRACE = null, CUR_GENERATED = null, ANIM = null;
-let EDITOR_X_CLIP = 0;
+let EDITOR_X_CLIP = 0, EDITOR_Y_CLIP = 0;
 
 function curColor() {
   return document.getElementById('lcd').checked
@@ -1084,9 +1084,11 @@ function generateRecordProgram(program, options = {}) {
   // answer-display origin and do not use this editor viewport.
   const editorViewport = options.editor === true &&
       program.origin.x === 0 && program.origin.y === 0
-    ? ROM_ENGINE.settledEditorViewport(recordWidth, {
+    ? ROM_ENGINE.settledEditorViewport2D(recordWidth, entry.word09 - 3, {
       previousXClip:options.previousXClip === undefined
         ? 0 : options.previousXClip,
+      previousYClip:options.previousYClip === undefined
+        ? 0 : options.previousYClip,
     }) : null;
   const recordOperations = ROM_ENGINE.executeSettledRecordProgram(
     program.nodes, program.entry_id, {
@@ -1117,7 +1119,7 @@ function generateRecordProgram(program, options = {}) {
   }
   return {
     width:rendered.width, height:rendered.height,
-    recordWidth, overflowRight, clippedInkPixels,
+    recordWidth, recordHeight, overflowRight, clippedInkPixels,
     editorViewport,
     initial:Array.from({length:rendered.height}, () => '0'.repeat(rendered.width)),
     final:rendered.grid.map(row => row.join('')),
@@ -1228,10 +1230,12 @@ function settledModelBox(source, options = {}) {
       via:operation.routine,
     });
   }
-  const modelViewport = entry.word07 <= 0xffff
-    ? ROM_ENGINE.settledEditorViewport(entry.word07, {
+  const modelViewport = entry.word07 <= 0xffff && entry.word09 >= 3
+    ? ROM_ENGINE.settledEditorViewport2D(entry.word07, entry.word09 - 3, {
       previousXClip:options.previousXClip === undefined
         ? 0 : options.previousXClip,
+      previousYClip:options.previousYClip === undefined
+        ? 0 : options.previousYClip,
     }) : null;
   return {
     rows, baseline:Math.max(0, entry.word0B - top), marks,
@@ -1746,6 +1750,8 @@ function renderGenerated(record, step, scale) {
     `${record.width}×${record.height} LCD` +
     (record.editorViewport && record.editorViewport.xClip
       ? ` · editor x clip ${record.editorViewport.xClip} px` : '') +
+    (record.editorViewport && record.editorViewport.yClip
+      ? ` · editor y clip ${record.editorViewport.yClip} px` : '') +
     (record.overflowRight
       ? ` · ${record.recordWidth} px record extent · ${record.overflowRight} px wider than viewport` +
         ` (${record.clippedInkPixels} ink pixels outside an unscrolled origin)`
@@ -1781,7 +1787,9 @@ function renderModel(box, step, scale, showPen) {
       ? ` · ${overflow} px wider than 96 px LCD` +
         (viewport ? ` · editor x clip ${viewport.xClip} px` :
           ' · editor clip exceeds translated word range')
-      : ' · fits 96 px LCD');
+      : ' · fits 96 px LCD') +
+    (viewport && viewport.yClip
+      ? ` · editor y clip ${viewport.yClip} px` : '');
   const tl = document.getElementById('timeline');
   if (step == null) { tl.max = marks.length; tl.value = marks.length; }
 }
@@ -1791,14 +1799,21 @@ function render(step) {
   const showPen = document.getElementById('pen').checked;
   try {
     const input = document.getElementById('expr').value;
-    const prepared = prepareInput(input, {previousXClip:EDITOR_X_CLIP});
+    const prepared = prepareInput(input, {
+      previousXClip:EDITOR_X_CLIP,
+      previousYClip:EDITOR_Y_CLIP,
+    });
     const nativeInput = prepared.nativeInput;
     CUR = prepared.model;
     CUR_TRACE = nativeInput ? null : traceForExpression(input);
     CUR_GENERATED = prepared.generated;
-    if (!input.trim()) EDITOR_X_CLIP = 0;
-    else if (CUR_GENERATED && CUR_GENERATED.editorViewport)
+    if (!input.trim()) {
+      EDITOR_X_CLIP = 0;
+      EDITOR_Y_CLIP = 0;
+    } else if (CUR_GENERATED && CUR_GENERATED.editorViewport) {
       EDITOR_X_CLIP = CUR_GENERATED.editorViewport.xClip;
+      EDITOR_Y_CLIP = CUR_GENERATED.editorViewport.yClip;
+    }
     const generationError = prepared.generationError;
     const source = document.getElementById('source');
     if (nativeInput && source.value !== 'generated') source.value = 'generated';
@@ -1947,6 +1962,7 @@ async function main() {
     b.textContent = label;
     b.onclick = () => {
       EDITOR_X_CLIP = 0;
+      EDITOR_Y_CLIP = 0;
       expressionInput.value = src;
       resizeExpressionInput(expressionInput);
       render();

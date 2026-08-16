@@ -52,6 +52,8 @@ const radicalViewportOracle = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-radical-viewport-oracles.json'))).cases[0];
 const listOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-list-oracles.json')));
+const verticalViewportOracle = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools', 'mathprint-vertical-viewport-oracle.json'))).cases[0];
 
 function expectEqual(label, actual, expected) {
   if (JSON.stringify(actual) !== JSON.stringify(expected))
@@ -128,6 +130,9 @@ const editorViewportRomSpans = [
   {address:0x5f5d, bytes:Buffer.from(
     'd52a1685cdc25d3008010000ed43028e19110600fdcb445e20011b19d119cdca' +
     '5db7ed52d8ed5b028e1922028ec9', 'hex')},
+  {address:0x5f8b, bytes:Buffer.from(
+    'd52a1885ed5b048eb7ed523008010000ed43048e19110700fdcb445e20021b1b' +
+    '19d119ed5bfd8d1600b7ed52d8ed5b048e1922048ec9', 'hex')},
 ];
 const glyphViewportRomSpan = {address:0x6c5f, bytes:Buffer.from(
   '2a1685ed5b028ecdbb213816e1e5ed5b168519e52a028ecdca5d1319d1cdbb21' +
@@ -652,7 +657,9 @@ function runRawEditorViewport(expressionEndpoint, previousXClip,
       if (carry) break;
       pc++;
     } else if (opcode === 0xed && editorViewportByte(pc + 1) === 0x5b) {
-      de = memory.get(literalWord(pc + 2)) || 0; pc += 4;
+      const address = literalWord(pc + 2);
+      if (address === 0x8dfd) comparisonCoordinate = hl;
+      de = memory.get(address) || 0; pc += 4;
     } else if (opcode === 0x22) {
       memory.set(literalWord(pc + 1),hl); pc += 3;
     } else if (opcode === 0xc9) {
@@ -676,6 +683,94 @@ function runRawEditorViewport(expressionEndpoint, previousXClip,
       ? 'return-before-right-bound' : 'store-horizontal-clip',
     branchOutcomes,
     routine:'34:5F5D–5F8A; applied by 34:5DBE–5DC9',
+  };
+}
+
+function runRawEditorVerticalViewport(cursorTop, previousYClip,
+                                      iy44Bit3, extraHeight,
+                                      bottomBound = 0x3e) {
+  const literalWord = address => editorViewportByte(address) |
+    (editorViewportByte(address + 1) << 8);
+  const memory = new Map([
+    [0x8518,cursorTop], [0x8e04,previousYClip],
+    [0x8dfd,bottomBound],
+  ]);
+  let pc = 0x5f8b, hl = 0, de = extraHeight, bc = 0;
+  let carry = false, zero = false, comparisonCoordinate = null;
+  const stack = [], branchOutcomes = [];
+  for (let instructions = 0; instructions < 64; instructions++) {
+    const opcode = editorViewportByte(pc);
+    if (opcode === 0xd5) {
+      stack.push(de); pc++;
+    } else if (opcode === 0x2a) {
+      hl = memory.get(literalWord(pc + 1)) || 0; pc += 3;
+    } else if (opcode === 0xed && editorViewportByte(pc + 1) === 0x5b) {
+      const address = literalWord(pc + 2);
+      if (address === 0x8dfd) comparisonCoordinate = hl;
+      de = memory.get(address) || 0; pc += 4;
+    } else if (opcode === 0xb7) {
+      carry = false; zero = (hl & 0xff) === 0; pc++;
+    } else if (opcode === 0xed && editorViewportByte(pc + 1) === 0x52) {
+      carry = hl < de;
+      hl = (hl - de) & 0xffff;
+      zero = hl === 0;
+      pc += 2;
+    } else if (opcode === 0x30) {
+      const taken = !carry;
+      branchOutcomes.push(
+        `34:${pc.toString(16).toUpperCase()}:${taken ? 'taken' : 'fallthrough'}`);
+      pc = taken ? pc + 2 + signedByte(editorViewportByte(pc + 1)) : pc + 2;
+    } else if (opcode === 0x01) {
+      bc = literalWord(pc + 1); pc += 3;
+    } else if (opcode === 0xed && editorViewportByte(pc + 1) === 0x43) {
+      memory.set(literalWord(pc + 2),bc); pc += 4;
+    } else if (opcode === 0x19) {
+      hl = (hl + de) & 0xffff; pc++;
+    } else if (opcode === 0x11) {
+      de = literalWord(pc + 1); pc += 3;
+    } else if (opcode === 0xfd && editorViewportByte(pc + 1) === 0xcb &&
+               editorViewportByte(pc + 2) === 0x44 &&
+               editorViewportByte(pc + 3) === 0x5e) {
+      zero = !iy44Bit3; pc += 4;
+    } else if (opcode === 0x20) {
+      const taken = !zero;
+      branchOutcomes.push(
+        `34:${pc.toString(16).toUpperCase()}:${taken ? 'taken' : 'fallthrough'}`);
+      pc = taken ? pc + 2 + signedByte(editorViewportByte(pc + 1)) : pc + 2;
+    } else if (opcode === 0x1b) {
+      de = (de - 1) & 0xffff; pc++;
+    } else if (opcode === 0xd1) {
+      de = stack.pop(); pc++;
+    } else if (opcode === 0x16) {
+      de &= 0x00ff; pc += 2;
+    } else if (opcode === 0xd8) {
+      branchOutcomes.push(
+        `34:${pc.toString(16).toUpperCase()}:${carry ? 'returned' : 'fallthrough'}`);
+      if (carry) break;
+      pc++;
+    } else if (opcode === 0x22) {
+      memory.set(literalWord(pc + 1),hl); pc += 3;
+    } else if (opcode === 0xc9) {
+      break;
+    } else {
+      throw new Error(
+        `vertical-viewport oracle reached unsupported opcode 0x${opcode.toString(16)}`);
+    }
+  }
+  if (comparisonCoordinate === null)
+    throw new Error('vertical-viewport oracle did not reach its bottom-bound compare');
+  const yClip = memory.get(0x8e04) || 0;
+  return {
+    cursorTop, previousYClip,
+    resetPreviousClip:branchOutcomes[0] === '34:5F96:fallthrough',
+    iy44Bit3:Boolean(iy44Bit3), cursorHeight:iy44Bit3 ? 7 : 5,
+    extraHeight, bottomBound, yOrigin:0, screenYOrigin:0, yClip,
+    effectiveY:-yClip, cursorY:cursorTop - yClip,
+    comparisonCoordinate,
+    branch:branchOutcomes[2] === '34:5FB7:returned'
+      ? 'return-before-bottom-bound' : 'store-vertical-clip',
+    branchOutcomes,
+    routine:'34:5F8B–5FC0; applied by 34:6BE5–6BFC and 34:67C8–6872',
   };
 }
 
@@ -2241,6 +2336,80 @@ for (let endpoint = 0; endpoint <= 0xffff; endpoint++) {
 }
 expectEqual('34:5F5D exhaustive raw-byte viewport state count',
   editorViewportRawStates, 786428);
+expectEqual('34:5F8B applies both live-editor vertical passes', (() => {
+  const first = rom.settledEditorVerticalViewport(59,{extraHeight:0});
+  const second = rom.settledEditorVerticalViewport(59,{
+    previousYClip:first.yClip,extraHeight:4,
+  });
+  const combined = rom.settledEditorViewport2D(20,59);
+  return {
+    first:first.yClip,second:second.yClip,combined:combined.yClip,
+    effectiveY:combined.effectiveY,cursorY:combined.cursorY,
+  };
+})(), {first:4,second:8,combined:8,effectiveY:-8,cursorY:51});
+expectEqual('34:67C8 partitions the vertical glyph window', [
+  rom.settledGlyphVerticalViewportDecision(11,1,19).action,
+  rom.settledGlyphVerticalViewportDecision(14,1,19).action,
+  rom.settledGlyphVerticalViewportDecision(18,1,19).action,
+  rom.settledGlyphVerticalViewportDecision(76,0,19).action,
+  rom.settledGlyphVerticalViewportDecision(81,0,19).action,
+], ['skip-above','skip-above','clip-top','clip-bottom','skip-below']);
+expectThrows('34:5F8B rejects a caller height outside its two call sites',
+  RangeError,
+  () => rom.settledEditorVerticalViewport(59,{extraHeight:1}));
+
+let editorVerticalViewportRawStates = 0;
+for (let cursorTop = 0; cursorTop <= 0xffff; cursorTop++) {
+  const previousClips = [0,cursorTop];
+  if (cursorTop < 0xffff) previousClips.push(cursorTop + 1);
+  for (const previousYClip of previousClips) {
+    for (const iy44Bit3 of [false,true]) {
+      for (const extraHeight of [0,4]) {
+        expectEqual('34:5F8B exhaustive raw-byte viewport state',
+          rom.settledEditorVerticalViewport(cursorTop,{
+            previousYClip,iy44Bit3,extraHeight,
+          }),
+          runRawEditorVerticalViewport(
+            cursorTop,previousYClip,iy44Bit3,extraHeight));
+        editorVerticalViewportRawStates++;
+      }
+    }
+  }
+}
+expectEqual('34:5F8B exhaustive raw-byte viewport state count',
+  editorVerticalViewportRawStates, 786428);
+expectEqual('depth-four fraction uses the captured vertical viewport', (() => {
+  const generated = mp.generatedForExpression(verticalViewportOracle.expression);
+  const crop = cropInk(generated.final);
+  return {
+    nativeTokens:generated.nativeTokens,
+    recordHeight:generated.recordHeight,
+    recordWidth:generated.recordWidth,
+    firstClip:generated.editorViewport.verticalPasses[0].yClip,
+    secondClip:generated.editorViewport.yClip,
+    operationCount:generated.operations.length,
+    writeCount:generated.events.length,
+    writeHash:crypto.createHash('sha256').update(Buffer.from(
+      generated.events.flatMap(write => [...write.pointer,write.value]))).digest('hex'),
+    lcdHash:crypto.createHash('sha256').update(Buffer.from(
+      generated.final.flatMap(row => Array.from(row,Number)))).digest('hex'),
+    crop:[crop[0].length,crop.length,
+      crypto.createHash('sha256').update(Buffer.from(crop.flat())).digest('hex')],
+  };
+})(), {
+  nativeTokens:verticalViewportOracle.native_tokens,
+  recordHeight:verticalViewportOracle.translated.word05_height,
+  recordWidth:verticalViewportOracle.translated.expression_endpoint,
+  firstClip:verticalViewportOracle.translated.first_vertical_clip,
+  secondClip:verticalViewportOracle.translated.second_vertical_clip,
+  operationCount:verticalViewportOracle.translated.operation_count,
+  writeCount:verticalViewportOracle.translated.accepted_write_count,
+  writeHash:verticalViewportOracle.translated.accepted_write_sha256,
+  lcdHash:verticalViewportOracle.translated.final_lcd_sha256,
+  crop:[verticalViewportOracle.entry_crop.width,
+    verticalViewportOracle.entry_crop.height,
+    verticalViewportOracle.entry_crop.sha256],
+});
 expectEqual('33:4F82 exposes every fixed allocation geometry row',
   Array.from({length:12}, (_, index) => {
     const row = rom.settledRecordAllocationGeometry(0x1f + index);

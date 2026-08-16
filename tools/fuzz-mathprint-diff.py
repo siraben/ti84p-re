@@ -634,8 +634,19 @@ def show_ast(ast, depth=0):
 
 
 # ---- curated examples for emitter validation -------------------------------
-# AST forms of the 10 parity examples. The emitter must produce the same expr and
+# AST forms of the parity examples. The emitter must produce the same expr and
 # keystrokes corresponding to the parity tool's curated expressions.
+def balanced_stacked_fraction(depth):
+    """Build the tall, depth-bounded fraction tree used by the y-clip oracle."""
+
+    if depth < 1:
+        raise ValueError("stacked-fraction depth must be positive")
+    if depth == 1:
+        return ("sdiv", ("num", "1"), ("num", "1"))
+    child = balanced_stacked_fraction(depth - 1)
+    return ("sdiv", child, child)
+
+
 CURATED = {
     "x_squared":   ("pow", ("var", "X"), ("num", "2")),
     "pow_half":    ("pow", ("var", "X"), ("ldiv", ("num", "1"), ("num", "2"))),
@@ -655,6 +666,7 @@ CURATED = {
                     ("sqrt", ("num", "2")),
                     ("pow", ("num", "2"), ("num", "2")),
                     ("num", "3"), ("num", "1")),
+    "vertical_viewport": balanced_stacked_fraction(4),
 }
 
 

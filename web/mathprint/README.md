@@ -27,6 +27,7 @@ reader-facing write-up is
 | `tools/mathprint-named-token-oracles.json` | fresh counted-token spelling graphs plus accepted-write hashes in flat, raised, and structural contexts |
 | `tools/mathprint-two-byte-token-oracles.json` | fresh list, matrix-name, equation-variable, and string-variable graphs plus accepted-write and framebuffer hashes |
 | `tools/mathprint-list-oracles.json` | natural flat and radical-element list graphs, traces, screenshots, and cropped pixel hashes |
+| `tools/mathprint-vertical-viewport-oracle.json` | natural depth-four fraction trace, vertical viewport words, accepted-write hash, and exact LCD crop |
 
 `rom-engine.js` translates handler lookup, row-cell emission, direct-glyph and
 delimiter classification, `_KeyToString` index arithmetic, descriptor selection
@@ -81,6 +82,14 @@ Render-record type `0x20` is translated through its child traversal and rule
 emission at `34:620A`. Fractions now draw numerator, denominator, then the
 inclusive horizontal rule computed from both child `+7` widths and the parent
 `+0x0B` coordinate. Child placement within each record remains open.
+
+Editable generated previews apply both ROM viewport words. `34:5F5D` updates
+the horizontal clip from the expression endpoint and cursor width.
+`34:5F8B` then updates the vertical clip twice, using the cursor top and the
+two live caller paddings. A natural depth-four balanced fraction reaches an
+eight-row vertical clip; the translated 17×61 expression crop matches the
+calculator exactly. The compact evidence is in
+`tools/mathprint-vertical-viewport-oracle.json`.
 
 Render-record type `0x2A` is translated as a child-1 traversal through
 `34:6375` and `34:636C`. The record emits no drawing primitive of its own.
