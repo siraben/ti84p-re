@@ -1,0 +1,129 @@
+{
+  "schema": 1,
+  "source": "reset-origin TilEm logical-RAM snapshots at live MathPrint cursor positions",
+  "rom_sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d",
+  "capture_executable_sha256": "40cf1f9ff975217ede238cd02bfd6a85fa6bfecf8cbcea173b0d7705b144330b",
+  "cases": [
+    {
+      "name": "fraction_empty",
+      "macro": "tools/macros/mathprint-editor-fraction-empty.macro",
+      "macro_sha256": "6fced6b6f6c9a4ef4915b19d9dac027f3283fc2a5e6be93b7e9b3b3bcfcd777f",
+      "source_ram_sha256": "9f434033792761e236208760b10badf63f4d34a96eadd90e458d5303e676ee6b",
+      "screenshot_sha256": "d6a7605bc697b229236472aa7455aa83159ef690808c7a8244d61528ba29fc93",
+      "sparse_state_sha256": "bcabb3961e1f37fe21b4e66c8bbfffb9a3812a162324e85273fdeed0beccc019",
+      "segments": [
+        {"address": 35313, "bytes": "04"},
+        {"address": 36271, "bytes": "b79d45fc080020010900000200e59d289ecd9dfe9d"},
+        {"address": 38644, "bytes": "119e119e2efc30fc"},
+        {"address": 40375, "bytes": "06001f000001000d000a000600000000000000000700080020070001000d000a000600000000000100ef09000a0007000006000d000a0006000000000000000600ef200800ef2d09000008000500060002000200000000000200ef"},
+        {"address": 64558, "bytes": "ef1e0a000008000500060002000200080000000200ef1e"}
+      ],
+      "expected": {
+        "entry_id": 7,
+        "active_record_id": 9,
+        "cursor_byte_offset": 0,
+        "cursor_path": ["numerator", "parts", 0],
+        "left": [],
+        "right": [239, 30],
+        "expression": {
+          "kind": "fraction",
+          "numerator": {"kind": "extendedToken", "tokens": [239, 30]},
+          "denominator": {"kind": "extendedToken", "tokens": [239, 30]}
+        },
+        "node_count": 5
+      }
+    },
+    {
+      "name": "integral_upper",
+      "macro": "tools/macros/mathprint-editor-integral-upper.macro",
+      "macro_sha256": "596e899813d71627cdef4fde902ef4813228433d0a4a702fbc0d4922286a5a75",
+      "source_ram_sha256": "b48f693a1edf98f6b946684a8a3a9e6b1468bd962d843ff7d8fabfc136ac9ace",
+      "screenshot_sha256": "d36b22df022c456231b112e0fd09628bb95132c53e8bc6d38eb5d02acb890986",
+      "sparse_state_sha256": "1dab216a05a2604bdb51eaa8a347a881f4dcccb7c8f19965503d73812422f8d5",
+      "segments": [
+        {"address": 35313, "bytes": "04"},
+        {"address": 36271, "bytes": "b79d45fc080022010a00000400e99d559ecd9d169e"},
+        {"address": 38644, "bytes": "299e2a9e1bfc1bfc"},
+        {"address": 40375, "bytes": "06001f0000010011002f0008000000000000000007000800220700020011002f000800000000000100ef09000a000b000c00070000060011002f0008000000000000000600ef220800ef2d090000080005000400020006000c0001000100310a00000800050009000200060000000000020032"},
+        {"address": 64539, "bytes": "0b000008000700060003001500050000000200ef1e0c000108000700060003002700050000000200ef1e"}
+      ],
+      "expected": {
+        "entry_id": 7,
+        "active_record_id": 10,
+        "cursor_byte_offset": 1,
+        "cursor_path": ["upper", "parts", 1],
+        "left": [50],
+        "right": [],
+        "expression": {
+          "kind": "integral",
+          "lower": [49],
+          "upper": [50],
+          "body": {"kind": "extendedToken", "tokens": [239, 30]},
+          "variable": {"kind": "extendedToken", "tokens": [239, 30]}
+        },
+        "node_count": 7
+      }
+    },
+    {
+      "name": "nested_fraction_denominator",
+      "macro": "tools/macros/mathprint-editor-nested-fraction-denominator.macro",
+      "macro_sha256": "e79f7fcbe2badad9e282b0d9a7caedbb821d19b83f0612255402906045b2a3b4",
+      "source_ram_sha256": "8bc0ee84210f14a5718d4d24129bbdd021d5df33e43b8e2659e62efca7539828",
+      "screenshot_sha256": "9bb39083c00e06cd2d2feaec8edcaf4e19233bce9cd21001d050733c7d129ca2",
+      "sparse_state_sha256": "7da6d7fdbb5ea848dda0afb1105237280a06b6dff994879df0a8c0b63e1a5f10",
+      "segments": [
+        {"address": 35313, "bytes": "04"},
+        {"address": 36271, "bytes": "b79d45fc0d0020020f00000200019e999ee99d849e"},
+        {"address": 38644, "bytes": "979e989e45fc45fc"},
+        {"address": 40375, "bytes": "06001f00000100170031000b0000000000000000070008002207000300170031000b00000000000100ef09000a000b000c000d00200b0002000d000d000600000000000200ef0e000f000700000600170031000b000000000000000600ef220800ef2d09000008000500040002000600120001000100310a000008000500040002000600000001000100320b000008000d000d0006001000050000000600ef200d00ef2d0c000108000700060003002900080000000200ef1e0e00000d000500040002000400000001000100310f00000d00050009000200020008000000020032"}
+      ],
+      "expected": {
+        "entry_id": 7,
+        "active_record_id": 15,
+        "cursor_byte_offset": 1,
+        "cursor_path": ["body", "denominator", "parts", 1],
+        "left": [50],
+        "right": [],
+        "expression": {
+          "kind": "integral",
+          "lower": [49],
+          "upper": [50],
+          "body": {"kind": "fraction", "numerator": [49], "denominator": [50]},
+          "variable": {"kind": "extendedToken", "tokens": [239, 30]}
+        },
+        "node_count": 10
+      }
+    },
+    {
+      "name": "integral_exit",
+      "macro": "tools/macros/mathprint-editor-integral-exit.macro",
+      "macro_sha256": "f85286c1944295d819504cadadb162683aa9c068a6262167239163db188cf951",
+      "source_ram_sha256": "5be0b4cf787beff7d8361063828cc01e98091af722a7f6041905079a98ec5da1",
+      "screenshot_sha256": "586150168a81473b6f34cc8bc636244604b8225418b1c712b885eb10e38fcd0f",
+      "sparse_state_sha256": "89dd708b40f3c77f2cb5392783256576be8f0014beea2b411b6ba860dd441ef4",
+      "segments": [
+        {"address": 35313, "bytes": "04"},
+        {"address": 36271, "bytes": "b79d45fc06001f000700000100e99d529eb79de99d"},
+        {"address": 38644, "bytes": "fc9d029ef5fbf5fb"},
+        {"address": 40375, "bytes": "06001f000001001100300008000000000000000007000800220700040011002a000800000000000100ef09000a000b000c0007000006001100300008000000000006000600ef220800ef2d"},
+        {"address": 64501, "bytes": "090000080005000400020006000c0001000100310a000008000500040002000600000001000100320b000008000700060003001000050001000100580c00010800070006000300220005000100010058"}
+      ],
+      "expected": {
+        "entry_id": 7,
+        "active_record_id": 7,
+        "cursor_byte_offset": 6,
+        "cursor_path": ["parts", 1],
+        "left": [239, 34, 8, 0, 239, 45],
+        "right": [],
+        "expression": {
+          "kind": "integral",
+          "lower": [49],
+          "upper": [50],
+          "body": [88],
+          "variable": [88]
+        },
+        "node_count": 7
+      }
+    }
+  ]
+}
