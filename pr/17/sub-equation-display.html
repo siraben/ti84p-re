@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-984cf86f.js";
+            window.path_to_searchindex_js = "searchindex-221037b4.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -705,7 +705,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 26 finite models. It also computes an
+complete path-equivalence class in 27 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -722,6 +722,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Five-byte raised-name loop</td><td style="text-align: right">493,112,577</td><td style="text-align: right">125</td><td style="text-align: right">10</td><td style="text-align: right">4</td></tr>
 <tr><td>Eight-byte raised-name loop</td><td style="text-align: right">24,977,631,672,321</td><td style="text-align: right">1,021</td><td style="text-align: right">10</td><td style="text-align: right">4</td></tr>
 <tr><td>Shared marker draw helper</td><td style="text-align: right">33,554,432</td><td style="text-align: right">14</td><td style="text-align: right">26</td><td style="text-align: right">13</td></tr>
+<tr><td>Settled render nesting tail</td><td style="text-align: right">16,777,216</td><td style="text-align: right">15</td><td style="text-align: right">24</td><td style="text-align: right">11</td></tr>
 <tr><td>Metric marker-tail gate</td><td style="text-align: right">16</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">5</td></tr>
 <tr><td>Editor action <code>0x03</code> controller</td><td style="text-align: right">131,072</td><td style="text-align: right">11</td><td style="text-align: right">9</td><td style="text-align: right">4</td></tr>
 <tr><td>Editor action <code>0x04</code> controller</td><td style="text-align: right">131,072</td><td style="text-align: right">5</td><td style="text-align: right">5</td><td style="text-align: right">3</td></tr>
@@ -744,8 +745,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 26 models contain 1,345 path classes and 228 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 117 representatives. Each
+<p>The 27 models contain 1,360 path classes and 252 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 128 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -1496,6 +1497,23 @@ set. A smaller low byte emits <code>0xC1</code> when that flag is set. When it i
 the helper emits the five-row bitmap at <code>34:61C7</code> and clears <code>(IY-1).0</code>.
 Retained natural traces do not yet exercise the four matrix-only conditionals
 at <code>34:6178</code>–<code>34:618E</code>. [confirmed]</p>
+<p>The object walker calls the post-render tail at <code>34:61CE</code> with the current
+record type in <code>A</code>, the handler’s one-based child selector in <code>E</code>, and the
+structural nesting counter at <code>0x8515</code>. Types <code>0x21</code>, <code>0x27</code>, and <code>0x2B</code>
+always join <code>34:79C9</code> and decrement that counter. Type <code>0x22</code> decrements for
+child 3 or later; types <code>0x24</code> and <code>0x28</code> decrement for every child except
+child 1; type <code>0x23</code> decrements only for child 2; and type <code>0x29</code> decrements
+only for child 4. Every other type/child state preserves the counter. The
+decrement is byte-sized, so zero wraps to <code>FFh</code>. [confirmed]</p>
+<p><code>settledRenderNestingTail()</code> translates the returned <code>A</code>, complete conditional
+path, and counter transition. A raw interpreter executes the pinned bytes at
+<code>34:61CE</code>–<code>34:6209</code> and <code>34:79C9</code> for every type/child byte pair against four
+counter values, then checks every counter byte on one decrementing and one
+preserving path. The symbolic model partitions all
+$256^3=16{,}777{,}216$ type, child, and counter states into 15 paths. Natural
+traces cover every conditional outcome except the type-<code>0x2B</code> branch at
+<code>34:61E2</code>; its behavior is established by the pinned byte interpreter and
+finite transition model rather than claimed as a natural witness. [confirmed]</p>
 <p>Page <code>39</code> layout control remains incomplete. Its class and handler tables, argument
 order, row composition, descriptor mapping, and draw paths are decoded. The
 browser-side ROM engine now translates the <code>39:4A74</code> token/action dispatch and
