@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-9215c96c.js";
+            window.path_to_searchindex_js = "searchindex-8fa6624b.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15028,7 +15028,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 34 finite models. It also computes an
+complete path-equivalence class in 36 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -15052,6 +15052,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Thick-point expansion</td><td style="text-align: right">4,294,967,296</td><td style="text-align: right">8</td><td style="text-align: right">14</td><td style="text-align: right">8</td></tr>
 <tr><td>Shaded-point expansion</td><td style="text-align: right">3,145,728</td><td style="text-align: right">1,850</td><td style="text-align: right">30</td><td style="text-align: right">8</td></tr>
 <tr><td>Small-font pointer selection</td><td style="text-align: right">65,536</td><td style="text-align: right">16</td><td style="text-align: right">31</td><td style="text-align: right">16</td></tr>
+<tr><td><code>_VPutMap</code> byte-boundary gate</td><td style="text-align: right">56</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
+<tr><td><code>_VPutMap</code> aligned-byte composition</td><td style="text-align: right">917,504</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
 <tr><td>Large-glyph hook dispatch</td><td style="text-align: right">32</td><td style="text-align: right">14</td><td style="text-align: right">16</td><td style="text-align: right">8</td></tr>
 <tr><td>Metric marker-tail gate</td><td style="text-align: right">16</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">5</td></tr>
 <tr><td>Editor action <code>0x03</code> controller</td><td style="text-align: right">131,072</td><td style="text-align: right">11</td><td style="text-align: right">9</td><td style="text-align: right">4</td></tr>
@@ -15075,8 +15077,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 34 models contain 3,288 path classes and 387 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 185 representatives. Each
+<p>The 36 models contain 3,292 path classes and 391 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 189 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -16408,6 +16410,21 @@ the five interior rows. It retains an interior zero row, but it does not emit
 the padding row above or below the glyph. A row that crosses an LCD byte
 boundary writes the right byte before the left byte at <code>01:63CE</code>–<code>01:641A</code>.
 The large-font path emits all seven rows of its fixed cell. [confirmed]</p>
+<p><code>01:6360</code>–<code>01:6378</code> computes $8-o-w$, where $o$ is the LCD bit offset and
+$w$ is the glyph width. A nonnegative result selects the one-byte path. Its
+<code>DJNZ</code> entry arrangement rotates the screen byte by the remaining-space count,
+calls <code>01:6431</code>, and reverses the rotation. A negative result selects the
+two-byte path, negates the value to obtain the overflow count, and circularly
+rotates the two-byte screen window. [confirmed]</p>
+<p>The width-mask table at <code>01:6446</code> contains <code>FE FC F8 F0 E0 C0 80</code>. For an
+aligned screen byte $s$, mask $m$, and glyph row $g$, <code>01:6431</code>–<code>01:6445</code>
+computes $(s \mathbin{\&amp;} m) \mathbin{\mathtt{xor}} g$ for ordinary text.
+When <code>textFlags.3</code> is set, it computes
+$((\mathord{\sim}m) \mathbin{\vert} s) \mathbin{\mathtt{xor}} g$ instead.
+The translated composition matches a pinned-byte interpreter for all 917,504
+screen-byte, width, glyph-row, and inverse-flag inputs. An independent row test
+covers 7,340,032 screen-window, offset, width, and inverse states, including
+both sides of every LCD byte boundary. [confirmed]</p>
 <p>The absolute-value constructor translates a closed slice of the earlier record
 pass. <code>34:5935</code> maps source token <code>00B2h</code> through the table at <code>34:594D</code> to
 render type <code>0x21</code>. The translated <code>34:4900</code>, <code>34:7393</code>, and <code>34:7609</code> paths

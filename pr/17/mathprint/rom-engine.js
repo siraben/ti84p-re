@@ -3927,6 +3927,99 @@
     return {table:selected.table,index:selected.index};
   }
 
+  // 01:6431–6445 merges one aligned _VPutMap row with the existing display
+  // byte. D contains the width mask loaded from 01:6446, and (IX) contains the
+  // next glyph row. textFlags.3 selects an inverted cell rather than ordinary
+  // replacement. The caller restores the original bit alignment afterward.
+  function settledPage1VPutMapCompose(
+      rotatedScreenValue, widthValue, glyphRowValue, inverseValue = false) {
+    const rotatedScreen = byte(
+      rotatedScreenValue, 'page-1 rotated screen byte');
+    const width = byte(widthValue, 'page-1 glyph width');
+    if (width < 1 || width > 7)
+      throw new RangeError('page-1 glyph width must be between one and seven');
+    const glyphRow = byte(glyphRowValue, 'page-1 glyph row');
+    const inverse = boolean(inverseValue, 'page-1 inverse-text flag');
+    const widthMask = 0xff << width & 0xff;
+    const branchOutcomes = [
+      `01:6435:${inverse ? 'fallthrough' : 'taken'}`,
+    ];
+    const base = inverse
+      ? ((0xff ^ widthMask) | rotatedScreen)
+      : (rotatedScreen & widthMask);
+    return {
+      rotatedScreen,width,widthMask,glyphRow,inverse,
+      composedByte:(base ^ glyphRow) & 0xff,
+      glyphPointerAdvance:1,branchOutcomes,routine:'01:6431–6445',
+    };
+  }
+
+  const rotateByteRight = (value, count) => {
+    count &= 7;
+    return count === 0 ? value & 0xff
+      : (value >>> count | value << (8 - count)) & 0xff;
+  };
+  const rotateByteLeft = (value, count) => {
+    count &= 7;
+    return count === 0 ? value & 0xff
+      : (value << count | value >>> (8 - count)) & 0xff;
+  };
+  const rotateWordLeft = (value, count) => {
+    count &= 15;
+    return count === 0 ? value & 0xffff
+      : (value << count | value >>> (16 - count)) & 0xffff;
+  };
+  const rotateWordRight = (value, count) => {
+    count &= 15;
+    return count === 0 ? value & 0xffff
+      : (value >>> count | value << (16 - count)) & 0xffff;
+  };
+
+  // 01:637E–6426 aligns an existing one- or two-byte screen window, invokes
+  // 01:6431 once, restores the alignment, and writes a crossing row's right
+  // byte before its left byte.
+  function settledPage1VPutMapRow(
+      leftValue, rightValue, bitOffsetValue, widthValue,
+      glyphRowValue, inverseValue = false) {
+    const left = byte(leftValue, 'page-1 left screen byte');
+    const right = byte(rightValue, 'page-1 right screen byte');
+    const bitOffset = byte(bitOffsetValue, 'page-1 glyph bit offset');
+    if (bitOffset > 7)
+      throw new RangeError('page-1 glyph bit offset must be at most seven');
+    const width = byte(widthValue, 'page-1 glyph width');
+    if (width < 1 || width > 7)
+      throw new RangeError('page-1 glyph width must be between one and seven');
+    const glyphRow = byte(glyphRowValue, 'page-1 glyph row');
+    const inverse = boolean(inverseValue, 'page-1 inverse-text flag');
+    if (bitOffset + width <= 8) {
+      // 01:6360 leaves 8 - bitOffset - width in A. 01:637C increments the
+      // loop counter, but the entry jump reaches DJNZ before the first RRCA,
+      // so the loop executes the original remaining-space count.
+      const remaining = 8 - bitOffset - width;
+      const aligned = rotateByteRight(left,remaining);
+      const composition = settledPage1VPutMapCompose(
+        aligned,width,glyphRow,inverse);
+      const restored = rotateByteLeft(composition.composedByte,remaining);
+      return {
+        leftByte:restored,rightByte:right,crossesByte:false,
+        writeOrder:['left'],alignmentCount:remaining,composition,
+        routine:'01:637E–63BD → 01:6431–6445',
+      };
+    }
+    const overflow = bitOffset + width - 8;
+    const alignedWord = rotateWordLeft(left << 8 | right,overflow);
+    const composition = settledPage1VPutMapCompose(
+      alignedWord >>> 8,width,glyphRow,inverse);
+    const restoredWord = rotateWordRight(
+      composition.composedByte << 8 | (alignedWord & 0xff),overflow);
+    return {
+      leftByte:restoredWord >>> 8,rightByte:restoredWord & 0xff,
+      crossesByte:true,writeOrder:['right','left'],
+      alignmentCount:overflow,composition,
+      routine:'01:63BE–6426 → 01:6431–6445',
+    };
+  }
+
   function settledTokenSpelling(payload, index) {
     if (!Array.isArray(payload) || !Number.isInteger(index) ||
         index < 0 || index >= payload.length)
@@ -10162,12 +10255,42 @@
       operation.depth === 0;
     const smallGlyph = (operation.kind === 'glyph' || operation.kind === 'glyph-run') &&
       operation.depth !== 0;
+    const inverseSmallGlyph = smallGlyph && operation.inverse !== undefined
+      ? boolean(operation.inverse, 'settled small-glyph inverse flag') : false;
     for (const blit of settledBlits(operation, font)) {
       // The ROM font export includes one padding row above and below the five
       // rows consumed by _VPutMap. 01:637E emits all five interior rows, even
       // when a row is zero. This is observable for '=' and the division sign.
       const firstRow = smallGlyph ? 1 : 0;
       const lastRow = smallGlyph ? blit.rows.length - 2 : blit.rows.length - 1;
+      const horizontallyWhole = !clip ||
+        (clip.left <= blit.x &&
+         blit.x + blit.width <= clip.rightExclusive);
+      if (smallGlyph && horizontallyWhole && Number.isInteger(blit.x) &&
+          blit.x >= 0 && blit.x + blit.width <= width &&
+          1 <= blit.width && blit.width <= 7) {
+        for (let row = firstRow; row <= lastRow; row++) {
+          const y = blit.y + row;
+          if (clip && (y < clip.top || y >= clip.bottomExclusive)) continue;
+          if (y < 0 || y >= height) continue;
+          const leftColumn = blit.x >> 3;
+          const bitOffset = blit.x & 7;
+          const crossesByte = bitOffset + blit.width > 8;
+          const beforeLeft = settledGridByte(grid,leftColumn,y);
+          const beforeRight = crossesByte
+            ? settledGridByte(grid,leftColumn + 1,y) : 0;
+          const composed = settledPage1VPutMapRow(
+            beforeLeft,beforeRight,bitOffset,blit.width,
+            blit.rows[row],inverseSmallGlyph);
+          if (composed.crossesByte) {
+            write(leftColumn + 1,y,composed.rightByte,true);
+            write(leftColumn,y,composed.leftByte,true);
+          } else {
+            write(leftColumn,y,composed.leftByte,true);
+          }
+        }
+        continue;
+      }
       for (let row = 0; row < blit.rows.length; row++) {
         if (smallGlyph && (row < firstRow || row > lastRow)) continue;
         const y = blit.y + row;
@@ -10424,6 +10547,8 @@
     settledOperationWrites,
     rasterizeSettledOperations,
     settledPage1GlyphPointerSelection,
+    settledPage1VPutMapCompose,
+    settledPage1VPutMapRow,
     settledTokenGlyph,
     settledTokenSpelling,
     setSettledTokenStrings,
