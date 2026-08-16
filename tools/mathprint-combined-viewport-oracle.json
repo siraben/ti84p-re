@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "source": "natural reset-origin TilEm entry with a RAM snapshot and pre-ENTER 96x64 screenshot",
+  "source": "natural reset-origin TilEm entry with a bounded full-address backtrace ring, RAM snapshot, and pre-ENTER 96x64 screenshot",
   "rom_sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d",
   "capture_executable_sha256": "40cf1f9ff975217ede238cd02bfd6a85fa6bfecf8cbcea173b0d7705b144330b",
   "expression": "((((1//1)//(1//1))//((1//1)//(1//1)))//(((1//1)//(1//1))//((1//1)//(1//1))))+1234567890123",
@@ -8,6 +8,10 @@
     "key_delay_seconds": 0.24,
     "inter_key_wait_seconds": 0.25
   },
+  "trace_capture": "600000000-byte full-address TilEm backtrace ring",
+  "trace_sha256": "55326c941eac8edf12139fe9a83701dc1aa91099e2238c71d01d1c147ac08132",
+  "trace_bytes": 600065514,
+  "trace_instructions": 11998406,
   "native_tokens": [
     16, 16, 16, 16, 49, 239, 46, 49, 17, 239, 46, 16, 49, 239, 46,
     49, 17, 17, 239, 46, 16, 16, 49, 239, 46, 49, 17, 239, 46, 16,
@@ -53,6 +57,7 @@
   "notes": [
     "The natural graph decoder confirms every requested node and all thirteen suffix digits before comparing pixels.",
     "34:6031 clamps the 125-row root height to the 62-row viewport before centering the left-overflow cue at rows 28 through 34.",
+    "The bounded natural trace reaches 34:604B taken four times and contains no unclassified branch transitions.",
     "The translated expression, left cue, and both vertical cues reproduce all 6144 LCD pixels."
   ]
 }
