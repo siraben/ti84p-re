@@ -1,0 +1,47 @@
+# Scroll an overflowing structural equation through the Y= selection fields.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key YEQU
+wait 1s
+key CLEAR
+key GRAPHVAR
+key POWER
+key 2
+key RIGHT
+key ADD
+key GRAPHVAR
+key POWER
+key 2
+key RIGHT
+key ADD
+key GRAPHVAR
+key POWER
+key 2
+key RIGHT
+key ADD
+key GRAPHVAR
+key POWER
+key 2
+key RIGHT
+key ADD
+key GRAPHVAR
+key POWER
+key 2
+key RIGHT
+key ADD
+key GRAPHVAR
+key POWER
+key 2
+key RIGHT
+wait 0.8s
+press LEFT
+wait 5s
+release LEFT
+wait 0.8s
+memdump /tmp/mp-yequ-overflow-selection.ram ram-logical
+screenshot /tmp/mp-yequ-overflow-selection.png

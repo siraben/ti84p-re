@@ -229,6 +229,24 @@ class StaticBranchTests(unittest.TestCase):
             "infeasible_under_calculator_abi", ret_report["outcomes"][0]["status"]
         )
 
+    def test_yequ_selection_classifies_tail_guard_outcome(self) -> None:
+        branch = Branch(
+            RomLocation(0x34, 0x75A9), "jr z,0x75b2", "jr",
+            RomLocation(0x34, 0x75B2), RomLocation(0x34, 0x75AB),
+        )
+        report = branch_json(
+            branch,
+            Counter({("page_34", 0x75A9, "fallthrough"): 1}),
+            {},
+            OUTCOME_CLASSIFICATIONS,
+        )
+
+        self.assertEqual(
+            ["infeasible_under_entry_invariant", "exercised"],
+            [row["status"] for row in report["outcomes"]],
+        )
+        self.assertIn("editTail+1", report["outcomes"][0]["reason"])
+
 
 class SymbolicHandlerTests(unittest.TestCase):
     def test_editor_action_controllers_partition_every_byte_state(self) -> None:
@@ -893,7 +911,7 @@ class SymbolicHandlerTests(unittest.TestCase):
             metric_marker_path(0, 0, "other", 0)["terminal"],
         )
         self.assertEqual(
-            "return_nz_yequ_table",
+            "return_nz_yequ_selection",
             metric_marker_path(1, 1, "fraction_nthroot_power", 0)["terminal"],
         )
         self.assertEqual(
@@ -1281,9 +1299,9 @@ class CheckedReportTests(unittest.TestCase):
         )
 
         self.assertEqual(2, report["schema"])
-        self.assertEqual(275, len(report["traces"]))
+        self.assertEqual(276, len(report["traces"]))
         self.assertEqual(
-            274,
+            275,
             sum(
                 row["provenance"] == TRACE_PROVENANCE_NATURAL
                 for row in report["traces"]
@@ -1294,7 +1312,7 @@ class CheckedReportTests(unittest.TestCase):
             1010, report["summary"]["natural_branch_outcomes_observed"]
         )
         self.assertEqual(
-            1263,
+            1262,
             report["summary"]["natural_branch_outcome_statuses"][
                 "unresolved_state_or_abi"
             ],
@@ -1349,6 +1367,18 @@ class CheckedReportTests(unittest.TestCase):
                     "branch_outcomes_observed"
                 ],
             ),
+        )
+        selection_trace = next(
+            row for row in report["traces"]
+            if row["label"] == "mathprint_yequ_selection"
+        )
+        self.assertEqual(
+            (
+                "56733273b52ab4281ca2998ec2b89ece3"
+                "083deb75c01160f97b936f30b73fe2f",
+                TRACE_PROVENANCE_NATURAL,
+            ),
+            (selection_trace["sha256"], selection_trace["provenance"]),
         )
         matrix_entry = next(
             row for row in report["traces"]
@@ -1824,7 +1854,7 @@ class CheckedReportTests(unittest.TestCase):
             selected_branch_labels,
         )
         self.assertEqual(
-            1605,
+            1607,
             report["minimized_dynamic_feature_corpus"]["covered_features"],
         )
         self.assertEqual(
@@ -1832,7 +1862,7 @@ class CheckedReportTests(unittest.TestCase):
             report["minimized_dynamic_feature_corpus"]["selected_trace_count"],
         )
         self.assertEqual(
-            1603,
+            1605,
             report["minimized_natural_dynamic_feature_corpus"][
                 "covered_features"
             ],

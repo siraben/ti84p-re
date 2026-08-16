@@ -524,10 +524,10 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, large-glyph output, and alphabetic VAT selection. It
 recursively follows direct ROM edges from named entries, seeds decoded table
-destinations, overlays exact next-PC outcomes from 275 retained traces, and
+destinations, overlays exact next-PC outcomes from 276 retained traces, and
 lists direct external targets. Computed dispatch destinations are manually
 seeded; bcall and RAM bjump bodies remain outside the direct-edge walk. Of those
-traces, 274 reach their state through calculator input. One explicitly
+traces, 275 reach their state through calculator input. One explicitly
 classified synthetic trace inserts an `EF36h` editor buffer through direct RAM
 writes. The report keeps the two provenance classes separate.
 `tools/mathprint-saturation.json` records the resulting branches and trace
@@ -537,9 +537,9 @@ The analyzer can restore trace identities, provenance, and per-trace summaries
 from a prior report and the digest-keyed cache. Regeneration therefore scans a
 new trace once without reopening the other retained TLMT files. [confirmed]
 
-None of the 275 report traces executes `39:5167`, `39:523B`, the saved-operand
+None of the 276 report traces executes `39:5167`, `39:523B`, the saved-operand
 wrappers at `39:5B10`–`39:5B38`, or the dispatchers at `39:59E0`/`39:59F9`.
-The 275-digest trace cache also has no hit at those entries. [confirmed]
+The 276-digest trace cache also has no hit at those entries. [confirmed]
 `_FindAlphaUp` at `07:50B5` executes once in 112 report traces, but every call
 comes from the type-`16h` cleanup loop at `07:5544`. Each observed call returns
 carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
@@ -668,8 +668,9 @@ outcomes. [confirmed]
 The report classifies all 2,276 enumerated outcomes. Natural calculator input
 exercises 1,010. The synthetic `EF36h` state adds two outcomes, for 1,012 across
 all evidence. One allocator outcome is infeasible under its data invariant.
-Two metric outcomes are infeasible under the calculator call ABI. The full
-evidence set leaves 1,261 unresolved; the natural-only set leaves 1,263.
+Two metric outcomes are infeasible under the calculator call ABI, and one is
+infeasible under the valid **Y=** editor-entry invariant. The full evidence set
+leaves 1,260 unresolved; the natural-only set leaves 1,262.
 An unobserved outcome never becomes infeasible from absence alone. [confirmed]
 
 The infeasible allocator outcome is the fallthrough at `33:4F4E`. The type
@@ -696,12 +697,12 @@ and preserves 1,010 outcomes in 4,580,267,958 bytes.
 
 The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,605 tags and needs 208
-traces. The natural-only universe has 1,603 tags and needs 207 traces. Every
+independent oracle case. Its all-evidence universe has 1,607 tags and needs 208
+traces. The natural-only universe has 1,605 tags and needs 207 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The retained byte totals are
-32,503,413,582 and 32,407,529,664, respectively. The broad set remains the RE
+32,504,461,296 and 32,408,577,378, respectively. The broad set remains the RE
 and regression corpus; the public gallery uses a smaller, diverse selection.
 [confirmed]
 
@@ -739,6 +740,7 @@ natural `34:6B94` taken witness. [confirmed]
 | Depth-two fraction **LEFT** | `tools/macros/mathprint-editor-nested-fraction-left-navigation.macro` | `6cd38899f36e5a6398a0d1959557f8cb45172b4046db1f39cdfa298250066e6a` | 1 |
 | Fraction nested in a radical | `tools/macros/mathprint-editor-radical-fraction-navigation.macro` | `99d813bdbb7102c9bd5ae608c0cc9eb64cd84c0410a06e4f2243e1768d86c574` | 1 |
 | **Y=**/table/power round trip | `tools/macros/mathprint-yequ-table-power-insert.macro` | `ac719f540d2adfca05d2ffa415f065b83eaf407f04fca42f5ae63c440a746b9d` | 16 |
+| **Y=** equals-sign selection sweep | `tools/macros/mathprint-yequ-state-sweep.macro` | `56733273b52ab4281ca2998ec2b89ece3083deb75c01160f97b936f30b73fe2f` | Omitted |
 
 The two depth-two fraction traces each contain the same 367 branch outcomes.
 The **LEFT** trace is 34,465,218 bytes smaller, so the lexicographic minimum
@@ -749,8 +751,9 @@ The mixed radical/fraction trace supplies the first natural `34:75B0`
 fallthrough with `A=27h`, the radical marker outside the special fraction,
 nth-root, and power set. It exercises the last two previously unseen metric
 instructions and raises metric/geometry instruction coverage to 100%. The
-component still has one unresolved branch outcome and two outcomes proven
-infeasible under the calculator ABI. [confirmed]
+component has 77 exercised outcomes, two outcomes proven infeasible under the
+calculator ABI, and one proven infeasible under the valid **Y=** editor-entry
+invariant. All 80 outcomes are classified. [confirmed]
 
 The retained `mathprint_integral_boundary_insert` trace reaches `34:6968`
 taken, `34:6B6D` fallthrough, and `34:6B94` fallthrough through calculator
@@ -771,7 +774,7 @@ and `A` at each discriminator were checked before admission. [confirmed]
 The synthetic `EF36h` trace uses
 `tools/macros/mathprint-ef36-injected-buffer.macro`. Its two `memwrite`
 commands place `EF 36 31 11` at the editor cursor. It is the sole synthetic
-source in the 275-trace report. It supplies the only evidence for
+source in the 276-trace report. It supplies the only evidence for
 `34:5A23` fallthrough and `34:6992` taken. The token-built matrix traversal
 supplies the first natural witness for `34:6B94` taken. The full minimum
 retains it; the natural minimum excludes it by construction. [confirmed]
@@ -1352,22 +1355,37 @@ The ROM leaves `EFh` in physical byte `+0x13` when the resulting active payload
 is empty. That byte lies outside the logical payload. Other nested deletion
 states, matrix type `0x2B`, and structural-boundary deletion remain open. [confirmed]
 
-`34:789A` first distinguishes the table-equation context from other editors.
-On its fallthrough, `34:75AB` reads the marker type from `editTail + 1`.
+`34:759C–75A5` first subtracts six from its record pointer and compares that
+source pointer with `editTail`. Only equality reaches `34:789A`. That helper
+tests bit 0 of `tblFlags`; when the bit is clear, it forces NZ, and when the bit
+is set, it preserves `A` while testing `cxCurApp` against `kYequ` (`49h`). A
+zero result therefore requires both the bit and the **Y=** application. Natural
+RAM and screenshot captures show the bit set while the inverse-video `=` field
+is selected. [confirmed]
+
+The **Y=** editor stores a one-byte selection-field prefix at `editTail`, then
+advances the page-6 record source past it. The first compared source pointer is
+therefore `editTail + 1`; later records advance farther through the bounded edit
+buffer. The short `X^2` selection trace enters both metric passes with
+`editTail=FC9Ah` and source pointer `FC9Bh`. An overflowing six-power expression
+enters 12 times with source deltas 1, 9, 17, 25, 33, and 41 in each of its two
+passes. Selecting `=` on an empty expression makes no metric call. These three
+captures are recorded in `tools/mathprint-yequ-selection-oracle.json`. Thus a
+valid state that makes `34:789A` return Z has already failed the pointer guard,
+and `34:75A9` taken is infeasible under this entry invariant. The JavaScript
+translation retains the raw early-return path for byte-level routine parity.
+[confirmed]
+
+When the **Y=** selection guard is false, `34:75AB` reads the marker type from
+`editTail + 1`.
 `34:40F9` groups fraction (`0x20`), nth-root (`0x24`), and power (`0x2A`)
 markers; `34:75B0` takes its Z branch for this set. `34:75B8` then reads the
 nesting counter at `0x8515`, and `34:75BB` distinguishes zero from nonzero
 depth. `tools/macros/mathprint-power-boundary-insert.macro` reproduces the
-top-level power-marker path. The **Y=**/table/power round trip above reaches this
-gate after returning to **Y=**, but the conjunction tested by `34:789A` is false
-at that invocation. It therefore witnesses `34:75A9` fallthrough, not taken. The
-table-equation outcome at `34:75A9` taken remains unresolved under natural
-input. The mixed radical/fraction trace naturally exercises `34:75B0`
-fallthrough, and both depth-two fraction directions naturally exercise
-`34:75BB` fallthrough at nonzero depth. The **RIGHT** fraction trace remains the
-first report witness for the latter. Three local injected-state probes exist,
-but all are absent from both minimized corpora; natural traces now supersede
-the `34:75B0` and `34:75BB` probes. [confirmed]
+top-level power-marker path. The mixed radical/fraction trace naturally
+exercises `34:75B0` fallthrough. Both depth-two fraction directions naturally
+exercise `34:75BB` fallthrough at nonzero depth. The **RIGHT** fraction trace
+remains the first report witness for the latter. [confirmed]
 
 The record-oracle corpus contains 114 captured cases and includes every type
 from `0x1F` through `0x2B`. Types `0x20`–`0x2B` have decoded record nodes and
