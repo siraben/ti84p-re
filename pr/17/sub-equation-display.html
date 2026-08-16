@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8fa6624b.js";
+            window.path_to_searchindex_js = "searchindex-3b7992f7.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -721,7 +721,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 36 finite models. It also computes an
+complete path-equivalence class in 38 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -746,6 +746,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Shaded-point expansion</td><td style="text-align: right">3,145,728</td><td style="text-align: right">1,850</td><td style="text-align: right">30</td><td style="text-align: right">8</td></tr>
 <tr><td>Small-font pointer selection</td><td style="text-align: right">65,536</td><td style="text-align: right">16</td><td style="text-align: right">31</td><td style="text-align: right">16</td></tr>
 <tr><td><code>_VPutMap</code> byte-boundary gate</td><td style="text-align: right">56</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
+<tr><td>MathPrint <code>_VPutMap</code> right-edge gate</td><td style="text-align: right">3,584</td><td style="text-align: right">4</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
+<tr><td>MathPrint <code>_VPutMap</code> row state</td><td style="text-align: right">112</td><td style="text-align: right">4</td><td style="text-align: right">10</td><td style="text-align: right">2</td></tr>
 <tr><td><code>_VPutMap</code> aligned-byte composition</td><td style="text-align: right">917,504</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
 <tr><td>Large-glyph hook dispatch</td><td style="text-align: right">32</td><td style="text-align: right">14</td><td style="text-align: right">16</td><td style="text-align: right">8</td></tr>
 <tr><td>Metric marker-tail gate</td><td style="text-align: right">16</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">5</td></tr>
@@ -770,8 +772,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 36 models contain 3,292 path classes and 391 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 189 representatives. Each
+<p>The 38 models contain 3,300 path classes and 405 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 193 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -2103,6 +2105,19 @@ the five interior rows. It retains an interior zero row, but it does not emit
 the padding row above or below the glyph. A row that crosses an LCD byte
 boundary writes the right byte before the left byte at <code>01:63CE</code>–<code>01:641A</code>.
 The large-font path emits all seven rows of its fixed cell. [confirmed]</p>
+<p><code>34:6C37</code>–<code>34:6CAB</code> prepares two page-1 driver states. A root glyph uses the
+seven-row record built by <code>07:45B6</code>. A raised glyph enters <code>01:6297</code> with a
+one-row source skip and a five-row count, so <code>01:6354</code>–<code>01:6374</code> advances past
+the first small-font padding row. The selected count also omits the trailing
+padding row. Vertical viewport clipping changes the skip and count before the
+page-1 call. [confirmed]</p>
+<p>The two states use different right-edge comparisons. The root state compares
+the endpoint with <code>0x61</code> at <code>01:630A</code>, while the raised state compares it with
+<code>0x60</code> at <code>01:630E</code>. <code>CCF</code> followed by <code>JP C</code> rejects endpoints at or above the
+selected limit. A root six-pixel glyph beginning at <code>x=90</code> therefore draws
+through pixel 95. A raised four-pixel glyph beginning at <code>x=92</code> is rejected as
+a unit. Pinned-byte differential tests cover all 3,584 pen-byte, width, and
+mode states plus all 112 width, bit-offset, and mode row states. [confirmed]</p>
 <p><code>01:6360</code>–<code>01:6378</code> computes $8-o-w$, where $o$ is the LCD bit offset and
 $w$ is the glyph width. A nonnegative result selects the one-byte path. Its
 <code>DJNZ</code> entry arrangement rotates the screen byte by the remaining-space count,

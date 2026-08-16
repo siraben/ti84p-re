@@ -4020,6 +4020,82 @@
     };
   }
 
+  // 34:6C37 prepares one of two page-1 _VPutMap states. A root glyph uses the
+  // seven-row, six-pixel record built by 07:45B6 and admits an endpoint of 60h.
+  // A raised glyph skips the small-font record's first padding row, emits five
+  // rows, and requires its endpoint to remain below 60h. Vertical viewport
+  // clipping changes the source skip and row count before page 1 is entered.
+  function settledPage1MathPrintGlyphPlan(
+      penColumnValue, recordTopValue, depthValue, widthValue,
+      clipValue = null) {
+    const penColumn = byte(penColumnValue, 'MathPrint page-1 pen column');
+    if (!Number.isInteger(recordTopValue))
+      throw new RangeError('MathPrint page-1 record top must be an integer');
+    const depth = byte(depthValue, 'MathPrint page-1 render depth');
+    const width = byte(widthValue, 'MathPrint page-1 glyph width');
+    if (width < 1 || width > 7)
+      throw new RangeError('MathPrint page-1 glyph width must be between one and seven');
+    if (clipValue !== null &&
+        (!clipValue || typeof clipValue !== 'object' ||
+         !Number.isInteger(clipValue.top) ||
+         !Number.isInteger(clipValue.bottomExclusive) ||
+         clipValue.bottomExclusive < clipValue.top))
+      throw new RangeError(
+        'MathPrint page-1 vertical clip must contain ordered integer bounds');
+
+    const raised = depth !== 0;
+    const sourceBase = raised ? 1 : 0;
+    const cellHeight = raised ? 5 : 7;
+    const contentTop = recordTopValue + sourceBase;
+    const clipTop = clipValue === null ? 0 : clipValue.top;
+    const clipBottom = clipValue === null ? 0x40 : clipValue.bottomExclusive;
+    const screenTop = Math.max(contentTop,clipTop,0);
+    const screenBottom = Math.min(contentTop + cellHeight,clipBottom,0x40);
+    const visibleRows = Math.max(0,screenBottom - screenTop);
+    const sourceRowStart = sourceBase + Math.max(0,screenTop - contentTop);
+
+    const endpoint = (penColumn + width) & 0xff;
+    const rightLimit = raised ? 0x60 : 0x61;
+    const accepted = endpoint < rightLimit;
+    const crossesByte = (penColumn & 7) + width > 8;
+    const branchOutcomes = [
+      '01:62E5:taken',
+      '01:62FE:taken',
+      `01:6308:${raised ? 'taken' : 'fallthrough'}`,
+      `01:6311:${accepted ? 'fallthrough' : 'taken'}`,
+    ];
+    if (accepted) {
+      if (raised) branchOutcomes.push(
+        '01:6335:fallthrough',
+        '01:633D:fallthrough',
+        '01:6343:fallthrough',
+        '01:634B:fallthrough',
+        '01:6352:fallthrough',
+        '01:636B:fallthrough');
+      else branchOutcomes.push('01:6335:taken','01:636B:taken');
+      branchOutcomes.push(`01:6378:${crossesByte ? 'taken' : 'fallthrough'}`);
+    }
+    const rowPlans = accepted
+      ? Array.from({length:visibleRows}, (_, offset) => ({
+        sourceRow:sourceRowStart + offset,
+        screenRow:screenTop + offset,
+      }))
+      : [];
+    return {
+      penColumn,recordTop:recordTopValue,depth,width,raised,
+      endpoint,rightLimit,accepted,
+      penColumnAfter:accepted ? endpoint : penColumn,
+      sourceRowStart,rowCount:rowPlans.length,rowPlans,
+      screenTop,cellHeight,crossesByte,
+      glyphPointerAdvance:accepted
+        ? 1 + sourceRowStart + rowPlans.length : 0,
+      lcdColumnCommand:0x20 | penColumn >>> 3,
+      lcdRowCommand:0x80 | screenTop & 0x3f,
+      branchOutcomes,
+      routine:'34:6C37–6CAB → 01:6297–6430',
+    };
+  }
+
   function settledTokenSpelling(payload, index) {
     if (!Array.isArray(payload) || !Number.isInteger(index) ||
         index < 0 || index >= payload.length)
@@ -10255,24 +10331,29 @@
       operation.depth === 0;
     const smallGlyph = (operation.kind === 'glyph' || operation.kind === 'glyph-run') &&
       operation.depth !== 0;
-    const inverseSmallGlyph = smallGlyph && operation.inverse !== undefined
-      ? boolean(operation.inverse, 'settled small-glyph inverse flag') : false;
+    const fontGlyph = largeGlyph || smallGlyph;
+    const inverseGlyph = fontGlyph && operation.inverse !== undefined
+      ? boolean(operation.inverse, 'settled glyph inverse flag') : false;
     for (const blit of settledBlits(operation, font)) {
-      // The ROM font export includes one padding row above and below the five
-      // rows consumed by _VPutMap. 01:637E emits all five interior rows, even
-      // when a row is zero. This is observable for '=' and the division sign.
+      // Raised MathPrint calls skip the first small-font padding row and emit
+      // the five interior rows. Root calls consume all seven rows of the
+      // prepared large-font record.
       const firstRow = smallGlyph ? 1 : 0;
       const lastRow = smallGlyph ? blit.rows.length - 2 : blit.rows.length - 1;
       const horizontallyWhole = !clip ||
         (clip.left <= blit.x &&
          blit.x + blit.width <= clip.rightExclusive);
-      if (smallGlyph && horizontallyWhole && Number.isInteger(blit.x) &&
+      if (fontGlyph && width === 96 && height === 64 && horizontallyWhole &&
+          Number.isInteger(blit.x) &&
           blit.x >= 0 && blit.x + blit.width <= width &&
           1 <= blit.width && blit.width <= 7) {
-        for (let row = firstRow; row <= lastRow; row++) {
-          const y = blit.y + row;
-          if (clip && (y < clip.top || y >= clip.bottomExclusive)) continue;
-          if (y < 0 || y >= height) continue;
+        const plan = settledPage1MathPrintGlyphPlan(
+          blit.x,blit.y,operation.depth === undefined ? 0 : operation.depth,
+          blit.width,clip);
+        if (!plan.accepted) continue;
+        for (const rowPlan of plan.rowPlans) {
+          const row = rowPlan.sourceRow;
+          const y = rowPlan.screenRow;
           const leftColumn = blit.x >> 3;
           const bitOffset = blit.x & 7;
           const crossesByte = bitOffset + blit.width > 8;
@@ -10281,7 +10362,7 @@
             ? settledGridByte(grid,leftColumn + 1,y) : 0;
           const composed = settledPage1VPutMapRow(
             beforeLeft,beforeRight,bitOffset,blit.width,
-            blit.rows[row],inverseSmallGlyph);
+            blit.rows[row],inverseGlyph);
           if (composed.crossesByte) {
             write(leftColumn + 1,y,composed.rightByte,true);
             write(leftColumn,y,composed.leftByte,true);
@@ -10549,6 +10630,7 @@
     settledPage1GlyphPointerSelection,
     settledPage1VPutMapCompose,
     settledPage1VPutMapRow,
+    settledPage1MathPrintGlyphPlan,
     settledTokenGlyph,
     settledTokenSpelling,
     setSettledTokenStrings,
