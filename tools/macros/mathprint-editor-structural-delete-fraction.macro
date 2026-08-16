@@ -1,0 +1,19 @@
+# Delete a blank fraction from its first child.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key ALPHA
+key YEQU
+key 1
+wait 0.6s
+memdump /tmp/mathprint-editor-structural-delete-fraction-pre.ram ram-logical
+screenshot /tmp/mathprint-editor-structural-delete-fraction-pre.png
+key DEL
+wait 0.8s
+memdump /tmp/mathprint-editor-structural-delete-fraction-post.ram ram-logical
+screenshot /tmp/mathprint-editor-structural-delete-fraction-post.png

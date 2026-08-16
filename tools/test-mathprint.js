@@ -49,6 +49,9 @@ const editorNavigationOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-editor-navigation-oracles.json')));
 const editorDeletionOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-editor-deletion-oracles.json')));
+const editorStructuralDeletionOracles = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools',
+    'mathprint-editor-structural-deletion-oracles.json')));
 const groupingOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-grouping-oracles.json')));
 const structuralBaseOracles = JSON.parse(fs.readFileSync(
@@ -3567,6 +3570,47 @@ for (const oracle of editorDeletionOracles.transitions) {
     deleted.expression,7,font);
   expectEqual(`${oracle.name} reconstructed post-deletion records`,
     editorRecordsById(reconstructed.nodes),editorRecordsById(after.nodes));
+  const operations = rom.executeSettledRecordProgram(
+    reconstructed.nodes,reconstructed.wrapper_id,
+    {glyphAdvance:editorGlyphAdvance});
+  const lcd = rom.rasterizeSettledOperations(operations,font).grid;
+  expectEqual(`${oracle.name} reconstructed post-deletion LCD bitmap`,
+    crypto.createHash('sha256').update(packedLcdBytes(lcd)).digest('hex'),
+    oracle.post.lcd_bitmap_sha256);
+}
+expectEqual('live editor structural-deletion oracle schema',
+  editorStructuralDeletionOracles.schema,2);
+for (const oracle of editorStructuralDeletionOracles.transitions) {
+  expectEqual(`${oracle.name} structural-deletion capture macro hash`,
+    crypto.createHash('sha256').update(fs.readFileSync(path.join(
+      root,oracle.macro))).digest('hex'),oracle.macro_sha256);
+  const before = rom.decodeMathPrintEditorRam(sparseEditorRam(
+    oracle.pre,`${oracle.name} pre-structural-deletion`));
+  const after = rom.decodeMathPrintEditorRam(sparseEditorRam(
+    oracle.post,`${oracle.name} post-structural-deletion`));
+  const deleted = rom.editorDeleteStructuralTemplate(before);
+  expectEqual(`${oracle.name} translated structural deletion`,
+    deleted.mutation,oracle.mutation);
+  expectEqual(`${oracle.name} decoded structural-deletion transition`,
+    deleted.expression,after.editor.expression);
+  expectEqual(`${oracle.name} post-deletion controller`,after.controller,{
+    recordId:6,renderType:0x1f,structuralDepth:0,activeLeafId:7,
+  });
+  const reconstructed = rom.constructEditorExpressionProgram(
+    deleted.expression,7,font);
+  const canonicalLiveRecord = node => {
+    const record = canonicalEditorRecord(node);
+    // The ROM leaves the removed marker's EFh in physical byte +13h when the
+    // resulting active payload is empty. It lies outside the zero-byte logical
+    // payload and does not participate in decode or rendering.
+    if (!record.payload.length) record.byte13 = 0;
+    return record;
+  };
+  expectEqual(`${oracle.name} reconstructed structural-deletion records`,
+    reconstructed.nodes.map(canonicalLiveRecord).sort(
+      (left,right) => left.record_id - right.record_id),
+    after.nodes.map(canonicalLiveRecord).sort(
+      (left,right) => left.record_id - right.record_id));
   const operations = rom.executeSettledRecordProgram(
     reconstructed.nodes,reconstructed.wrapper_id,
     {glyphAdvance:editorGlyphAdvance});
