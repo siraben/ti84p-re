@@ -1,0 +1,76 @@
+# Walk left through a fraction nested in an outer fraction numerator.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+
+# Build ((1/2)3)/square and leave the cursor after the outer fraction.
+key ALPHA
+key YEQU
+wait 0.4s
+key 1
+wait 0.4s
+key ALPHA
+key YEQU
+wait 0.4s
+key 1
+wait 0.4s
+key 1
+key RIGHT
+key 2
+key RIGHT
+key RIGHT
+key 3
+key RIGHT
+# The first RIGHT selects the still-empty outer denominator. Exit the outer
+# fraction before beginning the mirrored traversal.
+wait 0.4s
+key RIGHT
+wait 0.5s
+
+memdump /tmp/mp-nested-fraction-left-walk-0.ram ram-logical
+screenshot /tmp/mp-nested-fraction-left-walk-0.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-nested-fraction-left-walk-1.ram ram-logical
+screenshot /tmp/mp-nested-fraction-left-walk-1.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-nested-fraction-left-walk-2.ram ram-logical
+screenshot /tmp/mp-nested-fraction-left-walk-2.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-nested-fraction-left-walk-3.ram ram-logical
+screenshot /tmp/mp-nested-fraction-left-walk-3.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-nested-fraction-left-walk-4.ram ram-logical
+screenshot /tmp/mp-nested-fraction-left-walk-4.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-nested-fraction-left-walk-5.ram ram-logical
+screenshot /tmp/mp-nested-fraction-left-walk-5.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-nested-fraction-left-walk-6.ram ram-logical
+screenshot /tmp/mp-nested-fraction-left-walk-6.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-nested-fraction-left-walk-7.ram ram-logical
+screenshot /tmp/mp-nested-fraction-left-walk-7.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-nested-fraction-left-walk-8.ram ram-logical
+screenshot /tmp/mp-nested-fraction-left-walk-8.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-nested-fraction-left-walk-9.ram ram-logical
+screenshot /tmp/mp-nested-fraction-left-walk-9.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-nested-fraction-left-walk-10.ram ram-logical
+screenshot /tmp/mp-nested-fraction-left-walk-10.png

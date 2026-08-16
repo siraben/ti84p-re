@@ -32,6 +32,10 @@ const sources = {
     macro:'tools/macros/mathprint-editor-matrix-navigation.macro',
     trace:'/tmp/mp-matrix-navigation.trace',
   },
+  nested:{
+    macro:'tools/macros/mathprint-editor-nested-fraction-left-navigation.macro',
+    trace:'/tmp/mp-nested-fraction-left-navigation.trace',
+  },
 };
 const specs = [
   {
@@ -178,6 +182,16 @@ const specs = [
       'offset_5_endpoint',
     ],
   },
+  {
+    source:'nested',name:'nested_fraction_left',
+    prefix:'/tmp/mp-nested-fraction-left-walk',direction:'left',
+    states:[
+      'root_after','outer_denominator_start','outer_numerator_end',
+      'outer_numerator_after_inner','inner_denominator_end',
+      'inner_denominator_start','inner_numerator_end','inner_numerator_start',
+      'outer_numerator_start','root_before','root_before_endpoint',
+    ],
+  },
 ];
 
 const digest = bytes =>
@@ -209,4 +223,4 @@ for (const spec of specs) {
   };
 }
 
-process.stdout.write(`${JSON.stringify({schema:3,captures,transitions},null,2)}\n`);
+process.stdout.write(`${JSON.stringify({schema:4,captures,transitions},null,2)}\n`);
