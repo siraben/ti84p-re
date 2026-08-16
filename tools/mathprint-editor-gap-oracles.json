@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "source": "reset-origin TilEm logical-RAM snapshots at live MathPrint cursor positions",
   "rom_sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d",
   "capture_executable_sha256": "40cf1f9ff975217ede238cd02bfd6a85fa6bfecf8cbcea173b0d7705b144330b",
@@ -10,6 +10,7 @@
       "macro_sha256": "6fced6b6f6c9a4ef4915b19d9dac027f3283fc2a5e6be93b7e9b3b3bcfcd777f",
       "source_ram_sha256": "9f434033792761e236208760b10badf63f4d34a96eadd90e458d5303e676ee6b",
       "screenshot_sha256": "d6a7605bc697b229236472aa7455aa83159ef690808c7a8244d61528ba29fc93",
+      "lcd_bitmap_sha256": "450e82a31ced68ed319a1c2e8d18d3e2d3813f097de8be9dc2a89d48289cc4c9",
       "sparse_state_sha256": "bcabb3961e1f37fe21b4e66c8bbfffb9a3812a162324e85273fdeed0beccc019",
       "segments": [
         {"address": 35313, "bytes": "04"},
@@ -39,6 +40,7 @@
       "macro_sha256": "596e899813d71627cdef4fde902ef4813228433d0a4a702fbc0d4922286a5a75",
       "source_ram_sha256": "b48f693a1edf98f6b946684a8a3a9e6b1468bd962d843ff7d8fabfc136ac9ace",
       "screenshot_sha256": "d36b22df022c456231b112e0fd09628bb95132c53e8bc6d38eb5d02acb890986",
+      "lcd_bitmap_sha256": "39b937b16e32e4e07f6ffc2d6e60842c0249fd51d3aa661b23af2d2cb8708cea",
       "sparse_state_sha256": "1dab216a05a2604bdb51eaa8a347a881f4dcccb7c8f19965503d73812422f8d5",
       "segments": [
         {"address": 35313, "bytes": "04"},
@@ -70,6 +72,7 @@
       "macro_sha256": "e79f7fcbe2badad9e282b0d9a7caedbb821d19b83f0612255402906045b2a3b4",
       "source_ram_sha256": "8bc0ee84210f14a5718d4d24129bbdd021d5df33e43b8e2659e62efca7539828",
       "screenshot_sha256": "9bb39083c00e06cd2d2feaec8edcaf4e19233bce9cd21001d050733c7d129ca2",
+      "lcd_bitmap_sha256": "1297c2562d7c2fac9612aad6fc2e829ecb8f487606da6a079fb7d49d1c4c64d9",
       "sparse_state_sha256": "7da6d7fdbb5ea848dda0afb1105237280a06b6dff994879df0a8c0b63e1a5f10",
       "segments": [
         {"address": 35313, "bytes": "04"},
@@ -100,6 +103,7 @@
       "macro_sha256": "f85286c1944295d819504cadadb162683aa9c068a6262167239163db188cf951",
       "source_ram_sha256": "5be0b4cf787beff7d8361063828cc01e98091af722a7f6041905079a98ec5da1",
       "screenshot_sha256": "586150168a81473b6f34cc8bc636244604b8225418b1c712b885eb10e38fcd0f",
+      "lcd_bitmap_sha256": "80cc504e3a7c6c773906f1e64ca6916e48594fd0c66c946151b3bc9849647f64",
       "sparse_state_sha256": "89dd708b40f3c77f2cb5392783256576be8f0014beea2b411b6ba860dd441ef4",
       "segments": [
         {"address": 35313, "bytes": "04"},
