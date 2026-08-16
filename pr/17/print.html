@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-79215a5c.js";
+            window.path_to_searchindex_js = "searchindex-3ee0da7e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15028,7 +15028,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 42 finite models. It also computes an
+complete path-equivalence class in 43 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -15054,6 +15054,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Shaded-point expansion</td><td style="text-align: right">3,145,728</td><td style="text-align: right">1,850</td><td style="text-align: right">30</td><td style="text-align: right">8</td></tr>
 <tr><td>Small-font pointer selection</td><td style="text-align: right">65,536</td><td style="text-align: right">16</td><td style="text-align: right">31</td><td style="text-align: right">16</td></tr>
 <tr><td>Token-hook dispatch</td><td style="text-align: right">1,048,576</td><td style="text-align: right">9</td><td style="text-align: right">10</td><td style="text-align: right">5</td></tr>
+<tr><td>Glyph advance and delimiter padding</td><td style="text-align: right">131,072</td><td style="text-align: right">6</td><td style="text-align: right">10</td><td style="text-align: right">4</td></tr>
 <tr><td><code>_VPutMap</code> byte-boundary gate</td><td style="text-align: right">56</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
 <tr><td>MathPrint <code>_VPutMap</code> right-edge gate</td><td style="text-align: right">3,584</td><td style="text-align: right">4</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
 <tr><td>MathPrint <code>_VPutMap</code> row state</td><td style="text-align: right">112</td><td style="text-align: right">4</td><td style="text-align: right">10</td><td style="text-align: right">2</td></tr>
@@ -15083,8 +15084,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 42 models contain 3,348 path classes and 443 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 208 representatives. Each
+<p>The 43 models contain 3,354 path classes and 453 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 212 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -16439,6 +16440,15 @@ one-row source skip and a five-row count, so <code>01:6354</code>–<code>01:637
 the first small-font padding row. The selected count also omits the trailing
 padding row. Vertical viewport clipping changes the skip and count before the
 page-1 call. [confirmed]</p>
+<p><code>34:6C4D</code> loads the width byte from the selected font record. When
+<code>fontFlags.2</code> is clear, <code>34:6CBC</code> adds three columns for display codes <code>28h</code>
+and <code>29h</code>, and two for <code>7Bh</code> and <code>7Dh</code>. Other codes retain the record width.
+The addition at <code>34:6C5A</code> is byte-sized and can wrap. The translated metric and
+draw paths use this result for delimiter cells instead of a separate fixed
+width. Root calls set <code>fontFlags.2</code> and retain the six-column large-font cell.
+Raised parentheses begin with width three and raised braces with width four;
+the correction expands both families to six columns. A pinned-byte interpreter
+covers both flag values and every display-code and width-byte pair. [confirmed]</p>
 <p>The two states use different right-edge comparisons. The root state compares
 the endpoint with <code>0x61</code> at <code>01:630A</code>, while the raised state compares it with
 <code>0x60</code> at <code>01:630E</code>. <code>CCF</code> followed by <code>JP C</code> rejects endpoints at or above the
