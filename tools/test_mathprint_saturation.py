@@ -1281,9 +1281,9 @@ class CheckedReportTests(unittest.TestCase):
         )
 
         self.assertEqual(2, report["schema"])
-        self.assertEqual(269, len(report["traces"]))
+        self.assertEqual(270, len(report["traces"]))
         self.assertEqual(
-            268,
+            269,
             sum(
                 row["provenance"] == TRACE_PROVENANCE_NATURAL
                 for row in report["traces"]
@@ -1709,25 +1709,33 @@ class CheckedReportTests(unittest.TestCase):
             "mathprint_editor_summation_fill_sequence":
                 "13349a9ef4e2bfa97001e78015dd132f33364f7d3d2bff151bd0dade9841c5a2",
         }, summation_fill)
+        template_boundaries = next(
+            row for row in report["traces"]
+            if row["label"] == "editor_templates_before_fraction"
+        )
+        self.assertEqual(
+            "10f5473ac0a3aee2732210bbfdca6e4ebcd40e964faa58c407d0d665580f85ff",
+            template_boundaries["sha256"],
+        )
         self.assertEqual(
             114, report["record_oracles"]["cases"]
         )
         self.assertEqual(
-            1428,
+            1435,
             report["minimized_dynamic_feature_corpus"]["covered_features"],
         )
         self.assertEqual(
-            206,
+            207,
             report["minimized_dynamic_feature_corpus"]["selected_trace_count"],
         )
         self.assertEqual(
-            1425,
+            1432,
             report["minimized_natural_dynamic_feature_corpus"][
                 "covered_features"
             ],
         )
         self.assertEqual(
-            205,
+            206,
             report["minimized_natural_dynamic_feature_corpus"][
                 "selected_trace_count"
             ],

@@ -1,0 +1,183 @@
+# Insert each translated structural-template family before a fraction marker.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+
+# Radical: shared one-child constructor.
+key CLEAR
+key ALPHA
+key YEQU
+wait 0.4s
+key 1
+wait 0.4s
+key 1
+key RIGHT
+key 2
+key RIGHT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+wait 0.5s
+memdump /tmp/mp-template-before-fraction-radical-pre.ram ram-logical
+screenshot /tmp/mp-template-before-fraction-radical-pre.png
+key 2ND
+key SQUARE
+wait 0.8s
+memdump /tmp/mp-template-before-fraction-radical-post.ram ram-logical
+screenshot /tmp/mp-template-before-fraction-radical-post.png
+
+# Nth root: special two-child constructor.
+key CLEAR
+key ALPHA
+key YEQU
+wait 0.4s
+key 1
+wait 0.4s
+key 1
+key RIGHT
+key 2
+key RIGHT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+wait 0.5s
+memdump /tmp/mp-template-before-fraction-nthroot-pre.ram ram-logical
+screenshot /tmp/mp-template-before-fraction-nthroot-pre.png
+key MATH
+key 5
+wait 0.8s
+memdump /tmp/mp-template-before-fraction-nthroot-post.ram ram-logical
+screenshot /tmp/mp-template-before-fraction-nthroot-post.png
+
+# Postfix power: special one-child constructor.
+key CLEAR
+key ALPHA
+key YEQU
+wait 0.4s
+key 1
+wait 0.4s
+key 1
+key RIGHT
+key 2
+key RIGHT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+wait 0.5s
+memdump /tmp/mp-template-before-fraction-power-pre.ram ram-logical
+screenshot /tmp/mp-template-before-fraction-power-pre.png
+key POWER
+wait 0.8s
+memdump /tmp/mp-template-before-fraction-power-post.ram ram-logical
+screenshot /tmp/mp-template-before-fraction-power-post.png
+
+# Log base: shared two-child constructor.
+key CLEAR
+key ALPHA
+key YEQU
+wait 0.4s
+key 1
+wait 0.4s
+key 1
+key RIGHT
+key 2
+key RIGHT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+wait 0.5s
+memdump /tmp/mp-template-before-fraction-logbase-pre.ram ram-logical
+screenshot /tmp/mp-template-before-fraction-logbase-pre.png
+key MATH
+key ALPHA
+key MATH
+wait 0.8s
+memdump /tmp/mp-template-before-fraction-logbase-post.ram ram-logical
+screenshot /tmp/mp-template-before-fraction-logbase-post.png
+
+# Integral: four-child constructor with lower-bound entry.
+key CLEAR
+key ALPHA
+key YEQU
+wait 0.4s
+key 1
+wait 0.4s
+key 1
+key RIGHT
+key 2
+key RIGHT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+wait 0.5s
+memdump /tmp/mp-template-before-fraction-integral-pre.ram ram-logical
+screenshot /tmp/mp-template-before-fraction-integral-pre.png
+key MATH
+key 9
+wait 0.8s
+memdump /tmp/mp-template-before-fraction-integral-post.ram ram-logical
+screenshot /tmp/mp-template-before-fraction-integral-post.png
+
+# nDeriv(: three-child constructor with variable entry.
+key CLEAR
+key ALPHA
+key YEQU
+wait 0.4s
+key 1
+wait 0.4s
+key 1
+key RIGHT
+key 2
+key RIGHT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+wait 0.5s
+memdump /tmp/mp-template-before-fraction-nderiv-pre.ram ram-logical
+screenshot /tmp/mp-template-before-fraction-nderiv-pre.png
+key MATH
+key 8
+wait 0.8s
+memdump /tmp/mp-template-before-fraction-nderiv-post.ram ram-logical
+screenshot /tmp/mp-template-before-fraction-nderiv-post.png
+
+# Summation: four-child constructor with variable entry.
+key CLEAR
+key ALPHA
+key YEQU
+wait 0.4s
+key 1
+wait 0.4s
+key 1
+key RIGHT
+key 2
+key RIGHT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+key LEFT
+wait 0.5s
+memdump /tmp/mp-template-before-fraction-summation-pre.ram ram-logical
+screenshot /tmp/mp-template-before-fraction-summation-pre.png
+key MATH
+key 0
+wait 0.8s
+memdump /tmp/mp-template-before-fraction-summation-post.ram ram-logical
+screenshot /tmp/mp-template-before-fraction-summation-post.png

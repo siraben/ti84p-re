@@ -54,10 +54,13 @@ function packedLcdBytes(grid) {
 
 function projection(state) {
   return {
+    entryId:state.entryId,
     controller:state.controller,
     cursor:{
       recordId:state.editor.cursor.recordId,
       byteOffset:state.editor.cursor.byteOffset,
+      boundaries:state.editor.cursor.boundaries,
+      path:state.editor.cursor.path,
       left:state.editor.cursor.left,
       right:state.editor.cursor.right,
     },
@@ -66,12 +69,12 @@ function projection(state) {
     nodes:state.nodes.map(node => ({
       record_id:node.record_id === undefined ? node.id : node.record_id,
       render_type:node.render_type === undefined ? node.type : node.render_type,
-      word05:node.word05,
-      word0F:node.word0F,
-      word11:node.word11,
+      word03:node.word03,word05:node.word05,word07:node.word07,
+      word09:node.word09,word0B:node.word0B,word0D:node.word0D,
+      word0F:node.word0F,word11:node.word11,byte13:node.byte13,
       child_ids:node.child_ids.slice(),
       payload:node.payload.slice(),
-    })),
+    })).sort((left,right) => left.record_id - right.record_id),
   };
 }
 
@@ -127,9 +130,7 @@ function decodeSparse(state) {
   return rom.decodeMathPrintEditorRam(ram);
 }
 
-function captureState(prefix, index, name) {
-  const ramPath = `${prefix}-${index}.ram`;
-  const screenshotPath = `${prefix}-${index}.png`;
+function captureStatePaths(ramPath, screenshotPath, name) {
   const raw = fs.readFileSync(ramPath);
   if (raw.length < 0x8000)
     throw new RangeError(`${ramPath} is shorter than one logical RAM window`);
@@ -154,6 +155,11 @@ function captureState(prefix, index, name) {
     lcd_bitmap_sha256:digest(packedLcdBytes(lcd)),
     ...sparse,
   };
+}
+
+function captureState(prefix, index, name) {
+  return captureStatePaths(
+    `${prefix}-${index}.ram`,`${prefix}-${index}.png`,name);
 }
 
 function main() {
@@ -194,6 +200,8 @@ function main() {
   },null,2)}\n`);
 }
 
-module.exports = {captureState,decodeSparse,projection,sameState};
+module.exports = {
+  captureState,captureStatePaths,decodeSparse,projection,sameState,
+};
 
 if (require.main === module) main();

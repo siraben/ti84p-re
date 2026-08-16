@@ -3237,6 +3237,9 @@
       if (editor && input.editor_record_byte13 !== undefined)
         editorRecordState.editor_record_byte13 = byte(
           input.editor_record_byte13,`${label} retained record +13h byte`);
+      if (editor && input.editor_child_selector !== undefined)
+        editorRecordState.editor_child_selector = byte(
+          input.editor_child_selector,`${label} retained child selector`);
       if (editor && input.editor_record_id !== undefined) {
         if (!Number.isInteger(input.editor_record_id) ||
             input.editor_record_id < 0 || input.editor_record_id > 0xffff)
@@ -4924,6 +4927,8 @@
             ...expression,
             editor_record_id:recordId,
             editor_record_byte13:node.byte13,
+            editor_child_selector:byte(
+              node.word05,`settled record 0x${recordId.toString(16)} child selector`),
           } : expression;
         if (type === 0x1f) {
           const ids = children(node, 1);
@@ -5262,6 +5267,9 @@
                   ...(embedded.editor_record_byte13 === undefined ? {} : {
                     editor_record_byte13:embedded.editor_record_byte13,
                   }),
+                  ...(embedded.editor_child_selector === undefined ? {} : {
+                    editor_child_selector:embedded.editor_child_selector,
+                  }),
                 });
               } else {
                 candidate.value = {
@@ -5272,6 +5280,9 @@
                   }),
                   ...(embedded.editor_record_byte13 === undefined ? {} : {
                     editor_record_byte13:embedded.editor_record_byte13,
+                  }),
+                  ...(embedded.editor_child_selector === undefined ? {} : {
+                    editor_child_selector:embedded.editor_child_selector,
                   }),
                 };
               }
@@ -5632,6 +5643,10 @@
           'structural insertion retained entry +13h byte');
       return cursor.byte_offset ? active.payload[0] : 0xef;
     };
+    const structuralBoundaryKinds = new Set([
+      'fraction','absolute','ePower','tenPower','radical','nthRoot','logBase',
+      'integral','nDeriv','summation','power','matrix',
+    ]);
     const stripFirstPackedUnit = value => {
       let tokens;
       if (Array.isArray(value) || value instanceof Uint8Array)
@@ -5641,9 +5656,11 @@
                (Array.isArray(value.tokens) ||
                 value.tokens instanceof Uint8Array))
         tokens = Array.from(value.tokens);
+      else if (value && structuralBoundaryKinds.has(value.kind))
+        return value;
       else
         throw new RangeError(
-          'one-child insertion before a structural boundary remains open');
+          'structural insertion cannot classify the right-hand expression');
       const unitBoundaries = editorPayloadCursorBoundaries(tokens);
       if (unitBoundaries.length < 2)
         throw new RangeError(
@@ -5699,6 +5716,7 @@
         [unaryStructuralSpec.child]:child,
         editor_record_id:structuralId,
         editor_record_byte13:retainedStructuralByte13(originalCursor,active),
+        editor_child_selector:1,
       };
       const parts = [...left,structural,...right];
       return parts.length === 1 ? {
@@ -5783,6 +5801,7 @@
             kind:'fraction',numerator,denominator,
             editor_record_id:structuralId,
             editor_record_byte13:recordByte13,
+            editor_child_selector:1,
           };
           return trailingParts.length ? {
             kind:'sequence',parts:[insertedFraction,...trailingParts],
@@ -5824,6 +5843,7 @@
         kind:'fraction',numerator,denominator,
         editor_record_id:structuralId,
         editor_record_byte13:recordByte13,
+        editor_child_selector:afterRecordId === numeratorId ? 1 : 2,
       };
       return trailingParts.length ? {
         kind:'sequence',
@@ -5937,6 +5957,7 @@
         kind:'nthRoot',index,radicand,
         editor_record_id:structuralId,
         editor_record_byte13:recordByte13,
+        editor_child_selector:afterRecordId === indexId ? 1 : 2,
       };
       return trailingParts.length ? {
         kind:'sequence',parts:[insertedNthRoot,...trailingParts],
@@ -6001,6 +6022,7 @@
         kind:'power',base,exponent,
         editor_record_id:structuralId,
         editor_record_byte13:recordByte13,
+        editor_child_selector:1,
       };
       const parts = [...parentPrefix,insertedPower,...trailingParts];
       return parts.length === 1 ? {
@@ -6060,6 +6082,7 @@
         kind:'logBase',base,argument,
         editor_record_id:structuralId,
         editor_record_byte13:retainedStructuralByte13(originalCursor,active),
+        editor_child_selector:1,
       };
       const parts = [...left,structural,...right];
       return parts.length === 1 ? {
@@ -6120,6 +6143,7 @@
         variable:child(structuralId + 4),
         editor_record_id:structuralId,
         editor_record_byte13:retainedStructuralByte13(originalCursor,active),
+        editor_child_selector:1,
       };
       const parts = [...left,structural,...right];
       return parts.length === 1 ? {
@@ -6179,6 +6203,7 @@
         value:child(structuralId + 3),
         editor_record_id:structuralId,
         editor_record_byte13:retainedStructuralByte13(originalCursor,active),
+        editor_child_selector:1,
       };
       const parts = [...left,structural,...right];
       return parts.length === 1 ? {
@@ -6239,6 +6264,7 @@
         body:child(structuralId + 4),
         editor_record_id:structuralId,
         editor_record_byte13:retainedStructuralByte13(originalCursor,active),
+        editor_child_selector:1,
       };
       const parts = [...left,structural,...right];
       return parts.length === 1 ? {
@@ -7395,9 +7421,11 @@
       if (selected.length > 1)
         throw new RangeError(
           `${expression.kind} contains an editor cursor in multiple children`);
-      // A completed template retains its last child as the editor selector.
-      // An ancestor of the active leaf instead names the selected child.
-      return selected.length ? selected[0] : children.length;
+      // An ancestor of the active leaf names the selected child. A completed
+      // template retains the selector byte already present in its live record.
+      if (selected.length) return selected[0];
+      return expression.editor_child_selector === undefined
+        ? children.length : expression.editor_child_selector;
     };
     const ordinaryVariableLeaf = expression => {
       if (expression.kind === 'tokens') return true;

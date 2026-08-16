@@ -45,6 +45,9 @@ const editorMutationOracles = JSON.parse(fs.readFileSync(
 const editorStructuralMutationOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools',
     'mathprint-editor-structural-mutation-oracles.json')));
+const editorTemplateBoundaryOracles = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools',
+    'mathprint-editor-template-boundary-oracles.json')));
 const editorNavigationOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-editor-navigation-oracles.json')));
 const editorStructuralNavigationOracles = JSON.parse(fs.readFileSync(
@@ -3478,6 +3481,39 @@ for (const oracle of editorStructuralMutationOracles.transitions) {
       () => rom.decodeMathPrintEditorRam(inactiveEmpty));
   }
 }
+expectEqual('live editor template-boundary oracle schema',
+  editorTemplateBoundaryOracles.schema,1);
+expectEqual('live editor template-boundary capture macro hash',
+  crypto.createHash('sha256').update(fs.readFileSync(path.join(
+    root,editorTemplateBoundaryOracles.capture.macro))).digest('hex'),
+  editorTemplateBoundaryOracles.capture.macro_sha256);
+for (const oracle of editorTemplateBoundaryOracles.transitions) {
+  const before = rom.decodeMathPrintEditorRam(sparseEditorRam(
+    oracle.pre,`${oracle.name} pre-insertion`));
+  const after = rom.decodeMathPrintEditorRam(sparseEditorRam(
+    oracle.post,`${oracle.name} post-insertion`));
+  expectEqual(`${oracle.name} oracle LCD identity`,
+    oracle.final_lcd_sha256,oracle.post.lcd_bitmap_sha256);
+  const inserted = rom.editorInsertStructuralTemplate(
+    before,oracle.source_token,font);
+  expectEqual(`${oracle.name} translated structural insertion`,
+    inserted.mutation,oracle.mutation);
+  expectEqual(`${oracle.name} preserves the right structural marker`,
+    inserted.mutation.replaced_right_token,[]);
+  expectEqual(`${oracle.name} composable decoded arena state`,
+    editorStateProjection(inserted.state),editorStateProjection(after));
+  const wrapper = inserted.state.nodes.find(node =>
+    (node.render_type === undefined ? node.type : node.render_type) === 0x1f);
+  if (!wrapper) throw new Error(`${oracle.name} wrapper record is absent`);
+  const operations = rom.executeSettledRecordProgram(
+    inserted.state.nodes,
+    wrapper.record_id === undefined ? wrapper.id : wrapper.record_id,
+    {glyphAdvance:editorGlyphAdvance});
+  const lcd = rom.rasterizeSettledOperations(operations,font).grid;
+  expectEqual(`${oracle.name} translated post-insertion LCD bitmap`,
+    crypto.createHash('sha256').update(packedLcdBytes(lcd)).digest('hex'),
+    oracle.post.lcd_bitmap_sha256);
+}
 const structuralAllocationBase = rom.decodeMathPrintEditorRam(sparseEditorRam(
   editorStructuralMutationOracles.transitions[0].pre,
   'structural allocation boundary source'));
@@ -4081,6 +4117,7 @@ expectEqual('ordinary insertion replaces an empty-slot token', {
       editor_leaf_record_id:10},
     editor_record_id:8,
     editor_record_byte13:0xef,
+    editor_child_selector:1,
     editor_leaf_record_id:7,
   },
 });

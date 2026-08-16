@@ -310,6 +310,7 @@ TRANSLATION_SURFACES = (
             "tools/mathprint-editor-gap-oracles.json",
             "tools/mathprint-editor-mutation-oracles.json",
             "tools/mathprint-editor-structural-mutation-oracles.json",
+            "tools/mathprint-editor-template-boundary-oracles.json",
             "tools/mathprint-editor-navigation-oracles.json",
             "tools/mathprint-editor-structural-navigation-oracles.json",
             "tools/mathprint-editor-summation-fill-oracle.json",
@@ -329,6 +330,9 @@ TRANSLATION_SURFACES = (
             "other two added types; radical insertion at every cursor class in the root "
             "leaf, both fraction children, and that radical's radicand with packed-token "
             "replacement; in-leaf packed-token navigation, and "
+            "template insertion before an existing structural marker across the "
+            "one-child, nth-root, power, log-base, integral, nDeriv, and summation "
+            "constructor families, with the old marker and child selector retained; "
             "bidirectional fraction, integral, and summation boundary navigation "
             "through structural "
             "entry, child selection, structural exit, root endpoint no-ops, the "
@@ -4155,7 +4159,9 @@ def open_paths(
                 "class captured for e-power and blank captures for the other two added "
                 "types; radical insertion at every cursor class in the root leaf, both "
                 "fraction children, and that radical's radicand with packed-token "
-                "replacement, "
+                "replacement; template insertion before an existing fraction marker is "
+                "translated across seven constructor families while retaining the old "
+                "marker and child selector; "
                 "in-leaf packed-token navigation, and packed-token deletion with empty-slot "
                 "restoration are translated; blank-child structural deletion is translated "
                 "across insertable types 20h–2Ah, including bidirectional fraction/nth-root "
