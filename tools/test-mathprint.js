@@ -560,8 +560,8 @@ function runRawSavedOperandWrapper(source, direction, recordFlags, buffers,
   const memory = new Map();
   const writeBuffer = (address, values) =>
     values.forEach((value, index) => memory.set(address + index,value));
-  const readBuffer = address =>
-    Array.from({length:9}, (_, index) => memory.get(address + index) || 0);
+  const readBuffer = (address, length) =>
+    Array.from({length}, (_, index) => memory.get(address + index) || 0);
   writeBuffer(0x8478,buffers.op1);
   writeBuffer(0x85e7,buffers.savedE7);
   writeBuffer(0x85f2,buffers.savedF2);
@@ -575,14 +575,14 @@ function runRawSavedOperandWrapper(source, direction, recordFlags, buffers,
   const finish = branch => ({
     branch, searchInput, carry,
     buffers:{
-      op1:readBuffer(0x8478),
-      savedE7:readBuffer(0x85e7),
-      savedF2:readBuffer(0x85f2),
+      op1:readBuffer(0x8478,11),
+      savedE7:readBuffer(0x85e7,9),
+      savedF2:readBuffer(0x85f2,9),
     },
   });
   for (let instructions = 0; instructions < 64; instructions++) {
     if (pc === 0x1a92) {
-      writeBuffer(de,readBuffer(hl));
+      writeBuffer(de,readBuffer(hl,9));
       if (!callStack.length) return finish('save-result');
       pc = callStack.pop();
       continue;
@@ -604,7 +604,7 @@ function runRawSavedOperandWrapper(source, direction, recordFlags, buffers,
         callStack.push(pc + 3);
         pc = target;
       } else if (target === 0x59e0 || target === 0x59f9) {
-        searchInput = readBuffer(0x8478);
+        searchInput = readBuffer(0x8478,11);
         writeBuffer(0x8478,searchResult.op1);
         carry = searchResult.carry;
         pc += 3;
@@ -1135,8 +1135,12 @@ for (let winBottom = 0; winBottom <= 0xff; winBottom++) {
     translated.emission, raw.emission);
 }
 
-const alphaOp = (type, nameByte) =>
+const alphaIdentity = (type, nameByte) =>
   [type,nameByte,0,0,0,0,0,0,0];
+const alphaOp = (type, nameByte, extension9 = 0, extension10 = 0) =>
+  [...alphaIdentity(type,nameByte),extension9,extension10];
+const alphaVatEntry = (identity, pointer, page = 0, continuationByte = 0) =>
+  ({identity,continuationByte,pointer,page});
 const alphaRam = new Uint8Array(0x10000);
 alphaRam[0x9000] = 0x85;
 alphaRam[0x8ffb] = 0x02;
@@ -1149,8 +1153,8 @@ alphaRam[0x8ff1] = 0;
 alphaRam[0x8ff0] = 0x58;
 expectEqual('07:51BE decodes named and fixed VAT records',
   rom.editorDecodeAlphaVatRegion(alphaRam,0x9000,0x8fed), [
-    {op1:[0x05,0x43,0x41,0x54,0,0,0,0,0],pointer:0x9000,page:2},
-    {op1:[0x00,0x58,0,0,0,0,0,0,0],pointer:0x8ff6,page:0},
+    alphaVatEntry([0x05,0x43,0x41,0x54,0,0,0,0,0],0x9000,2),
+    alphaVatEntry([0x00,0x58,0,0,0,0,0,0,0],0x8ff6),
   ]);
 expectEqual('07:510B accepts an empty VAT scan region',
   rom.editorDecodeAlphaVatRegion(alphaRam,0x9000,0x9000), []);
@@ -1163,8 +1167,8 @@ expectEqual('07:50BE derives named-region bounds from pTemp and progPtr',
     region:'named/list',start:0x9000,bound:0x8fed,
     pTemp:0x8fed,progPtr:0x9000,symTable:0xfe66,
     entries:[
-      {op1:[0x05,0x43,0x41,0x54,0,0,0,0,0],pointer:0x9000,page:2},
-      {op1:[0x00,0x58,0,0,0,0,0,0,0],pointer:0x8ff6,page:0},
+      alphaVatEntry([0x05,0x43,0x41,0x54,0,0,0,0,0],0x9000,2),
+      alphaVatEntry([0x00,0x58,0,0,0,0,0,0,0],0x8ff6),
     ],routine:'07:50BE–50F9',
   });
 const alphaListRam = new Uint8Array(0x10000);
@@ -1174,29 +1178,29 @@ alphaListRam[0x90f9] = 0x5d;
 alphaListRam[0x90f8] = 0x01;
 expectEqual('07:51BE removes the list length byte from the OP identity',
   rom.editorDecodeAlphaVatRegion(alphaListRam,0x9100,0x90f6), [
-    {op1:[0x01,0x5d,0x01,0,0,0,0,0,0],pointer:0x9100,page:0},
+    alphaVatEntry([0x01,0x5d,0x01,0,0,0,0,0,0],0x9100),
   ]);
 expectEqual('07:50BE selects the named region for a list-name OP identity',
   rom.editorDecodeAlphaVatSnapshot(alphaListRam,
-    [0x00,0x5d,0x01,0,0,0,0,0,0],{pTemp:0x90f6,progPtr:0x9100}), {
+    [0x00,0x5d,0x01,0,0,0,0,0,0,0,0],{pTemp:0x90f6,progPtr:0x9100}), {
     region:'named/list',start:0x9100,bound:0x90f6,
     pTemp:0x90f6,progPtr:0x9100,symTable:0xfe66,
     entries:[
-      {op1:[0x01,0x5d,0x01,0,0,0,0,0,0],pointer:0x9100,page:0},
+      alphaVatEntry([0x01,0x5d,0x01,0,0,0,0,0,0],0x9100),
     ],routine:'07:50BE–50F9',
   });
 const emptyAlphaRam = new Uint8Array(0x10000);
 const alphaRegion = op1 => rom.editorDecodeAlphaVatSnapshot(
   emptyAlphaRam,op1,{pTemp:0x9000,progPtr:0x9000,symTable:0x9000}).region;
 expectEqual('07:50C4 selects VAT regions from list-name encodings', [
-  alphaRegion([0x01,0x5d,0,0,0,0,0,0,0]),
-  alphaRegion([0x01,0xff,0,0,0,0,0,0,0]),
-  alphaRegion([0x01,0x72,0,0,0,0,0,0,0]),
-  alphaRegion([0x01,0x3a,0,0,0,0,0,0,0]),
-  alphaRegion([0x0d,0x5d,0,0,0,0,0,0,0]),
-  alphaRegion([0x0d,0xff,0,0,0,0,0,0,0]),
-  alphaRegion([0x0d,0x72,0,0,0,0,0,0,0]),
-  alphaRegion([0x0d,0x3a,0,0,0,0,0,0,0]),
+  alphaRegion(alphaOp(0x01,0x5d)),
+  alphaRegion(alphaOp(0x01,0xff)),
+  alphaRegion(alphaOp(0x01,0x72)),
+  alphaRegion(alphaOp(0x01,0x3a)),
+  alphaRegion(alphaOp(0x0d,0x5d)),
+  alphaRegion(alphaOp(0x0d,0xff)),
+  alphaRegion(alphaOp(0x0d,0x72)),
+  alphaRegion(alphaOp(0x0d,0x3a)),
 ], [
   'named/list','named/list','fixed-token','fixed-token',
   'named/list','named/list','fixed-token','fixed-token',
@@ -1208,7 +1212,7 @@ alphaMarkerRam[0x91f9] = 0x41;
 alphaMarkerRam[0x91f8] = 0x42;
 expectEqual('07:51D6 treats 3Ah as a fixed three-byte list form',
   rom.editorDecodeAlphaVatRegion(alphaMarkerRam,0x9200,0x91f7), [
-    {op1:[0x0d,0x3a,0x41,0x42,0,0,0,0,0],pointer:0x9200,page:0},
+    alphaVatEntry([0x0d,0x3a,0x41,0x42,0,0,0,0,0],0x9200),
   ]);
 const alphaType9Ram = new Uint8Array(0x10000);
 alphaType9Ram[0x9300] = 0x09;
@@ -1217,7 +1221,7 @@ alphaType9Ram[0x92f9] = 0x41;
 alphaType9Ram[0x92f8] = 0x42;
 expectEqual('07:512C applies variable stepping to type 09h',
   rom.editorDecodeAlphaVatRegion(alphaType9Ram,0x9300,0x92f5), [
-    {op1:[0x09,0x04,0x41,0x42,0,0,0,0,0],pointer:0x9300,page:0},
+    alphaVatEntry([0x09,0x04,0x41,0x42,0,0,0,0,0],0x9300),
   ]);
 const alphaFixedRam = new Uint8Array(0x10000);
 alphaFixedRam[0xfe66] = 0x00;
@@ -1234,7 +1238,7 @@ expectEqual('07:50BE derives the fixed-token region from symTable and progPtr',
     region:'fixed-token',start:0xfe66,bound:0xfe5d,
     pTemp:0xfe5d,progPtr:0xfe5d,symTable:0xfe66,
     entries:[
-      {op1:[0x00,0x42,0,0,0,0,0,0,0],pointer:0xfe66,page:3},
+      alphaVatEntry([0x00,0x42,0,0,0,0,0,0,0],0xfe66,3),
     ],routine:'07:50BE–50F9',
   });
 expectThrows('07:51BE rejects an overlong logical VAT name', RangeError, () => {
@@ -1243,11 +1247,19 @@ expectThrows('07:51BE rejects an overlong logical VAT name', RangeError, () => {
   ram[0x93fa] = 9;
   rom.editorDecodeAlphaVatRegion(ram,0x9400,0x93f0);
 });
+expectEqual('07:522E reads OP2+9 from immediately below the VAT record', (() => {
+  const ram = new Uint8Array(0x10000);
+  ram[0x9400] = 0x00;
+  ram[0x93fb] = 0x03;
+  ram[0x93fa] = 0x42;
+  ram[0x93f7] = 0xa5;
+  return rom.editorDecodeAlphaVatRegion(ram,0x9400,0x93f7);
+})(), [alphaVatEntry([0x00,0x42,0,0,0,0,0,0,0],0x9400,3,0xa5)]);
 const alphaVat = [
-  {op1:alphaOp(0x85,0x43),pointer:0x9fd0,page:0},
-  {op1:alphaOp(0x00,0x42),pointer:0x9fc0,page:0},
-  {op1:alphaOp(0x06,0x42),pointer:0x9fb0,page:0},
-  {op1:alphaOp(0x05,0x41),pointer:0x9fa0,page:0},
+  alphaVatEntry(alphaIdentity(0x85,0x43),0x9fd0),
+  alphaVatEntry(alphaIdentity(0x00,0x42),0x9fc0),
+  alphaVatEntry(alphaIdentity(0x06,0x42),0x9fb0),
+  alphaVatEntry(alphaIdentity(0x05,0x41),0x9fa0),
 ];
 expectEqual('07:50B5 selects the nearest higher same-class VAT name',
   rom.editorFindAlphaVat('up',alphaOp(0x05,0x41),alphaVat), {
@@ -1272,30 +1284,30 @@ expectEqual('07:50B5 preserves OP1/OP3 and sets carry at the class endpoint',
   });
 expectEqual('07:5247 aliases complex-list and list search classes',
   rom.editorFindAlphaVat('up',alphaOp(0x01,0x40),[
-    {op1:alphaOp(0x0d,0x41),pointer:0x9f90,page:0},
+    alphaVatEntry(alphaIdentity(0x0d,0x41),0x9f90),
   ]).op1, alphaOp(0x0d,0x41));
 expectEqual('07:5247 aliases types 18h/19h with class zero',
   rom.editorFindAlphaVat('up',alphaOp(0x18,0x40),[
-    {op1:alphaOp(0x19,0x41),pointer:0x9f80,page:0},
+    alphaVatEntry(alphaIdentity(0x19,0x41),0x9f80),
   ]).op1, alphaOp(0x19,0x41));
 expectEqual('07:5199 gives the first OP name byte highest significance',
-  rom.editorFindAlphaVat('up',[5,0x41,0x80,0,0,0,0,0,0],[
-    {op1:[5,0x42,0x00,0,0,0,0,0,0],pointer:0x9f70,page:0},
-    {op1:[5,0x41,0x70,0,0,0,0,0,0],pointer:0x9f60,page:0},
+  rom.editorFindAlphaVat('up',[5,0x41,0x80,0,0,0,0,0,0,0,0],[
+    alphaVatEntry([5,0x42,0x00,0,0,0,0,0,0],0x9f70),
+    alphaVatEntry([5,0x41,0x70,0,0,0,0,0,0],0x9f60),
   ]).vatPointer, 0x9f70);
 expectEqual('07:5151 FFh sentinel lets Up start from the lowest candidate',
-  rom.editorFindAlphaVat('up',[5,0x7f,0xff,0,0,0,0,0,0],[
-    {op1:alphaOp(5,0x41),pointer:0x9f58,page:0},
-    {op1:alphaOp(5,0x42),pointer:0x9f57,page:0},
+  rom.editorFindAlphaVat('up',[5,0x7f,0xff,0,0,0,0,0,0,0,0],[
+    alphaVatEntry(alphaIdentity(5,0x41),0x9f58),
+    alphaVatEntry(alphaIdentity(5,0x42),0x9f57),
   ]).op1, alphaOp(5,0x41));
 expectEqual('07:5151 FFh sentinel makes Dn report its endpoint',
-  rom.editorFindAlphaVat('down',[5,0x40,0xff,0,0,0,0,0,0],[
-    {op1:alphaOp(5,0x41),pointer:0x9f56,page:0},
+  rom.editorFindAlphaVat('down',[5,0x40,0xff,0,0,0,0,0,0,0,0],[
+    alphaVatEntry(alphaIdentity(5,0x41),0x9f56),
   ]).carry, true);
-const staleNamedAlphaKey = [5,0x41,0,0xff,0xee,0xdd,0xcc,0xbb,0xaa];
+const staleNamedAlphaKey = [5,0x41,0,0xff,0xee,0xdd,0xcc,0xbb,0xaa,0x99,0x88];
 expectEqual('07:50D6 zero-pads a named comparison key after its NUL',
   rom.editorFindAlphaVat('down',staleNamedAlphaKey,[
-    {op1:alphaOp(5,0x41),pointer:0x9f55,page:0},
+    alphaVatEntry(alphaIdentity(5,0x41),0x9f55),
   ]), {
     direction:'down',sameType:true,sourceClass:0x05,carry:true,a:0xfe,zero:false,
     op1:staleNamedAlphaKey,op3:staleNamedAlphaKey,
@@ -1304,45 +1316,60 @@ expectEqual('07:50D6 zero-pads a named comparison key after its NUL',
   });
 expectEqual('07:50D6 keeps named successor selection independent of stale tail bytes',
   rom.editorFindAlphaVat('up',staleNamedAlphaKey,[
-    {op1:alphaOp(5,0x41),pointer:0x9f54,page:0},
-    {op1:alphaOp(5,0x42),pointer:0x9f53,page:0},
+    alphaVatEntry(alphaIdentity(5,0x41),0x9f54),
+    alphaVatEntry(alphaIdentity(5,0x42),0x9f53),
   ]).op1, alphaOp(5,0x42));
-const staleFixedAlphaKey = [0,0x41,0x42,0x43,0xff,0xee,0xdd,0xcc,0xbb];
+for (let continuationByte = 0; continuationByte <= 0xff; continuationByte++) {
+  expectEqual('07:522E exhaustive selected OP extension byte',
+    rom.editorFindAlphaVat('up',alphaOp(5,0x41,0xee,0xdd),[
+      alphaVatEntry(alphaIdentity(5,0x42),0x9f53,0,continuationByte),
+    ]).op1,
+    alphaOp(5,0x42,continuationByte,0));
+}
+const staleFixedAlphaKey = [0,0x41,0x42,0x43,0xff,0xee,0xdd,0xcc,0xbb,0x77,0x66];
 expectEqual('07:50E8 clears five fixed-token comparison-key tail bytes',
   rom.editorFindAlphaVat('down',staleFixedAlphaKey,[
-    {op1:[0,0x41,0x42,0x43,0,0,0,0,0],pointer:0x9f52,page:0},
+    alphaVatEntry([0,0x41,0x42,0x43,0,0,0,0,0],0x9f52),
   ]).carry, true);
 expectEqual('07:50E8 preserves all three fixed-token name bytes',
   rom.editorFindAlphaVat('up',staleFixedAlphaKey,[
-    {op1:[0,0x41,0x42,0x44,0,0,0,0,0],pointer:0x9f51,page:0},
-  ]).op1, [0,0x41,0x42,0x44,0,0,0,0,0]);
+    alphaVatEntry([0,0x41,0x42,0x44,0,0,0,0,0],0x9f51),
+  ]).op1, [0,0x41,0x42,0x44,0,0,0,0,0,0,0]);
 expectEqual('07:51BE rejects low and 72h first-name bytes',
   rom.editorFindAlphaVat('up',alphaOp(5,0x30),[
-    {op1:alphaOp(5,0x40),pointer:0x9f50,page:0},
-    {op1:alphaOp(5,0x72),pointer:0x9f40,page:0},
-    {op1:alphaOp(5,0x73),pointer:0x9f30,page:0},
+    alphaVatEntry(alphaIdentity(5,0x40),0x9f50),
+    alphaVatEntry(alphaIdentity(5,0x72),0x9f40),
+    alphaVatEntry(alphaIdentity(5,0x73),0x9f30),
   ]).op1, alphaOp(5,0x73));
 expectEqual('07:5233 uses an archived page byte while inGroup is set',
   rom.editorFindAlphaVat('up',alphaOp(5,0x30),[
-    {op1:alphaOp(5,0x40),pointer:0x9f20,page:0x41},
+    alphaVatEntry(alphaIdentity(5,0x40),0x9f20,0x41),
   ],{inGroup:true}).op1, alphaOp(5,0x40));
 const specialListEntry = {
-  op1:[0x01,0x5d,0x40,0,0,0,0,0,0],pointer:0x9f10,page:0,
+  identity:[0x01,0x5d,0x40,0,0,0,0,0,0],
+  continuationByte:0,pointer:0x9f10,page:0,
 };
 expectEqual('07:521B rejects the special list name by default',
   rom.editorFindAlphaVat(
-    'up',[0x01,0x5c,0,0,0,0,0,0,0],[specialListEntry]).carry, true);
+    'up',[0x01,0x5c,0,0,0,0,0,0,0,0,0],[specialListEntry]).carry, true);
 expectEqual('07:5227 accepts the special list name when IY+0 bit 0 is set',
   rom.editorFindAlphaVat(
-    'up',[0x01,0x5c,0,0,0,0,0,0,0],[specialListEntry],
-    {iy0Bit0:true}).op1, specialListEntry.op1);
+    'up',[0x01,0x5c,0,0,0,0,0,0,0,0,0],[specialListEntry],
+    {iy0Bit0:true}).op1, [...specialListEntry.identity,0,0]);
 expectThrows('07:50B5 rejects a VAT entry without a pointer', RangeError,
   () => rom.editorFindAlphaVat('up',alphaOp(5,0),[
-    {op1:alphaOp(5,1)},
+    {identity:alphaIdentity(5,1),continuationByte:0},
+  ]));
+expectThrows('07:50B5 rejects a nine-byte live OP scratch value', RangeError,
+  () => rom.editorFindAlphaVat('up',alphaIdentity(5,0),[]));
+expectThrows('07:50B5 requires the VAT continuation byte', RangeError,
+  () => rom.editorFindAlphaVat('up',alphaOp(5,0),[
+    {identity:alphaIdentity(5,1),pointer:0x9f00,page:0},
   ]));
 
 const exhaustiveAlphaVat = Array.from({length:0x100}, (_, nameByte) => ({
-  op1:alphaOp(nameByte & 1 ? 0x06 : 0x05,nameByte),
+  identity:alphaIdentity(nameByte & 1 ? 0x06 : 0x05,nameByte),
+  continuationByte:0,
   pointer:0x9000 + (0xff - nameByte),
   page:0,
 })).reverse();
@@ -1371,7 +1398,7 @@ for (let nameByte = 0; nameByte <= 0xff; nameByte++) {
 }
 
 const savedOperandBuffers = {
-  op1:[0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09],
+  op1:[0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0xaa,0xbb],
   savedE7:[0x05,0x42,0x13,0x14,0x15,0x16,0x17,0x18,0x19],
   savedF2:[0x05,0x52,0x23,0x24,0x25,0x26,0x27,0x28,0x29],
 };
@@ -1383,7 +1410,8 @@ const savedOperandState = (buffers, source, direction, carry,
   return {
     editorClass:0x04,editorSubClass:0,incomingCarry,
     vatSnapshot:carry ? [] : [
-      {op1:candidate,pointer:source === 'saved-E7' ? 0x9fe7 : 0x9ff2,page:0},
+      alphaVatEntry(
+        candidate,source === 'saved-E7' ? 0x9fe7 : 0x9ff2,0,0xa5),
     ],
   };
 };
@@ -1394,7 +1422,7 @@ const savedOperandWalkerState = (direction, buffers = savedOperandBuffers,
     const input = source === 'saved-E7' ? buffers.savedE7 : buffers.savedF2;
     const candidate = input.slice();
     candidate[1] += direction === 'up' ? 1 : -1;
-    return {op1:candidate,pointer:0x9f00 - index * 0x10,page:0};
+    return alphaVatEntry(candidate,0x9f00 - index * 0x10,0,0xa5);
   }),
 });
 expectEqual('39:5B10 preserves buffers and carry when bit 5 is clear', (() => {
@@ -1417,12 +1445,12 @@ expectEqual('39:5B10 restores E7 and saves a carry-clear alpha result', (() => {
     carry:result.carry, copies:result.copies, buffers:result.buffers,
   };
 })(), {
-  branch:'save-result',searchInput:savedOperandBuffers.savedE7,
+  branch:'save-result',searchInput:[...savedOperandBuffers.savedE7,0xaa,0xbb],
   carry:false,copies:[
     {from:0x85e7,to:0x8478,bytes:9,routine:'39:5AE1 → 00:1A92'},
     {from:0x8478,to:0x85e7,bytes:9,routine:'39:5AD2 → 00:1A92'},
   ],buffers:{
-    op1:[0x05,0x43,0x13,0x14,0x15,0x16,0x17,0x18,0x19],
+    op1:[0x05,0x43,0x13,0x14,0x15,0x16,0x17,0x18,0x19,0xa5,0],
     savedE7:[0x05,0x43,0x13,0x14,0x15,0x16,0x17,0x18,0x19],
     savedF2:savedOperandBuffers.savedF2,
   },
@@ -1436,11 +1464,11 @@ expectEqual('39:5B38 carry exit leaves E7 unchanged after restoring F2', (() => 
     carry:result.carry, copies:result.copies, buffers:result.buffers,
   };
 })(), {
-  branch:'search-carry',searchInput:savedOperandBuffers.savedF2,
+  branch:'search-carry',searchInput:[...savedOperandBuffers.savedF2,0xaa,0xbb],
   carry:true,copies:[
     {from:0x85f2,to:0x8478,bytes:9,routine:'39:5B00 → 00:1A92'},
   ],buffers:{
-    op1:savedOperandBuffers.savedF2,
+    op1:[...savedOperandBuffers.savedF2,0xaa,0xbb],
     savedE7:savedOperandBuffers.savedE7,
     savedF2:savedOperandBuffers.savedF2,
   },
@@ -1456,16 +1484,19 @@ expectEqual('39:5B10 applies the class-2 OP1 seed before E7 writeback', (() => {
   };
 })(), {
   branch:'save-result',carry:false,
-  op1:[0x14,0x42,0x13,0x14,0x15,0x16,0x17,0x18,0x19],
+  op1:[0x14,0x42,0x13,0x14,0x15,0x16,0x17,0x18,0x19,0xaa,0xbb],
   savedE7:[0x14,0x42,0x13,0x14,0x15,0x16,0x17,0x18,0x19],
 });
 expectThrows('39:5B10 rejects an enabled search without its editor class',
   TypeError, () => rom.editorSavedOperandWrapper(
     'saved-E7','up',0x20,savedOperandBuffers,{vatSnapshot:[]}));
-expectThrows('39:5B10 rejects an eleven-byte OP scratch value',
+expectThrows('39:5B10 rejects an eleven-byte saved operand value',
   RangeError, () => rom.editorSavedOperandWrapper(
     'saved-E7','up',0x20,{...savedOperandBuffers,savedE7:new Array(11).fill(0)},
     {editorClass:4,vatSnapshot:[]}));
+expectThrows('39:5B10 rejects a nine-byte live OP scratch value',
+  RangeError, () => rom.editorSavedOperandWrapper(
+    'saved-E7','up',0,{...savedOperandBuffers,op1:new Array(9).fill(0)},{}));
 
 const savedOperandProjection = result => ({
   branch:result.branch,
@@ -1496,18 +1527,39 @@ for (const source of ['saved-E7','saved-F2']) {
     }
   }
 }
+
+// _Mov9B leaves both live extension bytes untouched when it restores E7/F2.
+for (const source of ['saved-E7','saved-F2']) {
+  for (const position of [9,10]) {
+    for (let value = 0; value <= 0xff; value++) {
+      const op1 = [...new Array(9).fill(0x55),0,0];
+      op1[position] = value;
+      const buffers = {...savedOperandBuffers,op1};
+      const translated = rom.editorSavedOperandWrapper(
+        source,'up',0x20,buffers,{editorClass:4,vatSnapshot:[]});
+      const expectedOp1 = [
+        ...(source === 'saved-E7' ? buffers.savedE7 : buffers.savedF2),
+        op1[9],op1[10],
+      ];
+      expectEqual('39:5AE1/5B00 exhaustive live-extension preservation',
+        savedOperandProjection(translated),
+        runRawSavedOperandWrapper(source,'up',0x20,buffers,
+          {carry:true,op1:expectedOp1}));
+    }
+  }
+}
 expectEqual('39:5B10–5B44 exhaustive wrapper state count',
   savedOperandWrapperStates, 0x1000);
 
 // Exercise every value in every restored byte. An empty VAT makes the search
-// carry, so OP1 retains the exact nine-byte source image.
+// carry, so OP1 retains the nine-byte source image and the live extensions.
 for (const source of ['saved-E7','saved-F2']) {
   for (let position = 0; position < 9; position++) {
     for (let value = 0; value <= 0xff; value++) {
       const sourceValue = new Array(9).fill(0);
       sourceValue[position] = value;
       const buffers = {
-        op1:new Array(9).fill(0x55),
+        op1:[...new Array(9).fill(0x55),0xaa,0xbb],
         savedE7:source === 'saved-E7'
           ? sourceValue : new Array(9).fill(0x11),
         savedF2:source === 'saved-F2'
@@ -1518,7 +1570,7 @@ for (const source of ['saved-E7','saved-F2']) {
       expectEqual('39:5AE1/5B00 exhaustive restore basis',
         savedOperandProjection(translated),
         runRawSavedOperandWrapper(source,'up',0x20,buffers,
-          {carry:true,op1:sourceValue}));
+          {carry:true,op1:[...sourceValue,0xaa,0xbb]}));
     }
   }
 }
@@ -1527,23 +1579,23 @@ for (const source of ['saved-E7','saved-F2']) {
 for (const source of ['saved-E7','saved-F2']) {
   for (let position = 2; position < 9; position++) {
     for (let value = 0; value <= 0xff; value++) {
-      const sourceValue = alphaOp(5,0x42);
-      const resultValue = alphaOp(5,0x43);
+      const sourceValue = alphaIdentity(5,0x42);
+      const resultValue = alphaIdentity(5,0x43);
       resultValue[position] = value;
       const buffers = {
-        op1:new Array(9).fill(0x55),
-        savedE7:source === 'saved-E7' ? sourceValue : alphaOp(5,0x62),
-        savedF2:source === 'saved-F2' ? sourceValue : alphaOp(5,0x62),
+        op1:[...new Array(9).fill(0x55),0xaa,0xbb],
+        savedE7:source === 'saved-E7' ? sourceValue : alphaIdentity(5,0x62),
+        savedF2:source === 'saved-F2' ? sourceValue : alphaIdentity(5,0x62),
       };
       const searchState = {editorClass:4,vatSnapshot:[
-        {op1:resultValue,pointer:0x9f00,page:0},
+        alphaVatEntry(resultValue,0x9f00,0,0xa5),
       ]};
       const translated = rom.editorSavedOperandWrapper(
         source,'up',0x20,buffers,searchState);
       expectEqual('39:5AD2/5B08 exhaustive payload writeback basis',
         savedOperandProjection(translated),
         runRawSavedOperandWrapper(source,'up',0x20,buffers,
-          {carry:false,op1:resultValue}));
+          {carry:false,op1:[...resultValue,0xa5,0]}));
     }
   }
 }
@@ -1565,23 +1617,23 @@ const alphaSearchCases = [
   ['ascending VAT-search carry', 'up', 0x04, 0x00,
    {searchResults:[{carry:true}]},
    {op1:alphaOp(5,0x42),vatSnapshot:[
-     {op1:alphaOp(5,0x41),pointer:0x9f00,page:0},
+     alphaVatEntry(alphaIdentity(5,0x41),0x9f00),
    ]}],
   ['ascending VAT-search clear', 'up', 0x04, 0x00,
    {searchResults:[{carry:false}]},
    {op1:alphaOp(5,0x41),vatSnapshot:[
-     {op1:alphaOp(5,0x42),pointer:0x9f00,page:0},
+     alphaVatEntry(alphaIdentity(5,0x42),0x9f00),
    ]}],
   ['ascending search repeat then clear', 'up', 0x03, 0x01,
    {searchResults:[{carry:false,postCode:0x06},{carry:false,postCode:0x05}]},
    {op1:alphaOp(5,0x41),vatSnapshot:[
-     {op1:alphaOp(6,0x42),pointer:0x9f00,page:0},
-     {op1:alphaOp(5,0x43),pointer:0x9ef0,page:0},
+     alphaVatEntry(alphaIdentity(6,0x42),0x9f00),
+     alphaVatEntry(alphaIdentity(5,0x43),0x9ef0),
    ]}],
   ['descending VAT-search post-search exit', 'down', 0x03, 0x01,
    {searchResults:[{carry:false,postCode:0x05}]},
    {op1:alphaOp(5,0x43),vatSnapshot:[
-     {op1:alphaOp(5,0x42),pointer:0x9f00,page:0},
+     alphaVatEntry(alphaIdentity(5,0x42),0x9f00),
    ]}],
 ];
 for (const [label, direction, editorClass, editorSubClass,
@@ -1602,7 +1654,7 @@ expectEqual('39:59E0 derives alphabetic search from a raw VAT snapshot', (() => 
   };
 })(), {
   branch:'search-complete',carry:false,
-  op1:[0x05,0x43,0x41,0x54,0,0,0,0,0],vatPointer:0x9000,
+  op1:[0x05,0x43,0x41,0x54,0,0,0,0,0,0,0],vatPointer:0x9000,
 });
 expectThrows('39:59E0 rejects an omitted VAT snapshot', TypeError,
   () => rom.editorAlphaSearch('up',0x04,0,{op1:alphaOp(5,0x41)}));
@@ -1641,7 +1693,7 @@ for (const direction of ['up','down']) {
         const translatedOptions = {
           op1:alphaOp(5,sourceName),
           vatSnapshot:carry ? [] : [
-            {op1:alphaOp(5,candidateName),pointer:0x9f00,page:0},
+            alphaVatEntry(alphaIdentity(5,candidateName),0x9f00),
           ],
         };
         const raw = runRawAlphaSearch(
@@ -1895,9 +1947,9 @@ expectEqual('39:5167 composes F2 and E7 ascending-search state', (() => {
   };
 })(), {
   branch:'styled-overflow',carry:false,
-  f2Input:savedOperandBuffers.savedF2,
+  f2Input:[...savedOperandBuffers.savedF2,0xaa,0xbb],
   f2Saved:[0x05,0x53,0x23,0x24,0x25,0x26,0x27,0x28,0x29],
-  e7Input:savedOperandBuffers.savedE7,
+  e7Input:[...savedOperandBuffers.savedE7,0xa5,0],
   e7Saved:[0x05,0x43,0x13,0x14,0x15,0x16,0x17,0x18,0x19],
   e7SeesF2:[0x05,0x53,0x23,0x24,0x25,0x26,0x27,0x28,0x29],
 });
@@ -1944,7 +1996,7 @@ expectEqual('39:523B executes the E7 descending-search transition', (() => {
     result:effect.transition.buffers.savedE7,
   };
 })(), {
-  branch:'in-row',direction:'down',input:savedOperandBuffers.savedE7,
+  branch:'in-row',direction:'down',input:[...savedOperandBuffers.savedE7,0xaa,0xbb],
   result:[0x05,0x41,0x13,0x14,0x15,0x16,0x17,0x18,0x19],
 });
 expectEqual('39:523B retreats a class-06 low argument by two rows',
