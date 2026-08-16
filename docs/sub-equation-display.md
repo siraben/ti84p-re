@@ -524,10 +524,10 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, large-glyph output, and alphabetic VAT selection. It
 recursively follows direct ROM edges from named entries, seeds decoded table
-destinations, overlays exact next-PC outcomes from 227 reset-origin traces, and
+destinations, overlays exact next-PC outcomes from 231 reset-origin traces, and
 lists direct external targets. Computed dispatch destinations are manually
 seeded; bcall and RAM bjump bodies remain outside the direct-edge walk. Of those
-traces, 226 reach their state through calculator input. One explicitly
+traces, 230 reach their state through calculator input. One explicitly
 classified synthetic trace inserts an `EF36h` editor buffer through direct RAM
 writes. The report keeps the two provenance classes separate.
 `tools/mathprint-saturation.json` records the resulting branches and trace
@@ -537,9 +537,9 @@ The analyzer can restore trace identities, provenance, and per-trace summaries
 from a prior report and the digest-keyed cache. Regeneration therefore scans a
 new trace once without reopening the other retained TLMT files. [confirmed]
 
-None of the 227 report traces executes `39:5167`, `39:523B`, the saved-operand
+None of the 231 report traces executes `39:5167`, `39:523B`, the saved-operand
 wrappers at `39:5B10`–`39:5B38`, or the dispatchers at `39:59E0`/`39:59F9`.
-The 227-digest trace cache also has no hit at those entries. [confirmed]
+The 231-digest trace cache also has no hit at those entries. [confirmed]
 `_FindAlphaUp` at `07:50B5` executes once in 112 report traces, but every call
 comes from the type-`16h` cleanup loop at `07:5544`. Each observed call returns
 carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
@@ -666,10 +666,10 @@ the allocator's four branches and 35 of the 40 metric branches have both
 outcomes. [confirmed]
 
 The report classifies all 2,276 enumerated outcomes. Natural calculator input
-exercises 1,003. The synthetic `EF36h` state adds three outcomes, for 1,006 across
+exercises 1,005. The synthetic `EF36h` state adds three outcomes, for 1,008 across
 all evidence. One allocator outcome is infeasible under its data invariant.
 Two metric outcomes are infeasible under the calculator call ABI. The full
-evidence set leaves 1,267 unresolved; the natural-only set leaves 1,270.
+evidence set leaves 1,265 unresolved; the natural-only set leaves 1,268.
 An unobserved outcome never becomes infeasible from absence alone. [confirmed]
 
 The infeasible allocator outcome is the fallthrough at `33:4F4E`. The type
@@ -691,13 +691,13 @@ The report computes two exact Z3 covers. The first preserves every individual
 branch outcome observed in the supplied traces. It does not preserve complete
 invocation paths, register or RAM states, dispatch indices, record cases, or LCD
 write cases. The all-evidence and natural-only branch covers each select 22
-traces. They preserve 1,006 and 1,003 outcomes in 3,984,970,842 and 4,079,655,462
+traces. They preserve 1,008 and 1,005 outcomes in 3,987,022,530 and 4,081,707,150
 bytes, respectively.
 
 The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,307 tags and needs 165
-traces. The natural-only universe has 1,304 tags and needs 164 traces. Every
+independent oracle case. Its all-evidence universe has 1,313 tags and needs 169
+traces. The natural-only universe has 1,310 tags and needs 168 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The broad set remains the RE and
@@ -744,7 +744,7 @@ and `A` at each discriminator were checked before admission. [confirmed]
 The synthetic `EF36h` trace uses
 `tools/macros/mathprint-ef36-injected-buffer.macro`. Its two `memwrite`
 commands place `EF 36 31 11` at the editor cursor. It is the sole synthetic
-source in the 227-trace report. It supplies the only evidence for
+source in the 231-trace report. It supplies the only evidence for
 `34:5A23` fallthrough, `34:6992` taken, and `34:6B94` taken. The full minimum
 retains it; the natural minimum excludes it by construction. [confirmed]
 
@@ -942,6 +942,20 @@ insertion replace the packed token immediately to the cursor's right. Blank
 absolute-value and $10^x$ captures exercise the other translated one-child
 kinds. `editorInsertStructuralTemplate()` produces the decoded cursor AST,
 every record field, and all 768 LCD bytes for all six transitions. [confirmed]
+
+Source token `F1h` maps to nth-root type `0x24` at `34:594D`. The insertion
+dispatcher takes `34:504F` into `34:51C0–51D9`. All four root cursor classes
+continue through `34:51D6`, `34:5473`, the marker writer at `34:58A0`, and the
+three-record allocator at `34:4862`. [confirmed]
+
+Blank-root insertion places `Ans` (`72h`) in the index child and `EF 1E` in the
+radicand child. The cursor enters the radicand. Leaf-end and mid-leaf insertion
+move the payload left of the cursor into the index. Leading insertion creates
+blank index and radicand children and enters the index. Leading and mid-leaf
+insertion replace the packed token immediately to the cursor's right.
+`tools/mathprint-editor-structural-mutation-oracles.json` captures the four
+states. The translated AST, every record field, and all 768 LCD bytes match
+their calculator states. [confirmed]
 
 The radical template supplies source token `00BCh`; `34:5935` maps it to type
 `0x27`. Insertion follows `34:473A`, the depth gate at `35:7B37`, and
