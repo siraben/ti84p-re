@@ -1,0 +1,17 @@
+# Capture radical-template insertion into a blank root leaf.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+wait 0.6s
+memdump /tmp/mathprint-editor-radical-blank-pre.ram ram-logical
+screenshot /tmp/mathprint-editor-radical-blank-pre.png
+key 2ND
+key SQUARE
+wait 0.8s
+memdump /tmp/mathprint-editor-radical-blank-post.ram ram-logical
+screenshot /tmp/mathprint-editor-radical-blank-post.png
