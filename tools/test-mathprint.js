@@ -34,6 +34,8 @@ const nestedBaselineOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-nested-baseline-oracles.json')));
 const matrixOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-matrix-oracles.json')));
+const liveEditorOracles = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools', 'mathprint-live-editor-oracles.json')));
 const groupingOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-grouping-oracles.json')));
 const structuralBaseOracles = JSON.parse(fs.readFileSync(
@@ -2663,6 +2665,39 @@ expectEqual('browser decodes a transparent transient root',
     {id:1,type:0x1f,childIds:[2]},
     {id:2,type:0,payload:[0x58]},
   ], 1), [0x58]);
+expectEqual('browser decodes a live matrix container through a transient root',
+  rom.decodeSettledExpressionGraph([
+    {id:6,type:0x1f,childIds:[7]},
+    {id:7,type:0,payload:[
+      0x06,0x06,
+      0xef,0x27,8,0,0xef,0x2d,0x2b,
+      0x58,0xef,0x2a,10,0,0xef,0x2d,
+      0x07,0x06,0x33,0x2b,0x34,0x07,0x07,
+    ]},
+    {id:8,type:0x27,childIds:[9]},
+    {id:9,type:0,payload:[0x32]},
+    {id:10,type:0x2a,childIds:[11]},
+    {id:11,type:0,payload:[0x32]},
+  ], 6), {
+    kind:'matrix',rows:2,columns:2,elements:[
+      {kind:'radical',radicand:[0x32]},
+      {kind:'power',base:[0x58],exponent:[0x32]},
+      [0x33],[0x34],
+    ],
+  });
+expectThrows('live matrix decoder rejects unequal row widths', RangeError,
+  () => rom.decodeSettledExpressionGraph([
+    {id:1,type:0,payload:[
+      0x06,0x06,0x31,0x2b,0x32,0x07,0x06,0x33,0x07,0x07,
+    ]},
+  ], 1));
+expectThrows('live matrix decoder rejects a cycle through an element', RangeError,
+  () => rom.decodeSettledExpressionGraph([
+    {id:1,type:0,payload:[
+      0x06,0x06,0xef,0x27,2,0,0xef,0x2d,0x07,0x07,
+    ]},
+    {id:2,type:0x27,childIds:[1]},
+  ], 1));
 expectEqual('browser preserves extended tokens in a settled leaf',
   rom.decodeSettledExpressionGraph([
     {id:1,type:0,payload:[0x58,0xef,0x2a,2,0,0xef,0x2d,0xef,0x1e]},
@@ -4522,6 +4557,40 @@ for (const oracle of nestedBaselineOracles.nested_layout_cases) {
     crypto.createHash('sha256').update(
       packedLcdBytes(finalBitmap))
       .digest('hex'), oracle.final_bitmap.sha256);
+}
+for (const oracle of liveEditorOracles.cases) {
+  expectEqual(`${oracle.expression} decodes the live transient-root graph`,
+    rom.decodeSettledExpressionGraph(oracle.nodes, oracle.wrapper_id),
+    oracle.spec);
+  const operations = rom.executeSettledRecordProgram(
+    oracle.nodes, oracle.wrapper_id, {
+      origin:oracle.origin,
+      glyphAdvance:settledGlyphAdvance,
+    });
+  const rendered = rom.rasterizeSettledOperations(operations, font);
+  const writeBytes = Buffer.from(rendered.writes.flatMap(write =>
+    [...write.pointer,write.value]));
+  expectEqual(`${oracle.expression} reproduces the live translated write stream`,
+    {
+      count:rendered.writes.length,
+      sha256:crypto.createHash('sha256').update(writeBytes).digest('hex'),
+    }, {
+      count:oracle.translated_write_count,
+      sha256:oracle.translated_write_sha256,
+    });
+  expectEqual(`${oracle.expression} reproduces the live entry-line pixels`,
+    {
+      dimensions:[cropInk(rendered.grid)[0].length,cropInk(rendered.grid).length],
+      sha256:crypto.createHash('sha256').update(
+        Buffer.from(cropInk(rendered.grid).flat())).digest('hex'),
+    }, {
+      dimensions:oracle.entry_crop,
+      sha256:oracle.entry_crop_sha256,
+    });
+  expectEqual(`${oracle.expression} retains the full translated framebuffer`,
+    crypto.createHash('sha256').update(
+      packedLcdBytes(rendered.grid)).digest('hex'),
+    oracle.final_lcd_sha256);
 }
 for (const oracle of matrixOracles.cases) {
   const program = rom.constructSettledExpressionProgram(

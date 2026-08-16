@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for live MathPrint render-record decoding."""
 
+import json
 from pathlib import Path
 import sys
 import unittest
@@ -399,6 +400,74 @@ class MathPrintRecordTests(unittest.TestCase):
                 ],
             },
             decode_settled_expression(nodes, 1),
+        )
+
+    def test_decodes_live_matrix_container_through_transient_root(self):
+        nodes = [
+            {"record_id": 6, "render_type": 0x1F, "child_ids": [7],
+             "payload": []},
+            {"record_id": 7, "render_type": 0, "child_ids": [],
+             "payload": [
+                 0x06, 0x06,
+                 0xEF, 0x27, 8, 0, 0xEF, 0x2D, 0x2B,
+                 0x58, 0xEF, 0x2A, 10, 0, 0xEF, 0x2D,
+                 0x07, 0x06, 0x33, 0x2B, 0x34, 0x07, 0x07,
+             ]},
+            {"record_id": 8, "render_type": 0x27, "child_ids": [9],
+             "payload": []},
+            {"record_id": 9, "render_type": 0, "child_ids": [],
+             "payload": [0x32]},
+            {"record_id": 10, "render_type": 0x2A, "child_ids": [11],
+             "payload": []},
+            {"record_id": 11, "render_type": 0, "child_ids": [],
+             "payload": [0x32]},
+        ]
+        self.assertEqual(
+            {
+                "kind": "matrix", "rows": 2, "columns": 2,
+                "elements": [
+                    {"kind": "radical", "radicand": [0x32]},
+                    {"kind": "power", "base": [0x58],
+                     "exponent": [0x32]},
+                    [0x33], [0x34],
+                ],
+            },
+            decode_settled_expression(nodes, 6),
+        )
+
+    def test_rejects_unequal_live_matrix_rows(self):
+        with self.assertRaisesRegex(ValueError, "equal width"):
+            decode_settled_expression([
+                {"record_id": 1, "render_type": 0, "child_ids": [],
+                 "payload": [
+                     0x06, 0x06, 0x31, 0x2B, 0x32, 0x07,
+                     0x06, 0x33, 0x07, 0x07,
+                 ]},
+            ], 1)
+
+    def test_rejects_a_cycle_through_a_live_matrix_element(self):
+        with self.assertRaisesRegex(ValueError, "cycle"):
+            decode_settled_expression([
+                {"record_id": 1, "render_type": 0, "child_ids": [],
+                 "payload": [
+                     0x06, 0x06,
+                     0xEF, 0x27, 2, 0, 0xEF, 0x2D,
+                     0x07, 0x07,
+                 ]},
+                {"record_id": 2, "render_type": 0x27,
+                 "child_ids": [1], "payload": []},
+            ], 1)
+
+    def test_decodes_the_captured_live_matrix_oracle(self):
+        document = json.loads(
+            Path(__file__).with_name(
+                "mathprint-live-editor-oracles.json"
+            ).read_text()
+        )
+        case = document["cases"][0]
+        self.assertEqual(
+            case["spec"],
+            decode_settled_expression(case["nodes"], case["wrapper_id"]),
         )
 
     def test_captures_leaf_payload_from_offset_13(self):
