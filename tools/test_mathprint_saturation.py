@@ -1281,20 +1281,20 @@ class CheckedReportTests(unittest.TestCase):
         )
 
         self.assertEqual(2, report["schema"])
-        self.assertEqual(274, len(report["traces"]))
+        self.assertEqual(275, len(report["traces"]))
         self.assertEqual(
-            273,
+            274,
             sum(
                 row["provenance"] == TRACE_PROVENANCE_NATURAL
                 for row in report["traces"]
             ),
         )
-        self.assertEqual(1011, report["summary"]["branch_outcomes_observed"])
+        self.assertEqual(1012, report["summary"]["branch_outcomes_observed"])
         self.assertEqual(
-            1009, report["summary"]["natural_branch_outcomes_observed"]
+            1010, report["summary"]["natural_branch_outcomes_observed"]
         )
         self.assertEqual(
-            1264,
+            1263,
             report["summary"]["natural_branch_outcome_statuses"][
                 "unresolved_state_or_abi"
             ],
@@ -1314,6 +1314,41 @@ class CheckedReportTests(unittest.TestCase):
         self.assertEqual(
             TRACE_PROVENANCE_NATURAL,
             matrix_taken["witness"]["provenance"],
+        )
+        nonspecial_marker_branch = next(
+            row
+            for row in report["components"]["settled_metrics_geometry"][
+                "branches"
+            ]
+            if row["location"] == "34:75B0"
+        )
+        nonspecial_fallthrough = next(
+            row for row in nonspecial_marker_branch["outcomes"]
+            if row["outcome"] == "fallthrough"
+        )
+        self.assertEqual(
+            (
+                "mathprint_editor_radical_fraction_navigation",
+                TRACE_PROVENANCE_NATURAL,
+            ),
+            (
+                nonspecial_fallthrough["witness"]["trace"],
+                nonspecial_fallthrough["witness"]["provenance"],
+            ),
+        )
+        self.assertEqual(
+            (470, 100.0, 77),
+            (
+                report["components"]["settled_metrics_geometry"]["dynamic"][
+                    "instructions_observed"
+                ],
+                report["components"]["settled_metrics_geometry"]["dynamic"][
+                    "instruction_coverage_percent"
+                ],
+                report["components"]["settled_metrics_geometry"]["dynamic"][
+                    "branch_outcomes_observed"
+                ],
+            ),
         )
         matrix_entry = next(
             row for row in report["traces"]
@@ -1489,6 +1524,7 @@ class CheckedReportTests(unittest.TestCase):
             row["label"]: row["sha256"]
             for row in report["traces"]
             if row["label"].startswith("mathprint_editor_radical_")
+            and not row["label"].endswith("_navigation")
         }
         self.assertEqual(
             {
@@ -1729,6 +1765,8 @@ class CheckedReportTests(unittest.TestCase):
                 "78639019ccf6b1d01a62b2f88dc5ff619382c08fe81396886aa0c49bcfe962d4",
             "mathprint_editor_nested_fraction_left_navigation":
                 "6cd38899f36e5a6398a0d1959557f8cb45172b4046db1f39cdfa298250066e6a",
+            "mathprint_editor_radical_fraction_navigation":
+                "99d813bdbb7102c9bd5ae608c0cc9eb64cd84c0410a06e4f2243e1768d86c574",
         }, structural_navigation)
         summation_fill = {
             row["label"]: row["sha256"]
@@ -1751,7 +1789,7 @@ class CheckedReportTests(unittest.TestCase):
             114, report["record_oracles"]["cases"]
         )
         self.assertEqual(
-            (19, 1011, 4_197_991_998),
+            (20, 1012, 4_424_233_548),
             (
                 report["minimized_trace_corpus"]["selected_trace_count"],
                 report["minimized_trace_corpus"]["covered_outcomes"],
@@ -1759,7 +1797,7 @@ class CheckedReportTests(unittest.TestCase):
             ),
         )
         self.assertEqual(
-            (20, 1009, 4_354_026_408),
+            (21, 1010, 4_580_267_958),
             (
                 report["minimized_natural_trace_corpus"][
                     "selected_trace_count"
@@ -1777,26 +1815,30 @@ class CheckedReportTests(unittest.TestCase):
             "mathprint_editor_nested_fraction_left_navigation",
             selected_branch_labels,
         )
+        self.assertIn(
+            "mathprint_editor_radical_fraction_navigation",
+            selected_branch_labels,
+        )
         self.assertNotIn(
             "mathprint_editor_nested_fraction_right_navigation",
             selected_branch_labels,
         )
         self.assertEqual(
-            1583,
+            1605,
             report["minimized_dynamic_feature_corpus"]["covered_features"],
         )
         self.assertEqual(
-            207,
+            208,
             report["minimized_dynamic_feature_corpus"]["selected_trace_count"],
         )
         self.assertEqual(
-            1581,
+            1603,
             report["minimized_natural_dynamic_feature_corpus"][
                 "covered_features"
             ],
         )
         self.assertEqual(
-            206,
+            207,
             report["minimized_natural_dynamic_feature_corpus"][
                 "selected_trace_count"
             ],
