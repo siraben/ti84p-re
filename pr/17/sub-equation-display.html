@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-221037b4.js";
+            window.path_to_searchindex_js = "searchindex-95d2bfcb.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -1704,6 +1704,19 @@ line and point routines and page <code>01:6297</code> small-font output. [confir
 and <code>34:5DEF</code>. Its closed tail at <code>34:5E98</code>–<code>34:5EA6</code> passes <code>B=x</code>,
 <code>C=63-y</code>, and <code>D=1</code> to <code>_PointOn</code> at <code>04:4155</code>. Dynamic samples include
 <code>(x,y)=(3,0)</code> → <code>BC=033Fh</code> and <code>(32,20)</code> → <code>BC=202Bh</code>. [confirmed]</p>
+<p><code>04:42B5</code>–<code>04:42E3</code> converts the graph coordinate into the point mask, LCD
+commands, and plot-buffer offset. It selects <code>80h &gt;&gt; (x &amp; 7)</code>, uses <code>x &gt;&gt; 3</code>
+as the byte column, and computes <code>3 * ((4 * display_row) &amp; FFh) + byte_column</code>.
+The row multiplication keeps its intermediate in one byte. Rows <code>40h</code>–<code>7Fh</code>
+therefore alias rows <code>00h</code>–<code>3Fh</code> before the column is added. <code>_PointOn</code> fixes
+<code>D=1</code>, so <code>04:424D</code>–<code>04:4254</code> ORs that mask into the current byte. MathPrint’s
+wrapper clips to the 96×64 display before this entry. [confirmed]</p>
+<p>The JavaScript translation matches a raw interpreter of the pinned helper
+bytes for all 65,536 input-coordinate pairs. A second exhaustive comparison
+covers every previous byte for each visible coordinate: 1,572,864 point-on
+transitions. The wider diagnostic canvas used for overflow inspection can have
+coordinates above <code>FFh</code>; those pixels cannot enter the page-4 byte ABI and are
+kept separate from the physical LCD claim. [confirmed]</p>
 <p>The line wrappers share the viewport state at <code>0x8DFA</code>–<code>0x8E04</code>. The byte at
 <code>ram:8DFA</code> is the physical screen $x$ origin, while the word at <code>ram:8DFE</code> is
 the logical record $x$ origin. <code>ram:8DFB</code> and <code>ram:8E00</code> are the corresponding
