@@ -68,6 +68,7 @@ def _load_parity():
 #   ('int', lo, hi, body, var) ('sum', var, lo, hi, body)
 #   ('nderiv', body, var, value)
 #   ('epow'|'tenpow', exponent) ('logbase', base, argument)
+#   ('sin'|'cos'|'tan'|'ln'|'log', argument)
 #   ('matrix1x1'|'matrix1x2'|'matrix2x2', element, ...)
 # ---------------------------------------------------------------------------
 
@@ -89,6 +90,10 @@ MATRIX_SHAPES = {
     "matrix1x2": (1, 2),
     "matrix2x2": (2, 2),
 }
+FUNCTION_KINDS = ("sin", "cos", "tan", "ln", "log")
+FUNCTION_TOKENS = {
+    "sin": 0xC2, "cos": 0xC4, "tan": 0xC6, "ln": 0xBE, "log": 0xC0,
+}
 
 
 # The variable and lower bound share the first summation field; RIGHT then
@@ -96,6 +101,8 @@ MATRIX_SHAPES = {
 INCLUDE_SUM = True
 INCLUDE_MATRIX = False
 MATRIX_ONLY = False
+INCLUDE_FUNCTION = False
+FUNCTION_ONLY = False
 
 
 def gen_frac_operand(rng, depth):
@@ -144,6 +151,8 @@ def gen_ast(rng, depth, *, in_small=False, avoid=()):
                    "epow", "tenpow", "logbase"]
         if INCLUDE_SUM:
             choices.append("sum")
+    if INCLUDE_FUNCTION:
+        choices.extend(FUNCTION_KINDS)
     choices = [c for c in choices if c not in avoid] or ["leaf"]
     k = rng.choice(choices)
     d = depth - 1
@@ -195,6 +204,8 @@ def gen_ast(rng, depth, *, in_small=False, avoid=()):
     if k == "logbase":
         return ("logbase", gen_ast(rng, d, in_small=True, avoid=avoid),
                 gen_ast(rng, d, avoid=avoid))
+    if k in FUNCTION_KINDS:
+        return (k, gen_ast(rng, d, in_small=in_small, avoid=avoid))
     if k in MATRIX_SHAPES:
         rows, columns = MATRIX_SHAPES[k]
         return (k, *(
@@ -229,7 +240,12 @@ def gen_comparable_asts(rng, depth, count, *, max_structural_depth=4):
     attempts = 0
     attempt_limit = max(1000, count * 1000)
     while len(accepted) < count and attempts < attempt_limit:
-        if MATRIX_ONLY or (INCLUDE_MATRIX and rng.random() < 0.25):
+        if FUNCTION_ONLY:
+            ast = (
+                rng.choice(FUNCTION_KINDS),
+                gen_ast(rng, max(0, depth - 1)),
+            )
+        elif MATRIX_ONLY or (INCLUDE_MATRIX and rng.random() < 0.25):
             kind = rng.choice(tuple(MATRIX_SHAPES))
             rows, columns = MATRIX_SHAPES[kind]
             ast = (kind, *(
@@ -361,6 +377,8 @@ def to_expr(ast):
         return f"tenpow({to_expr(ast[1])})"
     if k == "logbase":
         return f"logbase({to_expr(ast[1])},{to_expr(ast[2])})"
+    if k in FUNCTION_KINDS:
+        return f"{k}({to_expr(ast[1])})"
     if k in MATRIX_SHAPES:
         rows, columns = MATRIX_SHAPES[k]
         elements = ",".join(to_expr(element) for element in ast[1:])
@@ -435,6 +453,11 @@ def to_spec(ast):
         return {
             "kind": "logBase", "base": to_spec(ast[1]),
             "argument": to_spec(ast[2]),
+        }
+    if k in FUNCTION_KINDS:
+        return {
+            "kind": "sequence",
+            "parts": [[FUNCTION_TOKENS[k]], to_spec(ast[1]), [0x11]],
         }
     if k in MATRIX_SHAPES:
         rows, columns = MATRIX_SHAPES[k]
@@ -552,6 +575,8 @@ def emit(ast):
     if k == "logbase":
         return (["MATH", "ALPHA", "MATH", "WAIT"] + emit(ast[1]) +
                 ["RIGHT", "WAIT"] + emit(ast[2]) + ["RIGHT", "WAIT"])
+    if k in FUNCTION_KINDS:
+        return [k.upper()] + emit(ast[1]) + ["RPAREN"]
     if k in MATRIX_SHAPES:
         rows, columns = MATRIX_SHAPES[k]
         keys = ["2ND", "MUL", "2ND", "MUL"]
@@ -719,6 +744,10 @@ def main():
                     help="include evaluable matrix literals in random generation")
     ap.add_argument("--matrix-only", action="store_true",
                     help="generate only evaluable top-level matrix literals")
+    ap.add_argument("--function-only", action="store_true",
+                    help="generate only top-level generic function frames")
+    ap.add_argument("--with-function", action="store_true",
+                    help="include generic function frames in random generation")
     ap.add_argument("--trace-every-case", action="store_true",
                     help="capture a reset-origin instruction trace before comparing each case")
     ap.add_argument("--no-trace-on-mismatch", action="store_true",
@@ -729,9 +758,14 @@ def main():
     args = ap.parse_args()
 
     global INCLUDE_SUM, INCLUDE_MATRIX, MATRIX_ONLY
+    global INCLUDE_FUNCTION, FUNCTION_ONLY
     INCLUDE_SUM = not args.without_sum
     INCLUDE_MATRIX = args.with_matrix or args.matrix_only
     MATRIX_ONLY = args.matrix_only
+    INCLUDE_FUNCTION = args.with_function or args.function_only
+    FUNCTION_ONLY = args.function_only
+    if MATRIX_ONLY and FUNCTION_ONLY:
+        ap.error("--matrix-only and --function-only are mutually exclusive")
     parity = _load_parity()
     if not args.dry_run:
         parity.validate_inputs()

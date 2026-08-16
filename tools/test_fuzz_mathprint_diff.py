@@ -120,6 +120,33 @@ class InputEmitterTests(unittest.TestCase):
         self.assertEqual(
             FUZZ.emit(logbase)[:4], ["MATH", "ALPHA", "MATH", "WAIT"])
 
+    def test_generic_function_frame_maps_tokens_and_keys(self) -> None:
+        ast = ("sin", ("sqrt", ("var", "X")))
+        self.assertEqual(FUZZ.to_expr(ast), "sin(sqrt(X))")
+        self.assertEqual(FUZZ.to_spec(ast), {
+            "kind": "sequence",
+            "parts": [
+                [0xC2],
+                {"kind": "radical", "radicand": [0x58]},
+                [0x11],
+            ],
+        })
+        self.assertEqual(
+            FUZZ.emit(ast),
+            ["SIN", "2ND", "SQUARE", "GRAPHVAR", "RIGHT", "RPAREN"],
+        )
+        self.assertEqual(FUZZ.calculator_structural_depth(ast), 1)
+
+    def test_function_only_generator_keeps_function_at_root(self) -> None:
+        previous = FUZZ.FUNCTION_ONLY
+        FUZZ.FUNCTION_ONLY = True
+        try:
+            asts, _rejected = FUZZ.gen_comparable_asts(
+                random.Random(917), 4, 30)
+        finally:
+            FUZZ.FUNCTION_ONLY = previous
+        self.assertTrue(all(ast[0] in FUZZ.FUNCTION_KINDS for ast in asts))
+
     def test_matrix_literal_maps_ast_tokens_and_keys(self) -> None:
         ast = (
             "matrix2x2",
