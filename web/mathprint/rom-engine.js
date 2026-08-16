@@ -5460,6 +5460,7 @@
     let denominator;
     let recordByte13;
     let afterRecordId;
+    let trailingParts = [];
     if (root && root.kind === 'editorCursor') {
       originalCursor = root;
       numerator = {kind:'sequence',parts:[
@@ -5476,27 +5477,30 @@
                Array.isArray(root.parts)) {
       const cursorIndex = root.parts.findIndex(
         part => part && part.kind === 'editorCursor');
-      if (cursorIndex <= 0 || cursorIndex !== root.parts.length - 1)
+      if (cursorIndex <= 0)
         throw new RangeError(
-          'populated fraction insertion requires a leaf-end cursor');
+          'populated fraction insertion requires payload left of the cursor');
       originalCursor = root.parts[cursorIndex];
       const activeId = originalCursor.record_id;
       const active = input.nodes.find(node =>
         (node.record_id === undefined ? node.id : node.record_id) === activeId);
       if (!active || !Array.isArray(active.payload) || !active.payload.length ||
-          originalCursor.byte_offset !== active.payload.length)
+          !Number.isInteger(originalCursor.byte_offset) ||
+          originalCursor.byte_offset <= 0 ||
+          originalCursor.byte_offset > active.payload.length)
         throw new RangeError(
-          'populated fraction insertion requires the complete active payload');
+          'populated fraction insertion requires a valid active payload split');
       const left = root.parts.slice(0,cursorIndex).map(clone);
+      trailingParts = root.parts.slice(cursorIndex + 1).map(clone);
       const content = left.length === 1 ? left[0] : {kind:'sequence',parts:left};
       numerator = Array.isArray(content) ? {
         kind:'tokens',tokens:content,
         editor_leaf_word0F:0,
-        editor_leaf_word11:active.payload.length,
+        editor_leaf_word11:originalCursor.byte_offset,
       } : {
         ...content,
         editor_leaf_word0F:0,
-        editor_leaf_word11:active.payload.length,
+        editor_leaf_word11:originalCursor.byte_offset,
       };
       denominator = {kind:'sequence',parts:[
         {
@@ -5511,10 +5515,13 @@
       throw new RangeError(
         'fraction insertion outside the translated root-leaf cases is open');
     }
-    const expression = {
+    const insertedFraction = {
       kind:'fraction',numerator,denominator,
       editor_record_byte13:recordByte13,
     };
+    const expression = trailingParts.length ? {
+      kind:'sequence',parts:[insertedFraction,...trailingParts],
+    } : insertedFraction;
     const marker = [
       0xef,renderType,structuralId & 0xff,structuralId >> 8,0xef,0x2d,
     ];
