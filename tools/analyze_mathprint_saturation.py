@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter, defaultdict, deque
 from dataclasses import asdict, dataclass
+from functools import lru_cache
 import hashlib
 from itertools import combinations, product
 import json
@@ -2180,6 +2181,116 @@ def symbolic_glyph_viewport_paths() -> list[dict[str, object]]:
     if sum(counts.values()) != word_count**2 * len(advances):
         raise AssertionError("glyph-viewport partition does not cover its domain")
     return rows
+
+
+def counted_string_viewport_path(
+    logical_pen: int,
+    x_clip: int,
+    depth: int,
+    right_bound: int = 0x5F,
+) -> dict[str, object]:
+    """Translate the three-code 00C1h string loop at 34:6C26–6C31."""
+
+    logical_pen &= 0xFFFF
+    x_clip &= 0xFFFF
+    depth &= 0xFF
+    advances = (3, 4, 4) if depth else (6, 6, 6)
+    pens: list[int] = []
+    actions: list[str] = []
+    outcomes: list[str] = []
+    pen = logical_pen
+    for index, advance in enumerate(advances):
+        pens.append(pen)
+        unit = glyph_viewport_path(pen, advance, x_clip, right_bound)
+        actions.append(str(unit["terminal"]))
+        outcomes.extend(str(item) for item in unit["branch_outcomes"])
+        outcomes.append(
+            f"34:6C2F:{'taken' if index + 1 < len(advances) else 'fallthrough'}"
+        )
+        pen = (pen + advance) & 0xFFFF
+    return {
+        "terminal": "/".join(actions),
+        "actions": actions,
+        "logical_pens": pens,
+        "final_pen": pen,
+        "branch_outcomes": outcomes,
+    }
+
+
+@lru_cache(maxsize=1)
+def symbolic_counted_string_viewport_paths() -> list[dict[str, object]]:
+    """Partition every pen/clip word for root and raised 00C1h output."""
+
+    word_count = 0x10000
+    right_bound = 0x5F
+    classes: dict[
+        tuple[str, tuple[str, ...]], dict[str, object]
+    ] = {}
+    for depth, advances in ((0, (6, 6, 6)), (1, (3, 4, 4))):
+        offsets = (0, advances[0], advances[0] + advances[1])
+        for x_clip in range(word_count):
+            right_exclusive = (x_clip + right_bound + 1) & 0xFFFF
+            boundaries = {0, word_count}
+            for offset, advance in zip(offsets, advances):
+                # Each unit can change path when its wrapped pen reaches zero
+                # or xClip, or when its endpoint reaches zero or the first
+                # value beyond the wrapped one-past-right coordinate.
+                boundaries.update({
+                    (-offset) & 0xFFFF,
+                    (x_clip - offset) & 0xFFFF,
+                    (-offset - advance) & 0xFFFF,
+                    (right_exclusive + 1 - offset - advance) & 0xFFFF,
+                })
+            ordered = sorted(boundaries)
+            for start, end in zip(ordered, ordered[1:]):
+                if start == end:
+                    continue
+                result = counted_string_viewport_path(
+                    start, x_clip, depth, right_bound
+                )
+                if end - start > 1:
+                    tail = counted_string_viewport_path(
+                        end - 1, x_clip, depth, right_bound
+                    )
+                    if (
+                        tail["terminal"] != result["terminal"]
+                        or tail["branch_outcomes"] != result["branch_outcomes"]
+                    ):
+                        raise AssertionError(
+                            "counted-string viewport interval crosses a path boundary"
+                        )
+                key = (
+                    str(result["terminal"]),
+                    tuple(str(item) for item in result["branch_outcomes"]),
+                )
+                row = classes.setdefault(key, {
+                    "projected_input_count": 0,
+                    "representative_states": [],
+                })
+                row["projected_input_count"] = (
+                    int(row["projected_input_count"]) + end - start
+                )
+                if not row["representative_states"]:
+                    row["representative_states"].append({
+                        "logical_pen": start,
+                        "x_clip": x_clip,
+                        "depth": depth,
+                        "right_bound": right_bound,
+                    })
+    result = [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+    expected = 2 * word_count**2
+    if sum(row["projected_input_count"] for row in result) != expected:
+        raise AssertionError(
+            "counted-string viewport classes do not partition their domain"
+        )
+    return result
 
 
 def embedded_viewport_path(
@@ -4786,6 +4897,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             symbolic_glyph_viewport_paths(),
         ),
         (
+            "counted_string_viewport",
+            "34:6C26–6C31; 34:6C37–6C87",
+            2 * 0x10000**2,
+            symbolic_counted_string_viewport_paths(),
+        ),
+        (
             "embedded_viewport_gate",
             "34:6641–6659",
             0x10000 * 0x10000,
@@ -6342,6 +6459,21 @@ def build_report(
                 "scope": (
                     "complete top, clip, and depth-byte domain for the active "
                     "MathPrint window, including word wrap and dual-edge clipping"
+                ),
+            },
+            "counted_string_viewport": {
+                "routine": "34:6C26–6C31; 34:6C37–6C87",
+                "state": [
+                    "initial logical-pen word", "horizontal-clip word",
+                    "root or raised 00C1h display-code widths",
+                    "fixed MathPrint right bound 0x5F",
+                ],
+                "projected_input_domain": 2 * 0x10000**2,
+                "terminal_classes": symbolic_counted_string_viewport_paths(),
+                "scope": (
+                    "complete pen, clip, and depth-class domain for the three "
+                    "display codes returned by _KeyToString for 00C1h, including "
+                    "per-code pen wrap and whole-unit viewport outcomes"
                 ),
             },
             "metric_marker_tail_gate": {

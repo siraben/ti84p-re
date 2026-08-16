@@ -18,6 +18,7 @@ from analyze_mathprint_saturation import (
     branch_for,
     cached_report_traces,
     classify_outcome,
+    counted_string_viewport_path,
     deserialize_trace_summary,
     editor_action03_controller_path,
     editor_action04_controller_path,
@@ -71,6 +72,7 @@ from analyze_mathprint_saturation import (
     metric_marker_callers,
     metric_marker_path,
     minimize_trace_features,
+    symbolic_counted_string_viewport_paths,
     symbolic_metric_marker_paths,
     symbolic_editor_action03_paths,
     symbolic_editor_action04_paths,
@@ -337,13 +339,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(3316, report["path_equivalence_class_count"])
-        self.assertEqual(3316, report["representative_path_corpus_count"])
-        self.assertEqual(427, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(3336, report["path_equivalence_class_count"])
+        self.assertEqual(3336, report["representative_path_corpus_count"])
+        self.assertEqual(429, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            200, report["per_domain_minimum_branch_outcome_corpus_count"]
+            201, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(39, len(report["domains"]))
+        self.assertEqual(40, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -592,6 +594,24 @@ class SymbolicHandlerTests(unittest.TestCase):
         wrapped = glyph_viewport_path(0xFFFF, 1, 0)
         self.assertEqual(0, wrapped["endpoint"])
         self.assertEqual("draw", wrapped["terminal"])
+
+    def test_counted_string_viewport_partitions_each_display_code(self) -> None:
+        paths = symbolic_counted_string_viewport_paths()
+
+        self.assertEqual(2 * 0x10000**2, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(6, len({
+            outcome for row in paths for outcome in row["branch_outcomes"]
+        }))
+        left = counted_string_viewport_path(0, 2, 1)
+        self.assertEqual(["skip_left", "draw", "draw"], left["actions"])
+        self.assertEqual([0, 3, 7], left["logical_pens"])
+        right = counted_string_viewport_path(86, 0, 1)
+        self.assertEqual(["draw", "draw", "skip_right"], right["actions"])
+        wrapped = counted_string_viewport_path(0xFFFE, 0, 1)
+        self.assertEqual([0xFFFE, 1, 5], wrapped["logical_pens"])
+        self.assertEqual(9, wrapped["final_pen"])
 
     def test_embedded_viewport_partitions_endpoint_and_clip_words(self) -> None:
         paths = symbolic_embedded_viewport_paths()
@@ -1721,7 +1741,7 @@ class CheckedReportTests(unittest.TestCase):
             matrix_entry["sha256"],
         )
         self.assertEqual(
-            3316,
+            3336,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(

@@ -599,7 +599,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 39 finite models. It also computes an
+complete path-equivalence class in 40 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -636,6 +636,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Editor right-overflow cue | 281,474,976,710,656 | 5 | 10 | 4 |
 | Glyph vertical viewport | 1,099,511,627,776 | 16 | 22 | 6 |
 | Glyph viewport gates | 30,064,771,072 | 3 | 4 | 3 |
+| `logBASE` counted-string viewport | 8,589,934,592 | 20 | 6 | 1 |
 | Embedded-record viewport gate | 4,294,967,296 | 2 | 2 | 2 |
 | Record-allocation capacity | 36,893,488,147,419,103,232 | 6 | 6 | 2 |
 | Saved-operand wrappers | 16 | 12 | 12 | 8 |
@@ -646,8 +647,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 | FindAlpha OP scratch transition | 33,554,432 | 2 | 5 | 2 |
 
-The 39 models contain 3,316 path classes and 427 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 200 representatives. Each
+The 40 models contain 3,336 path classes and 429 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 201 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -2874,6 +2875,16 @@ viewport coordinate, and `34:6C7C` skips the glyph when its endpoint is larger.
 Equality draws the glyph, so an endpoint of `96` may occupy pixel 95. The
 translated viewport applies both whole-glyph gates before rasterization.
 [confirmed]
+
+The `logBASE` prefix is a counted string, not one viewport unit. `34:6C26`
+loads one display code, `34:6C2A` calls the ordinary glyph path, and the
+`DJNZ` at `34:6C2F` repeats for the remaining codes. The word pen advances
+after a skipped code, so `l` may be left of the clip while `o` and `g` draw;
+the last code may likewise be rejected at the right edge without partially
+drawing it. The translated editor expands the `6Ch 6Fh 67h` string into three
+ordered glyph calls before applying either viewport gate. An exact finite
+model partitions every initial pen word and clip word for both the root widths
+`6,6,6` and the raised widths `3,4,4`, including pen wrap. [confirmed]
 
 The eight writes inserted at instruction index 56 come from
 `page_34:6CA8` → `ram:3CE1`. That call stack does not pass through `34:608F`, so
