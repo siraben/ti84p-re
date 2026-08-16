@@ -174,6 +174,11 @@ class in the root leaf, both children of one outer fraction, and the radicand
 of one prefixed radical. A one-child insertion leaves the left segment in its
 parent and replaces one packed token to the cursor's right; a captured `5D 00`
 list token proves the two-byte boundary.
+Integral source token `24` selects type `0x22`. It creates lower-bound,
+upper-bound, body, and variable children, then selects the lower bound. Payload
+left of the cursor remains in the parent. Leading and mid-leaf insertion replace
+one packed token to the cursor's right. Four reset-origin captures cover every
+root cursor class.
 Nth-root source token `F1` selects type `0x24`. A blank root receives `Ans` in
 the index and an empty radicand. Leaf-end and mid-leaf insertion migrate the
 left payload into the index. Leading insertion creates two empty children and
@@ -195,7 +200,7 @@ radical and fraction below a root `3` retain `33h`; the value is not a depth
 proxy or the active child's first byte.
 The function consumes the decoded arena because new record IDs and the
 structural-depth byte are not present in the semantic cursor tree alone.
-Forty-eight reset-origin transitions verify the markers, controller states,
+Fifty-two reset-origin transitions verify the markers, controller states,
 cursor ASTs, every reconstructed record field, and complete LCD output. Deeper
 structural positions beyond the captured outer fraction and radical, and the
 remaining structural types, remain separate.
