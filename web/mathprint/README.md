@@ -155,6 +155,13 @@ into the transient type-`0x1F` wrapper, entry leaf, structural records, and leaf
 records. It includes the cursor cell in leaf metrics before applying the
 structural formulas. The four reset-origin gap oracles round-trip every record
 field and reproduce the complete cursor-off LCD bitmap.
+`editorInsertPackedToken()` translates ordinary one- or two-byte insertion
+through `34:4BB9–4C0D` and `06:4341–4388`. Adjacent root-leaf and fraction
+numerator snapshots verify the resulting cursor AST, every reconstructed
+record field, and the complete cursor-off LCD. The fraction case also retains
+the structural record's pre-edit `+13h` byte while replacing the `EF 1E`
+empty-slot token. Structural insertion, deletion, and cursor navigation remain
+outside this mutation slice.
 The analyzer selects the first post-key `34:660A` entry at the shallowest Z80
 stack depth. The exporter pairs
 parent/index observations at `34:6CCD` with the resolved child ID and record
@@ -264,10 +271,13 @@ accepts only `30h`–`39h` and `41h`–`5Bh`, with limits of eight and five byte
 The parser keeps the designator and accepted name bytes in one atom. [confirmed]
 
 The text field accepts two input paths. Ordinary text uses a preview-specific
-semantic frontend; it does not translate TI-OS key-to-graph state transitions.
+semantic frontend; it does not drive the translated TI-OS editor state machine.
 A separate ROM-derived decoder reads captured live editor RAM, including its
-active gap leaf and cursor. A `hex:` prefix supplies space- or comma-separated
-native bytes directly to record construction. The raw path reports malformed
+active gap leaf and cursor. The ROM engine can advance that state through an
+ordinary packed-token insertion, but the browser does not yet expose the
+mutation API as an interactive calculator editor. A `hex:` prefix supplies
+space- or comma-separated native bytes directly to record construction. The
+raw path reports malformed
 streams and untranslated structural types instead of selecting the model
 compositor. Both translated input paths construct records and LCD writes
 without replaying a captured graph or write stream. [confirmed]

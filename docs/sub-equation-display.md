@@ -816,6 +816,28 @@ record program in the cursor-off phase also matches the complete 96×64
 calculator screenshot bitmap. The hashes in the last column cover all 768 LCD
 bytes. [confirmed]
 
+Ordinary token insertion follows `34:4775–47A4` into `34:4BB9–4C0D`. The
+non-structural branch reaches the page-6 gap writer through `00:3699`.
+`06:4341–4388` checks available space, stores the one- or two-byte packed token
+at `editCursor`, and advances the pointer. In the captured root-leaf transition,
+the write at `06:437A` stores `32h` at `9DE1h`; `06:437C` then changes
+`editCursor` from `9DE1h` to `9DE2h`. [confirmed]
+
+`tools/mathprint-editor-mutation-oracles.json` retains two adjacent pre/post
+transitions. Appending `2` after root token `1` changes the active payload from
+`31h` to `31h 32h`. Inserting `2` into an empty fraction numerator advances the
+right gap boundary past `EF 1E`, so the token replaces the empty slot. The
+second transition also shows that the type-`0x20` record keeps `EFh` at `+13h`
+instead of recomputing that byte from the new `32h` numerator. The editor AST
+therefore retains structural `+13h` state in addition to the active leaf's
+`+0Fh` and `+11h` words. [confirmed]
+
+`editorInsertPackedToken()` translates this mutation. For both transitions,
+the mutated cursor tree equals the decoded post-key tree, reconstruction
+matches every post-key record field, and execution matches the complete
+cursor-off LCD bitmap. Structural template insertion, deletion, and cursor
+navigation remain open. [confirmed]
+
 `34:789A` first distinguishes the table-equation context from other editors.
 On its fallthrough, `34:75AB` reads the marker type from `editTail + 1`.
 `34:40F9` groups fraction (`0x20`), nth-root (`0x24`), and power (`0x2A`)
@@ -2242,9 +2264,11 @@ bits, and which bits changed. Accepted writes with equal previous and replacemen
 bytes therefore remain visible in the trace. [confirmed]
 
 The text field uses a preview-specific semantic grammar for ordinary input. It
-does not emulate TI-OS key-to-graph state transitions. The ROM engine separately
+does not drive the TI-OS editor state machine. The ROM engine separately
 decodes a captured live editor arena, active gap leaf, and cursor into a semantic
-tree. An input prefixed with `hex:` bypasses the preview grammar and passes the
+tree and translates ordinary packed-token insertion on that state. The browser
+does not yet expose the mutation API as an interactive calculator editor. An
+input prefixed with `hex:` bypasses the preview grammar and passes the
 listed native bytes to the translated constructor. Malformed streams and
 untranslated structural types produce an error; this path does not select the
 model compositor. Each accepted LCD byte remains available as eight ordered
