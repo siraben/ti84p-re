@@ -524,10 +524,10 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, large-glyph output, and alphabetic VAT selection. It
 recursively follows direct ROM edges from named entries, seeds decoded table
-destinations, overlays exact next-PC outcomes from 266 reset-origin traces, and
+destinations, overlays exact next-PC outcomes from 269 reset-origin traces, and
 lists direct external targets. Computed dispatch destinations are manually
 seeded; bcall and RAM bjump bodies remain outside the direct-edge walk. Of those
-traces, 265 reach their state through calculator input. One explicitly
+traces, 268 reach their state through calculator input. One explicitly
 classified synthetic trace inserts an `EF36h` editor buffer through direct RAM
 writes. The report keeps the two provenance classes separate.
 `tools/mathprint-saturation.json` records the resulting branches and trace
@@ -537,9 +537,9 @@ The analyzer can restore trace identities, provenance, and per-trace summaries
 from a prior report and the digest-keyed cache. Regeneration therefore scans a
 new trace once without reopening the other retained TLMT files. [confirmed]
 
-None of the 266 report traces executes `39:5167`, `39:523B`, the saved-operand
+None of the 269 report traces executes `39:5167`, `39:523B`, the saved-operand
 wrappers at `39:5B10`–`39:5B38`, or the dispatchers at `39:59E0`/`39:59F9`.
-The 266-digest trace cache also has no hit at those entries. [confirmed]
+The 269-digest trace cache also has no hit at those entries. [confirmed]
 `_FindAlphaUp` at `07:50B5` executes once in 112 report traces, but every call
 comes from the type-`16h` cleanup loop at `07:5544`. Each observed call returns
 carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
@@ -691,17 +691,17 @@ The report computes two exact Z3 covers. The first preserves every individual
 branch outcome observed in the supplied traces. It does not preserve complete
 invocation paths, register or RAM states, dispatch indices, record cases, or LCD
 write cases. The all-evidence and natural-only branch covers each select 23
-traces. They preserve 1,009 and 1,006 outcomes in 4,241,073,048 and 4,335,757,668
+traces. They preserve 1,009 and 1,006 outcomes in 4,212,000,042 and 4,306,684,662
 bytes, respectively.
 
 The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,396 tags and needs 204
-traces. The natural-only universe has 1,393 tags and needs 203 traces. Every
+independent oracle case. Its all-evidence universe has 1,428 tags and needs 206
+traces. The natural-only universe has 1,425 tags and needs 205 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The retained byte totals are
-30,734,497,704 and 30,638,613,786, respectively. The broad set remains the RE
+31,065,453,810 and 30,969,569,892, respectively. The broad set remains the RE
 and regression corpus; the public gallery uses a smaller, diverse selection.
 [confirmed]
 
@@ -724,6 +724,7 @@ repository; their hashes identify the exact inputs used by the report.
 | Log-base marker insertion | `tools/macros/mathprint-logbase-boundary-insert.macro` | `a49e4c13c93358662713da7f5e07862f42863d60a70ce18e141a90987914008b` | 1 |
 | Radical marker insertion | `tools/macros/mathprint-radical-nonspecial-insert.macro` | `e7b79e37149f2b9b4a986bdbb114a89b03cd452bbecc6da20490edc972895e98` | Omitted |
 | Integral marker insertion | `tools/macros/mathprint-integral-boundary-insert.macro` | `328b8f52ebe939b35f79e676076984aa85ee59e05c06862647c4fc615069bb3c` | 2 |
+| Mixed summation traversal | `tools/macros/mathprint-editor-summation-left-navigation.macro` | `55fee4452906f94c2f3133961879ce4daec8fa0a98a5b69be1c27eae27190d3d` | 4 |
 | **Y=**/table/power round trip | `tools/macros/mathprint-yequ-table-power-insert.macro` | `ac719f540d2adfca05d2ffa415f065b83eaf407f04fca42f5ae63c440a746b9d` | 16 |
 
 The retained `mathprint_integral_boundary_insert` trace reaches `34:6968`
@@ -745,7 +746,7 @@ and `A` at each discriminator were checked before admission. [confirmed]
 The synthetic `EF36h` trace uses
 `tools/macros/mathprint-ef36-injected-buffer.macro`. Its two `memwrite`
 commands place `EF 36 31 11` at the editor cursor. It is the sole synthetic
-source in the 266-trace report. It supplies the only evidence for
+source in the 269-trace report. It supplies the only evidence for
 `34:5A23` fallthrough, `34:6992` taken, and `34:6B94` taken. The full minimum
 retains it; the natural minimum excludes it by construction. [confirmed]
 
@@ -1083,8 +1084,8 @@ matches the decoded post-key tree, reconstruction matches every record field,
 and execution matches all 768 LCD bytes. The fraction discriminator has the
 same record and LCD parity. Radical and fraction insertion at other deeper
 structural positions, remaining structural template types, structural
-boundary-navigation captures outside the fraction and integral cases remain
-open. [confirmed]
+boundary-navigation captures outside the fraction, integral, and summation
+cases remain open. [confirmed]
 
 Ordinary in-leaf navigation uses the page-6 gap movers. **LEFT** reaches
 `06:4294–42C7` through `34:42B4` and `00:3B49`; **RIGHT** reaches
@@ -1115,6 +1116,13 @@ selector at `+05h`, and increment the controller depth. The **RIGHT** route foll
 `34:4193–419B`, `34:41E6–41F5`, and `34:4285–4290`. The **LEFT** route follows
 `34:42B4–42BC` and `34:4311–4338`. [confirmed]
 
+The entry routes commit the containing gap leaf before selecting a child. A
+leaf can temporarily hold the left-gap byte count at `+11h`. The commit restores
+the complete payload length. A summation followed by `X` enters its marker from
+the right with `+11h = 6`, then stores `+11h = 7` while the cursor is in the
+summation. `editorMoveCursor()` performs the same restoration from the decoded
+payload length. [confirmed]
+
 **RIGHT** at a non-final child endpoint selects the next child at byte offset zero
 through `34:4193–41D7`. **LEFT** at a non-first child start selects the preceding
 child at its payload end through `34:42B4–42EA`. Each route stores the old
@@ -1130,15 +1138,16 @@ record becomes the controller, and the depth decreases by one. At the root
 leaf's outer endpoints, `34:41AE–41DF` and `34:42C5–42CC` return without
 changing the arena. [confirmed]
 
-`tools/mathprint-editor-structural-navigation-oracles.json` retains five
+`tools/mathprint-editor-structural-navigation-oracles.json` retains seven
 reset-origin traces. Each fraction direction has seven adjacent RAM states.
 The integral traces retain 11 **RIGHT** states and ten **LEFT** states. A
-depth-two fraction trace retains 11 **RIGHT** states. Their 41 key transitions
-cover entry, ordinary child movement, sibling selection, nested entry and exit,
-structural exit, and root endpoint no-ops. `editorMoveCursor()` reproduces every
-controller, active leaf, cursor offset, payload, child list, `+05h`, `+0Fh`, and
-`+11h` transition. Its returned decoded arena feeds the next movement directly.
-All five sequences reach every subsequent captured state without replaying a
+depth-two fraction trace retains 11 **RIGHT** states. The summation traces retain
+11 **RIGHT** states and ten **LEFT** states. Their 60 key transitions cover entry,
+ordinary child movement, sibling selection, nested entry and exit, structural
+exit, and root endpoint no-ops. `editorMoveCursor()` reproduces every controller,
+active leaf, cursor offset, payload, child list, `+05h`, `+0Fh`, and `+11h`
+transition. Its returned decoded arena feeds the next movement directly. All
+seven sequences reach every subsequent captured state without replaying a
 recorded result. [confirmed]
 
 The integral variable child uses leaf render type `0x01`. Its cursor remains at
@@ -1155,12 +1164,29 @@ payload in `+0Fh` and exits the outer fraction without exposing a cursor state
 after the empty square. This trace supplies the natural witness for
 `34:75BB` fallthrough. [confirmed]
 
+The type-`0x29` summation traces combine both atomic forms in one four-child
+record. The variable child has type `0x01`; the lower-bound child retains
+`EF 1E`; the upper-bound and body children contain ordinary digits. A trailing
+root `X` adds ordinary parent-leaf movement before or after the structural
+crossing. Both directions visit all four children. [confirmed]
+
+The summation fill trace retains eight adjacent states from template insertion
+through structural exit. The new variable child begins as type `0x01` with an
+`EF 1E` payload. Inserting `X` reaches the type test at `34:4796`–`34:479B`,
+commits the one-byte variable, and calls `34:4181` to select the lower-bound
+child automatically. Lower-bound, upper-bound, and body insertion remain in
+their current child. The following **RIGHT** commits that child's payload length
+to `+11h` and either selects its sibling or exits the summation.
+`editorInsertPackedToken()` and `editorMoveCursor()` reproduce all seven
+transitions as one composable decoded-arena sequence. Each reconstructed state
+matches the calculator's record fields and cursor-off LCD bitmap. [confirmed]
+
 The generic transition tests apply the same decoded-arena rules to types
 `0x20`–`0x2B`, a six-child matrix, two-byte child tokens, and depth-two nested
 markers. The type-`0x01` variable rule is also tested in the integral,
 `nDeriv(`, and summation child positions. Live sequence parity covers fraction,
-integral, and one depth-two fraction **RIGHT** traversal. Other structural types
-and nested directions remain open. [confirmed]
+integral, summation, and one depth-two fraction **RIGHT** traversal. Other
+structural types and nested directions remain open. [confirmed]
 
 **DEL** removes the packed token at the right edge of the gap through
 `34:4570`, `00:3687`, and `06:4393–43A4`. `06:43A5` reads the token and calls
