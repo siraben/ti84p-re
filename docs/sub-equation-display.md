@@ -836,7 +836,28 @@ therefore retains structural `+13h` state in addition to the active leaf's
 the mutated cursor tree equals the decoded post-key tree, reconstruction
 matches every post-key record field, and execution matches the complete
 cursor-off LCD bitmap. Structural template insertion, deletion, and cursor
-navigation remain open. [confirmed]
+navigation across structural boundaries remain open. [confirmed]
+
+Ordinary in-leaf navigation uses the page-6 gap movers. LEFT reaches
+`06:4294–42C7` through `34:42B4` and `00:3B49`; RIGHT reaches
+`06:42C8–4301` through `34:4193` and `00:367B`. Both paths call
+`00:1FE7` so a two-byte native token crosses the gap as one unit. Structural
+record markers remain on separate page-34 paths. [confirmed]
+
+`tools/mathprint-editor-navigation-oracles.json` captures `12` with the cursor
+at the end, after LEFT places it between the digits, and after RIGHT returns it
+to the end. The middle state splits the logical payload into left byte `31h`
+and right byte `32h`; its cursor offset is one. Its active leaf width is 12
+pixels, not 18: before existing payload the cursor overlays the following cell
+without adding width. At the leaf end, the cursor allocates a six-pixel cell
+and the width returns to 18. All three reconstructed record sets and complete
+cursor-off LCD bitmaps match their calculator states. [confirmed]
+
+`editorMovePackedTokenCursor()` translates both directions and rejects a
+structural boundary rather than applying the ordinary token rule there. The
+same regression also closes an AST-decoder bug: after emitting a cursor inside
+a numeric run, the following digit must begin a new atom before the two sides
+are recombined around the cursor. [confirmed]
 
 `34:789A` first distinguishes the table-equation context from other editors.
 On its fallthrough, `34:75AB` reads the marker type from `editTail + 1`.
@@ -2266,7 +2287,8 @@ bytes therefore remain visible in the trace. [confirmed]
 The text field uses a preview-specific semantic grammar for ordinary input. It
 does not drive the TI-OS editor state machine. The ROM engine separately
 decodes a captured live editor arena, active gap leaf, and cursor into a semantic
-tree and translates ordinary packed-token insertion on that state. The browser
+tree and translates ordinary packed-token insertion and in-leaf navigation on
+that state. The browser
 does not yet expose the mutation API as an interactive calculator editor. An
 input prefixed with `hex:` bypasses the preview grammar and passes the
 listed native bytes to the translated constructor. Malformed streams and
