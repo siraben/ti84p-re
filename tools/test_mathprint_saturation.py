@@ -1281,9 +1281,9 @@ class CheckedReportTests(unittest.TestCase):
         )
 
         self.assertEqual(2, report["schema"])
-        self.assertEqual(273, len(report["traces"]))
+        self.assertEqual(274, len(report["traces"]))
         self.assertEqual(
-            272,
+            273,
             sum(
                 row["provenance"] == TRACE_PROVENANCE_NATURAL
                 for row in report["traces"]
@@ -1727,6 +1727,8 @@ class CheckedReportTests(unittest.TestCase):
                 "6263edce978d46750859f38c964ec4858b2c28fc8f6c914d510a8c332a01d85f",
             "mathprint_editor_matrix_navigation":
                 "78639019ccf6b1d01a62b2f88dc5ff619382c08fe81396886aa0c49bcfe962d4",
+            "mathprint_editor_nested_fraction_left_navigation":
+                "6cd38899f36e5a6398a0d1959557f8cb45172b4046db1f39cdfa298250066e6a",
         }, structural_navigation)
         summation_fill = {
             row["label"]: row["sha256"]
@@ -1749,7 +1751,7 @@ class CheckedReportTests(unittest.TestCase):
             114, report["record_oracles"]["cases"]
         )
         self.assertEqual(
-            (19, 1011, 4_232_457_216),
+            (19, 1011, 4_197_991_998),
             (
                 report["minimized_trace_corpus"]["selected_trace_count"],
                 report["minimized_trace_corpus"]["covered_outcomes"],
@@ -1757,7 +1759,7 @@ class CheckedReportTests(unittest.TestCase):
             ),
         )
         self.assertEqual(
-            (20, 1009, 4_388_491_626),
+            (20, 1009, 4_354_026_408),
             (
                 report["minimized_natural_trace_corpus"][
                     "selected_trace_count"
@@ -1768,22 +1770,33 @@ class CheckedReportTests(unittest.TestCase):
                 ],
             ),
         )
+        selected_branch_labels = {
+            row["label"] for row in report["minimized_trace_corpus"]["selected"]
+        }
+        self.assertIn(
+            "mathprint_editor_nested_fraction_left_navigation",
+            selected_branch_labels,
+        )
+        self.assertNotIn(
+            "mathprint_editor_nested_fraction_right_navigation",
+            selected_branch_labels,
+        )
         self.assertEqual(
-            1571,
+            1583,
             report["minimized_dynamic_feature_corpus"]["covered_features"],
         )
         self.assertEqual(
-            206,
+            207,
             report["minimized_dynamic_feature_corpus"]["selected_trace_count"],
         )
         self.assertEqual(
-            1569,
+            1581,
             report["minimized_natural_dynamic_feature_corpus"][
                 "covered_features"
             ],
         )
         self.assertEqual(
-            205,
+            206,
             report["minimized_natural_dynamic_feature_corpus"][
                 "selected_trace_count"
             ],
