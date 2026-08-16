@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-469b43c8.js";
+            window.path_to_searchindex_js = "searchindex-01513b92.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -15206,13 +15206,13 @@ Each reproduction uses key input only. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Editor state</th><th>Active leaf</th><th>Logical gap payload</th><th>Cursor path</th><th>Sparse-state SHA-256</th></tr>
+<tr><th>Editor state</th><th>Active leaf</th><th>Logical gap payload</th><th>Cursor path</th><th>Sparse-state SHA-256</th><th>Cursor-off LCD SHA-256</th></tr>
 </thead>
 <tbody>
-<tr><td>Empty fraction numerator</td><td><code>9</code></td><td>cursor, <code>EF 1E</code></td><td>numerator</td><td><code>bcabb3961e1f37fe21b4e66c8bbfffb9a3812a162324e85273fdeed0beccc019</code></td></tr>
-<tr><td>Integral upper bound after <code>2</code></td><td><code>10</code></td><td><code>32</code>, cursor</td><td>upper bound</td><td><code>1dab216a05a2604bdb51eaa8a347a881f4dcccb7c8f19965503d73812422f8d5</code></td></tr>
-<tr><td>Fraction denominator nested in an integral body</td><td><code>15</code></td><td><code>32</code>, cursor</td><td>body → denominator</td><td><code>7da6d7fdbb5ea848dda0afb1105237280a06b6dff994879df0a8c0b63e1a5f10</code></td></tr>
-<tr><td>Immediately after a completed integral</td><td><code>7</code></td><td><code>EF 22 08 00 EF 2D</code>, cursor</td><td>root sequence after integral</td><td><code>89dd708b40f3c77f2cb5392783256576be8f0014beea2b411b6ba860dd441ef4</code></td></tr>
+<tr><td>Empty fraction numerator</td><td><code>9</code></td><td>cursor, <code>EF 1E</code></td><td>numerator</td><td><code>bcabb3961e1f37fe21b4e66c8bbfffb9a3812a162324e85273fdeed0beccc019</code></td><td><code>450e82a31ced68ed319a1c2e8d18d3e2d3813f097de8be9dc2a89d48289cc4c9</code></td></tr>
+<tr><td>Integral upper bound after <code>2</code></td><td><code>10</code></td><td><code>32</code>, cursor</td><td>upper bound</td><td><code>1dab216a05a2604bdb51eaa8a347a881f4dcccb7c8f19965503d73812422f8d5</code></td><td><code>39b937b16e32e4e07f6ffc2d6e60842c0249fd51d3aa661b23af2d2cb8708cea</code></td></tr>
+<tr><td>Fraction denominator nested in an integral body</td><td><code>15</code></td><td><code>32</code>, cursor</td><td>body → denominator</td><td><code>7da6d7fdbb5ea848dda0afb1105237280a06b6dff994879df0a8c0b63e1a5f10</code></td><td><code>1297c2562d7c2fac9612aad6fc2e829ecb8f487606da6a079fb7d49d1c4c64d9</code></td></tr>
+<tr><td>Immediately after a completed integral</td><td><code>7</code></td><td><code>EF 22 08 00 EF 2D</code>, cursor</td><td>root sequence after integral</td><td><code>89dd708b40f3c77f2cb5392783256576be8f0014beea2b411b6ba860dd441ef4</code></td><td><code>80cc504e3a7c6c773906f1e64ca6916e48594fd0c66c946151b3bc9849647f64</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -15227,6 +15227,24 @@ substitution. <code>decodeEditorExpressionGraph()</code> inserts a cursor at
 <code>editCursor - editTop</code>, after checking the native token and six-byte marker
 boundaries. It recovers the nested cursor path from record IDs and leaf bytes;
 the screenshots do not participate in the decode. [confirmed]</p>
+<p><code>constructEditorExpressionProgram()</code> translates the inverse path. It allocates
+the entry leaf at ID <code>7</code>, the transient type-<code>0x1F</code> wrapper at ID <code>6</code>, and the
+same structural and child IDs as the captured arenas. The cursor contributes a
+six-pixel cell at render depth zero and a five-pixel cell in a raised row. A
+cursor immediately before <code>EF 1E</code> reuses that token’s six-pixel empty-slot cell.
+The ordinary structural metric formulas then propagate the active leaf’s
+height, width, and baseline through every ancestor. [confirmed]</p>
+<p>The structural word at <code>+0x05</code> identifies the active one-based child along the
+cursor path. A completed template outside that path retains its last child.
+Containing leaves on the active structural path retain the descendant marker’s
+byte offset at <code>+0x0F</code>. The active gap also retains its pre-edit <code>+0x0F</code> and
+<code>+0x11</code> words, so the cursor node carries those two state words explicitly.
+They cannot be recovered from the concatenated gap payload alone. [confirmed]</p>
+<p>For all four states above, decoding RAM to a cursor-annotated expression and
+reconstructing it matches every record field by ID. Executing the reconstructed
+record program in the cursor-off phase also matches the complete 96×64
+calculator screenshot bitmap. The hashes in the last column cover all 768 LCD
+bytes. [confirmed]</p>
 <p><code>34:789A</code> first distinguishes the table-equation context from other editors.
 On its fallthrough, <code>34:75AB</code> reads the marker type from <code>editTail + 1</code>.
 <code>34:40F9</code> groups fraction (<code>0x20</code>), nth-root (<code>0x24</code>), and power (<code>0x2A</code>)

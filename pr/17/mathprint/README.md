@@ -150,6 +150,11 @@ the gap payload at the leaf selected by `0x8DC2`, decodes the same record IDs,
 and inserts the cursor at `editCursor - editTop`. The browser's generated
 record result exposes its graph-derived tree as `settledAst`; the RAM decoder
 exposes both cursor-free and cursor-annotated live trees.
+`constructEditorExpressionProgram()` converts the cursor-annotated tree back
+into the transient type-`0x1F` wrapper, entry leaf, structural records, and leaf
+records. It includes the cursor cell in leaf metrics before applying the
+structural formulas. The four reset-origin gap oracles round-trip every record
+field and reproduce the complete cursor-off LCD bitmap.
 The analyzer selects the first post-key `34:660A` entry at the shallowest Z80
 stack depth. The exporter pairs
 parent/index observations at `34:6CCD` with the resolved child ID and record
