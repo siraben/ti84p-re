@@ -524,10 +524,10 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, large-glyph output, and alphabetic VAT selection. It
 recursively follows direct ROM edges from named entries, seeds decoded table
-destinations, overlays exact next-PC outcomes from 251 reset-origin traces, and
+destinations, overlays exact next-PC outcomes from 252 reset-origin traces, and
 lists direct external targets. Computed dispatch destinations are manually
 seeded; bcall and RAM bjump bodies remain outside the direct-edge walk. Of those
-traces, 250 reach their state through calculator input. One explicitly
+traces, 251 reach their state through calculator input. One explicitly
 classified synthetic trace inserts an `EF36h` editor buffer through direct RAM
 writes. The report keeps the two provenance classes separate.
 `tools/mathprint-saturation.json` records the resulting branches and trace
@@ -537,9 +537,9 @@ The analyzer can restore trace identities, provenance, and per-trace summaries
 from a prior report and the digest-keyed cache. Regeneration therefore scans a
 new trace once without reopening the other retained TLMT files. [confirmed]
 
-None of the 251 report traces executes `39:5167`, `39:523B`, the saved-operand
+None of the 252 report traces executes `39:5167`, `39:523B`, the saved-operand
 wrappers at `39:5B10`–`39:5B38`, or the dispatchers at `39:59E0`/`39:59F9`.
-The 251-digest trace cache also has no hit at those entries. [confirmed]
+The 252-digest trace cache also has no hit at those entries. [confirmed]
 `_FindAlphaUp` at `07:50B5` executes once in 112 report traces, but every call
 comes from the type-`16h` cleanup loop at `07:5544`. Each observed call returns
 carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
@@ -696,12 +696,13 @@ bytes, respectively.
 
 The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,333 tags and needs 189
-traces. The natural-only universe has 1,330 tags and needs 188 traces. Every
+independent oracle case. Its all-evidence universe has 1,334 tags and needs 190
+traces. The natural-only universe has 1,331 tags and needs 189 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
-retained bytes second, and labels third. The broad set remains the RE and
-regression corpus; the public gallery uses a smaller, diverse selection.
+retained bytes second, and labels third. The retained byte totals are
+28,731,660,660 and 28,635,776,742, respectively. The broad set remains the RE
+and regression corpus; the public gallery uses a smaller, diverse selection.
 [confirmed]
 
 The tagged cover preserves only states represented by its tags. It does not
@@ -744,7 +745,7 @@ and `A` at each discriminator were checked before admission. [confirmed]
 The synthetic `EF36h` trace uses
 `tools/macros/mathprint-ef36-injected-buffer.macro`. Its two `memwrite`
 commands place `EF 36 31 11` at the editor cursor. It is the sole synthetic
-source in the 251-trace report. It supplies the only evidence for
+source in the 252-trace report. It supplies the only evidence for
 `34:5A23` fallthrough, `34:6992` taken, and `34:6B94` taken. The full minimum
 retains it; the natural minimum excludes it by construction. [confirmed]
 
@@ -825,20 +826,29 @@ the write at `06:437A` stores `32h` at `9DE1h`; `06:437C` then changes
 `editCursor` from `9DE1h` to `9DE2h`. [confirmed]
 
 `tools/mathprint-editor-mutation-oracles.json` retains two adjacent pre/post
-transitions. Appending `2` after root token `1` changes the active payload from
-`31h` to `31h 32h`. Inserting `2` into an empty fraction numerator advances the
-right gap boundary past `EF 1E`, so the token replaces the empty slot. The
-second transition also shows that the type-`0x20` record keeps `EFh` at `+13h`
-instead of recomputing that byte from the new `32h` numerator. The editor AST
-therefore retains structural `+13h` state in addition to the active leaf's
-`+0Fh` and `+11h` words. [confirmed]
+transitions and one five-write sequence. Appending `2` after root token `1`
+changes the active payload from `31h` to `31h 32h`. Inserting `2` into an empty
+fraction numerator advances the right gap boundary past `EF 1E`, so the token
+replaces the empty slot. The fraction transition also shows that the
+type-`0x20` record keeps `EFh` at `+13h` instead of recomputing that byte from
+the new `32h` numerator. The editor AST therefore retains structural `+13h`
+state in addition to the active leaf's `+0Fh` and `+11h` words. [confirmed]
 
-`editorInsertPackedToken()` translates this mutation. For both transitions,
-the mutated cursor tree equals the decoded post-key tree, reconstruction
-matches every post-key record field, and execution matches the complete
-cursor-off LCD bitmap. Structural template types other than the fraction,
-structural deletion, and cursor navigation across structural boundaries remain
-open.
+The five-write sequence enters `08 08 31 09 09`, the native bytes for `[[1]]`.
+Wrapper record `6` continues to point directly to leaf record `7`; the live
+arena allocates no structural record. After the first and second writes, the
+decoder retains one and two unfinished list frames around the cursor. The first
+`09h` closes the inner frame into a one-element list. The second closes the
+outer frame into a list whose element is that inner list. The settled
+type-`0x2B` matrix record belongs to the later dimensioned construction path,
+not these five live gap writes. [confirmed]
+
+`editorInsertPackedToken()` consumes the decoded arena, writes the active leaf
+payload, and decodes the graph again. All five `[[1]]` transitions match the
+post-key cursor tree, every reconstructed record field, and the complete
+cursor-off 96×64 LCD bitmap. Directly appending the byte to the previous
+semantic tree would miss four of the five regrouping transitions. Structural
+deletion and cursor navigation across structural boundaries remain open.
 [confirmed]
 
 The blank entry line stores a zero-byte active leaf. Its only semantic node is
@@ -1594,8 +1604,9 @@ its generated AST view as `settledAst`. The live-editor wrapper applies this
 decoder after `34:4AAF` substitutes the active gap payload, then inserts the
 cursor at the byte boundary selected by `editCursor`. [confirmed]
 
-A live matrix entry demonstrates why leaf decoding cannot treat every payload
-as a flat token sequence. Before evaluation, wrapper ID `6` points to a leaf
+A structurally populated live matrix entry demonstrates why leaf decoding
+cannot treat every payload as a flat token sequence. Before evaluation, wrapper
+ID `6` points to a leaf
 whose payload begins `06 06 EF 27 08 00 EF 2D`: the outer and first-row
 `06h` containers precede an embedded radical record. The next element contains
 an embedded type-`0x2A` power marker. The decoder balances `06h`/`07h` matrix,
