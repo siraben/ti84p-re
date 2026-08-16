@@ -179,6 +179,10 @@ the index and an empty radicand. Leaf-end and mid-leaf insertion migrate the
 left payload into the index. Leading insertion creates two empty children and
 selects the index. Leading and mid-leaf insertion replace one packed token to
 the cursor's right. Four reset-origin captures cover every root cursor class.
+Log-base source token `EF 34` selects type `0x28`. It creates empty base and
+argument children and selects the base. Payload left of the cursor remains in
+the parent. Leading and mid-leaf insertion replace one packed token to the
+cursor's right. Four reset-origin captures cover every root cursor class.
 Postfix-power source token `F0` selects type `0x2A`. Blank insertion supplies
 `Ans` as the base. Leaf-end and mid-leaf insertion bind the atom to the cursor's
 left. Leading insertion creates an editor-only empty base and replaces the
@@ -191,7 +195,7 @@ radical and fraction below a root `3` retain `33h`; the value is not a depth
 proxy or the active child's first byte.
 The function consumes the decoded arena because new record IDs and the
 structural-depth byte are not present in the semantic cursor tree alone.
-Forty-four reset-origin transitions verify the markers, controller states,
+Forty-eight reset-origin transitions verify the markers, controller states,
 cursor ASTs, every reconstructed record field, and complete LCD output. Deeper
 structural positions beyond the captured outer fraction and radical, and the
 remaining structural types, remain separate.

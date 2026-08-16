@@ -524,10 +524,10 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, large-glyph output, and alphabetic VAT selection. It
 recursively follows direct ROM edges from named entries, seeds decoded table
-destinations, overlays exact next-PC outcomes from 235 reset-origin traces, and
+destinations, overlays exact next-PC outcomes from 239 reset-origin traces, and
 lists direct external targets. Computed dispatch destinations are manually
 seeded; bcall and RAM bjump bodies remain outside the direct-edge walk. Of those
-traces, 234 reach their state through calculator input. One explicitly
+traces, 238 reach their state through calculator input. One explicitly
 classified synthetic trace inserts an `EF36h` editor buffer through direct RAM
 writes. The report keeps the two provenance classes separate.
 `tools/mathprint-saturation.json` records the resulting branches and trace
@@ -537,9 +537,9 @@ The analyzer can restore trace identities, provenance, and per-trace summaries
 from a prior report and the digest-keyed cache. Regeneration therefore scans a
 new trace once without reopening the other retained TLMT files. [confirmed]
 
-None of the 235 report traces executes `39:5167`, `39:523B`, the saved-operand
+None of the 239 report traces executes `39:5167`, `39:523B`, the saved-operand
 wrappers at `39:5B10`–`39:5B38`, or the dispatchers at `39:59E0`/`39:59F9`.
-The 235-digest trace cache also has no hit at those entries. [confirmed]
+The 239-digest trace cache also has no hit at those entries. [confirmed]
 `_FindAlphaUp` at `07:50B5` executes once in 112 report traces, but every call
 comes from the type-`16h` cleanup loop at `07:5544`. Each observed call returns
 carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
@@ -696,8 +696,8 @@ bytes, respectively.
 
 The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,317 tags and needs 173
-traces. The natural-only universe has 1,314 tags and needs 172 traces. Every
+independent oracle case. Its all-evidence universe has 1,321 tags and needs 177
+traces. The natural-only universe has 1,318 tags and needs 176 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The broad set remains the RE and
@@ -744,7 +744,7 @@ and `A` at each discriminator were checked before admission. [confirmed]
 The synthetic `EF36h` trace uses
 `tools/macros/mathprint-ef36-injected-buffer.macro`. Its two `memwrite`
 commands place `EF 36 31 11` at the editor cursor. It is the sole synthetic
-source in the 235-trace report. It supplies the only evidence for
+source in the 239-trace report. It supplies the only evidence for
 `34:5A23` fallthrough, `34:6992` taken, and `34:6B94` taken. The full minimum
 retains it; the natural minimum excludes it by construction. [confirmed]
 
@@ -956,6 +956,18 @@ insertion replace the packed token immediately to the cursor's right.
 `tools/mathprint-editor-structural-mutation-oracles.json` captures the four
 states. The translated AST, every record field, and all 768 LCD bytes match
 their calculator states. [confirmed]
+
+Source token `EF34h` maps to log-base type `0x28` at `34:594D`. The dispatcher
+falls through the type tests at `34:5043`–`34:5054` and joins the shared marker
+path at `34:5057`. It allocates the structural record and two children through
+`34:4862`–`34:492B`. Both children begin with `EF 1E`, and the cursor enters the
+base child. [confirmed]
+
+Blank and leaf-end insertion leave the payload left of the cursor in the
+parent. Leading and mid-leaf insertion replace one packed token immediately to
+the cursor's right. Four reset-origin captures cover every root cursor class.
+The translated cursor AST, every record field, and all 768 LCD bytes match the
+calculator states. [confirmed]
 
 Source token `F0h` maps to postfix-power type `0x2A` at `34:594D`. The editor
 dispatcher enters `34:50EF–511D`, then joins the shared marker and allocation
