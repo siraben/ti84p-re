@@ -3214,6 +3214,21 @@ const canonicalEditorRecord = node => ({
 });
 const editorRecordsById = nodes => nodes.map(canonicalEditorRecord)
   .sort((left,right) => left.record_id - right.record_id);
+const editorStateProjection = state => ({
+  entryId:state.entryId,
+  controller:state.controller,
+  cursor:{
+    recordId:state.editor.cursor.recordId,
+    byteOffset:state.editor.cursor.byteOffset,
+    boundaries:state.editor.cursor.boundaries,
+    path:state.editor.cursor.path,
+    left:state.editor.cursor.left,
+    right:state.editor.cursor.right,
+  },
+  expression:state.expression,
+  editorExpression:state.editor.expression,
+  nodes:editorRecordsById(state.nodes),
+});
 for (const oracle of editorGapOracles.cases) {
   const macro = fs.readFileSync(path.join(root, oracle.macro));
   expectEqual(`${oracle.name} capture macro hash`,
@@ -3414,11 +3429,13 @@ for (const oracle of editorStructuralMutationOracles.transitions) {
     oracle.pre.lcd_bitmap_sha256);
 
   const inserted = rom.editorInsertStructuralTemplate(
-    before,oracle.source_token);
+    before,oracle.source_token,font);
   expectEqual(`${oracle.name} translated structural insertion`,
     inserted.mutation,oracle.mutation);
   expectEqual(`${oracle.name} decoded structural transition`,
     inserted.expression,after.editor.expression);
+  expectEqual(`${oracle.name} composable decoded arena state`,
+    editorStateProjection(inserted.state),editorStateProjection(after));
   expectEqual(`${oracle.name} decoded post-key controller`,
     after.controller,{
       recordId:oracle.mutation.structural_record_id,
@@ -3665,7 +3682,18 @@ const summationFillStates = summationFillCapture.states.map(
         packedLcdBytes(lcd)).digest('hex'),state.lcd_bitmap_sha256);
     return decoded;
   });
-let summationFillState = summationFillStates[0];
+const blankSummationOracle = editorStructuralMutationOracles.transitions.find(
+  oracle => oracle.name === 'blank_root_insert_summation');
+if (!blankSummationOracle)
+  throw new Error('blank-root summation insertion oracle is absent');
+const blankSummationState = rom.decodeMathPrintEditorRam(sparseEditorRam(
+  blankSummationOracle.pre,'blank-to-filled summation root'));
+const insertedSummation = rom.editorInsertStructuralTemplate(
+  blankSummationState,blankSummationOracle.source_token,font);
+expectEqual('blank-to-filled summation structural insertion state',
+  editorStateProjection(insertedSummation.state),
+  editorStateProjection(summationFillStates[0]));
+let summationFillState = insertedSummation.state;
 for (let index = 0; index < editorSummationFillOracle.steps.length; index++) {
   const step = editorSummationFillOracle.steps[index];
   const result = step.operation === 'insert'
