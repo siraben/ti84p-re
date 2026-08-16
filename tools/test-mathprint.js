@@ -187,6 +187,21 @@ const pointPreprocessByte = address => {
       `point-preprocess oracle reached unpinned byte at ${address.toString(16)}`);
   return pointPreprocessByteMap.get(address);
 };
+const largeGlyphRomSpan = {address:0x4588,bytes:Buffer.from(
+  'fdcb356e2808473e01cde73678c8fdcb354e2808473e76cd1f3e78c811ff45' +
+  'eb19cdeb45115a84cd941a215a84c9fdcb356e28073e03cde7362815fdcb354e' +
+  '28073e78cd1f3e280811ff45eb19cdeb45115a84d53e061213180312e1c9cdfb' +
+  '45af18f7cb3acb1bcb3acb1bcb3acb1bb7ed52c906077ecb2712231310f8c9',
+  'hex')};
+const largeGlyphByteMap = new Map(Array.from(
+  largeGlyphRomSpan.bytes,
+  (value, offset) => [largeGlyphRomSpan.address + offset,value]));
+const largeGlyphByte = address => {
+  if (!largeGlyphByteMap.has(address))
+    throw new Error(
+      `large-glyph oracle reached unpinned byte 07:${address.toString(16)}`);
+  return largeGlyphByteMap.get(address);
+};
 const pointModeRomSpan = {address:0x4215, bytes:Buffer.from(
   'fdcb3c5e2803e5182d21409319e5fdcb3c462022f33a5184cdbf20cdc30cd3' +
   '10cdc9203a4f84cdc30cd310cdf13be1e5fdcb024e20017e041003b118071003' +
@@ -810,6 +825,117 @@ function runRawPointPipeline(x, y, mode, state) {
     });
   }
   return {preprocess,transitions,lcdBytes,plotScreenBytes,appBackupScreenBytes};
+}
+
+function runRawLargeGlyphRecord(code, entry) {
+  let pc = entry === 'copy' ? 0x4588 : 0x45b6;
+  let a = code, b = 0, c = 0, d = 0, e = 0;
+  let h = code >>> 5, l = code << 3 & 0xff;
+  let zero = false, carry = false;
+  const stack = [0xffff];
+  const memory = new Map();
+  const pair = (high, low) => high << 8 | low;
+  const split = value => [value >>> 8 & 0xff,value & 0xff];
+  const push = value => stack.push(value & 0xffff);
+  const pop = () => stack.pop();
+  const tableByte = address => {
+    const offset = address - 0x45ff;
+    if (offset === 0x700) return font.large.trailingByte;
+    if (offset < 0 || offset >= 0x700)
+      throw new Error(`large-glyph oracle read outside table at 07:${address.toString(16)}`);
+    return font.large.glyphs[Math.floor(offset / 7)][offset % 7];
+  };
+  const read = address => address >= 0x45ff && address <= 0x4cff
+    ? tableByte(address) : memory.get(address & 0xffff) || 0;
+  const write = (address, value) => memory.set(address & 0xffff,value & 0xff);
+  const word = address => largeGlyphByte(address) | largeGlyphByte(address + 1) << 8;
+  const relative = address => {
+    const value = largeGlyphByte(address);
+    return value < 0x80 ? value : value - 0x100;
+  };
+  for (let instructions = 0; instructions < 256; instructions++) {
+    const opcode = largeGlyphByte(pc);
+    if (opcode === 0xfd && largeGlyphByte(pc + 1) === 0xcb) {
+      zero = true; pc += 4;
+    } else if (opcode === 0x28) {
+      pc = zero ? pc + 2 + relative(pc + 1) : pc + 2;
+    } else if (opcode === 0x47 || opcode === 0x78) {
+      if (opcode === 0x47) b = a; else a = b;
+      pc++;
+    } else if (opcode === 0x3e || opcode === 0x06) {
+      if (opcode === 0x3e) a = largeGlyphByte(pc + 1);
+      else b = largeGlyphByte(pc + 1);
+      pc += 2;
+    } else if (opcode === 0x11 || opcode === 0x21) {
+      const value = word(pc + 1);
+      if (opcode === 0x11) [d,e] = split(value);
+      else [h,l] = split(value);
+      pc += 3;
+    } else if (opcode === 0xeb) {
+      [d,e,h,l] = [h,l,d,e]; pc++;
+    } else if (opcode === 0x19) {
+      const result = pair(h,l) + pair(d,e);
+      [h,l] = split(result & 0xffff); carry = result > 0xffff; pc++;
+    } else if (opcode === 0xcd) {
+      const target = word(pc + 1);
+      if (target === 0x1a94) {
+        for (let index = 0; index < 8; index++)
+          write(pair(d,e) + index,read(pair(h,l) + index));
+        pc += 3;
+      } else {
+        push(pc + 3); pc = target;
+      }
+    } else if (opcode === 0xc8) {
+      if (zero) pc = pop(); else pc++;
+    } else if (opcode === 0xc9) {
+      pc = pop();
+      if (pc === 0xffff) break;
+    } else if (opcode === 0xd5 || opcode === 0xe1) {
+      if (opcode === 0xd5) push(pair(d,e));
+      else [h,l] = split(pop());
+      pc++;
+    } else if (opcode === 0x12) {
+      write(pair(d,e),a); pc++;
+    } else if (opcode === 0x13 || opcode === 0x23) {
+      if (opcode === 0x13) [d,e] = split((pair(d,e) + 1) & 0xffff);
+      else [h,l] = split((pair(h,l) + 1) & 0xffff);
+      pc++;
+    } else if (opcode === 0x18) {
+      pc = pc + 2 + relative(pc + 1);
+    } else if (opcode === 0xaf) {
+      a = 0; zero = true; carry = false; pc++;
+    } else if (opcode === 0x7e) {
+      a = read(pair(h,l)); pc++;
+    } else if (opcode === 0xcb) {
+      const extension = largeGlyphByte(pc + 1);
+      if (extension === 0x3a) {
+        carry = (d & 1) !== 0; d >>>= 1;
+      } else if (extension === 0x1b) {
+        const nextCarry = (e & 1) !== 0;
+        e = (e >>> 1) | (carry ? 0x80 : 0); carry = nextCarry;
+      } else if (extension === 0x27) {
+        carry = (a & 0x80) !== 0; a = a << 1 & 0xff;
+        zero = a === 0;
+      } else throw new Error('large-glyph oracle reached unknown CB opcode');
+      pc += 2;
+    } else if (opcode === 0xb7) {
+      zero = a === 0; carry = false; pc++;
+    } else if (opcode === 0xed && largeGlyphByte(pc + 1) === 0x52) {
+      const result = pair(h,l) - pair(d,e) - (carry ? 1 : 0);
+      [h,l] = split(result & 0xffff); carry = result < 0;
+      zero = (result & 0xffff) === 0; pc += 2;
+    } else if (opcode === 0x10) {
+      b = (b - 1) & 0xff;
+      pc = b ? pc + 2 + relative(pc + 1) : pc + 2;
+    } else {
+      throw new Error(
+        `large-glyph oracle reached unsupported opcode 0x${opcode.toString(16)} at 07:${pc.toString(16)}`);
+    }
+  }
+  if (pc !== 0xffff)
+    throw new Error('large-glyph oracle exceeded its instruction bound');
+  const length = entry === 'copy' ? 8 : 9;
+  return Array.from({length}, (_, index) => read(0x845a + index));
 }
 
 function runRawDarkLine(graphX1, graphY1, graphX2, graphY2) {
@@ -3220,6 +3346,51 @@ expectEqual('39:6B1C endpoint', rom.fractionEndpoint(2, 0x17),
 expectEqual('39:5949 class-6 low slot', rom.multiArgumentRowStep(6, 2), 2);
 expectEqual('39:5949 class-6 high slot', rom.multiArgumentRowStep(6, 3), 1);
 expectEqual('39:5949 other class', rom.multiArgumentRowStep(5, 2), 1);
+let largeGlyphRecordStates = 0;
+for (let code = 0; code <= 0xff; code++) {
+  for (const entry of ['copy','shifted']) {
+    const translated = rom.settledPage7LargeGlyphRecord(code,font,{
+      entry,fontHookActive:false,fontHookReturnsZ:false,
+      localizeHookActive:false,localizeHookReturnsZ:false,
+    });
+    expectEqual(`07:${entry} large glyph ${code}`,translated.record,
+      runRawLargeGlyphRecord(code,entry));
+    expectEqual(`07:${entry} large glyph ${code} address`,
+      [translated.sourceAddress,translated.callerOffset],
+      [0x45ff + code * 7,code * 8]);
+    largeGlyphRecordStates++;
+  }
+}
+expectEqual('07:4588 code FF trailing copy byte',
+  rom.settledPage7LargeGlyphRecord(0xff,font,{
+    entry:'copy',fontHookActive:false,fontHookReturnsZ:false,
+    localizeHookActive:false,localizeHookReturnsZ:false,
+  }).record[7],0xcd);
+expectEqual('07:4588 font-hook delegation',
+  rom.settledPage7LargeGlyphRecord(0x52,font,{
+    entry:'copy',fontHookActive:true,fontHookReturnsZ:true,
+    localizeHookActive:true,localizeHookReturnsZ:false,
+  }),{
+    code:0x52,entry:'copy',source:'fontHook',hookCommand:1,
+    record:null,sourceAddress:null,
+    branchOutcomes:['07:458C:fallthrough','07:4595:returned'],
+    continuation:'returned',routine:'07:4588–45B5',
+  });
+expectEqual('07:45B6 localize-hook pattern delegation',
+  rom.settledPage7LargeGlyphRecord(0x20,font,{
+    entry:'shifted',fontHookActive:true,fontHookReturnsZ:false,
+    localizeHookActive:true,localizeHookReturnsZ:true,
+  }),{
+    code:0x20,entry:'shifted',source:'localizeHook',hookCommand:0x78,
+    record:null,sourceAddress:null,
+    branchOutcomes:[
+      '07:45BA:fallthrough','07:45C1:fallthrough',
+      '07:45C7:fallthrough','07:45CE:taken',
+    ],
+    continuation:'copy-hook-pattern',routine:'07:45B6–4605',
+  });
+expectEqual('07 large-glyph record differential state count',
+  largeGlyphRecordStates,0x200);
 const pointPreprocessBaseState = {
   styleActive:false,fullScreenDraw:true,styleAxisFlag:false,
   graphStyleFlagBit6:false,

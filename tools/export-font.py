@@ -69,14 +69,16 @@ def extract(rom):
             continue  # width 0 or out-of-table garbage marks an undefined slot
         mask = (1 << w) - 1
         small[code] = {"w": w, "rows": [rom[o + 1 + r] & mask for r in range(SMALL_ROWS)]}
-    return large, small
+    large_trailing_byte = rom[lbase + 256 * LARGE_STRIDE]
+    return large, large_trailing_byte, small
 
 
-def write_json(path, large, small):
+def write_json(path, large, large_trailing_byte, small):
     data = {
         "romSha256": TI84_PLUS_OS_255MP_SHA256,
         "large": {"page": LARGE_PAGE, "addr": LARGE_ADDR, "stride": LARGE_STRIDE,
-                  "width": LARGE_W, "rows": LARGE_ROWS, "glyphs": large},
+                  "width": LARGE_W, "rows": LARGE_ROWS,
+                  "trailingByte": large_trailing_byte, "glyphs": large},
         "small": {"page": SMALL_PAGE, "addr": SMALL_ADDR, "stride": SMALL_STRIDE,
                   "rows": SMALL_ROWS,
                   "glyphs": {str(c): g for c, g in sorted(small.items())}},
@@ -103,8 +105,8 @@ def main():
         raise SystemExit(
             f"ROM SHA-256 mismatch: expected {TI84_PLUS_OS_255MP_SHA256}, got {digest}"
         )
-    large, small = extract(rom)
-    write_json(args.json, large, small)
+    large, large_trailing_byte, small = extract(rom)
+    write_json(args.json, large, large_trailing_byte, small)
     print(f"wrote {args.json} ({len(large)} large glyphs, {len(small)} small glyphs)")
 
 
