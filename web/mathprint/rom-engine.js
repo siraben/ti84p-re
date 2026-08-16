@@ -2860,6 +2860,14 @@
         state.depth = 1;
         const repeatX = secondEnd + 9;
         renderChildAt(1, repeatX, record.word0B + 2);
+        // The repeated active blank variable receives a solid five-pixel
+        // focus box. Its first rendering in the derivative denominator keeps
+        // the ordinary dotted EF1Eh small glyph.
+        if (first.editor_cursor_uses_empty_slot) emit(record, origin, {
+          kind:'bitmap',x:repeatX,y:record.word0B + 2,
+          width:5,height:5,rows:[0x1f,0x11,0x11,0x11,0x1f],
+          routine:'34:64A0–64C1 active-variable repeat',
+        });
         emit(record, origin, {
           kind:'glyph', code:0x3d, x:repeatX + first.word07,
           y:record.word0B + 2,
@@ -5430,10 +5438,11 @@
   // Structural-template insertion consumes the live arena state as well as
   // the semantic tree: newly allocated record IDs and the structural-depth
   // gate are not recoverable from the cursor AST alone. EF 2Eh/EF 2Fh map to
-  // type 20h. 24h maps to integral type 22h, F1h maps to nth-root type
-  // 24h, EF34h maps to log-base type 28h, and F0h maps to postfix-power
-  // type 2Ah. B2h, BFh, C1h, and BCh map to the one-child types 21h and
-  // 25h–27h at 34:5935; all four use the shared path at 34:5057.
+  // type 20h. 24h and 25h map to integral type 22h and nDeriv type 23h.
+  // F1h maps to nth-root type 24h, EF34h maps to log-base type 28h, and
+  // F0h maps to postfix-power type 2Ah. B2h, BFh, C1h, and BCh map to the
+  // one-child types 21h and 25h–27h at 34:5935; all four use the shared
+  // path at 34:5057.
   function editorInsertStructuralTemplate(input, sourceToken = [0xef,0x2e]) {
     if (!input || typeof input !== 'object' || !input.editor ||
         !Array.isArray(input.nodes))
@@ -5455,7 +5464,7 @@
       0x26:{kind:'tenPower',child:'exponent'},
       0x27:{kind:'radical',child:'radicand'},
     }[renderType];
-    if (renderType !== 0x20 && renderType !== 0x22 &&
+    if (renderType !== 0x20 && renderType !== 0x22 && renderType !== 0x23 &&
         renderType !== 0x24 && renderType !== 0x28 &&
         renderType !== 0x2a && !unaryStructuralSpec)
       throw new RangeError(
@@ -5484,7 +5493,7 @@
         new Set(ids).size !== ids.length)
       throw new RangeError('decoded editor state has an invalid record ID');
     const firstId = Math.max(...ids) + 1;
-    const allocationCount = renderType === 0x22 ? 5 :
+    const allocationCount = renderType === 0x22 ? 5 : renderType === 0x23 ? 4 :
       renderType === 0x20 || renderType === 0x24 || renderType === 0x28 ? 3 : 2;
     if (firstId > 0x10000 - allocationCount)
       throw new RangeError(
@@ -6031,6 +6040,65 @@
         editor_leaf_record_id:originalCursor.record_id,
       };
     };
+    const nDerivAtCursor = leaf => {
+      let left = [];
+      let right = [];
+      if (leaf && leaf.kind === 'editorCursor') {
+        originalCursor = leaf;
+      } else if (leaf && leaf.kind === 'sequence' &&
+                 Array.isArray(leaf.parts)) {
+        const cursorIndex = leaf.parts.findIndex(
+          part => part && part.kind === 'editorCursor');
+        if (cursorIndex < 0)
+          throw new RangeError(
+            'nDeriv insertion sequence has no direct cursor');
+        originalCursor = leaf.parts[cursorIndex];
+        left = leaf.parts.slice(0,cursorIndex).map(clone);
+        right = leaf.parts.slice(cursorIndex + 1).map(clone);
+      } else {
+        return null;
+      }
+      const active = activeNode(originalCursor);
+      if (!active || !Array.isArray(active.payload) ||
+          !Number.isInteger(originalCursor.byte_offset) ||
+          originalCursor.byte_offset < 0 ||
+          originalCursor.byte_offset > active.payload.length)
+        throw new RangeError(
+          'nDeriv insertion requires a valid active payload split');
+      if (right.length) {
+        const remainder = stripFirstPackedUnit(right[0]);
+        if (remainder === null) right.shift();
+        else right[0] = remainder;
+      }
+      const child = (recordId, activeChild = false) => activeChild ? {
+        kind:'sequence',parts:[
+          {
+            kind:'editorCursor',record_id:recordId,byte_offset:0,
+            record_word0F:0,record_word11:2,
+            editor_leaf_record_id:recordId,
+          },
+          {kind:'extendedToken',tokens:[0xef,0x1e]},
+        ],editor_leaf_record_id:recordId,
+      } : {
+        kind:'extendedToken',tokens:[0xef,0x1e],
+        editor_leaf_record_id:recordId,
+      };
+      const structural = {
+        kind:'nDeriv',
+        variable:child(structuralId + 1,true),
+        body:child(structuralId + 2),
+        value:child(structuralId + 3),
+        editor_record_id:structuralId,
+        editor_record_byte13:retainedStructuralByte13(originalCursor,active),
+      };
+      const parts = [...left,structural,...right];
+      return parts.length === 1 ? {
+        ...structural,editor_leaf_record_id:originalCursor.record_id,
+      } : {
+        kind:'sequence',parts,
+        editor_leaf_record_id:originalCursor.record_id,
+      };
+    };
     let replaced = false;
     const visit = value => {
       if (!value || typeof value !== 'object') return value;
@@ -6039,6 +6107,7 @@
         return unaryStructuralSpec
           ? unaryStructuralAtCursor(value)
           : renderType === 0x22 ? integralAtCursor(value)
+          : renderType === 0x23 ? nDerivAtCursor(value)
           : renderType === 0x24 ? nthRootAtCursor(value)
           : renderType === 0x28 ? logBaseAtCursor(value)
           : renderType === 0x2a ? powerAtCursor(value)
@@ -6050,6 +6119,7 @@
         return unaryStructuralSpec
           ? unaryStructuralAtCursor(value)
           : renderType === 0x22 ? integralAtCursor(value)
+          : renderType === 0x23 ? nDerivAtCursor(value)
           : renderType === 0x24 ? nthRootAtCursor(value)
           : renderType === 0x28 ? logBaseAtCursor(value)
           : renderType === 0x2a ? powerAtCursor(value)
@@ -6092,6 +6162,23 @@
         child_record_ids:[
           structuralId + 1,structuralId + 2,
           structuralId + 3,structuralId + 4,
+        ],
+        replaced_right_token:replacedRightToken,
+        before_structural_depth:depth,
+        after_structural_depth:gate.incrementedDepth,
+        routine:'34:473A → 35:7B37 → 34:4169 → 34:5026–5057 → 34:5473–547B → 34:58A0–58B4 → 34:4862–492B',
+      },
+    };
+    if (renderType === 0x23) return {
+      expression,
+      mutation:{
+        status:'inserted',source_token:source,render_type:renderType,
+        marker,parent_record_id:originalCursor.record_id,
+        before_byte_offset:originalCursor.byte_offset,
+        after_record_id:structuralId + 1,after_byte_offset:0,
+        structural_record_id:structuralId,
+        child_record_ids:[
+          structuralId + 1,structuralId + 2,structuralId + 3,
         ],
         replaced_right_token:replacedRightToken,
         before_structural_depth:depth,
@@ -7490,7 +7577,15 @@
         };
       }
       if (expression.kind === 'nDeriv') {
-        if (expression.variable.kind !== 'tokens')
+        const liveBlankVariable = editorMode &&
+          expression.variable.kind === 'sequence' &&
+          expression.variable.parts.length === 2 &&
+          expression.variable.parts[0].kind === 'editorCursor' &&
+          expression.variable.parts[1].kind === 'tokens' &&
+          expression.variable.parts[1].tokens.length === 2 &&
+          expression.variable.parts[1].tokens[0] === 0xef &&
+          expression.variable.parts[1].tokens[1] === 0x1e;
+        if (expression.variable.kind !== 'tokens' && !liveBlankVariable)
           throw new RangeError('nDeriv variable must be an ordinary token run');
         const renderType = settledStructuralTokenType(0x00, 0x25);
         if (renderType !== 0x23)
@@ -7546,12 +7641,17 @@
           bodyY + body.word05,
           variableY + variable.word05,
           valueY + value.word05);
+        // The live template keeps a two-pixel cursor allowance between the
+        // derivative fraction and the body while its blank variable child is
+        // active. Settled records use the 34:76C2 positions without it.
+        const liveVariableGap = liveBlankVariable ? 2 : 0;
         variable.word0B = 5;
         variable.word0D = checkedWord(variableY, 'nDeriv variable y');
-        body.word0B = 16;
+        body.word0B = 16 + liveVariableGap;
         body.word0D = checkedWord(bodyY, 'nDeriv body y');
         value.word0B = checkedWord(
-          body.word07 + variable.word07 + 29, 'nDeriv value x');
+          body.word07 + variable.word07 + 29 + liveVariableGap,
+          'nDeriv value x');
         value.word0D = checkedWord(valueY, 'nDeriv evaluation-value y');
         structural.word07 = checkedWord(height, 'nDeriv height');
         structural.word09 = checkedWord(
