@@ -143584,6 +143584,42 @@
       "unclassified_branch_transitions": 0,
       "provenance": "natural_calculator_input",
       "unique_branch_outcomes": 454
+    },
+    {
+      "label": "mathprint_editor_power_blank",
+      "sha256": "782ea7f64783623cef0fe38e45f53c9614c18052b98e59ae6dcdee942ca8be4f",
+      "bytes": 88754412,
+      "instructions": 1806274,
+      "unclassified_branch_transitions": 0,
+      "provenance": "natural_calculator_input",
+      "unique_branch_outcomes": 235
+    },
+    {
+      "label": "mathprint_editor_power_end",
+      "sha256": "9d316b4fc448c3d202be3a0496eb81a6cc8573b5a2223a74b811ad1ce4ef6173",
+      "bytes": 92158866,
+      "instructions": 1875575,
+      "unclassified_branch_transitions": 0,
+      "provenance": "natural_calculator_input",
+      "unique_branch_outcomes": 238
+    },
+    {
+      "label": "mathprint_editor_power_leading",
+      "sha256": "30b8a7970cf0d1905281bc7ac1130c1a0d60eae847775b9936f6a7474b59ab70",
+      "bytes": 101503806,
+      "instructions": 2065446,
+      "unclassified_branch_transitions": 0,
+      "provenance": "natural_calculator_input",
+      "unique_branch_outcomes": 238
+    },
+    {
+      "label": "mathprint_editor_power_mid_leaf",
+      "sha256": "efe22ba4ff41bd29e327c2d86f8af6e092005a78594e3a414c89ace21ed65c82",
+      "bytes": 99342096,
+      "instructions": 2021598,
+      "unclassified_branch_transitions": 0,
+      "provenance": "natural_calculator_input",
+      "unique_branch_outcomes": 239
     }
   ],
   "minimized_trace_corpus": {
@@ -143600,9 +143636,9 @@
       "LCD-write traces"
     ],
     "tie_break": "minimum retained trace bytes, then lexicographic labels",
-    "source_trace_count": 231,
+    "source_trace_count": 235,
     "source_trace_provenance_counts": {
-      "natural_calculator_input": 230,
+      "natural_calculator_input": 234,
       "synthetic_state_injection": 1
     },
     "selected_trace_count": 22,
@@ -144027,6 +144063,10 @@
       "mathprint_editor_nthroot_end",
       "mathprint_editor_nthroot_leading",
       "mathprint_editor_nthroot_mid_leaf",
+      "mathprint_editor_power_blank",
+      "mathprint_editor_power_end",
+      "mathprint_editor_power_leading",
+      "mathprint_editor_power_mid_leaf",
       "mathprint_editor_radical_blank",
       "mathprint_editor_radical_denominator_blank",
       "mathprint_editor_radical_denominator_end",
@@ -144231,9 +144271,9 @@
       "LCD-write traces"
     ],
     "tie_break": "minimum retained trace bytes, then lexicographic labels",
-    "source_trace_count": 230,
+    "source_trace_count": 234,
     "source_trace_provenance_counts": {
-      "natural_calculator_input": 230
+      "natural_calculator_input": 234
     },
     "selected_trace_count": 22,
     "selected_trace_bytes": 4081707150,
@@ -144616,6 +144656,10 @@
       "mathprint_editor_nthroot_end",
       "mathprint_editor_nthroot_leading",
       "mathprint_editor_nthroot_mid_leaf",
+      "mathprint_editor_power_blank",
+      "mathprint_editor_power_end",
+      "mathprint_editor_power_leading",
+      "mathprint_editor_power_mid_leaf",
       "mathprint_editor_radical_blank",
       "mathprint_editor_radical_denominator_blank",
       "mathprint_editor_radical_denominator_end",
@@ -144809,9 +144853,9 @@
     "algorithm": "exact lexicographic Optimize set cover via Z3",
     "objective": "preserve every tagged dynamic feature observed by the supplied trace corpus",
     "tie_break": "minimum retained trace bytes, then lexicographic labels",
-    "source_trace_count": 231,
-    "selected_trace_count": 169,
-    "selected_trace_bytes": 26951432454,
+    "source_trace_count": 235,
+    "selected_trace_count": 173,
+    "selected_trace_bytes": 27333191634,
     "selected": [
       {
         "label": "list-flat",
@@ -145071,6 +145115,42 @@
         "exclusive_features": 1,
         "exclusive_feature_ids": [
           "oracle_case:mathprint-editor-structural-mutation-oracles:transitions:b64878e61eea3aa5d5cca5b7b4d820e90f2184f455982b56dd47df11528aa2b2"
+        ]
+      },
+      {
+        "label": "mathprint_editor_power_blank",
+        "provenance": "natural_calculator_input",
+        "total_features": 244,
+        "exclusive_features": 1,
+        "exclusive_feature_ids": [
+          "oracle_case:mathprint-editor-structural-mutation-oracles:transitions:782ea7f64783623cef0fe38e45f53c9614c18052b98e59ae6dcdee942ca8be4f"
+        ]
+      },
+      {
+        "label": "mathprint_editor_power_end",
+        "provenance": "natural_calculator_input",
+        "total_features": 248,
+        "exclusive_features": 1,
+        "exclusive_feature_ids": [
+          "oracle_case:mathprint-editor-structural-mutation-oracles:transitions:9d316b4fc448c3d202be3a0496eb81a6cc8573b5a2223a74b811ad1ce4ef6173"
+        ]
+      },
+      {
+        "label": "mathprint_editor_power_leading",
+        "provenance": "natural_calculator_input",
+        "total_features": 249,
+        "exclusive_features": 1,
+        "exclusive_feature_ids": [
+          "oracle_case:mathprint-editor-structural-mutation-oracles:transitions:30b8a7970cf0d1905281bc7ac1130c1a0d60eae847775b9936f6a7474b59ab70"
+        ]
+      },
+      {
+        "label": "mathprint_editor_power_mid_leaf",
+        "provenance": "natural_calculator_input",
+        "total_features": 250,
+        "exclusive_features": 1,
+        "exclusive_feature_ids": [
+          "oracle_case:mathprint-editor-structural-mutation-oracles:transitions:efe22ba4ff41bd29e327c2d86f8af6e092005a78594e3a414c89ace21ed65c82"
         ]
       },
       {
@@ -146486,7 +146566,7 @@
       "tmp__mathprint_fraction",
       "tmp__mathprint_power"
     ],
-    "covered_features": 1313,
+    "covered_features": 1317,
     "feature_kind_counts": {
       "branch_outcome": 1008,
       "dispatch_index": 33,
@@ -146495,7 +146575,7 @@
       "lcd_oracle": 14,
       "modeled_path": 12,
       "observed_path": 14,
-      "oracle_case": 151,
+      "oracle_case": 155,
       "record_oracle": 15
     },
     "proven_minimum": true
@@ -146504,9 +146584,9 @@
     "algorithm": "exact lexicographic Optimize set cover via Z3",
     "objective": "preserve every tagged dynamic feature observed by the supplied trace corpus",
     "tie_break": "minimum retained trace bytes, then lexicographic labels",
-    "source_trace_count": 230,
-    "selected_trace_count": 168,
-    "selected_trace_bytes": 26855548536,
+    "source_trace_count": 234,
+    "selected_trace_count": 172,
+    "selected_trace_bytes": 27237307716,
     "selected": [
       {
         "label": "list-flat",
@@ -146766,6 +146846,42 @@
         "exclusive_features": 1,
         "exclusive_feature_ids": [
           "oracle_case:mathprint-editor-structural-mutation-oracles:transitions:b64878e61eea3aa5d5cca5b7b4d820e90f2184f455982b56dd47df11528aa2b2"
+        ]
+      },
+      {
+        "label": "mathprint_editor_power_blank",
+        "provenance": "natural_calculator_input",
+        "total_features": 244,
+        "exclusive_features": 1,
+        "exclusive_feature_ids": [
+          "oracle_case:mathprint-editor-structural-mutation-oracles:transitions:782ea7f64783623cef0fe38e45f53c9614c18052b98e59ae6dcdee942ca8be4f"
+        ]
+      },
+      {
+        "label": "mathprint_editor_power_end",
+        "provenance": "natural_calculator_input",
+        "total_features": 248,
+        "exclusive_features": 1,
+        "exclusive_feature_ids": [
+          "oracle_case:mathprint-editor-structural-mutation-oracles:transitions:9d316b4fc448c3d202be3a0496eb81a6cc8573b5a2223a74b811ad1ce4ef6173"
+        ]
+      },
+      {
+        "label": "mathprint_editor_power_leading",
+        "provenance": "natural_calculator_input",
+        "total_features": 249,
+        "exclusive_features": 1,
+        "exclusive_feature_ids": [
+          "oracle_case:mathprint-editor-structural-mutation-oracles:transitions:30b8a7970cf0d1905281bc7ac1130c1a0d60eae847775b9936f6a7474b59ab70"
+        ]
+      },
+      {
+        "label": "mathprint_editor_power_mid_leaf",
+        "provenance": "natural_calculator_input",
+        "total_features": 250,
+        "exclusive_features": 1,
+        "exclusive_feature_ids": [
+          "oracle_case:mathprint-editor-structural-mutation-oracles:transitions:efe22ba4ff41bd29e327c2d86f8af6e092005a78594e3a414c89ace21ed65c82"
         ]
       },
       {
@@ -148172,7 +148288,7 @@
       "tmp__mathprint_fraction",
       "tmp__mathprint_power"
     ],
-    "covered_features": 1310,
+    "covered_features": 1314,
     "feature_kind_counts": {
       "branch_outcome": 1005,
       "dispatch_index": 33,
@@ -148181,7 +148297,7 @@
       "lcd_oracle": 14,
       "modeled_path": 12,
       "observed_path": 14,
-      "oracle_case": 151,
+      "oracle_case": 155,
       "record_oracle": 15
     },
     "proven_minimum": true
@@ -148259,13 +148375,13 @@
           "target": "34:4744",
           "fallthrough": "34:473F",
           "observed": {
-            "taken": 364
+            "taken": 368
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 364,
+              "hits": 368,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1709485,
@@ -148323,7 +148439,7 @@
           "fallthrough": "34:474E",
           "observed": {
             "taken": 1,
-            "fallthrough": 363
+            "fallthrough": 367
           },
           "outcomes": [
             {
@@ -148353,7 +148469,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 363,
+              "hits": 367,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1711074,
@@ -148425,7 +148541,7 @@
           "fallthrough": "34:475C",
           "observed": {
             "taken": 50,
-            "fallthrough": 313
+            "fallthrough": 317
           },
           "outcomes": [
             {
@@ -148455,7 +148571,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 313,
+              "hits": 317,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1714114,
@@ -148715,7 +148831,7 @@
           "target": null,
           "fallthrough": "34:4870",
           "observed": {
-            "fallthrough": 2086
+            "fallthrough": 2106
           },
           "outcomes": [
             {
@@ -148726,7 +148842,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 2086,
+              "hits": 2106,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 706328,
@@ -148778,7 +148894,7 @@
           "target": null,
           "fallthrough": "34:4874",
           "observed": {
-            "fallthrough": 2086
+            "fallthrough": 2106
           },
           "outcomes": [
             {
@@ -148789,7 +148905,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 2086,
+              "hits": 2106,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 706385,
@@ -148841,14 +148957,14 @@
           "target": "34:488F",
           "fallthrough": "34:4882",
           "observed": {
-            "taken": 2078,
+            "taken": 2098,
             "fallthrough": 8
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 2078,
+              "hits": 2098,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 706613,
@@ -148943,14 +149059,14 @@
           "target": "34:48B0",
           "fallthrough": "34:489D",
           "observed": {
-            "taken": 2695,
+            "taken": 2715,
             "fallthrough": 16
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 2695,
+              "hits": 2715,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 706623,
@@ -149147,14 +149263,14 @@
           "target": "34:48B9",
           "fallthrough": "34:48B4",
           "observed": {
-            "taken": 2499,
+            "taken": 2519,
             "fallthrough": 204
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 2499,
+              "hits": 2519,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 706625,
@@ -149250,7 +149366,7 @@
           "fallthrough": "34:48BD",
           "observed": {
             "taken": 152,
-            "fallthrough": 2347
+            "fallthrough": 2367
           },
           "outcomes": [
             {
@@ -149280,7 +149396,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 2347,
+              "hits": 2367,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 706627,
@@ -149351,14 +149467,14 @@
           "target": "34:48C8",
           "fallthrough": "34:48C1",
           "observed": {
-            "taken": 2143,
+            "taken": 2163,
             "fallthrough": 204
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 2143,
+              "hits": 2163,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 706629,
@@ -149556,7 +149672,7 @@
           "fallthrough": "34:48E7",
           "observed": {
             "taken": 625,
-            "fallthrough": 2086
+            "fallthrough": 2106
           },
           "outcomes": [
             {
@@ -149586,7 +149702,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 2086,
+              "hits": 2106,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 706707,
@@ -149657,14 +149773,14 @@
           "target": "34:48F8",
           "fallthrough": "34:48F5",
           "observed": {
-            "taken": 2078,
+            "taken": 2098,
             "fallthrough": 8
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 2078,
+              "hits": 2098,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 706718,
@@ -149759,14 +149875,14 @@
           "target": "34:4942",
           "fallthrough": "34:4940",
           "observed": {
-            "taken": 1285,
-            "fallthrough": 1450
+            "taken": 1289,
+            "fallthrough": 1466
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 1285,
+              "hits": 1289,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1710553,
@@ -149790,7 +149906,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 1450,
+              "hits": 1466,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 706641,
@@ -149861,14 +149977,14 @@
           "target": "34:4948",
           "fallthrough": "34:4947",
           "observed": {
-            "taken": 2695,
+            "taken": 2715,
             "fallthrough": 40
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 2695,
+              "hits": 2715,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 706648,
@@ -149963,14 +150079,14 @@
           "target": "34:4980",
           "fallthrough": "34:496C",
           "observed": {
-            "taken": 1450,
-            "fallthrough": 1285
+            "taken": 1466,
+            "fallthrough": 1289
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 1450,
+              "hits": 1466,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 706685,
@@ -149994,7 +150110,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 1285,
+              "hits": 1289,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1710595,
@@ -150065,14 +150181,14 @@
           "target": "34:4979",
           "fallthrough": "34:4972",
           "observed": {
-            "taken": 1245,
+            "taken": 1249,
             "fallthrough": 40
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 1245,
+              "hits": 1249,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1710601,
@@ -150167,14 +150283,14 @@
           "target": null,
           "fallthrough": "34:49B4",
           "observed": {
-            "fallthrough": 3791,
-            "returned": 228
+            "fallthrough": 3819,
+            "returned": 232
           },
           "outcomes": [
             {
               "outcome": "returned",
               "status": "exercised",
-              "hits": 228,
+              "hits": 232,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1508993,
@@ -150198,7 +150314,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 3791,
+              "hits": 3819,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 706906,
@@ -150270,13 +150386,13 @@
           "fallthrough": "34:49BD",
           "observed": {
             "fallthrough": 563,
-            "returned": 3228
+            "returned": 3256
           },
           "outcomes": [
             {
               "outcome": "returned",
               "status": "exercised",
-              "hits": 3228,
+              "hits": 3256,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 707047,
@@ -150371,7 +150487,7 @@
           "target": null,
           "fallthrough": "34:4A49",
           "observed": {
-            "fallthrough": 3601,
+            "fallthrough": 3625,
             "returned": 68
           },
           "outcomes": [
@@ -150402,7 +150518,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 3601,
+              "hits": 3625,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 707098,
@@ -150473,14 +150589,14 @@
           "target": "34:4A74",
           "fallthrough": "34:4A72",
           "observed": {
-            "taken": 2420,
+            "taken": 2444,
             "fallthrough": 1181
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 2420,
+              "hits": 2444,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 707190,
@@ -150575,14 +150691,14 @@
           "target": null,
           "fallthrough": "34:4B2F",
           "observed": {
-            "fallthrough": 636,
-            "returned": 1450
+            "fallthrough": 640,
+            "returned": 1466
           },
           "outcomes": [
             {
               "outcome": "returned",
               "status": "exercised",
-              "hits": 1450,
+              "hits": 1466,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 706585,
@@ -150606,7 +150722,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 636,
+              "hits": 640,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1710490,
@@ -150677,7 +150793,7 @@
           "target": "34:4B84",
           "fallthrough": "34:4B82",
           "observed": {
-            "fallthrough": 2474
+            "fallthrough": 2498
           },
           "outcomes": [
             {
@@ -150688,7 +150804,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 2474,
+              "hits": 2498,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 706322,
@@ -150740,14 +150856,14 @@
           "target": "34:4B96",
           "fallthrough": "34:4B8F",
           "observed": {
-            "taken": 783,
-            "fallthrough": 1807
+            "taken": 787,
+            "fallthrough": 1827
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 783,
+              "hits": 787,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1220689,
@@ -150771,7 +150887,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 1807,
+              "hits": 1827,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 706314,
@@ -150842,14 +150958,14 @@
           "target": "34:5693",
           "fallthrough": "34:567C",
           "observed": {
-            "taken": 1450,
+            "taken": 1466,
             "fallthrough": 424
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 1450,
+              "hits": 1466,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 707056,
@@ -155254,13 +155370,13 @@
           "fallthrough": "34:58F4",
           "observed": {
             "fallthrough": 2039,
-            "returned": 1351
+            "returned": 1359
           },
           "outcomes": [
             {
               "outcome": "returned",
               "status": "exercised",
-              "hits": 1351,
+              "hits": 1359,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1205104,
@@ -155356,7 +155472,7 @@
           "fallthrough": "34:5906",
           "observed": {
             "taken": 3193,
-            "fallthrough": 3158
+            "fallthrough": 3182
           },
           "outcomes": [
             {
@@ -155386,7 +155502,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 3158,
+              "hits": 3182,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 707087,
@@ -155457,14 +155573,14 @@
           "target": "34:5946",
           "fallthrough": "34:593F",
           "observed": {
-            "taken": 29710,
-            "fallthrough": 826
+            "taken": 29790,
+            "fallthrough": 830
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 29710,
+              "hits": 29790,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1653877,
@@ -155488,7 +155604,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 826,
+              "hits": 830,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1709330,
@@ -155560,7 +155676,7 @@
           "fallthrough": "34:5944",
           "observed": {
             "taken": 234,
-            "fallthrough": 592
+            "fallthrough": 596
           },
           "outcomes": [
             {
@@ -155590,7 +155706,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 592,
+              "hits": 596,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1709334,
@@ -155661,14 +155777,14 @@
           "target": "34:593A",
           "fallthrough": "34:594A",
           "observed": {
-            "taken": 28330,
-            "fallthrough": 1614
+            "taken": 28405,
+            "fallthrough": 1619
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 28330,
+              "hits": 28405,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1653880,
@@ -155693,7 +155809,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 1614,
+              "hits": 1619,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1653985,
@@ -163487,7 +163603,7 @@
           "fallthrough": "34:5DE3",
           "observed": {
             "taken": 326,
-            "fallthrough": 23264
+            "fallthrough": 23303
           },
           "outcomes": [
             {
@@ -163517,7 +163633,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 23264,
+              "hits": 23303,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 709708,
@@ -163691,7 +163807,7 @@
           "fallthrough": "34:5E03",
           "observed": {
             "taken": 196,
-            "fallthrough": 20207
+            "fallthrough": 20246
           },
           "outcomes": [
             {
@@ -163721,7 +163837,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 20207,
+              "hits": 20246,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 709777,
@@ -164059,14 +164175,14 @@
           "target": null,
           "fallthrough": "34:5FF2",
           "observed": {
-            "fallthrough": 2097,
-            "returned": 397
+            "fallthrough": 2112,
+            "returned": 401
           },
           "outcomes": [
             {
               "outcome": "returned",
               "status": "exercised",
-              "hits": 397,
+              "hits": 401,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1314719,
@@ -164090,7 +164206,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 2097,
+              "hits": 2112,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1602307,
@@ -164162,7 +164278,7 @@
           "fallthrough": "34:5FFA",
           "observed": {
             "taken": 48,
-            "fallthrough": 2049
+            "fallthrough": 2064
           },
           "outcomes": [
             {
@@ -164192,7 +164308,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 2049,
+              "hits": 2064,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1602311,
@@ -164264,7 +164380,7 @@
           "fallthrough": "34:6000",
           "observed": {
             "taken": 51,
-            "fallthrough": 2046
+            "fallthrough": 2061
           },
           "outcomes": [
             {
@@ -164294,7 +164410,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 2046,
+              "hits": 2061,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1602355,
@@ -164365,7 +164481,7 @@
           "target": null,
           "fallthrough": "34:6004",
           "observed": {
-            "fallthrough": 2084,
+            "fallthrough": 2099,
             "returned": 13
           },
           "outcomes": [
@@ -164396,7 +164512,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 2084,
+              "hits": 2099,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1602364,
@@ -164467,14 +164583,14 @@
           "target": "34:600E",
           "fallthrough": "34:600B",
           "observed": {
-            "taken": 2039,
+            "taken": 2054,
             "fallthrough": 46
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 2039,
+              "hits": 2054,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1602368,
@@ -164570,13 +164686,13 @@
           "fallthrough": "34:6012",
           "observed": {
             "fallthrough": 34,
-            "returned": 2051
+            "returned": 2066
           },
           "outcomes": [
             {
               "outcome": "returned",
               "status": "exercised",
-              "hits": 2051,
+              "hits": 2066,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1602403,
@@ -164899,14 +165015,14 @@
           "target": null,
           "fallthrough": "34:6080",
           "observed": {
-            "fallthrough": 4951,
-            "returned": 241
+            "fallthrough": 4990,
+            "returned": 245
           },
           "outcomes": [
             {
               "outcome": "returned",
               "status": "exercised",
-              "hits": 241,
+              "hits": 245,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1347648,
@@ -164930,7 +165046,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 4951,
+              "hits": 4990,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 709686,
@@ -165001,7 +165117,7 @@
           "target": "34:608D",
           "fallthrough": "34:6087",
           "observed": {
-            "fallthrough": 4951
+            "fallthrough": 4990
           },
           "outcomes": [
             {
@@ -165012,7 +165128,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 4951,
+              "hits": 4990,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 709694,
@@ -165064,7 +165180,7 @@
           "target": "34:608A",
           "fallthrough": "34:6089",
           "observed": {
-            "fallthrough": 4951
+            "fallthrough": 4990
           },
           "outcomes": [
             {
@@ -165075,7 +165191,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 4951,
+              "hits": 4990,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 709695,
@@ -165127,13 +165243,13 @@
           "target": "34:5DF8",
           "fallthrough": "34:60B6",
           "observed": {
-            "taken": 4778
+            "taken": 4817
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 4778,
+              "hits": 4817,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 709768,
@@ -165190,14 +165306,14 @@
           "target": "34:6102",
           "fallthrough": "34:60EB",
           "observed": {
-            "taken": 3720,
-            "fallthrough": 2059
+            "taken": 3724,
+            "fallthrough": 2063
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 3720,
+              "hits": 3724,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1752437,
@@ -165221,7 +165337,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 2059,
+              "hits": 2063,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1719995,
@@ -165292,7 +165408,7 @@
           "target": null,
           "fallthrough": "34:613A",
           "observed": {
-            "fallthrough": 21192,
+            "fallthrough": 21208,
             "returned": 394
           },
           "outcomes": [
@@ -165323,7 +165439,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 21192,
+              "hits": 21208,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1712291,
@@ -165394,7 +165510,7 @@
           "target": null,
           "fallthrough": "34:6140",
           "observed": {
-            "fallthrough": 20901
+            "fallthrough": 20917
           },
           "outcomes": [
             {
@@ -165405,7 +165521,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 20901,
+              "hits": 20917,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1712297,
@@ -166307,14 +166423,14 @@
           "target": "34:61D8",
           "fallthrough": "34:61D2",
           "observed": {
-            "taken": 1728,
+            "taken": 1732,
             "fallthrough": 331
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 1728,
+              "hits": 1732,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1720116,
@@ -166512,7 +166628,7 @@
           "fallthrough": "34:61DC",
           "observed": {
             "taken": 158,
-            "fallthrough": 1570
+            "fallthrough": 1574
           },
           "outcomes": [
             {
@@ -166542,7 +166658,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 1570,
+              "hits": 1574,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1720118,
@@ -166614,7 +166730,7 @@
           "fallthrough": "34:61E0",
           "observed": {
             "taken": 50,
-            "fallthrough": 1520
+            "fallthrough": 1524
           },
           "outcomes": [
             {
@@ -166644,7 +166760,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 1520,
+              "hits": 1524,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1720120,
@@ -166715,7 +166831,7 @@
           "target": "34:6206",
           "fallthrough": "34:61E4",
           "observed": {
-            "fallthrough": 1520
+            "fallthrough": 1524
           },
           "outcomes": [
             {
@@ -166726,7 +166842,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 1520,
+              "hits": 1524,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1720122,
@@ -166779,7 +166895,7 @@
           "fallthrough": "34:61E8",
           "observed": {
             "taken": 100,
-            "fallthrough": 1420
+            "fallthrough": 1424
           },
           "outcomes": [
             {
@@ -166809,7 +166925,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 1420,
+              "hits": 1424,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1720124,
@@ -166880,14 +166996,14 @@
           "target": "34:61F2",
           "fallthrough": "34:61EC",
           "observed": {
-            "taken": 1372,
+            "taken": 1376,
             "fallthrough": 48
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 1372,
+              "hits": 1376,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1720126,
@@ -167084,14 +167200,14 @@
           "target": "34:61FE",
           "fallthrough": "34:61F6",
           "observed": {
-            "taken": 1002,
+            "taken": 1006,
             "fallthrough": 370
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 1002,
+              "hits": 1006,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1720128,
@@ -167288,14 +167404,14 @@
           "target": "34:6209",
           "fallthrough": "34:6202",
           "observed": {
-            "taken": 790,
+            "taken": 794,
             "fallthrough": 212
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 790,
+              "hits": 794,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1720130,
@@ -168428,14 +168544,14 @@
           "target": "34:69E5",
           "fallthrough": "34:6611",
           "observed": {
-            "taken": 2700,
-            "fallthrough": 10829
+            "taken": 2724,
+            "fallthrough": 10852
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 2700,
+              "hits": 2724,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 709333,
@@ -168459,7 +168575,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 10829,
+              "hits": 10852,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1314519,
@@ -168530,14 +168646,14 @@
           "target": "34:662D",
           "fallthrough": "34:6629",
           "observed": {
-            "taken": 10225,
+            "taken": 10248,
             "fallthrough": 604
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 10225,
+              "hits": 10248,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1314679,
@@ -168632,14 +168748,14 @@
           "target": "34:6706",
           "fallthrough": "34:6636",
           "observed": {
-            "taken": 10711,
-            "fallthrough": 12788
+            "taken": 10734,
+            "fallthrough": 12811
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 10711,
+              "hits": 10734,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1314710,
@@ -168663,7 +168779,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 12788,
+              "hits": 12811,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1685944,
@@ -168734,14 +168850,14 @@
           "target": "34:66C0",
           "fallthrough": "34:663C",
           "observed": {
-            "taken": 9058,
-            "fallthrough": 3730
+            "taken": 9077,
+            "fallthrough": 3734
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 9058,
+              "hits": 9077,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1686048,
@@ -168765,7 +168881,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 3730,
+              "hits": 3734,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1752198,
@@ -168837,7 +168953,7 @@
           "fallthrough": "34:665B",
           "observed": {
             "taken": 10,
-            "fallthrough": 3720
+            "fallthrough": 3724
           },
           "outcomes": [
             {
@@ -168867,7 +168983,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 3720,
+              "hits": 3724,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1752383,
@@ -168938,14 +169054,14 @@
           "target": "34:66BB",
           "fallthrough": "34:66B6",
           "observed": {
-            "taken": 12670,
+            "taken": 12693,
             "fallthrough": 118
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 12670,
+              "hits": 12693,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1688102,
@@ -169041,7 +169157,7 @@
           "fallthrough": "34:66CE",
           "observed": {
             "taken": 321,
-            "fallthrough": 8737
+            "fallthrough": 8756
           },
           "outcomes": [
             {
@@ -169071,7 +169187,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 8737,
+              "hits": 8756,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1686138,
@@ -169142,14 +169258,14 @@
           "target": "34:66F4",
           "fallthrough": "34:66E1",
           "observed": {
-            "taken": 8161,
+            "taken": 8180,
             "fallthrough": 576
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 8161,
+              "hits": 8180,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1686160,
@@ -169817,14 +169933,14 @@
           "target": "34:6816",
           "fallthrough": "34:67E8",
           "observed": {
-            "taken": 13892,
+            "taken": 13915,
             "fallthrough": 409
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 13892,
+              "hits": 13915,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1314630,
@@ -170187,7 +170303,7 @@
           "fallthrough": "34:6829",
           "observed": {
             "taken": 241,
-            "fallthrough": 13697
+            "fallthrough": 13720
           },
           "outcomes": [
             {
@@ -170217,7 +170333,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 13697,
+              "hits": 13720,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1314642,
@@ -170288,7 +170404,7 @@
           "target": "34:686B",
           "fallthrough": "34:682B",
           "observed": {
-            "fallthrough": 13697
+            "fallthrough": 13720
           },
           "outcomes": [
             {
@@ -170299,7 +170415,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 13697,
+              "hits": 13720,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1314643,
@@ -170351,14 +170467,14 @@
           "target": "34:6843",
           "fallthrough": "34:6838",
           "observed": {
-            "taken": 13592,
+            "taken": 13615,
             "fallthrough": 105
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 13592,
+              "hits": 13615,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1314656,
@@ -170555,14 +170671,14 @@
           "target": "34:6851",
           "fallthrough": "34:6848",
           "observed": {
-            "taken": 5608,
-            "fallthrough": 8089
+            "taken": 5627,
+            "fallthrough": 8093
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 5608,
+              "hits": 5627,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1314661,
@@ -170586,7 +170702,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 8089,
+              "hits": 8093,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1752706,
@@ -170658,7 +170774,7 @@
           "fallthrough": "34:6857",
           "observed": {
             "taken": 36,
-            "fallthrough": 13661
+            "fallthrough": 13684
           },
           "outcomes": [
             {
@@ -170688,7 +170804,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 13661,
+              "hits": 13684,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1314663,
@@ -170759,14 +170875,14 @@
           "target": "34:6868",
           "fallthrough": "34:685D",
           "observed": {
-            "taken": 8065,
-            "fallthrough": 5596
+            "taken": 8069,
+            "fallthrough": 5615
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 8065,
+              "hits": 8069,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1752714,
@@ -170790,7 +170906,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 5596,
+              "hits": 5615,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1314665,
@@ -170862,7 +170978,7 @@
           "fallthrough": "34:6877",
           "observed": {
             "taken": 234,
-            "fallthrough": 9303
+            "fallthrough": 9329
           },
           "outcomes": [
             {
@@ -170892,7 +171008,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 9303,
+              "hits": 9329,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1686149,
@@ -170964,7 +171080,7 @@
           "fallthrough": "34:687B",
           "observed": {
             "taken": 145,
-            "fallthrough": 9158
+            "fallthrough": 9184
           },
           "outcomes": [
             {
@@ -170994,7 +171110,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 9158,
+              "hits": 9184,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1686151,
@@ -171066,7 +171182,7 @@
           "fallthrough": "34:6880",
           "observed": {
             "taken": 151,
-            "fallthrough": 9007
+            "fallthrough": 9033
           },
           "outcomes": [
             {
@@ -171096,7 +171212,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 9007,
+              "hits": 9033,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1686153,
@@ -171168,7 +171284,7 @@
           "fallthrough": "34:6885",
           "observed": {
             "taken": 48,
-            "fallthrough": 8959
+            "fallthrough": 8985
           },
           "outcomes": [
             {
@@ -171198,7 +171314,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 8959,
+              "hits": 8985,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1686155,
@@ -172823,14 +172939,14 @@
           "target": "34:6A09",
           "fallthrough": "34:6A06",
           "observed": {
-            "taken": 2700,
-            "fallthrough": 2059
+            "taken": 2724,
+            "fallthrough": 2063
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 2700,
+              "hits": 2724,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 709414,
@@ -172854,7 +172970,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 2059,
+              "hits": 2063,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1719450,
@@ -172925,14 +173041,14 @@
           "target": "34:6A2C",
           "fallthrough": "34:6A25",
           "observed": {
-            "taken": 2537,
-            "fallthrough": 4852
+            "taken": 2544,
+            "fallthrough": 4885
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 2537,
+              "hits": 2544,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1719530,
@@ -172956,7 +173072,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 4852,
+              "hits": 4885,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 709491,
@@ -173027,14 +173143,14 @@
           "target": "34:6A30",
           "fallthrough": "34:6A28",
           "observed": {
-            "taken": 2965,
-            "fallthrough": 1887
+            "taken": 2981,
+            "fallthrough": 1904
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 2965,
+              "hits": 2981,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1656075,
@@ -173058,7 +173174,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 1887,
+              "hits": 1904,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 709493,
@@ -173129,13 +173245,13 @@
           "target": "34:6A30",
           "fallthrough": "34:6A2A",
           "observed": {
-            "taken": 1887
+            "taken": 1904
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 1887,
+              "hits": 1904,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 709494,
@@ -173192,7 +173308,7 @@
           "target": "34:69B2",
           "fallthrough": "34:6A30",
           "observed": {
-            "fallthrough": 2537
+            "fallthrough": 2544
           },
           "outcomes": [
             {
@@ -173203,7 +173319,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 2537,
+              "hits": 2544,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1719532,
@@ -173255,14 +173371,14 @@
           "target": "34:6B29",
           "fallthrough": "34:6A36",
           "observed": {
-            "taken": 4853,
-            "fallthrough": 2536
+            "taken": 4889,
+            "fallthrough": 2540
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 4853,
+              "hits": 4889,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 709596,
@@ -173286,7 +173402,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 2536,
+              "hits": 2540,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1719785,
@@ -173357,14 +173473,14 @@
           "target": "34:6A9E",
           "fallthrough": "34:6A51",
           "observed": {
-            "taken": 2104,
+            "taken": 2108,
             "fallthrough": 432
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 2104,
+              "hits": 2108,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1719949,
@@ -173828,14 +173944,14 @@
           "target": "34:6B1C",
           "fallthrough": "34:6AAB",
           "observed": {
-            "taken": 2059,
+            "taken": 2063,
             "fallthrough": 45
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 2059,
+              "hits": 2063,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1719958,
@@ -174447,14 +174563,14 @@
           "target": "34:6BBB",
           "fallthrough": "34:6B38",
           "observed": {
-            "taken": 433,
-            "fallthrough": 4420
+            "taken": 436,
+            "fallthrough": 4453
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 433,
+              "hits": 436,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1719601,
@@ -174478,7 +174594,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 4420,
+              "hits": 4453,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 709604,
@@ -174549,14 +174665,14 @@
           "target": "34:6BBB",
           "fallthrough": "34:6B3E",
           "observed": {
-            "taken": 1733,
-            "fallthrough": 2687
+            "taken": 1742,
+            "fallthrough": 2711
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 1733,
+              "hits": 1742,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1656194,
@@ -174580,7 +174696,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 2687,
+              "hits": 2711,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 709611,
@@ -174651,14 +174767,14 @@
           "target": "34:6B5E",
           "fallthrough": "34:6B44",
           "observed": {
-            "taken": 800,
-            "fallthrough": 1887
+            "taken": 807,
+            "fallthrough": 1904
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 800,
+              "hits": 807,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1720406,
@@ -174682,7 +174798,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 1887,
+              "hits": 1904,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 709625,
@@ -174753,14 +174869,14 @@
           "target": "34:6B4F",
           "fallthrough": "34:6B4B",
           "observed": {
-            "taken": 1183,
+            "taken": 1200,
             "fallthrough": 704
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 1183,
+              "hits": 1200,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 709628,
@@ -174855,14 +174971,14 @@
           "target": "34:6B25",
           "fallthrough": "34:6B57",
           "observed": {
-            "taken": 1410,
+            "taken": 1427,
             "fallthrough": 483
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 1410,
+              "hits": 1427,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 709635,
@@ -174957,14 +175073,14 @@
           "target": "34:6B9A",
           "fallthrough": "34:6B6F",
           "observed": {
-            "taken": 798,
+            "taken": 805,
             "fallthrough": 2
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 798,
+              "hits": 805,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1720533,
@@ -175161,14 +175277,14 @@
           "target": "34:6BB8",
           "fallthrough": "34:6B9F",
           "observed": {
-            "taken": 244,
-            "fallthrough": 554
+            "taken": 247,
+            "fallthrough": 558
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 244,
+              "hits": 247,
               "witness": {
                 "trace": "mp_nthroot_oracles_hkBQuI__nthroot_2_2",
                 "instruction_index": 1948732,
@@ -175192,7 +175308,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 554,
+              "hits": 558,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1720538,
@@ -175264,7 +175380,7 @@
           "fallthrough": "34:6BA6",
           "observed": {
             "taken": 31,
-            "fallthrough": 523
+            "fallthrough": 527
           },
           "outcomes": [
             {
@@ -175294,7 +175410,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 523,
+              "hits": 527,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1720541,
@@ -175365,14 +175481,14 @@
           "target": "34:6C26",
           "fallthrough": "34:6C31",
           "observed": {
-            "taken": 495,
-            "fallthrough": 8340
+            "taken": 497,
+            "fallthrough": 8359
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 495,
+              "hits": 497,
               "witness": {
                 "trace": "mathprint_extended__l1",
                 "instruction_index": 1684668,
@@ -175397,7 +175513,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 8340,
+              "hits": 8359,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1688084,
@@ -175471,14 +175587,14 @@
           "target": "34:6C45",
           "fallthrough": "34:6C3D",
           "observed": {
-            "taken": 7844,
-            "fallthrough": 4327
+            "taken": 7848,
+            "fallthrough": 4344
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 7844,
+              "hits": 7848,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1753005,
@@ -175502,7 +175618,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 4327,
+              "hits": 4344,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1686172,
@@ -175573,14 +175689,14 @@
           "target": "00:3CD5",
           "fallthrough": "34:6C4D",
           "observed": {
-            "taken": 11762,
+            "taken": 11783,
             "fallthrough": 409
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 11762,
+              "hits": 11783,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1686180,
@@ -175675,14 +175791,14 @@
           "target": "34:6C5C",
           "fallthrough": "34:6C55",
           "observed": {
-            "taken": 4327,
-            "fallthrough": 7844
+            "taken": 4344,
+            "fallthrough": 7848
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 4327,
+              "hits": 4344,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1686358,
@@ -175706,7 +175822,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 7844,
+              "hits": 7848,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1753139,
@@ -175777,13 +175893,13 @@
           "target": "34:6C5C",
           "fallthrough": "34:6C5A",
           "observed": {
-            "taken": 7844
+            "taken": 7848
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 7844,
+              "hits": 7848,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1753154,
@@ -175841,7 +175957,7 @@
           "fallthrough": "34:6C6B",
           "observed": {
             "taken": 208,
-            "fallthrough": 11963
+            "fallthrough": 11984
           },
           "outcomes": [
             {
@@ -175871,7 +175987,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 11963,
+              "hits": 11984,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1686369,
@@ -175942,14 +176058,14 @@
           "target": "34:6C87",
           "fallthrough": "34:6C81",
           "observed": {
-            "taken": 11917,
+            "taken": 11938,
             "fallthrough": 46
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 11917,
+              "hits": 11938,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1686389,
@@ -176044,14 +176160,14 @@
           "target": "34:6CA8",
           "fallthrough": "34:6C98",
           "observed": {
-            "taken": 11509,
+            "taken": 11530,
             "fallthrough": 408
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 11509,
+              "hits": 11530,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1686408,
@@ -176248,14 +176364,14 @@
           "target": "34:6CC4",
           "fallthrough": "34:6CC1",
           "observed": {
-            "taken": 20901,
+            "taken": 20917,
             "fallthrough": 685
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 20901,
+              "hits": 20917,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1712294,
@@ -176723,13 +176839,13 @@
           "target": "34:7547",
           "fallthrough": "34:73D0",
           "observed": {
-            "taken": 11420
+            "taken": 11451
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 11420,
+              "hits": 11451,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 709132,
@@ -178421,14 +178537,14 @@
           "target": null,
           "fallthrough": "34:754F",
           "observed": {
-            "fallthrough": 12832,
-            "returned": 11420
+            "fallthrough": 12855,
+            "returned": 11451
           },
           "outcomes": [
             {
               "outcome": "returned",
               "status": "exercised",
-              "hits": 11420,
+              "hits": 11451,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 709192,
@@ -178452,7 +178568,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 12832,
+              "hits": 12855,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1655598,
@@ -178523,14 +178639,14 @@
           "target": "34:7588",
           "fallthrough": "34:7555",
           "observed": {
-            "taken": 9105,
-            "fallthrough": 3727
+            "taken": 9124,
+            "fallthrough": 3731
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 9105,
+              "hits": 9124,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1655702,
@@ -178554,7 +178670,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 3727,
+              "hits": 3731,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1718176,
@@ -178625,14 +178741,14 @@
           "target": "34:7568",
           "fallthrough": "34:755C",
           "observed": {
-            "taken": 3297,
+            "taken": 3301,
             "fallthrough": 430
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 3297,
+              "hits": 3301,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1718182,
@@ -179222,7 +179338,7 @@
           "target": null,
           "fallthrough": "34:765E",
           "observed": {
-            "fallthrough": 7595
+            "fallthrough": 7624
           },
           "outcomes": [
             {
@@ -179236,7 +179352,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 7595,
+              "hits": 7624,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 708893,
@@ -180662,14 +180778,14 @@
           "target": "33:4F3B",
           "fallthrough": "33:4F2D",
           "observed": {
-            "taken": 64527,
+            "taken": 64619,
             "fallthrough": 135
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 64527,
+              "hits": 64619,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 706773,
@@ -180764,14 +180880,14 @@
           "target": "33:4F6D",
           "fallthrough": "33:4F46",
           "observed": {
-            "taken": 66605,
+            "taken": 66717,
             "fallthrough": 8
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 66605,
+              "hits": 66717,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 706284,
@@ -192891,13 +193007,13 @@
           "target": "39:53F6",
           "fallthrough": "39:53F0",
           "observed": {
-            "taken": 2482
+            "taken": 2500
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 2482,
+              "hits": 2500,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1653125,
@@ -203720,7 +203836,7 @@
           "target": null,
           "fallthrough": "01:5A8F",
           "observed": {
-            "fallthrough": 846105
+            "fallthrough": 853013
           },
           "outcomes": [
             {
@@ -203731,7 +203847,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 846105,
+              "hits": 853013,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 712816,
@@ -203783,7 +203899,7 @@
           "target": null,
           "fallthrough": "01:5A92",
           "observed": {
-            "fallthrough": 846105
+            "fallthrough": 853013
           },
           "outcomes": [
             {
@@ -203794,7 +203910,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 846105,
+              "hits": 853013,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 712818,
@@ -203846,14 +203962,14 @@
           "target": "01:6255",
           "fallthrough": "01:6253",
           "observed": {
-            "taken": 5738,
-            "fallthrough": 1414
+            "taken": 5782,
+            "fallthrough": 1434
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 5738,
+              "hits": 5782,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1014300,
@@ -203877,7 +203993,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 1414,
+              "hits": 1434,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1012281,
@@ -203949,7 +204065,7 @@
           "fallthrough": "01:6261",
           "observed": {
             "taken": 865,
-            "fallthrough": 6287
+            "fallthrough": 6351
           },
           "outcomes": [
             {
@@ -203979,7 +204095,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 6287,
+              "hits": 6351,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1012289,
@@ -204050,14 +204166,14 @@
           "target": "01:6277",
           "fallthrough": "01:6273",
           "observed": {
-            "taken": 50077,
-            "fallthrough": 10850
+            "taken": 50361,
+            "fallthrough": 10916
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 50077,
+              "hits": 50361,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 749579,
@@ -204081,7 +204197,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 10850,
+              "hits": 10916,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1040310,
@@ -204152,13 +204268,13 @@
           "target": "01:628F",
           "fallthrough": "01:627D",
           "observed": {
-            "taken": 50077
+            "taken": 50361
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 50077,
+              "hits": 50361,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 749581,
@@ -204215,14 +204331,14 @@
           "target": "01:62A0",
           "fallthrough": "01:629E",
           "observed": {
-            "taken": 29006,
-            "fallthrough": 5942
+            "taken": 29273,
+            "fallthrough": 5992
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 29006,
+              "hits": 29273,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 749567,
@@ -204246,7 +204362,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 5942,
+              "hits": 5992,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1040297,
@@ -204317,13 +204433,13 @@
           "target": "01:62FA",
           "fallthrough": "01:62E7",
           "observed": {
-            "taken": 42100
+            "taken": 42481
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 42100,
+              "hits": 42481,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 749791,
@@ -204424,13 +204540,13 @@
           "target": "01:6304",
           "fallthrough": "01:6300",
           "observed": {
-            "taken": 42100
+            "taken": 42481
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 42100,
+              "hits": 42481,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 749793,
@@ -204487,14 +204603,14 @@
           "target": "01:630E",
           "fallthrough": "01:630A",
           "observed": {
-            "taken": 37489,
-            "fallthrough": 4611
+            "taken": 37853,
+            "fallthrough": 4628
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 37489,
+              "hits": 37853,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 749795,
@@ -204518,7 +204634,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 4611,
+              "hits": 4628,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1686718,
@@ -204589,7 +204705,7 @@
           "target": "01:6428",
           "fallthrough": "01:6314",
           "observed": {
-            "fallthrough": 42100
+            "fallthrough": 42481
           },
           "outcomes": [
             {
@@ -204600,7 +204716,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 42100,
+              "hits": 42481,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 749798,
@@ -204652,14 +204768,14 @@
           "target": "01:635E",
           "fallthrough": "01:6337",
           "observed": {
-            "taken": 14916,
-            "fallthrough": 27184
+            "taken": 15033,
+            "fallthrough": 27448
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 14916,
+              "hits": 15033,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1012444,
@@ -204683,7 +204799,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 27184,
+              "hits": 27448,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 749816,
@@ -204755,7 +204871,7 @@
           "fallthrough": "01:633F",
           "observed": {
             "taken": 37,
-            "fallthrough": 27147
+            "fallthrough": 27411
           },
           "outcomes": [
             {
@@ -204785,7 +204901,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 27147,
+              "hits": 27411,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 749819,
@@ -204856,7 +204972,7 @@
           "target": "01:634D",
           "fallthrough": "01:6345",
           "observed": {
-            "fallthrough": 27147
+            "fallthrough": 27411
           },
           "outcomes": [
             {
@@ -204867,7 +204983,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 27147,
+              "hits": 27411,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 749821,
@@ -204919,14 +205035,14 @@
           "target": "01:635E",
           "fallthrough": "01:634D",
           "observed": {
-            "taken": 7616,
-            "fallthrough": 19531
+            "taken": 7688,
+            "fallthrough": 19723
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 7616,
+              "hits": 7688,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 749824,
@@ -204950,7 +205066,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 19531,
+              "hits": 19723,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 892354,
@@ -205021,14 +205137,14 @@
           "target": "01:635E",
           "fallthrough": "01:6354",
           "observed": {
-            "taken": 11819,
-            "fallthrough": 7712
+            "taken": 12007,
+            "fallthrough": 7716
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 11819,
+              "hits": 12007,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 892357,
@@ -205052,7 +205168,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 7712,
+              "hits": 7716,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1753496,
@@ -205123,14 +205239,14 @@
           "target": "01:6377",
           "fallthrough": "01:636D",
           "observed": {
-            "taken": 31125,
-            "fallthrough": 10975
+            "taken": 31486,
+            "fallthrough": 10995
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 31125,
+              "hits": 31486,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 749831,
@@ -205154,7 +205270,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 10975,
+              "hits": 10995,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1753511,
@@ -205225,14 +205341,14 @@
           "target": "01:63BE",
           "fallthrough": "01:637B",
           "observed": {
-            "taken": 14265,
-            "fallthrough": 27835
+            "taken": 14363,
+            "fallthrough": 28118
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 14265,
+              "hits": 14363,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 764128,
@@ -205256,7 +205372,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 27835,
+              "hits": 28118,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 749833,
@@ -205327,13 +205443,13 @@
           "target": "01:5A60",
           "fallthrough": "01:6387",
           "observed": {
-            "taken": 177258
+            "taken": 179159
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 177258,
+              "hits": 179159,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 749840,
@@ -205390,14 +205506,14 @@
           "target": "01:6389",
           "fallthrough": "01:638C",
           "observed": {
-            "taken": 389618,
-            "fallthrough": 177258
+            "taken": 394198,
+            "fallthrough": 179159
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 389618,
+              "hits": 394198,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 751338,
@@ -205422,7 +205538,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 177258,
+              "hits": 179159,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 749978,
@@ -205496,14 +205612,14 @@
           "target": "01:6391",
           "fallthrough": "01:6394",
           "observed": {
-            "taken": 389618,
-            "fallthrough": 177258
+            "taken": 394198,
+            "fallthrough": 179159
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 389618,
+              "hits": 394198,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 751356,
@@ -205528,7 +205644,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 177258,
+              "hits": 179159,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 749988,
@@ -205602,13 +205718,13 @@
           "target": "01:63A4",
           "fallthrough": "01:639A",
           "observed": {
-            "taken": 177258
+            "taken": 179159
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 177258,
+              "hits": 179159,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 749990,
@@ -205665,7 +205781,7 @@
           "target": "01:63B5",
           "fallthrough": "01:63B3",
           "observed": {
-            "fallthrough": 177258
+            "fallthrough": 179159
           },
           "outcomes": [
             {
@@ -205676,7 +205792,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 177258,
+              "hits": 179159,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 750008,
@@ -205728,14 +205844,14 @@
           "target": "01:637D",
           "fallthrough": "01:63B5",
           "observed": {
-            "taken": 149423,
-            "fallthrough": 27835
+            "taken": 151041,
+            "fallthrough": 28118
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 149423,
+              "hits": 151041,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 750009,
@@ -205760,7 +205876,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 27835,
+              "hits": 28118,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 750909,
@@ -205834,14 +205950,14 @@
           "target": "01:63BB",
           "fallthrough": "01:63BA",
           "observed": {
-            "taken": 7356,
-            "fallthrough": 34744
+            "taken": 7426,
+            "fallthrough": 35055
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 7356,
+              "hits": 7426,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1013796,
@@ -205865,7 +205981,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 34744,
+              "hits": 35055,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 750912,
@@ -205936,13 +206052,13 @@
           "target": "01:63CE",
           "fallthrough": "01:63C9",
           "observed": {
-            "taken": 87903
+            "taken": 88557
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 87903,
+              "hits": 88557,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 764134,
@@ -205999,14 +206115,14 @@
           "target": "01:63E6",
           "fallthrough": "01:63E5",
           "observed": {
-            "taken": 173175,
-            "fallthrough": 43031
+            "taken": 174435,
+            "fallthrough": 43397
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 173175,
+              "hits": 174435,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 764458,
@@ -206030,7 +206146,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 43031,
+              "hits": 43397,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 773504,
@@ -206101,14 +206217,14 @@
           "target": "01:63E0",
           "fallthrough": "01:63E8",
           "observed": {
-            "taken": 128303,
-            "fallthrough": 87903
+            "taken": 129275,
+            "fallthrough": 88557
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 128303,
+              "hits": 129275,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 770796,
@@ -206133,7 +206249,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 87903,
+              "hits": 88557,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 764459,
@@ -206207,14 +206323,14 @@
           "target": "01:63F3",
           "fallthrough": "01:63F1",
           "observed": {
-            "taken": 173175,
-            "fallthrough": 43031
+            "taken": 174435,
+            "fallthrough": 43397
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 173175,
+              "hits": 174435,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 764470,
@@ -206238,7 +206354,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 43031,
+              "hits": 43397,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 773525,
@@ -206309,14 +206425,14 @@
           "target": "01:63EB",
           "fallthrough": "01:63F5",
           "observed": {
-            "taken": 128303,
-            "fallthrough": 87903
+            "taken": 129275,
+            "fallthrough": 88557
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 128303,
+              "hits": 129275,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 770816,
@@ -206341,7 +206457,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 87903,
+              "hits": 88557,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 764471,
@@ -206415,13 +206531,13 @@
           "target": "01:6407",
           "fallthrough": "01:63FB",
           "observed": {
-            "taken": 87903
+            "taken": 88557
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 87903,
+              "hits": 88557,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 764473,
@@ -206478,7 +206594,7 @@
           "target": "01:63B5",
           "fallthrough": "01:6424",
           "observed": {
-            "fallthrough": 87903
+            "fallthrough": 88557
           },
           "outcomes": [
             {
@@ -206489,7 +206605,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 87903,
+              "hits": 88557,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 764648,
@@ -206541,14 +206657,14 @@
           "target": "01:63C1",
           "fallthrough": "01:6426",
           "observed": {
-            "taken": 73638,
-            "fallthrough": 14265
+            "taken": 74194,
+            "fallthrough": 14363
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 73638,
+              "hits": 74194,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 764649,
@@ -206573,7 +206689,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 14265,
+              "hits": 14363,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 767274,
@@ -206669,14 +206785,14 @@
           "target": "01:643E",
           "fallthrough": "01:6437",
           "observed": {
-            "taken": 265101,
+            "taken": 267656,
             "fallthrough": 60
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 265101,
+              "hits": 267656,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 749981,
@@ -206940,14 +207056,14 @@
           "target": "01:66DB",
           "fallthrough": "01:66DE",
           "observed": {
-            "taken": 890941,
-            "fallthrough": 42100
+            "taken": 900643,
+            "fallthrough": 42481
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 890941,
+              "hits": 900643,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 749748,
@@ -206972,7 +207088,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 42100,
+              "hits": 42481,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 749764,
@@ -207046,14 +207162,14 @@
           "target": "01:677F",
           "fallthrough": "01:6709",
           "observed": {
-            "taken": 24089,
-            "fallthrough": 8654
+            "taken": 24153,
+            "fallthrough": 8674
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 24089,
+              "hits": 24153,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1654542,
@@ -207077,7 +207193,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 8654,
+              "hits": 8674,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1711980,
@@ -207149,7 +207265,7 @@
           "fallthrough": "01:6710",
           "observed": {
             "taken": 70,
-            "fallthrough": 8584
+            "fallthrough": 8604
           },
           "outcomes": [
             {
@@ -207179,7 +207295,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 8584,
+              "hits": 8604,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1711983,
@@ -207251,7 +207367,7 @@
           "fallthrough": "01:6715",
           "observed": {
             "taken": 22,
-            "fallthrough": 8562
+            "fallthrough": 8582
           },
           "outcomes": [
             {
@@ -207281,7 +207397,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 8562,
+              "hits": 8582,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1711985,
@@ -207352,14 +207468,14 @@
           "target": "01:673C",
           "fallthrough": "01:671C",
           "observed": {
-            "taken": 8531,
+            "taken": 8551,
             "fallthrough": 31
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 8531,
+              "hits": 8551,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1711988,
@@ -207561,7 +207677,7 @@
           "target": "01:6782",
           "fallthrough": "01:6743",
           "observed": {
-            "fallthrough": 8531
+            "fallthrough": 8551
           },
           "outcomes": [
             {
@@ -207572,7 +207688,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 8531,
+              "hits": 8551,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1711991,
@@ -207624,7 +207740,7 @@
           "target": "01:6782",
           "fallthrough": "01:6748",
           "observed": {
-            "fallthrough": 8531
+            "fallthrough": 8551
           },
           "outcomes": [
             {
@@ -207635,7 +207751,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 8531,
+              "hits": 8551,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1711993,
@@ -207687,7 +207803,7 @@
           "target": "01:6782",
           "fallthrough": "01:674F",
           "observed": {
-            "fallthrough": 8531
+            "fallthrough": 8551
           },
           "outcomes": [
             {
@@ -207698,7 +207814,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 8531,
+              "hits": 8551,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1711996,
@@ -207750,7 +207866,7 @@
           "target": "01:6782",
           "fallthrough": "01:6754",
           "observed": {
-            "fallthrough": 8531
+            "fallthrough": 8551
           },
           "outcomes": [
             {
@@ -207761,7 +207877,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 8531,
+              "hits": 8551,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1711998,
@@ -207813,7 +207929,7 @@
           "target": "01:677A",
           "fallthrough": "01:6758",
           "observed": {
-            "fallthrough": 8531
+            "fallthrough": 8551
           },
           "outcomes": [
             {
@@ -207824,7 +207940,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 8531,
+              "hits": 8551,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1712000,
@@ -207877,7 +207993,7 @@
           "fallthrough": "01:675F",
           "observed": {
             "taken": 14,
-            "fallthrough": 8517
+            "fallthrough": 8537
           },
           "outcomes": [
             {
@@ -207907,7 +208023,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 8517,
+              "hits": 8537,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1712003,
@@ -207978,14 +208094,14 @@
           "target": "01:676F",
           "fallthrough": "01:6764",
           "observed": {
-            "taken": 8459,
+            "taken": 8479,
             "fallthrough": 58
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 8459,
+              "hits": 8479,
               "witness": {
                 "trace": "tmp__mathprint_power",
                 "instruction_index": 1712005,
@@ -208228,13 +208344,13 @@
           "target": "01:67B8",
           "fallthrough": "01:678E",
           "observed": {
-            "taken": 32743
+            "taken": 32827
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 32743,
+              "hits": 32827,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1654551,
@@ -208417,7 +208533,7 @@
           "target": "00:3549",
           "fallthrough": "04:4033",
           "observed": {
-            "fallthrough": 8803
+            "fallthrough": 8819
           },
           "outcomes": [
             {
@@ -208428,7 +208544,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 8803,
+              "hits": 8819,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 781908,
@@ -208480,13 +208596,13 @@
           "target": "04:4038",
           "fallthrough": "04:4035",
           "observed": {
-            "taken": 8803
+            "taken": 8819
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 8803,
+              "hits": 8819,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 781909,
@@ -208543,14 +208659,14 @@
           "target": "04:404A",
           "fallthrough": "04:4046",
           "observed": {
-            "taken": 2989,
-            "fallthrough": 5814
+            "taken": 2997,
+            "fallthrough": 5822
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 2989,
+              "hits": 2997,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 793000,
@@ -208574,7 +208690,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 5814,
+              "hits": 5822,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 781918,
@@ -208645,13 +208761,13 @@
           "target": "04:4053",
           "fallthrough": "04:404F",
           "observed": {
-            "taken": 8803
+            "taken": 8819
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 8803,
+              "hits": 8819,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 781924,
@@ -208708,14 +208824,14 @@
           "target": "04:405D",
           "fallthrough": "04:4059",
           "observed": {
-            "taken": 2784,
-            "fallthrough": 6019
+            "taken": 2792,
+            "fallthrough": 6027
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 2784,
+              "hits": 2792,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 793009,
@@ -208739,7 +208855,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 6019,
+              "hits": 6027,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 781929,
@@ -208811,7 +208927,7 @@
           "fallthrough": "04:4080",
           "observed": {
             "taken": 203,
-            "fallthrough": 127904
+            "fallthrough": 128712
           },
           "outcomes": [
             {
@@ -208841,7 +208957,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 127904,
+              "hits": 128712,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 782373,
@@ -208912,14 +209028,14 @@
           "target": "04:409C",
           "fallthrough": "04:408C",
           "observed": {
-            "taken": 50778,
-            "fallthrough": 77126
+            "taken": 50978,
+            "fallthrough": 77734
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 50778,
+              "hits": 50978,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 782379,
@@ -208943,7 +209059,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 77126,
+              "hits": 77734,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 793456,
@@ -209015,7 +209131,7 @@
           "fallthrough": "04:40A1",
           "observed": {
             "taken": 313,
-            "fallthrough": 50668
+            "fallthrough": 50868
           },
           "outcomes": [
             {
@@ -209045,7 +209161,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 50668,
+              "hits": 50868,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 782382,
@@ -209116,14 +209232,14 @@
           "target": "04:4078",
           "fallthrough": "04:40A6",
           "observed": {
-            "taken": 119304,
-            "fallthrough": 8803
+            "taken": 120096,
+            "fallthrough": 8819
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 119304,
+              "hits": 120096,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 782386,
@@ -209147,7 +209263,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 8803,
+              "hits": 8819,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 792929,
@@ -209548,7 +209664,7 @@
           "target": "00:3549",
           "fallthrough": "04:4161",
           "observed": {
-            "fallthrough": 141799
+            "fallthrough": 142607
           },
           "outcomes": [
             {
@@ -209559,7 +209675,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 141799,
+              "hits": 142607,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 781956,
@@ -209611,13 +209727,13 @@
           "target": "04:4172",
           "fallthrough": "04:4163",
           "observed": {
-            "taken": 141799
+            "taken": 142607
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 141799,
+              "hits": 142607,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 781957,
@@ -209674,13 +209790,13 @@
           "target": "04:41ED",
           "fallthrough": "04:417A",
           "observed": {
-            "taken": 141799
+            "taken": 142607
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 141799,
+              "hits": 142607,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 781960,
@@ -209958,7 +210074,7 @@
           "fallthrough": "04:41FF",
           "observed": {
             "taken": 81763,
-            "fallthrough": 60036
+            "fallthrough": 60844
           },
           "outcomes": [
             {
@@ -209988,7 +210104,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 60036,
+              "hits": 60844,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 781970,
@@ -210060,7 +210176,7 @@
           "fallthrough": "04:420A",
           "observed": {
             "taken": 228,
-            "fallthrough": 141571
+            "fallthrough": 142379
           },
           "outcomes": [
             {
@@ -210090,7 +210206,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 141571,
+              "hits": 142379,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 781987,
@@ -210161,13 +210277,13 @@
           "target": "04:421E",
           "fallthrough": "04:421B",
           "observed": {
-            "taken": 141571
+            "taken": 142379
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 141571,
+              "hits": 142379,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 782028,
@@ -210224,7 +210340,7 @@
           "target": "04:424B",
           "fallthrough": "04:4229",
           "observed": {
-            "fallthrough": 141571
+            "fallthrough": 142379
           },
           "outcomes": [
             {
@@ -210235,7 +210351,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 141571,
+              "hits": 142379,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 782033,
@@ -210287,13 +210403,13 @@
           "target": "04:424C",
           "fallthrough": "04:424B",
           "observed": {
-            "taken": 141571
+            "taken": 142379
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 141571,
+              "hits": 142379,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 782330,
@@ -210350,14 +210466,14 @@
           "target": "04:4252",
           "fallthrough": "04:424F",
           "observed": {
-            "taken": 138341,
+            "taken": 139149,
             "fallthrough": 3230
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 138341,
+              "hits": 139149,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 782332,
@@ -210456,7 +210572,7 @@
           "target": "04:4257",
           "fallthrough": "04:4254",
           "observed": {
-            "fallthrough": 138341
+            "fallthrough": 139149
           },
           "outcomes": [
             {
@@ -210467,7 +210583,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 138341,
+              "hits": 139149,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 782333,
@@ -210543,7 +210659,7 @@
           "target": "04:4266",
           "fallthrough": "04:4260",
           "observed": {
-            "fallthrough": 141571
+            "fallthrough": 142379
           },
           "outcomes": [
             {
@@ -210554,7 +210670,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 141571,
+              "hits": 142379,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 782337,
@@ -210606,13 +210722,13 @@
           "target": "04:426A",
           "fallthrough": "04:4266",
           "observed": {
-            "taken": 141571
+            "taken": 142379
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 141571,
+              "hits": 142379,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 782339,
@@ -210669,13 +210785,13 @@
           "target": "04:4282",
           "fallthrough": "04:4270",
           "observed": {
-            "taken": 141571
+            "taken": 142379
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 141571,
+              "hits": 142379,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 782344,
@@ -210776,13 +210892,13 @@
           "target": "04:4291",
           "fallthrough": "04:4290",
           "observed": {
-            "taken": 141571
+            "taken": 142379
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 141571,
+              "hits": 142379,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 782361,
@@ -210839,13 +210955,13 @@
           "target": "04:4299",
           "fallthrough": "04:4298",
           "observed": {
-            "taken": 141571
+            "taken": 142379
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 141571,
+              "hits": 142379,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 782364,
@@ -211235,7 +211351,7 @@
           "target": "04:4302",
           "fallthrough": "04:430F",
           "observed": {
-            "fallthrough": 60036
+            "fallthrough": 60844
           },
           "outcomes": [
             {
@@ -211246,7 +211362,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 60036,
+              "hits": 60844,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 781977,
@@ -211298,7 +211414,7 @@
           "target": "04:4302",
           "fallthrough": "04:4314",
           "observed": {
-            "fallthrough": 60036
+            "fallthrough": 60844
           },
           "outcomes": [
             {
@@ -211309,7 +211425,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 60036,
+              "hits": 60844,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 781980,
@@ -211361,13 +211477,13 @@
           "target": null,
           "fallthrough": "04:431A",
           "observed": {
-            "returned": 77329
+            "returned": 77937
           },
           "outcomes": [
             {
               "outcome": "returned",
               "status": "exercised",
-              "hits": 77329,
+              "hits": 77937,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 793460,
@@ -211973,7 +212089,7 @@
           "fallthrough": "07:44E2",
           "observed": {
             "taken": 45,
-            "fallthrough": 1773
+            "fallthrough": 1782
           },
           "outcomes": [
             {
@@ -212003,7 +212119,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 1773,
+              "hits": 1782,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1653808,
@@ -212075,7 +212191,7 @@
           "fallthrough": "07:44E6",
           "observed": {
             "taken": 9,
-            "fallthrough": 1764
+            "fallthrough": 1773
           },
           "outcomes": [
             {
@@ -212105,7 +212221,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 1764,
+              "hits": 1773,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1653810,
@@ -212177,7 +212293,7 @@
           "fallthrough": "07:44EA",
           "observed": {
             "taken": 115,
-            "fallthrough": 1649
+            "fallthrough": 1658
           },
           "outcomes": [
             {
@@ -212207,7 +212323,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 1649,
+              "hits": 1658,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1653812,
@@ -212278,13 +212394,13 @@
           "target": "07:44F3",
           "fallthrough": "07:44EE",
           "observed": {
-            "taken": 1649
+            "taken": 1658
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 1649,
+              "hits": 1658,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1653814,
@@ -212506,13 +212622,13 @@
           "target": "07:4596",
           "fallthrough": "07:458E",
           "observed": {
-            "taken": 33000
+            "taken": 33096
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 33000,
+              "hits": 33096,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1005504,
@@ -212591,13 +212707,13 @@
           "target": "07:45A4",
           "fallthrough": "07:459C",
           "observed": {
-            "taken": 33000
+            "taken": 33096
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 33000,
+              "hits": 33096,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1005506,
@@ -212676,13 +212792,13 @@
           "target": "07:45C3",
           "fallthrough": "07:45BC",
           "observed": {
-            "taken": 10850
+            "taken": 10916
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 10850,
+              "hits": 10916,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1040352,
@@ -212761,13 +212877,13 @@
           "target": "07:45D0",
           "fallthrough": "07:45C9",
           "observed": {
-            "taken": 10850
+            "taken": 10916
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 10850,
+              "hits": 10916,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1040354,
@@ -212846,14 +212962,14 @@
           "target": "07:45FD",
           "fallthrough": "07:4605",
           "observed": {
-            "taken": 65100,
-            "fallthrough": 10850
+            "taken": 65496,
+            "fallthrough": 10916
           },
           "outcomes": [
             {
               "outcome": "taken",
               "status": "exercised",
-              "hits": 65100,
+              "hits": 65496,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1040381,
@@ -212878,7 +212994,7 @@
             {
               "outcome": "fallthrough",
               "status": "exercised",
-              "hits": 10850,
+              "hits": 10916,
               "witness": {
                 "trace": "mp_parity_jl3hzazk__linear_half",
                 "instruction_index": 1040417,
@@ -214801,7 +214917,7 @@
         "tools/test-mathprint.js",
         "tools/mathprint-*-oracles.json"
       ],
-      "scope": "supported native expression grammar plus one- and two-byte ordinary editor insertion, fraction insertion at every cursor class in the root leaf and both child leaves of one outer fraction plus a blank radicand of one prefixed radical, nth-root insertion at every root cursor class, and the shared one-child path for absolute value, e-power, ten-power, and radical insertion, with every root cursor class captured for e-power and blank captures for the other two added types; radical insertion at every cursor class in the root leaf, both fraction children, and that radical's radicand with packed-token replacement; in-leaf packed-token navigation, and packed-token deletion; deeper nested positions, remaining structural types, structural deletion, and boundary navigation remain open"
+      "scope": "supported native expression grammar plus one- and two-byte ordinary editor insertion, fraction insertion at every cursor class in the root leaf and both child leaves of one outer fraction plus a blank radicand of one prefixed radical, nth-root and postfix-power insertion at every root cursor class, and the shared one-child path for absolute value, e-power, ten-power, and radical insertion, with every root cursor class captured for e-power and blank captures for the other two added types; radical insertion at every cursor class in the root leaf, both fraction children, and that radical's radicand with packed-token replacement; in-leaf packed-token navigation, and packed-token deletion; deeper nested positions, remaining structural types, structural deletion, and boundary navigation remain open"
     },
     {
       "name": "live editor record graph and gap cursor",
@@ -214829,7 +214945,7 @@
         "tools/mathprint-editor-navigation-oracles.json",
         "tools/mathprint-editor-deletion-oracles.json"
       ],
-      "scope": "complete captured arenas, active-leaf substitution, nested cursor paths, cursor-aware record reconstruction, ordinary packed-token insertion, fraction insertion at every cursor class in the root leaf and both child leaves of one outer fraction plus a blank radicand of one prefixed radical, nth-root insertion at every root cursor class, and the shared one-child path for absolute value, e-power, ten-power, and radical insertion, with every root cursor class captured for e-power and blank captures for the other two added types; radical insertion at every cursor class in the root leaf, both fraction children, and that radical's radicand with packed-token replacement; in-leaf packed-token navigation, and packed-token deletion with empty-slot restoration; deeper nested positions, remaining structural types, structural deletion, and boundary navigation remain open"
+      "scope": "complete captured arenas, active-leaf substitution, nested cursor paths, cursor-aware record reconstruction, ordinary packed-token insertion, fraction insertion at every cursor class in the root leaf and both child leaves of one outer fraction plus a blank radicand of one prefixed radical, nth-root and postfix-power insertion at every root cursor class, and the shared one-child path for absolute value, e-power, ten-power, and radical insertion, with every root cursor class captured for e-power and blank captures for the other two added types; radical insertion at every cursor class in the root leaf, both fraction children, and that radical's radicand with packed-token replacement; in-leaf packed-token navigation, and packed-token deletion with empty-slot restoration; deeper nested positions, remaining structural types, structural deletion, and boundary navigation remain open"
     },
     {
       "name": "settled record graph and leaf program",
@@ -214917,7 +215033,7 @@
     {
       "area": "editor graph mutation",
       "status": "open",
-      "reason": "the live 34:4A83/4ACE arena and 34:4AAF gap substitution round-trip through cursor-annotated ASTs and reconstructed records; ordinary one- and two-byte insertion, fraction insertion at every cursor class in the root leaf and both child leaves of one outer fraction plus a blank radicand of one prefixed radical, nth-root insertion at every root cursor class, and the shared one-child path for absolute value, e-power, ten-power, and radical insertion, with every root cursor class captured for e-power and blank captures for the other two added types; radical insertion at every cursor class in the root leaf, both fraction children, and that radical's radicand with packed-token replacement, in-leaf packed-token navigation, and packed-token deletion with empty-slot restoration are translated, but deeper nested positions, remaining structural types, structural deletion, and boundary navigation are not"
+      "reason": "the live 34:4A83/4ACE arena and 34:4AAF gap substitution round-trip through cursor-annotated ASTs and reconstructed records; ordinary one- and two-byte insertion, fraction insertion at every cursor class in the root leaf and both child leaves of one outer fraction plus a blank radicand of one prefixed radical, nth-root and postfix-power insertion at every root cursor class, and the shared one-child path for absolute value, e-power, ten-power, and radical insertion, with every root cursor class captured for e-power and blank captures for the other two added types; radical insertion at every cursor class in the root leaf, both fraction children, and that radical's radicand with packed-token replacement, in-leaf packed-token navigation, and packed-token deletion with empty-slot restoration are translated, but deeper nested positions, remaining structural types, structural deletion, and boundary navigation are not"
     },
     {
       "area": "FindAlpha full OP scratch state",
