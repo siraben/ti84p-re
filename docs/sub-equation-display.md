@@ -455,6 +455,13 @@ Cells reach pixels through a small set of output paths:
 | Large-font blit | page `07:4588` | Copies one fixed large-font glyph record. |
 | Rule / rectangle helpers | `39:6ABF`, `39:6AF5`, `ram:3555` | Draw fraction UI rectangles, boxes, and fixed chrome lines. |
 
+`39:6675` saves a matched delimiter cell's `E` byte in `keyExtend` and passes
+its `D` byte to `07:44DE`. The JavaScript cell classifier executes that remap.
+The committed layout artifact contains every table entry addressable from the
+main entry. A pinned-byte interpreter compares all 65,536 combinations of
+display byte and `keyExtend`; they reduce to seven paths and 12 branch outcomes.
+The separate public entry at `07:44FE` is outside this main-entry domain. [confirmed]
+
 The page-7 large-font service copies fixed glyph rows. It does not measure a radicand or
 stretch a glyph by itself. [confirmed]
 
@@ -599,7 +606,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 44 finite models. It also computes an
+complete path-equivalence class in 45 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -623,6 +630,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Small-font pointer selection | 65,536 | 16 | 31 | 16 |
 | Token-hook dispatch | 1,048,576 | 9 | 10 | 5 |
 | Direct cell-to-large-glyph selection | 65,536 | 9 | 16 | 9 |
+| Display-byte remapper | 65,536 | 7 | 12 | 7 |
 | Glyph advance and delimiter padding | 131,072 | 6 | 10 | 4 |
 | `_VPutMap` byte-boundary gate | 56 | 2 | 2 | 2 |
 | MathPrint `_VPutMap` right-edge gate | 3,584 | 4 | 6 | 2 |
@@ -651,8 +659,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 | FindAlpha OP scratch transition | 33,554,432 | 2 | 5 | 2 |
 
-The 44 models contain 3,363 path classes and 469 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 221 representatives. Each
+The 45 models contain 3,370 path classes and 481 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 228 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -3160,8 +3168,9 @@ word removes the final two-pixel difference from the reset-origin screenshot.
 
 ## Extracted records and interactive model
 
-The class table, decoded handler records, and selected descriptors are extracted to
-`web/mathprint/layout.json` by `tools/export-layout.py`;
+The class table, decoded handler records, selected descriptors, and page-7
+display-byte tables are extracted to `web/mathprint/layout.json` by
+`tools/export-layout.py`;
 the fonts to `web/mathprint/font.json` by `tools/export-font.py`; and the
 single- and two-byte token spellings to
 `web/mathprint/token-strings.json` by `tools/export-token-strings.py`. The font
@@ -3169,8 +3178,9 @@ data appears on the interactive
 renderer's font-table tab. `tools/interp-cells.js` and the browser share the executable
 translations in `web/mathprint/rom-engine.js`. The translated routines consume
 `layout.json` for handler lookup, row-cell iteration, direct glyph and delimiter
-classification, descriptor iteration, fraction endpoints, and class-6 row
-stepping. `web/mathprint/record-programs.json` contains six retained record
+classification, display-byte remapping, descriptor iteration, fraction
+endpoints, and class-6 row stepping. `web/mathprint/record-programs.json`
+contains six retained record
 snapshots for offline comparison. The browser does not fetch them. Closed
 expressions accepted by the native constructor use the translated record graph
 and primitive stream for both the generated LCD view and the model view.

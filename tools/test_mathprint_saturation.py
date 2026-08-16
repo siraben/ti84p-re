@@ -21,6 +21,7 @@ from analyze_mathprint_saturation import (
     counted_string_viewport_path,
     deserialize_trace_summary,
     direct_glyph_selection_path,
+    display_byte_remap_path,
     drawing_hook_dispatch_path,
     editor_action03_controller_path,
     editor_action04_controller_path,
@@ -78,6 +79,7 @@ from analyze_mathprint_saturation import (
     minimize_trace_features,
     symbolic_counted_string_viewport_paths,
     symbolic_direct_glyph_selection_paths,
+    symbolic_display_byte_remap_paths,
     symbolic_drawing_hook_dispatch_paths,
     symbolic_metric_marker_paths,
     symbolic_editor_action03_paths,
@@ -347,13 +349,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(3363, report["path_equivalence_class_count"])
-        self.assertEqual(3363, report["representative_path_corpus_count"])
-        self.assertEqual(469, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(3370, report["path_equivalence_class_count"])
+        self.assertEqual(3370, report["representative_path_corpus_count"])
+        self.assertEqual(481, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            221, report["per_domain_minimum_branch_outcome_corpus_count"]
+            228, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(44, len(report["domains"]))
+        self.assertEqual(45, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -1248,6 +1250,35 @@ class SymbolicHandlerTests(unittest.TestCase):
         self.assertEqual("carry", rejected["terminal"])
         self.assertEqual("39:4F26:returned", rejected["branch_outcomes"][-1])
 
+    def test_display_byte_remapper_partitions_complete_byte_domain(self) -> None:
+        paths = symbolic_display_byte_remap_paths()
+
+        self.assertEqual(7, len(paths))
+        self.assertEqual(0x100**2, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(
+            ("fe_low_byte", 0x68),
+            tuple(display_byte_remap_path(0xFE, 0x68)[key]
+                  for key in ("terminal", "normalized_index")),
+        )
+        self.assertEqual(
+            ("fe_high_pair", 0),
+            tuple(display_byte_remap_path(0xFE, 0x69)[key]
+                  for key in ("terminal", "normalized_index")),
+        )
+        self.assertEqual(
+            ("fb_pair", 0x0D, "07:450D:fallthrough"),
+            (*tuple(display_byte_remap_path(0xFB, 0x8C)[key]
+                    for key in ("terminal", "normalized_index")),
+             display_byte_remap_path(0xFB, 0x8C)["branch_outcomes"][-1]),
+        )
+        special = display_byte_remap_path(0x05, 0xFF)
+        self.assertEqual("special_05_byte", special["terminal"])
+        self.assertIsNone(special["normalized_index"])
+        wrapped = display_byte_remap_path(0x00, 0xFF)
+        self.assertEqual(0xA6, wrapped["normalized_index"])
+
     def test_glyph_advance_partitions_complete_byte_domain(self) -> None:
         paths = symbolic_glyph_advance_paths()
 
@@ -1832,7 +1863,7 @@ class CheckedReportTests(unittest.TestCase):
             matrix_entry["sha256"],
         )
         self.assertEqual(
-            3363,
+            3370,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(
