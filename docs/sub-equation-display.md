@@ -559,12 +559,14 @@ these finite models. [confirmed]
 
 The page-7 domains partition all 32 masked type classes, 192 declared type/key
 form pairs, all 8,192 type/record-marker pairs, and all 288 abstract candidate
-decisions. A fifth domain covers both terminal return states. The candidate
+decisions. A fifth domain covers both terminal return states. A sixth
+partitions all 33,554,432 combinations of return state, incoming OP extension
+bytes, and selected-record continuation byte. The candidate
 projection includes direction, type equality, filter result, the `FFh`
 sentinel, source relation, and current-best relation. These domains cover the
 translated branch predicates and minimize representatives for their outcomes.
 They do not enumerate arbitrary VAT length, every possible eight-byte name, or
-the two extension bytes in the 11-byte OP scratch registers. [confirmed]
+every surrounding machine state. [confirmed]
 
 The extended raised-token classifier at `34:580C` has a caller-scoped domain of
 3,047 packed-token states. `34:5866` handles numeric bytes and `B0h` first, and
@@ -578,7 +580,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 25 finite models. It also computes an
+complete path-equivalence class in 26 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -610,9 +612,10 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha record stepping | 8,192 | 8 | 12 | 4 |
 | FindAlpha candidate reducer | 288 | 25 | 17 | 10 |
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
+| FindAlpha OP scratch transition | 33,554,432 | 2 | 5 | 2 |
 
-The 25 models contain 1,343 path classes and 223 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 115 representatives. Each
+The 26 models contain 1,345 path classes and 228 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 117 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -1489,11 +1492,15 @@ value in the seven selected payload bytes written back to a saved operand.
 [confirmed]
 
 These page-39 buffers contain the nine identity bytes copied by `_Mov9B`.
-The page-7 routine uses the complete 11-byte OP scratch registers through
-`00:1A0F`, `00:1AE7`, and `00:1A4E`; `07:522E` also writes OP2+9 at `0x848C`.
-The translation models the nine identity bytes used for selection and saved
-operand writeback. It does not claim parity for the two extension bytes in the
-page-7 scratch registers. [confirmed]
+Their restore and writeback operations leave OP1+9 and OP1+10 untouched. The
+page-7 entry at `07:50BE` copies all 11 bytes from OP1 to OP3 through
+`00:1A0F`. Candidate construction starts by clearing all 11 bytes of OP2 at
+`07:51ED`; `07:522E` then copies the byte immediately below the selected VAT
+record to OP2+9 at `0x848C`, while OP2+10 remains zero. The full-register
+copies through `00:1AE7` and `00:1A4E` return those values in OP3 and OP1.
+Failure instead restores both incoming extension bytes from OP3. The
+translation and its raw wrapper oracle model this 11-byte behavior while the
+saved E7/F2 slots remain nine bytes. [confirmed]
 
 The local dispatcher below those wrappers is translated separately by
 `editorAlphaSearch()`. `39:59E0` and `39:59F9` first call `39:5A17`, which
@@ -1521,7 +1528,8 @@ an LCD stream. [confirmed] for the page-39 control flow and bcall identities;
 
 `editorFindAlphaVat()` translates the selection state over an explicit logical
 VAT snapshot. Each snapshot entry contains its nine-byte OP-format identity,
-VAT type-byte address, and data-page byte. `07:50BB` loads `A=00h`, discarding the caller's
+the byte immediately below its record, its VAT type-byte address, and its
+data-page byte. `07:50BB` loads `A=00h`, discarding the caller's
 value; `07:5104`–`07:511D` always compare the normalized type class.
 [confirmed] `07:5247` maps protected programs to the program
 class, complex lists to the list class, type `0x0B` to equation class `0x03`,
@@ -1529,8 +1537,9 @@ and types `0x18`/`0x19` to class zero. [confirmed] The comparator at
 `07:5199` subtracts eight name bytes from OPx+8 down to OPx+1. Borrow
 propagation makes OPx+1 the most-significant alphabetic byte. The scan retains
 the nearest name above or below the incoming OP1, independent of physical VAT
-entry order. It returns the selected identity in OP1 and OP3, its VAT pointer
-in `HL`, and carry at an alphabetic endpoint. [confirmed]
+entry order. It returns the selected identity plus the two extension bytes in
+OP1 and OP3, its VAT pointer in `HL`, and carry at an alphabetic endpoint.
+[confirmed]
 
 The decoder at `07:51BE` rejects a first name byte below `41h` or equal to
 `72h`. It also handles list prefixes `3Ah` and `5Dh 40h` through
@@ -1545,11 +1554,13 @@ keys beginning with `FFh` use the named region. Other List/CList forms,
 including `72h` and `3Ah`, use the fixed-token region. The fixed path preserves
 three name bytes and clears the remaining five. The named path clears bytes
 after the NUL-terminated name length; the one-byte `5Dh` prefix has comparison
-length two. A failed search restores the original, unpadded identity from OP3.
+length two. A failed search restores the complete original, unpadded OP1 from
+OP3.
 [confirmed]
 
-Success returns `A=00h`, Z set, and carry clear. Failure restores the incoming
-identity to OP1/OP3 and returns `A=FEh`, Z clear, and carry set. [confirmed]
+Success returns `A=00h`, Z set, and carry clear. Failure restores all 11
+incoming bytes to OP1/OP3 and returns `A=FEh`, Z clear, and carry set.
+[confirmed]
 
 `editorDecodeAlphaVatSnapshot()` builds the logical snapshot from a 64 KiB RAM
 image. The initializer at `07:50BE`–`07:50F9` chooses one of two regions.

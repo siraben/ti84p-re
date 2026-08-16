@@ -412,8 +412,8 @@ TRANSLATION_SURFACES = (
         ],
         "tests": ["tools/test-mathprint.js", "tools/test_mathprint_saturation.py"],
         "scope": (
-            "nine-byte variable identities, raw VAT regions, and finite semantic "
-            "candidate-decision projections; full 11-byte OP scratch state remains open"
+            "nine-byte variable identities, complete 11-byte OP scratch transitions, "
+            "raw VAT regions, and finite semantic candidate-decision projections"
         ),
     },
 )
@@ -2488,6 +2488,42 @@ def symbolic_find_alpha_endpoint_paths() -> list[dict[str, object]]:
     return [find_alpha_endpoint_path(best_exists) for best_exists in (0, 1)]
 
 
+def find_alpha_op_scratch_path(success: int) -> dict[str, object]:
+    """Model the complete 11-byte OP extension transition at the endpoint."""
+
+    success = int(bool(success))
+    if success:
+        return {
+            "terminal": "success_candidate_extension",
+            "op1_byte_9_source": "byte immediately below selected VAT record",
+            "op1_byte_10_source": "zero from _ZeroOP2",
+            "branch_outcomes": [
+                "semantic:op_scratch:success",
+                "semantic:op_scratch:byte9_from_selected_record",
+                "semantic:op_scratch:byte10_zero",
+            ],
+            "representative_states": [{"success": 1}],
+            "projected_input_count": 0x100**3,
+        }
+    return {
+        "terminal": "failure_restore_extensions",
+        "op1_byte_9_source": "incoming OP1 byte 9",
+        "op1_byte_10_source": "incoming OP1 byte 10",
+        "branch_outcomes": [
+            "semantic:op_scratch:failure",
+            "semantic:op_scratch:restore_incoming_extensions",
+        ],
+        "representative_states": [{"success": 0}],
+        "projected_input_count": 0x100**3,
+    }
+
+
+def symbolic_find_alpha_op_scratch_paths() -> list[dict[str, object]]:
+    """Partition success/failure over all incoming and candidate extension bytes."""
+
+    return [find_alpha_op_scratch_path(success) for success in (0, 1)]
+
+
 def raised_extended_token_path(a: int, e: int) -> dict[str, object]:
     """Partition the packed-token classifier at 34:580C.
 
@@ -3299,6 +3335,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             "07:518E–5198",
             2,
             symbolic_find_alpha_endpoint_paths(),
+        ),
+        (
+            "find_alpha_op_scratch",
+            "07:50BE; 07:518E–5231",
+            2 * 0x100**3,
+            symbolic_find_alpha_op_scratch_paths(),
         ),
     )
     domains = []
@@ -4209,14 +4251,6 @@ def open_paths(
             ),
         },
         {
-            "area": "FindAlpha full OP scratch state",
-            "status": "open",
-            "reason": (
-                "the translation models the nine identity bytes copied by page 39; "
-                "page 7 uses 11-byte OP scratch registers and writes OP2+9 at 07:522E"
-            ),
-        },
-        {
             "area": "FindAlpha arbitrary VAT sequences",
             "status": "open",
             "reason": (
@@ -4703,6 +4737,19 @@ def build_report(
                 "state": ["whether the scan retained a best candidate"],
                 "abstract_predicate_domain": 2,
                 "terminal_classes": symbolic_find_alpha_endpoint_paths(),
+            },
+            "find_alpha_op_scratch": {
+                "routine": "07:50BE; 07:518E–5231",
+                "state": [
+                    "success/failure", "incoming OP1 byte 9",
+                    "incoming OP1 byte 10", "selected record continuation byte",
+                ],
+                "projected_input_domain": 2 * 0x100**3,
+                "terminal_classes": symbolic_find_alpha_op_scratch_paths(),
+                "scope": (
+                    "all extension-byte values; identity-byte comparison and "
+                    "candidate selection are partitioned separately"
+                ),
             },
         },
         "record_oracles": oracle,

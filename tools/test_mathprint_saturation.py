@@ -34,6 +34,7 @@ from analyze_mathprint_saturation import (
     exact_cover_z3,
     find_alpha_candidate_path,
     find_alpha_endpoint_path,
+    find_alpha_op_scratch_path,
     find_alpha_key_preparation_path,
     find_alpha_record_step_path,
     find_alpha_type_class_path,
@@ -70,6 +71,7 @@ from analyze_mathprint_saturation import (
     symbolic_embedded_viewport_paths,
     symbolic_find_alpha_candidate_paths,
     symbolic_find_alpha_endpoint_paths,
+    symbolic_find_alpha_op_scratch_paths,
     symbolic_find_alpha_key_preparation_paths,
     symbolic_find_alpha_record_step_paths,
     symbolic_find_alpha_type_class_paths,
@@ -282,13 +284,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(1343, report["path_equivalence_class_count"])
-        self.assertEqual(1343, report["representative_path_corpus_count"])
-        self.assertEqual(223, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(1345, report["path_equivalence_class_count"])
+        self.assertEqual(1345, report["representative_path_corpus_count"])
+        self.assertEqual(228, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            115, report["per_domain_minimum_branch_outcome_corpus_count"]
+            117, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(25, len(report["domains"]))
+        self.assertEqual(26, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -692,6 +694,25 @@ class SymbolicHandlerTests(unittest.TestCase):
         self.assertEqual("success", find_alpha_endpoint_path(1)["terminal"])
         self.assertFalse(find_alpha_endpoint_path(1)["carry"])
         self.assertEqual(0, find_alpha_endpoint_path(1)["a"])
+
+    def test_find_alpha_op_scratch_partitions_all_extension_values(self) -> None:
+        paths = symbolic_find_alpha_op_scratch_paths()
+
+        self.assertEqual(2 * 0x100**3, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(
+            "incoming OP1 byte 9",
+            find_alpha_op_scratch_path(0)["op1_byte_9_source"],
+        )
+        self.assertEqual(
+            "byte immediately below selected VAT record",
+            find_alpha_op_scratch_path(1)["op1_byte_9_source"],
+        )
+        self.assertEqual(
+            "zero from _ZeroOP2",
+            find_alpha_op_scratch_path(1)["op1_byte_10_source"],
+        )
 
     def test_scan_kind_partition_covers_every_byte(self) -> None:
         paths = symbolic_scan_kind_paths()
@@ -1389,7 +1410,7 @@ class CheckedReportTests(unittest.TestCase):
             matrix_entry["sha256"],
         )
         self.assertEqual(
-            1343,
+            1345,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(
