@@ -1,0 +1,296 @@
+# Walk both directions through completed radical, nth-root, and power templates.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+
+# sqrt(2): root-after to root-before and back.
+key CLEAR
+key 2ND
+key SQUARE
+key 2
+key RIGHT
+wait 0.5s
+memdump /tmp/mp-radical-left-walk-0.ram ram-logical
+screenshot /tmp/mp-radical-left-walk-0.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-radical-left-walk-1.ram ram-logical
+screenshot /tmp/mp-radical-left-walk-1.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-radical-left-walk-2.ram ram-logical
+screenshot /tmp/mp-radical-left-walk-2.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-radical-left-walk-3.ram ram-logical
+screenshot /tmp/mp-radical-left-walk-3.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-radical-left-walk-4.ram ram-logical
+screenshot /tmp/mp-radical-left-walk-4.png
+memdump /tmp/mp-radical-right-walk-0.ram ram-logical
+screenshot /tmp/mp-radical-right-walk-0.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-radical-right-walk-1.ram ram-logical
+screenshot /tmp/mp-radical-right-walk-1.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-radical-right-walk-2.ram ram-logical
+screenshot /tmp/mp-radical-right-walk-2.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-radical-right-walk-3.ram ram-logical
+screenshot /tmp/mp-radical-right-walk-3.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-radical-right-walk-4.ram ram-logical
+screenshot /tmp/mp-radical-right-walk-4.png
+
+# root(Ans,2): retain the constructor's Ans index and walk both children.
+key CLEAR
+key MATH
+key 5
+key 2
+key RIGHT
+wait 0.5s
+memdump /tmp/mp-nthroot-left-walk-0.ram ram-logical
+screenshot /tmp/mp-nthroot-left-walk-0.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-nthroot-left-walk-1.ram ram-logical
+screenshot /tmp/mp-nthroot-left-walk-1.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-nthroot-left-walk-2.ram ram-logical
+screenshot /tmp/mp-nthroot-left-walk-2.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-nthroot-left-walk-3.ram ram-logical
+screenshot /tmp/mp-nthroot-left-walk-3.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-nthroot-left-walk-4.ram ram-logical
+screenshot /tmp/mp-nthroot-left-walk-4.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-nthroot-left-walk-5.ram ram-logical
+screenshot /tmp/mp-nthroot-left-walk-5.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-nthroot-left-walk-6.ram ram-logical
+screenshot /tmp/mp-nthroot-left-walk-6.png
+memdump /tmp/mp-nthroot-right-walk-0.ram ram-logical
+screenshot /tmp/mp-nthroot-right-walk-0.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-nthroot-right-walk-1.ram ram-logical
+screenshot /tmp/mp-nthroot-right-walk-1.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-nthroot-right-walk-2.ram ram-logical
+screenshot /tmp/mp-nthroot-right-walk-2.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-nthroot-right-walk-3.ram ram-logical
+screenshot /tmp/mp-nthroot-right-walk-3.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-nthroot-right-walk-4.ram ram-logical
+screenshot /tmp/mp-nthroot-right-walk-4.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-nthroot-right-walk-5.ram ram-logical
+screenshot /tmp/mp-nthroot-right-walk-5.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-nthroot-right-walk-6.ram ram-logical
+screenshot /tmp/mp-nthroot-right-walk-6.png
+
+# Ans^2: include movement across the implicit root-leaf base.
+key CLEAR
+key POWER
+key 2
+key RIGHT
+wait 0.5s
+memdump /tmp/mp-power-left-walk-0.ram ram-logical
+screenshot /tmp/mp-power-left-walk-0.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-power-left-walk-1.ram ram-logical
+screenshot /tmp/mp-power-left-walk-1.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-power-left-walk-2.ram ram-logical
+screenshot /tmp/mp-power-left-walk-2.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-power-left-walk-3.ram ram-logical
+screenshot /tmp/mp-power-left-walk-3.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-power-left-walk-4.ram ram-logical
+screenshot /tmp/mp-power-left-walk-4.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-power-left-walk-5.ram ram-logical
+screenshot /tmp/mp-power-left-walk-5.png
+memdump /tmp/mp-power-right-walk-0.ram ram-logical
+screenshot /tmp/mp-power-right-walk-0.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-power-right-walk-1.ram ram-logical
+screenshot /tmp/mp-power-right-walk-1.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-power-right-walk-2.ram ram-logical
+screenshot /tmp/mp-power-right-walk-2.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-power-right-walk-3.ram ram-logical
+screenshot /tmp/mp-power-right-walk-3.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-power-right-walk-4.ram ram-logical
+screenshot /tmp/mp-power-right-walk-4.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-power-right-walk-5.ram ram-logical
+screenshot /tmp/mp-power-right-walk-5.png
+
+# abs(X): the vertical bars share the one-child controller.
+key CLEAR
+key MATH
+key RIGHT
+key 1
+key GRAPHVAR
+key RIGHT
+wait 0.5s
+memdump /tmp/mp-absolute-left-walk-0.ram ram-logical
+screenshot /tmp/mp-absolute-left-walk-0.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-absolute-left-walk-1.ram ram-logical
+screenshot /tmp/mp-absolute-left-walk-1.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-absolute-left-walk-2.ram ram-logical
+screenshot /tmp/mp-absolute-left-walk-2.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-absolute-left-walk-3.ram ram-logical
+screenshot /tmp/mp-absolute-left-walk-3.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-absolute-left-walk-4.ram ram-logical
+screenshot /tmp/mp-absolute-left-walk-4.png
+memdump /tmp/mp-absolute-right-walk-0.ram ram-logical
+screenshot /tmp/mp-absolute-right-walk-0.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-absolute-right-walk-1.ram ram-logical
+screenshot /tmp/mp-absolute-right-walk-1.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-absolute-right-walk-2.ram ram-logical
+screenshot /tmp/mp-absolute-right-walk-2.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-absolute-right-walk-3.ram ram-logical
+screenshot /tmp/mp-absolute-right-walk-3.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-absolute-right-walk-4.ram ram-logical
+screenshot /tmp/mp-absolute-right-walk-4.png
+
+# e^2: raised one-child geometry.
+key CLEAR
+key 2ND
+key LN
+key 2
+key RIGHT
+wait 0.5s
+memdump /tmp/mp-epower-left-walk-0.ram ram-logical
+screenshot /tmp/mp-epower-left-walk-0.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-epower-left-walk-1.ram ram-logical
+screenshot /tmp/mp-epower-left-walk-1.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-epower-left-walk-2.ram ram-logical
+screenshot /tmp/mp-epower-left-walk-2.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-epower-left-walk-3.ram ram-logical
+screenshot /tmp/mp-epower-left-walk-3.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-epower-left-walk-4.ram ram-logical
+screenshot /tmp/mp-epower-left-walk-4.png
+memdump /tmp/mp-epower-right-walk-0.ram ram-logical
+screenshot /tmp/mp-epower-right-walk-0.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-epower-right-walk-1.ram ram-logical
+screenshot /tmp/mp-epower-right-walk-1.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-epower-right-walk-2.ram ram-logical
+screenshot /tmp/mp-epower-right-walk-2.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-epower-right-walk-3.ram ram-logical
+screenshot /tmp/mp-epower-right-walk-3.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-epower-right-walk-4.ram ram-logical
+screenshot /tmp/mp-epower-right-walk-4.png
+
+# 10^2: the second raised one-child geometry type.
+key CLEAR
+key 2ND
+key LOG
+key 2
+key RIGHT
+wait 0.5s
+memdump /tmp/mp-tenpower-left-walk-0.ram ram-logical
+screenshot /tmp/mp-tenpower-left-walk-0.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-tenpower-left-walk-1.ram ram-logical
+screenshot /tmp/mp-tenpower-left-walk-1.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-tenpower-left-walk-2.ram ram-logical
+screenshot /tmp/mp-tenpower-left-walk-2.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-tenpower-left-walk-3.ram ram-logical
+screenshot /tmp/mp-tenpower-left-walk-3.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-tenpower-left-walk-4.ram ram-logical
+screenshot /tmp/mp-tenpower-left-walk-4.png
+memdump /tmp/mp-tenpower-right-walk-0.ram ram-logical
+screenshot /tmp/mp-tenpower-right-walk-0.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-tenpower-right-walk-1.ram ram-logical
+screenshot /tmp/mp-tenpower-right-walk-1.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-tenpower-right-walk-2.ram ram-logical
+screenshot /tmp/mp-tenpower-right-walk-2.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-tenpower-right-walk-3.ram ram-logical
+screenshot /tmp/mp-tenpower-right-walk-3.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-tenpower-right-walk-4.ram ram-logical
+screenshot /tmp/mp-tenpower-right-walk-4.png

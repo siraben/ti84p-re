@@ -19,35 +19,143 @@ rom.setSettledTokenStrings(JSON.parse(fs.readFileSync(
 const capture = require(path.join(
   root,'tools','capture-mathprint-editor-navigation.js'));
 
-const macro = 'tools/macros/mathprint-editor-extra-structural-navigation.macro';
-const trace = '/tmp/mp-extra-structural-navigation.trace';
+const sources = {
+  calculus:{
+    macro:'tools/macros/mathprint-editor-extra-structural-navigation.macro',
+    trace:'/tmp/mp-extra-structural-navigation.trace',
+  },
+  remaining:{
+    macro:'tools/macros/mathprint-editor-remaining-structural-navigation.macro',
+    trace:'/tmp/mp-remaining-structural-navigation.trace',
+  },
+};
 const specs = [
   {
-    name:'nderiv_left',prefix:'/tmp/mp-nderiv-left-walk',direction:'left',
+    source:'calculus',name:'nderiv_left',
+    prefix:'/tmp/mp-nderiv-left-walk',direction:'left',
     states:[
       'root_after','value_end','value_start','body_end','body_start',
       'variable','root_before','root_before_endpoint',
     ],
   },
   {
-    name:'nderiv_right',prefix:'/tmp/mp-nderiv-right-walk',direction:'right',
+    source:'calculus',name:'nderiv_right',
+    prefix:'/tmp/mp-nderiv-right-walk',direction:'right',
     states:[
       'root_before','variable','body_start','body_end','value_start',
       'value_end','root_after','root_after_endpoint',
     ],
   },
   {
-    name:'logbase_left',prefix:'/tmp/mp-logbase-left-walk',direction:'left',
+    source:'calculus',name:'logbase_left',
+    prefix:'/tmp/mp-logbase-left-walk',direction:'left',
     states:[
       'root_after','argument_end','argument_start','base_end','base_start',
       'root_before','root_before_endpoint',
     ],
   },
   {
-    name:'logbase_right',prefix:'/tmp/mp-logbase-right-walk',direction:'right',
+    source:'calculus',name:'logbase_right',
+    prefix:'/tmp/mp-logbase-right-walk',direction:'right',
     states:[
       'root_before','base_start','base_end','argument_start','argument_end',
       'root_after','root_after_endpoint',
+    ],
+  },
+  {
+    source:'remaining',name:'radical_left',
+    prefix:'/tmp/mp-radical-left-walk',direction:'left',
+    states:[
+      'root_after','radicand_end','radicand_start','root_before',
+      'root_before_endpoint',
+    ],
+  },
+  {
+    source:'remaining',name:'radical_right',
+    prefix:'/tmp/mp-radical-right-walk',direction:'right',
+    states:[
+      'root_before','radicand_start','radicand_end','root_after',
+      'root_after_endpoint',
+    ],
+  },
+  {
+    source:'remaining',name:'nthroot_left',
+    prefix:'/tmp/mp-nthroot-left-walk',direction:'left',
+    states:[
+      'root_after','radicand_end','radicand_start','index_end','index_start',
+      'root_before','root_before_endpoint',
+    ],
+  },
+  {
+    source:'remaining',name:'nthroot_right',
+    prefix:'/tmp/mp-nthroot-right-walk',direction:'right',
+    states:[
+      'root_before','index_start','index_end','radicand_start','radicand_end',
+      'root_after','root_after_endpoint',
+    ],
+  },
+  {
+    source:'remaining',name:'power_left',
+    prefix:'/tmp/mp-power-left-walk',direction:'left',
+    states:[
+      'root_after','exponent_end','exponent_start','marker_before',
+      'base_before','base_before_endpoint',
+    ],
+  },
+  {
+    source:'remaining',name:'power_right',
+    prefix:'/tmp/mp-power-right-walk',direction:'right',
+    states:[
+      'base_before','marker_before','exponent_start','exponent_end',
+      'root_after','root_after_endpoint',
+    ],
+  },
+  {
+    source:'remaining',name:'absolute_left',
+    prefix:'/tmp/mp-absolute-left-walk',direction:'left',
+    states:[
+      'root_after','body_end','body_start','root_before',
+      'root_before_endpoint',
+    ],
+  },
+  {
+    source:'remaining',name:'absolute_right',
+    prefix:'/tmp/mp-absolute-right-walk',direction:'right',
+    states:[
+      'root_before','body_start','body_end','root_after',
+      'root_after_endpoint',
+    ],
+  },
+  {
+    source:'remaining',name:'epower_left',
+    prefix:'/tmp/mp-epower-left-walk',direction:'left',
+    states:[
+      'root_after','exponent_end','exponent_start','root_before',
+      'root_before_endpoint',
+    ],
+  },
+  {
+    source:'remaining',name:'epower_right',
+    prefix:'/tmp/mp-epower-right-walk',direction:'right',
+    states:[
+      'root_before','exponent_start','exponent_end','root_after',
+      'root_after_endpoint',
+    ],
+  },
+  {
+    source:'remaining',name:'tenpower_left',
+    prefix:'/tmp/mp-tenpower-left-walk',direction:'left',
+    states:[
+      'root_after','exponent_end','exponent_start','root_before',
+      'root_before_endpoint',
+    ],
+  },
+  {
+    source:'remaining',name:'tenpower_right',
+    prefix:'/tmp/mp-tenpower-right-walk',direction:'right',
+    states:[
+      'root_before','exponent_start','exponent_end','root_after',
+      'root_after_endpoint',
     ],
   },
 ];
@@ -58,6 +166,8 @@ const digest = bytes =>
 const captures = {};
 const transitions = [];
 for (const spec of specs) {
+  const source = sources[spec.source];
+  if (!source) throw new Error(`${spec.name}: unknown capture source`);
   const states = spec.states.map((name,index) =>
     capture.captureState(spec.prefix,index,name));
   const decoded = states.map(capture.decodeSparse);
@@ -73,9 +183,10 @@ for (const spec of specs) {
     });
   }
   captures[spec.name] = {
-    macro,macro_sha256:digest(fs.readFileSync(path.join(root,macro))),
-    trace_sha256:digest(fs.readFileSync(trace)),states,
+    macro:source.macro,
+    macro_sha256:digest(fs.readFileSync(path.join(root,source.macro))),
+    trace_sha256:digest(fs.readFileSync(source.trace)),states,
   };
 }
 
-process.stdout.write(`${JSON.stringify({schema:1,captures,transitions},null,2)}\n`);
+process.stdout.write(`${JSON.stringify({schema:2,captures,transitions},null,2)}\n`);

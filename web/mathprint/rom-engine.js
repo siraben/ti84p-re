@@ -2737,7 +2737,8 @@
       to:{x:operation.to.x + origin.x, y:operation.to.y + origin.y},
     };
     if (operation.kind === 'point' || operation.kind === 'glyph' ||
-        operation.kind === 'bitmap' || operation.kind === 'glyph-run')
+        operation.kind === 'bitmap' || operation.kind === 'glyph-run' ||
+        operation.kind === 'editor-cursor-cell')
       return addPointOrigin(operation, origin);
     return {...operation, origin:{...origin}};
   }
@@ -5272,8 +5273,19 @@
                   }),
                 });
               } else {
+                // A live root cursor can sit after the postfix base but before
+                // the six-byte power marker. Keep that byte position inside
+                // the base expression; leaving the cursor after the completed
+                // power would move it past the marker during reconstruction.
+                const trailingCursors = current.items.slice(candidateIndex + 1);
+                const base = trailingCursors.length
+                  ? collapse([
+                    candidate.value,
+                    ...trailingCursors.map(item => item.value),
+                  ])
+                  : candidate.value;
                 candidate.value = {
-                  kind:'power',base:candidate.value,
+                  kind:'power',base,
                   exponent:embedded.exponent,
                   ...(embedded.editor_record_id === undefined ? {} : {
                     editor_record_id:embedded.editor_record_id,
@@ -5285,6 +5297,8 @@
                     editor_child_selector:embedded.editor_child_selector,
                   }),
                 };
+                if (trailingCursors.length)
+                  current.items.splice(candidateIndex + 1);
               }
             } else appendAtom(embedded);
             index += 4;
@@ -7658,9 +7672,17 @@
         const height = renderDepth === 0 ? 7 : 5;
         const baseline = renderDepth === 0 ? 3 : 2;
         const beforeEmptySlot = beginsWithEmptySlot(nextPart);
-        // Inside an existing payload the cursor overlays the following cell;
-        // only an end-of-leaf cursor allocates a new large/small cell.
-        const width = nextPart ? 0 : renderDepth === 0 ? 6 : 5;
+        // Inside an existing payload the cursor normally overlays the
+        // following cell. Fraction, nth-root, and postfix-power markers begin
+        // with geometry rather than a full-size operator cell, so the editor
+        // allocates a cursor cell immediately before those three structures.
+        const cursorBeforeGeometry = nextPart &&
+          nextPart.kind === 'embedded' &&
+          (nextPart.structural.render_type === 0x20 ||
+           nextPart.structural.render_type === 0x24 ||
+           nextPart.structural.render_type === 0x2a);
+        const width = !nextPart || cursorBeforeGeometry
+          ? renderDepth === 0 ? 6 : 5 : 0;
         if (width) {
           mergeVerticalMetrics(height,baseline);
           leaf.word07 = checkedWord(
@@ -8759,16 +8781,15 @@
         cursorEmissions++;
         if (cursorEmissions > 1)
           throw new RangeError('editor cursor was emitted more than once');
-        if (cursorWidth) {
-          controls.emit({
-            kind:'editor-cursor-cell', x:pen.x,
-            y:record.word09 - cursorBaseline,
-            width:cursorWidth, height:cursorHeight, baseline:cursorBaseline,
-            visible:false,
-            routine:'34:785E–7876 → 34:779F and 34:79A9',
-          });
-          pen.x += cursorWidth;
-        }
+        const cellWidth = controls.state.depth === 0 ? 6 : 5;
+        controls.emit({
+          kind:'editor-cursor-cell', x:pen.x,
+          y:record.word09 - cursorBaseline,
+          width:cellWidth, height:cursorHeight, baseline:cursorBaseline,
+          advance:cursorWidth, overlays:cursorWidth === 0, visible:false,
+          routine:'34:785E–7876 → 34:779F and 34:79A9',
+        });
+        pen.x += cursorWidth;
       };
       const delimiterMetrics = new Map();
       const stack = [];

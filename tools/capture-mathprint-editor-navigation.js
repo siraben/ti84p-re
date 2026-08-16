@@ -8,6 +8,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 
 const root = path.dirname(__dirname);
 const rom = require(path.join(root,'web','mathprint','rom-engine.js'));
@@ -50,6 +51,86 @@ function packedLcdBytes(grid) {
     }
     return bytes;
   }));
+}
+
+function withoutRectangles(grid, rectangles) {
+  return grid.map((row,y) => row.map((pixel,x) =>
+    rectangles.some(rectangle =>
+      rectangle.x <= x && x < rectangle.x + rectangle.width &&
+      rectangle.y <= y && y < rectangle.y + rectangle.height) ? 0 : pixel));
+}
+
+function pngInkGrid(bytes, name) {
+  const signature = Buffer.from('89504e470d0a1a0a','hex');
+  if (bytes.length < signature.length ||
+      !bytes.subarray(0,signature.length).equals(signature))
+    throw new RangeError(`${name}: screenshot is not a PNG`);
+  let offset = signature.length;
+  let width = null, height = null;
+  const compressed = [];
+  while (offset + 12 <= bytes.length) {
+    const length = bytes.readUInt32BE(offset);
+    const type = bytes.toString('ascii',offset + 4,offset + 8);
+    const start = offset + 8, end = start + length;
+    if (end + 4 > bytes.length)
+      throw new RangeError(`${name}: screenshot has a truncated ${type} chunk`);
+    const data = bytes.subarray(start,end);
+    if (type === 'IHDR') {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      if (data[8] !== 8 || data[9] !== 2 || data[12] !== 0)
+        throw new RangeError(
+          `${name}: screenshot must be non-interlaced 8-bit RGB`);
+    } else if (type === 'IDAT') compressed.push(data);
+    offset = end + 4;
+    if (type === 'IEND') break;
+  }
+  if (width !== 96 || height !== 64 || !compressed.length)
+    throw new RangeError(`${name}: screenshot is not one 96x64 LCD frame`);
+  const filtered = zlib.inflateSync(Buffer.concat(compressed));
+  const bytesPerPixel = 3, stride = width * bytesPerPixel;
+  if (filtered.length !== height * (stride + 1))
+    throw new RangeError(`${name}: screenshot has an unexpected scanline size`);
+  const decoded = Buffer.alloc(height * stride);
+  const paeth = (left, up, upperLeft) => {
+    const prediction = left + up - upperLeft;
+    const leftDistance = Math.abs(prediction - left);
+    const upDistance = Math.abs(prediction - up);
+    const upperLeftDistance = Math.abs(prediction - upperLeft);
+    return leftDistance <= upDistance && leftDistance <= upperLeftDistance
+      ? left : upDistance <= upperLeftDistance ? up : upperLeft;
+  };
+  for (let y = 0; y < height; y++) {
+    const filter = filtered[y * (stride + 1)];
+    if (filter > 4)
+      throw new RangeError(`${name}: screenshot uses PNG filter ${filter}`);
+    for (let x = 0; x < stride; x++) {
+      const source = filtered[y * (stride + 1) + 1 + x];
+      const left = x >= bytesPerPixel
+        ? decoded[y * stride + x - bytesPerPixel] : 0;
+      const up = y ? decoded[(y - 1) * stride + x] : 0;
+      const upperLeft = y && x >= bytesPerPixel
+        ? decoded[(y - 1) * stride + x - bytesPerPixel] : 0;
+      const predictor = filter === 0 ? 0
+        : filter === 1 ? left
+        : filter === 2 ? up
+        : filter === 3 ? Math.floor((left + up) / 2)
+        : paeth(left,up,upperLeft);
+      decoded[y * stride + x] = (source + predictor) & 0xff;
+    }
+  }
+  return Array.from({length:height},(_,y) =>
+    Array.from({length:width},(_,x) => {
+      const index = y * stride + x * bytesPerPixel;
+      const red = decoded[index], green = decoded[index + 1];
+      const blue = decoded[index + 2];
+      if (red !== green || red !== blue)
+        throw new RangeError(`${name}: screenshot contains colored LCD pixels`);
+      // TilEm captures the blinking edit cursor as gray. The record renderer
+      // produces the calculator's black expression ink, so compare black ink
+      // exactly and intentionally exclude that transient cursor overlay.
+      return red === 0 ? 1 : 0;
+    }));
 }
 
 function projection(state) {
@@ -146,13 +227,35 @@ function captureStatePaths(ramPath, screenshotPath, name) {
     reconstructed.nodes,reconstructed.wrapper_id,{
       glyphAdvance:(depth,code) => depth === 0
         ? 6 : font.small.glyphs[code].w,
-    });
+  });
   const lcd = rom.rasterizeSettledOperations(operations,font).grid;
+  const screenshot = fs.readFileSync(screenshotPath);
+  const screenshotLcd = pngInkGrid(screenshot,name);
+  const cursorOperations = operations.filter(
+    operation => operation.kind === 'editor-cursor-cell');
+  if (!cursorOperations.length)
+    throw new Error(
+      `${name}: reconstructed state has no cursor cell`);
+  const cursorMasks = cursorOperations.map(cursor => ({
+    x:cursor.x,y:cursor.y,width:cursor.width,height:cursor.height,
+  }));
+  const lcdBytes = packedLcdBytes(lcd);
+  const screenshotLcdBytes = packedLcdBytes(screenshotLcd);
+  const maskedLcdBytes = packedLcdBytes(withoutRectangles(lcd,cursorMasks));
+  const maskedScreenshotLcdBytes = packedLcdBytes(
+    withoutRectangles(screenshotLcd,cursorMasks));
+  if (!maskedLcdBytes.equals(maskedScreenshotLcdBytes))
+    throw new Error(
+      `${name}: reconstructed LCD ink outside the cursor cell does not match screenshot`);
   return {
     name,
     source_ram_sha256:digest(raw),
-    screenshot_sha256:digest(fs.readFileSync(screenshotPath)),
-    lcd_bitmap_sha256:digest(packedLcdBytes(lcd)),
+    screenshot_sha256:digest(screenshot),
+    lcd_bitmap_sha256:digest(lcdBytes),
+    screenshot_lcd_bitmap_sha256:digest(screenshotLcdBytes),
+    lcd_masked_bitmap_sha256:digest(maskedLcdBytes),
+    screenshot_lcd_masked_bitmap_sha256:digest(maskedScreenshotLcdBytes),
+    cursor_masks:cursorMasks,
     ...sparse,
   };
 }

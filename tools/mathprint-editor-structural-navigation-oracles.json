@@ -10,7 +10,7 @@
           "name": "root_before",
           "source_ram_sha256": "101892c4b68cfb06e833ae0d1f0177a8d7379da5bbb2df9291fbc80ef0f82c8e",
           "screenshot_sha256": "f6677959557deeda4ddbb61bea7483d855a9adfabd8dbaf1f6539215939d82d1",
-          "lcd_bitmap_sha256": "49ed1161de5f2f0e219bf43d2993bddcfcd2f6cadf3e9884a78f91d719267547",
+          "lcd_bitmap_sha256": "519cecb1f69efd736f37a36103206eb34ffe164e2804c74326b5e4296edb6667",
           "sparse_state_sha256": "7de5d24fc11b85cc577764526f61a17f7ab766fd884d71f78639d62699059131",
           "segments": [
             {
@@ -357,7 +357,7 @@
           "name": "root_before",
           "source_ram_sha256": "d9fd1b6aebae235c7a7458cec7bf2f525838a2fb61fda922194ecd4b0ebc26d2",
           "screenshot_sha256": "1014c56fa7c057f67c07856624e7650eaf06226f8a8b8f4a1b5ff2d652feaa18",
-          "lcd_bitmap_sha256": "49ed1161de5f2f0e219bf43d2993bddcfcd2f6cadf3e9884a78f91d719267547",
+          "lcd_bitmap_sha256": "519cecb1f69efd736f37a36103206eb34ffe164e2804c74326b5e4296edb6667",
           "sparse_state_sha256": "7de5d24fc11b85cc577764526f61a17f7ab766fd884d71f78639d62699059131",
           "segments": [
             {
@@ -386,7 +386,7 @@
           "name": "root_before_endpoint",
           "source_ram_sha256": "d6b7ab7c2aab56dda7bcb3a1471d7c509e01c955b492392d376b1529d58c5f07",
           "screenshot_sha256": "6e3bc2c30eee0c1bff9678440116d2bc023a5fb01f0ebd96e2505de34c704176",
-          "lcd_bitmap_sha256": "49ed1161de5f2f0e219bf43d2993bddcfcd2f6cadf3e9884a78f91d719267547",
+          "lcd_bitmap_sha256": "519cecb1f69efd736f37a36103206eb34ffe164e2804c74326b5e4296edb6667",
           "sparse_state_sha256": "7de5d24fc11b85cc577764526f61a17f7ab766fd884d71f78639d62699059131",
           "segments": [
             {
@@ -1045,7 +1045,7 @@
           "name": "root_before",
           "source_ram_sha256": "79c7188202f70e440ecd844bd0727723c2d04970b359c84676771256c57f7c5c",
           "screenshot_sha256": "21e9e839721a9c775c90790a34719db495b88964b477f245b157f0203c865555",
-          "lcd_bitmap_sha256": "aff6e273b31f9c809262b5034c8016b599769cc5c99d6668d6380e2df47ababd",
+          "lcd_bitmap_sha256": "257460441c5785480f51aef3c20b7ecde89f11a2089786495082adb0db76a6bf",
           "sparse_state_sha256": "b62ca9ab762dd35bee0988980a2958ee20a9cbd627c31803a369a1ee3a57ceb3",
           "segments": [
             {
@@ -1074,7 +1074,7 @@
           "name": "outer_numerator_start",
           "source_ram_sha256": "436f2183641ffddee2ff50c8f3d50325f0b47c5cef6b2622d98d66ebe5aad0ac",
           "screenshot_sha256": "a634458c4435e7c30f287e945b5ad93f0a8d7bdf31454468d467bde4625b5625",
-          "lcd_bitmap_sha256": "aff6e273b31f9c809262b5034c8016b599769cc5c99d6668d6380e2df47ababd",
+          "lcd_bitmap_sha256": "98e6aed6be599141ba9de1231e94ff4522d1090ca43a0a0f09beb1897995239a",
           "sparse_state_sha256": "1891ccd6e7e523cb1f31c8c767092ad12e0ba8b8e5aada631f73703a61de8063",
           "segments": [
             {
