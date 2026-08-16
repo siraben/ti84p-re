@@ -524,10 +524,10 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, large-glyph output, and alphabetic VAT selection. It
 recursively follows direct ROM edges from named entries, seeds decoded table
-destinations, overlays exact next-PC outcomes from 256 reset-origin traces, and
+destinations, overlays exact next-PC outcomes from 261 reset-origin traces, and
 lists direct external targets. Computed dispatch destinations are manually
 seeded; bcall and RAM bjump bodies remain outside the direct-edge walk. Of those
-traces, 255 reach their state through calculator input. One explicitly
+traces, 260 reach their state through calculator input. One explicitly
 classified synthetic trace inserts an `EF36h` editor buffer through direct RAM
 writes. The report keeps the two provenance classes separate.
 `tools/mathprint-saturation.json` records the resulting branches and trace
@@ -537,9 +537,9 @@ The analyzer can restore trace identities, provenance, and per-trace summaries
 from a prior report and the digest-keyed cache. Regeneration therefore scans a
 new trace once without reopening the other retained TLMT files. [confirmed]
 
-None of the 256 report traces executes `39:5167`, `39:523B`, the saved-operand
+None of the 261 report traces executes `39:5167`, `39:523B`, the saved-operand
 wrappers at `39:5B10`–`39:5B38`, or the dispatchers at `39:59E0`/`39:59F9`.
-The 256-digest trace cache also has no hit at those entries. [confirmed]
+The 261-digest trace cache also has no hit at those entries. [confirmed]
 `_FindAlphaUp` at `07:50B5` executes once in 112 report traces, but every call
 comes from the type-`16h` cleanup loop at `07:5544`. Each observed call returns
 carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
@@ -696,12 +696,12 @@ bytes, respectively.
 
 The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,338 tags and needs 194
-traces. The natural-only universe has 1,335 tags and needs 193 traces. Every
+independent oracle case. Its all-evidence universe has 1,343 tags and needs 199
+traces. The natural-only universe has 1,340 tags and needs 198 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The retained byte totals are
-29,158,047,648 and 29,062,163,730, respectively. The broad set remains the RE
+29,731,301,070 and 29,635,417,152, respectively. The broad set remains the RE
 and regression corpus; the public gallery uses a smaller, diverse selection.
 [confirmed]
 
@@ -745,7 +745,7 @@ and `A` at each discriminator were checked before admission. [confirmed]
 The synthetic `EF36h` trace uses
 `tools/macros/mathprint-ef36-injected-buffer.macro`. Its two `memwrite`
 commands place `EF 36 31 11` at the editor cursor. It is the sole synthetic
-source in the 256-trace report. It supplies the only evidence for
+source in the 261-trace report. It supplies the only evidence for
 `34:5A23` fallthrough, `34:6992` taken, and `34:6B94` taken. The full minimum
 retains it; the natural minimum excludes it by construction. [confirmed]
 
@@ -1124,29 +1124,47 @@ decoded post-key trees exactly, reconstruction matches every record field, and
 execution matches both complete cursor-off LCD bitmaps. The finite tests also
 delete a two-byte native token as one unit. [confirmed]
 
-Deleting a structural template begins when the active child contains only
-`EF 1E` and the cursor precedes that token. `34:44F4` verifies the empty child.
-`34:47FF` removes the six-byte marker from its containing leaf and releases the
-structural record with its direct child leaves. `34:453A–4544` then rebuilds
-the parent layout and makes the containing leaf active. [confirmed]
+**DEL** on a structural child reaches `34:44F4`. `34:47C7` checks that the
+active child contains only `EF 1E` and that the cursor precedes that token.
+`34:4504–450D` then compares the child count at `0x8DBA` with one. A one-child
+record reaches `34:4537`, where `34:47FF` removes the six-byte marker and the
+record with its direct child leaf. `34:453A–4544` rebuilds the parent layout
+and makes the containing leaf active. [confirmed]
 
-Fraction type `0x20` and nth-root type `0x24` take the additional
-`34:451F–4534` path when the active child is the second child. The path copies
-the first child's native payload into the containing leaf before it removes
-the wrapper. Deleting an empty fraction denominator therefore promotes a
-populated numerator. Deleting an empty nth-root radicand promotes its index.
-An `EF 1E` first child contributes no bytes. [confirmed]
+Fraction type `0x20` and nth-root type `0x24` take `34:451F–4534` for either
+child. `34:452F` XORs the one-based child selector with `3`, which swaps child
+one and child two. The loop copies the sibling's native payload into the
+containing leaf before it removes the wrapper. Deleting an empty numerator can
+therefore promote a denominator, and deleting an empty nth-root index can
+promote its radicand. The reverse directions promote the numerator or index.
+An `EF 1E` sibling contributes no bytes. [confirmed]
 
-`tools/mathprint-editor-structural-deletion-oracles.json` retains four live
-transitions: a blank fraction's first child, a fraction denominator with a
-populated numerator, an nth-root radicand with an explicit index, and a blank
-radical's only child. `editorDeleteStructuralTemplate()` mutates the decoded
-record graph, then runs the graph decoder at the parent cursor position. All
-four cursor trees, meaningful record fields, and complete 96×64 LCD bitmaps
-match the calculator. The ROM leaves `EFh` in physical byte `+0x13` when the
-resulting active payload is empty; that byte lies outside the logical payload.
-Deeper nested deletion states and the other structural types remain open.
+The other multi-argument types fail the `0x20` and `0x24` comparisons at
+`34:4513` and `34:4517`. They fall through `34:451C` to ordinary deletion at
+`34:456C`, which leaves the empty-slot token unchanged. Integral `0x22`,
+nDeriv `0x23`, log-base `0x28`, and summation `0x29` therefore retain a blank
+active child. [confirmed]
+
+Schema 4 of `tools/mathprint-editor-structural-deletion-oracles.json` retains
+nine live transitions. They cover both promotion directions for fractions and
+nth-roots, a blank radical, a power that retains its `Ans` base, and the
+protected integral path. `editorDeleteStructuralTemplate()` mutates the
+decoded record graph, then runs the graph decoder at the parent cursor
+position. All nine cursor trees, meaningful record fields, and complete
+96×64 LCD bitmaps match the calculator. A finite dispatch test applies the
+classifier to blank insertion states for every type from `0x20` through
+`0x2A`. [confirmed]
+
+When deletion empties a leaf inside another structural record,
+`34:454D–455B` checks the new controller type and inserts `EF 1E`. A fraction
+deleted from a radical radicand therefore restores a square in the radicand and
+leaves the cursor before it. The top-level type-`0x1F` wrapper returns at
+`34:4554`, so a deleted top-level template can leave a zero-byte root leaf.
 [confirmed]
+
+The ROM leaves `EFh` in physical byte `+0x13` when the resulting active payload
+is empty. That byte lies outside the logical payload. Other nested deletion
+states, matrix type `0x2B`, and structural-boundary deletion remain open. [confirmed]
 
 `34:789A` first distinguishes the table-equation context from other editors.
 On its fallthrough, `34:75AB` reads the marker type from `editTail + 1`.

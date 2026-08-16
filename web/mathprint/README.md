@@ -228,12 +228,15 @@ the translated `34:4549–455B` path restores `EF 1E` and leaves the cursor befo
 that square. Two-byte deletion is kept atomic. Structural-record deletion
 uses a separate decoded-arena path.
 `editorDeleteStructuralTemplate()` translates deletion from an `EF 1E` child.
-It removes the containing six-byte marker, structural record, and direct child
-leaves. A blank fraction or radical collapses to the containing leaf. Deleting
-an empty second child of a fraction or nth-root promotes the first child's
-native payload into that leaf. Four reset-origin captures verify the decoded
-cursor tree, meaningful record fields, and all 768 LCD bytes. Deeper nested
-deletion states and other structural types remain open.
+One-child types remove the containing six-byte marker, structural record, and
+child leaf. Fraction and nth-root types promote the sibling payload in either
+direction. Integral, nDeriv, log-base, and summation retain a blank child.
+Nine reset-origin transitions verify the distinct cursor trees, meaningful
+record fields, and all 768 LCD bytes. Finite dispatch tests cover every
+insertable type from `0x20` through `0x2A`. A nested fraction-in-radical case
+verifies that deleting the inner template restores `EF 1E` in its parent leaf.
+Other nested deletion states, matrix type `0x2B`, and structural-boundary
+deletion remain open.
 The analyzer selects the first post-key `34:660A` entry at the shallowest Z80
 stack depth. The exporter pairs
 parent/index observations at `34:6CCD` with the resolved child ID and record

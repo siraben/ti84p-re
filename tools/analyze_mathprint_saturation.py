@@ -273,9 +273,11 @@ TRANSLATION_SURFACES = (
             "at every cursor class in the root leaf, both fraction children, and that "
             "radical's radicand with packed-token replacement; in-leaf "
             "packed-token navigation, "
-            "packed-token deletion, and structural deletion for blank first children plus "
-            "fraction and nth-root second-child promotion; deeper nested deletion states, "
-            "remaining structural types, and boundary navigation remain open"
+            "packed-token deletion, and blank-child structural deletion across insertable "
+            "types 20h–2Ah, including bidirectional fraction/nth-root sibling promotion "
+            "and protected multi-argument no-ops, plus nested empty-slot restoration for a "
+            "fraction inside a radical; other deeper nested deletion states, matrix "
+            "deletion, and boundary navigation remain open"
         ),
     },
     {
@@ -314,9 +316,11 @@ TRANSLATION_SURFACES = (
             "other two added types; radical insertion at every cursor class in the root "
             "leaf, both fraction children, and that radical's radicand with packed-token "
             "replacement; in-leaf packed-token navigation, and "
-            "packed-token deletion with empty-slot restoration, blank fraction and radical "
-            "structural deletion, and fraction/nth-root first-child promotion; deeper nested "
-            "deletion states, remaining structural types, and boundary navigation remain open"
+            "packed-token deletion with empty-slot restoration and blank-child structural "
+            "deletion across insertable types 20h–2Ah, including bidirectional "
+            "fraction/nth-root sibling promotion and protected multi-argument no-ops, plus "
+            "nested empty-slot restoration for a fraction inside a radical; other deeper "
+            "nested deletion states, matrix deletion, and boundary navigation remain open"
         ),
     },
     {
@@ -4105,10 +4109,11 @@ def open_paths(
                 "fraction children, and that radical's radicand with packed-token "
                 "replacement, "
                 "in-leaf packed-token navigation, and packed-token deletion with empty-slot "
-                "restoration are translated; structural deletion is translated for blank "
-                "fraction and radical children plus fraction/nth-root first-child promotion, "
-                "but deeper nested deletion states, remaining structural types, and boundary "
-                "navigation are not"
+                "restoration are translated; blank-child structural deletion is translated "
+                "across insertable types 20h–2Ah, including bidirectional fraction/nth-root "
+                "sibling promotion and protected multi-argument no-ops; one fraction-in-radical "
+                "case verifies nested empty-slot restoration, but other deeper nested deletion "
+                "states, matrix deletion, and boundary navigation are not"
             ),
         },
         {
