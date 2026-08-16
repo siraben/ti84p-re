@@ -270,14 +270,16 @@ TRANSLATION_SURFACES = (
             "editorPayloadCursorBoundaries",
             "decodeEditorExpressionGraph",
             "decodeMathPrintEditorRam",
+            "constructEditorExpressionProgram",
         ],
         "tests": [
             "tools/test-mathprint.js",
             "tools/mathprint-editor-gap-oracles.json",
         ],
         "scope": (
-            "complete captured arenas, active-leaf substitution, and nested cursor paths; "
-            "the next graph after an arbitrary key action remains open"
+            "complete captured arenas, active-leaf substitution, nested cursor paths, "
+            "and cursor-aware record reconstruction; the next graph after an arbitrary "
+            "key action remains open"
         ),
     },
     {
@@ -3974,9 +3976,10 @@ def open_paths(
             "area": "editor graph mutation",
             "status": "open",
             "reason": (
-                "the live 34:4A83/4ACE arena and 34:4AAF gap substitution decode to a "
-                "cursor-annotated AST, but the key-action routines that mutate one live "
-                "arena into the next are not yet translated"
+                "the live 34:4A83/4ACE arena and 34:4AAF gap substitution round-trip "
+                "through cursor-annotated ASTs and reconstructed records, but the "
+                "key-action routines that mutate one live arena into the next are not "
+                "yet translated"
             ),
         },
         {
