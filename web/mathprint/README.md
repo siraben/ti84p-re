@@ -166,11 +166,14 @@ structural deletion and boundary navigation remain open.
 token `EF 2E` at every cursor class in the root leaf and both child leaves of
 one outer fraction, plus the blank radicand of one prefixed radical. A
 populated leaf moves its left payload into the new numerator and retains its
-right payload after the six-byte marker. The same function translates radical
-insertion from source token `BC` at every cursor class in the root leaf, both
-children of one outer fraction, and the radicand of one prefixed radical. A
-radical leaves the left segment in its parent and replaces one packed token to
-the cursor's right; a captured `5D 00` list token proves the two-byte boundary.
+right payload after the six-byte marker. The shared one-child path translates
+absolute value (`B2`), $e^x$ (`BF`), $10^x$ (`C1`), and radical (`BC`)
+insertion. Four $e^x$ captures cover every root cursor class; blank captures
+exercise the other two added kinds. Radical insertion covers every cursor
+class in the root leaf, both children of one outer fraction, and the radicand
+of one prefixed radical. A one-child insertion leaves the left segment in its
+parent and replaces one packed token to the cursor's right; a captured `5D 00`
+list token proves the two-byte boundary.
 At `34:4900`, unnamed bcall ID `53ADh` inserts the new record at the old entry
 boundary. Initialization through `34:4928` skips physical byte `+13h`, so the
 new structural record retains that byte from the old entry record. A nested
@@ -178,7 +181,7 @@ radical and fraction below a root `3` retain `33h`; the value is not a depth
 proxy or the active child's first byte.
 The function consumes the decoded arena because new record IDs and the
 structural-depth byte are not present in the semantic cursor tree alone.
-Thirty reset-origin transitions verify the markers, controller states,
+Thirty-six reset-origin transitions verify the markers, controller states,
 cursor ASTs, every reconstructed record field, and complete LCD output. Deeper
 structural positions beyond the captured outer fraction and radical, and the
 remaining structural types, remain separate.

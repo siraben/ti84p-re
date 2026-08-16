@@ -524,10 +524,10 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, large-glyph output, and alphabetic VAT selection. It
 recursively follows direct ROM edges from named entries, seeds decoded table
-destinations, overlays exact next-PC outcomes from 221 reset-origin traces, and
+destinations, overlays exact next-PC outcomes from 227 reset-origin traces, and
 lists direct external targets. Computed dispatch destinations are manually
 seeded; bcall and RAM bjump bodies remain outside the direct-edge walk. Of those
-traces, 220 reach their state through calculator input. One explicitly
+traces, 226 reach their state through calculator input. One explicitly
 classified synthetic trace inserts an `EF36h` editor buffer through direct RAM
 writes. The report keeps the two provenance classes separate.
 `tools/mathprint-saturation.json` records the resulting branches and trace
@@ -537,9 +537,9 @@ The analyzer can restore trace identities, provenance, and per-trace summaries
 from a prior report and the digest-keyed cache. Regeneration therefore scans a
 new trace once without reopening the other retained TLMT files. [confirmed]
 
-None of the 221 report traces executes `39:5167`, `39:523B`, the saved-operand
+None of the 227 report traces executes `39:5167`, `39:523B`, the saved-operand
 wrappers at `39:5B10`–`39:5B38`, or the dispatchers at `39:59E0`/`39:59F9`.
-The 221-digest trace cache also has no hit at those entries. [confirmed]
+The 227-digest trace cache also has no hit at those entries. [confirmed]
 `_FindAlphaUp` at `07:50B5` executes once in 112 report traces, but every call
 comes from the type-`16h` cleanup loop at `07:5544`. Each observed call returns
 carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
@@ -578,7 +578,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 24 finite models. It also computes an
+complete path-equivalence class in 25 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -587,6 +587,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 |--------------|-----------------:|-------------:|----------------:|------------------------:|
 | Structural scan-kind dispatch | 256 | 7 | 12 | 7 |
 | Structural-depth gate | 256 | 2 | 2 | 2 |
+| Structural-insertion dispatch | 65,536 | 6 | 10 | 6 |
 | Raised extended-token classifier | 3,047 | 12 | 22 | 10 |
 | Five-byte raised-name loop | 493,112,577 | 125 | 10 | 4 |
 | Eight-byte raised-name loop | 24,977,631,672,321 | 1,021 | 10 | 4 |
@@ -610,8 +611,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha candidate reducer | 288 | 25 | 17 | 10 |
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 
-The 24 models contain 1,337 path classes and 213 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 109 representatives. Each
+The 25 models contain 1,343 path classes and 223 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 115 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -690,13 +691,13 @@ The report computes two exact Z3 covers. The first preserves every individual
 branch outcome observed in the supplied traces. It does not preserve complete
 invocation paths, register or RAM states, dispatch indices, record cases, or LCD
 write cases. The all-evidence and natural-only branch covers each select 22
-traces. They preserve 1,006 and 1,003 outcomes in 4,013,690,448 and 4,108,375,068
+traces. They preserve 1,006 and 1,003 outcomes in 3,984,970,842 and 4,079,655,462
 bytes, respectively.
 
 The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,301 tags and needs 159
-traces. The natural-only universe has 1,298 tags and needs 158 traces. Every
+independent oracle case. Its all-evidence universe has 1,307 tags and needs 165
+traces. The natural-only universe has 1,304 tags and needs 164 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The broad set remains the RE and
@@ -743,7 +744,7 @@ and `A` at each discriminator were checked before admission. [confirmed]
 The synthetic `EF36h` trace uses
 `tools/macros/mathprint-ef36-injected-buffer.macro`. Its two `memwrite`
 commands place `EF 36 31 11` at the editor cursor. It is the sole synthetic
-source in the 221-trace report. It supplies the only evidence for
+source in the 227-trace report. It supplies the only evidence for
 `34:5A23` fallthrough, `34:6992` taken, and `34:6B94` taken. The full minimum
 retains it; the natural minimum excludes it by construction. [confirmed]
 
@@ -928,6 +929,19 @@ complete the blank, leading, mid-leaf, and leaf-end denominator classes. The
 root leaf and both child leaves of one outer fraction now have natural-input
 oracles for every cursor class. Deeper fraction positions remain open.
 [confirmed]
+
+Source tokens `B2h`, `BFh`, `C1h`, and `BCh` map to the one-child types
+`0x21`, `0x25`, `0x26`, and `0x27` at `34:5935`. The dispatcher sends all four
+through `34:5057`, `34:5473`, and `34:58A0` before allocation at `34:4862`.
+The parent receives `EF type id_lo id_hi EF 2D`; the new child receives
+`EF 1E`, and the cursor enters that child. [confirmed]
+
+Four $e^x$ captures cover blank, leaf-end, leading, and mid-leaf insertion in
+the root. Insertion at the end appends the marker. Leading and mid-leaf
+insertion replace the packed token immediately to the cursor's right. Blank
+absolute-value and $10^x$ captures exercise the other translated one-child
+kinds. `editorInsertStructuralTemplate()` produces the decoded cursor AST,
+every record field, and all 768 LCD bytes for all six transitions. [confirmed]
 
 The radical template supplies source token `00BCh`; `34:5935` maps it to type
 `0x27`. Insertion follows `34:473A`, the depth gate at `35:7B37`, and
