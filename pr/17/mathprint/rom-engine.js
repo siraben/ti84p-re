@@ -1485,6 +1485,9 @@
     const yOrigin = unsignedWord(
       options.yOrigin === undefined ? 0 : options.yOrigin,
       'settled editor y origin');
+    const screenXOrigin = byte(
+      options.screenXOrigin === undefined ? 0 : options.screenXOrigin,
+      'settled editor screen x origin');
     const wordAdd = (left, right) => (left + right) & 0xffff;
     const resetPreviousClip = endpoint < previousXClip;
     let xClip = resetPreviousClip ? 0 : previousXClip;
@@ -1506,9 +1509,10 @@
       rightBound,
       xOrigin,
       yOrigin,
+      screenXOrigin,
       xClip,
-      effectiveX:xOrigin - xClip,
-      cursorX:endpoint + xOrigin - xClip,
+      effectiveX:xOrigin - xClip + screenXOrigin,
+      cursorX:endpoint + xOrigin - xClip + screenXOrigin,
       comparisonCoordinate,
       branch:beforeRightBound ? 'return-before-right-bound' :
         'store-horizontal-clip',
@@ -1739,6 +1743,59 @@
     0x00,0x3e,0x1c,0x08,
   ]);
 
+  // 34:6031 and 34:608F share the placement tail at 34:603A. Editor mode
+  // 49h uses ram:8DFDh directly. Other modes load the root +07h height word
+  // through 34:753F and clamp either a nonzero high byte or an oversized low
+  // byte to the same bound. The final coordinates are stored as bytes at
+  // 86D7h/86D8h, and use the screen origins at 8DFAh/8DFBh rather than the
+  // logical record origins at 8DFEh/8E00h.
+  function settledEditorHorizontalCuePlacement(
+    viewport, recordHeight, options = {}) {
+    if (!viewport || typeof viewport !== 'object')
+      throw new TypeError('settled horizontal-cue viewport state is invalid');
+    if (!Number.isInteger(recordHeight) ||
+        recordHeight < 1 || recordHeight > 0xffff)
+      throw new RangeError(
+        'settled horizontal-cue record height must fit an unsigned word');
+    if (!options || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('settled horizontal-cue options must be an object');
+    const bottomBound = byte(
+      viewport.bottomBound === undefined ? 0x3e : viewport.bottomBound,
+      'settled horizontal-cue bottom bound');
+    const screenXOrigin = byte(
+      viewport.screenXOrigin === undefined ? 0 : viewport.screenXOrigin,
+      'settled horizontal-cue screen x origin');
+    const screenYOrigin = byte(
+      viewport.screenYOrigin === undefined ? 0 : viewport.screenYOrigin,
+      'settled horizontal-cue screen y origin');
+    const editorMode = byte(
+      options.editorMode === undefined ? 0 : options.editorMode,
+      'settled horizontal-cue editor mode');
+    const mode49 = editorMode === 0x49;
+    const highByteNonzero = recordHeight > 0xff;
+    const lowByteExceedsBound = !highByteNonzero && recordHeight > bottomBound;
+    const cueHeight = mode49 || highByteNonzero || lowByteExceedsBound
+      ? bottomBound : recordHeight;
+    return {
+      cueHeight,
+      screenXOrigin,
+      screenYOrigin,
+      y:(screenYOrigin + (cueHeight >>> 1) - 3) & 0xff,
+      editorMode,
+      bottomBound,
+      branchOutcomes:[
+        `34:603E:${mode49 ? 'taken' : 'fallthrough'}`,
+        ...(mode49 ? [] : [
+          `34:6045:${highByteNonzero ? 'taken' : 'fallthrough'}`,
+          ...(highByteNonzero ? [] : [
+            `34:604B:${lowByteExceedsBound ? 'taken' : 'fallthrough'}`,
+          ]),
+        ]),
+      ],
+      routine:'34:603A–6059; height load at 34:753F',
+    };
+  }
+
   // 34:6000–6015 draws editor chrome after the settled record. A nonzero
   // ram:8E04 clip calls bcall 53DAh for the upper cue. 34:60A0–60B7 loads
   // the root's height word, subtracts one and the vertical clip, and calls
@@ -1761,8 +1818,9 @@
       viewport.yClip, 'settled vertical-cue clip');
     const bottomBound = byte(
       viewport.bottomBound, 'settled vertical-cue bottom bound');
-    const xOrigin = byte(
-      viewport.xOrigin, 'settled vertical-cue x origin');
+    const screenXOrigin = byte(
+      viewport.screenXOrigin === undefined ? 0 : viewport.screenXOrigin,
+      'settled vertical-cue screen x origin');
     const screenYOrigin = byte(
       viewport.screenYOrigin === undefined ? 0 : viewport.screenYOrigin,
       'settled vertical-cue y origin');
@@ -1775,8 +1833,8 @@
         : options.horizontalBound,
       'settled vertical-cue horizontal bound');
     const x = editorMode === 0x49
-      ? (xOrigin - 7) & 0xff
-      : (xOrigin + (horizontalBound >>> 1) - 3) & 0xff;
+      ? (screenXOrigin - 7) & 0xff
+      : (screenXOrigin + (horizontalBound >>> 1) - 3) & 0xff;
     const endpoint = (recordHeight - 1) & 0xffff;
     const endpointBeforeClip = endpoint < yClip;
     const visibleEndpoint = endpointBeforeClip
@@ -1906,6 +1964,8 @@
     const yClip = hasVerticalViewport ? viewport.yClip : 0;
     const screenYOrigin = viewport.screenYOrigin === undefined
       ? 0 : viewport.screenYOrigin;
+    const screenXOrigin = viewport.screenXOrigin === undefined
+      ? 0 : viewport.screenXOrigin;
     const bottomBound = viewport.bottomBound === undefined
       ? 0x3e : viewport.bottomBound;
     const editorMode = byte(
@@ -1916,10 +1976,11 @@
       [screenYOrigin,'settled editor screen y origin'],
     ]) if (!Number.isInteger(value) || value < 0 || value > 0xffff)
       throw new RangeError(`${label} must fit an unsigned word`);
+    byte(screenXOrigin, 'settled editor screen x origin');
     byte(bottomBound, 'settled editor vertical bound');
     const clip = {
-      left:viewport.xOrigin,
-      rightExclusive:viewport.xOrigin + viewport.rightBound + 1,
+      left:screenXOrigin,
+      rightExclusive:screenXOrigin + viewport.rightBound + 1,
       top:screenYOrigin,
       bottomExclusive:screenYOrigin + bottomBound,
     };
@@ -1931,9 +1992,10 @@
       // 34:6C5F–6C84 compares a glyph's left edge with ram:8E02 before
       // entering either font blitter. A glyph that begins left of the clip is
       // omitted as a unit; the ROM does not draw its still-visible suffix.
-      if ((positioned.kind === 'glyph' || positioned.kind === 'glyph-run') &&
-          positioned.x < 0)
-        continue;
+      if (positioned.kind === 'glyph' || positioned.kind === 'glyph-run') {
+        const logicalPen = (operation.x + viewport.xOrigin) & 0xffff;
+        if (logicalPen < viewport.xClip) continue;
+      }
       // 34:630C enters the same 34:6C37 display-unit path as a glyph. The
       // bitmap header supplies its five-pixel advance before 34:6C5F compares
       // the unit's logical left edge with ram:8E02. A root hook that begins
@@ -1987,12 +2049,12 @@
       // 34:78A3 skips the root-height lookup in editor mode 49h. Otherwise,
       // 34:753F reads the +07h height word and 34:6043–6050 clamps it to the
       // one-byte bottom bound before 34:6053 halves the chosen value.
-      const cueHeight = editorMode === 0x49
-        ? bottomBound : Math.min(recordHeight,bottomBound);
+      const cue = settledEditorHorizontalCuePlacement(
+        viewport,recordHeight,{editorMode});
       translated.push({
         kind:'bitmap',
-        x:viewport.xOrigin,
-        y:viewport.yOrigin + Math.floor(cueHeight / 2) - 3,
+        x:cue.screenXOrigin,
+        y:cue.y,
         width:4,
         height:7,
         rows:SETTLED_LEFT_OVERFLOW_ROWS.slice(),
@@ -2003,29 +2065,95 @@
     return translated;
   }
 
-  // 34:608F selects the second seven-row table at 34:60C0 after 34:607A
-  // reports a right-edge condition. The routine places its four-pixel bitmap
-  // at ram:8DFA + ram:8DFC - 4. 34:603A derives the vertical origin from the
-  // record height and y origin, giving rows floor(height/2)-3 through +3.
-  // This operation is opt-in: the settled long-expression redraw does not
-  // reach 34:608F when 34:607A returns the traced zero result.
-  function settledEditorRightCueOperation(viewport, recordHeight) {
+  // 34:607A loads the wrapper record's +09h width, converts its last pixel to
+  // the logical viewport, and returns NZ only when the remaining endpoint is
+  // at or beyond ram:8DFCh. The caller at 34:5FFD draws 34:60C0 only for that
+  // result. Keep this state decision separate from bitmap placement so the
+  // auxiliary 34:6CA8 stream cannot be mistaken for this cue.
+  function settledEditorRightCueDecision(wrapperWidth, viewport) {
+    if (!Number.isInteger(wrapperWidth) ||
+        wrapperWidth < 0 || wrapperWidth > 0xffff)
+      throw new RangeError(
+        'settled right-cue wrapper width must fit an unsigned word');
     if (!viewport || typeof viewport !== 'object' ||
         !Number.isInteger(viewport.xOrigin) ||
-        !Number.isInteger(viewport.yOrigin) ||
+        !Number.isInteger(viewport.xClip) ||
+        !Number.isInteger(viewport.rightBound))
+      throw new TypeError('settled right-cue viewport state is invalid');
+    for (const [value,label] of [
+      [viewport.xOrigin,'settled right-cue logical x origin'],
+      [viewport.xClip,'settled right-cue horizontal clip'],
+    ]) if (value < 0 || value > 0xffff)
+      throw new RangeError(`${label} must fit an unsigned word`);
+    const rightBound = byte(
+      viewport.rightBound, 'settled right-cue horizontal bound');
+    if (wrapperWidth === 0) return {
+      action:'return', showRight:false, wrapperWidth,
+      endpoint:null, originEndpoint:null, translatedEndpoint:null,
+      comparisonCoordinate:null, subtractionCarry:null,
+      branchOutcomes:['34:607F:returned','34:5FFD:fallthrough'],
+      routine:'34:607A–608E; caller 34:5FFA–5FFD',
+    };
+    const endpoint = wrapperWidth - 1;
+    const originEndpoint = addWord(endpoint,viewport.xOrigin);
+    const subtractionCarry = originEndpoint < viewport.xClip;
+    const translatedEndpoint =
+      (originEndpoint - viewport.xClip) & 0xffff;
+    const outcomes = [
+      '34:607F:fallthrough',
+      `34:6085:${subtractionCarry ? 'taken' : 'fallthrough'}`,
+    ];
+    if (subtractionCarry) return {
+      action:'return', showRight:false, wrapperWidth,
+      endpoint,originEndpoint,translatedEndpoint,
+      comparisonCoordinate:null,subtractionCarry,
+      branchOutcomes:outcomes.concat('34:5FFD:fallthrough'),
+      routine:'34:607A–608E; caller 34:5FFA–5FFD',
+    };
+    const translatedZero = translatedEndpoint === 0;
+    outcomes.push(`34:6087:${translatedZero ? 'taken' : 'fallthrough'}`);
+    const comparisonCoordinate = translatedZero
+      ? 0 : translatedEndpoint - 1;
+    const showRight = comparisonCoordinate >= rightBound;
+    outcomes.push(`34:5DE1:${showRight ? 'taken' : 'fallthrough'}`);
+    outcomes.push(`34:5FFD:${showRight ? 'taken' : 'fallthrough'}`);
+    return {
+      action:showRight ? 'draw' : 'return',showRight,wrapperWidth,
+      endpoint,originEndpoint,translatedEndpoint,comparisonCoordinate,
+      subtractionCarry,branchOutcomes:outcomes,
+      routine:'34:607A–608E; caller 34:5FFA–5FFD',
+    };
+  }
+
+  function settledEditorRightCueOperation(
+    viewport, recordHeight, options = {}) {
+    if (!viewport || typeof viewport !== 'object' ||
         !Number.isInteger(viewport.rightBound))
       throw new TypeError('settled right-cue viewport state is invalid');
     if (!Number.isInteger(recordHeight) || recordHeight < 1 || recordHeight > 0xffff)
       throw new RangeError('settled right-cue record height must fit an unsigned word');
+    const placement = settledEditorHorizontalCuePlacement(
+      viewport,recordHeight,options);
     return {
       kind:'bitmap',
-      x:viewport.xOrigin + viewport.rightBound - 4,
-      y:viewport.yOrigin + Math.floor(recordHeight / 2) - 3,
+      x:(placement.screenXOrigin + viewport.rightBound - 4) & 0xff,
+      y:placement.y,
       width:4,
       height:7,
       rows:SETTLED_RIGHT_OVERFLOW_ROWS.slice(),
       retainUnchanged:true,
       routine:'34:5FFA → 34:607A → 34:608F; bitmap at 34:60C0',
+    };
+  }
+
+  function settledEditorRightCue(
+    wrapperWidth, viewport, recordHeight, options = {}) {
+    const decision = settledEditorRightCueDecision(wrapperWidth,viewport);
+    return {
+      ...decision,
+      operation:decision.showRight
+        ? settledEditorRightCueOperation(viewport,recordHeight,options)
+        : null,
     };
   }
 
@@ -4556,7 +4684,8 @@
   // native bytes, while this routine reads the graph's actual child IDs and
   // leaf payload markers.  Type 2Ah is postfix, so its marker binds to the
   // expression immediately before EF 2A id_lo id_hi.
-  function decodeSettledExpressionGraph(inputs, entryId, activeLeafIds = null) {
+  function decodeSettledExpressionGraph(inputs, entryId, activeLeafIds = null,
+                                        editorCursorState = null) {
     if (!Array.isArray(inputs))
       throw new TypeError('settled expression graph must be an array');
     if (!Number.isInteger(entryId) || entryId < 0 || entryId > 0xffff)
@@ -4704,6 +4833,15 @@
           }
           current.items.push({role:'atom',value});
         };
+        const appendEditorCursor = () => {
+          frame().items.push({role:'editor-cursor',value:editorCursorState.node});
+          editorCursorState.insertions++;
+        };
+        const insertEditorCursor = index => {
+          if (editorCursorState && editorCursorState.recordId === recordId &&
+              editorCursorState.byteOffset === index)
+            appendEditorCursor();
+        };
         const closeFrame = closing => {
           const current = frame();
           flushNegations(current);
@@ -4825,6 +4963,7 @@
           };
         };
         for (let index = 0; index < payload.length;) {
+          insertEditorCursor(index);
           const token = payload[index];
           if (token === 0x06 && payload[index + 1] === 0x06) {
             const matrix = matrixContainer(index);
@@ -4897,7 +5036,11 @@
                   `settled power marker references non-power ID 0x${embeddedId.toString(16)}`);
               const current = frame();
               flushNegations(current);
-              const candidate = current.items[current.items.length - 1];
+              let candidateIndex = current.items.length - 1;
+              while (candidateIndex >= 0 &&
+                     current.items[candidateIndex].role === 'editor-cursor')
+                candidateIndex--;
+              const candidate = current.items[candidateIndex];
               if (!candidate || candidate.role !== 'atom')
                 throw new RangeError(
                   `settled power ID 0x${embeddedId.toString(16)} in leaf ` +
@@ -4925,6 +5068,9 @@
             const bytes = [subtype];
             index++;
             while (bytes.length <= limit && index < payload.length &&
+                   (!editorCursorState ||
+                    editorCursorState.recordId !== recordId ||
+                    editorCursorState.byteOffset !== index) &&
                    isNameCharacter(payload[index])) bytes.push(payload[index++]);
             appendAtom(bytes);
             continue;
@@ -4932,6 +5078,9 @@
           if (prefix === 0 && 0x30 <= subtype && subtype <= 0x3b) {
             const bytes = [];
             while (index < payload.length &&
+                   (!editorCursorState ||
+                    editorCursorState.recordId !== recordId ||
+                    editorCursorState.byteOffset !== index) &&
                    0x30 <= payload[index] && payload[index] <= 0x3b)
               bytes.push(payload[index++]);
             appendAtom(bytes);
@@ -4949,6 +5098,7 @@
           else appendAtom(unitBytes);
           index += unitBytes.length;
         }
+        insertEditorCursor(payload.length);
         flushNegations(frame());
         while (frames.length > 1) {
           const unfinished = frame();
@@ -4964,6 +5114,282 @@
 
     const entry = byId.get(entryId);
     return nodeType(entry) >= 0x1f ? structural(entryId) : leaf(entryId);
+  }
+
+  // The editor moves across a complete six-byte EF record marker as one
+  // structural object. Every other native unit follows _IsA2ByteTok. These are
+  // the byte boundaries at which editCursor can split an active leaf without
+  // bisecting a packed token or record marker.
+  function editorPayloadCursorBoundaries(input) {
+    if (!Array.isArray(input) && !(input instanceof Uint8Array))
+      throw new TypeError('editor leaf payload must be an array of bytes');
+    const payload = Array.from(input, (value, index) =>
+      byte(value, `editor leaf payload byte ${index}`));
+    const boundaries = [0];
+    for (let index = 0; index < payload.length;) {
+      let length = 1;
+      if (payload[index] === 0xef && index + 1 < payload.length &&
+          0x1f <= payload[index + 1] && payload[index + 1] <= 0x2b) {
+        if (index + 5 >= payload.length || payload[index + 4] !== 0xef ||
+            payload[index + 5] !== 0x2d)
+          throw new RangeError(
+            `editor structural marker at byte ${index} is truncated`);
+        length = 6;
+      } else if (SETTLED_TWO_BYTE_LEADS.has(payload[index])) {
+        if (index + 1 >= payload.length)
+          throw new RangeError(
+            `editor two-byte token at byte ${index} is truncated`);
+        length = 2;
+      }
+      index += length;
+      boundaries.push(index);
+    }
+    return boundaries;
+  }
+
+  function editorCursorIdentityPath(value, target, path = [], seen = new Set()) {
+    if (value === target) return path;
+    if (!value || typeof value !== 'object' || seen.has(value)) return null;
+    seen.add(value);
+    if (Array.isArray(value)) {
+      for (let index = 0; index < value.length; index++) {
+        const found = editorCursorIdentityPath(
+          value[index],target,[...path,index],seen);
+        if (found) return found;
+      }
+      return null;
+    }
+    for (const key of Object.keys(value)) {
+      const found = editorCursorIdentityPath(value[key],target,[...path,key],seen);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  // A live page-34 graph differs from its cursor-free form only at the active
+  // leaf selected by 8DC2h. Insert a semantic cursor at editCursor-editTop in
+  // that leaf and let the same record-ID decoder recover its nested position.
+  function decodeEditorExpressionGraph(inputs, entryId, activeLeafId,
+                                       cursorByteOffset) {
+    if (!Array.isArray(inputs))
+      throw new TypeError('editor expression graph must be an array');
+    if (!Number.isInteger(activeLeafId) || activeLeafId < 0 ||
+        activeLeafId > 0xffff)
+      throw new RangeError('editor active leaf ID must be an unsigned word');
+    if (!Number.isInteger(cursorByteOffset) || cursorByteOffset < 0)
+      throw new RangeError('editor cursor byte offset must be nonnegative');
+    const active = inputs.find(input => input &&
+      (input.record_id === undefined ? input.id : input.record_id) === activeLeafId);
+    if (!active)
+      throw new RangeError(
+        `editor active leaf ID 0x${activeLeafId.toString(16)} is absent`);
+    const activeType = active.render_type === undefined
+      ? active.type : active.render_type;
+    if (!Number.isInteger(activeType) || activeType < 0 || activeType >= 0x1f)
+      throw new RangeError('editor active record must be a leaf');
+    const boundaries = editorPayloadCursorBoundaries(active.payload);
+    if (!boundaries.includes(cursorByteOffset))
+      throw new RangeError(
+        `editor cursor byte ${cursorByteOffset} bisects a native unit`);
+    const cursorNode = Object.freeze({
+      kind:'editorCursor', record_id:activeLeafId,
+      byte_offset:cursorByteOffset,
+    });
+    const state = {
+      recordId:activeLeafId, byteOffset:cursorByteOffset,
+      node:cursorNode, insertions:0,
+    };
+    const expression = decodeSettledExpressionGraph(
+      inputs,entryId,null,state);
+    if (state.insertions !== 1)
+      throw new RangeError(
+        `editor cursor was inserted ${state.insertions} times`);
+    const path = editorCursorIdentityPath(expression,cursorNode);
+    if (!path)
+      throw new RangeError('editor cursor is absent from the decoded expression');
+    return {
+      expression,
+      cursor:{
+        recordId:activeLeafId, byteOffset:cursorByteOffset,
+        boundaries, path,
+        routine:'34:4AAF; editTop/editCursor at 0x96F4/0x96F6',
+      },
+    };
+  }
+
+  const EDITOR_STRUCTURAL_CHILD_COUNTS = Object.freeze({
+    0x1f:1, 0x20:2, 0x21:1, 0x22:4, 0x23:3, 0x24:2,
+    0x25:1, 0x26:1, 0x27:1, 0x28:2, 0x29:4, 0x2a:1,
+  });
+
+  // Decode the logical 8000h-FFFFh RAM window used by the MathPrint editor.
+  // 34:4ACE walks structural records, 34:4A83 walks leaf records, and 34:4AAF
+  // substitutes the editTop/editCursor + editTail/editBtm gap payload when the
+  // current pointer equals 8DC2h.
+  function decodeMathPrintEditorRam(input) {
+    if (!Array.isArray(input) && !(input instanceof Uint8Array))
+      throw new TypeError('MathPrint editor RAM must be an array of bytes');
+    if (input.length < 0x8000)
+      throw new RangeError(
+        'MathPrint editor RAM must contain the logical 8000h-FFFFh window');
+    const ram = Array.from(input.slice(0,0x8000), (value, index) =>
+      byte(value, `MathPrint editor RAM byte ${index}`));
+    const offset = address => {
+      if (!Number.isInteger(address) || address < 0x8000 || address > 0xffff)
+        throw new RangeError('MathPrint editor RAM address is outside 8000h-FFFFh');
+      return address - 0x8000;
+    };
+    const word = address => {
+      if (address > 0xfffe)
+        throw new RangeError('MathPrint editor RAM word crosses FFFFh');
+      const start = offset(address);
+      return ram[start] | ram[start + 1] << 8;
+    };
+    const span = (start, end) => {
+      if (!Number.isInteger(start) || !Number.isInteger(end) ||
+          start < 0x8000 || start > end || end > 0x10000)
+        throw new RangeError('MathPrint editor RAM span is inconsistent');
+      return ram.slice(start - 0x8000,end - 0x8000);
+    };
+    const recordAt = pointer => ({
+      ...decodeSettledRecord(span(pointer,pointer + 0x14)),
+      pointer, child_ids:[], payload:[],
+    });
+
+    const structuralStart = word(0x8daf);
+    const editorBoundary = word(0x8db1);
+    const entryPointer = word(0x8dbc);
+    const mainTail = word(0x8dbe);
+    const gapRecordPointer = word(0x8dc2);
+    if (!(0x8000 <= structuralStart && structuralStart <= entryPointer &&
+          entryPointer <= mainTail && mainTail <= 0xffff))
+      throw new RangeError('MathPrint record-arena pointers are inconsistent');
+
+    const nodes = [];
+    let pointer = structuralStart;
+    while (pointer < entryPointer) {
+      if (pointer + 0x14 > entryPointer)
+        throw new RangeError(
+          `structural record at 0x${pointer.toString(16)} has a truncated header`);
+      const node = recordAt(pointer);
+      if (node.type < 0x1f)
+        throw new RangeError(
+          `record 0x${node.id.toString(16)} before the entry boundary is a leaf`);
+      let semanticChildren;
+      let physicalChildren;
+      if (node.type === 0x2b) {
+        const rows = node.byte13;
+        const columns = node.word11 >> 8;
+        semanticChildren = rows * columns;
+        if (!rows || !columns || semanticChildren > 0xff)
+          throw new RangeError(
+            `matrix record 0x${node.id.toString(16)} has invalid dimensions`);
+        physicalChildren = semanticChildren + 1;
+      } else {
+        semanticChildren = EDITOR_STRUCTURAL_CHILD_COUNTS[node.type];
+        if (semanticChildren === undefined)
+          throw new RangeError(
+            `structural record 0x${node.id.toString(16)} has unsupported type`);
+        physicalChildren = semanticChildren;
+      }
+      const size = 0x14 + 2 * physicalChildren;
+      if (pointer + size > entryPointer)
+        throw new RangeError(
+          `structural record 0x${node.id.toString(16)} crosses the entry boundary`);
+      node.child_ids = new Array(semanticChildren).fill(0).map((_, index) =>
+        word(pointer + 0x14 + 2 * index));
+      nodes.push(node);
+      pointer += size;
+    }
+    if (pointer !== entryPointer)
+      throw new RangeError('MathPrint structural walk missed the entry boundary');
+
+    const gapActive = Boolean(ram[offset(0x89f1)] & 0x04);
+    const leafBoundary = gapActive ? editorBoundary : mainTail;
+    if (!(entryPointer < leafBoundary && leafBoundary <= 0xffff))
+      throw new RangeError('MathPrint leaf-record boundary is inconsistent');
+    const editTop = word(0x96f4);
+    const editCursor = word(0x96f6);
+    const editTail = word(0x96f8);
+    const editBottom = word(0x96fa);
+    if (!(0x8000 <= editTop && editTop <= editCursor && editCursor <= 0xffff))
+      throw new RangeError('MathPrint editor left gap segment is inconsistent');
+    if (!(0x8000 <= editTail && editTail <= editBottom && editBottom <= 0xffff))
+      throw new RangeError('MathPrint editor right gap segment is inconsistent');
+    const left = span(editTop,editCursor);
+    const right = span(editTail,editBottom);
+
+    pointer = entryPointer;
+    const visited = new Set();
+    let activeNode = null;
+    while (pointer < leafBoundary) {
+      if (visited.has(pointer))
+        throw new RangeError(
+          `MathPrint leaf-record walk cycles at 0x${pointer.toString(16)}`);
+      visited.add(pointer);
+      if (pointer > 0xffec)
+        throw new RangeError('MathPrint leaf record has no complete header');
+      const node = recordAt(pointer);
+      if (node.type >= 0x1f)
+        throw new RangeError(
+          `record 0x${node.id.toString(16)} after the entry boundary is structural`);
+      let nextPointer;
+      if (gapActive && pointer === gapRecordPointer) {
+        node.payload = [...left,...right];
+        nextPointer = editBottom;
+        activeNode = node;
+      } else {
+        const payloadEnd = pointer + 0x13 + node.word11;
+        if (payloadEnd > 0x10000)
+          throw new RangeError(
+            `leaf record 0x${node.id.toString(16)} payload crosses FFFFh`);
+        node.payload = span(pointer + 0x13,payloadEnd);
+        nextPointer = payloadEnd;
+      }
+      if (!node.payload.length)
+        throw new RangeError(
+          `leaf record 0x${node.id.toString(16)} has an empty payload`);
+      node.byte13 = node.payload[0];
+      if (nextPointer <= pointer)
+        throw new RangeError(
+          `leaf record 0x${node.id.toString(16)} does not advance`);
+      nodes.push(node);
+      pointer = nextPointer;
+    }
+    if (pointer !== leafBoundary)
+      throw new RangeError('MathPrint leaf walk missed its boundary');
+
+    const byPointer = new Map();
+    for (const node of nodes) {
+      if (byPointer.has(node.pointer))
+        throw new RangeError('MathPrint graph contains duplicate record pointers');
+      byPointer.set(node.pointer,node);
+    }
+    const entry = byPointer.get(entryPointer);
+    if (!entry)
+      throw new RangeError('MathPrint entry pointer is not a record boundary');
+    const expression = decodeSettledExpressionGraph(nodes,entry.id);
+    let editor = null;
+    if (gapActive) {
+      if (!activeNode)
+        throw new RangeError('MathPrint active gap record was not visited');
+      const decoded = decodeEditorExpressionGraph(
+        nodes,entry.id,activeNode.id,left.length);
+      editor = {
+        expression:decoded.expression,
+        cursor:{
+          ...decoded.cursor, recordPointer:activeNode.pointer,
+          left:left.slice(), right:right.slice(),
+        },
+      };
+    }
+    return {
+      structuralStart, editorBoundary, entryPointer, mainTail,
+      gapRecordPointer, leafBoundary, gapActive,
+      editTop, editCursor, editTail, editBottom,
+      entryId:entry.id, nodes, expression, editor,
+      routine:'34:4A83/4AAF and 34:4ACE/4AF0',
+    };
   }
 
   function constructSettledProgramFromTokens(input, firstId = 1, font = null) {
@@ -6613,9 +7039,12 @@
     settledGlyphViewportDecision,
     settledGlyphVerticalViewportDecision,
     settledEmbeddedViewportDecision,
+    settledEditorHorizontalCuePlacement,
     settledEditorVerticalCueOperations,
     settledEditorViewportOperations,
+    settledEditorRightCueDecision,
     settledEditorRightCueOperation,
+    settledEditorRightCue,
     settledRunIndicatorTick,
     settledObjectHandler,
     settledStructuralTokenType,
@@ -6652,6 +7081,9 @@
     encodeSettledExpressionTokens,
     settledExpressionFromTokens,
     decodeSettledExpressionGraph,
+    editorPayloadCursorBoundaries,
+    decodeEditorExpressionGraph,
+    decodeMathPrintEditorRam,
     constructSettledProgramFromTokens,
     replaySettledLcdWrites,
     traceSettledLcdWrites,

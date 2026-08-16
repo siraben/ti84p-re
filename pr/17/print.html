@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-cfd89885.js";
+            window.path_to_searchindex_js = "searchindex-469b43c8.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14482,15 +14482,16 @@ the header switch but its full body (cross-page) was not traced here.</li>
 <p>MathPrint is the OS subsystem that turns a tokenized expression into a two-dimensional
 screen layout. It is used by the homescreen entry line, the Y= editor, the Solver
 equation line, and the template menus. Page <code>39</code> handles template editing and
-record selection. The settled homescreen redraw traverses display objects on
-page <code>34</code>. Both paths drive the services described in <a href="#display-and-lcd">Display and LCD</a>.
+record selection. The live editor and settled homescreen redraw traverse
+display objects on page <code>34</code>. Both paths drive the services described in
+<a href="#display-and-lcd">Display and LCD</a>.
 It consumes the token stream described in <a href="#tokenizer--ti-basic">Tokenizer &amp; TI-BASIC</a>
 and preserves the OP registers described in <a href="#floating-point-engine">Floating-point engine</a>.</p>
 <p>The editor path is a cell-grid typesetter. The OS classifies each token, selects
 a compact handler record, walks the expression into rows and slots, maps each
 cell to pixel coordinates, and emits glyphs or graph-buffer rules. A page <code>34</code>
-object walker redraws the settled expression through page <code>01</code> glyph output and
-page <code>04</code> line and point routines. [confirmed]</p>
+object walker redraws the record graph through page <code>01</code> glyph output and page
+<code>04</code> line and point routines. [confirmed]</p>
 <pre class="mermaid">flowchart TD
     token["Token or template action"] --&gt; dispatch["39:4A74&lt;br/&gt;class selection"]
     dispatch --&gt; table["39:4C27&lt;br/&gt;class table 39:5E45"]
@@ -14506,35 +14507,39 @@ page <code>04</code> line and point routines. [confirmed]</p>
 </pre>
 
 <p>The diagram shows the page <code>39</code> editor path. It does not describe the page <code>34</code>
-settled-expression walker. [confirmed]</p>
-<h2 id="two-equation-representations"><a class="header" href="#two-equation-representations">Two equation representations</a></h2>
-<p>MathPrint uses two related representations. The page <code>39</code> editor path treats an
-expression as token classes, handler rows, argument slots, and packed <code>D:E</code>
-display cells. The class table at <code>39:5E45</code> contains 68 entries. Sixty-six
-entries point to decoded handler records; the class-<code>0x00</code> pointer does not
-decode as a page <code>39</code> handler, and class <code>0x13</code> has a null pointer. [confirmed]</p>
-<p>The settled page <code>34</code> path uses an arena of numbered records. A leaf record
+record-graph walker. [confirmed]</p>
+<h2 id="editor-state-and-record-graph"><a class="header" href="#editor-state-and-record-graph">Editor state and record graph</a></h2>
+<p>MathPrint keeps native token bytes in an editor gap buffer and maintains a live
+arena of numbered records. Page <code>39</code> treats the active expression as token
+classes, handler rows, argument slots, and packed <code>D:E</code> display cells. The
+class table at <code>39:5E45</code> contains 68 entries. Sixty-six entries point to decoded
+handler records; the class-<code>0x00</code> pointer does not decode as a page <code>39</code>
+handler, and class <code>0x13</code> has a null pointer. [confirmed]</p>
+<p>Page <code>34</code> allocates the record arena while the editor is active. A leaf record
 contains a token program. A structural record contains a fixed header followed
-by child record IDs. The two representations therefore are not one shared AST:
-page <code>39</code> composes editable rows and cells, while page <code>34</code> traverses a settled
-record graph. The conversion from the complete in-progress editor state to the
-first record allocated by <code>34:4900</code> remains open. [confirmed]</p>
+by child record IDs. <code>34:4ACE</code> walks the structural region, and <code>34:4A83</code> walks
+the leaf region. <code>34:4AAF</code> substitutes the active gap-buffer payload when the
+leaf pointer equals the word at <code>0x8DC2</code>. The record graph therefore preserves
+the editable equation tree before evaluation; page <code>39</code> row and cell state is
+the transient layout view of that live equation. [confirmed]</p>
 <pre class="mermaid">flowchart LR
-    tokens["Native token bytes"] --&gt; editor["Page 39 editor state&lt;br/&gt;classes, rows, slots, D:E cells"]
-    editor -. "conversion boundary still open" .-&gt; build["34:4900 construction pass"]
-    tokens --&gt; scan["34:58F9 / 34:5A99&lt;br/&gt;token and argument scans"]
+    tokens["Native token bytes"] --&gt; gap["Editor gap buffer&lt;br/&gt;active leaf bytes"]
+    gap --&gt; editor["Page 39 layout state&lt;br/&gt;classes, rows, slots, D:E cells"]
+    gap --&gt; scan["34:58F9 / 34:5A99&lt;br/&gt;token and argument scans"]
     scan --&gt; build
-    build --&gt; graph["Settled record arena&lt;br/&gt;leaf programs + structural child IDs"]
+    build["34:4900 record allocation"] --&gt; graph["Live record arena&lt;br/&gt;leaf programs + structural child IDs"]
+    gap --&gt; substitute["34:4AAF&lt;br/&gt;active-leaf substitution"]
+    substitute --&gt; graph
     graph --&gt; metrics["34:7393 / 34:7609&lt;br/&gt;metrics and geometry"]
     metrics --&gt; render["34:6105 / 34:660A&lt;br/&gt;record and leaf rendering"]
     render --&gt; primitive["Page 1 / 4 / 7&lt;br/&gt;glyphs, points, and lines"]
     primitive --&gt; lcd["Accepted LCD data writes"]
 </pre>
 
-<p>This distinction matters when describing semantic structure. The settled graph
-can be decoded as an expression tree because structural child IDs preserve
-argument order. The handler records describe how an editable token class is
-laid out; they do not by themselves encode one whole equation tree. [confirmed]</p>
+<p>The record graph decodes as an expression tree because structural child IDs
+preserve argument order. The handler records describe how an editable token
+class is laid out; they do not by themselves encode one whole equation tree.
+[confirmed]</p>
 <h2 id="core-state"><a class="header" href="#core-state">Core state</a></h2>
 <p>The layout engine keeps most of its state in <code>0x85DE</code>–<code>0x85F2</code>. The table below names the
 fields that matter for reading the page <code>0x39</code> code. [confirmed]</p>
@@ -14997,7 +15002,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 23 finite models. It also computes an
+complete path-equivalence class in 24 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -15021,6 +15026,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Editor vertical viewport</td><td style="text-align: right">17,179,869,184</td><td style="text-align: right">8</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
 <tr><td>Editor vertical overflow cues</td><td style="text-align: right">4,294,901,760</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">3</td></tr>
 <tr><td>Editor left-overflow cue</td><td style="text-align: right">1,099,494,850,560</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">5</td></tr>
+<tr><td>Editor right-overflow cue</td><td style="text-align: right">281,474,976,710,656</td><td style="text-align: right">5</td><td style="text-align: right">10</td><td style="text-align: right">4</td></tr>
 <tr><td>Glyph viewport gates</td><td style="text-align: right">30,064,771,072</td><td style="text-align: right">3</td><td style="text-align: right">4</td><td style="text-align: right">3</td></tr>
 <tr><td>Embedded-record viewport gate</td><td style="text-align: right">4,294,967,296</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
 <tr><td>Record-allocation capacity</td><td style="text-align: right">36,893,488,147,419,103,232</td><td style="text-align: right">6</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
@@ -15033,8 +15039,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 23 models contain 1,332 path classes and 203 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 105 representatives. Each
+<p>The 24 models contain 1,337 path classes and 213 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 109 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -15180,7 +15186,7 @@ the six-byte right-segment marker <code>EF type id_lo id_hi EF 2D</code>. An ins
 that boundary makes the metric walker enter <code>34:759C</code> with its parsed pointer
 at <code>editTail + 6</code>. The comparison at <code>34:75A1</code> then returns Z, so <code>34:75A5</code>
 falls through. [confirmed]</p>
-<p>The final live expression graph spans two record regions. <code>34:4ACE</code> starts at
+<p>The live expression graph spans two record regions. <code>34:4ACE</code> starts at
 the structural-record pointer in <code>0x8DAF</code> and stops at the entry pointer in
 <code>0x8DBC</code>. <code>34:4AF0</code> advances by the structural record size. The child words
 after each 20-byte header remain record IDs. <code>34:4A83</code> starts its leaf-record
@@ -15191,9 +15197,36 @@ and the current record equals the pointer in <code>0x8DC2</code>, <code>34:4ABF<
 <code>editBtm</code> as the next record pointer. Every other leaf advances by its 19-byte
 prefix plus the payload length at <code>+0x11</code>. The active record’s logical payload
 is the concatenation of <code>editTop</code>–<code>editCursor</code> and <code>editTail</code>–<code>editBtm</code>.
-This explains why a final RAM dump can hold structural headers below the entry,
+This explains why a RAM dump can hold structural headers below the entry,
 the active leaf in the gap, and later leaf records near the top of RAM.
 [confirmed]</p>
+<p>Four reset-origin RAM snapshots pin the cursor-to-record mapping. The compact
+bytes and expected trees are in <code>tools/mathprint-editor-gap-oracles.json</code>.
+Each reproduction uses key input only. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Editor state</th><th>Active leaf</th><th>Logical gap payload</th><th>Cursor path</th><th>Sparse-state SHA-256</th></tr>
+</thead>
+<tbody>
+<tr><td>Empty fraction numerator</td><td><code>9</code></td><td>cursor, <code>EF 1E</code></td><td>numerator</td><td><code>bcabb3961e1f37fe21b4e66c8bbfffb9a3812a162324e85273fdeed0beccc019</code></td></tr>
+<tr><td>Integral upper bound after <code>2</code></td><td><code>10</code></td><td><code>32</code>, cursor</td><td>upper bound</td><td><code>1dab216a05a2604bdb51eaa8a347a881f4dcccb7c8f19965503d73812422f8d5</code></td></tr>
+<tr><td>Fraction denominator nested in an integral body</td><td><code>15</code></td><td><code>32</code>, cursor</td><td>body → denominator</td><td><code>7da6d7fdbb5ea848dda0afb1105237280a06b6dff994879df0a8c0b63e1a5f10</code></td></tr>
+<tr><td>Immediately after a completed integral</td><td><code>7</code></td><td><code>EF 22 08 00 EF 2D</code>, cursor</td><td>root sequence after integral</td><td><code>89dd708b40f3c77f2cb5392783256576be8f0014beea2b411b6ba860dd441ef4</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The empty numerator keeps <code>EF 1E</code> in the right gap segment, while its sibling
+denominator leaf resides near the high-memory boundary. The nested case links
+integral body leaf <code>11</code> to fraction record <code>13</code>, whose second child is active
+leaf <code>15</code>. The completed-integral case moves the active gap back to entry leaf
+<code>7</code>; its cursor follows the complete six-byte type-<code>0x22</code> marker. These states
+show that the graph itself preserves the editable nesting. [confirmed]</p>
+<p><code>decodeMathPrintEditorRam()</code> translates both record walks and the active-leaf
+substitution. <code>decodeEditorExpressionGraph()</code> inserts a cursor at
+<code>editCursor - editTop</code>, after checking the native token and six-byte marker
+boundaries. It recovers the nested cursor path from record IDs and leaf bytes;
+the screenshots do not participate in the decode. [confirmed]</p>
 <p><code>34:789A</code> first distinguishes the table-equation context from other editors.
 On its fallthrough, <code>34:75AB</code> reads the marker type from <code>editTail + 1</code>.
 <code>34:40F9</code> groups fraction (<code>0x20</code>), nth-root (<code>0x24</code>), and power (<code>0x2A</code>)
@@ -15249,7 +15282,7 @@ childless node models the independent <code>34:6119</code> table entry and its r
 bitmap. No retained natural trace combines <code>0x8DE7=0x1F</code> with <code>34:6105</code> →
 <code>34:6143</code>, so the latter remains a decoded table ABI without a natural record
 dispatch. [confirmed]</p>
-<p>Editor layout is also open. The page <code>39</code> class and handler tables, argument
+<p>Page <code>39</code> layout control remains incomplete. Its class and handler tables, argument
 order, row composition, descriptor mapping, and draw paths are decoded. The
 browser-side ROM engine now translates the <code>39:4A74</code> token/action dispatch and
 its <code>IY+2</code> exponent-context and <code>IY+9</code> fraction-context class adjustments
@@ -15373,8 +15406,9 @@ action-<code>0x04</code> branch, and the flag-controlled tails. The tests exhaus
 controller. The walker tests separately exhaust its layout-class and row
 predicates. [confirmed]
 The retained corpus observes 255 of 1,098 declared editor branch outcomes. It
-does not decode every in-progress editor state into a general AST, and it does not
-reach every cursor, menu, error, or row-composition path. [confirmed]</p>
+does not translate every key-to-graph mutation, cursor action, menu, error, or
+row-composition path. The live RAM decoder covers a complete captured graph;
+it does not predict the next graph from an arbitrary key action. [confirmed]</p>
 <p>Accepted LCD-write parity is a separate result. The translated cases compare
 every synchronous accepted data write, including writes that leave the byte
 unchanged. Timer-interrupt run-indicator writes stay outside the MathPrint
@@ -15430,8 +15464,13 @@ line and point routines and page <code>01:6297</code> small-font output. [confir
 and <code>34:5DEF</code>. Its closed tail at <code>34:5E98</code>–<code>34:5EA6</code> passes <code>B=x</code>,
 <code>C=63-y</code>, and <code>D=1</code> to <code>_PointOn</code> at <code>04:4155</code>. Dynamic samples include
 <code>(x,y)=(3,0)</code> → <code>BC=033Fh</code> and <code>(32,20)</code> → <code>BC=202Bh</code>. [confirmed]</p>
-<p>The line wrappers share the viewport state at <code>0x8DFA</code>–<code>0x8E04</code>.
-<code>34:5D96</code> passes a clipped vertical segment to <code>04:431D</code>; <code>34:5DA6</code> swaps the
+<p>The line wrappers share the viewport state at <code>0x8DFA</code>–<code>0x8E04</code>. The byte at
+<code>ram:8DFA</code> is the physical screen $x$ origin, while the word at <code>ram:8DFE</code> is
+the logical record $x$ origin. <code>ram:8DFB</code> and <code>ram:8E00</code> are the corresponding
+physical and logical $y$ origins. Keeping those pairs separate matters in
+shifted editor modes even though all four values are zero on the normal home
+entry line. [confirmed]</p>
+<p><code>34:5D96</code> passes a clipped vertical segment to <code>04:431D</code>; <code>34:5DA6</code> swaps the
 axes and passes a clipped horizontal segment to <code>04:4382</code>. The nested trace’s
 fraction rule enters <code>34:5DA6</code> with object coordinates <code>x=1</code>–<code>5</code>, <code>y=6</code> and
 origins <code>x=16</code>, <code>y=5</code>. Page <code>04</code> receives endpoints <code>(17,52)</code> and <code>(21,52)</code>.
@@ -15611,8 +15650,9 @@ token. The renderer maps the pair to display code <code>0xF7</code>, so the deco
 exposes an unfilled template slot. The tree identifies the expression in a
 trace without using LCD pixels or a screenshot. It describes the settled graph
 consumed by <code>34:660A</code>. The browser-side ROM engine exposes the same decoder for
-its generated AST view as <code>settledAst</code>. The editor/parser representation before
-<code>34:4900</code> remains open. [confirmed]</p>
+its generated AST view as <code>settledAst</code>. The live-editor wrapper applies this
+decoder after <code>34:4AAF</code> substitutes the active gap payload, then inserts the
+cursor at the byte boundary selected by <code>editCursor</code>. [confirmed]</p>
 <p>A live matrix entry demonstrates why leaf decoding cannot treat every payload
 as a flat token sequence. Before evaluation, wrapper ID <code>6</code> points to a leaf
 whose payload begins <code>06 06 EF 27 08 00 EF 2D</code>: the outer and first-row
@@ -16159,11 +16199,16 @@ fraction. [confirmed]</p>
 The root record stores <code>112</code> at <code>+7</code>: the expression plus a six-pixel cursor
 cell. Its child origins remain local at $x=0$, $16$, $56$, and $72$.
 [confirmed]</p>
-<p>The editor scrolls this record horizontally. <code>34:5DBE</code> adds the record origin
-at <code>ram:8DFE</code> to each local $x$ coordinate. <code>34:5DC2</code> then subtracts the
-horizontal clip at <code>ram:8E02</code>: [confirmed]</p>
+<p>The editor scrolls this record horizontally. <code>34:5DBE</code> adds the logical record
+origin at <code>ram:8DFE</code> to each local $x$ coordinate. <code>34:5DC2</code> then subtracts the
+horizontal clip at <code>ram:8E02</code>, and the admitted path at <code>34:5DE3</code> adds the
+physical origin at <code>ram:8DFA</code>: [confirmed]</p>
 <p>$$
-x_{\mathrm{LCD}} = x_{\mathrm{local}} + x_{\mathrm{origin}} - x_{\mathrm{clip}}.
+x_{\mathrm{LCD}}
+= x_{\mathrm{screen}}
+{}+ x_{\mathrm{local}}
+{}+ x_{\mathrm{record}}
+{}- x_{\mathrm{clip}}.
 $$</p>
 <p><code>34:5F5D</code> updates the clip for the cursor at the expression endpoint. The
 traced editor state has a previous clip of $12$, a cursor width of $6$, and a
@@ -16287,14 +16332,22 @@ translated viewport applies both whole-glyph gates before rasterization.
 <code>page_34:6CA8</code> → <code>ram:3CE1</code>. That call stack does not pass through <code>34:608F</code>, so
 the stream is separate from the right-side bitmap path and remains outside the
 settled expression timeline. [confirmed]</p>
-<p>The actual <code>34:608F</code> path is observed elsewhere in the natural trace. It
-updates byte column 11 at rows 8–14 with <code>00</code>, <code>08</code>, <code>0C</code>, <code>0E</code>, <code>0C</code>, <code>08</code>, and
-<code>00</code>. <code>34:5FFA</code> → <code>34:607A</code> selects the path, and <code>34:608F</code> computes its
-horizontal position. The exact UI endpoint meaning remains unresolved.
-Cursor blink separately writes <code>0x7C</code> to byte column 11 on rows 8–14. The
-browser excludes both auxiliary streams from settled expression timelines.
-[hypothesis] for the endpoint meaning; [confirmed] for the call predicate,
-bitmap values, and observed byte range</p>
+<p>The actual <code>34:608F</code> path is observed elsewhere in the natural trace. <code>34:607A</code>
+loads the wrapper record’s <code>+09h</code> width, subtracts one, adds the logical origin,
+and subtracts <code>ram:8E02</code>. Carry returns Z. A zero translated endpoint skips the
+second decrement; otherwise <code>34:6089</code> decrements once more before <code>34:5DDB</code>
+compares the word with the right bound. A value at or beyond the bound returns
+NZ, so <code>34:5FFD</code> calls <code>34:608F</code>. The retained witness compares <code>HL=98</code> with
+<code>DE=95</code> and takes that call. [confirmed]</p>
+<p><code>34:608F</code> places the four-pixel cue at physical screen origin plus right bound
+minus four. Its writes update byte column 11 at rows 8–14 with <code>00</code>, <code>08</code>,
+<code>0C</code>, <code>0E</code>, <code>0C</code>, <code>08</code>, and <code>00</code>. A fresh-clip home-editor redraw suppresses
+this path for every 16-bit expression endpoint at physical origin zero;
+shifted or retained-clip viewports still follow the complete selector. Cursor
+blink separately writes <code>0x7C</code>
+to byte column 11 on the same rows. The browser models the cue selector and
+keeps the unrelated <code>34:6CA8</code> stream outside settled expression timelines.
+[confirmed]</p>
 <p>The text-cell path has a separate overflow boundary. <code>39:4F08</code> compares
 <code>curCol</code> (<code>0x844C</code>) with <code>0x0F</code> before marker handling and calls the fixed-bank
 <code>_EraseEOL</code> jump at <code>00:3CB7</code>. <code>39:6712</code> then sets <code>curCol</code> to <code>1</code>, emits the
@@ -16416,12 +16469,13 @@ timeline row records the previous byte, replacement byte, all eight destination
 bits, and which bits changed. Accepted writes with equal previous and replacement
 bytes therefore remain visible in the trace. [confirmed]</p>
 <p>The text field uses a preview-specific semantic grammar for ordinary input. It
-does not emulate the TI-OS editor or decode its in-progress template AST. An
-input prefixed with <code>hex:</code> bypasses that grammar and passes the listed native
-bytes to the translated constructor. Malformed streams and untranslated
-structural types produce an error; this path does not select the model
-compositor. Each accepted LCD byte remains available as eight ordered pixel
-results in the live timeline. [confirmed]</p>
+does not emulate TI-OS key-to-graph state transitions. The ROM engine separately
+decodes a captured live editor arena, active gap leaf, and cursor into a semantic
+tree. An input prefixed with <code>hex:</code> bypasses the preview grammar and passes the
+listed native bytes to the translated constructor. Malformed streams and
+untranslated structural types produce an error; this path does not select the
+model compositor. Each accepted LCD byte remains available as eight ordered
+pixel results in the live timeline. [confirmed]</p>
 <p>The 5,019-case Node test remains a deterministic parser/layout smoke test. Six
 settled record programs provide exact final-pixel and complete accepted-write
 parity for their expressions. Three fresh absolute-value cases, four power
