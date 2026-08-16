@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "source": "reset-origin TilEm RAM and pre-ENTER screenshot captured after typing [[sqrt(2),X^2][3,4]]; the type-1Fh wrapper enters 34:636C directly and contributes no pixels of its own",
+  "rom_sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d",
+  "capture_executable_sha256": "40cf1f9ff975217ede238cd02bfd6a85fa6bfecf8cbcea173b0d7705b144330b",
+  "cases": [
+    {
+      "expression": "[[sqrt(2),X^2][3,4]]",
+      "spec": {
+        "kind": "matrix",
+        "rows": 2,
+        "columns": 2,
+        "elements": [
+          {"kind": "radical", "radicand": [50]},
+          {"kind": "power", "base": [88], "exponent": [50]},
+          [51],
+          [52]
+        ]
+      },
+      "trace_sha256": "0725ce7c4559d0dec9bb7a539b941b5896ce6f0637ff44708522bb9980033c0d",
+      "ram_sha256": "fd8d24cda8071a729d562cf024ea0d2a146dba4fb9784f3dd1da7b269a9da809",
+      "screenshot_png_sha256": "19008ed06a1edbcb1497772ff62607761f3e66ff59b130bf153266eb709e77af",
+      "entry_crop": [76, 10],
+      "entry_crop_sha256": "c66ac99f77647406d7b60e21c826e75596f0a6c14a8f7472a2aeb722087fb5b2",
+      "translated_write_count": 175,
+      "translated_write_sha256": "98a47ca4f0ab5a702213fc05b7b9e0aea5c9752d34d3e445028f548e9bcbdd6e",
+      "final_lcd_sha256": "d208d9d884044fa2c3d8f407434db618e07594bbd78ade633bd85d3c2a70541a",
+      "wrapper_id": 6,
+      "entry_id": 7,
+      "origin": {"x": 0, "y": 0},
+      "nodes": [
+        {
+          "record_id": 6, "render_type": 31,
+          "word03": 0, "word05": 1, "word07": 10, "word09": 87,
+          "word0B": 6, "word0D": 0, "word0F": 0, "word11": 0,
+          "byte13": 0, "child_ids": [7], "payload": []
+        },
+        {
+          "record_id": 8, "render_type": 39,
+          "word03": 7, "word05": 1, "word07": 9, "word09": 11,
+          "word0B": 5, "word0D": 12, "word0F": 1, "word11": 1,
+          "byte13": 6, "child_ids": [9], "payload": []
+        },
+        {
+          "record_id": 10, "render_type": 42,
+          "word03": 7, "word05": 1, "word07": 10, "word09": 4,
+          "word0B": 6, "word0D": 35, "word0F": 0, "word11": 1,
+          "byte13": 6, "child_ids": [11], "payload": []
+        },
+        {
+          "record_id": 7, "render_type": 0,
+          "word03": 6, "word05": 10, "word07": 87, "word09": 6,
+          "word0B": 0, "word0D": 0, "word0F": 16, "word11": 16,
+          "byte13": 6, "child_ids": [],
+          "payload": [
+            6, 6, 239, 39, 8, 0, 239, 45, 43, 88, 239, 42,
+            10, 0, 239, 45, 7, 6, 51, 43, 52, 7, 7
+          ]
+        },
+        {
+          "record_id": 9, "render_type": 0,
+          "word03": 8, "word05": 7, "word07": 6, "word09": 3,
+          "word0B": 5, "word0D": 2, "word0F": 1, "word11": 1,
+          "byte13": 50, "child_ids": [], "payload": [50]
+        },
+        {
+          "record_id": 11, "render_type": 0,
+          "word03": 10, "word05": 5, "word07": 4, "word09": 2,
+          "word0B": 0, "word0D": 0, "word0F": 1, "word11": 1,
+          "byte13": 50, "child_ids": [], "payload": [50]
+        }
+      ]
+    }
+  ]
+}

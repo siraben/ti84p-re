@@ -437,7 +437,8 @@ def embedded_structural_records(payload: tuple[int, ...]) -> tuple[tuple[int, in
 
 
 def decode_settled_expression(
-    nodes: list[dict[str, object]], entry_id: int
+    nodes: list[dict[str, object]], entry_id: int, *,
+    _active_leaf_ids: set[int] | None = None,
 ) -> object:
     """Decode one settled record graph into its expression structure.
 
@@ -462,7 +463,7 @@ def decode_settled_expression(
     if entry_id not in by_id:
         raise ValueError(f"settled expression entry ID 0x{entry_id:04X} is absent")
 
-    active: set[int] = set()
+    active: set[int] = set(_active_leaf_ids or ())
 
     def children(node: dict[str, object], count: int) -> list[int]:
         raw = node.get("child_ids")
@@ -499,6 +500,8 @@ def decode_settled_expression(
         render_type = node.get("render_type")
         if not isinstance(render_type, int):
             raise ValueError(f"settled record 0x{record_id:04X} has no integer type")
+        if render_type == 0x1F:
+            return leaf(children(node, 1)[0])
         child_count = {
             0x20: 2, 0x21: 1, 0x22: 4, 0x23: 3,
             0x24: 2, 0x25: 1, 0x26: 1, 0x27: 1,
@@ -657,9 +660,117 @@ def decode_settled_expression(
             def is_name_character(token: int) -> bool:
                 return 0x30 <= token <= 0x39 or 0x41 <= token <= 0x5B
 
+            def decode_inline(element: list[int]) -> object:
+                reserved = set(by_id)
+                for candidate in range(0xFFFF, -1, -1):
+                    if candidate not in reserved:
+                        inline_id = candidate
+                        break
+                else:
+                    raise ValueError("settled graph has no free inline record ID")
+                return decode_settled_expression(
+                    [
+                        *nodes,
+                        {
+                            "record_id": inline_id,
+                            "render_type": 0,
+                            "child_ids": [],
+                            "payload": element,
+                        },
+                    ],
+                    inline_id,
+                    _active_leaf_ids=active,
+                )
+
+            def matrix_container(start: int) -> tuple[int, object]:
+                if payload[start:start + 2] != [0x06, 0x06]:
+                    raise ValueError("settled matrix has no outer and row opener")
+                cursor = start + 1
+                rows: list[list[object]] = []
+                while True:
+                    if cursor >= len(payload):
+                        raise ValueError("settled matrix has no outer closing 07h token")
+                    if payload[cursor] == 0x07:
+                        if not rows:
+                            raise ValueError("settled matrix has no rows")
+                        cursor += 1
+                        break
+                    if payload[cursor] != 0x06:
+                        raise ValueError("settled matrix row-opening 06h token is missing")
+                    cursor += 1
+                    row: list[object] = []
+                    while True:
+                        element_start = cursor
+                        closers: list[int] = []
+                        while cursor < len(payload):
+                            token = payload[cursor]
+                            if not closers and token in {0x2B, 0x07}:
+                                break
+                            if (
+                                token == 0xEF
+                                and cursor + 1 < len(payload)
+                                and 0x1F <= payload[cursor + 1] <= 0x2B
+                            ):
+                                if (
+                                    cursor + 5 >= len(payload)
+                                    or payload[cursor + 4:cursor + 6] != [0xEF, 0x2D]
+                                ):
+                                    raise ValueError(
+                                        "settled matrix element has a truncated record marker"
+                                    )
+                                cursor += 6
+                                continue
+                            prefix = 0
+                            subtype = token
+                            length = 1
+                            if token in NATIVE_TWO_BYTE_TOKEN_LEADS:
+                                if cursor + 1 >= len(payload):
+                                    raise ValueError(
+                                        "settled matrix element ends in a two-byte token lead"
+                                    )
+                                prefix = token
+                                subtype = payload[cursor + 1]
+                                length = 2
+                            if prefix == 0 and subtype in {0x10, 0x08, 0x06}:
+                                closers.append({0x10: 0x11, 0x08: 0x09, 0x06: 0x07}[subtype])
+                            elif parse_ahead_function_token(prefix, subtype):
+                                closers.append(0x11)
+                            elif prefix == 0 and subtype in {0x11, 0x09, 0x07}:
+                                if not closers or closers[-1] != subtype:
+                                    raise ValueError(
+                                        "settled matrix element has an unmatched delimiter"
+                                    )
+                                closers.pop()
+                            cursor += length
+                        if closers:
+                            raise ValueError("settled matrix element has an unclosed delimiter")
+                        if cursor == element_start:
+                            raise ValueError("settled matrix row has an empty element")
+                        row.append(decode_inline(payload[element_start:cursor]))
+                        if cursor >= len(payload):
+                            raise ValueError("settled matrix row has no closing 07h token")
+                        delimiter = payload[cursor]
+                        cursor += 1
+                        if delimiter == 0x07:
+                            break
+                    rows.append(row)
+                columns = len(rows[0])
+                if not columns or any(len(row) != columns for row in rows):
+                    raise ValueError("settled matrix rows must have equal width")
+                return cursor, {
+                    "kind": "matrix",
+                    "rows": len(rows),
+                    "columns": columns,
+                    "elements": [element for row in rows for element in row],
+                }
+
             index = 0
             while index < len(payload):
                 token = payload[index]
+                if token == 0x06 and payload[index:index + 2] == [0x06, 0x06]:
+                    index, matrix = matrix_container(index)
+                    append_atom(matrix)
+                    continue
                 if token == 0x10:
                     frames.append({
                         "kind": "group", "items": [], "opener": [0x10],
@@ -778,7 +889,10 @@ def decode_settled_expression(
         finally:
             active.remove(record_id)
 
-    return leaf(entry_id)
+    entry = by_id[entry_id]
+    render_type = entry.get("render_type")
+    assert isinstance(render_type, int)
+    return structural(entry_id) if render_type >= 0x1F else leaf(entry_id)
 
 
 def resolved_record_graph(
