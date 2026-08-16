@@ -1281,9 +1281,9 @@ class CheckedReportTests(unittest.TestCase):
         )
 
         self.assertEqual(2, report["schema"])
-        self.assertEqual(272, len(report["traces"]))
+        self.assertEqual(273, len(report["traces"]))
         self.assertEqual(
-            271,
+            272,
             sum(
                 row["provenance"] == TRACE_PROVENANCE_NATURAL
                 for row in report["traces"]
@@ -1291,7 +1291,29 @@ class CheckedReportTests(unittest.TestCase):
         )
         self.assertEqual(1011, report["summary"]["branch_outcomes_observed"])
         self.assertEqual(
-            1008, report["summary"]["natural_branch_outcomes_observed"]
+            1009, report["summary"]["natural_branch_outcomes_observed"]
+        )
+        self.assertEqual(
+            1264,
+            report["summary"]["natural_branch_outcome_statuses"][
+                "unresolved_state_or_abi"
+            ],
+        )
+        matrix_render_branch = next(
+            row for row in report["components"]["settled_render"]["branches"]
+            if row["location"] == "34:6B94"
+        )
+        matrix_taken = next(
+            row for row in matrix_render_branch["outcomes"]
+            if row["outcome"] == "taken"
+        )
+        self.assertEqual(
+            "mathprint_editor_matrix_navigation",
+            matrix_taken["witness"]["trace"],
+        )
+        self.assertEqual(
+            TRACE_PROVENANCE_NATURAL,
+            matrix_taken["witness"]["provenance"],
         )
         matrix_entry = next(
             row for row in report["traces"]
@@ -1703,6 +1725,8 @@ class CheckedReportTests(unittest.TestCase):
                 "d77bdeb19c52dd1337db4ea0410c1d5970924a7a3bf6a589742280b508fda776",
             "mathprint_editor_remaining_structural_navigation":
                 "6263edce978d46750859f38c964ec4858b2c28fc8f6c914d510a8c332a01d85f",
+            "mathprint_editor_matrix_navigation":
+                "78639019ccf6b1d01a62b2f88dc5ff619382c08fe81396886aa0c49bcfe962d4",
         }, structural_navigation)
         summation_fill = {
             row["label"]: row["sha256"]
@@ -1725,21 +1749,41 @@ class CheckedReportTests(unittest.TestCase):
             114, report["record_oracles"]["cases"]
         )
         self.assertEqual(
-            1555,
+            (19, 1011, 4_232_457_216),
+            (
+                report["minimized_trace_corpus"]["selected_trace_count"],
+                report["minimized_trace_corpus"]["covered_outcomes"],
+                report["minimized_trace_corpus"]["selected_trace_bytes"],
+            ),
+        )
+        self.assertEqual(
+            (20, 1009, 4_388_491_626),
+            (
+                report["minimized_natural_trace_corpus"][
+                    "selected_trace_count"
+                ],
+                report["minimized_natural_trace_corpus"]["covered_outcomes"],
+                report["minimized_natural_trace_corpus"][
+                    "selected_trace_bytes"
+                ],
+            ),
+        )
+        self.assertEqual(
+            1571,
             report["minimized_dynamic_feature_corpus"]["covered_features"],
         )
         self.assertEqual(
-            205,
+            206,
             report["minimized_dynamic_feature_corpus"]["selected_trace_count"],
         )
         self.assertEqual(
-            1552,
+            1569,
             report["minimized_natural_dynamic_feature_corpus"][
                 "covered_features"
             ],
         )
         self.assertEqual(
-            204,
+            205,
             report["minimized_natural_dynamic_feature_corpus"][
                 "selected_trace_count"
             ],
