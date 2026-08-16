@@ -6346,6 +6346,12 @@
           `editor marker at byte ${index} has no matching structural record`);
       return {structuralId,structural,marker:payload.slice(index,index + 6)};
     };
+    const atomicLeafKind = node => {
+      if (nodeType(node) === 0x01) return 'type-01-variable';
+      return Array.isArray(node.payload) && node.payload.length === 2 &&
+        node.payload[0] === 0xef && node.payload[1] === 0x1e
+        ? 'empty-slot' : null;
+    };
 
     const activeId = input.editor.cursor.recordId;
     const beforeOffset = input.editor.cursor.byteOffset;
@@ -6384,11 +6390,17 @@
     let afterControllerId = controllerId;
     let afterDepth = depth;
     let mutation;
+    const atomicKind = atomicLeafKind(active);
+    const atomicLeaf = atomicKind !== null;
+    if (atomicLeaf && beforeOffset !== 0)
+      throw new RangeError(
+        'editor atomic leaf cursor must remain at byte offset zero');
     const unitStart = direction === 'left'
       ? boundaries[boundaryIndex - 1] : beforeOffset;
     const unitEnd = direction === 'left'
       ? beforeOffset : boundaries[boundaryIndex + 1];
-    const hasUnit = unitStart !== undefined && unitEnd !== undefined;
+    const hasUnit = !atomicLeaf &&
+      unitStart !== undefined && unitEnd !== undefined;
     const structuralMarker = hasUnit ? markerAt(active.payload,unitStart) : null;
 
     if (hasUnit && !structuralMarker) {
@@ -6412,7 +6424,8 @@
       if (!child || nodeType(child) >= 0x1f || !Array.isArray(child.payload))
         throw new RangeError('editor structural child is not a decoded leaf');
       afterActiveId = childId;
-      afterOffset = direction === 'left' ? child.payload.length : 0;
+      afterOffset = atomicLeafKind(child)
+        ? 0 : direction === 'left' ? child.payload.length : 0;
       afterControllerId = structuralMarker.structuralId;
       afterDepth = depth + 1;
       if (afterDepth > 0xff)
@@ -6451,8 +6464,11 @@
             !Array.isArray(sibling.payload))
           throw new RangeError('editor structural sibling is not a leaf');
         afterActiveId = siblingId;
-        afterOffset = direction === 'left' ? sibling.payload.length : 0;
-        replaceNode(activeId,{word0F:beforeOffset});
+        afterOffset = atomicLeafKind(sibling)
+          ? 0 : direction === 'left' ? sibling.payload.length : 0;
+        const committedOffset = atomicLeaf && direction === 'right'
+          ? active.payload.length : beforeOffset;
+        replaceNode(activeId,{word0F:committedOffset});
         replaceNode(controllerId,{word05:siblingIndex + 1});
         replaceNode(siblingId,{word0F:afterOffset});
         mutation = {
@@ -6463,6 +6479,9 @@
           after_record_id:siblingId,before_byte_offset:beforeOffset,
           after_byte_offset:afterOffset,before_structural_depth:depth,
           after_structural_depth:depth,
+          ...(atomicLeaf ? {
+            atomic_leaf_kind:atomicKind,committed_leaf_offset:committedOffset,
+          } : {}),
           routine:direction === 'left'
             ? '34:42B4–42B7 → 34:42C5–42EA'
             : '34:4193–4196 → 34:41AE–41D7',
@@ -6479,7 +6498,9 @@
         afterDepth = depth - 1;
         if (afterDepth < 0)
           throw new RangeError('editor structural depth underflowed');
-        replaceNode(activeId,{word0F:beforeOffset});
+        const committedOffset = atomicLeaf && direction === 'right'
+          ? active.payload.length : beforeOffset;
+        replaceNode(activeId,{word0F:committedOffset});
         replaceNode(parentId,{word0F:afterOffset});
         replaceNode(afterControllerId,{word05:parentChildIndex + 1});
         mutation = {
@@ -6490,6 +6511,9 @@
           marker_byte_offset:containing.index,
           before_byte_offset:beforeOffset,after_byte_offset:afterOffset,
           before_structural_depth:depth,after_structural_depth:afterDepth,
+          ...(atomicLeaf ? {
+            atomic_leaf_kind:atomicKind,committed_leaf_offset:committedOffset,
+          } : {}),
           routine:direction === 'left'
             ? '34:42B4–42B7 → 34:42C5–42DF → 34:42ED–430E'
             : '34:4193–4196 → 34:41AE–41C6 → 34:41DC–4245',
@@ -7205,6 +7229,13 @@
       // An ancestor of the active leaf instead names the selected child.
       return selected.length ? selected[0] : children.length;
     };
+    const ordinaryVariableLeaf = expression => {
+      if (expression.kind === 'tokens') return true;
+      if (!editorMode) return false;
+      if (expression.kind === 'editorCursor') return true;
+      return expression.kind === 'sequence' && expression.parts.length &&
+        expression.parts.every(ordinaryVariableLeaf);
+    };
     const nodes = [];
     const retainedStructuralByte13 = new Set();
     // A type-2Ah record is allocated after its base has been prepared, but the
@@ -7916,7 +7947,7 @@
         };
       }
       if (expression.kind === 'integral') {
-        if (expression.variable.kind !== 'tokens')
+        if (!ordinaryVariableLeaf(expression.variable))
           throw new RangeError('integral variable must be an ordinary token run');
         const renderType = settledStructuralTokenType(0x00, 0x24);
         if (renderType !== 0x22)
@@ -8003,7 +8034,7 @@
           expression.variable.parts[1].tokens.length === 2 &&
           expression.variable.parts[1].tokens[0] === 0xef &&
           expression.variable.parts[1].tokens[1] === 0x1e;
-        if (expression.variable.kind !== 'tokens' && !liveBlankVariable)
+        if (!ordinaryVariableLeaf(expression.variable))
           throw new RangeError('nDeriv variable must be an ordinary token run');
         const renderType = settledStructuralTokenType(0x00, 0x25);
         if (renderType !== 0x23)
@@ -8084,15 +8115,7 @@
         };
       }
       if (expression.kind === 'summation') {
-        const liveBlankVariable = editorMode &&
-          expression.variable.kind === 'sequence' &&
-          expression.variable.parts.length === 2 &&
-          expression.variable.parts[0].kind === 'editorCursor' &&
-          expression.variable.parts[1].kind === 'tokens' &&
-          expression.variable.parts[1].tokens.length === 2 &&
-          expression.variable.parts[1].tokens[0] === 0xef &&
-          expression.variable.parts[1].tokens[1] === 0x1e;
-        if (expression.variable.kind !== 'tokens' && !liveBlankVariable)
+        if (!ordinaryVariableLeaf(expression.variable))
           throw new RangeError('summation variable must be an ordinary token run');
         const renderType = settledStructuralTokenType(0xef, 0x33);
         if (renderType !== 0x29)
