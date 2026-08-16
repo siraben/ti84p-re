@@ -28,6 +28,10 @@ const sources = {
     macro:'tools/macros/mathprint-editor-remaining-structural-navigation.macro',
     trace:'/tmp/mp-remaining-structural-navigation.trace',
   },
+  matrix:{
+    macro:'tools/macros/mathprint-editor-matrix-navigation.macro',
+    trace:'/tmp/mp-matrix-navigation.trace',
+  },
 };
 const specs = [
   {
@@ -158,6 +162,22 @@ const specs = [
       'root_after_endpoint',
     ],
   },
+  {
+    source:'matrix',name:'matrix_tokens_left',
+    prefix:'/tmp/mp-matrix-left-walk',direction:'left',
+    states:[
+      'offset_5','offset_4','offset_3','offset_2','offset_1','offset_0',
+      'offset_0_endpoint',
+    ],
+  },
+  {
+    source:'matrix',name:'matrix_tokens_right',
+    prefix:'/tmp/mp-matrix-right-walk',direction:'right',
+    states:[
+      'offset_0','offset_1','offset_2','offset_3','offset_4','offset_5',
+      'offset_5_endpoint',
+    ],
+  },
 ];
 
 const digest = bytes =>
@@ -189,4 +209,4 @@ for (const spec of specs) {
   };
 }
 
-process.stdout.write(`${JSON.stringify({schema:2,captures,transitions},null,2)}\n`);
+process.stdout.write(`${JSON.stringify({schema:3,captures,transitions},null,2)}\n`);

@@ -172,7 +172,11 @@ a type-`0x01` variable, an atomic `EF 1E` empty slot, ordinary children, and a
 trailing parent token. Sixteen root-level sequences match every
 cursor-dependent layout word. Their reducer also compares the translated LCD
 against the real TilEm screenshots outside only the blinking cursor cells.
-Matrix token editing and most deeper nested directions remain open.
+Two more sequences walk the token-built `[[1]]` matrix across all five packed
+tokens in both directions. Across all 18 sequences, 110 RAM states and 92
+adjacent moves have exact arena, layout-word, and masked-screenshot parity.
+Matrix deletion, row/column edits beyond that one-cell stream, and most deeper
+nested directions remain open.
 An eight-state summation construction capture also verifies the type-`0x01`
 post-insertion path. Filling the variable automatically selects the lower
 bound; filling the other children does not. Packed-token insertion now returns

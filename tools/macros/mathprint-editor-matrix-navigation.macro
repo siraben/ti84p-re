@@ -1,0 +1,76 @@
+# Walk both directions through the token-built [[1]] matrix expression.
+set key_hold 0.18s
+set key_delay 0.1s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key 2ND
+key LPAREN
+key 2ND
+key LPAREN
+key 1
+key 2ND
+key RPAREN
+key 2ND
+key RPAREN
+wait 0.5s
+
+# Start after the outer close, cross every nested-list boundary, and verify the
+# root endpoint. There are five native one-byte tokens in [[1]].
+memdump /tmp/mp-matrix-left-walk-0.ram ram-logical
+screenshot /tmp/mp-matrix-left-walk-0.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-matrix-left-walk-1.ram ram-logical
+screenshot /tmp/mp-matrix-left-walk-1.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-matrix-left-walk-2.ram ram-logical
+screenshot /tmp/mp-matrix-left-walk-2.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-matrix-left-walk-3.ram ram-logical
+screenshot /tmp/mp-matrix-left-walk-3.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-matrix-left-walk-4.ram ram-logical
+screenshot /tmp/mp-matrix-left-walk-4.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-matrix-left-walk-5.ram ram-logical
+screenshot /tmp/mp-matrix-left-walk-5.png
+key LEFT
+wait 0.4s
+memdump /tmp/mp-matrix-left-walk-6.ram ram-logical
+screenshot /tmp/mp-matrix-left-walk-6.png
+
+# Return across the same frames and verify the far endpoint.
+memdump /tmp/mp-matrix-right-walk-0.ram ram-logical
+screenshot /tmp/mp-matrix-right-walk-0.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-matrix-right-walk-1.ram ram-logical
+screenshot /tmp/mp-matrix-right-walk-1.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-matrix-right-walk-2.ram ram-logical
+screenshot /tmp/mp-matrix-right-walk-2.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-matrix-right-walk-3.ram ram-logical
+screenshot /tmp/mp-matrix-right-walk-3.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-matrix-right-walk-4.ram ram-logical
+screenshot /tmp/mp-matrix-right-walk-4.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-matrix-right-walk-5.ram ram-logical
+screenshot /tmp/mp-matrix-right-walk-5.png
+key RIGHT
+wait 0.4s
+memdump /tmp/mp-matrix-right-walk-6.ram ram-logical
+screenshot /tmp/mp-matrix-right-walk-6.png
