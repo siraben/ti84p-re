@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "transitions": [
+    {
+      "name": "root_delete_2",
+      "macro": "tools/macros/mathprint-editor-root-delete.macro",
+      "macro_sha256": "dc269ecd99dbb990051f813b56fd0fb8256bb5df6eefb1ff2f7f8869ffc8f90c",
+      "trace_sha256": "8f2ed75e236c9f6a845a83939380924c4d06e72257eccc9e500db68b4d072768",
+      "deleted_token": [50],
+      "restored_empty_slot": false,
+      "trace": {
+        "key_instruction": 1896747,
+        "delete_routine_instruction": 1900840,
+        "routine": "34:4570 → 00:3687 → 06:4393–43A4"
+      },
+      "pre": {
+        "source_ram_sha256": "927f115ceca68b0e0a6da885989fbcc019447b5bfe65f96df497064adf9b95d9",
+        "screenshot_sha256": "46c639e3469955a2c5791df1d9add27082e2a8f9545f2986c5ec4d470dcf18f9",
+        "lcd_bitmap_sha256": "ff63b46a887e90f3af093d41368ebfe15c2a87767cff1d0bb150f925bb40f6e1",
+        "sparse_state_sha256": "7d2d18ab5127064562df38faaa521d1803bc4811c838271630c6f907d3cd11b9",
+        "segments": [
+          {"address": 35313, "bytes": "04"},
+          {"address": 36271, "bytes": "b79d45fc06001f000700000100cd9de09db79dcd9d"},
+          {"address": 38644, "bytes": "e09de19d44fc45fc"},
+          {"address": 40375, "bytes": "06001f0000010007000c000300000000000000000700070000060007000c000300000000000000000031"},
+          {"address": 64580, "bytes": "32"}
+        ]
+      },
+      "post": {
+        "source_ram_sha256": "094637357ec194cadd4f42bb73e7eee64d36eacfd2f8661f515bfd59888a1284",
+        "screenshot_sha256": "1d794e47806f3c0a57fccbe0c26e368949cc318bfc70ee682f89d39a1a899cfd",
+        "lcd_bitmap_sha256": "0e48965fb37697e4ef2e4c98f017d2c719b6a1a7486a105a2715052a55e85f14",
+        "sparse_state_sha256": "c6e48cc13e0b1ab72d8f977582737639e6709abd40d442d86f154a51746d4d8e",
+        "segments": [
+          {"address": 35313, "bytes": "04"},
+          {"address": 36271, "bytes": "b79d45fc06001f000700000100cd9de09db79dcd9d"},
+          {"address": 38644, "bytes": "e09de19d45fc45fc"},
+          {"address": 40375, "bytes": "06001f0000010007000c000300000000000000000700070000060007000c000300000000000000000031"}
+        ]
+      }
+    },
+    {
+      "name": "fraction_numerator_restore_empty_slot",
+      "macro": "tools/macros/mathprint-editor-fraction-delete.macro",
+      "macro_sha256": "2f38052a894d81dbeff73d712b82aeff61c574af4af79940172e78fc01a09c3f",
+      "trace_sha256": "f4f22b0baaa52cd6b4cad807537b7441d7bcf65f4834c838612839644b82f631",
+      "deleted_token": [50],
+      "restored_empty_slot": true,
+      "trace": {
+        "key_instruction": 2346337,
+        "delete_routine_instruction": 2350411,
+        "empty_insert_instruction": 2350612,
+        "empty_move_left_instruction": 2350739,
+        "routine": "34:4570 → 00:3687 → 06:4393–43A4; 34:4549–455B → 34:4BB9–4C0D → 00:3699 → 06:4341–4388 → 00:3B49 → 06:4294–42C7"
+      },
+      "pre": {
+        "source_ram_sha256": "9060a7d373a09cea44cdeaf59b4b717b584b0166252b4cc16f6f89d7bab8c760",
+        "screenshot_sha256": "c281567a86f844ee1892aa86510d15aee2fd5098c9f4ab0bbe864076ca786406",
+        "lcd_bitmap_sha256": "8748bb2061b59a5afde2d60092986bc62d5da6a16f5dba6eda542c434ebabadb",
+        "sparse_state_sha256": "45b1cc50cc0afd630b2d8fac2887e3ab721be956671a70a973b4053006bb77bb",
+        "segments": [
+          {"address": 35313, "bytes": "04"},
+          {"address": 36271, "bytes": "b79d45fc080020010900000200e59d289ecd9dfe9d"},
+          {"address": 38644, "bytes": "119e119e2ffc30fc"},
+          {"address": 40375, "bytes": "06001f000001000d000a000600000000000000000700080020070001000d000a000600000000000100ef09000a0007000006000d000a0006000000000000000600ef200800ef2d0900000800050004000200030000000000020032"},
+          {"address": 64559, "bytes": "320a000008000500060002000200080000000200ef1e"}
+        ]
+      },
+      "post": {
+        "source_ram_sha256": "cb9d3334c6ee0e59a7eb2a6dfd39aafadc1632bb4d34f1f324dcf8a6cb814db5",
+        "screenshot_sha256": "d6a7605bc697b229236472aa7455aa83159ef690808c7a8244d61528ba29fc93",
+        "lcd_bitmap_sha256": "450e82a31ced68ed319a1c2e8d18d3e2d3813f097de8be9dc2a89d48289cc4c9",
+        "sparse_state_sha256": "bcabb3961e1f37fe21b4e66c8bbfffb9a3812a162324e85273fdeed0beccc019",
+        "segments": [
+          {"address": 35313, "bytes": "04"},
+          {"address": 36271, "bytes": "b79d45fc080020010900000200e59d289ecd9dfe9d"},
+          {"address": 38644, "bytes": "119e119e2efc30fc"},
+          {"address": 40375, "bytes": "06001f000001000d000a000600000000000000000700080020070001000d000a000600000000000100ef09000a0007000006000d000a0006000000000000000600ef200800ef2d09000008000500060002000200000000000200ef"},
+          {"address": 64558, "bytes": "ef1e0a000008000500060002000200080000000200ef1e"}
+        ]
+      }
+    }
+  ]
+}

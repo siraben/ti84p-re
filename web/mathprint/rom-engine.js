@@ -5494,6 +5494,99 @@
     return {expression,mutation};
   }
 
+  // DEL removes the packed token at the right edge of the gap. If that leaves
+  // the active leaf empty, 34:4549 inserts EF 1Eh and moves it back to the
+  // right gap segment so the cursor remains before the restored empty slot.
+  function editorDeletePackedToken(input) {
+    const cursorCount = value => {
+      if (!value || typeof value !== 'object') return 0;
+      if (value.kind === 'editorCursor') return 1;
+      if (Array.isArray(value) || value instanceof Uint8Array)
+        return Array.from(value).reduce(
+          (count, item) => count + cursorCount(item),0);
+      return Object.values(value).reduce(
+        (count, item) => count + cursorCount(item),0);
+    };
+    const count = cursorCount(input);
+    if (count !== 1)
+      throw new RangeError(
+        `editor deletion requires one cursor, found ${count}`);
+    const tokenBytes = value => {
+      if (Array.isArray(value) || value instanceof Uint8Array)
+        return Array.from(value);
+      if (value && (value.kind === 'tokens' ||
+                    value.kind === 'extendedToken') &&
+          (Array.isArray(value.tokens) || value.tokens instanceof Uint8Array))
+        return Array.from(value.tokens);
+      return null;
+    };
+    const withTokenBytes = (value, bytes) => {
+      if (!bytes.length) return null;
+      if (Array.isArray(value) || value instanceof Uint8Array) return bytes;
+      return {...value,tokens:bytes};
+    };
+
+    let mutation = null;
+    const deleteInSequence = value => {
+      const cursorIndex = value.parts.findIndex(
+        part => part && part.kind === 'editorCursor');
+      if (cursorIndex < 0) return null;
+      const sourceIndex = cursorIndex + 1;
+      if (sourceIndex >= value.parts.length)
+        throw new RangeError('editor cursor has no token to delete');
+      const source = value.parts[sourceIndex];
+      const bytes = tokenBytes(source);
+      if (!bytes)
+        throw new RangeError('editor deletion reached a structural boundary');
+      const boundaries = editorPayloadCursorBoundaries(bytes);
+      const deleted = bytes.slice(boundaries[0],boundaries[1]);
+      if (deleted.length === 6 && deleted[0] === 0xef &&
+          0x1f <= deleted[1] && deleted[1] <= 0x2b)
+        throw new RangeError(
+          'editor structural markers require the structural deletion path');
+      const remainder = withTokenBytes(source,bytes.slice(boundaries[1]));
+      const parts = value.parts.slice();
+      if (remainder === null) parts.splice(sourceIndex,1);
+      else parts[sourceIndex] = remainder;
+      const restoredEmptySlot = parts.length === 1;
+      if (restoredEmptySlot)
+        parts.push({kind:'extendedToken',tokens:[0xef,0x1e]});
+      const cursor = parts[cursorIndex];
+      mutation = {
+        deleted,
+        record_id:cursor.record_id,
+        byte_offset:cursor.byte_offset,
+        restored_empty_slot:restoredEmptySlot,
+        routine:restoredEmptySlot
+          ? '34:4570 → 00:3687 → 06:4393–43A4; 34:4549–455B → 34:4BB9–4C0D → 00:3699 → 06:4341–4388 → 00:3B49 → 06:4294–42C7'
+          : '34:4570 → 00:3687 → 06:4393–43A4',
+      };
+      return {...value,parts};
+    };
+    const visit = value => {
+      if (!value || typeof value !== 'object') return value;
+      if (Array.isArray(value) || value instanceof Uint8Array) return value;
+      if (value.kind === 'editorCursor')
+        throw new RangeError('editor cursor has no token to delete');
+      if (value.kind === 'sequence') {
+        const deleted = deleteInSequence(value);
+        if (deleted) return deleted;
+      }
+      const result = {};
+      for (const [key,child] of Object.entries(value)) {
+        if (Array.isArray(child) && child.every(Number.isInteger))
+          result[key] = child.slice();
+        else if (Array.isArray(child)) result[key] = child.map(visit);
+        else result[key] = visit(child);
+      }
+      return result;
+    };
+    const expression = visit(input);
+    if (!mutation)
+      throw new RangeError('editor deletion could not locate the cursor');
+    return {expression,mutation};
+  }
+
   function editorCursorIdentityPath(value, target, path = [], seen = new Set()) {
     if (value === target) return path;
     if (!value || typeof value !== 'object' || seen.has(value)) return null;
@@ -7699,6 +7792,7 @@
     editorPayloadCursorBoundaries,
     editorInsertPackedToken,
     editorMovePackedTokenCursor,
+    editorDeletePackedToken,
     decodeEditorExpressionGraph,
     decodeMathPrintEditorRam,
     constructSettledProgramFromTokens,
