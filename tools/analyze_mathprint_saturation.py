@@ -382,7 +382,7 @@ TRANSLATION_SURFACES = (
     {
         "name": "font, primitive, and LCD emission",
         "rom": [
-            "01:6297", "01:6702", "04:4025–4315",
+            "01:6297", "01:6360–6445", "01:6702", "04:4025–4315",
             "04:42B5–42E3", "04:431D–43C7", "07:4588–4605",
         ],
         "javascript": [
@@ -392,6 +392,7 @@ TRANSLATION_SURFACES = (
             "settledPage4DarkLineTrace", "settledVerticalOperation",
             "settledHorizontalOperation",
             "settledPage1GlyphPointerSelection",
+            "settledPage1VPutMapCompose", "settledPage1VPutMapRow",
             "settledPage7LargeGlyphRecord", "settledOperationPixels",
             "settledBlits", "settledOperationWrites",
         ],
@@ -402,6 +403,8 @@ TRANSLATION_SURFACES = (
             "MathPrint's style-inactive LCD-only point transition; hook-disabled "
             "dark-line stepping and ordered horizontal/vertical viewport clipping; "
             "the complete page-1 glyph-pointer selector byte domain; "
+            "small-font byte-boundary selection, row alignment, ordinary and "
+            "inverse byte composition, and crossing-byte write order; "
             "page-7 large-glyph stride, record building, and hook gates; and "
             "synchronous accepted LCD writes, including unchanged writes; "
             "drawing-hook dispatch, font internals, and external LCD timing remain open"
@@ -3814,6 +3817,111 @@ def symbolic_smallfont_pointer_selection_paths() -> list[dict[str, object]]:
     ]
 
 
+def vputmap_alignment_gate_path(
+    bit_offset: int,
+    width: int,
+) -> dict[str, object]:
+    """Translate the byte-boundary predicate at 01:6360–6378."""
+
+    if not 0 <= bit_offset <= 7:
+        raise ValueError("VPutMap bit offset must be between zero and seven")
+    if not 1 <= width <= 7:
+        raise ValueError("VPutMap width must be between one and seven")
+    signed_remaining = 8 - bit_offset - width
+    crosses = signed_remaining < 0
+    return {
+        "terminal": "two_byte_row" if crosses else "one_byte_row",
+        "alignment_count": (
+            -signed_remaining if crosses else signed_remaining
+        ),
+        "branch_outcomes": [
+            f"01:6378:{'taken' if crosses else 'fallthrough'}"
+        ],
+    }
+
+
+def symbolic_vputmap_alignment_gate_paths() -> list[dict[str, object]]:
+    """Partition every valid small-font width and LCD bit offset."""
+
+    classes: dict[tuple[str, tuple[str, ...]], dict[str, object]] = {}
+    for bit_offset in range(8):
+        for width in range(1, 8):
+            result = vputmap_alignment_gate_path(bit_offset, width)
+            key = (
+                str(result["terminal"]),
+                tuple(str(item) for item in result["branch_outcomes"]),
+            )
+            row = classes.setdefault(key, {
+                "projected_input_count": 0,
+                "representative_states": [],
+            })
+            row["projected_input_count"] += 1
+            if len(row["representative_states"]) < 4:
+                row["representative_states"].append({
+                    "bit_offset": bit_offset,
+                    "width": width,
+                })
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
+def vputmap_byte_composition_path(
+    screen: int,
+    width: int,
+    glyph_row: int,
+    inverse: int,
+) -> dict[str, object]:
+    """Translate one aligned-byte composition at 01:6431–6445."""
+
+    if not 0 <= screen <= 0xFF or not 0 <= glyph_row <= 0xFF:
+        raise ValueError("VPutMap byte inputs must fit in one byte")
+    if not 1 <= width <= 7:
+        raise ValueError("VPutMap width must be between one and seven")
+    if inverse not in (0, 1):
+        raise ValueError("VPutMap inverse flag must be zero or one")
+    width_mask = (0xFF << width) & 0xFF
+    base = (
+        ((~width_mask & 0xFF) | screen)
+        if inverse else screen & width_mask
+    )
+    return {
+        "terminal": "inverse_cell" if inverse else "ordinary_cell",
+        "width_mask": width_mask,
+        "composed_byte": base ^ glyph_row,
+        "branch_outcomes": [
+            f"01:6435:{'fallthrough' if inverse else 'taken'}"
+        ],
+    }
+
+
+def symbolic_vputmap_byte_composition_paths() -> list[dict[str, object]]:
+    """Partition all aligned-byte inputs by the sole control-flow predicate."""
+
+    inputs_per_inverse_state = 7 * 0x100 * 0x100
+    return [
+        {
+            "terminal": "ordinary_cell" if inverse == 0 else "inverse_cell",
+            "branch_outcomes": [
+                f"01:6435:{'taken' if inverse == 0 else 'fallthrough'}"
+            ],
+            "projected_input_count": inputs_per_inverse_state,
+            "representative_states": [{
+                "screen": 0,
+                "width": 1,
+                "glyph_row": 0,
+                "inverse": inverse,
+            }],
+        }
+        for inverse in (0, 1)
+    ]
+
+
 def large_glyph_hook_path(
     entry: str,
     font_hook_active: int,
@@ -4217,6 +4325,18 @@ def symbolic_model_corpus() -> dict[str, object]:
             "01:6702–6781",
             0x100**2,
             symbolic_smallfont_pointer_selection_paths(),
+        ),
+        (
+            "vputmap_alignment_gate",
+            "01:6360–6378",
+            8 * 7,
+            symbolic_vputmap_alignment_gate_paths(),
+        ),
+        (
+            "vputmap_byte_composition",
+            "01:6431–6445",
+            7 * 2 * 0x100**2,
+            symbolic_vputmap_byte_composition_paths(),
         ),
         (
             "large_glyph_hook_dispatch",
@@ -5769,6 +5889,26 @@ def build_report(
                     "complete raw selector byte domain through the pointer-word "
                     "address; token-hook dispatch at 01:6788 remains external"
                 ),
+            },
+            "vputmap_alignment_gate": {
+                "routine": "01:6360–6378",
+                "state": ["LCD bit offset", "glyph width in 1..7"],
+                "projected_input_domain": 8 * 7,
+                "terminal_classes": symbolic_vputmap_alignment_gate_paths(),
+                "scope": (
+                    "complete byte-boundary predicate domain; the following "
+                    "screen-dependent rotate carry paths remain in the static CFG"
+                ),
+            },
+            "vputmap_byte_composition": {
+                "routine": "01:6431–6445",
+                "state": [
+                    "aligned screen byte", "glyph width in 1..7",
+                    "glyph row byte", "textFlags.3 inverse flag",
+                ],
+                "projected_input_domain": 7 * 2 * 0x100**2,
+                "terminal_classes": symbolic_vputmap_byte_composition_paths(),
+                "scope": "complete raw aligned-byte composition domain",
             },
             "large_glyph_hook_dispatch": {
                 "routine": "07:4588–45D8",
