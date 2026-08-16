@@ -524,10 +524,10 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, large-glyph output, and alphabetic VAT selection. It
 recursively follows direct ROM edges from named entries, seeds decoded table
-destinations, overlays exact next-PC outcomes from 191 reset-origin traces, and
+destinations, overlays exact next-PC outcomes from 192 reset-origin traces, and
 lists direct external targets. Computed dispatch destinations are manually
 seeded; bcall and RAM bjump bodies remain outside the direct-edge walk. Of those
-traces, 190 reach their state through calculator input. One explicitly
+traces, 191 reach their state through calculator input. One explicitly
 classified synthetic trace inserts an `EF36h` editor buffer through direct RAM
 writes. The report keeps the two provenance classes separate.
 `tools/mathprint-saturation.json` records the resulting branches and trace
@@ -537,10 +537,10 @@ The analyzer can restore trace identities, provenance, and per-trace summaries
 from a prior report and the digest-keyed cache. Regeneration therefore scans a
 new trace once without reopening the other retained TLMT files. [confirmed]
 
-None of the 191 report traces executes `39:5167`, `39:523B`, the saved-operand
+None of the 192 report traces executes `39:5167`, `39:523B`, the saved-operand
 wrappers at `39:5B10`–`39:5B38`, or the dispatchers at `39:59E0`/`39:59F9`.
-The 191-digest trace cache also has no hit at those entries. [confirmed]
-`_FindAlphaUp` at `07:50B5` executes once in 111 report traces, but every call
+The 192-digest trace cache also has no hit at those entries. [confirmed]
+`_FindAlphaUp` at `07:50B5` executes once in 112 report traces, but every call
 comes from the type-`16h` cleanup loop at `07:5544`. Each observed call returns
 carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
 MathPrint caller witness. [confirmed]
@@ -695,8 +695,8 @@ bytes, respectively.
 
 The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,271 tags and needs 129
-traces. The natural-only universe has 1,268 tags and needs 128 traces. Every
+independent oracle case. Its all-evidence universe has 1,272 tags and needs 130
+traces. The natural-only universe has 1,269 tags and needs 129 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The broad set remains the RE and
@@ -743,7 +743,7 @@ and `A` at each discriminator were checked before admission. [confirmed]
 The synthetic `EF36h` trace uses
 `tools/macros/mathprint-ef36-injected-buffer.macro`. Its two `memwrite`
 commands place `EF 36 31 11` at the editor cursor. It is the sole synthetic
-source in the 191-trace report. It supplies the only evidence for
+source in the 192-trace report. It supplies the only evidence for
 `34:5A23` fallthrough, `34:6992` taken, and `34:6B94` taken. The full minimum
 retains it; the natural minimum excludes it by construction. [confirmed]
 
@@ -835,8 +835,30 @@ therefore retains structural `+13h` state in addition to the active leaf's
 `editorInsertPackedToken()` translates this mutation. For both transitions,
 the mutated cursor tree equals the decoded post-key tree, reconstruction
 matches every post-key record field, and execution matches the complete
-cursor-off LCD bitmap. Structural template insertion, structural deletion, and
-cursor navigation across structural boundaries remain open. [confirmed]
+cursor-off LCD bitmap. Other structural template insertion, structural
+deletion, and cursor navigation across structural boundaries remain open.
+[confirmed]
+
+The blank entry line stores a zero-byte active leaf. Its only semantic node is
+the cursor at byte offset zero; inactive empty leaves remain invalid. Selecting
+the **n/d** template supplies source token `EF 2E`. `34:5935` maps that token to
+type `0x20`. [confirmed]
+
+The insertion follows `34:473A`, the depth gate at `35:7B37`, and the type
+dispatcher at `34:5026`. The fraction case at `34:51B8–51D4` calls
+`34:5467–547E`, which writes `EF 20 00 00 EF 2D` before the allocator patches
+the structural record ID. In the reset-origin blank-root capture, the ROM
+allocates fraction record `8`, numerator record `9`, and denominator record
+`10`. It advances the structural depth from zero to one and selects numerator
+record `9` as the active leaf. [confirmed]
+
+`editorInsertStructuralTemplate()` consumes the decoded arena state because the
+semantic cursor tree does not contain the next record ID or structural-depth
+byte. For this capture, it produces `EF 20 08 00 EF 2D`, moves the cursor into
+the empty numerator, and creates an `EF 1E` token in both children. The decoded
+post-key tree, all five record headers, and the complete cursor-off LCD bitmap
+match the calculator. Populated or nested insertion and structural types other
+than `0x20` remain open. [confirmed]
 
 Ordinary in-leaf navigation uses the page-6 gap movers. LEFT reaches
 `06:4294–42C7` through `34:42B4` and `00:3B49`; RIGHT reaches
