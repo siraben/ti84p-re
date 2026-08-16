@@ -458,6 +458,25 @@ Cells reach pixels through a small set of output paths:
 The page-7 large-font service copies fixed glyph rows. It does not measure a radicand or
 stretch a glyph by itself. [confirmed]
 
+The caller enters `07:4588` with the glyph code in `A` and its eight-byte
+offset in `HL`. `07:45EB` converts that offset to the seven-byte table address
+`07:45FF + 7 * code`. The entry then copies eight consecutive bytes to
+`ram:845A`. The eighth byte is the first row of the next glyph. Code `FFh`
+instead reads the byte `CDh` at `07:4CFF`, immediately after the 256-glyph
+table. [confirmed]
+
+The alternate entry at `07:45B6` uses the same address conversion and builds
+the nine-byte map record `[06h, row0 << 1, ..., row6 << 1, 00h]`. The leading
+width gives each five-pixel glyph a clear advance column. A pinned byte
+interpreter matches the JavaScript translation for all 256 glyph codes at both
+entries. [confirmed]
+
+`(IY+35h).5` enables the font hook, and `(IY+35h).1` enables the localization
+hook. A hook that returns Z either completes the copy entry or supplies the
+pattern pointer consumed by the shifted entry. The 32 hook predicate states
+reduce to 14 complete branch paths. Hook-provided pattern bytes remain external
+to the translation. [confirmed]
+
 ## Algorithm summary
 
 ```pseudocode
@@ -580,7 +599,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 32 finite models. It also computes an
+complete path-equivalence class in 33 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -600,6 +619,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Point bounds | 33,554,432 | 7 | 14 | 7 |
 | Thick-point expansion | 4,294,967,296 | 8 | 14 | 8 |
 | Shaded-point expansion | 3,145,728 | 1,850 | 30 | 8 |
+| Large-glyph hook dispatch | 32 | 14 | 16 | 8 |
 | Metric marker-tail gate | 16 | 5 | 8 | 5 |
 | Editor action `0x03` controller | 131,072 | 11 | 9 | 4 |
 | Editor action `0x04` controller | 131,072 | 5 | 5 | 3 |
@@ -620,8 +640,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 | FindAlpha OP scratch transition | 33,554,432 | 2 | 5 | 2 |
 
-The 32 models contain 3,258 path classes and 340 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 161 representatives. Each
+The 33 models contain 3,272 path classes and 356 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 169 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
