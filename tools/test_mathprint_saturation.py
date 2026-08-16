@@ -1250,7 +1250,14 @@ class CheckedReportTests(unittest.TestCase):
         )
 
         self.assertEqual(2, report["schema"])
-        self.assertEqual(198, len(report["traces"]))
+        self.assertEqual(201, len(report["traces"]))
+        self.assertEqual(
+            200,
+            sum(
+                row["provenance"] == TRACE_PROVENANCE_NATURAL
+                for row in report["traces"]
+            ),
+        )
         self.assertEqual(1006, report["summary"]["branch_outcomes_observed"])
         self.assertEqual(
             1003, report["summary"]["natural_branch_outcomes_observed"]
@@ -1369,12 +1376,52 @@ class CheckedReportTests(unittest.TestCase):
             "946fc72c860bb09f2dd8d194a8096b1169fe292c89ef684fdb88ac778cb887a7",
             nested_mid_leaf_structural_insert["sha256"],
         )
+        nested_leading_structural_insert = next(
+            row for row in report["traces"]
+            if row["label"] == "mathprint_editor_fraction_nested_leading"
+        )
+        self.assertEqual(
+            "955d63db229f190c09ed3cfefbe1c1d3a9ccbf143a51791976f9a41a0ca24643",
+            nested_leading_structural_insert["sha256"],
+        )
+        denominator_blank_structural_insert = next(
+            row for row in report["traces"]
+            if row["label"] == "mathprint_editor_fraction_denominator_blank"
+        )
+        self.assertEqual(
+            "575d0cf77415127c91f6422f865750fb1833c112fb55d80c449cb533816b29ad",
+            denominator_blank_structural_insert["sha256"],
+        )
+        denominator_end_structural_insert = next(
+            row for row in report["traces"]
+            if row["label"] == "mathprint_editor_fraction_denominator_end"
+        )
+        self.assertEqual(
+            "4cda557c3a0dfcd8e014ef96fcfe01fca3c23d53bde78d4572350857dfab9f1e",
+            denominator_end_structural_insert["sha256"],
+        )
         self.assertEqual(
             114, report["record_oracles"]["cases"]
         )
         self.assertEqual(
-            1278,
+            1281,
             report["minimized_dynamic_feature_corpus"]["covered_features"],
+        )
+        self.assertEqual(
+            139,
+            report["minimized_dynamic_feature_corpus"]["selected_trace_count"],
+        )
+        self.assertEqual(
+            1278,
+            report["minimized_natural_dynamic_feature_corpus"][
+                "covered_features"
+            ],
+        )
+        self.assertEqual(
+            138,
+            report["minimized_natural_dynamic_feature_corpus"][
+                "selected_trace_count"
+            ],
         )
 
 
