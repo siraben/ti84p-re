@@ -42,6 +42,9 @@ const editorGapOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-editor-gap-oracles.json')));
 const editorMutationOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-editor-mutation-oracles.json')));
+const editorStructuralMutationOracles = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools',
+    'mathprint-editor-structural-mutation-oracles.json')));
 const editorNavigationOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools', 'mathprint-editor-navigation-oracles.json')));
 const editorDeletionOracles = JSON.parse(fs.readFileSync(
@@ -3310,6 +3313,91 @@ for (const oracle of editorMutationOracles.transitions) {
     crypto.createHash('sha256').update(packedLcdBytes(lcd)).digest('hex'),
     oracle.post.lcd_bitmap_sha256);
 }
+expectEqual('live editor structural-mutation oracle schema',
+  editorStructuralMutationOracles.schema,1);
+for (const oracle of editorStructuralMutationOracles.transitions) {
+  expectEqual(`${oracle.name} capture macro hash`,
+    crypto.createHash('sha256').update(fs.readFileSync(path.join(
+      root,oracle.macro))).digest('hex'),oracle.macro_sha256);
+  const before = rom.decodeMathPrintEditorRam(
+    sparseEditorRam(oracle.pre,`${oracle.name} pre-insertion`));
+  const after = rom.decodeMathPrintEditorRam(
+    sparseEditorRam(oracle.post,`${oracle.name} post-insertion`));
+  expectEqual(`${oracle.name} decodes the blank cursor leaf`,{
+    settled_expression:before.expression,
+    editor_expression:before.editor.expression,
+    controller:before.controller,
+  },{
+    settled_expression:null,
+    editor_expression:{
+      kind:'editorCursor',record_id:7,byte_offset:0,
+      record_word0F:0,record_word11:0,
+    },
+    controller:{recordId:6,renderType:0x1f,
+      structuralDepth:0,activeLeafId:7},
+  });
+  const reconstructedBefore = rom.constructEditorExpressionProgram(
+    before.editor.expression,7,font);
+  expectEqual(`${oracle.name} reconstructs the blank cursor records`,
+    editorRecordsById(reconstructedBefore.nodes),
+    editorRecordsById(before.nodes));
+  const beforeOperations = rom.executeSettledRecordProgram(
+    reconstructedBefore.nodes,reconstructedBefore.wrapper_id,
+    {glyphAdvance:editorGlyphAdvance});
+  const beforeLcd = rom.rasterizeSettledOperations(
+    beforeOperations,font).grid;
+  expectEqual(`${oracle.name} reconstructs the blank cursor-off LCD`,
+    crypto.createHash('sha256').update(
+      packedLcdBytes(beforeLcd)).digest('hex'),
+    oracle.pre.lcd_bitmap_sha256);
+
+  const inserted = rom.editorInsertStructuralTemplate(
+    before,oracle.source_token);
+  expectEqual(`${oracle.name} translated structural insertion`,
+    inserted.mutation,oracle.mutation);
+  expectEqual(`${oracle.name} decoded structural transition`,
+    inserted.expression,after.editor.expression);
+  expectEqual(`${oracle.name} decoded post-key controller`,
+    after.controller,{recordId:8,renderType:0x20,
+      structuralDepth:1,activeLeafId:9});
+  const reconstructed = rom.constructEditorExpressionProgram(
+    inserted.expression,7,font);
+  expectEqual(`${oracle.name} reconstructed structural records`,
+    editorRecordsById(reconstructed.nodes),editorRecordsById(after.nodes));
+  const operations = rom.executeSettledRecordProgram(
+    reconstructed.nodes,reconstructed.wrapper_id,
+    {glyphAdvance:editorGlyphAdvance});
+  const lcd = rom.rasterizeSettledOperations(operations,font).grid;
+  expectEqual(`${oracle.name} reconstructed post-insertion LCD bitmap`,
+    crypto.createHash('sha256').update(packedLcdBytes(lcd)).digest('hex'),
+    oracle.post.lcd_bitmap_sha256);
+
+  const blocked = rom.editorInsertStructuralTemplate({
+    ...before,
+    controller:{...before.controller,structuralDepth:4},
+  },oracle.source_token);
+  expectEqual(`${oracle.name} retains the expression at the depth limit`,
+    blocked,{
+      expression:before.editor.expression,
+      mutation:{
+        status:'depth-limit',source_token:oracle.source_token,
+        render_type:0x20,before_structural_depth:4,
+        after_structural_depth:5,return_a:3,flags45_bit6:true,
+        error_address:0x9d20,error_value:5,
+        routine:'34:473A → 35:7B37 → 34:54D2',
+      },
+    });
+  const inactiveEmpty = sparseEditorRam(
+    oracle.pre,`${oracle.name} inactive-empty rejection`);
+  inactiveEmpty[0x89f1 - 0x8000] = 0;
+  expectThrows(`${oracle.name} rejects an inactive empty leaf`,RangeError,
+    () => rom.decodeMathPrintEditorRam(inactiveEmpty));
+}
+expectThrows('structural insertion keeps unsupported source types explicit',
+  RangeError,() => rom.editorInsertStructuralTemplate(
+    rom.decodeMathPrintEditorRam(sparseEditorRam(
+      editorStructuralMutationOracles.transitions[0].pre,
+      'unsupported structural insertion source')),[0xef,0x36]));
 expectEqual('live editor navigation oracle schema',
   editorNavigationOracles.schema,1);
 expectEqual('live editor navigation capture macro hash',
