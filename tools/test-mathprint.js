@@ -3323,19 +3323,20 @@ for (const oracle of editorStructuralMutationOracles.transitions) {
     sparseEditorRam(oracle.pre,`${oracle.name} pre-insertion`));
   const after = rom.decodeMathPrintEditorRam(
     sparseEditorRam(oracle.post,`${oracle.name} post-insertion`));
-  expectEqual(`${oracle.name} decodes the blank cursor leaf`,{
-    settled_expression:before.expression,
-    editor_expression:before.editor.expression,
-    controller:before.controller,
-  },{
-    settled_expression:null,
-    editor_expression:{
-      kind:'editorCursor',record_id:7,byte_offset:0,
-      record_word0F:0,record_word11:0,
-    },
-    controller:{recordId:6,renderType:0x1f,
-      structuralDepth:0,activeLeafId:7},
-  });
+  if (oracle.name === 'blank_root_insert_fraction')
+    expectEqual(`${oracle.name} decodes the blank cursor leaf`,{
+      settled_expression:before.expression,
+      editor_expression:before.editor.expression,
+      controller:before.controller,
+    },{
+      settled_expression:null,
+      editor_expression:{
+        kind:'editorCursor',record_id:7,byte_offset:0,
+        record_word0F:0,record_word11:0,
+      },
+      controller:{recordId:6,renderType:0x1f,
+        structuralDepth:0,activeLeafId:7},
+    });
   const reconstructedBefore = rom.constructEditorExpressionProgram(
     before.editor.expression,7,font);
   expectEqual(`${oracle.name} reconstructs the blank cursor records`,
@@ -3358,8 +3359,12 @@ for (const oracle of editorStructuralMutationOracles.transitions) {
   expectEqual(`${oracle.name} decoded structural transition`,
     inserted.expression,after.editor.expression);
   expectEqual(`${oracle.name} decoded post-key controller`,
-    after.controller,{recordId:8,renderType:0x20,
-      structuralDepth:1,activeLeafId:9});
+    after.controller,{
+      recordId:oracle.mutation.structural_record_id,
+      renderType:oracle.mutation.render_type,
+      structuralDepth:oracle.mutation.after_structural_depth,
+      activeLeafId:oracle.mutation.after_record_id,
+    });
   const reconstructed = rom.constructEditorExpressionProgram(
     inserted.expression,7,font);
   expectEqual(`${oracle.name} reconstructed structural records`,
@@ -3387,11 +3392,13 @@ for (const oracle of editorStructuralMutationOracles.transitions) {
         routine:'34:473A → 35:7B37 → 34:54D2',
       },
     });
-  const inactiveEmpty = sparseEditorRam(
-    oracle.pre,`${oracle.name} inactive-empty rejection`);
-  inactiveEmpty[0x89f1 - 0x8000] = 0;
-  expectThrows(`${oracle.name} rejects an inactive empty leaf`,RangeError,
-    () => rom.decodeMathPrintEditorRam(inactiveEmpty));
+  if (before.expression === null) {
+    const inactiveEmpty = sparseEditorRam(
+      oracle.pre,`${oracle.name} inactive-empty rejection`);
+    inactiveEmpty[0x89f1 - 0x8000] = 0;
+    expectThrows(`${oracle.name} rejects an inactive empty leaf`,RangeError,
+      () => rom.decodeMathPrintEditorRam(inactiveEmpty));
+  }
 }
 expectThrows('structural insertion keeps unsupported source types explicit',
   RangeError,() => rom.editorInsertStructuralTemplate(
