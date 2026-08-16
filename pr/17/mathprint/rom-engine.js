@@ -6264,9 +6264,270 @@
     };
   }
 
-  // The ordinary left/right editor path moves one packed native token across
-  // the gap. Page 6 treats the same two-byte leads as _IsA2ByteTok; structural
-  // record markers are handled by separate page-34 navigation paths.
+  // LEFT and RIGHT operate on the decoded arena because crossing a structural
+  // marker changes the active leaf, controller, one-based child selector, and
+  // structural depth. Ordinary units still use the page-6 packed-token path.
+  // The returned state is a logical arena state: physical gap pointers are not
+  // synthesized, so another translated mutation consumes state rather than a
+  // fabricated RAM image.
+  function editorMoveCursor(input, direction) {
+    if (direction !== 'left' && direction !== 'right')
+      throw new RangeError('editor cursor direction must be left or right');
+    if (!input || typeof input !== 'object' || !input.editor ||
+        !input.editor.cursor || !Array.isArray(input.nodes) ||
+        !Number.isInteger(input.entryId) || !input.controller)
+      throw new TypeError(
+        'cursor movement requires a decoded MathPrint editor state');
+
+    const nodeId = node => node.record_id === undefined
+      ? node.id : node.record_id;
+    const nodeType = node => node.render_type === undefined
+      ? node.type : node.render_type;
+    const nodeChildren = node => node.child_ids === undefined
+      ? node.childIds : node.child_ids;
+    let nodes = input.nodes.map(node => ({...node}));
+    const byId = () => new Map(nodes.map(node => [nodeId(node),node]));
+    const replaceNode = (recordId, fields) => {
+      let found = false;
+      nodes = nodes.map(node => {
+        if (nodeId(node) !== recordId) return node;
+        found = true;
+        return {...node,...fields};
+      });
+      if (!found)
+        throw new RangeError(
+          `editor record ID 0x${recordId.toString(16)} is absent`);
+    };
+    const uniqueOwner = childId => {
+      const owners = nodes.filter(node => {
+        const children = nodeChildren(node);
+        return nodeType(node) >= 0x1f && Array.isArray(children) &&
+          children.includes(childId);
+      });
+      if (owners.length !== 1)
+        throw new RangeError(
+          `editor leaf ID 0x${childId.toString(16)} has ${owners.length} controllers`);
+      return owners[0];
+    };
+    const containingMarker = structuralId => {
+      const structural = byId().get(structuralId);
+      if (!structural || nodeType(structural) < 0x1f)
+        throw new RangeError(
+          'editor structural controller is absent from the decoded arena');
+      const marker = [
+        0xef,nodeType(structural),structuralId & 0xff,
+        structuralId >> 8,0xef,0x2d,
+      ];
+      const matches = [];
+      for (const node of nodes) {
+        if (nodeType(node) >= 0x1f || !Array.isArray(node.payload)) continue;
+        for (let index = 0; index + marker.length <= node.payload.length;
+             index++) {
+          if (marker.every((value, offset) =>
+            node.payload[index + offset] === value))
+            matches.push({node,index,marker});
+        }
+      }
+      if (matches.length !== 1)
+        throw new RangeError(
+          `structural record ID 0x${structuralId.toString(16)} has ` +
+          `${matches.length} containing markers`);
+      return matches[0];
+    };
+    const markerAt = (payload, index) => {
+      if (payload[index] !== 0xef || index + 5 >= payload.length ||
+          payload[index + 4] !== 0xef || payload[index + 5] !== 0x2d ||
+          payload[index + 1] < 0x1f || payload[index + 1] > 0x2b)
+        return null;
+      const structuralId = payload[index + 2] | payload[index + 3] << 8;
+      const structural = byId().get(structuralId);
+      if (!structural || nodeType(structural) !== payload[index + 1])
+        throw new RangeError(
+          `editor marker at byte ${index} has no matching structural record`);
+      return {structuralId,structural,marker:payload.slice(index,index + 6)};
+    };
+
+    const activeId = input.editor.cursor.recordId;
+    const beforeOffset = input.editor.cursor.byteOffset;
+    const controllerId = input.controller.recordId;
+    const depth = input.controller.structuralDepth;
+    if (!Number.isInteger(activeId) || activeId < 0 || activeId > 0xffff ||
+        !Number.isInteger(beforeOffset) || beforeOffset < 0 ||
+        !Number.isInteger(controllerId) || controllerId < 0 ||
+        controllerId > 0xffff || !Number.isInteger(depth) || depth < 0 ||
+        depth > 0xff)
+      throw new RangeError('decoded editor cursor/controller state is invalid');
+    const initial = byId();
+    const active = initial.get(activeId);
+    const controller = initial.get(controllerId);
+    if (!active || nodeType(active) >= 0x1f || !Array.isArray(active.payload))
+      throw new RangeError('decoded editor active record is not a leaf');
+    if (!controller || nodeType(controller) < 0x1f ||
+        input.controller.renderType !== nodeType(controller) ||
+        input.controller.activeLeafId !== activeId)
+      throw new RangeError('decoded editor controller fields are inconsistent');
+    const controllerChildren = nodeChildren(controller);
+    const activeChildIndex = Array.isArray(controllerChildren)
+      ? controllerChildren.indexOf(activeId) : -1;
+    if (activeChildIndex < 0 ||
+        controllerChildren.indexOf(activeId,activeChildIndex + 1) >= 0)
+      throw new RangeError(
+        'decoded editor active leaf is not one unique controller child');
+    const boundaries = editorPayloadCursorBoundaries(active.payload);
+    const boundaryIndex = boundaries.indexOf(beforeOffset);
+    if (boundaryIndex < 0)
+      throw new RangeError(
+        `editor cursor byte ${beforeOffset} bisects a native unit`);
+
+    let afterActiveId = activeId;
+    let afterOffset = beforeOffset;
+    let afterControllerId = controllerId;
+    let afterDepth = depth;
+    let mutation;
+    const unitStart = direction === 'left'
+      ? boundaries[boundaryIndex - 1] : beforeOffset;
+    const unitEnd = direction === 'left'
+      ? beforeOffset : boundaries[boundaryIndex + 1];
+    const hasUnit = unitStart !== undefined && unitEnd !== undefined;
+    const structuralMarker = hasUnit ? markerAt(active.payload,unitStart) : null;
+
+    if (hasUnit && !structuralMarker) {
+      afterOffset = direction === 'left' ? unitStart : unitEnd;
+      mutation = {
+        status:'moved-packed-token',direction,
+        moved:active.payload.slice(unitStart,unitEnd),record_id:activeId,
+        before_byte_offset:beforeOffset,after_byte_offset:afterOffset,
+        before_structural_depth:depth,after_structural_depth:depth,
+        routine:direction === 'left'
+          ? '34:42B4 → 00:3B49 → 06:4294–42C7'
+          : '34:4193 → 00:367B → 06:42C8–4301',
+      };
+    } else if (structuralMarker) {
+      const children = nodeChildren(structuralMarker.structural);
+      if (!Array.isArray(children) || !children.length)
+        throw new RangeError('editor structural marker has no child records');
+      const childIndex = direction === 'left' ? children.length - 1 : 0;
+      const childId = children[childIndex];
+      const child = initial.get(childId);
+      if (!child || nodeType(child) >= 0x1f || !Array.isArray(child.payload))
+        throw new RangeError('editor structural child is not a decoded leaf');
+      afterActiveId = childId;
+      afterOffset = direction === 'left' ? child.payload.length : 0;
+      afterControllerId = structuralMarker.structuralId;
+      afterDepth = depth + 1;
+      if (afterDepth > 0xff)
+        throw new RangeError('editor structural depth overflowed');
+      replaceNode(activeId,{word0F:unitStart});
+      replaceNode(afterControllerId,{word05:childIndex + 1});
+      replaceNode(childId,{word0F:afterOffset});
+      mutation = {
+        status:'entered-structural-record',direction,
+        marker:structuralMarker.marker,
+        parent_record_id:activeId,parent_byte_offset:unitStart,
+        structural_record_id:afterControllerId,
+        selected_child_index:childIndex,after_record_id:childId,
+        before_byte_offset:beforeOffset,after_byte_offset:afterOffset,
+        before_structural_depth:depth,after_structural_depth:afterDepth,
+        routine:direction === 'left'
+          ? '34:42B4–42BC → 34:4311–4338'
+          : '34:4193–419B → 34:41E6–41F5 → 34:4285–4290',
+      };
+    } else if (nodeType(controller) === 0x1f) {
+      mutation = {
+        status:'endpoint',direction,record_id:activeId,
+        byte_offset:beforeOffset,structural_record_id:controllerId,
+        before_structural_depth:depth,after_structural_depth:depth,
+        routine:direction === 'left'
+          ? '34:42B4–42B7 → 34:42C5–42CC'
+          : '34:4193–4196 → 34:41AE–41DF',
+      };
+    } else {
+      const siblingIndex = direction === 'left'
+        ? activeChildIndex - 1 : activeChildIndex + 1;
+      if (0 <= siblingIndex && siblingIndex < controllerChildren.length) {
+        const siblingId = controllerChildren[siblingIndex];
+        const sibling = initial.get(siblingId);
+        if (!sibling || nodeType(sibling) >= 0x1f ||
+            !Array.isArray(sibling.payload))
+          throw new RangeError('editor structural sibling is not a leaf');
+        afterActiveId = siblingId;
+        afterOffset = direction === 'left' ? sibling.payload.length : 0;
+        replaceNode(activeId,{word0F:beforeOffset});
+        replaceNode(controllerId,{word05:siblingIndex + 1});
+        replaceNode(siblingId,{word0F:afterOffset});
+        mutation = {
+          status:'selected-structural-sibling',direction,
+          structural_record_id:controllerId,
+          before_child_index:activeChildIndex,
+          after_child_index:siblingIndex,before_record_id:activeId,
+          after_record_id:siblingId,before_byte_offset:beforeOffset,
+          after_byte_offset:afterOffset,before_structural_depth:depth,
+          after_structural_depth:depth,
+          routine:direction === 'left'
+            ? '34:42B4–42B7 → 34:42C5–42EA'
+            : '34:4193–4196 → 34:41AE–41D7',
+        };
+      } else {
+        const containing = containingMarker(controllerId);
+        const parentId = nodeId(containing.node);
+        const parentController = uniqueOwner(parentId);
+        const parentChildren = nodeChildren(parentController);
+        const parentChildIndex = parentChildren.indexOf(parentId);
+        afterActiveId = parentId;
+        afterOffset = containing.index + (direction === 'right' ? 6 : 0);
+        afterControllerId = nodeId(parentController);
+        afterDepth = depth - 1;
+        if (afterDepth < 0)
+          throw new RangeError('editor structural depth underflowed');
+        replaceNode(activeId,{word0F:beforeOffset});
+        replaceNode(parentId,{word0F:afterOffset});
+        replaceNode(afterControllerId,{word05:parentChildIndex + 1});
+        mutation = {
+          status:'exited-structural-record',direction,
+          structural_record_id:controllerId,
+          child_record_id:activeId,parent_record_id:parentId,
+          parent_controller_id:afterControllerId,
+          marker_byte_offset:containing.index,
+          before_byte_offset:beforeOffset,after_byte_offset:afterOffset,
+          before_structural_depth:depth,after_structural_depth:afterDepth,
+          routine:direction === 'left'
+            ? '34:42B4–42B7 → 34:42C5–42DF → 34:42ED–430E'
+            : '34:4193–4196 → 34:41AE–41C6 → 34:41DC–4245',
+        };
+      }
+    }
+
+    const final = byId();
+    const afterActive = final.get(afterActiveId);
+    const afterController = final.get(afterControllerId);
+    const decoded = decodeEditorExpressionGraph(
+      nodes,input.entryId,afterActiveId,afterOffset);
+    const state = {
+      entryId:input.entryId,
+      nodes,
+      controller:{
+        recordId:afterControllerId,renderType:nodeType(afterController),
+        structuralDepth:afterDepth,activeLeafId:afterActiveId,
+      },
+      expression:decodeSettledExpressionGraph(
+        nodes,input.entryId,null,null,true),
+      editor:{
+        expression:decoded.expression,
+        cursor:{
+          ...decoded.cursor,
+          ...(Number.isInteger(afterActive.pointer)
+            ? {recordPointer:afterActive.pointer} : {}),
+          left:afterActive.payload.slice(0,afterOffset),
+          right:afterActive.payload.slice(afterOffset),
+        },
+      },
+    };
+    return {expression:decoded.expression,state,mutation};
+  }
+
+  // This semantic-AST helper covers the ordinary page-6 token mover. It stays
+  // separate for callers that do not have a decoded record arena; a structural
+  // boundary requires editorMoveCursor().
   function editorMovePackedTokenCursor(input, direction) {
     if (direction !== 'left' && direction !== 'right')
       throw new RangeError('editor cursor direction must be left or right');
@@ -8940,6 +9201,7 @@
     editorPayloadCursorBoundaries,
     editorInsertPackedToken,
     editorInsertStructuralTemplate,
+    editorMoveCursor,
     editorMovePackedTokenCursor,
     editorDeletePackedToken,
     editorDeleteStructuralTemplate,
