@@ -689,7 +689,7 @@ function runRawEditorViewport(expressionEndpoint, previousXClip,
     expressionEndpoint, previousXClip,
     resetPreviousClip:branchOutcomes[0] === '34:5F64:fallthrough',
     iy44Bit3:Boolean(iy44Bit3), cursorWidth:iy44Bit3 ? 6 : 5,
-    extraWidth, rightBound, xOrigin:0, yOrigin:0, xClip,
+    extraWidth, rightBound, xOrigin:0, yOrigin:0, screenXOrigin:0, xClip,
     effectiveX:-xClip, cursorX:expressionEndpoint - xClip,
     comparisonCoordinate,
     branch:branchOutcomes[2] === '34:5F81:returned'
@@ -2327,6 +2327,20 @@ expectEqual('34:5F5D applies the alternate cursor width and caller padding', {
   clearBit:rom.settledEditorViewport(91,{iy44Bit3:false}).xClip,
   extraThree:rom.settledEditorViewport(87,{extraWidth:3}).xClip,
 }, {clearBit:1,extraThree:1});
+expectEqual('logical and physical editor x origins remain separate', (() => {
+  const viewport = rom.settledEditorViewport(106,{
+    xOrigin:7,screenXOrigin:11,
+  });
+  return {
+    logicalOrigin:viewport.xOrigin,
+    screenOrigin:viewport.screenXOrigin,
+    clip:viewport.xClip,
+    effectiveX:viewport.effectiveX,
+    cursorX:viewport.cursorX,
+  };
+})(), {
+  logicalOrigin:7,screenOrigin:11,clip:17,effectiveX:1,cursorX:107,
+});
 expectThrows('34:5DCA rejects a right bound outside its low-byte ABI', RangeError,
   () => rom.settledEditorViewport(0xffff,{rightBound:0x100}));
 expectThrows('34:5F5D rejects a caller width outside its two call sites', RangeError,
@@ -2744,6 +2758,62 @@ expectEqual('34:608F selects and positions the right overflow bitmap',
     rows:[0x00,0x04,0x06,0x07,0x06,0x04,0x00], retainUnchanged:true,
     routine:'34:5FFA → 34:607A → 34:608F; bitmap at 34:60C0',
   });
+const retainedCueViewport = rom.settledEditorViewport(20,{previousXClip:10});
+expectEqual('34:607A partitions every right-cue terminal predicate', [
+  rom.settledEditorRightCueDecision(0,retainedCueViewport),
+  rom.settledEditorRightCueDecision(10,retainedCueViewport),
+  rom.settledEditorRightCueDecision(11,retainedCueViewport),
+  rom.settledEditorRightCueDecision(12,retainedCueViewport),
+  rom.settledEditorRightCueDecision(107,retainedCueViewport),
+].map(result => ({
+  action:result.action,
+  endpoint:result.endpoint,
+  translated:result.translatedEndpoint,
+  comparison:result.comparisonCoordinate,
+  carry:result.subtractionCarry,
+  outcomes:result.branchOutcomes,
+})), [
+  {action:'return',endpoint:null,translated:null,comparison:null,carry:null,
+   outcomes:['34:607F:returned','34:5FFD:fallthrough']},
+  {action:'return',endpoint:9,translated:0xffff,comparison:null,carry:true,
+   outcomes:['34:607F:fallthrough','34:6085:taken','34:5FFD:fallthrough']},
+  {action:'return',endpoint:10,translated:0,comparison:0,carry:false,
+   outcomes:['34:607F:fallthrough','34:6085:fallthrough','34:6087:taken',
+     '34:5DE1:fallthrough','34:5FFD:fallthrough']},
+  {action:'return',endpoint:11,translated:1,comparison:0,carry:false,
+   outcomes:['34:607F:fallthrough','34:6085:fallthrough','34:6087:fallthrough',
+     '34:5DE1:fallthrough','34:5FFD:fallthrough']},
+  {action:'draw',endpoint:106,translated:96,comparison:95,carry:false,
+   outcomes:['34:607F:fallthrough','34:6085:fallthrough','34:6087:fallthrough',
+     '34:5DE1:taken','34:5FFD:taken']},
+]);
+expectEqual('34:608F uses physical origins and clamps tall cue placement', (() => {
+  const viewport = rom.settledEditorViewport2D(106,59,{
+    xOrigin:7,yOrigin:19,screenXOrigin:11,screenYOrigin:13,
+  });
+  const cue = rom.settledEditorRightCue(107,viewport,125);
+  return {
+    action:cue.action,
+    x:cue.operation.x,
+    y:cue.operation.y,
+    leftCue:rom.settledEditorViewportOperations([],viewport,125).at(-1),
+  };
+})(), {
+  action:'draw',x:102,y:41,
+  leftCue:{kind:'bitmap',x:11,y:41,width:4,height:7,
+    rows:[0x00,0x02,0x06,0x0e,0x06,0x02,0x00],retainUnchanged:true,
+    routine:'34:5FF2 → 34:6031 → 34:61B2; bitmap at 34:60B8'},
+});
+let normalRightCueDraws = 0;
+for (let endpoint = 0; endpoint <= 0xffff; endpoint++) {
+  const viewport = rom.settledEditorViewport(endpoint);
+  const wrapperWidth = (endpoint + viewport.cursorWidth +
+    viewport.extraWidth) & 0xffff;
+  normalRightCueDraws +=
+    Number(rom.settledEditorRightCueDecision(wrapperWidth,viewport).showRight);
+}
+expectEqual('34:5F5D fresh-clip normal-origin invariant suppresses 34:608F',
+  normalRightCueDraws,0);
 expectEqual('ram:027B leaves the run indicator idle before counter zero',
   rom.settledRunIndicatorTick(2,0x78), {
     indicCounter:1, indicBusy:0x78, operation:null,

@@ -157,7 +157,8 @@ and leaf payload bytes beginning at `+0x13`. The ordered `dispatches` array
 retains secondary structural passes constructed while rendering a leaf, such
 as an exponent or nested fraction. An `EF type id_lo id_hi` payload sequence
 references one of those structural records. Each dispatch also records the
-live `ram:8DFE`/`ram:8E00` viewport origin used by the primitive wrappers.
+live logical origin at `ram:8DFE`/`ram:8E00`. The translated editor keeps it
+separate from the physical screen origin bytes at `ram:8DFA`/`ram:8DFB`.
 
 `app.js` is organized in sections: box primitives → layout constructs → text runs
 → expression parser → canvas rendering → UI. A "box" is `{rows, baseline, marks,
@@ -317,7 +318,8 @@ The long-input regression
 106-pixel expression endpoint. The editor viewport translation applies the
 17-pixel horizontal clip observed at `ram:8E02`, then appends the left-overflow
 bitmap from `34:60B8`. Its 198 accepted writes match the natural calculator
-redraw after removing the separate eight-write right-side cue. The calculator
+redraw after removing the separate eight-write auxiliary right-side stream.
+The calculator
 trace remains a comparison oracle; the browser computes the record graph,
 viewport state, bitmap operation, and LCD writes from translated logic.
 Radical and nth-root hooks enter `34:6C37` through `34:630C`. The five-pixel

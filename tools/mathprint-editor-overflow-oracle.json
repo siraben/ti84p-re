@@ -35,7 +35,7 @@
   "notes": [
     "The browser translates the editor viewport and left-overflow cue from ROM logic.",
     "The eight writes inserted at index 56 are an auxiliary page_34:6CA8 -> ram:3CE1 stream; they are not reached through 34:608F and are excluded from the settled expression timeline.",
-    "The separate 34:608F bitmap path is observed in the natural trace at byte column 11, rows 8-14, with values 00, 08, 0C, 0E, 0C, 08, 00. Its exact UI endpoint meaning remains unresolved.",
+    "The separate 34:608F bitmap path is observed in the natural trace at byte column 11, rows 8-14, with values 00, 08, 0C, 0E, 0C, 08, 00. It marks a wrapper endpoint at or beyond the shifted viewport right bound.",
     "Cursor blink writes are UI state and are not appended to settled record timelines."
   ]
 }

@@ -1485,6 +1485,9 @@
     const yOrigin = unsignedWord(
       options.yOrigin === undefined ? 0 : options.yOrigin,
       'settled editor y origin');
+    const screenXOrigin = byte(
+      options.screenXOrigin === undefined ? 0 : options.screenXOrigin,
+      'settled editor screen x origin');
     const wordAdd = (left, right) => (left + right) & 0xffff;
     const resetPreviousClip = endpoint < previousXClip;
     let xClip = resetPreviousClip ? 0 : previousXClip;
@@ -1506,9 +1509,10 @@
       rightBound,
       xOrigin,
       yOrigin,
+      screenXOrigin,
       xClip,
-      effectiveX:xOrigin - xClip,
-      cursorX:endpoint + xOrigin - xClip,
+      effectiveX:xOrigin - xClip + screenXOrigin,
+      cursorX:endpoint + xOrigin - xClip + screenXOrigin,
       comparisonCoordinate,
       branch:beforeRightBound ? 'return-before-right-bound' :
         'store-horizontal-clip',
@@ -1739,6 +1743,59 @@
     0x00,0x3e,0x1c,0x08,
   ]);
 
+  // 34:6031 and 34:608F share the placement tail at 34:603A. Editor mode
+  // 49h uses ram:8DFDh directly. Other modes load the root +07h height word
+  // through 34:753F and clamp either a nonzero high byte or an oversized low
+  // byte to the same bound. The final coordinates are stored as bytes at
+  // 86D7h/86D8h, and use the screen origins at 8DFAh/8DFBh rather than the
+  // logical record origins at 8DFEh/8E00h.
+  function settledEditorHorizontalCuePlacement(
+    viewport, recordHeight, options = {}) {
+    if (!viewport || typeof viewport !== 'object')
+      throw new TypeError('settled horizontal-cue viewport state is invalid');
+    if (!Number.isInteger(recordHeight) ||
+        recordHeight < 1 || recordHeight > 0xffff)
+      throw new RangeError(
+        'settled horizontal-cue record height must fit an unsigned word');
+    if (!options || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('settled horizontal-cue options must be an object');
+    const bottomBound = byte(
+      viewport.bottomBound === undefined ? 0x3e : viewport.bottomBound,
+      'settled horizontal-cue bottom bound');
+    const screenXOrigin = byte(
+      viewport.screenXOrigin === undefined ? 0 : viewport.screenXOrigin,
+      'settled horizontal-cue screen x origin');
+    const screenYOrigin = byte(
+      viewport.screenYOrigin === undefined ? 0 : viewport.screenYOrigin,
+      'settled horizontal-cue screen y origin');
+    const editorMode = byte(
+      options.editorMode === undefined ? 0 : options.editorMode,
+      'settled horizontal-cue editor mode');
+    const mode49 = editorMode === 0x49;
+    const highByteNonzero = recordHeight > 0xff;
+    const lowByteExceedsBound = !highByteNonzero && recordHeight > bottomBound;
+    const cueHeight = mode49 || highByteNonzero || lowByteExceedsBound
+      ? bottomBound : recordHeight;
+    return {
+      cueHeight,
+      screenXOrigin,
+      screenYOrigin,
+      y:(screenYOrigin + (cueHeight >>> 1) - 3) & 0xff,
+      editorMode,
+      bottomBound,
+      branchOutcomes:[
+        `34:603E:${mode49 ? 'taken' : 'fallthrough'}`,
+        ...(mode49 ? [] : [
+          `34:6045:${highByteNonzero ? 'taken' : 'fallthrough'}`,
+          ...(highByteNonzero ? [] : [
+            `34:604B:${lowByteExceedsBound ? 'taken' : 'fallthrough'}`,
+          ]),
+        ]),
+      ],
+      routine:'34:603A–6059; height load at 34:753F',
+    };
+  }
+
   // 34:6000–6015 draws editor chrome after the settled record. A nonzero
   // ram:8E04 clip calls bcall 53DAh for the upper cue. 34:60A0–60B7 loads
   // the root's height word, subtracts one and the vertical clip, and calls
@@ -1761,8 +1818,9 @@
       viewport.yClip, 'settled vertical-cue clip');
     const bottomBound = byte(
       viewport.bottomBound, 'settled vertical-cue bottom bound');
-    const xOrigin = byte(
-      viewport.xOrigin, 'settled vertical-cue x origin');
+    const screenXOrigin = byte(
+      viewport.screenXOrigin === undefined ? 0 : viewport.screenXOrigin,
+      'settled vertical-cue screen x origin');
     const screenYOrigin = byte(
       viewport.screenYOrigin === undefined ? 0 : viewport.screenYOrigin,
       'settled vertical-cue y origin');
@@ -1775,8 +1833,8 @@
         : options.horizontalBound,
       'settled vertical-cue horizontal bound');
     const x = editorMode === 0x49
-      ? (xOrigin - 7) & 0xff
-      : (xOrigin + (horizontalBound >>> 1) - 3) & 0xff;
+      ? (screenXOrigin - 7) & 0xff
+      : (screenXOrigin + (horizontalBound >>> 1) - 3) & 0xff;
     const endpoint = (recordHeight - 1) & 0xffff;
     const endpointBeforeClip = endpoint < yClip;
     const visibleEndpoint = endpointBeforeClip
@@ -1906,6 +1964,8 @@
     const yClip = hasVerticalViewport ? viewport.yClip : 0;
     const screenYOrigin = viewport.screenYOrigin === undefined
       ? 0 : viewport.screenYOrigin;
+    const screenXOrigin = viewport.screenXOrigin === undefined
+      ? 0 : viewport.screenXOrigin;
     const bottomBound = viewport.bottomBound === undefined
       ? 0x3e : viewport.bottomBound;
     const editorMode = byte(
@@ -1916,10 +1976,11 @@
       [screenYOrigin,'settled editor screen y origin'],
     ]) if (!Number.isInteger(value) || value < 0 || value > 0xffff)
       throw new RangeError(`${label} must fit an unsigned word`);
+    byte(screenXOrigin, 'settled editor screen x origin');
     byte(bottomBound, 'settled editor vertical bound');
     const clip = {
-      left:viewport.xOrigin,
-      rightExclusive:viewport.xOrigin + viewport.rightBound + 1,
+      left:screenXOrigin,
+      rightExclusive:screenXOrigin + viewport.rightBound + 1,
       top:screenYOrigin,
       bottomExclusive:screenYOrigin + bottomBound,
     };
@@ -1931,9 +1992,10 @@
       // 34:6C5F–6C84 compares a glyph's left edge with ram:8E02 before
       // entering either font blitter. A glyph that begins left of the clip is
       // omitted as a unit; the ROM does not draw its still-visible suffix.
-      if ((positioned.kind === 'glyph' || positioned.kind === 'glyph-run') &&
-          positioned.x < 0)
-        continue;
+      if (positioned.kind === 'glyph' || positioned.kind === 'glyph-run') {
+        const logicalPen = (operation.x + viewport.xOrigin) & 0xffff;
+        if (logicalPen < viewport.xClip) continue;
+      }
       // 34:630C enters the same 34:6C37 display-unit path as a glyph. The
       // bitmap header supplies its five-pixel advance before 34:6C5F compares
       // the unit's logical left edge with ram:8E02. A root hook that begins
@@ -1987,12 +2049,12 @@
       // 34:78A3 skips the root-height lookup in editor mode 49h. Otherwise,
       // 34:753F reads the +07h height word and 34:6043–6050 clamps it to the
       // one-byte bottom bound before 34:6053 halves the chosen value.
-      const cueHeight = editorMode === 0x49
-        ? bottomBound : Math.min(recordHeight,bottomBound);
+      const cue = settledEditorHorizontalCuePlacement(
+        viewport,recordHeight,{editorMode});
       translated.push({
         kind:'bitmap',
-        x:viewport.xOrigin,
-        y:viewport.yOrigin + Math.floor(cueHeight / 2) - 3,
+        x:cue.screenXOrigin,
+        y:cue.y,
         width:4,
         height:7,
         rows:SETTLED_LEFT_OVERFLOW_ROWS.slice(),
@@ -2003,29 +2065,95 @@
     return translated;
   }
 
-  // 34:608F selects the second seven-row table at 34:60C0 after 34:607A
-  // reports a right-edge condition. The routine places its four-pixel bitmap
-  // at ram:8DFA + ram:8DFC - 4. 34:603A derives the vertical origin from the
-  // record height and y origin, giving rows floor(height/2)-3 through +3.
-  // This operation is opt-in: the settled long-expression redraw does not
-  // reach 34:608F when 34:607A returns the traced zero result.
-  function settledEditorRightCueOperation(viewport, recordHeight) {
+  // 34:607A loads the wrapper record's +09h width, converts its last pixel to
+  // the logical viewport, and returns NZ only when the remaining endpoint is
+  // at or beyond ram:8DFCh. The caller at 34:5FFD draws 34:60C0 only for that
+  // result. Keep this state decision separate from bitmap placement so the
+  // auxiliary 34:6CA8 stream cannot be mistaken for this cue.
+  function settledEditorRightCueDecision(wrapperWidth, viewport) {
+    if (!Number.isInteger(wrapperWidth) ||
+        wrapperWidth < 0 || wrapperWidth > 0xffff)
+      throw new RangeError(
+        'settled right-cue wrapper width must fit an unsigned word');
     if (!viewport || typeof viewport !== 'object' ||
         !Number.isInteger(viewport.xOrigin) ||
-        !Number.isInteger(viewport.yOrigin) ||
+        !Number.isInteger(viewport.xClip) ||
+        !Number.isInteger(viewport.rightBound))
+      throw new TypeError('settled right-cue viewport state is invalid');
+    for (const [value,label] of [
+      [viewport.xOrigin,'settled right-cue logical x origin'],
+      [viewport.xClip,'settled right-cue horizontal clip'],
+    ]) if (value < 0 || value > 0xffff)
+      throw new RangeError(`${label} must fit an unsigned word`);
+    const rightBound = byte(
+      viewport.rightBound, 'settled right-cue horizontal bound');
+    if (wrapperWidth === 0) return {
+      action:'return', showRight:false, wrapperWidth,
+      endpoint:null, originEndpoint:null, translatedEndpoint:null,
+      comparisonCoordinate:null, subtractionCarry:null,
+      branchOutcomes:['34:607F:returned','34:5FFD:fallthrough'],
+      routine:'34:607A–608E; caller 34:5FFA–5FFD',
+    };
+    const endpoint = wrapperWidth - 1;
+    const originEndpoint = addWord(endpoint,viewport.xOrigin);
+    const subtractionCarry = originEndpoint < viewport.xClip;
+    const translatedEndpoint =
+      (originEndpoint - viewport.xClip) & 0xffff;
+    const outcomes = [
+      '34:607F:fallthrough',
+      `34:6085:${subtractionCarry ? 'taken' : 'fallthrough'}`,
+    ];
+    if (subtractionCarry) return {
+      action:'return', showRight:false, wrapperWidth,
+      endpoint,originEndpoint,translatedEndpoint,
+      comparisonCoordinate:null,subtractionCarry,
+      branchOutcomes:outcomes.concat('34:5FFD:fallthrough'),
+      routine:'34:607A–608E; caller 34:5FFA–5FFD',
+    };
+    const translatedZero = translatedEndpoint === 0;
+    outcomes.push(`34:6087:${translatedZero ? 'taken' : 'fallthrough'}`);
+    const comparisonCoordinate = translatedZero
+      ? 0 : translatedEndpoint - 1;
+    const showRight = comparisonCoordinate >= rightBound;
+    outcomes.push(`34:5DE1:${showRight ? 'taken' : 'fallthrough'}`);
+    outcomes.push(`34:5FFD:${showRight ? 'taken' : 'fallthrough'}`);
+    return {
+      action:showRight ? 'draw' : 'return',showRight,wrapperWidth,
+      endpoint,originEndpoint,translatedEndpoint,comparisonCoordinate,
+      subtractionCarry,branchOutcomes:outcomes,
+      routine:'34:607A–608E; caller 34:5FFA–5FFD',
+    };
+  }
+
+  function settledEditorRightCueOperation(
+    viewport, recordHeight, options = {}) {
+    if (!viewport || typeof viewport !== 'object' ||
         !Number.isInteger(viewport.rightBound))
       throw new TypeError('settled right-cue viewport state is invalid');
     if (!Number.isInteger(recordHeight) || recordHeight < 1 || recordHeight > 0xffff)
       throw new RangeError('settled right-cue record height must fit an unsigned word');
+    const placement = settledEditorHorizontalCuePlacement(
+      viewport,recordHeight,options);
     return {
       kind:'bitmap',
-      x:viewport.xOrigin + viewport.rightBound - 4,
-      y:viewport.yOrigin + Math.floor(recordHeight / 2) - 3,
+      x:(placement.screenXOrigin + viewport.rightBound - 4) & 0xff,
+      y:placement.y,
       width:4,
       height:7,
       rows:SETTLED_RIGHT_OVERFLOW_ROWS.slice(),
       retainUnchanged:true,
       routine:'34:5FFA → 34:607A → 34:608F; bitmap at 34:60C0',
+    };
+  }
+
+  function settledEditorRightCue(
+    wrapperWidth, viewport, recordHeight, options = {}) {
+    const decision = settledEditorRightCueDecision(wrapperWidth,viewport);
+    return {
+      ...decision,
+      operation:decision.showRight
+        ? settledEditorRightCueOperation(viewport,recordHeight,options)
+        : null,
     };
   }
 
@@ -6613,9 +6741,12 @@
     settledGlyphViewportDecision,
     settledGlyphVerticalViewportDecision,
     settledEmbeddedViewportDecision,
+    settledEditorHorizontalCuePlacement,
     settledEditorVerticalCueOperations,
     settledEditorViewportOperations,
+    settledEditorRightCueDecision,
     settledEditorRightCueOperation,
+    settledEditorRightCue,
     settledRunIndicatorTick,
     settledObjectHandler,
     settledStructuralTokenType,
