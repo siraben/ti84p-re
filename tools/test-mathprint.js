@@ -658,7 +658,8 @@ function runRawPointPreprocess(x, y, mode, state) {
     [0x14,state.styleActive ? 0x20 : 0],
     [0x19,state.graphStyleFlagBit6 ? 0x40 : 0],
     [0x1e,state.styleAxisFlag ? 0x80 : 0],
-    [0x2b,state.fullScreenDraw ? 0x04 : 0], [0x35,0],
+    [0x2b,state.fullScreenDraw ? 0x04 : 0],
+    [0x35,state.drawingHookActive ? 0x80 : 0],
   ]);
   const attempts = [], points = [], branchOutcomes = [];
   let pendingAttempt = null;
@@ -820,7 +821,7 @@ function runRawPointPreprocess(x, y, mode, state) {
     } else if (opcode === 0xc4) {
       const taken = !zero();
       branch(pc,taken ? 'taken' : 'fallthrough');
-      if (taken) throw new Error('point-preprocess oracle entered drawing hook');
+      if (taken) setZeroPreserveCarry(state.drawingHookReturnsZ);
       pc += 3;
     } else if (opcode === 0xcd) {
       const target = word(pc + 1);
@@ -3864,6 +3865,7 @@ expectEqual('07:45B6 localize-hook pattern delegation',
 expectEqual('07 large-glyph record differential state count',
   largeGlyphRecordStates,0x200);
 const pointPreprocessBaseState = {
+  drawingHookActive:false,drawingHookReturnsZ:false,
   styleActive:false,fullScreenDraw:true,styleAxisFlag:false,
   graphStyleFlagBit6:false,
   style:0,stylePhase:0,styleStep:1,styleLimit:0x40,
@@ -3885,6 +3887,44 @@ expectEqual('04:4157 point preprocessing representative',
     rom.settledPage4PointPreprocess(9,2,1,pointPreprocessBaseState)),
   normalizedPointPreprocess(
     runRawPointPreprocess(9,2,1,pointPreprocessBaseState)));
+expectEqual('04:4157 partitions drawing-hook dispatch', [
+  rom.settledPage4DrawingHookDispatch(false,false),
+  rom.settledPage4DrawingHookDispatch(true,true),
+  rom.settledPage4DrawingHookDispatch(true,false),
+], [
+  {hookActive:false,hookReturnsZ:false,hookCommand:0,
+   action:'continue-local',
+   branchOutcomes:['04:415E:fallthrough','04:4161:taken'],
+   routine:'04:4157–4164'},
+  {hookActive:true,hookReturnsZ:true,hookCommand:0,
+   action:'continue-local',
+   branchOutcomes:['04:415E:taken','04:4161:taken'],
+   routine:'04:4157–4164'},
+  {hookActive:true,hookReturnsZ:false,hookCommand:0,
+   action:'hook-handled',
+   branchOutcomes:['04:415E:taken','04:4161:fallthrough'],
+   routine:'04:4157–4164'},
+]);
+expectEqual('04:4157 active drawing hook continues only on Z',
+  normalizedPointPreprocess(rom.settledPage4PointPreprocess(9,2,1,{
+    ...pointPreprocessBaseState,drawingHookActive:true,drawingHookReturnsZ:true,
+  })), normalizedPointPreprocess(runRawPointPreprocess(9,2,1,{
+    ...pointPreprocessBaseState,drawingHookActive:true,drawingHookReturnsZ:true,
+  })));
+expectEqual('04:4163 delegates a hook-handled point without local writes',
+  rom.settledPage4PointPipeline(9,2,1,{
+    preprocess:{drawingHookActive:true,drawingHookReturnsZ:false},
+  }), {
+    preprocess:{
+      x:9,y:2,mode:1,drawingHookActive:true,drawingHookReturnsZ:false,
+      hookCommand:0,hookAction:'hook-handled',attempts:[],points:[],
+      branchOutcomes:['04:415E:taken','04:4161:fallthrough'],
+      routine:'04:4157–4164',
+    },
+    pointFlags:null,plotFlags:null,lcdLowBitWorkaround:null,
+    transitions:[],lcdBytes:null,plotScreenBytes:null,appBackupScreenBytes:null,
+    delegated:{hookCommand:0},routine:'04:4157–4164',
+  });
 expectEqual('04:4157 preserves an existing graph-style flag bit',
   rom.settledPage4PointPreprocess(9,2,1,{
     ...pointPreprocessBaseState,graphStyleFlagBit6:true,
