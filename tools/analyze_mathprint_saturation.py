@@ -276,15 +276,15 @@ TRANSLATION_SURFACES = (
             "packed-token deletion, and blank-child structural deletion across insertable "
             "types 20h–2Ah, including bidirectional fraction/nth-root sibling promotion "
             "and protected multi-argument no-ops, plus nested empty-slot restoration for a "
-            "fraction inside a radical; bidirectional fraction, integral, "
-            "summation, nDeriv, and log-base boundary "
-            "navigation covers entry, sibling selection, exit, root endpoints, the "
+            "fraction inside a radical; bidirectional root-level boundary navigation "
+            "for every insertable type 20h–2Ah covers entry, sibling selection, exit, "
+            "root endpoints, the "
             "type-01h atomic variable leaf, exact cursor-dependent record metrics for "
             "nDeriv and log-base, and a depth-two fraction whose empty-slot leaf is "
             "atomic; a summation fill sequence covers type-01h post-insertion "
             "auto-advance and composable ordinary child writes; other deeper nested "
-            "deletion states, matrix deletion, and live boundary-navigation captures for "
-            "other structural types remain open"
+            "deletion states, matrix deletion, and most nested boundary-navigation "
+            "directions remain open"
         ),
     },
     {
@@ -335,9 +335,8 @@ TRANSLATION_SURFACES = (
             "template insertion before an existing structural marker across the "
             "one-child, nth-root, power, log-base, integral, nDeriv, and summation "
             "constructor families, with the old marker and child selector retained; "
-            "bidirectional fraction, integral, summation, nDeriv, and log-base "
-            "boundary navigation "
-            "through structural "
+            "bidirectional root-level boundary navigation for every insertable type "
+            "20h–2Ah through structural "
             "entry, child selection, structural exit, root endpoint no-ops, the "
             "type-01h atomic variable leaf, exact cursor-dependent record metrics for "
             "nDeriv and log-base, and a depth-two fraction whose empty-slot leaf is "
@@ -349,8 +348,8 @@ TRANSLATION_SURFACES = (
             "deletion across insertable types 20h–2Ah, including bidirectional "
             "fraction/nth-root sibling promotion and protected multi-argument no-ops, plus "
             "nested empty-slot restoration for a fraction inside a radical; other deeper "
-            "nested deletion states, matrix deletion, and live boundary-navigation "
-            "captures for other structural types remain open"
+            "nested deletion states, matrix deletion, and most nested boundary-navigation "
+            "directions remain open"
         ),
     },
     {
