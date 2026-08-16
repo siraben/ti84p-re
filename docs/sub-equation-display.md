@@ -835,8 +835,8 @@ therefore retains structural `+13h` state in addition to the active leaf's
 `editorInsertPackedToken()` translates this mutation. For both transitions,
 the mutated cursor tree equals the decoded post-key tree, reconstruction
 matches every post-key record field, and execution matches the complete
-cursor-off LCD bitmap. Structural template insertion, deletion, and cursor
-navigation across structural boundaries remain open. [confirmed]
+cursor-off LCD bitmap. Structural template insertion, structural deletion, and
+cursor navigation across structural boundaries remain open. [confirmed]
 
 Ordinary in-leaf navigation uses the page-6 gap movers. LEFT reaches
 `06:4294–42C7` through `34:42B4` and `00:3B49`; RIGHT reaches
@@ -858,6 +858,25 @@ structural boundary rather than applying the ordinary token rule there. The
 same regression also closes an AST-decoder bug: after emitting a cursor inside
 a numeric run, the following digit must begin a new atom before the two sides
 are recombined around the cursor. [confirmed]
+
+**DEL** removes the packed token at the right edge of the gap through
+`34:4570`, `00:3687`, and `06:4393–43A4`. `06:43A5` reads the token and calls
+`00:1FE7`; `06:439C` advances `editTail` once for a one-byte token and twice
+when the classifier returns carry. Deleting `2` from the middle of root `12`
+therefore advances `editTail` from `0xFC44` to `0xFC45` without changing the
+cursor offset. [confirmed]
+
+An empty active leaf takes the additional `34:4549–455B` path. It inserts
+`EF 1E` through `34:4BB9–4C0D` and the page-6 gap writer, then calls the LEFT
+mover so both bytes land in the right gap segment. The cursor remains at byte
+offset zero before the restored square. [confirmed]
+
+`tools/mathprint-editor-deletion-oracles.json` retains adjacent root and
+fraction-numerator deletion states. `editorDeletePackedToken()` produces both
+decoded post-key trees exactly, reconstruction matches every record field, and
+execution matches both complete cursor-off LCD bitmaps. The finite tests also
+delete a two-byte native token as one unit. Deleting an embedded structural
+record remains open. [confirmed]
 
 `34:789A` first distinguishes the table-equation context from other editors.
 On its fallthrough, `34:75AB` reads the marker type from `editTail + 1`.
@@ -2287,8 +2306,8 @@ bytes therefore remain visible in the trace. [confirmed]
 The text field uses a preview-specific semantic grammar for ordinary input. It
 does not drive the TI-OS editor state machine. The ROM engine separately
 decodes a captured live editor arena, active gap leaf, and cursor into a semantic
-tree and translates ordinary packed-token insertion and in-leaf navigation on
-that state. The browser
+tree and translates ordinary packed-token insertion, in-leaf navigation, and
+packed-token deletion on that state. The browser
 does not yet expose the mutation API as an interactive calculator editor. An
 input prefixed with `hex:` bypasses the preview grammar and passes the
 listed native bytes to the translated constructor. Malformed streams and

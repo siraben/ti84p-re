@@ -263,8 +263,8 @@ TRANSLATION_SURFACES = (
         "tests": ["tools/test-mathprint.js", "tools/mathprint-*-oracles.json"],
         "scope": (
             "supported native expression grammar plus one- and two-byte ordinary "
-            "editor insertion and in-leaf packed-token navigation; structural insertion, "
-            "deletion, and structural-boundary navigation remain open"
+            "editor insertion, in-leaf packed-token navigation, and packed-token deletion; "
+            "structural insertion, structural deletion, and boundary navigation remain open"
         ),
     },
     {
@@ -274,6 +274,7 @@ TRANSLATION_SURFACES = (
             "editorPayloadCursorBoundaries",
             "editorInsertPackedToken",
             "editorMovePackedTokenCursor",
+            "editorDeletePackedToken",
             "decodeEditorExpressionGraph",
             "decodeMathPrintEditorRam",
             "constructEditorExpressionProgram",
@@ -283,12 +284,14 @@ TRANSLATION_SURFACES = (
             "tools/mathprint-editor-gap-oracles.json",
             "tools/mathprint-editor-mutation-oracles.json",
             "tools/mathprint-editor-navigation-oracles.json",
+            "tools/mathprint-editor-deletion-oracles.json",
         ],
         "scope": (
             "complete captured arenas, active-leaf substitution, nested cursor paths, "
-            "cursor-aware record reconstruction, ordinary packed-token insertion, and "
-            "in-leaf packed-token navigation; structural insertion, deletion, and "
-            "structural-boundary navigation remain open"
+            "cursor-aware record reconstruction, ordinary packed-token insertion, "
+            "in-leaf packed-token navigation, and packed-token deletion with empty-slot "
+            "restoration; structural insertion, structural deletion, and boundary "
+            "navigation remain open"
         ),
     },
     {
@@ -3987,9 +3990,9 @@ def open_paths(
             "reason": (
                 "the live 34:4A83/4ACE arena and 34:4AAF gap substitution round-trip "
                 "through cursor-annotated ASTs and reconstructed records; ordinary "
-                "one- and two-byte insertion plus in-leaf packed-token navigation are "
-                "translated, but structural insertion, deletion, and navigation across "
-                "structural boundaries are not"
+                "one- and two-byte insertion, in-leaf packed-token navigation, and "
+                "packed-token deletion with empty-slot restoration are translated, but "
+                "structural insertion, structural deletion, and boundary navigation are not"
             ),
         },
         {

@@ -160,7 +160,7 @@ through `34:4BB9–4C0D` and `06:4341–4388`. Adjacent root-leaf and fraction
 numerator snapshots verify the resulting cursor AST, every reconstructed
 record field, and the complete cursor-off LCD. The fraction case also retains
 the structural record's pre-edit `+13h` byte while replacing the `EF 1E`
-empty-slot token. Structural insertion, deletion, and structural-boundary
+empty-slot token. Structural insertion, structural deletion, and boundary
 navigation remain outside this mutation slice.
 `editorMovePackedTokenCursor()` translates ordinary in-leaf LEFT and RIGHT
 movement. A reset-origin `12` capture verifies the end, middle, and returned
@@ -168,6 +168,12 @@ cursor states. The middle state also establishes that a cursor before existing
 payload overlays the following cell and adds no width; only a leaf-end cursor
 allocates a new cursor cell. The transition keeps two-byte native tokens
 indivisible. Navigation across a structural record marker remains separate.
+`editorDeletePackedToken()` translates DEL at the right edge of the gap. Root
+and fraction-numerator transitions verify one-byte deletion, record
+reconstruction, and complete LCD output. When the active leaf becomes empty,
+the translated `34:4549–455B` path restores `EF 1E` and leaves the cursor before
+that square. Two-byte deletion is kept atomic. Structural-record deletion
+remains separate.
 The analyzer selects the first post-key `34:660A` entry at the shallowest Z80
 stack depth. The exporter pairs
 parent/index observations at `34:6CCD` with the resolved child ID and record
@@ -280,7 +286,8 @@ The text field accepts two input paths. Ordinary text uses a preview-specific
 semantic frontend; it does not drive the translated TI-OS editor state machine.
 A separate ROM-derived decoder reads captured live editor RAM, including its
 active gap leaf and cursor. The ROM engine can advance that state through an
-ordinary packed-token insertion or in-leaf cursor move, but the browser does
+ordinary packed-token insertion, in-leaf cursor move, or packed-token deletion,
+but the browser does
 not yet expose the mutation API as an interactive calculator editor. A `hex:`
 prefix supplies
 space- or comma-separated native bytes directly to record construction. The
