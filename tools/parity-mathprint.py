@@ -286,7 +286,13 @@ def _frame_grid(g):
     return [[1 if g.getpixel((x, y)) < 128 else 0 for x in range(w)] for y in range(h)]
 
 
-def calc_bitmap(captures):
+def calc_bitmap(
+    captures,
+    *,
+    preserve_internal_gaps=False,
+    require_history=False,
+    expected_size=None,
+):
     """Return the cursor-free 2-D ground-truth render for the diff.
 
     `captures` is (gif, shot). Normally we read the post-ENTER history echo from
@@ -309,12 +315,17 @@ def calc_bitmap(captures):
     # which a 1-3 line echo+result never does (>=40 vs <=25 px in rows 17-22).
     is_err = last and sum(last[y][x] for y in range(17, 23)
                           for x in range(45)) >= 40
+    if last and preserve_internal_gaps and expected_size is not None:
+        return crop_expected_history(last, expected_size)
     if last and not is_err:
-        return crop_echo(last)
+        return crop_top_block(last) if preserve_internal_gaps else crop_echo(last)
+    if require_history:
+        raise RuntimeError("calculator did not produce a post-ENTER history render")
     grid = _frame_grid(Image.open(shot).convert("L"))
     if not sum(sum(r) for r in grid):
         return [[0]]
-    return crop_echo(strip_cursor(grid))
+    grid = strip_cursor(grid)
+    return crop_top_block(grid) if preserve_internal_gaps else crop_echo(grid)
 
 
 def calc_entry_bitmap(captures):
@@ -353,14 +364,45 @@ def crop_echo(grid):
     return crop([row for row in left[:yb]])
 
 
-def calc_from_trace(trace):
+def crop_top_block(grid):
+    """Crop the first history block without splitting wide internal columns."""
+    row_has = [any(row) for row in grid]
+    y0 = next((y for y, occupied in enumerate(row_has) if occupied), 0)
+    yb = len(grid)
+    blank = 0
+    for y in range(y0, len(grid)):
+        blank = blank + 1 if not row_has[y] else 0
+        if blank >= 2:
+            yb = y - blank + 1
+            break
+    return crop(grid[:yb])
+
+
+def crop_expected_history(grid, expected_size):
+    """Return a history block only when its full expected extent is visible."""
+    block = crop_top_block(grid)
+    expected_width, expected_height = expected_size
+    actual_size = (len(block[0]), len(block))
+    if actual_size != expected_size:
+        raise RuntimeError(
+            "calculator history render is clipped or incomplete: "
+            f"expected {expected_width}x{expected_height}, "
+            f"observed {actual_size[0]}x{actual_size[1]}"
+        )
+    return block
+
+
+def calc_from_trace(trace, *, preserve_internal_gaps=False, expected_size=None):
     """Replay the settled entry line from the trace and remove its cursor."""
     import importlib.util
     spec = importlib.util.spec_from_file_location(
         "tl", os.path.join(ROOT, "tools", "trace_lcd.py"))
     tl = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tl)
-    return crop_echo(strip_cursor(tl.reconstruct(trace)))
+    grid = strip_cursor(tl.reconstruct(trace))
+    if preserve_internal_gaps and expected_size is not None:
+        return crop_expected_history(grid, expected_size)
+    return crop_top_block(grid) if preserve_internal_gaps else crop_echo(grid)
 
 
 def crop(grid):

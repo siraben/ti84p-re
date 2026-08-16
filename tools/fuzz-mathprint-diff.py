@@ -68,6 +68,7 @@ def _load_parity():
 #   ('int', lo, hi, body, var) ('sum', var, lo, hi, body)
 #   ('nderiv', body, var, value)
 #   ('epow'|'tenpow', exponent) ('logbase', base, argument)
+#   ('matrix1x1'|'matrix1x2'|'matrix2x2', element, ...)
 # ---------------------------------------------------------------------------
 
 VARS = ["X", "A", "N"]
@@ -83,16 +84,44 @@ CALCULATOR_INPUT_CADENCES = (
     (0.16, 0.03),
     (0.24, 0.12),
 )
+MATRIX_SHAPES = {
+    "matrix1x1": (1, 1),
+    "matrix1x2": (1, 2),
+    "matrix2x2": (2, 2),
+}
 
 
 # The variable and lower bound share the first summation field; RIGHT then
 # advances to the upper bound and body.
 INCLUDE_SUM = True
+INCLUDE_MATRIX = False
+MATRIX_ONLY = False
 
 
 def gen_frac_operand(rng, depth):
     """Build a structural child for a stacked-fraction slot."""
     return gen_ast(rng, depth)
+
+
+def gen_matrix_element(rng, depth):
+    """Generate an evaluable matrix cell while retaining 2-D structures."""
+    if depth <= 0:
+        return ("num", rng.choice(NUMS))
+    kind = rng.choice(("leaf", "add", "mul", "sdiv", "pow", "sqrt", "abs"))
+    if kind == "leaf":
+        return ("num", rng.choice(NUMS))
+    if kind in {"add", "mul", "sdiv"}:
+        return (
+            kind,
+            gen_matrix_element(rng, depth - 1),
+            gen_matrix_element(rng, depth - 1),
+        )
+    if kind == "pow":
+        return (
+            "pow", gen_matrix_element(rng, depth - 1),
+            ("num", rng.choice(NUMS)),
+        )
+    return (kind, gen_matrix_element(rng, depth - 1))
 
 
 def gen_ast(rng, depth, *, in_small=False, avoid=()):
@@ -166,6 +195,11 @@ def gen_ast(rng, depth, *, in_small=False, avoid=()):
     if k == "logbase":
         return ("logbase", gen_ast(rng, d, in_small=True, avoid=avoid),
                 gen_ast(rng, d, avoid=avoid))
+    if k in MATRIX_SHAPES:
+        rows, columns = MATRIX_SHAPES[k]
+        return (k, *(
+            gen_matrix_element(rng, d) for _ in range(rows * columns)
+        ))
     raise AssertionError(k)
 
 
@@ -195,7 +229,15 @@ def gen_comparable_asts(rng, depth, count, *, max_structural_depth=4):
     attempts = 0
     attempt_limit = max(1000, count * 1000)
     while len(accepted) < count and attempts < attempt_limit:
-        ast = gen_ast(rng, depth)
+        if MATRIX_ONLY or (INCLUDE_MATRIX and rng.random() < 0.25):
+            kind = rng.choice(tuple(MATRIX_SHAPES))
+            rows, columns = MATRIX_SHAPES[kind]
+            ast = (kind, *(
+                gen_matrix_element(rng, max(0, depth - 1))
+                for _ in range(rows * columns)
+            ))
+        else:
+            ast = gen_ast(rng, depth)
         attempts += 1
         if calculator_structural_depth(ast) > max_structural_depth:
             rejected += 1
@@ -319,6 +361,10 @@ def to_expr(ast):
         return f"tenpow({to_expr(ast[1])})"
     if k == "logbase":
         return f"logbase({to_expr(ast[1])},{to_expr(ast[2])})"
+    if k in MATRIX_SHAPES:
+        rows, columns = MATRIX_SHAPES[k]
+        elements = ",".join(to_expr(element) for element in ast[1:])
+        return f"matrix({rows},{columns},{elements})"
     raise AssertionError(k)
 
 
@@ -389,6 +435,12 @@ def to_spec(ast):
         return {
             "kind": "logBase", "base": to_spec(ast[1]),
             "argument": to_spec(ast[2]),
+        }
+    if k in MATRIX_SHAPES:
+        rows, columns = MATRIX_SHAPES[k]
+        return {
+            "kind": "matrix", "rows": rows, "columns": columns,
+            "elements": [to_spec(element) for element in ast[1:]],
         }
     raise AssertionError(k)
 
@@ -500,6 +552,21 @@ def emit(ast):
     if k == "logbase":
         return (["MATH", "ALPHA", "MATH", "WAIT"] + emit(ast[1]) +
                 ["RIGHT", "WAIT"] + emit(ast[2]) + ["RIGHT", "WAIT"])
+    if k in MATRIX_SHAPES:
+        rows, columns = MATRIX_SHAPES[k]
+        keys = ["2ND", "MUL", "2ND", "MUL"]
+        index = 1
+        for row in range(rows):
+            if row:
+                keys.extend(["2ND", "MUL"])
+            for column in range(columns):
+                if column:
+                    keys.append("COMMA")
+                keys.extend(emit(ast[index]))
+                index += 1
+            keys.extend(["2ND", "SUB"])
+        keys.extend(["2ND", "SUB"])
+        return keys
     raise AssertionError(k)
 
 
@@ -530,6 +597,10 @@ CURATED = {
                     ("var", "X")),
     "summation":   ("sum", ("var", "N"), ("num", "1"), ("num", "3"),
                     ("pow", ("var", "N"), ("num", "2"))),
+    "matrix":      ("matrix2x2",
+                    ("sqrt", ("num", "2")),
+                    ("pow", ("num", "2"), ("num", "2")),
+                    ("num", "3"), ("num", "1")),
 }
 
 
@@ -572,21 +643,29 @@ def run_one(parity, ast, outdir, name, *, trace=False):
     except subprocess.CalledProcessError as error:
         detail = (error.stderr or error.stdout or "no process output").strip()
         raise ModelRenderError(f"translated model failed: {detail}") from error
+    matrix_case = ast[0] in MATRIX_SHAPES
     captures, ram_path, trace_path, _macro = parity.run_calc(
-        keys, outdir, name, trace=trace)
+        keys, outdir, name, trace=trace, trace_history=matrix_case)
     actual_expression = calculator_expression(parity, ram_path)
     if actual_expression != expected_expression and not trace:
         for retry, (key_delay, inter_key_wait) in enumerate(
                 CALCULATOR_INPUT_CADENCES[1:], start=1):
             captures, ram_path, trace_path, _macro = parity.run_calc(
                 keys, outdir, f"{name}-retry{retry}", trace=False,
+                trace_history=matrix_case,
                 key_delay=key_delay, inter_key_wait=inter_key_wait)
             actual_expression = calculator_expression(parity, ram_path)
             if actual_expression == expected_expression:
                 break
     if actual_expression != expected_expression:
         raise CalculatorInputMismatch(expected_expression, actual_expression)
-    calc = parity.calc_from_trace(trace_path) if trace \
+    expected_size = (len(model[0]), len(model))
+    calc = parity.calc_from_trace(
+        trace_path, preserve_internal_gaps=matrix_case,
+        expected_size=expected_size if matrix_case else None) if trace \
+        else parity.calc_bitmap(
+            captures, preserve_internal_gaps=True,
+            require_history=True, expected_size=expected_size) if matrix_case \
         else parity.calc_entry_bitmap(captures)
     pct, bad, dim = parity.diff_metric(calc, model)
     return expr, keys, pct, bad, dim, calc, model
@@ -636,15 +715,23 @@ def main():
                     help="report cases below this match %% (default 100: every mismatch)")
     ap.add_argument("--without-sum", action="store_true",
                     help="exclude Σ while diagnosing its calculator input sequence")
+    ap.add_argument("--with-matrix", action="store_true",
+                    help="include evaluable matrix literals in random generation")
+    ap.add_argument("--matrix-only", action="store_true",
+                    help="generate only evaluable top-level matrix literals")
     ap.add_argument("--trace-every-case", action="store_true",
                     help="capture a reset-origin instruction trace before comparing each case")
+    ap.add_argument("--no-trace-on-mismatch", action="store_true",
+                    help="retain screenshots and RAM but skip the diagnostic trace rerun")
     ap.add_argument("--max-entry-depth", type=int,
                     default=CALCULATOR_MAX_STRUCTURAL_DEPTH,
                     help="maximum structural nesting admitted to random calculator comparison (default 4)")
     args = ap.parse_args()
 
-    global INCLUDE_SUM
+    global INCLUDE_SUM, INCLUDE_MATRIX, MATRIX_ONLY
     INCLUDE_SUM = not args.without_sum
+    INCLUDE_MATRIX = args.with_matrix or args.matrix_only
+    MATRIX_ONLY = args.matrix_only
     parity = _load_parity()
     if not args.dry_run:
         parity.validate_inputs()
@@ -668,7 +755,7 @@ def main():
         for name, ast in CURATED.items():
             expr = to_expr(ast)
             keys = emit(ast)
-            want_expr = parity.EXAMPLES[name][0]
+            want_expr = parity.EXAMPLES.get(name, (expr,))[0]
             # The emitter normalises to explicit "*" (2*X) where the hand-written
             # parity expr used juxtaposition (2X); the parser renders both identically,
             # so an expr-string difference is informational, not a failure — the
@@ -732,7 +819,7 @@ def main():
             print(f"     keys: {' '.join(keys)}")
             print(f"     {bpx}px off, {dim}")
             print(parity.side_by_side(calc, model))
-            if not args.trace_every_case:
+            if not args.trace_every_case and not args.no_trace_on_mismatch:
                 try:
                     _, _, trace_pct, trace_bad, trace_dim, _, _ = run_one(
                         parity, ast, outdir, f"f{i}-trace", trace=True)

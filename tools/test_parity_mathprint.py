@@ -62,6 +62,35 @@ class StripCursorTests(unittest.TestCase):
         self.assertEqual(PARITY.strip_cursor(grid), grid)
 
 
+class HistoryCropTests(unittest.TestCase):
+    def test_top_block_preserves_a_wide_internal_gap(self) -> None:
+        grid = [[0] * 30 for _ in range(8)]
+        grid[0][1] = grid[1][1] = 1
+        grid[0][15] = grid[1][15] = 1
+        grid[5][2] = 1
+        self.assertEqual(PARITY.crop_echo(grid), [[1], [1]])
+        self.assertEqual(PARITY.crop_top_block(grid), [
+            [1] + [0] * 13 + [1],
+            [1] + [0] * 13 + [1],
+        ])
+
+    def test_expected_extent_overrides_dense_history_heuristics(self) -> None:
+        grid = [[0] * 30 for _ in range(12)]
+        for y in range(6):
+            for x in range(20):
+                grid[y][x] = 1
+        self.assertEqual(
+            PARITY.crop_expected_history(grid, (20, 6)),
+            [[1] * 20 for _ in range(6)],
+        )
+
+    def test_expected_extent_rejects_clipped_history(self) -> None:
+        grid = [[0] * 20 for _ in range(8)]
+        grid[0][0] = grid[5][19] = 1
+        with self.assertRaisesRegex(RuntimeError, "clipped or incomplete"):
+            PARITY.crop_expected_history(grid, (20, 7))
+
+
 class SettledProgramTests(unittest.TestCase):
     @staticmethod
     def put_word(memory: bytearray, address: int, value: int) -> None:

@@ -120,6 +120,50 @@ class InputEmitterTests(unittest.TestCase):
         self.assertEqual(
             FUZZ.emit(logbase)[:4], ["MATH", "ALPHA", "MATH", "WAIT"])
 
+    def test_matrix_literal_maps_ast_tokens_and_keys(self) -> None:
+        ast = (
+            "matrix2x2",
+            ("sqrt", ("num", "2")),
+            ("pow", ("num", "2"), ("num", "2")),
+            ("num", "3"), ("num", "1"),
+        )
+        self.assertEqual(
+            FUZZ.to_expr(ast), "matrix(2,2,sqrt(2),2^2,3,1)")
+        self.assertEqual(FUZZ.to_spec(ast), {
+            "kind": "matrix", "rows": 2, "columns": 2,
+            "elements": [
+                {"kind": "radical", "radicand": [0x32]},
+                {"kind": "power", "base": [0x32],
+                 "exponent": [0x32]},
+                [0x33], [0x31],
+            ],
+        })
+        self.assertEqual(FUZZ.calculator_structural_depth(ast), 1)
+        self.assertEqual(FUZZ.emit(ast), [
+            "2ND", "MUL", "2ND", "MUL",
+            "2ND", "SQUARE", "2", "RIGHT", "COMMA",
+            "2", "POWER", "2", "RIGHT",
+            "2ND", "SUB", "2ND", "MUL",
+            "3", "COMMA", "1",
+            "2ND", "SUB", "2ND", "SUB",
+        ])
+
+    def test_matrix_generator_keeps_cells_evaluable(self) -> None:
+        for seed in range(30):
+            cell = FUZZ.gen_matrix_element(random.Random(seed), 3)
+            self.assertNotIn("var(", FUZZ.show_ast(cell))
+            self.assertNotIn("matrix", FUZZ.show_ast(cell))
+
+    def test_matrix_only_generator_keeps_literals_at_the_root(self) -> None:
+        previous = FUZZ.MATRIX_ONLY
+        FUZZ.MATRIX_ONLY = True
+        try:
+            asts, _rejected = FUZZ.gen_comparable_asts(
+                random.Random(814), 3, 20)
+        finally:
+            FUZZ.MATRIX_ONLY = previous
+        self.assertTrue(all(ast[0] in FUZZ.MATRIX_SHAPES for ast in asts))
+
 
 if __name__ == "__main__":
     unittest.main()

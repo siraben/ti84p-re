@@ -393,7 +393,7 @@
         "render_handler": "34:620A",
         "metric_handler": "34:740B",
         "geometry_handler": "34:7632",
-        "oracle_records": 28,
+        "oracle_records": 29,
         "javascript_status": "translated_with_record_oracle"
       },
       {
@@ -413,7 +413,7 @@
         "render_handler": "34:6347",
         "metric_handler": "34:744F",
         "geometry_handler": "34:7647",
-        "oracle_records": 11,
+        "oracle_records": 12,
         "javascript_status": "translated_with_record_oracle"
       },
       {
@@ -593,7 +593,7 @@
         "render_handler": "34:6375",
         "metric_handler": "34:7455",
         "geometry_handler": "34:7647",
-        "oracle_records": 43,
+        "oracle_records": 44,
         "javascript_status": "translated_with_record_oracle"
       },
       {
@@ -613,7 +613,7 @@
         "render_handler": "34:65AA",
         "metric_handler": "34:74F5",
         "geometry_handler": "34:773D",
-        "oracle_records": 5,
+        "oracle_records": 6,
         "javascript_status": "translated_with_record_oracle"
       }
     ],
@@ -140480,6 +140480,17 @@
         }
       },
       {
+        "path": "tools/mathprint-matrix-baseline-oracles.json",
+        "cases": 1,
+        "record_types": {
+          "0x00": 7,
+          "0x20": 1,
+          "0x21": 1,
+          "0x2A": 1,
+          "0x2B": 1
+        }
+      },
+      {
         "path": "tools/mathprint-matrix-oracles.json",
         "cases": 5,
         "record_types": {
@@ -140528,14 +140539,14 @@
         }
       }
     ],
-    "cases": 110,
-    "unique_expressions": 110,
+    "cases": 111,
+    "unique_expressions": 111,
     "record_types": {
-      "0x00": 433,
+      "0x00": 440,
       "0x01": 47,
       "0x1F": 1,
-      "0x20": 28,
-      "0x21": 11,
+      "0x20": 29,
+      "0x21": 12,
       "0x22": 16,
       "0x23": 16,
       "0x24": 9,
@@ -140544,8 +140555,8 @@
       "0x27": 24,
       "0x28": 9,
       "0x29": 15,
-      "0x2A": 43,
-      "0x2B": 5
+      "0x2A": 44,
+      "0x2B": 6
     }
   },
   "traces": [

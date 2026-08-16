@@ -778,7 +778,7 @@ that each local path is feasible, but they do not prove calculator
 reachability. Those three `34:759C` injected-state probes are absent from both
 minimized corpora. [confirmed]
 
-The record-oracle corpus contains 110 captured cases and includes every type
+The record-oracle corpus contains 111 captured cases and includes every type
 from `0x1F` through `0x2B`. Types `0x20`–`0x2B` have decoded record nodes and
 complete accepted-write oracles. The type-`0x1F` case is the transparent
 one-child wrapper described below: it has a captured node, child write stream,
@@ -1109,13 +1109,15 @@ $2\times2$ identity matrix renders four children between the bracket operations.
 [confirmed]
 
 The type-`0x2B` constructor lays out elements in row-major order. For element
-width $w_{r,c}$ and height $h_{r,c}$, define the column and row extents as
-[confirmed]
+width $w_{r,c}$, height $h_{r,c}$, and baseline $b_{r,c}$, define each column
+width, row baseline, descent, and height as [confirmed]
 
 $$
 \begin{aligned}
 C_c &= \max_r w_{r,c}, \\\\
-R_r &= \max_c h_{r,c}.
+B_r &= \max_c b_{r,c}, \\\\
+D_r &= \max_c(h_{r,c}-b_{r,c}), \\\\
+R_r &= B_r+D_r.
 \end{aligned}
 $$
 
@@ -1130,14 +1132,13 @@ y_{r+1} &= y_r+R_r+2.
 \end{aligned}
 $$
 
-Each element is centered within its row and column extent:
+Each element is centered horizontally and baseline-aligned vertically:
 
 $$
 \begin{aligned}
 X_{r,c}
   &= x_c+\left\lfloor\frac{C_c-w_{r,c}}{2}\right\rfloor, \\\\
-Y_{r,c}
-  &= y_r+\left\lfloor\frac{R_r-h_{r,c}+1}{2}\right\rfloor.
+Y_{r,c} &= y_r+B_r-b_{r,c}.
 \end{aligned}
 $$
 
@@ -1156,6 +1157,15 @@ $$
 The constructor stores $N_e$, $H$, $W$, and $y_c$ in the words at `+5`, `+7`,
 `+9`, and `+0x0B`, respectively. [confirmed]
 
+Primitive matrix cells all have the same baseline, so they cannot distinguish
+baseline alignment from height centering. A mixed-height $1\times2$ trace
+does. Its first cell is `2//3^1`, with $(h,b)=(16,6)$; the second is
+`(1+3)*abs(2)`, with $(h,b)=(7,3)$. The row has $(R,B)=(16,6)$, so the
+calculator stores child origins `0` and `3`. Height centering would place the
+second child at `5`, producing 116 wrong pixels while retaining the correct
+79-by-16 dimensions. The baseline formula reproduces the captured graph and
+all pixels exactly. [confirmed]
+
 The word at `+0x11` stores the column count in its high byte and structural
 depth in its low byte. The byte at `+0x13` stores the row count. When the matrix
 contains more than one element, the allocation pass reserves the first child
@@ -1165,9 +1175,10 @@ records. Primitive captures therefore have reachable child IDs `0x11`,
 cell uses `0x11` for the leaf, leaves `0x12` unused, and assigns its first nested
 record ID `0x13`. [confirmed]
 
-Five reset-origin traces cover $1\times1$, $1\times2$, $2\times2$,
-$2\times3$, and $3\times3$ matrices. The JavaScript constructor matches every
-captured record field, child ID, and element position. The matrix result begins
+Five reset-origin traces cover primitive $1\times1$, $1\times2$, $2\times2$,
+$2\times3$, and $3\times3$ matrices; a sixth covers the mixed-baseline case
+above. The JavaScript constructor matches every captured record field, child
+ID, and element position. The matrix result begins
 at LCD row 9 and uses $x=95-W$, where $W$ is the outer leaf width at `+7`.
 The generated streams match 32, 46, 92, 134, and 180 synchronous accepted LCD
 data writes, respectively. [confirmed]
@@ -1814,6 +1825,16 @@ forms for every translated structural constructor. Seed `606` at generation
 depth five rejects one over-limit candidate, replaces it, and produces 15 exact
 decoded-graph and pixel matches with no inconclusive case. One long case needs
 the final key-cadence retry. [confirmed]
+
+A matrix-only seed-`815` corpus constructs numeric $1\times1$, $1\times2$, and
+$2\times2$ literals, decodes the live RAM graph before evaluation, and compares
+the translated type-`0x2B` render with the post-ENTER history block. Fourteen of
+15 cases have exact decoded ASTs and pixels. The remaining 89-by-30 render is
+inconclusive because the 96-by-64 history display exposes only 28 of its rows;
+the harness rejects the clipped block instead of comparing it. This corpus
+found the baseline-alignment error above. Its reduced mixed-baseline case now
+matches every captured record field and all 1,264 framebuffer pixels.
+[confirmed]
 
 The browser's generated path encodes native calculator bytes, scans their
 one- and two-byte token boundaries through translations of `34:58F9` and
