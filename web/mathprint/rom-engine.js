@@ -6493,6 +6493,120 @@
     return {expression,mutation};
   }
 
+  // DEL on an EF 1Eh child can remove its containing structural record rather
+  // than the empty-slot token. 34:44F4–4548 removes the six-byte marker from
+  // the containing leaf, frees the structural record and its direct child
+  // leaves, and makes the containing leaf active. For the second child of a
+  // fraction (20h) or nth-root (24h), 34:451F–4534 first copies the first
+  // child's payload into the containing leaf; EF 1Eh contributes no bytes.
+  function editorDeleteStructuralTemplate(input) {
+    if (!input || typeof input !== 'object' || !input.editor ||
+        !input.editor.cursor || !Array.isArray(input.nodes) ||
+        !Number.isInteger(input.entryId) || !input.controller)
+      throw new TypeError(
+        'structural deletion requires a decoded MathPrint editor state');
+    const nodeId = node => node.record_id === undefined
+      ? node.id : node.record_id;
+    const nodeType = node => node.render_type === undefined
+      ? node.type : node.render_type;
+    const nodeChildren = node => node.child_ids === undefined
+      ? node.childIds : node.child_ids;
+    const activeId = input.editor.cursor.recordId;
+    const activeOffset = input.editor.cursor.byteOffset;
+    const structuralId = input.controller.recordId;
+    const structuralDepth = input.controller.structuralDepth;
+    if (!Number.isInteger(structuralDepth) || structuralDepth < 1 ||
+        structuralDepth > 0xff)
+      throw new RangeError(
+        'structural deletion requires a positive structural depth');
+    const structural = input.nodes.find(node => nodeId(node) === structuralId);
+    const active = input.nodes.find(node => nodeId(node) === activeId);
+    if (!structural || nodeType(structural) < 0x1f)
+      throw new RangeError(
+        'decoded editor controller is not a structural record');
+    if (!active || nodeType(active) >= 0x1f ||
+        !Array.isArray(active.payload))
+      throw new RangeError('decoded editor active record is not a leaf');
+    if (activeOffset !== 0 || active.payload.length !== 2 ||
+        active.payload[0] !== 0xef || active.payload[1] !== 0x1e)
+      throw new RangeError(
+        'structural deletion requires a cursor before an empty-slot token');
+    const renderType = nodeType(structural);
+    const children = nodeChildren(structural);
+    const expectedChildren = EDITOR_STRUCTURAL_CHILD_COUNTS[renderType];
+    if (!Array.isArray(children) || children.length !== expectedChildren)
+      throw new RangeError(
+        'structural deletion has an inconsistent direct-child count');
+    const activeChildIndex = children.indexOf(activeId);
+    if (activeChildIndex < 0 ||
+        children.indexOf(activeId,activeChildIndex + 1) >= 0)
+      throw new RangeError(
+        'active editor leaf is not one unique controller child');
+
+    let promotedChildId = null;
+    let promoted = [];
+    if ((renderType === 0x20 || renderType === 0x24) &&
+        activeChildIndex === 1) {
+      promotedChildId = children[0];
+      const sibling = input.nodes.find(node => nodeId(node) === promotedChildId);
+      if (!sibling || nodeType(sibling) >= 0x1f ||
+          !Array.isArray(sibling.payload))
+        throw new RangeError(
+          'structural deletion cannot read the promoted first child');
+      promoted = sibling.payload.slice();
+      if (promoted.length === 2 && promoted[0] === 0xef &&
+          promoted[1] === 0x1e) promoted = [];
+    }
+
+    const marker = [
+      0xef,renderType,structuralId & 0xff,structuralId >> 8,0xef,0x2d,
+    ];
+    const matches = [];
+    for (const node of input.nodes) {
+      if (nodeType(node) >= 0x1f || !Array.isArray(node.payload)) continue;
+      for (let index = 0; index + marker.length <= node.payload.length;
+           index++) {
+        if (marker.every((value, offset) =>
+          node.payload[index + offset] === value))
+          matches.push({node,index});
+      }
+    }
+    if (matches.length !== 1)
+      throw new RangeError(
+        `structural deletion found ${matches.length} containing markers`);
+    const parentId = nodeId(matches[0].node);
+    const parentOffset = matches[0].index;
+    const removed = new Set([structuralId,...children]);
+    const parentPayload = [
+      ...matches[0].node.payload.slice(0,parentOffset),
+      ...promoted,
+      ...matches[0].node.payload.slice(parentOffset + marker.length),
+    ];
+    const nodes = input.nodes.filter(node => !removed.has(nodeId(node)))
+      .map(node => nodeId(node) === parentId ? {
+        ...node,payload:parentPayload,word0F:parentOffset,
+        word11:parentPayload.length,
+      } : node);
+    const decoded = decodeEditorExpressionGraph(
+      nodes,input.entryId,parentId,parentOffset);
+    return {
+      expression:decoded.expression,
+      mutation:{
+        status:'deleted-structural-template',render_type:renderType,
+        structural_record_id:structuralId,
+        active_child_index:activeChildIndex,
+        removed_record_ids:[structuralId,...children],
+        promoted_child_id:promotedChildId,
+        promoted_payload:promoted,
+        parent_record_id:parentId,
+        parent_byte_offset:parentOffset,
+        before_structural_depth:structuralDepth,
+        after_structural_depth:structuralDepth - 1,
+        routine:'34:44F4–4548 → 34:47FF; 34:451F–4534 for 20h/24h second-child promotion',
+      },
+    };
+  }
+
   function editorCursorIdentityPath(value, target, path = [], seen = new Set()) {
     if (value === target) return path;
     if (!value || typeof value !== 'object' || seen.has(value)) return null;
@@ -8802,6 +8916,7 @@
     editorInsertStructuralTemplate,
     editorMovePackedTokenCursor,
     editorDeletePackedToken,
+    editorDeleteStructuralTemplate,
     decodeEditorExpressionGraph,
     decodeMathPrintEditorRam,
     constructSettledProgramFromTokens,

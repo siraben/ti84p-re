@@ -1,0 +1,344 @@
+{
+  "schema": 2,
+  "transitions": [
+    {
+      "name": "blank_fraction_first_child",
+      "macro": "tools/macros/mathprint-editor-structural-delete-fraction.macro",
+      "macro_sha256": "dee71600f1eeb85368c10bcf057cc58596c7f079779af882294500806f8fa08b",
+      "trace_sha256": "f9a71a90596988b589d1338b768e2aea90178f13a67ba67766ded2328261a35f",
+      "trace": {
+        "key_instruction": 2121690,
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h second-child promotion"
+      },
+      "mutation": {
+        "status": "deleted-structural-template",
+        "render_type": 32,
+        "structural_record_id": 8,
+        "active_child_index": 0,
+        "removed_record_ids": [
+          8,
+          9,
+          10
+        ],
+        "promoted_child_id": null,
+        "promoted_payload": [],
+        "parent_record_id": 7,
+        "parent_byte_offset": 0,
+        "before_structural_depth": 1,
+        "after_structural_depth": 0,
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h second-child promotion"
+      },
+      "pre": {
+        "source_ram_sha256": "278a5c62930cec7dadb6e5744ec33d2d61ebcec73af46bb6512c8918ec58b2a6",
+        "screenshot_sha256": "d6a7605bc697b229236472aa7455aa83159ef690808c7a8244d61528ba29fc93",
+        "lcd_bitmap_sha256": "450e82a31ced68ed319a1c2e8d18d3e2d3813f097de8be9dc2a89d48289cc4c9",
+        "sparse_state_sha256": "bcabb3961e1f37fe21b4e66c8bbfffb9a3812a162324e85273fdeed0beccc019",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc080020010900000200e59d289ecd9dfe9d"
+          },
+          {
+            "address": 38644,
+            "bytes": "119e119e2efc30fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f000001000d000a000600000000000000000700080020070001000d000a000600000000000100ef09000a0007000006000d000a0006000000000000000600ef200800ef2d09000008000500060002000200000000000200ef"
+          },
+          {
+            "address": 64558,
+            "bytes": "ef1e0a000008000500060002000200080000000200ef1e"
+          }
+        ]
+      },
+      "post": {
+        "source_ram_sha256": "6af738754a5acd671b9bd0b17c71440cdf5fe1931da897738958280e36b87e64",
+        "screenshot_sha256": "d8a968d87fd0885ffcdf7e1e0d7b972596f0f5d8b87f054d37c48e8ae7d58d15",
+        "lcd_bitmap_sha256": "ef115a0e0c15cdc41958ca46b5b14b456115f4baec5e3ca68599d2a8f435e3b8",
+        "sparse_state_sha256": "e3fd5fe5c5783dbcfa56e87bc30b00dd4e64f42a0482319d0bf1df446566dc44",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc06001f000700000100cd9de09db79dcd9d"
+          },
+          {
+            "address": 38644,
+            "bytes": "e09de09d45fc45fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f0000010007000600030000000000000000070007000006000700060003000000000000000000ef"
+          },
+          {
+            "address": 64581,
+            "bytes": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "fraction_denominator_promotes_numerator",
+      "macro": "tools/macros/mathprint-editor-structural-delete-fraction-promote.macro",
+      "macro_sha256": "2828d0f769c01f2728a2c81511500a53f4525eb6f0648bc2b04249315d160ff7",
+      "trace_sha256": "6086133fa5ff264f995e071e923a98bfce78a4c827f88f4ff42c0368df874a71",
+      "trace": {
+        "key_instruction": 2289422,
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h second-child promotion"
+      },
+      "mutation": {
+        "status": "deleted-structural-template",
+        "render_type": 32,
+        "structural_record_id": 8,
+        "active_child_index": 1,
+        "removed_record_ids": [
+          8,
+          9,
+          10
+        ],
+        "promoted_child_id": 9,
+        "promoted_payload": [
+          49
+        ],
+        "parent_record_id": 7,
+        "parent_byte_offset": 0,
+        "before_structural_depth": 1,
+        "after_structural_depth": 0,
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h second-child promotion"
+      },
+      "pre": {
+        "source_ram_sha256": "d3c100d9594f006f01bc0d47c0fa20a07dc878c3578f9d2b1568cbe29b9a3aea",
+        "screenshot_sha256": "702ef43349c3245a2528f6a539065f61626268111bfc2dfe60d4cbca03a09635",
+        "lcd_bitmap_sha256": "e1343b5861a6749f520268165ca56598e596b29cb3d0a92e9420d3b507f6a221",
+        "sparse_state_sha256": "efbbfb1972aec8eb75a62154742de82ea457e4f4f05553a67b4b83126e044fd1",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc080020010a00000200e59d279ecd9d129e"
+          },
+          {
+            "address": 38644,
+            "bytes": "259e259e43fc45fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f000001000d000a000600000000000000000700080020070002000d000a000600000000000100ef09000a0007000006000d000a0006000000000000000600ef200800ef2d09000008000500040002000300000001000100310a000008000500060002000200080000000200ef"
+          },
+          {
+            "address": 64579,
+            "bytes": "ef1e"
+          }
+        ]
+      },
+      "post": {
+        "source_ram_sha256": "dfff4aebbfcaa15d84bf57b23420b7e13fca57a2624bbeafcd24127bb8790198",
+        "screenshot_sha256": "80f34afef155b385d29dad5e05aaf56442e3f61b804092c0a421cc678909db04",
+        "lcd_bitmap_sha256": "0e48965fb37697e4ef2e4c98f017d2c719b6a1a7486a105a2715052a55e85f14",
+        "sparse_state_sha256": "c8d51fd288210069a8f94d9b5ab05aad7b11fa20acb98ab4b7f5ce4cfe5fa649",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc06001f000700000100cd9de19db79dcd9d"
+          },
+          {
+            "address": 38644,
+            "bytes": "e09de09d44fc45fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f000001000700060003000000000000000007000700000600070006000300000000000000010031"
+          },
+          {
+            "address": 64580,
+            "bytes": "31"
+          }
+        ]
+      }
+    },
+    {
+      "name": "nthroot_radicand_promotes_index",
+      "macro": "tools/macros/mathprint-editor-structural-delete-nthroot.macro",
+      "macro_sha256": "db5d741cac151e95d2198c5e20ba3b39832ddb7e6f0ded94ef1195afe1939a8c",
+      "trace_sha256": "ccfbc027ef177f02be1e51f8a85f843b33b96142971bf2d136a1ef96a138ebd6",
+      "trace": {
+        "key_instruction": 2041698,
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h second-child promotion"
+      },
+      "mutation": {
+        "status": "deleted-structural-template",
+        "render_type": 36,
+        "structural_record_id": 8,
+        "active_child_index": 1,
+        "removed_record_ids": [
+          8,
+          9,
+          10
+        ],
+        "promoted_child_id": 9,
+        "promoted_payload": [
+          50
+        ],
+        "parent_record_id": 7,
+        "parent_byte_offset": 0,
+        "before_structural_depth": 1,
+        "after_structural_depth": 0,
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h second-child promotion"
+      },
+      "pre": {
+        "source_ram_sha256": "bec24b02749f9b56a5f985e6497406b1c1eb9494a9b7731e015f1d736cf738a9",
+        "screenshot_sha256": "d34071721c32357b37ce9123bca7c25e043241f55c0ba667a3797824b0dae105",
+        "lcd_bitmap_sha256": "45fe7d431d25d29a307e2d63362728de121a01b467b05249f5ee46d400706bf0",
+        "sparse_state_sha256": "e872e0f2b6d2646d87e68292d01c841afcf73b465c9b3a2e936f4b8eb75c0d41",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc080024010a00000200e59d279ecd9d129e"
+          },
+          {
+            "address": 38644,
+            "bytes": "259e259e43fc45fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f000001000b000e000700000000000000000700080024070002000b000e0007000000000001003209000a0007000006000b000e0007000000000000000600ef240800ef2d09000008000500040002000000000000000100320a000008000700060003000800040000000200ef"
+          },
+          {
+            "address": 64579,
+            "bytes": "ef1e"
+          }
+        ]
+      },
+      "post": {
+        "source_ram_sha256": "45f7bcccc22faa1ba607ae5f74a7fa6fb5678c64d64fabe2960033b4b09fd079",
+        "screenshot_sha256": "e5049e7cdaae907567aea5a2310d68246905bd5fde8d370f3649c22d536c098e",
+        "lcd_bitmap_sha256": "0fc9af3879603ead985a113daa2e4d2480088d816cc0f37f8e6297c7a1b0d942",
+        "sparse_state_sha256": "e176ed00194d83747921257d5ddcaaa5ee8684c1471a236ed95030bed2e03e0b",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc06001f000700000100cd9de19db79dcd9d"
+          },
+          {
+            "address": 38644,
+            "bytes": "e09de09d44fc45fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f000001000700060003000000000000000007000700000600070006000300000000000000010032"
+          },
+          {
+            "address": 64580,
+            "bytes": "32"
+          }
+        ]
+      }
+    },
+    {
+      "name": "blank_radical_only_child",
+      "macro": "tools/macros/mathprint-editor-structural-delete-radical.macro",
+      "macro_sha256": "48adf57889325bfe52939236ad62d5a05fdf199b48cfd7a7165b1e358e8508b0",
+      "trace_sha256": "788fe5c31ab1e269e318aa5e682b5536cbfefb6a8bad471b55794707de8fbe4a",
+      "trace": {
+        "key_instruction": 1789009,
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h second-child promotion"
+      },
+      "mutation": {
+        "status": "deleted-structural-template",
+        "render_type": 39,
+        "structural_record_id": 8,
+        "active_child_index": 0,
+        "removed_record_ids": [
+          8,
+          9
+        ],
+        "promoted_child_id": null,
+        "promoted_payload": [],
+        "parent_record_id": 7,
+        "parent_byte_offset": 0,
+        "before_structural_depth": 1,
+        "after_structural_depth": 0,
+        "routine": "34:44F4\u20134548 \u2192 34:47FF; 34:451F\u20134534 for 20h/24h second-child promotion"
+      },
+      "pre": {
+        "source_ram_sha256": "cd763c1e01dae3c2bbbd21bffa06c59fa730925e45b1e9caf9d793f82062a4b1",
+        "screenshot_sha256": "b9b818a9b905d879897b39a1daf9cf8b7810ea3366d286478c570edc2f957cfd",
+        "lcd_bitmap_sha256": "74511f2ed164a956c16898dc945cfac25e6713e1e96e86d34fe1668a20510f31",
+        "sparse_state_sha256": "4d273880314d18274377f160a00b1c3b999c9804605ab3187f3fa426aa3a9b4a",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc080027010900000100e39d119ecd9dfc9d"
+          },
+          {
+            "address": 38644,
+            "bytes": "0f9e0f9e43fc45fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f0000010009000b0005000000000000000007000800270700010009000b000500000000000100ef0900070000060009000b0005000000000000000600ef270800ef2d09000008000700060003000500020000000200ef"
+          },
+          {
+            "address": 64579,
+            "bytes": "ef1e"
+          }
+        ]
+      },
+      "post": {
+        "source_ram_sha256": "c0389cc311cb9872deacccda71582e6d42a336c3170530fb7dcda1ba5c5408e1",
+        "screenshot_sha256": "479457314d2f111e4caf3ed40157a7e8f1ea80d926eb51b138d01b418bc0e953",
+        "lcd_bitmap_sha256": "ef115a0e0c15cdc41958ca46b5b14b456115f4baec5e3ca68599d2a8f435e3b8",
+        "sparse_state_sha256": "e3fd5fe5c5783dbcfa56e87bc30b00dd4e64f42a0482319d0bf1df446566dc44",
+        "segments": [
+          {
+            "address": 35313,
+            "bytes": "04"
+          },
+          {
+            "address": 36271,
+            "bytes": "b79d45fc06001f000700000100cd9de09db79dcd9d"
+          },
+          {
+            "address": 38644,
+            "bytes": "e09de09d45fc45fc"
+          },
+          {
+            "address": 40375,
+            "bytes": "06001f0000010007000600030000000000000000070007000006000700060003000000000000000000ef"
+          },
+          {
+            "address": 64581,
+            "bytes": ""
+          }
+        ]
+      }
+    }
+  ]
+}
