@@ -166,6 +166,38 @@ const pointAddressByte = address => {
       `point-address oracle reached unpinned byte 04:${address.toString(16)}`);
   return pointAddressByteMap.get(address);
 };
+const darkLineRomSpans = [
+  {address:0x4025, bytes:Buffer.from(
+    '26011800f53e01fdcb357ec449352803f1c9f5c5ed431593dde1c5d5e57b91' +
+    '3004ed44cbe46f7a903004ed44cbec5f447dbb3804cbf06b5faf5767e5ed52' +
+    '29e329e5ed52dde51c78e60f5778c1dd210000dd39cd5741c5cb7c2811dd4e' +
+    '00dd460109c1cb772010cd16431812dd4e02dd460309c1cd16430ccb6728020d' +
+    '0d1d20d2e1e1e1d1c1f1c9', 'hex')},
+  {address:0x4316, bytes:Buffer.from('04cb6fc80505c9', 'hex')},
+];
+const lineWrapperRomSpans = [
+  {page:0x34,address:0x5d96,bytes:Buffer.from(
+    'd5c5cdd15d2803e1e1c9c1d1cd7335c9d5c5eb2a008e19cdef5d2803e1e1' +
+    'c9220885d1e1cd7935c92afe8d19ed5b028eb7ed52c9ed5bfc8d1600c9ed5b' +
+    'fe8d19cdc25d3811cdca5dcdbb213009ed5bfa8d160019bfc9f601c9ed5b04' +
+    '8eb7ed523814ed5bfd8d1600cdbb213009ed5bfb8d160019bfc9f601c9', 'hex')},
+  {page:0x04,address:0x431d,bytes:Buffer.from(
+    'd52210852a008e09ed5b048eb7ed523003210000ed5bfd8dcd7943ed5bfb8d16' +
+    '0019220885d12a008e19ed5b048eb7ed52d8ed5bfd8d16001bcdc0432afb8d26' +
+    '00193e3f955f3e3f2a0885954f2a10854555cd8b35cd2540cd9d35c91600cdbb' +
+    '21d8e1e1c9e5cd4f353003210000ed5bfc8dcd7943ed5bfa8d160019221085d1' +
+    'cd4f35d8ed5bfc8d16001bcdc0432afa8d260019552a1085453e3f2a0885954f' +
+    '5f18afe5b7ed52e1d0ebc9', 'hex')},
+];
+const darkLineByteMap = new Map(darkLineRomSpans.flatMap(span =>
+  Array.from(span.bytes,
+    (value, offset) => [span.address + offset,value])));
+const darkLineByte = address => {
+  if (!darkLineByteMap.has(address))
+    throw new Error(
+      `dark-line oracle reached unpinned byte 04:${address.toString(16)}`);
+  return darkLineByteMap.get(address);
+};
 const renderNestingTailByteMap = new Map(renderNestingTailRomSpans.flatMap(span =>
   Array.from(span.bytes,
     (value, offset) => [span.address + offset, value])));
@@ -314,6 +346,177 @@ function runRawPointAddress(graphX, graphY) {
     }
   }
   throw new Error('point-address oracle exceeded its instruction bound');
+}
+
+function runRawDarkLine(graphX1, graphY1, graphX2, graphY2) {
+  let pc = 0x4025, sp = 0xff00, ix = 0;
+  let a = 0x5a, b = graphX1, c = graphY1;
+  let d = graphX2, e = graphY2, h = 0, l = 0;
+  let carry = false, zero = false;
+  const memory = new Map();
+  const points = [];
+  const pair = (high, low) => high << 8 | low;
+  const split = value => [value >>> 8 & 0xff,value & 0xff];
+  const read = address => memory.get(address & 0xffff) || 0;
+  const write = (address, value) => memory.set(address & 0xffff,value & 0xff);
+  const push = value => {
+    sp = (sp - 1) & 0xffff; write(sp,value >>> 8);
+    sp = (sp - 1) & 0xffff; write(sp,value);
+  };
+  const pop = () => {
+    const value = read(sp) | read((sp + 1) & 0xffff) << 8;
+    sp = (sp + 2) & 0xffff;
+    return value;
+  };
+  const word = address =>
+    darkLineByte(address) | darkLineByte(address + 1) << 8;
+  const relative = address => {
+    const displacement = darkLineByte(address);
+    return displacement < 0x80 ? displacement : displacement - 0x100;
+  };
+  const flags = () => (zero ? 0x40 : 0) | (carry ? 1 : 0);
+  const restoreFlags = value => {
+    zero = (value & 0x40) !== 0;
+    carry = (value & 1) !== 0;
+  };
+  push(0xffff);
+  for (let instructions = 0; instructions < 20000; instructions++) {
+    const opcode = darkLineByte(pc);
+    if (opcode === 0x26) {
+      h = darkLineByte(pc + 1); pc += 2;
+    } else if (opcode === 0x18) {
+      pc = pc + 2 + relative(pc + 1);
+    } else if (opcode === 0xf5) {
+      push(pair(a,flags())); pc++;
+    } else if (opcode === 0xc5) {
+      push(pair(b,c)); pc++;
+    } else if (opcode === 0xd5) {
+      push(pair(d,e)); pc++;
+    } else if (opcode === 0xe5) {
+      push(pair(h,l)); pc++;
+    } else if (opcode === 0xf1) {
+      const [savedA,savedFlags] = split(pop());
+      a = savedA; restoreFlags(savedFlags); pc++;
+    } else if (opcode === 0xc1) {
+      [b,c] = split(pop()); pc++;
+    } else if (opcode === 0xd1) {
+      [d,e] = split(pop()); pc++;
+    } else if (opcode === 0xe1) {
+      [h,l] = split(pop()); pc++;
+    } else if (opcode === 0x3e) {
+      a = darkLineByte(pc + 1); pc += 2;
+    } else if (opcode === 0xfd && darkLineByte(pc + 1) === 0xcb &&
+               darkLineByte(pc + 3) === 0x7e) {
+      zero = true; pc += 4;
+    } else if (opcode === 0xc4) {
+      if (!zero) throw new Error('dark-line oracle entered the disabled hook');
+      pc += 3;
+    } else if (opcode === 0x28 || opcode === 0x20 ||
+               opcode === 0x30 || opcode === 0x38) {
+      const take = opcode === 0x28 ? zero : opcode === 0x20 ? !zero :
+        opcode === 0x30 ? !carry : carry;
+      pc = take ? pc + 2 + relative(pc + 1) : pc + 2;
+    } else if (opcode === 0xed && darkLineByte(pc + 1) === 0x43) {
+      const address = word(pc + 2);
+      write(address,c); write(address + 1,b); pc += 4;
+    } else if (opcode === 0xdd && darkLineByte(pc + 1) === 0xe1) {
+      ix = pop(); pc += 2;
+    } else if (opcode === 0x7b) {
+      a = e; pc++;
+    } else if (opcode === 0x91 || opcode === 0x90) {
+      const operand = opcode === 0x91 ? c : b;
+      const result = a - operand;
+      carry = result < 0; a = result & 0xff; zero = a === 0; pc++;
+    } else if (opcode === 0xed && darkLineByte(pc + 1) === 0x44) {
+      carry = a !== 0; a = (-a) & 0xff; zero = a === 0; pc += 2;
+    } else if (opcode === 0xcb && [0xe4,0xec,0xf0].includes(darkLineByte(pc + 1))) {
+      const extension = darkLineByte(pc + 1);
+      if (extension === 0xe4) h |= 0x10;
+      else if (extension === 0xec) h |= 0x20;
+      else b |= 0x40;
+      pc += 2;
+    } else if (opcode === 0x6f) {
+      l = a; pc++;
+    } else if (opcode === 0x7a) {
+      a = d; pc++;
+    } else if (opcode === 0x5f) {
+      e = a; pc++;
+    } else if (opcode === 0x44) {
+      b = h; pc++;
+    } else if (opcode === 0x7d) {
+      a = l; pc++;
+    } else if (opcode === 0xbb) {
+      carry = a < e; zero = a === e; pc++;
+    } else if (opcode === 0x6b) {
+      l = e; pc++;
+    } else if (opcode === 0xaf) {
+      a = 0; zero = true; carry = false; pc++;
+    } else if (opcode === 0x57) {
+      d = a; pc++;
+    } else if (opcode === 0x67) {
+      h = a; pc++;
+    } else if (opcode === 0xed && darkLineByte(pc + 1) === 0x52) {
+      const result = pair(h,l) - pair(d,e) - (carry ? 1 : 0);
+      carry = result < 0; [h,l] = split(result & 0xffff);
+      zero = h === 0 && l === 0; pc += 2;
+    } else if (opcode === 0x29) {
+      const result = pair(h,l) * 2;
+      carry = result > 0xffff; [h,l] = split(result & 0xffff); pc++;
+    } else if (opcode === 0xe3) {
+      const saved = read(sp) | read((sp + 1) & 0xffff) << 8;
+      write(sp,l); write(sp + 1,h); [h,l] = split(saved); pc++;
+    } else if (opcode === 0xdd && darkLineByte(pc + 1) === 0xe5) {
+      push(ix); pc += 2;
+    } else if (opcode === 0x1c || opcode === 0x1d || opcode === 0x04 ||
+               opcode === 0x05 || opcode === 0x0c || opcode === 0x0d) {
+      if (opcode === 0x1c) e = (e + 1) & 0xff;
+      else if (opcode === 0x1d) e = (e - 1) & 0xff;
+      else if (opcode === 0x04) b = (b + 1) & 0xff;
+      else if (opcode === 0x05) b = (b - 1) & 0xff;
+      else if (opcode === 0x0c) c = (c + 1) & 0xff;
+      else c = (c - 1) & 0xff;
+      zero = (opcode === 0x1c || opcode === 0x1d ? e :
+        opcode === 0x04 || opcode === 0x05 ? b : c) === 0;
+      pc++;
+    } else if (opcode === 0x78) {
+      a = b; pc++;
+    } else if (opcode === 0xe6) {
+      a &= darkLineByte(pc + 1); zero = a === 0; carry = false; pc += 2;
+    } else if (opcode === 0xdd && darkLineByte(pc + 1) === 0x21) {
+      ix = word(pc + 2); pc += 4;
+    } else if (opcode === 0xdd && darkLineByte(pc + 1) === 0x39) {
+      ix = (ix + sp) & 0xffff; pc += 2;
+    } else if (opcode === 0xcd) {
+      const target = word(pc + 1);
+      if (target === 0x4157) {
+        points.push([b,c]); pc += 3;
+      } else {
+        push(pc + 3); pc = target;
+      }
+    } else if (opcode === 0xcb && [0x7c,0x77,0x67,0x6f].includes(darkLineByte(pc + 1))) {
+      const extension = darkLineByte(pc + 1);
+      const value = extension === 0x7c ? h : a;
+      const bit = extension === 0x7c ? 7 : extension === 0x77 ? 6 :
+        extension === 0x67 ? 4 : 5;
+      zero = (value & 1 << bit) === 0; pc += 2;
+    } else if (opcode === 0xdd && [0x4e,0x46].includes(darkLineByte(pc + 1))) {
+      const value = read((ix + darkLineByte(pc + 2)) & 0xffff);
+      if (darkLineByte(pc + 1) === 0x4e) c = value; else b = value;
+      pc += 3;
+    } else if (opcode === 0x09) {
+      const result = pair(h,l) + pair(b,c);
+      carry = result > 0xffff; [h,l] = split(result & 0xffff); pc++;
+    } else if (opcode === 0xc8) {
+      if (zero) pc = pop(); else pc++;
+    } else if (opcode === 0xc9) {
+      pc = pop();
+      if (pc === 0xffff) return points;
+    } else {
+      throw new Error(
+        `dark-line oracle reached unsupported opcode 0x${opcode.toString(16)} at 04:${pc.toString(16)}`);
+    }
+  }
+  throw new Error('dark-line oracle exceeded its instruction bound');
 }
 const overflowCueRomSpan = {address:0x66e9, bytes:Buffer.from(
   '3ae28521e08596fe08d83aa6973d6f26013e1f18052101013e1eed5b4b84' +
@@ -1192,6 +1395,17 @@ if (fs.existsSync(localRomPath)) {
     localRom.subarray(
       pointAddressOffset,pointAddressOffset + pointAddressRomSpan.bytes.length),
     pointAddressRomSpan.bytes);
+  for (const span of darkLineRomSpans) {
+    const offset = 0x04 * 0x4000 + (span.address & 0x3fff);
+    expectEqual(`04:${span.address.toString(16)} raw dark-line bytes`,
+      localRom.subarray(offset,offset + span.bytes.length),span.bytes);
+  }
+  for (const span of lineWrapperRomSpans) {
+    const offset = span.page * 0x4000 + (span.address & 0x3fff);
+    expectEqual(
+      `${span.page.toString(16)}:${span.address.toString(16)} raw line-wrapper bytes`,
+      localRom.subarray(offset,offset + span.bytes.length),span.bytes);
+  }
   const overflowOffset = 0x39 * 0x4000 +
     (overflowCueRomSpan.address & 0x3fff);
   expectEqual('39:66E9–6711 raw overflow-cue bytes',
@@ -2584,6 +2798,60 @@ expectThrows('04:4155 rejects a non-byte x coordinate',RangeError,
   () => rom.settledPage4PointOnTransition(0x100,0,0));
 expectThrows('04:4155 rejects a non-byte y coordinate',RangeError,
   () => rom.settledPage4PointOnTransition(0,0x100,0));
+expectEqual('04:4025 forward horizontal line trace',
+  rom.settledPage4DarkLineTrace(1,2,5,2).points,
+  [[1,2],[2,2],[3,2],[4,2],[5,2]]);
+expectEqual('04:4025 reverse vertical line trace',
+  rom.settledPage4DarkLineTrace(3,5,3,1).points,
+  [[3,5],[3,4],[3,3],[3,2],[3,1]]);
+expectEqual('04:4025 balanced diagonal line trace',
+  rom.settledPage4DarkLineTrace(1,1,4,4).points,
+  [[1,1],[2,2],[3,3],[4,4]]);
+expectEqual('04:4025 unbalanced diagonal line trace',
+  rom.settledPage4DarkLineTrace(1,1,5,3).points,
+  runRawDarkLine(1,1,5,3));
+expectEqual('04:4025 FFh major delta visits 256 points',
+  rom.settledPage4DarkLineTrace(0,0,0xff,0).points.length,0x100);
+expectThrows('04:4025 rejects a non-byte endpoint',RangeError,
+  () => rom.settledPage4DarkLineTrace(0,0,0x100,0));
+let darkLineAxisClasses = 0;
+for (let first = 0; first <= 0xff; first++) {
+  for (let second = 0; second <= 0xff; second++) {
+    const horizontal = rom.settledPage4DarkLineTrace(first,0x5a,second,0x5a).points;
+    const rawHorizontal = runRawDarkLine(first,0x5a,second,0x5a);
+    if (JSON.stringify(horizontal) !== JSON.stringify(rawHorizontal))
+      throw new Error(
+        `04:4025 horizontal mismatch for ${first.toString(16)}→${second.toString(16)}`);
+    const vertical = rom.settledPage4DarkLineTrace(0x4b,first,0x4b,second).points;
+    const rawVertical = runRawDarkLine(0x4b,first,0x4b,second);
+    if (JSON.stringify(vertical) !== JSON.stringify(rawVertical))
+      throw new Error(
+        `04:4025 vertical mismatch for ${first.toString(16)}→${second.toString(16)}`);
+    darkLineAxisClasses += 2;
+  }
+}
+expectEqual('04:4025 exhaustive axis-aligned endpoint-pair count',
+  darkLineAxisClasses,0x20000);
+let darkLineDeltaClasses = 0;
+for (let deltaX = 0; deltaX <= 0xff; deltaX++) {
+  for (let deltaY = 0; deltaY <= 0xff; deltaY++) {
+    const translated = rom.settledPage4DarkLineTrace(0,0,deltaX,deltaY).points;
+    const raw = runRawDarkLine(0,0,deltaX,deltaY);
+    if (JSON.stringify(translated) !== JSON.stringify(raw))
+      throw new Error(
+        `04:4025 delta mismatch for ${deltaX.toString(16)},${deltaY.toString(16)}`);
+    darkLineDeltaClasses++;
+  }
+}
+expectEqual('04:4025 exhaustive nonnegative delta-pair count',
+  darkLineDeltaClasses,0x10000);
+for (const endpoints of [
+  [0xf0,0xe0,0x19,0x37],
+  [0x10,0xe0,0xd9,0x37],
+  [0xf0,0x20,0x19,0xc7],
+]) expectEqual(`04:4025 signed-direction trace ${endpoints.join(',')}`,
+  rom.settledPage4DarkLineTrace(...endpoints).points,
+  runRawDarkLine(...endpoints));
 expectEqual('34:5E98 top integral hook point', rom.settledPointOperation(3, 0), {
   kind:'point', x:3, y:0, registers:{b:3,c:0x3f,d:1},
   routine:'34:5E98–5EA6 → 04:4155',
@@ -2606,10 +2874,21 @@ expectEqual('34:5DA6 fraction bar with live origin',
     kind:'line', axis:'horizontal', from:{x:17,y:52}, to:{x:21,y:52},
     routine:'34:5DA6–5DBD → 04:4382',
   });
-expectEqual('34:5D96 endpoint sorting and clipping',
-  rom.settledVerticalOperation(3, 9, 1,
+expectEqual('34:5D96 ordered endpoint clipping',
+  rom.settledVerticalOperation(3, 1, 9,
     {xOrigin:0, yOrigin:0, xMax:0x5f, yMax:6, xClip:0, yClip:2}), {
     kind:'line', axis:'vertical', from:{x:3,y:0x3f}, to:{x:3,y:0x39},
+    routine:'34:5D96–5DA5 → 04:431D',
+  });
+expectEqual('04:431D rejects a first endpoint at the exclusive bound',
+  rom.settledVerticalOperation(3,9,1,
+    {xOrigin:0,yOrigin:0,xMax:0x5f,yMax:6,xClip:0,yClip:2}),null);
+expectEqual('34:5D96 keeps logical and physical origins separate',
+  rom.settledVerticalOperation(2,1,3,{
+    xOrigin:0x10,yOrigin:4,xMax:0x5f,yMax:0x3e,xClip:3,yClip:2,
+    screenXOrigin:5,screenYOrigin:7,
+  }),{
+    kind:'line',axis:'vertical',from:{x:0x14,y:0x35},to:{x:0x14,y:0x33},
     routine:'34:5D96–5DA5 → 04:431D',
   });
 expectEqual('34:5DA6 fully clipped',
