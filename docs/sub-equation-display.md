@@ -573,7 +573,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 22 finite models. It also computes an
+complete path-equivalence class in 23 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -593,6 +593,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Editor horizontal viewport | 17,179,869,184 | 8 | 6 | 2 |
 | Editor vertical viewport | 17,179,869,184 | 8 | 6 | 2 |
 | Editor vertical overflow cues | 4,294,901,760 | 5 | 8 | 3 |
+| Editor left-overflow cue | 1,099,494,850,560 | 5 | 8 | 5 |
 | Glyph viewport gates | 30,064,771,072 | 3 | 4 | 3 |
 | Embedded-record viewport gate | 4,294,967,296 | 2 | 2 | 2 |
 | Record-allocation capacity | 36,893,488,147,419,103,232 | 6 | 6 | 2 |
@@ -603,8 +604,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha candidate reducer | 288 | 25 | 17 | 10 |
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 
-The 22 models contain 1,327 path classes and 195 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 100 representatives. Each
+The 23 models contain 1,332 path classes and 203 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 105 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -1963,6 +1964,17 @@ natural calculator redraw after removing the eight asynchronous right-cue
 writes. The compact oracle is
 `tools/mathprint-editor-overflow-oracle.json`; the reproduction input is
 `tools/macros/mathprint-double-integral.macro`. [confirmed]
+
+The centering path does not use an unbounded record height. In normal editor
+mode, `34:753F` loads the root's `+07h` height word. `34:6043` substitutes the
+one-byte bottom bound when the height has a nonzero high byte, and `34:604A`
+does the same when its low byte exceeds the bound. Editor mode `49h` bypasses
+the load and uses the bound directly. The natural combined-overflow case has
+height 125, horizontal clip 15, vertical clip 8, and bottom bound 62, so the
+cue occupies rows 28–34 instead of being centered off-screen. The translated
+expression and all three overflow cues reproduce all 6,144 screenshot pixels.
+`tools/mathprint-combined-viewport-oracle.json` pins the accepted graph, native
+tokens, RAM state, write-stream hash, and full-LCD hash. [confirmed]
 
 Glyph clipping precedes the font blitter. `34:6C5F` compares a glyph's left
 edge with `ram:8E02`; the carry path at `34:6C69` reaches `34:6C81` and skips
