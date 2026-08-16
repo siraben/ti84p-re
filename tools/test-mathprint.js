@@ -3291,6 +3291,25 @@ expectEqual('live cursor cell advances the translated leaf pen at its byte bound
     {kind:'editor-cursor-cell',x:6,y:0,width:6,height:7,visible:false},
     {kind:'glyph',x:12,y:0,code:0x32},
   ]);
+const numeratorCursorProgram = rom.constructEditorExpressionProgram({
+  kind:'fraction',
+  numerator:{kind:'sequence',parts:[
+    {kind:'editorCursor',byte_offset:0},
+    {kind:'radical',radicand:[0x32]},
+  ]},
+  denominator:[0x33],
+},7,font);
+expectEqual('cursor before a structural numerator retains numerator allocation state', {
+  active_record_id:numeratorCursorProgram.editor.active_record_id,
+  radical_byte13:numeratorCursorProgram.nodes.find(
+    node => node.render_type === 0x27).byte13,
+  record_ids:numeratorCursorProgram.nodes.map(node => node.record_id).sort(
+    (left,right) => left - right),
+}, {
+  active_record_id:11,
+  radical_byte13:0x10,
+  record_ids:[6,7,8,9,10,11,12],
+});
 
 const settledGlyphAdvance = (depth, code) => {
   if (depth === 0) return 6;
