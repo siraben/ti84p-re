@@ -2642,6 +2642,79 @@
       'bitmap_61BE',0x61be,[0x02,0x01,0x00,0x1f,0x00,0x02,0x06]);
   }
 
+  // 34:61CE–6209 is the post-render nesting tail used by the object walker at
+  // 34:60FC. A is the current structural record type and E is the one-based
+  // child selector left by its handler. Selected type/child combinations join
+  // 34:79C9, which decrements the byte at 8515h with ordinary byte wrap.
+  function settledRenderNestingTail(renderType, childIndex, nestingCounter) {
+    let a = byte(renderType, 'settled render-tail type');
+    const e = byte(childIndex, 'settled render-tail child index');
+    const before = byte(nestingCounter, 'settled render-tail nesting counter');
+    const branchOutcomes = [];
+    const branch = (address, outcome) => branchOutcomes.push(
+      `34:${address.toString(16).toUpperCase()}:${outcome}`);
+    const finish = (terminal, decrement) => ({
+      renderType,
+      childIndex:e,
+      nestingCounterBefore:before,
+      nestingCounterAfter:decrement ? (before - 1) & 0xff : before,
+      decremented:decrement,
+      returnA:a,
+      terminal,
+      branchOutcomes,
+      routine:decrement ? '34:61CE–6206 → 34:79C9' : '34:61CE–6209',
+    });
+
+    branch(0x61d0, a !== 0x22 ? 'taken' : 'fallthrough');
+    if (a === 0x22) {
+      a = e;
+      const leadingChild = a < 3;
+      branch(0x61d5, leadingChild ? 'returned' : 'fallthrough');
+      return finish(
+        leadingChild ? 'preserve-integral-leading-child' : 'decrement',
+        !leadingChild);
+    }
+    branch(0x61da, a === 0x27 ? 'taken' : 'fallthrough');
+    if (a === 0x27) return finish('decrement', true);
+    branch(0x61de, a === 0x21 ? 'taken' : 'fallthrough');
+    if (a === 0x21) return finish('decrement', true);
+    branch(0x61e2, a === 0x2b ? 'taken' : 'fallthrough');
+    if (a === 0x2b) return finish('decrement', true);
+    branch(0x61e6, a === 0x28 ? 'taken' : 'fallthrough');
+    if (a === 0x28 || a === 0x24) {
+      if (a !== 0x28)
+        branch(0x61ea, a !== 0x24 ? 'taken' : 'fallthrough');
+      a = e;
+      const firstChild = a === 1;
+      branch(0x61ef, firstChild ? 'returned' : 'fallthrough');
+      return finish(
+        firstChild ? 'preserve-shared-first-child' : 'decrement',
+        !firstChild);
+    }
+    branch(0x61ea, a !== 0x24 ? 'taken' : 'fallthrough');
+    branch(0x61f4, a !== 0x23 ? 'taken' : 'fallthrough');
+    if (a === 0x23) {
+      a = e;
+      const firstChild = a === 1;
+      branch(0x61f9, firstChild ? 'returned' : 'fallthrough');
+      if (firstChild) return finish('preserve-derivative-other-child', false);
+      const secondChild = a === 2;
+      branch(0x6205, secondChild ? 'fallthrough' : 'returned');
+      return finish(
+        secondChild ? 'decrement' : 'preserve-derivative-other-child',
+        secondChild);
+    }
+    const summation = a === 0x29;
+    branch(0x6200, summation ? 'fallthrough' : 'taken');
+    if (!summation) return finish('preserve-other-type', false);
+    a = e;
+    const fourthChild = a === 4;
+    branch(0x6205, fourthChild ? 'fallthrough' : 'returned');
+    return finish(
+      fourthChild ? 'decrement' : 'preserve-summation-other-child',
+      fourthChild);
+  }
+
   // 34:759C–75C1 decides whether an editor cursor immediately before a
   // structural marker contributes a six-pixel outer cell or a five-pixel
   // nested cell.  The first comparison is word-sized and wraps like ADD HL,
@@ -9594,6 +9667,7 @@
     decodeSettledRecord,
     settledRenderHandler,
     settledSharedMarkerPrimitive,
+    settledRenderNestingTail,
     settledMetricMarkerTailGate,
     settledCompoundOperations,
     settledBraceOperations,
