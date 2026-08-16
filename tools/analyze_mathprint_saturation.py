@@ -709,7 +709,7 @@ def oracle_trace_features(paths: Iterable[Path]) -> dict[str, set[str]]:
             if not isinstance(raw_cases, list):
                 continue
             for case in raw_cases:
-                if not isinstance(case, dict) or not isinstance(case.get("nodes"), list):
+                if not isinstance(case, dict):
                     continue
                 trace_sha256 = case.get("trace_sha256")
                 if not isinstance(trace_sha256, str):
@@ -721,7 +721,7 @@ def oracle_trace_features(paths: Iterable[Path]) -> dict[str, set[str]]:
                     or trace_sha256
                 )
                 tags.add(f"oracle_case:{path.stem}:{family}:{case_key}")
-                for node in case["nodes"]:
+                for node in case.get("nodes", []):
                     render_type = node.get("render_type") if isinstance(node, dict) else None
                     if not isinstance(render_type, int):
                         continue
@@ -1225,6 +1225,116 @@ def symbolic_editor_horizontal_viewport_paths() -> list[dict[str, object]]:
                     0,
                     iy44_bit3,
                     extra_width,
+                    0x10000 - difference,
+                )
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
+def editor_vertical_viewport_path(
+    cursor_top: int,
+    previous_y_clip: int,
+    iy44_bit3: int,
+    extra_height: int,
+) -> dict[str, object]:
+    """Return one caller-scoped path through 34:5F8B–5FC0."""
+
+    cursor_top &= 0xFFFF
+    previous_y_clip &= 0xFFFF
+    iy44_bit3 = int(bool(iy44_bit3))
+    if extra_height not in {0, 4}:
+        raise ValueError("34:5F8B caller height must be zero or four")
+    reset_previous_clip = cursor_top < previous_y_clip
+    outcomes = [
+        f"34:5F96:{'fallthrough' if reset_previous_clip else 'taken'}"
+    ]
+    y_clip = 0 if reset_previous_clip else previous_y_clip
+    coordinate = (
+        cursor_top if reset_previous_clip
+        else (cursor_top - previous_y_clip) & 0xFFFF
+    )
+    cursor_height = 7 if iy44_bit3 else 5
+    outcomes.append(
+        f"34:5FA7:{'taken' if iy44_bit3 else 'fallthrough'}"
+    )
+    coordinate = (coordinate + cursor_height) & 0xFFFF
+    coordinate = (coordinate + extra_height) & 0xFFFF
+    before_bottom_bound = coordinate < 0x3E
+    outcomes.append(
+        f"34:5FB7:{'returned' if before_bottom_bound else 'fallthrough'}"
+    )
+    if not before_bottom_bound:
+        y_clip = ((coordinate - 0x3E) + y_clip) & 0xFFFF
+    return {
+        "terminal": (
+            "return_before_bottom_bound" if before_bottom_bound
+            else "store_vertical_clip"
+        ),
+        "reset_previous_clip": reset_previous_clip,
+        "cursor_height": cursor_height,
+        "comparison_coordinate": coordinate,
+        "y_clip": y_clip,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_editor_vertical_viewport_paths() -> list[dict[str, object]]:
+    """Partition the full cursor-top/clip caller domain without pair enumeration."""
+
+    classes: dict[
+        tuple[str, tuple[str, ...]], dict[str, object]
+    ] = {}
+
+    def add_state(
+        cursor_top: int,
+        previous_y_clip: int,
+        iy44_bit3: int,
+        extra_height: int,
+        multiplicity: int,
+    ) -> None:
+        result = editor_vertical_viewport_path(
+            cursor_top, previous_y_clip, iy44_bit3, extra_height
+        )
+        key = (
+            str(result["terminal"]),
+            tuple(str(item) for item in result["branch_outcomes"]),
+        )
+        row = classes.setdefault(key, {
+            "projected_input_count": 0,
+            "representative_states": [],
+        })
+        row["projected_input_count"] += multiplicity
+        states = row["representative_states"]
+        if len(states) < 4:
+            states.append({
+                "cursor_top": cursor_top,
+                "previous_y_clip": previous_y_clip,
+                "iy44_bit3": iy44_bit3,
+                "extra_height": extra_height,
+            })
+
+    for iy44_bit3 in (0, 1):
+        for extra_height in (0, 4):
+            for cursor_top in range(0xFFFF):
+                add_state(
+                    cursor_top,
+                    cursor_top + 1,
+                    iy44_bit3,
+                    extra_height,
+                    0xFFFF - cursor_top,
+                )
+            for difference in range(0x10000):
+                add_state(
+                    difference,
+                    0,
+                    iy44_bit3,
+                    extra_height,
                     0x10000 - difference,
                 )
     return [
@@ -2636,6 +2746,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             symbolic_editor_horizontal_viewport_paths(),
         ),
         (
+            "editor_vertical_viewport",
+            "34:5F8B",
+            0x10000 * 0x10000 * 2 * 2,
+            symbolic_editor_vertical_viewport_paths(),
+        ),
+        (
             "glyph_viewport_gates",
             "34:6C5F–6C87",
             0x10000 * 0x10000 * 7,
@@ -3837,10 +3953,9 @@ def build_report(
     # outcomes absent from every key-driven run.
     witnesses.update(natural_witnesses)
 
-    oracle = oracle_coverage(ROOT.glob("tools/mathprint-*-oracles.json"))
-    oracle_features = oracle_trace_features(
-        ROOT.glob("tools/mathprint-*-oracles.json")
-    )
+    oracle_paths = tuple(ROOT.glob("tools/mathprint-*oracle*.json"))
+    oracle = oracle_coverage(oracle_paths)
+    oracle_features = oracle_trace_features(oracle_paths)
     for row in trace_rows:
         trace_features[row["label"]].update(
             oracle_features.get(row["sha256"], set())
