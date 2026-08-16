@@ -217,6 +217,17 @@ const glyphPointerByte = address => {
       `glyph-pointer oracle reached unpinned byte 01:${address.toString(16)}`);
   return glyphPointerByteMap.get(address);
 };
+const vputMapComposeRomSpan = {address:0x6431,bytes:Buffer.from(
+  'fdcb055e2807473effaab01801a2ddae00dd2341c9','hex')};
+const vputMapComposeByteMap = new Map(Array.from(
+  vputMapComposeRomSpan.bytes,
+  (value, offset) => [vputMapComposeRomSpan.address + offset,value]));
+const vputMapComposeByte = address => {
+  if (!vputMapComposeByteMap.has(address))
+    throw new Error(
+      `VPutMap composition oracle reached unpinned byte 01:${address.toString(16)}`);
+  return vputMapComposeByteMap.get(address);
+};
 const pointModeRomSpan = {address:0x4215, bytes:Buffer.from(
   'fdcb3c5e2803e5182d21409319e5fdcb3c462022f33a5184cdbf20cdc30cd3' +
   '10cdc9203a4f84cdc30cd310cdf13be1e5fdcb024e20017e041003b118071003' +
@@ -1020,6 +1031,51 @@ function runRawGlyphPointerSelection(lead, index) {
     pointerWordAddress:((d << 8 | e) + 2 * l) & 0xffff,
     branchOutcomes,
   };
+}
+
+function runRawVPutMapCompose(screen, width, glyphRow, inverse) {
+  let pc = 0x6431, a = screen, b = 0, c = 0x5a;
+  const d = 0xff << width & 0xff;
+  let ix = 0x9000, zero = false;
+  const branchOutcomes = [];
+  const relative = address => {
+    const value = vputMapComposeByte(address);
+    return value < 0x80 ? value : value - 0x100;
+  };
+  for (let instructions = 0; instructions < 24; instructions++) {
+    const opcode = vputMapComposeByte(pc);
+    if (opcode === 0xfd && vputMapComposeByte(pc + 1) === 0xcb) {
+      zero = !inverse; pc += 4;
+    } else if (opcode === 0x28) {
+      branchOutcomes.push(
+        `01:${pc.toString(16).toUpperCase()}:${zero ? 'taken' : 'fallthrough'}`);
+      pc = zero ? pc + 2 + relative(pc + 1) : pc + 2;
+    } else if (opcode === 0x47 || opcode === 0x41) {
+      if (opcode === 0x47) b = a; else b = c;
+      pc++;
+    } else if (opcode === 0x3e) {
+      a = vputMapComposeByte(pc + 1); pc += 2;
+    } else if (opcode === 0xaa || opcode === 0xb0 || opcode === 0xa2) {
+      if (opcode === 0xaa) a ^= d;
+      else if (opcode === 0xb0) a |= b;
+      else a &= d;
+      a &= 0xff; pc++;
+    } else if (opcode === 0x18) {
+      pc = pc + 2 + relative(pc + 1);
+    } else if (opcode === 0xdd && vputMapComposeByte(pc + 1) === 0xae) {
+      a ^= glyphRow; a &= 0xff; pc += 3;
+    } else if (opcode === 0xdd && vputMapComposeByte(pc + 1) === 0x23) {
+      ix = ix + 1 & 0xffff; pc += 2;
+    } else if (opcode === 0xc9) {
+      return {composedByte:a,widthMask:d,glyphPointerAdvance:ix - 0x9000,
+        restoredB:b,branchOutcomes};
+    } else {
+      throw new Error(
+        `VPutMap composition oracle reached unsupported opcode 0x${opcode.toString(16)} ` +
+        `at 01:${pc.toString(16)}`);
+    }
+  }
+  throw new Error('VPutMap composition oracle exceeded its instruction bound');
 }
 
 function runRawDarkLine(graphX1, graphY1, graphX2, graphY2) {
@@ -6874,6 +6930,67 @@ expectEqual('01:6702 BBh clamp',
   rom.settledPage1GlyphPointerSelection(0xbb,0xff).index,0xf6);
 expectEqual('01:6702 raw high-lead alias',
   rom.settledPage1GlyphPointerSelection(0xff,0x41).table,'EF');
+
+let vputMapComposeStates = 0;
+for (let width = 1; width <= 7; width++) {
+  for (let inverse = 0; inverse <= 1; inverse++) {
+    for (let screen = 0; screen <= 0xff; screen++) {
+      for (let glyphRow = 0; glyphRow <= 0xff; glyphRow++) {
+        const translated = rom.settledPage1VPutMapCompose(
+          screen,width,glyphRow,Boolean(inverse));
+        const raw = runRawVPutMapCompose(
+          screen,width,glyphRow,Boolean(inverse));
+        if (translated.composedByte !== raw.composedByte ||
+            translated.widthMask !== raw.widthMask ||
+            translated.glyphPointerAdvance !== raw.glyphPointerAdvance ||
+            translated.branchOutcomes[0] !== raw.branchOutcomes[0])
+          throw new Error(
+            `01:6431 mismatch for screen=${screen}, width=${width}, ` +
+            `row=${glyphRow}, inverse=${inverse}`);
+        if (raw.restoredB !== 0x5a)
+          throw new Error('01:6444 did not restore B from C');
+        vputMapComposeStates++;
+      }
+    }
+  }
+}
+expectEqual('01:6431 VPutMap composition differential state count',
+  vputMapComposeStates,7 * 2 * 0x100 * 0x100);
+
+let vputMapRowStates = 0;
+for (let width = 1; width <= 7; width++) {
+  const rowMask = (1 << width) - 1;
+  for (let bitOffset = 0; bitOffset <= 7; bitOffset++) {
+    for (let screenWord = 0; screenWord <= 0xffff; screenWord++) {
+      const glyphRow = (screenWord ^ screenWord >>> 7 ^ bitOffset) & rowMask;
+      for (let inverse = 0; inverse <= 1; inverse++) {
+        const translated = rom.settledPage1VPutMapRow(
+          screenWord >>> 8,screenWord & 0xff,bitOffset,width,
+          glyphRow,Boolean(inverse));
+        let expectedWord = screenWord;
+        for (let column = 0; column < width; column++) {
+          const screenMask = 1 << (15 - bitOffset - column);
+          const ink = glyphRow >> (width - 1 - column) & 1;
+          const value = inverse ? ink ^ 1 : ink;
+          expectedWord = value
+            ? expectedWord | screenMask : expectedWord & ~screenMask;
+        }
+        const actualWord = translated.leftByte << 8 | translated.rightByte;
+        if (actualWord !== expectedWord)
+          throw new Error(
+            `01:637E row mismatch for word=${screenWord}, offset=${bitOffset}, ` +
+            `width=${width}, row=${glyphRow}, inverse=${inverse}`);
+        const crosses = bitOffset + width > 8;
+        if (translated.crossesByte !== crosses ||
+            translated.writeOrder.join(',') !== (crosses ? 'right,left' : 'left'))
+          throw new Error('01:637E row write-order mismatch');
+        vputMapRowStates++;
+      }
+    }
+  }
+}
+expectEqual('01:637E VPutMap row alignment state count',
+  vputMapRowStates,7 * 8 * 0x10000 * 2);
 
 for (const [bytes, expected] of [
   [[0x5c,0x00], {codes:[0xc1,0x41,0x5d],length:2,table:'5C',tableIndex:0}],
