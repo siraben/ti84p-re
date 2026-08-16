@@ -1250,7 +1250,7 @@ class CheckedReportTests(unittest.TestCase):
         )
 
         self.assertEqual(2, report["schema"])
-        self.assertEqual(194, len(report["traces"]))
+        self.assertEqual(195, len(report["traces"]))
         self.assertEqual(1006, report["summary"]["branch_outcomes_observed"])
         self.assertEqual(
             1003, report["summary"]["natural_branch_outcomes_observed"]
@@ -1337,11 +1337,19 @@ class CheckedReportTests(unittest.TestCase):
             "fc8b6eb9a9f79624d39f91f42f9bab7555b70d96edb11ce04ea88bca3e08311b",
             mid_leaf_structural_insert["sha256"],
         )
+        nested_structural_insert = next(
+            row for row in report["traces"]
+            if row["label"] == "mathprint_editor_fraction_nested_numerator"
+        )
+        self.assertEqual(
+            "cf3521d2d260459f6cc1ab71293ea27985aac167b1333b2a80356680fb7ebea1",
+            nested_structural_insert["sha256"],
+        )
         self.assertEqual(
             114, report["record_oracles"]["cases"]
         )
         self.assertEqual(
-            1274,
+            1275,
             report["minimized_dynamic_feature_corpus"]["covered_features"],
         )
 
