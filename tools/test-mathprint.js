@@ -229,6 +229,20 @@ const tokenHookDispatchByte = address => {
       `token-hook oracle reached unpinned byte 01:${address.toString(16)}`);
   return tokenHookDispatchByteMap.get(address);
 };
+const glyphAdvanceRomSpans = [
+  {address:0x6137,bytes:Buffer.from('fe28c8fe29c9fe7bc8fe7dc9','hex')},
+  {address:0x6c4f,bytes:Buffer.from('fdcb32562007cdbc6c2002856f2600','hex')},
+  {address:0x6cbc,bytes:Buffer.from('cd376120033e03c9cd3d613e02c9','hex')},
+];
+const glyphAdvanceByteMap = new Map(glyphAdvanceRomSpans.flatMap(span =>
+  Array.from(span.bytes,
+    (value, offset) => [span.address + offset,value])));
+const glyphAdvanceByte = address => {
+  if (!glyphAdvanceByteMap.has(address))
+    throw new Error(
+      `glyph-advance oracle reached unpinned byte 34:${address.toString(16)}`);
+  return glyphAdvanceByteMap.get(address);
+};
 const vputMapComposeRomSpan = {address:0x6431,bytes:Buffer.from(
   'fdcb055e2807473effaab01801a2ddae00dd2341c9','hex')};
 const vputMapComposeByteMap = new Map(Array.from(
@@ -1177,6 +1191,65 @@ function runRawTokenHookDispatch(
     }
   }
   throw new Error('token-hook oracle exceeded its instruction bound');
+}
+
+function runRawGlyphAdvance(code, recordWidth, fontFlagsBit2) {
+  let pc = 0x6c4f, a = code, l = recordWidth;
+  let zero = false;
+  const calls = [];
+  const branchOutcomes = [];
+  const relative = address => {
+    const value = glyphAdvanceByte(address);
+    return value < 0x80 ? value : value - 0x100;
+  };
+  const branch = (condition, address, returned = false) => {
+    branchOutcomes.push(
+      `34:${address.toString(16).toUpperCase()}:` +
+      `${condition ? (returned ? 'returned' : 'taken') : 'fallthrough'}`);
+    pc = condition
+      ? returned ? calls.pop() : address + 2 + relative(address + 1)
+      : address + 1;
+  };
+  for (let instructions = 0; instructions < 32; instructions++) {
+    if (pc === 0x6c5c) return {advance:l,branchOutcomes};
+    const opcode = glyphAdvanceByte(pc);
+    if (opcode === 0xfd) {
+      if (glyphAdvanceByte(pc + 1) !== 0xcb ||
+          glyphAdvanceByte(pc + 2) !== 0x32 ||
+          glyphAdvanceByte(pc + 3) !== 0x56)
+        throw new Error('glyph-advance oracle reached an unknown IY opcode');
+      zero = !fontFlagsBit2; pc += 4;
+    } else if (opcode === 0x20) {
+      const taken = !zero;
+      branchOutcomes.push(
+        `34:${pc.toString(16).toUpperCase()}:` +
+        `${taken ? 'taken' : 'fallthrough'}`);
+      pc = taken ? pc + 2 + relative(pc + 1) : pc + 2;
+    } else if (opcode === 0xcd) {
+      const target = glyphAdvanceByte(pc + 1) |
+        glyphAdvanceByte(pc + 2) << 8;
+      calls.push(pc + 3); pc = target;
+    } else if (opcode === 0xfe) {
+      zero = a === glyphAdvanceByte(pc + 1); pc += 2;
+    } else if (opcode === 0xc8) {
+      branch(zero,pc,true);
+    } else if (opcode === 0xc9) {
+      if (!calls.length)
+        throw new Error('glyph-advance oracle returned past its entry');
+      pc = calls.pop();
+    } else if (opcode === 0x3e) {
+      a = glyphAdvanceByte(pc + 1); pc += 2;
+    } else if (opcode === 0x85) {
+      a = a + l & 0xff; zero = a === 0; pc++;
+    } else if (opcode === 0x6f) {
+      l = a; pc++;
+    } else {
+      throw new Error(
+        `glyph-advance oracle reached unsupported opcode 0x${opcode.toString(16)} ` +
+        `at 34:${pc.toString(16)}`);
+    }
+  }
+  throw new Error('glyph-advance oracle exceeded its instruction bound');
 }
 
 function runRawVPutMapCompose(screen, width, glyphRow, inverse) {
@@ -7563,6 +7636,44 @@ expectThrows('01:6788 token-hook rejects an unknown Catalog2 status',
   RangeError, () => rom.settledPage1TokenHookDispatch(
     true,'unknown',0,false));
 
+let glyphAdvanceStates = 0;
+for (const fontFlagsBit2 of [false,true]) {
+  for (let code = 0; code <= 0xff; code++) {
+    for (let recordWidth = 0; recordWidth <= 0xff; recordWidth++) {
+      const translated = rom.settledPage34GlyphAdvance(
+        code,recordWidth,fontFlagsBit2);
+      const raw = runRawGlyphAdvance(code,recordWidth,fontFlagsBit2);
+      if (translated.advance !== raw.advance ||
+          JSON.stringify(translated.branchOutcomes) !==
+            JSON.stringify(raw.branchOutcomes))
+        throw new Error(
+          `34:6C4F glyph-advance mismatch for code=${code}, ` +
+          `width=${recordWidth}, fontFlags.2=${fontFlagsBit2}`);
+      glyphAdvanceStates++;
+    }
+  }
+}
+expectEqual('34:6C4F glyph-advance differential state count',
+  glyphAdvanceStates,2 * 0x100 * 0x100);
+expectEqual('34:6CBC parenthesis padding wraps like ADD A,L',
+  rom.settledPage34GlyphAdvance(0x28,0xff,false),{
+    code:0x28,recordWidth:0xff,fontFlagsBit2:false,
+    adjustment:3,delimiter:'open-parenthesis',advance:2,
+    branchOutcomes:[
+      '34:6C53:fallthrough','34:6139:returned',
+      '34:6CBF:fallthrough','34:6C58:fallthrough',
+    ],routine:'34:6C4F–6C5B → 34:6CBC–6CC9',
+  });
+expectEqual('34:6CBC brace padding reaches the second classifier',
+  rom.settledPage34GlyphAdvance(0x7d,4,false),{
+    code:0x7d,recordWidth:4,fontFlagsBit2:false,
+    adjustment:2,delimiter:'close-brace',advance:6,
+    branchOutcomes:[
+      '34:6C53:fallthrough','34:6139:fallthrough','34:6CBF:taken',
+      '34:613F:fallthrough','34:6C58:fallthrough',
+    ],routine:'34:6C4F–6C5B → 34:6CBC–6CC9',
+  });
+
 let vputMapComposeStates = 0;
 for (let width = 1; width <= 7; width++) {
   for (let inverse = 0; inverse <= 1; inverse++) {
@@ -9143,6 +9254,7 @@ const regressionExpressions = [
   'L1', 'L1^2', '[A]', 'Y1', 'Str1', 'cumSum(L1)',
   'remainder(Ans,2)', '1/2', '1//2', 'X^2', '(X+1)^2', 'X^(1+2)',
   'sqrt(X)^2', 'abs(X)^2', 'exp(12)', 'tenpow(X^2)',
+  'sqrt(sqrt(1//2))', 'X^sqrt(1//2)',
   'logbase(12,345)', 'logbase(3,1//2)',
   'matrix(1,1,1)', 'matrix(2,2,1,0,0,1)',
   'matrix(2,3,4,-2,0,-7,8,8)', 'matrix(2,2,sqrt(2),X^2,3,4)',
@@ -9201,7 +9313,7 @@ expectEqual('browser presents a selective mechanism-diverse example set',
 expectEqual('full RE regression corpus remains independent of the visible gallery',
   [regressionExpressions.length,
    mp.presets.every(([, expression]) => regressionExpressions.includes(expression))],
-  [52, true]);
+  [54, true]);
 
 const sharedMarkerPathClasses = [
   {a:0x00,bit:false,word:0,terminal:'bitmap_61BE',count:32505856,

@@ -4300,6 +4300,89 @@ def symbolic_token_hook_dispatch_paths() -> list[dict[str, object]]:
     ]
 
 
+def glyph_advance_path(
+    code: int,
+    record_width: int,
+    font_flags_bit_2: int,
+) -> dict[str, object]:
+    """Translate the font-width and delimiter tail at 34:6C4F–6C5B."""
+
+    if not 0 <= code <= 0xFF:
+        raise ValueError("display code must be an unsigned byte")
+    if not 0 <= record_width <= 0xFF:
+        raise ValueError("font-record width must be an unsigned byte")
+    font_flags_bit_2 = int(bool(font_flags_bit_2))
+    outcomes = [
+        f"34:6C53:{'taken' if font_flags_bit_2 else 'fallthrough'}"
+    ]
+    adjustment = 0
+    delimiter = "none"
+    if not font_flags_bit_2:
+        open_parenthesis = code == 0x28
+        outcomes.append(
+            f"34:6139:{'returned' if open_parenthesis else 'fallthrough'}"
+        )
+        parenthesis = open_parenthesis or code == 0x29
+        outcomes.append(
+            f"34:6CBF:{'fallthrough' if parenthesis else 'taken'}"
+        )
+        if parenthesis:
+            adjustment = 3
+            delimiter = "parenthesis"
+        else:
+            open_brace = code == 0x7B
+            outcomes.append(
+                f"34:613F:{'returned' if open_brace else 'fallthrough'}"
+            )
+            if open_brace or code == 0x7D:
+                adjustment = 2
+                delimiter = "brace"
+        outcomes.append(
+            f"34:6C58:{'taken' if delimiter == 'none' else 'fallthrough'}"
+        )
+    return {
+        "terminal": (
+            "font_width" if delimiter == "none" else f"{delimiter}_width"
+        ),
+        "advance": (record_width + adjustment) & 0xFF,
+        "adjustment": adjustment,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_glyph_advance_paths() -> list[dict[str, object]]:
+    """Partition both font-flag values and every code/width byte pair."""
+
+    classes: dict[tuple[str, tuple[str, ...]], dict[str, object]] = {}
+    for font_flags_bit_2 in range(2):
+        for code in range(0x100):
+            result = glyph_advance_path(code, 0, font_flags_bit_2)
+            key = (
+                str(result["terminal"]),
+                tuple(str(item) for item in result["branch_outcomes"]),
+            )
+            row = classes.setdefault(key, {
+                "projected_input_count": 0,
+                "representative_states": [],
+            })
+            row["projected_input_count"] += 0x100
+            states = row["representative_states"]
+            if len(states) < 4:
+                states.append({
+                    "code": code,
+                    "record_width": 0,
+                    "font_flags_bit_2": font_flags_bit_2,
+                })
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
 def vputmap_alignment_gate_path(
     bit_offset: int,
     width: int,
@@ -4962,6 +5045,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             "01:6788–67B9; 3B:7B8D–7B9B",
             2 * 4 * 0x10000 * 2,
             symbolic_token_hook_dispatch_paths(),
+        ),
+        (
+            "glyph_advance",
+            "34:6C4F–6C5B; 34:6CBC–6CC9",
+            2 * 0x100**2,
+            symbolic_glyph_advance_paths(),
         ),
         (
             "vputmap_alignment_gate",
@@ -6576,6 +6665,19 @@ def build_report(
                 "scope": (
                     "complete dispatch predicate and offset-word domain; "
                     "arbitrary installed hook body behavior remains external"
+                ),
+            },
+            "glyph_advance": {
+                "routine": "34:6C4F–6C5B; 34:6CBC–6CC9",
+                "state": [
+                    "display-code byte", "font-record width byte",
+                    "fontFlags.2",
+                ],
+                "projected_input_domain": 2 * 0x100**2,
+                "terminal_classes": symbolic_glyph_advance_paths(),
+                "scope": (
+                    "complete display-code, width, and font-flag domain, "
+                    "including byte-width padding wraparound"
                 ),
             },
             "vputmap_alignment_gate": {
