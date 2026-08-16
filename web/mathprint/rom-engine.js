@@ -289,6 +289,14 @@
     return Array.from(value, (item, index) => byte(item, `${label} byte ${index}`));
   }
 
+  function editorOpBuffer(value, label) {
+    if (!Array.isArray(value) && !(value instanceof Uint8Array))
+      throw new TypeError(`${label} must be an eleven-byte array`);
+    if (value.length !== 11)
+      throw new RangeError(`${label} must contain exactly eleven bytes`);
+    return Array.from(value, (item, index) => byte(item, `${label} byte ${index}`));
+  }
+
   // _FindAlphaUp/_FindAlphaDn normalize the type class through 07:5247 and
   // subtract the eight OP name bytes from OPx+8 down to OPx+1. Borrow
   // propagation makes OPx+1 the most-significant alphabetic byte. Program
@@ -322,7 +330,7 @@
   // list encodings, including 72h and 3Ah, use the fixed-token region. The
   // original OP1 is retained because the carry return restores it from OP3.
   function editorPrepareAlphaSearchKey(op1Value, label) {
-    const original = editorNineByteBuffer(op1Value, label);
+    const original = editorOpBuffer(op1Value, label);
     const key = original.slice();
     const type = key[0] & 0x1f;
     const listClass = type === 0x01 || type === 0x0d;
@@ -400,9 +408,14 @@
       if (next >= cursor || next < bound)
         throw new RangeError(
           `alphabetic VAT entry at 0x${cursor.toString(16)} has an invalid next cursor`);
-      const op1 = [type,...names.slice(0,8)];
-      while (op1.length < 9) op1.push(0);
-      entries.push({op1,pointer:cursor,page:ram[cursor - 5]});
+      const identity = [type,...names.slice(0,8)];
+      while (identity.length < 9) identity.push(0);
+      entries.push({
+        identity,
+        continuationByte:ram[next],
+        pointer:cursor,
+        page:ram[cursor - 5],
+      });
       cursor = next;
     }
     if (cursor !== bound)
@@ -437,10 +450,11 @@
   }
 
   // Translate the page-39 use of 07:50B5/50B8 over a logical VAT snapshot.
-  // Each entry supplies its nine-byte OP-format identity and the address of
-  // its VAT type byte. The 2.55MP routine discards caller A and always compares
-  // normalized type classes. It keeps the nearest qualifying name in OP3 and
-  // returns it in both OP1 and OP3 when the scan ends.
+  // Each entry supplies its nine-byte OP-format identity, the byte immediately
+  // below its VAT record, and the address of its VAT type byte. The 2.55MP
+  // routine discards caller A and always compares normalized type classes. It
+  // keeps the nearest qualifying name in OP3 and returns the complete 11-byte
+  // OP scratch image in both OP1 and OP3 when the scan ends.
   function editorFindAlphaVat(direction, op1Value, vatSnapshot, context = {}) {
     if (direction !== 'up' && direction !== 'down')
       throw new RangeError('alphabetic VAT-search direction must be up or down');
@@ -466,14 +480,17 @@
       if (!entry || typeof entry !== 'object' || Array.isArray(entry))
         throw new TypeError(`alphabetic VAT entry ${index} must be an object`);
       const identity = editorNineByteBuffer(
-        entry.op1, `alphabetic VAT entry ${index} OP1`);
+        entry.identity, `alphabetic VAT entry ${index} identity`);
+      const continuationByte = byte(
+        entry.continuationByte,
+        `alphabetic VAT entry ${index} continuation byte`);
       if (!Number.isInteger(entry.pointer) || entry.pointer < 0 ||
           entry.pointer > 0xffff)
         throw new RangeError(
           `alphabetic VAT entry ${index} pointer must be an unsigned word`);
       const page = byte(entry.page, `alphabetic VAT entry ${index} page`);
       identity[0] &= 0x1f;
-      return {identity, pointer:entry.pointer, page, index};
+      return {identity, continuationByte, pointer:entry.pointer, page, index};
     });
     for (const entry of entries) {
       if (editorAlphaTypeClass(entry.identity[0]) !== sourceClass)
@@ -515,9 +532,14 @@
         selectedIndex:null, compared, routine:direction === 'up'
           ? '07:50B5 (_FindAlphaUp)' : '07:50B8 (_FindAlphaDn)',
       };
+    const selectedOp = [
+      ...selected.identity,
+      selected.continuationByte,
+      0,
+    ];
     return {
       direction, sameType:true, sourceClass, carry:false, a:0, zero:true,
-      op1:selected.identity.slice(), op3:selected.identity.slice(),
+      op1:selectedOp.slice(), op3:selectedOp.slice(),
       vatPointer:selected.pointer, selectedIndex:selected.index, compared,
       routine:direction === 'up'
         ? '07:50B5 (_FindAlphaUp)' : '07:50B8 (_FindAlphaDn)',
@@ -543,7 +565,7 @@
     if (!searchState || typeof searchState !== 'object' ||
         Array.isArray(searchState))
       throw new TypeError('editor saved operand search state must be an object');
-    let op1 = editorNineByteBuffer(buffers.op1, 'editor OP1');
+    let op1 = editorOpBuffer(buffers.op1, 'editor OP1');
     let savedE7 = editorNineByteBuffer(buffers.savedE7, 'editor saved E7');
     let savedF2 = editorNineByteBuffer(buffers.savedF2, 'editor saved F2');
     const incomingCarry = searchState.incomingCarry === undefined ? false :
@@ -565,7 +587,7 @@
       };
     const restoreRoutine = source === 'saved-E7' ? '39:5AE1' : '39:5B00';
     const sourceBuffer = source === 'saved-E7' ? savedE7 : savedF2;
-    op1 = sourceBuffer.slice();
+    op1 = [...sourceBuffer,op1[9],op1[10]];
     const searchInput = op1.slice();
     const copies = [{
       from:source === 'saved-E7' ? 0x85e7 : 0x85f2,
@@ -583,15 +605,15 @@
     delete alphaOptions.incomingCarry;
     const search = editorAlphaSearch(
       direction,editorClass,editorSubClass,alphaOptions);
-    op1 = editorNineByteBuffer(search.op1, 'editor saved operand search OP1');
+    op1 = editorOpBuffer(search.op1, 'editor saved operand search OP1');
     if (search.carry)
       return {
         ...base, branch:'search-carry', searchCalled:true,
         searchInput, search, carry:true, copies,
         buffers:{op1,savedE7,savedF2},
       };
-    if (source === 'saved-E7') savedE7 = op1.slice();
-    else savedF2 = op1.slice();
+    if (source === 'saved-E7') savedE7 = op1.slice(0,9);
+    else savedF2 = op1.slice(0,9);
     const saveAddress = source === 'saved-E7' ? 0x85e7 : 0x85f2;
     const saveRoutine = source === 'saved-E7' ? '39:5AD2' : '39:5B08';
     copies.push({
@@ -628,7 +650,7 @@
     byte(editorSubClass, 'editor alpha-search subclass');
     if (!options || typeof options !== 'object' || Array.isArray(options))
       throw new TypeError('editor alpha-search options must be an object');
-    let currentOp1 = editorNineByteBuffer(
+    let currentOp1 = editorOpBuffer(
       options.op1, 'editor alpha-search OP1');
     const special = options.specialResult === undefined ? null : options.specialResult;
     if (special !== null && (!special || typeof special !== 'object' ||
