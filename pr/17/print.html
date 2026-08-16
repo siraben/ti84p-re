@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-595eab80.js";
+            window.path_to_searchindex_js = "searchindex-4b9004ca.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14997,7 +14997,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 19 finite models. It also computes an
+complete path-equivalence class in 20 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -15008,6 +15008,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </thead>
 <tbody>
 <tr><td>Structural scan-kind dispatch</td><td style="text-align: right">256</td><td style="text-align: right">7</td><td style="text-align: right">12</td><td style="text-align: right">7</td></tr>
+<tr><td>Structural-depth gate</td><td style="text-align: right">256</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
 <tr><td>Raised extended-token classifier</td><td style="text-align: right">3,047</td><td style="text-align: right">12</td><td style="text-align: right">22</td><td style="text-align: right">10</td></tr>
 <tr><td>Five-byte raised-name loop</td><td style="text-align: right">493,112,577</td><td style="text-align: right">125</td><td style="text-align: right">10</td><td style="text-align: right">4</td></tr>
 <tr><td>Eight-byte raised-name loop</td><td style="text-align: right">24,977,631,672,321</td><td style="text-align: right">1,021</td><td style="text-align: right">10</td><td style="text-align: right">4</td></tr>
@@ -15029,8 +15030,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 19 models contain 1,312 path classes and 179 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 93 representatives. Each
+<p>The 20 models contain 1,314 path classes and 181 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 95 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -16072,11 +16073,22 @@ appearing as a renderer mismatch. [confirmed]</p>
 <p>The RAM oracle avoids an instruction trace for each fuzz case. TilEm still runs
 the calculator to accept the key sequence and produce the screen, but the
 ordinary case retains only a RAM dump and screenshot. A mismatched graph gets
-one slower key-cadence retry. The depth-four seed-505 corpus has 20 calculator
-graphs matching their requested ASTs and 20 exact pixel matches. In case 14,
-the first calculator entry omits native multiply token <code>82h</code>; the graph check
-rejects that entry. The slower accepted graph contains the token and matches
-the translated framebuffer. [confirmed]</p>
+retries at two slower key cadences. The final retry uses a <code>0.24</code>-second key
+delay and a <code>0.12</code>-second inter-key wait. The depth-four seed-505 corpus has 20
+calculator graphs matching their requested ASTs and 20 exact pixel matches. In
+case 14, the first calculator entry omits native multiply token <code>82h</code>; the graph
+check rejects that entry. A slower accepted graph contains the token and
+matches the translated framebuffer. [confirmed]</p>
+<p>The differential generator computes structural-record depth independently
+from its syntactic generation depth. Calculator comparisons retain expressions
+at depth four or below. Deeper generated ASTs remain valid inputs to the
+JavaScript renderer, but the home-screen editor cannot construct their fifth
+structural record through the path below. The optional
+<code>--validate-entry-depth</code> run checks accepted depth-four and rejected depth-five
+forms for every translated structural constructor. Seed <code>606</code> at generation
+depth five rejects one over-limit candidate, replaces it, and produces 15 exact
+decoded-graph and pixel matches with no inconclusive case. One long case needs
+the final key-cadence retry. [confirmed]</p>
 <p>The browser’s generated path encodes native calculator bytes, scans their
 one- and two-byte token boundaries through translations of <code>34:58F9</code> and
 <code>34:5911</code>, and splits nested arguments through the page-<code>34</code> parse-ahead state
@@ -16193,14 +16205,32 @@ tokens through <code>34:5A14</code>. The JavaScript scanner applies those compar
 ROM tables directly. Generic function runs can therefore contain translated
 structural children without depending on a list of preview function names.
 [confirmed]</p>
-<p><code>EF36h</code> takes an exceptional editor path. <code>34:5935</code> maps it to type <code>0x2C</code>,
-and <code>34:4690</code> branches through <code>34:473A</code> instead of using a row at <code>34:59AC</code>.
-<code>ram:2E41</code> reaches <code>35:7B37</code>, which checks the structural-depth byte at
-<code>0x8DB6</code>. The routine increments that byte and compares it with <code>0x05</code>. Values
-<code>0x00</code>–<code>0x03</code> return <code>A=0x2C</code> with carry clear. Values <code>0x04</code>–<code>0xFE</code> return
-<code>A=0x03</code> with carry set. An input of <code>0xFF</code> wraps to zero and takes the
-carry-clear path. On the carry-set path, <code>34:54D2</code> sets <code>(IY+45h).6</code> and writes
-<code>0x05</code> to <code>0x9D20</code>. [confirmed]</p>
+<p>Structural insertion through <code>34:473A</code> calls the bjump descriptor at
+<code>ram:2E41</code>, whose body is <code>35:7B37</code>. The body reads the structural-depth byte
+at <code>0x8DB6</code>, increments it modulo 256, and compares it with <code>0x05</code>. Input values
+<code>0x00</code>–<code>0x03</code> preserve <code>A</code> and return with carry clear. Values <code>0x04</code>–<code>0xFE</code>
+return <code>A=0x03</code> with carry set. Input <code>0xFF</code> wraps to zero and takes the
+carry-clear path. The caller sends carry set through <code>34:473F</code> to <code>34:54D2</code>,
+which sets <code>(IY+45h).6</code> and writes <code>0x05</code> to <code>0x9D20</code>. [confirmed]</p>
+<p>A normal POWER insertion reaches the gate with <code>A=0x2A</code>. The depth-four trace
+enters with depth byte <code>0x03</code>, increments it to <code>0x04</code>, and returns through
+<code>34:4744</code> to insert the record. The depth-five trace enters with <code>0x04</code>, returns
+<code>A=0x03</code> with carry set, and reaches <code>34:54D2</code>. The reproduction macros are
+<code>tools/macros/mathprint-depth4-power-accept.macro</code> and
+<code>tools/macros/mathprint-depth5-power-reject.macro</code>; their trace SHA-256 values
+are <code>66c3c43dc306cbf43ba9579171824f180faff7377a23f33b584e07bf5dba78d5</code>
+and <code>b8355cb4a58eb2f0a97dd17238e900705c20c5d99ab80f60ee16aa1f876e1f3a</code>.
+<code>tools/mathprint-depth-limit-oracle.json</code> records the branch states. [confirmed]</p>
+<p>Paired calculator runs place power, fraction, radical, nth-root, absolute,
+integral, summation, <code>nDeriv(</code>, $e^x$, $10^x$, and log-base at the same
+boundary. All 11 depth-four forms produce the requested decoded graph and
+pixel-exact JavaScript frame. All 11 depth-five forms reject the requested
+record. This is a calculator-entry limit; it does not limit programmatically
+constructed JavaScript ASTs or decoded record graphs. [confirmed]</p>
+<p><code>EF36h</code> also takes this gate. <code>34:5935</code> maps it to type <code>0x2C</code>, and <code>34:4690</code>
+branches through <code>34:473A</code> instead of using a row at <code>34:59AC</code>. The accepted
+gate path preserves <code>A=0x2C</code>; the rejected path returns <code>A=0x03</code> as above.
+[confirmed]</p>
 <p>Below the cap, <code>34:58A0</code> inserts <code>EF 2C 00 00 EF 2D</code>. <code>34:4862</code> allocates the
 type-<code>0x2C</code> record and patches its ID into the marker. The allocator at
 <code>33:4F42</code> supports types <code>0x1F</code>–<code>0x2B</code>; type <code>0x2C</code> indexes the adjacent bytes
