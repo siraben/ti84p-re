@@ -5524,6 +5524,14 @@
             throw new RangeError(
               'leading fraction insertion requires cursor byte zero');
           trailingParts = leaf.parts.slice(1).map(clone);
+          if (trailingParts.length) {
+            const first = trailingParts[0];
+            const tokens = first && (first.kind === 'tokens' ||
+              first.kind === 'extendedToken') ? first.tokens : null;
+            if (Array.isArray(tokens) && tokens.length === 2 &&
+                tokens[0] === 0xef && tokens[1] === 0x1e)
+              trailingParts.shift();
+          }
           numerator = {
             kind:'sequence',parts:[
               {
@@ -5545,8 +5553,11 @@
             editor_record_id:structuralId,
             editor_record_byte13:recordByte13,
           };
-          return {
+          return trailingParts.length ? {
             kind:'sequence',parts:[insertedFraction,...trailingParts],
+            editor_leaf_record_id:originalCursor.record_id,
+          } : {
+            ...insertedFraction,
             editor_leaf_record_id:originalCursor.record_id,
           };
         }
