@@ -61,6 +61,7 @@ from analyze_mathprint_saturation import (
     source_lookup_domain,
     structural_depth_gate_path,
     structural_insertion_dispatch_path,
+    token_hook_dispatch_path,
     indexed_table_domain,
     load_trace_cache,
     routine_path_terminal,
@@ -113,6 +114,7 @@ from analyze_mathprint_saturation import (
     symbolic_vputmap_byte_composition_paths,
     symbolic_structural_depth_gate_paths,
     symbolic_structural_insertion_dispatch_paths,
+    symbolic_token_hook_dispatch_paths,
     symbolic_type1f_paths,
     type1f_entry_abis,
     type1f_path,
@@ -341,13 +343,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(3339, report["path_equivalence_class_count"])
-        self.assertEqual(3339, report["representative_path_corpus_count"])
-        self.assertEqual(433, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(3348, report["path_equivalence_class_count"])
+        self.assertEqual(3348, report["representative_path_corpus_count"])
+        self.assertEqual(443, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            203, report["per_domain_minimum_branch_outcome_corpus_count"]
+            208, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(41, len(report["domains"]))
+        self.assertEqual(42, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -1196,6 +1198,26 @@ class SymbolicHandlerTests(unittest.TestCase):
         self.assertEqual("EF", high["terminal"])
         self.assertEqual("01:6762:taken", high["branch_outcomes"][-1])
 
+    def test_token_hook_dispatch_partitions_complete_offset_domain(self) -> None:
+        paths = symbolic_token_hook_dispatch_paths()
+
+        self.assertEqual(9, len(paths))
+        self.assertEqual(2 * 4 * 0x10000 * 2, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        inactive = token_hook_dispatch_path(0, "newer", 0xffff, 1)
+        self.assertEqual("rom_pointer", inactive["terminal"])
+        self.assertEqual(["01:678C:taken"], inactive["branch_outcomes"])
+        extended = token_hook_dispatch_path(1, "invalid", 0x0547, 1)
+        self.assertEqual(0x0547, extended["hook_bc"])
+        self.assertEqual(0x000c, extended["hook_de"])
+        self.assertEqual("external_token_hook", extended["terminal"])
+        rejected = token_hook_dispatch_path(1, "exact", 0x0547, 0)
+        self.assertEqual(
+            "disable_hook_and_use_rom_pointer", rejected["terminal"]
+        )
+        self.assertEqual("01:67A2:taken", rejected["branch_outcomes"][1])
+
     def test_vputmap_alignment_gate_partitions_all_valid_positions(self) -> None:
         paths = symbolic_vputmap_alignment_gate_paths()
 
@@ -1763,7 +1785,7 @@ class CheckedReportTests(unittest.TestCase):
             matrix_entry["sha256"],
         )
         self.assertEqual(
-            3339,
+            3348,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(

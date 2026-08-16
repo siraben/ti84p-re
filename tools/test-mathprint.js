@@ -217,6 +217,18 @@ const glyphPointerByte = address => {
       `glyph-pointer oracle reached unpinned byte 01:${address.toString(16)}`);
   return glyphPointerByteMap.get(address);
 };
+const tokenHookDispatchRomSpan = {address:0x6788,bytes:Buffer.from(
+  'fdcb3546282a7e32659dc5e5215342ebb7ed52eb010000cd537c300f200db721' +
+  '4605ed523005424b110c00e1cda33b23c9', 'hex')};
+const tokenHookDispatchByteMap = new Map(Array.from(
+  tokenHookDispatchRomSpan.bytes,
+  (value, offset) => [tokenHookDispatchRomSpan.address + offset,value]));
+const tokenHookDispatchByte = address => {
+  if (!tokenHookDispatchByteMap.has(address))
+    throw new Error(
+      `token-hook oracle reached unpinned byte 01:${address.toString(16)}`);
+  return tokenHookDispatchByteMap.get(address);
+};
 const vputMapComposeRomSpan = {address:0x6431,bytes:Buffer.from(
   'fdcb055e2807473effaab01801a2ddae00dd2341c9','hex')};
 const vputMapComposeByteMap = new Map(Array.from(
@@ -1066,6 +1078,105 @@ function runRawGlyphPointerSelection(lead, index) {
     pointerWordAddress:((d << 8 | e) + 2 * l) & 0xffff,
     branchOutcomes,
   };
+}
+
+function runRawTokenHookDispatch(
+    hookActive, catalogStatus, tokenOffset, tokenHookAccepted) {
+  const pointerWordEnd = tokenOffset + 0x4253 & 0xffff;
+  let pc = 0x6788, a = 0x5a, b = 0, c = 0, d = pointerWordEnd >>> 8;
+  let e = pointerWordEnd & 0xff, h = 0x90, l = 0x00;
+  let zero = false, carry = false;
+  const stack = [];
+  const branchOutcomes = [];
+  const relative = address => {
+    const value = tokenHookDispatchByte(address);
+    return value < 0x80 ? value : value - 0x100;
+  };
+  const branch = (condition, address) => {
+    branchOutcomes.push(
+      `01:${address.toString(16).toUpperCase()}:` +
+      `${condition ? 'taken' : 'fallthrough'}`);
+    pc = condition ? address + 2 + relative(address + 1) : address + 2;
+  };
+  const pair = (high, low) => high << 8 | low;
+  const split = value => [value >>> 8 & 0xff,value & 0xff];
+  for (let instructions = 0; instructions < 48; instructions++) {
+    const opcode = tokenHookDispatchByte(pc);
+    if (opcode === 0xfd) {
+      if (tokenHookDispatchByte(pc + 1) !== 0xcb ||
+          tokenHookDispatchByte(pc + 2) !== 0x35 ||
+          tokenHookDispatchByte(pc + 3) !== 0x46)
+        throw new Error('token-hook oracle reached an unknown IY opcode');
+      zero = !hookActive; pc += 4;
+    } else if (opcode === 0x28) {
+      branch(zero,pc);
+    } else if (opcode === 0x30) {
+      branch(!carry,pc);
+    } else if (opcode === 0x20) {
+      branch(!zero,pc);
+    } else if (opcode === 0x7e) {
+      a = 0x07; pc++;
+    } else if (opcode === 0x32) {
+      pc += 3;
+    } else if (opcode === 0xc5) {
+      stack.push(pair(b,c)); pc++;
+    } else if (opcode === 0xe5) {
+      stack.push(pair(h,l)); pc++;
+    } else if (opcode === 0xe1) {
+      [h,l] = split(stack.pop()); pc++;
+    } else if (opcode === 0x21) {
+      l = tokenHookDispatchByte(pc + 1);
+      h = tokenHookDispatchByte(pc + 2); pc += 3;
+    } else if (opcode === 0xeb) {
+      [d,e,h,l] = [h,l,d,e]; pc++;
+    } else if (opcode === 0xb7) {
+      zero = a === 0; carry = false; pc++;
+    } else if (opcode === 0xed && tokenHookDispatchByte(pc + 1) === 0x52) {
+      const result = pair(h,l) - pair(d,e) - (carry ? 1 : 0);
+      [h,l] = split(result & 0xffff);
+      carry = result < 0; zero = (result & 0xffff) === 0; pc += 2;
+    } else if (opcode === 0x01) {
+      c = tokenHookDispatchByte(pc + 1);
+      b = tokenHookDispatchByte(pc + 2); pc += 3;
+    } else if (opcode === 0xcd && tokenHookDispatchByte(pc + 1) === 0x53 &&
+               tokenHookDispatchByte(pc + 2) === 0x7c) {
+      ({carry,zero} = {
+        invalid:{carry:true,zero:true}, older:{carry:true,zero:false},
+        exact:{carry:false,zero:true}, newer:{carry:false,zero:false},
+      }[catalogStatus]);
+      pc += 3;
+    } else if (opcode === 0x42 || opcode === 0x4b) {
+      if (opcode === 0x42) b = d; else c = e;
+      pc++;
+    } else if (opcode === 0x11) {
+      e = tokenHookDispatchByte(pc + 1);
+      d = tokenHookDispatchByte(pc + 2); pc += 3;
+    } else if (opcode === 0xcd && tokenHookDispatchByte(pc + 1) === 0xa3 &&
+               tokenHookDispatchByte(pc + 2) === 0x3b) {
+      branchOutcomes.push(
+        `3B:7B95:${tokenHookAccepted ? 'taken' : 'fallthrough'}`);
+      if (tokenHookAccepted) return {
+        hookBC:pair(b,c),hookDE:pair(d,e),source:'external-token-hook',
+        continuation:'external-hook-boundary',branchOutcomes,
+      };
+      pc += 3;
+    } else if (opcode === 0x23) {
+      [h,l] = split(pair(h,l) + 1 & 0xffff); pc++;
+    } else if (opcode === 0xc9) {
+      return {
+        hookBC:hookActive ? pair(b,c) : null,
+        hookDE:hookActive ? pair(d,e) : null,source:'rom',
+        continuation:hookActive
+          ? 'disable-hook-and-increment-string-pointer'
+          : 'increment-string-pointer',branchOutcomes,
+      };
+    } else {
+      throw new Error(
+        `token-hook oracle reached unsupported opcode 0x${opcode.toString(16)} ` +
+        `at 01:${pc.toString(16)}`);
+    }
+  }
+  throw new Error('token-hook oracle exceeded its instruction bound');
 }
 
 function runRawVPutMapCompose(screen, width, glyphRow, inverse) {
@@ -7413,6 +7524,44 @@ expectEqual('01:6702 BBh clamp',
   rom.settledPage1GlyphPointerSelection(0xbb,0xff).index,0xf6);
 expectEqual('01:6702 raw high-lead alias',
   rom.settledPage1GlyphPointerSelection(0xff,0x41).table,'EF');
+
+let tokenHookDispatchStates = 0;
+for (const hookActive of [false,true]) {
+  for (const catalogStatus of ['invalid','older','exact','newer']) {
+    for (const tokenOffset of [0,0x0546,0x0547,0xffff]) {
+      for (const tokenHookAccepted of [false,true]) {
+        const translated = rom.settledPage1TokenHookDispatch(
+          hookActive,catalogStatus,tokenOffset,tokenHookAccepted);
+        const raw = runRawTokenHookDispatch(
+          hookActive,catalogStatus,tokenOffset,tokenHookAccepted);
+        expectEqual(
+          `01:6788 token-hook ${hookActive} ${catalogStatus} ` +
+          `${tokenOffset.toString(16)} ${tokenHookAccepted}`,{
+            hookBC:translated.hookBC,hookDE:translated.hookDE,
+            source:translated.source,continuation:translated.continuation,
+            branchOutcomes:translated.branchOutcomes,
+          },raw);
+        tokenHookDispatchStates++;
+      }
+    }
+  }
+}
+expectEqual('01:6788 token-hook boundary differential state count',
+  tokenHookDispatchStates,64);
+expectEqual('01:67AC prepares extended token-hook arguments',
+  rom.settledPage1TokenHookDispatch(
+    true,'invalid',0x0547,true),{
+      hookActive:true,catalogStatus:'invalid',tokenOffset:0x0547,
+      tokenHookAccepted:true,hookCommand:'token',hookBC:0x0547,hookDE:0x000c,
+      source:'external-token-hook',continuation:'external-hook-boundary',
+      branchOutcomes:[
+        '01:678C:fallthrough','01:67A2:fallthrough',
+        '01:67A4:fallthrough','01:67AC:fallthrough','3B:7B95:taken',
+      ],routine:'01:6788–67B9 → 3B:7B8D–7B9B',
+    });
+expectThrows('01:6788 token-hook rejects an unknown Catalog2 status',
+  RangeError, () => rom.settledPage1TokenHookDispatch(
+    true,'unknown',0,false));
 
 let vputMapComposeStates = 0;
 for (let width = 1; width <= 7; width++) {

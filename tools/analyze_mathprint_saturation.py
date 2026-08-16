@@ -4201,6 +4201,105 @@ def symbolic_smallfont_pointer_selection_paths() -> list[dict[str, object]]:
     ]
 
 
+def token_hook_dispatch_path(
+    hook_active: int,
+    catalog_status: str,
+    token_offset: int,
+    token_hook_accepted: int,
+) -> dict[str, object]:
+    """Translate 01:6788–67B9 and the page-3B token-hook gate."""
+
+    hook_active = int(bool(hook_active))
+    token_hook_accepted = int(bool(token_hook_accepted))
+    if catalog_status not in {"invalid", "older", "exact", "newer"}:
+        raise ValueError("unknown Catalog2 hook status")
+    if not 0 <= token_offset <= 0xFFFF:
+        raise ValueError("token-table offset must be an unsigned word")
+    outcomes = [
+        f"01:678C:{'fallthrough' if hook_active else 'taken'}"
+    ]
+    if not hook_active:
+        return {
+            "terminal": "rom_pointer",
+            "hook_bc": None,
+            "hook_de": None,
+            "branch_outcomes": outcomes,
+        }
+
+    catalog_carry = catalog_status in {"invalid", "older"}
+    catalog_zero = catalog_status in {"invalid", "exact"}
+    outcomes.append(
+        f"01:67A2:{'fallthrough' if catalog_carry else 'taken'}"
+    )
+    hook_bc = 0
+    hook_de = token_offset
+    if catalog_carry:
+        outcomes.append(
+            f"01:67A4:{'fallthrough' if catalog_zero else 'taken'}"
+        )
+        if catalog_zero:
+            small_offset = token_offset <= 0x0546
+            outcomes.append(
+                f"01:67AC:{'taken' if small_offset else 'fallthrough'}"
+            )
+            if not small_offset:
+                hook_bc = token_offset
+                hook_de = 0x000C
+
+    outcomes.append(
+        f"3B:7B95:{'taken' if token_hook_accepted else 'fallthrough'}"
+    )
+    return {
+        "terminal": (
+            "external_token_hook" if token_hook_accepted
+            else "disable_hook_and_use_rom_pointer"
+        ),
+        "hook_bc": hook_bc,
+        "hook_de": hook_de,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_token_hook_dispatch_paths() -> list[dict[str, object]]:
+    """Partition the complete hook predicates and token-offset word domain."""
+
+    classes: dict[tuple[str, tuple[str, ...]], dict[str, object]] = {}
+    offset_classes = ((0, 0x0547), (0x0547, 0x10000 - 0x0547))
+    for hook_active in range(2):
+        for catalog_status in ("invalid", "older", "exact", "newer"):
+            for token_offset, multiplicity in offset_classes:
+                for token_hook_accepted in range(2):
+                    result = token_hook_dispatch_path(
+                        hook_active, catalog_status, token_offset,
+                        token_hook_accepted,
+                    )
+                    key = (
+                        str(result["terminal"]),
+                        tuple(str(item) for item in result["branch_outcomes"]),
+                    )
+                    row = classes.setdefault(key, {
+                        "projected_input_count": 0,
+                        "representative_states": [],
+                    })
+                    row["projected_input_count"] += multiplicity
+                    states = row["representative_states"]
+                    if len(states) < 4:
+                        states.append({
+                            "hook_active": hook_active,
+                            "catalog_status": catalog_status,
+                            "token_offset": token_offset,
+                            "token_hook_accepted": token_hook_accepted,
+                        })
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
 def vputmap_alignment_gate_path(
     bit_offset: int,
     width: int,
@@ -4857,6 +4956,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             "01:6702–6781",
             0x100**2,
             symbolic_smallfont_pointer_selection_paths(),
+        ),
+        (
+            "token_hook_dispatch",
+            "01:6788–67B9; 3B:7B8D–7B9B",
+            2 * 4 * 0x10000 * 2,
+            symbolic_token_hook_dispatch_paths(),
         ),
         (
             "vputmap_alignment_gate",
@@ -6455,7 +6560,22 @@ def build_report(
                 "terminal_classes": symbolic_smallfont_pointer_selection_paths(),
                 "scope": (
                     "complete raw selector byte domain through the pointer-word "
-                    "address; token-hook dispatch at 01:6788 remains external"
+                    "address"
+                ),
+            },
+            "token_hook_dispatch": {
+                "routine": "01:6788–67B9; 3B:7B8D–7B9B",
+                "state": [
+                    "tokenHookActive",
+                    "Catalog2 header/version flag class",
+                    "token-table offset word",
+                    "token-hook wrapper acceptance flag",
+                ],
+                "projected_input_domain": 2 * 4 * 0x10000 * 2,
+                "terminal_classes": symbolic_token_hook_dispatch_paths(),
+                "scope": (
+                    "complete dispatch predicate and offset-word domain; "
+                    "arbitrary installed hook body behavior remains external"
                 ),
             },
             "vputmap_alignment_gate": {

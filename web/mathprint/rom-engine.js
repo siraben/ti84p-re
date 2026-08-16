@@ -4050,6 +4050,70 @@
     };
   }
 
+  // Once 01:6702 has selected the counted-string pointer, 01:6788 optionally
+  // enters the token hook. 01:7C53 first classifies the Catalog2 hook header:
+  // an invalid header returns C+Z, an older version C+NZ, the exact version
+  // NC+Z, and a newer version NC+NZ. Only the invalid-header case reaches the
+  // 0546h offset check. The page-3B wrapper then either delegates to the
+  // installed token-hook body or clears hookflags3.tokenHookActive. The body
+  // is external, so stop at that explicit boundary rather than inventing its
+  // returned pointer or string.
+  function settledPage1TokenHookDispatch(
+      hookActiveValue, catalogStatusValue, tokenOffsetValue,
+      tokenHookAcceptedValue) {
+    const hookActive = boolean(
+      hookActiveValue, 'page-1 token-hook-active flag');
+    const catalogStatus = catalogStatusValue;
+    if (!['invalid','older','exact','newer'].includes(catalogStatus))
+      throw new RangeError(
+        'page-1 Catalog2 hook status must be invalid, older, exact, or newer');
+    const tokenOffset = unsignedWord(
+      tokenOffsetValue, 'page-1 token-table offset');
+    const tokenHookAccepted = boolean(
+      tokenHookAcceptedValue, 'page-1 token-hook acceptance flag');
+    const branchOutcomes = [];
+    const branch = (space, address, outcome) => branchOutcomes.push(
+      `${space}:${address.toString(16).toUpperCase()}:${outcome}`);
+
+    branch('01',0x678c,hookActive ? 'fallthrough' : 'taken');
+    if (!hookActive) return {
+      hookActive,catalogStatus,tokenOffset,tokenHookAccepted,
+      hookCommand:null,hookBC:null,hookDE:null,
+      source:'rom',continuation:'increment-string-pointer',
+      branchOutcomes,routine:'01:6788–67B9',
+    };
+
+    const catalogCarry = catalogStatus === 'invalid' ||
+      catalogStatus === 'older';
+    const catalogZero = catalogStatus === 'invalid' ||
+      catalogStatus === 'exact';
+    branch('01',0x67a2,catalogCarry ? 'fallthrough' : 'taken');
+    let hookBC = 0;
+    let hookDE = tokenOffset;
+    if (catalogCarry) {
+      branch('01',0x67a4,catalogZero ? 'fallthrough' : 'taken');
+      if (catalogZero) {
+        const smallOffset = tokenOffset <= 0x0546;
+        branch('01',0x67ac,smallOffset ? 'taken' : 'fallthrough');
+        if (!smallOffset) {
+          hookBC = tokenOffset;
+          hookDE = 0x000c;
+        }
+      }
+    }
+
+    branch('3B',0x7b95,tokenHookAccepted ? 'taken' : 'fallthrough');
+    return {
+      hookActive,catalogStatus,tokenOffset,tokenHookAccepted,
+      hookCommand:'token',hookBC,hookDE,
+      source:tokenHookAccepted ? 'external-token-hook' : 'rom',
+      continuation:tokenHookAccepted
+        ? 'external-hook-boundary'
+        : 'disable-hook-and-increment-string-pointer',
+      branchOutcomes,routine:'01:6788–67B9 → 3B:7B8D–7B9B',
+    };
+  }
+
   function settledTwoByteTokenSelection(lead, second) {
     byte(lead, 'settled two-byte lead');
     byte(second, 'settled two-byte index');
@@ -10761,6 +10825,7 @@
     settledOperationWrites,
     rasterizeSettledOperations,
     settledPage1GlyphPointerSelection,
+    settledPage1TokenHookDispatch,
     settledPage1VPutMapCompose,
     settledPage1VPutMapRow,
     settledPage1MathPrintGlyphPlan,

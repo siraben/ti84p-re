@@ -599,7 +599,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 41 finite models. It also computes an
+complete path-equivalence class in 42 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -621,6 +621,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Thick-point expansion | 4,294,967,296 | 8 | 14 | 8 |
 | Shaded-point expansion | 3,145,728 | 1,850 | 30 | 8 |
 | Small-font pointer selection | 65,536 | 16 | 31 | 16 |
+| Token-hook dispatch | 1,048,576 | 9 | 10 | 5 |
 | `_VPutMap` byte-boundary gate | 56 | 2 | 2 | 2 |
 | MathPrint `_VPutMap` right-edge gate | 3,584 | 4 | 6 | 2 |
 | MathPrint `_VPutMap` row state | 112 | 4 | 10 | 2 |
@@ -648,8 +649,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 | FindAlpha OP scratch transition | 33,554,432 | 2 | 5 | 2 |
 
-The 41 models contain 3,339 path classes and 433 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 203 representatives. Each
+The 42 models contain 3,348 path classes and 443 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 208 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -2079,8 +2080,21 @@ That `JR NZ` therefore falls through under the `01:6702` entry ABI. The
 `CP 13h` clamp at `01:6774`–`01:6778` has no other predecessor and is
 unreachable from this entry. A pinned byte interpreter matches the JavaScript
 table, normalized index, pointer-word address, and complete branch sequence for
-all 65,536 `D:E` pairs. The token hook beginning at `01:6788` remains an
-external dispatch boundary. [confirmed]
+all 65,536 `D:E` pairs. [confirmed]
+
+`01:6788` skips the token hook when `(IY+35h).0` is clear. When it is set,
+`01:7C53` classifies the Catalog2 hook header and version before the token-hook
+call. An invalid header returns C and Z, an older version returns C and NZ, the
+exact version returns NC and Z, and a newer version returns NC and NZ. Only the
+invalid-header class reaches `01:67AC`: offsets through `0546h` retain `BC=0`
+and the offset in `DE`, while larger offsets pass the offset in `BC` and
+`000Ch` in `DE`. [confirmed]
+
+The page-3B wrapper at `3B:7B8D` either enters the installed hook or clears
+`(IY+35h).0` and returns to the ROM string. The finite model covers both flag
+values, four Catalog2 classes, all 65,536 offset words, and both wrapper
+outcomes. The installed hook body and any pointer or string that it returns
+remain external. [confirmed]
 
 Each selected pointer names one metadata byte followed by a counted
 display-code string. Token `72h` therefore expands to `A`, `n`, `s`. Token
