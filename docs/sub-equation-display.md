@@ -599,7 +599,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 33 finite models. It also computes an
+complete path-equivalence class in 34 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -619,6 +619,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Point bounds | 33,554,432 | 7 | 14 | 7 |
 | Thick-point expansion | 4,294,967,296 | 8 | 14 | 8 |
 | Shaded-point expansion | 3,145,728 | 1,850 | 30 | 8 |
+| Small-font pointer selection | 65,536 | 16 | 31 | 16 |
 | Large-glyph hook dispatch | 32 | 14 | 16 | 8 |
 | Metric marker-tail gate | 16 | 5 | 8 | 5 |
 | Editor action `0x03` controller | 131,072 | 11 | 9 | 4 |
@@ -640,8 +641,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 | FindAlpha OP scratch transition | 33,554,432 | 2 | 5 | 2 |
 
-The 33 models contain 3,272 path classes and 356 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 169 representatives. Each
+The 34 models contain 3,288 path classes and 387 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 185 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -698,8 +699,9 @@ The report classifies all 2,276 enumerated outcomes. Natural calculator input
 exercises 1,010. The synthetic `EF36h` state adds two outcomes, for 1,012 across
 all evidence. One allocator outcome is infeasible under its data invariant.
 Two metric outcomes are infeasible under the calculator call ABI, and one is
-infeasible under the valid **Y=** editor-entry invariant. The full evidence set
-leaves 1,260 unresolved; the natural-only set leaves 1,262.
+infeasible under the valid **Y=** editor-entry invariant. Three small-font
+pointer outcomes are infeasible under the `01:6702` entry invariant. The full
+evidence set leaves 1,257 unresolved; the natural-only set leaves 1,259.
 An unobserved outcome never becomes infeasible from absence alone. [confirmed]
 
 The infeasible allocator outcome is the fallthrough at `33:4F4E`. The type
@@ -716,6 +718,12 @@ dispatcher recursion therefore fixes `B=0`. The `B!=0` outcomes at `34:73CD`
 fallthrough and `34:765D` return are infeasible under this calculator ABI.
 Synthetic direct calls to internal metric handlers do not share the ABI.
 [confirmed]
+
+The `BBh` route through `smallfont_glyph_ptr` reaches `01:6765` with Z set by
+`CP BBh`; the intervening `LD A,L` preserves Z. The taken outcome is therefore
+infeasible from `01:6702`. Both outcomes of `01:6776` are also infeasible
+because that comparison's only predecessor is the dead taken edge at
+`01:6765`. [confirmed]
 
 The report computes two exact Z3 covers. The first preserves every individual
 branch outcome observed in the supplied traces. It does not preserve complete
@@ -2044,6 +2052,21 @@ at `01:6702`. A zero lead selects the word table at `01:4252`. The two-byte
 leads `5Ch`, `5Dh`, `5Eh`, `60h`–`63h`, `7Eh`, `AAh`, `BBh`, and `EFh` select
 tables at `01:4452`–`01:47E8`. The `5Eh` second byte selects one of four banks.
 The `BBh` path clamps indices `F6h`–`FFh` to `F6h`. [confirmed]
+
+The raw `D:E` selector accepts more states than the native token grammar.
+Leads `01h`–`5Ch` alias the `5Ch` table. Both `5Eh` and `5Fh` test index bits
+4, 5, and 6 in that order, clear the first selected bit, and otherwise clear
+bit 7. Leads `64h`–`7Dh` and `7Fh`–`BAh` alias the `AAh` table. Leads `BCh`–`FFh`
+alias the `EFh` table. `_IsA2ByteTok` prevents these extra aliases during
+ordinary token decoding. [confirmed]
+
+`01:6765` inherits Z from the preceding `CP BBh`; `LD A,L` does not change it.
+That `JR NZ` therefore falls through under the `01:6702` entry ABI. The
+`CP 13h` clamp at `01:6774`–`01:6778` has no other predecessor and is
+unreachable from this entry. A pinned byte interpreter matches the JavaScript
+table, normalized index, pointer-word address, and complete branch sequence for
+all 65,536 `D:E` pairs. The token hook beginning at `01:6788` remains an
+external dispatch boundary. [confirmed]
 
 Each selected pointer names one metadata byte followed by a counted
 display-code string. Token `72h` therefore expands to `A`, `n`, `s`. Token

@@ -391,6 +391,7 @@ TRANSLATION_SURFACES = (
             "settledPage4PointPipeline", "settledPage4PointOnTransition",
             "settledPage4DarkLineTrace", "settledVerticalOperation",
             "settledHorizontalOperation",
+            "settledPage1GlyphPointerSelection",
             "settledPage7LargeGlyphRecord", "settledOperationPixels",
             "settledBlits", "settledOperationWrites",
         ],
@@ -400,6 +401,7 @@ TRANSLATION_SURFACES = (
             "clear/set/XOR/test modes, buffer routing, and the composed point pipeline; "
             "MathPrint's style-inactive LCD-only point transition; hook-disabled "
             "dark-line stepping and ordered horizontal/vertical viewport clipping; "
+            "the complete page-1 glyph-pointer selector byte domain; "
             "page-7 large-glyph stride, record building, and hook gates; and "
             "synchronous accepted LCD writes, including unchanged writes; "
             "drawing-hook dispatch, font internals, and external LCD timing remain open"
@@ -441,6 +443,35 @@ TRANSLATION_SURFACES = (
 # Classifications are admitted only when ROM-local dataflow or an entry
 # invariant proves them.  All other unobserved outcomes remain unresolved.
 OUTCOME_CLASSIFICATIONS = {
+    ("page_01", 0x6765, "taken"): {
+        "status": "infeasible_under_entry_invariant",
+        "scope": "smallfont_glyph_ptr entry at 01:6702",
+        "precondition": (
+            "01:6762 falls through only when the lead byte in D equals BBh"
+        ),
+        "reason": (
+            "CP BBh sets Z before 01:6762 falls through; LD A,L at 01:6764 "
+            "preserves the flags, so JR NZ at 01:6765 cannot be taken"
+        ),
+    },
+    ("page_01", 0x6776, "taken"): {
+        "status": "infeasible_under_entry_invariant",
+        "scope": "smallfont_glyph_ptr entry at 01:6702",
+        "precondition": "01:6774 is reachable only through 01:6765 taken",
+        "reason": (
+            "the sole direct predecessor is the infeasible NZ outcome at "
+            "01:6765, so neither CP 13h outcome is reachable from 01:6702"
+        ),
+    },
+    ("page_01", 0x6776, "fallthrough"): {
+        "status": "infeasible_under_entry_invariant",
+        "scope": "smallfont_glyph_ptr entry at 01:6702",
+        "precondition": "01:6774 is reachable only through 01:6765 taken",
+        "reason": (
+            "the sole direct predecessor is the infeasible NZ outcome at "
+            "01:6765, so neither CP 13h outcome is reachable from 01:6702"
+        ),
+    },
     ("page_33", 0x4F4E, "fallthrough"): {
         "status": "infeasible_under_entry_invariant",
         "scope": "valid calculator-created type-0x2B settled matrix records",
@@ -3667,6 +3698,122 @@ def symbolic_point_shaded_style_paths() -> list[dict[str, object]]:
     ]
 
 
+def smallfont_pointer_selection_path(
+    lead: int,
+    incoming_index: int,
+) -> dict[str, object]:
+    """Translate the complete D:E selector at 01:6702–6781."""
+
+    lead &= 0xFF
+    incoming_index &= 0xFF
+    index = incoming_index
+    outcomes: list[str] = []
+
+    def branch(address: int, taken: bool) -> None:
+        outcomes.append(
+            f"01:{address:04X}:{'taken' if taken else 'fallthrough'}"
+        )
+
+    branch(0x6707, lead == 0)
+    if lead == 0:
+        table = "single"
+    else:
+        branch(0x670E, lead < 0x5D)
+        if lead < 0x5D:
+            table = "5C"
+        else:
+            branch(0x6713, lead == 0x5D)
+            if lead == 0x5D:
+                table = "5D"
+            else:
+                branch(0x671A, lead >= 0x60)
+                if lead < 0x60:
+                    branch(0x6721, bool(incoming_index & 0x10))
+                    index &= ~0x10
+                    if incoming_index & 0x10:
+                        table = "5E10"
+                    else:
+                        branch(0x672A, bool(incoming_index & 0x20))
+                        index &= ~0x20
+                        if incoming_index & 0x20:
+                            table = "5E20"
+                        else:
+                            branch(0x6733, bool(incoming_index & 0x40))
+                            index &= ~0x40
+                            if incoming_index & 0x40:
+                                table = "5E40"
+                            else:
+                                index &= ~0x80
+                                table = "5E80"
+                else:
+                    branch(0x6741, lead < 0x61)
+                    if lead < 0x61:
+                        table = "60"
+                    else:
+                        branch(0x6746, lead == 0x61)
+                        if lead == 0x61:
+                            table = "61"
+                        else:
+                            branch(0x674D, lead < 0x63)
+                            if lead < 0x63:
+                                table = "62"
+                            else:
+                                branch(0x6752, lead == 0x63)
+                                if lead == 0x63:
+                                    table = "63"
+                                else:
+                                    branch(0x6756, lead == 0x7E)
+                                    if lead == 0x7E:
+                                        table = "7E"
+                                    else:
+                                        branch(0x675D, lead < 0xBB)
+                                        if lead < 0xBB:
+                                            table = "AA"
+                                        else:
+                                            branch(0x6762, lead != 0xBB)
+                                            if lead != 0xBB:
+                                                table = "EF"
+                                            else:
+                                                branch(0x6765, False)
+                                                branch(0x6769, index < 0xF6)
+                                                index = min(index, 0xF6)
+                                                table = "BB"
+    return {
+        "terminal": table,
+        "index": index,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_smallfont_pointer_selection_paths() -> list[dict[str, object]]:
+    """Partition every D:E byte pair accepted by the raw selector ABI."""
+
+    classes: dict[tuple[str, tuple[str, ...]], dict[str, object]] = {}
+    for lead in range(0x100):
+        for index in range(0x100):
+            result = smallfont_pointer_selection_path(lead, index)
+            key = (
+                str(result["terminal"]),
+                tuple(str(item) for item in result["branch_outcomes"]),
+            )
+            row = classes.setdefault(key, {
+                "projected_input_count": 0,
+                "representative_states": [],
+            })
+            row["projected_input_count"] += 1
+            states = row["representative_states"]
+            if len(states) < 4:
+                states.append({"lead": lead, "index": index})
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
 def large_glyph_hook_path(
     entry: str,
     font_hook_active: int,
@@ -4064,6 +4211,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             "04:40AD–4154",
             2 * 4 * 2 * 3 * 0x100**2,
             symbolic_point_shaded_style_paths(),
+        ),
+        (
+            "smallfont_pointer_selection",
+            "01:6702–6781",
+            0x100**2,
+            symbolic_smallfont_pointer_selection_paths(),
         ),
         (
             "large_glyph_hook_dispatch",
@@ -5605,6 +5758,16 @@ def build_report(
                 "scope": (
                     "complete graph-initialized phase, step, coordinate, and "
                     "style domain at the 64-row display limit"
+                ),
+            },
+            "smallfont_pointer_selection": {
+                "routine": "01:6702–6781",
+                "state": ["lead byte D", "index byte E"],
+                "projected_input_domain": 0x100**2,
+                "terminal_classes": symbolic_smallfont_pointer_selection_paths(),
+                "scope": (
+                    "complete raw selector byte domain through the pointer-word "
+                    "address; token-hook dispatch at 01:6788 remains external"
                 ),
             },
             "large_glyph_hook_dispatch": {

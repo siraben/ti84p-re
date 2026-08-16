@@ -61,6 +61,7 @@ from analyze_mathprint_saturation import (
     routine_path_terminal,
     serialize_trace_summary,
     scan_kind_path,
+    smallfont_pointer_selection_path,
     minimize_trace_corpus,
     metric_marker_callers,
     metric_marker_path,
@@ -95,6 +96,7 @@ from analyze_mathprint_saturation import (
     symbolic_raised_extended_token_paths,
     symbolic_raised_name_loop_paths,
     symbolic_scan_kind_paths,
+    symbolic_smallfont_pointer_selection_paths,
     symbolic_structural_depth_gate_paths,
     symbolic_structural_insertion_dispatch_paths,
     symbolic_type1f_paths,
@@ -219,6 +221,33 @@ class StaticBranchTests(unittest.TestCase):
             [row["status"] for row in report["outcomes"]],
         )
 
+    def test_glyph_pointer_dead_clamp_path_is_classified(self) -> None:
+        stale_z = Branch(
+            RomLocation(0x01, 0x6765), "jr nz,0x6774", "jr",
+            RomLocation(0x01, 0x6774), RomLocation(0x01, 0x6767),
+        )
+        dead_clamp = Branch(
+            RomLocation(0x01, 0x6776), "jr c,0x677a", "jr",
+            RomLocation(0x01, 0x677A), RomLocation(0x01, 0x6778),
+        )
+
+        stale_report = branch_json(
+            stale_z, Counter({("page_01", 0x6765, "fallthrough"): 1}), {},
+            OUTCOME_CLASSIFICATIONS,
+        )
+        dead_report = branch_json(
+            dead_clamp, Counter(), {}, OUTCOME_CLASSIFICATIONS,
+        )
+
+        self.assertEqual(
+            ["infeasible_under_entry_invariant", "exercised"],
+            [row["status"] for row in stale_report["outcomes"]],
+        )
+        self.assertEqual(
+            ["infeasible_under_entry_invariant"] * 2,
+            [row["status"] for row in dead_report["outcomes"]],
+        )
+
     def test_calculator_abi_classifies_seeded_b_outcomes(self) -> None:
         call = Branch(
             RomLocation(0x34, 0x73CD), "call z,0x7547", "call",
@@ -298,13 +327,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(3272, report["path_equivalence_class_count"])
-        self.assertEqual(3272, report["representative_path_corpus_count"])
-        self.assertEqual(356, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(3288, report["path_equivalence_class_count"])
+        self.assertEqual(3288, report["representative_path_corpus_count"])
+        self.assertEqual(387, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            169, report["per_domain_minimum_branch_outcome_corpus_count"]
+            185, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(33, len(report["domains"]))
+        self.assertEqual(34, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -1071,6 +1100,27 @@ class SymbolicHandlerTests(unittest.TestCase):
         self.assertEqual("localize_hook_pattern", localized["terminal"])
         self.assertEqual("07:45CE:taken", localized["branch_outcomes"][-1])
 
+    def test_smallfont_pointer_selector_partitions_complete_byte_domain(self) -> None:
+        paths = symbolic_smallfont_pointer_selection_paths()
+
+        self.assertEqual(16, len(paths))
+        self.assertEqual(0x10000, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(
+            "single", smallfont_pointer_selection_path(0, 0xff)["terminal"]
+        )
+        self.assertEqual(
+            "5E20",
+            smallfont_pointer_selection_path(0x5f, 0x60)["terminal"],
+        )
+        self.assertEqual(
+            0xf6, smallfont_pointer_selection_path(0xbb, 0xff)["index"]
+        )
+        high = smallfont_pointer_selection_path(0xff, 0x41)
+        self.assertEqual("EF", high["terminal"])
+        self.assertEqual("01:6762:taken", high["branch_outcomes"][-1])
+
     def test_metric_marker_gate_distinguishes_all_local_outcomes(self) -> None:
         self.assertEqual(
             "return_nz_pointer_mismatch",
@@ -1478,10 +1528,24 @@ class CheckedReportTests(unittest.TestCase):
             1010, report["summary"]["natural_branch_outcomes_observed"]
         )
         self.assertEqual(
-            1262,
+            1259,
             report["summary"]["natural_branch_outcome_statuses"][
                 "unresolved_state_or_abi"
             ],
+        )
+        self.assertEqual(
+            1257,
+            report["summary"]["branch_outcome_statuses"][
+                "unresolved_state_or_abi"
+            ],
+        )
+        glyph_pointer_branch = next(
+            row for row in report["components"]["small_font_lcd"]["branches"]
+            if row["location"] == "01:6765"
+        )
+        self.assertEqual(
+            ["infeasible_under_entry_invariant", "exercised"],
+            [row["status"] for row in glyph_pointer_branch["outcomes"]],
         )
         matrix_render_branch = next(
             row for row in report["components"]["settled_render"]["branches"]
@@ -1555,7 +1619,7 @@ class CheckedReportTests(unittest.TestCase):
             matrix_entry["sha256"],
         )
         self.assertEqual(
-            3272,
+            3288,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(
