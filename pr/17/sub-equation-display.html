@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ecb587dc.js";
+            window.path_to_searchindex_js = "searchindex-595eab80.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -877,6 +877,20 @@ the six-byte right-segment marker <code>EF type id_lo id_hi EF 2D</code>. An ins
 that boundary makes the metric walker enter <code>34:759C</code> with its parsed pointer
 at <code>editTail + 6</code>. The comparison at <code>34:75A1</code> then returns Z, so <code>34:75A5</code>
 falls through. [confirmed]</p>
+<p>The final live expression graph spans two record regions. <code>34:4ACE</code> starts at
+the structural-record pointer in <code>0x8DAF</code> and stops at the entry pointer in
+<code>0x8DBC</code>. <code>34:4AF0</code> advances by the structural record size. The child words
+after each 20-byte header remain record IDs. <code>34:4A83</code> starts its leaf-record
+walk at <code>0x8DBC</code>. It normally uses <code>0x8DBE</code> as the boundary. Bit 2 of
+<code>(IY+1)</code> instead selects the extended boundary at <code>0x8DB1</code>. [confirmed]</p>
+<p><code>34:4AAF</code> handles the active gap during that leaf walk. When the gap bit is set
+and the current record equals the pointer in <code>0x8DC2</code>, <code>34:4ABF</code> substitutes
+<code>editBtm</code> as the next record pointer. Every other leaf advances by its 19-byte
+prefix plus the payload length at <code>+0x11</code>. The active record’s logical payload
+is the concatenation of <code>editTop</code>–<code>editCursor</code> and <code>editTail</code>–<code>editBtm</code>.
+This explains why a final RAM dump can hold structural headers below the entry,
+the active leaf in the gap, and later leaf records near the top of RAM.
+[confirmed]</p>
 <p><code>34:789A</code> first distinguishes the table-equation context from other editors.
 On its fallthrough, <code>34:75AB</code> reads the marker type from <code>editTail + 1</code>.
 <code>34:40F9</code> groups fraction (<code>0x20</code>), nth-root (<code>0x24</code>), and power (<code>0x2A</code>)
@@ -1751,7 +1765,20 @@ claim. The controller behavior is [standard] for the pinned TilEm source model;
 synthetic tests confirm the replay implementation.</p>
 <p><code>tools/parity-mathprint.py</code> selects that replay when tracing is enabled.
 The local ignored <code>tools/rom.bin</code> enables pinned-ROM reproduction when present.
-The browser’s generated path encodes native calculator bytes, scans their
+For screenshot differentials, the tool also decodes the final RAM graph through
+the <code>34:4ACE</code> and <code>34:4A83</code> walks above. It compares that calculator-decoded
+semantic expression with the JavaScript graph before comparing pixels. A
+dropped key or incomplete template exit therefore rejects the run instead of
+appearing as a renderer mismatch. [confirmed]</p>
+<p>The RAM oracle avoids an instruction trace for each fuzz case. TilEm still runs
+the calculator to accept the key sequence and produce the screen, but the
+ordinary case retains only a RAM dump and screenshot. A mismatched graph gets
+one slower key-cadence retry. The depth-four seed-505 corpus has 20 calculator
+graphs matching their requested ASTs and 20 exact pixel matches. In case 14,
+the first calculator entry omits native multiply token <code>82h</code>; the graph check
+rejects that entry. The slower accepted graph contains the token and matches
+the translated framebuffer. [confirmed]</p>
+<p>The browser’s generated path encodes native calculator bytes, scans their
 one- and two-byte token boundaries through translations of <code>34:58F9</code> and
 <code>34:5911</code>, and splits nested arguments through the page-<code>34</code> parse-ahead state
 machine at <code>34:5A99</code>–<code>34:5CAC</code>. The translation includes the public
