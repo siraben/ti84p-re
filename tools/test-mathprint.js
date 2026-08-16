@@ -3706,7 +3706,7 @@ for (const [captureName,capture] of Object.entries(
   }
 }
 expectEqual('live editor extra structural-navigation oracle schema',
-  editorExtraStructuralNavigationOracles.schema,1);
+  editorExtraStructuralNavigationOracles.schema,2);
 const extraStructuralNavigationStates = {};
 for (const [captureName,capture] of Object.entries(
   editorExtraStructuralNavigationOracles.captures)) {
@@ -3726,6 +3726,17 @@ for (const [captureName,capture] of Object.entries(
       `${captureName} extra structural-navigation ${state.name} LCD bitmap`,
       crypto.createHash('sha256').update(
         packedLcdBytes(lcd)).digest('hex'),state.lcd_bitmap_sha256);
+    expectEqual(
+      `${captureName} extra structural-navigation ${state.name} ` +
+        'screenshot ink outside cursor cells',
+      state.lcd_masked_bitmap_sha256,
+      state.screenshot_lcd_masked_bitmap_sha256);
+    expectEqual(
+      `${captureName} extra structural-navigation ${state.name} cursor masks`,
+      state.cursor_masks.every(mask =>
+        Number.isInteger(mask.x) && Number.isInteger(mask.y) &&
+        Number.isInteger(mask.width) && 0 < mask.width &&
+        Number.isInteger(mask.height) && 0 < mask.height),true);
     return decoded;
   });
 }
@@ -4138,6 +4149,7 @@ expectEqual('live cursor overlays a following token without advancing the leaf p
       ...(operation.kind === 'glyph' ? {code:operation.code} : {}),
     })), [
     {kind:'glyph',x:0,y:0,code:0x31},
+    {kind:'editor-cursor-cell',x:6,y:0},
     {kind:'glyph',x:6,y:0,code:0x32},
   ]);
 const numeratorCursorProgram = rom.constructEditorExpressionProgram({

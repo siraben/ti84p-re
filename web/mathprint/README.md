@@ -166,13 +166,13 @@ list frames and the two completed nested-list nodes. The fraction case retains
 the structural record's pre-edit `+13h` byte while replacing the `EF 1E`
 empty-slot token. Structural templates use the separate mutation path below;
 `editorMoveCursor()` handles ordinary and structural boundaries. Live captures
-cover fraction, integral, summation, `nDeriv(`, and log-base traversal in both
-directions plus one depth-two fraction traversal to the right. The summation
-captures combine a type-`0x01` variable, an atomic `EF 1E` empty slot, ordinary
-children, and a trailing parent token. The completed `nDeriv(` and log-base
-walks additionally match every cursor-dependent layout word and reconstructed
-LCD bitmap. One-child templates, nth-root, power, matrix, and deeper nested
-directions remain open.
+cover every insertable structural type `0x20`–`0x2A` in both directions plus
+one depth-two fraction traversal to the right. The summation captures combine
+a type-`0x01` variable, an atomic `EF 1E` empty slot, ordinary children, and a
+trailing parent token. Sixteen root-level sequences match every
+cursor-dependent layout word. Their reducer also compares the translated LCD
+against the real TilEm screenshots outside only the blinking cursor cells.
+Matrix token editing and most deeper nested directions remain open.
 An eight-state summation construction capture also verifies the type-`0x01`
 post-insertion path. Filling the variable automatically selects the lower
 bound; filling the other children does not. Packed-token insertion now returns
