@@ -53,6 +53,9 @@ const editorNavigationOracles = JSON.parse(fs.readFileSync(
 const editorStructuralNavigationOracles = JSON.parse(fs.readFileSync(
   path.join(root, 'tools',
     'mathprint-editor-structural-navigation-oracles.json')));
+const editorExtraStructuralNavigationOracles = JSON.parse(fs.readFileSync(
+  path.join(root, 'tools',
+    'mathprint-editor-extra-structural-navigation-oracles.json')));
 const editorSummationFillOracle = JSON.parse(fs.readFileSync(
   path.join(root, 'tools',
     'mathprint-editor-summation-fill-oracle.json')));
@@ -3636,6 +3639,17 @@ const structuralNavigationProjection = state => ({
     child_ids:node.child_ids.slice(),payload:node.payload.slice(),
   })),
 });
+const exactStructuralNavigationProjection = state => ({
+  ...structuralNavigationProjection(state),
+  nodes:state.nodes.map(node => ({
+    record_id:node.record_id === undefined ? node.id : node.record_id,
+    render_type:node.render_type === undefined ? node.type : node.render_type,
+    word03:node.word03,word05:node.word05,word07:node.word07,
+    word09:node.word09,word0B:node.word0B,word0D:node.word0D,
+    word0F:node.word0F,word11:node.word11,byte13:node.byte13,
+    child_ids:node.child_ids.slice(),payload:node.payload.slice(),
+  })).sort((left,right) => left.record_id - right.record_id),
+});
 const structuralNavigationStates = {};
 for (const [captureName,capture] of Object.entries(
   editorStructuralNavigationOracles.captures)) {
@@ -3690,6 +3704,60 @@ for (const [captureName,capture] of Object.entries(
       structuralNavigationProjection(expected));
     state = moved.state;
   }
+}
+expectEqual('live editor extra structural-navigation oracle schema',
+  editorExtraStructuralNavigationOracles.schema,1);
+const extraStructuralNavigationStates = {};
+for (const [captureName,capture] of Object.entries(
+  editorExtraStructuralNavigationOracles.captures)) {
+  expectEqual(`${captureName} extra structural-navigation capture macro hash`,
+    crypto.createHash('sha256').update(fs.readFileSync(path.join(
+      root,capture.macro))).digest('hex'),capture.macro_sha256);
+  extraStructuralNavigationStates[captureName] = capture.states.map(state => {
+    const decoded = rom.decodeMathPrintEditorRam(sparseEditorRam(
+      state,`${captureName} extra structural-navigation ${state.name}`));
+    const reconstructed = rom.constructEditorExpressionProgram(
+      decoded.editor.expression,decoded.entryId,font);
+    const operations = rom.executeSettledRecordProgram(
+      reconstructed.nodes,reconstructed.wrapper_id,
+      {glyphAdvance:editorGlyphAdvance});
+    const lcd = rom.rasterizeSettledOperations(operations,font).grid;
+    expectEqual(
+      `${captureName} extra structural-navigation ${state.name} LCD bitmap`,
+      crypto.createHash('sha256').update(
+        packedLcdBytes(lcd)).digest('hex'),state.lcd_bitmap_sha256);
+    return decoded;
+  });
+}
+for (const transition of editorExtraStructuralNavigationOracles.transitions) {
+  const states = extraStructuralNavigationStates[transition.capture];
+  const moved = rom.editorMoveCursor(
+    states[transition.from_index],transition.direction,font);
+  expectEqual(
+    `${transition.capture} extra structural-navigation ` +
+      `${transition.from_index} status`,
+    {status:moved.mutation.status,direction:moved.mutation.direction,
+      routine:moved.mutation.routine},
+    {status:transition.status,direction:transition.direction,
+      routine:transition.routine});
+  expectEqual(
+    `${transition.capture} extra structural-navigation ` +
+      `${transition.from_index} exact state`,
+    exactStructuralNavigationProjection(moved.state),
+    exactStructuralNavigationProjection(states[transition.to_index]));
+}
+for (const [captureName,capture] of Object.entries(
+  editorExtraStructuralNavigationOracles.captures)) {
+  let state = extraStructuralNavigationStates[captureName][0];
+  for (let index = 0; index + 1 < capture.states.length; index++)
+    state = rom.editorMoveCursor(
+      state,editorExtraStructuralNavigationOracles.transitions.find(
+        transition => transition.capture === captureName &&
+          transition.from_index === index).direction,font).state;
+  expectEqual(`${captureName} composable exact final state`,
+    exactStructuralNavigationProjection(state),
+    exactStructuralNavigationProjection(
+      extraStructuralNavigationStates[captureName].at(-1)));
 }
 expectEqual('live editor summation-fill oracle schema',
   editorSummationFillOracle.schema,1);

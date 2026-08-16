@@ -5403,6 +5403,35 @@
     return boundaries;
   }
 
+  // The live editor reruns its metric pass after a cursor transition. Rebuild
+  // only those layout words; the page-6 gap routines own +0Fh and +11h.
+  function reflowEditorArenaLayout(
+    inputNodes, entryId, activeRecordId, byteOffset, font
+  ) {
+    if (font === null) return inputNodes;
+    const nodeId = node => node.record_id === undefined
+      ? node.id : node.record_id;
+    const preliminary = decodeEditorExpressionGraph(
+      inputNodes,entryId,activeRecordId,byteOffset);
+    const rebuilt = constructEditorExpressionProgram(
+      preliminary.expression,entryId,font);
+    const rebuiltById = new Map(rebuilt.nodes.map(node =>
+      [node.record_id,node]));
+    const layoutWords = [
+      'word03','word05','word07','word09','word0B','word0D','byte13',
+    ];
+    return inputNodes.map(node => {
+      const recordId = nodeId(node);
+      const metrics = rebuiltById.get(recordId);
+      if (!metrics)
+        throw new RangeError(
+          `rebuilt editor record ID 0x${recordId.toString(16)} is absent`);
+      const fields = {};
+      for (const name of layoutWords) fields[name] = metrics[name];
+      return {...node,...fields};
+    });
+  }
+
   // Ordinary MathPrint key insertion reaches 34:4BB9 after key-to-token
   // conversion. Its non-structural path calls the page-6 gap-buffer writer:
   // it stores the packed native token at editCursor and advances editCursor by
@@ -6453,7 +6482,7 @@
   // The returned state is a logical arena state: physical gap pointers are not
   // synthesized, so another translated mutation consumes state rather than a
   // fabricated RAM image.
-  function editorMoveCursor(input, direction) {
+  function editorMoveCursor(input, direction, font = null) {
     if (direction !== 'left' && direction !== 'right')
       throw new RangeError('editor cursor direction must be left or right');
     if (!input || typeof input !== 'object' || !input.editor ||
@@ -6716,6 +6745,15 @@
         };
       }
     }
+
+    // 34:4A83 rebuilds the live record metrics after the cursor changes
+    // position.  The active cursor contributes its five- or six-pixel cell to
+    // the selected leaf, and the change propagates through every containing
+    // structure.  Reuse the translated construction pass for those layout
+    // words while retaining +0Fh/+11h: the page-6 gap mover owns those words,
+    // and inactive leaves can deliberately retain a committed gap offset.
+    nodes = reflowEditorArenaLayout(
+      nodes,input.entryId,afterActiveId,afterOffset,font);
 
     const final = byId();
     const afterActive = final.get(afterActiveId);
