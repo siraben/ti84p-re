@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-d3331f58.js";
+            window.path_to_searchindex_js = "searchindex-ecb587dc.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14949,10 +14949,10 @@ declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
 line primitives, large-glyph output, and alphabetic VAT selection. It
 recursively follows direct ROM edges from named entries, seeds decoded table
-destinations, overlays exact next-PC outcomes from 185 reset-origin traces, and
+destinations, overlays exact next-PC outcomes from 186 reset-origin traces, and
 lists direct external targets. Computed dispatch destinations are manually
 seeded; bcall and RAM bjump bodies remain outside the direct-edge walk. Of those
-traces, 184 reach their state through calculator input. One explicitly
+traces, 185 reach their state through calculator input. One explicitly
 classified synthetic trace inserts an <code>EF36h</code> editor buffer through direct RAM
 writes. The report keeps the two provenance classes separate.
 <code>tools/mathprint-saturation.json</code> records the resulting branches and trace
@@ -14960,9 +14960,9 @@ hashes. [confirmed]</p>
 <p>The analyzer can restore trace identities, provenance, and per-trace summaries
 from a prior report and the digest-keyed cache. Regeneration therefore scans a
 new trace once without reopening the other retained TLMT files. [confirmed]</p>
-<p>None of the 185 report traces executes <code>39:5167</code>, <code>39:523B</code>, the saved-operand
+<p>None of the 186 report traces executes <code>39:5167</code>, <code>39:523B</code>, the saved-operand
 wrappers at <code>39:5B10</code>–<code>39:5B38</code>, or the dispatchers at <code>39:59E0</code>/<code>39:59F9</code>.
-The 185-digest trace cache also has no hit at those entries. [confirmed]
+The 186-digest trace cache also has no hit at those entries. [confirmed]
 <code>_FindAlphaUp</code> at <code>07:50B5</code> executes once in 110 report traces, but every call
 comes from the type-<code>16h</code> cleanup loop at <code>07:5544</code>. Each observed call returns
 carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
@@ -14997,7 +14997,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 18 finite models. It also computes an
+complete path-equivalence class in 19 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -15018,6 +15018,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Reverse argument-overflow cue</td><td style="text-align: right">65,536</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
 <tr><td>Editor horizontal viewport</td><td style="text-align: right">17,179,869,184</td><td style="text-align: right">8</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
 <tr><td>Glyph viewport gates</td><td style="text-align: right">30,064,771,072</td><td style="text-align: right">3</td><td style="text-align: right">4</td><td style="text-align: right">3</td></tr>
+<tr><td>Embedded-record viewport gate</td><td style="text-align: right">4,294,967,296</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
 <tr><td>Record-allocation capacity</td><td style="text-align: right">36,893,488,147,419,103,232</td><td style="text-align: right">6</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
 <tr><td>Saved-operand wrappers</td><td style="text-align: right">16</td><td style="text-align: right">12</td><td style="text-align: right">12</td><td style="text-align: right">8</td></tr>
 <tr><td>FindAlpha type normalization</td><td style="text-align: right">32</td><td style="text-align: right">31</td><td style="text-align: right">8</td><td style="text-align: right">4</td></tr>
@@ -15028,8 +15029,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 18 models contain 1,310 path classes and 177 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 91 representatives. Each
+<p>The 19 models contain 1,312 path classes and 179 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 93 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -15065,7 +15066,7 @@ return class identifies which callee paths have live witnesses. [confirmed]</p>
 </thead>
 <tbody>
 <tr><td>Settled construction</td><td style="text-align: right">991</td><td style="text-align: right">247 / 248</td><td style="text-align: right">408</td><td style="text-align: right">80.73% / 80.73%</td></tr>
-<tr><td>Settled rendering</td><td style="text-align: right">1,898</td><td style="text-align: right">237 / 239</td><td style="text-align: right">302</td><td style="text-align: right">95.26% / 95.26%</td></tr>
+<tr><td>Settled rendering</td><td style="text-align: right">1,898</td><td style="text-align: right">238 / 240</td><td style="text-align: right">302</td><td style="text-align: right">95.26% / 95.26%</td></tr>
 <tr><td>Metrics and geometry</td><td style="text-align: right">470</td><td style="text-align: right">75 / 75</td><td style="text-align: right">80</td><td style="text-align: right">99.36% / 99.36%</td></tr>
 <tr><td>Record allocator</td><td style="text-align: right">64</td><td style="text-align: right">7 / 7</td><td style="text-align: right">8</td><td style="text-align: right">98.44% / 98.44%</td></tr>
 <tr><td>Alphabetic VAT search</td><td style="text-align: right">236</td><td style="text-align: right">17 / 17</td><td style="text-align: right">92</td><td style="text-align: right">34.32% / 34.32%</td></tr>
@@ -15084,10 +15085,10 @@ have no wholly unobserved branch. The other seven components still do. Three of
 the allocator’s four branches and 35 of the 40 metric branches have both
 outcomes. [confirmed]</p>
 <p>The report classifies all 2,276 enumerated outcomes. Natural calculator input
-exercises 985. The synthetic <code>EF36h</code> state adds three outcomes, for 988 across
+exercises 986. The synthetic <code>EF36h</code> state adds three outcomes, for 989 across
 all evidence. One allocator outcome is infeasible under its data invariant.
 Two metric outcomes are infeasible under the calculator call ABI. The full
-evidence set leaves 1,285 unresolved; the natural-only set leaves 1,288.
+evidence set leaves 1,284 unresolved; the natural-only set leaves 1,287.
 An unobserved outcome never becomes infeasible from absence alone. [confirmed]</p>
 <p>The infeasible allocator outcome is the fallthrough at <code>33:4F4E</code>. The type
 <code>0x2B</code> path loads rows and columns from record offsets <code>+0x13</code> and <code>+0x12</code>, then
@@ -15106,12 +15107,12 @@ Synthetic direct calls to internal metric handlers do not share the ABI.
 branch outcome observed in the supplied traces. It does not preserve complete
 invocation paths, register or RAM states, dispatch indices, record cases, or LCD
 write cases. The all-evidence and natural-only branch covers each select 21
-traces. They preserve 988 and 985 outcomes in 3,586,313,970 and 3,680,998,590
+traces. They preserve 989 and 986 outcomes in 4,011,991,848 and 4,106,676,468
 bytes, respectively.</p>
 <p>The tagged cover includes branch outcomes, complete observed paths, entry-state
 projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,246 tags and needs 125
-traces. The natural-only universe has 1,243 tags and needs 124 traces. Every
+independent oracle case. Its all-evidence universe has 1,247 tags and needs 125
+traces. The natural-only universe has 1,244 tags and needs 124 traces. Every
 independent oracle case creates an exclusive tag for at least one trace, so
 this larger minimum is expected. Both covers minimize trace count first,
 retained bytes second, and labels third. The broad set remains the RE and
@@ -15133,7 +15134,8 @@ repository; their hashes identify the exact inputs used by the report.
 <tr><th>Input</th><th>Reproduction macro</th><th>Trace SHA-256</th><th>Exclusive outcomes in the full branch cover</th></tr>
 </thead>
 <tbody>
-<tr><td>Nested derivative with tall body and value</td><td><code>tools/macros/mathprint-nested-tall-nderiv.macro</code></td><td><code>e11c011b74df79165c55f7f64b699e3aa393bf8087f45ec89a73d616b73cdbb5</code></td><td>39</td></tr>
+<tr><td>Nested derivative with tall body and value</td><td><code>tools/macros/mathprint-nested-tall-nderiv.macro</code></td><td><code>e11c011b74df79165c55f7f64b699e3aa393bf8087f45ec89a73d616b73cdbb5</code></td><td>28</td></tr>
+<tr><td>Depth-four log-base and power tree</td><td><code>tools/macros/mathprint-nested-depth4.macro</code></td><td><code>b8d970906e63db96d36847dfcafed91d97e73fc7699294cc8debd08e7affdd93</code></td><td>4</td></tr>
 <tr><td>Log-base marker insertion</td><td><code>tools/macros/mathprint-logbase-boundary-insert.macro</code></td><td><code>a49e4c13c93358662713da7f5e07862f42863d60a70ce18e141a90987914008b</code></td><td>1</td></tr>
 <tr><td>Radical marker insertion</td><td><code>tools/macros/mathprint-radical-nonspecial-insert.macro</code></td><td><code>e7b79e37149f2b9b4a986bdbb114a89b03cd452bbecc6da20490edc972895e98</code></td><td>Omitted</td></tr>
 <tr><td>Integral marker insertion</td><td><code>tools/macros/mathprint-integral-boundary-insert.macro</code></td><td><code>328b8f52ebe939b35f79e676076984aa85ee59e05c06862647c4fc615069bb3c</code></td><td>2</td></tr>
@@ -15164,7 +15166,7 @@ and <code>A</code> at each discriminator were checked before admission. [confirm
 <p>The synthetic <code>EF36h</code> trace uses
 <code>tools/macros/mathprint-ef36-injected-buffer.macro</code>. Its two <code>memwrite</code>
 commands place <code>EF 36 31 11</code> at the editor cursor. It is the sole synthetic
-source in the 185-trace report. It supplies the only evidence for
+source in the 186-trace report. It supplies the only evidence for
 <code>34:5A23</code> fallthrough, <code>34:6992</code> taken, and <code>34:6B94</code> taken. The full minimum
 retains it; the natural minimum excludes it by construction. [confirmed]</p>
 <p>The in-progress editor is a gap buffer. <code>editTop</code> (<code>0x96F4</code>) and <code>editCursor</code>
@@ -16116,6 +16118,18 @@ suffix of a glyph that begins left of the viewport. The reset-origin expression
 three pixels left of the visible edge. Applying the whole-glyph skip, followed
 by the seven-row left-overflow cue, reproduces all 870 pixels of the cropped
 87×10 calculator frame. [confirmed]</p>
+<p>Embedded records have an earlier whole-subtree gate. <code>34:6641</code>–<code>34:6655</code> adds
+the embedded record’s <code>+09h</code> width to the current logical pen and record origin,
+then subtracts <code>ram:8E02</code>. Carry at <code>34:6659</code> skips the embedded renderer;
+equality draws it. The reset-origin depth-four reproduction reaches the carry
+path with logical endpoint 56 and clip 63, producing translated word <code>FFF9h</code>.
+It omits the off-left nested power subtree while retaining its logical advance.
+The translated record program removes the same two high-level operations and
+still matches the calculator’s 87×25 bitmap. Its flat-byte SHA-256 is
+<code>b4a60c6f5b1bc78d5a59f6b6fb0f379c999e70dc09c409131677142c0c2b1b09</code>.
+<code>tools/macros/mathprint-nested-depth4.macro</code> reproduces trace
+<code>b8d970906e63db96d36847dfcafed91d97e73fc7699294cc8debd08e7affdd93</code>.
+[confirmed]</p>
 <p>The right-edge gate uses the same logical glyph advance. <code>34:6C6B</code>–<code>34:6C71</code>
 adds the advance to the pen. <code>34:6C73</code>–<code>34:6C7A</code> derives the one-past-right
 viewport coordinate, and <code>34:6C7C</code> skips the glyph when its endpoint is larger.

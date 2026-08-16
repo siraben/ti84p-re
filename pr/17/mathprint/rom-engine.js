@@ -1555,6 +1555,25 @@
     };
   }
 
+  // 34:6641–6659 adds an embedded record's +09h width to the current
+  // logical pen and record origin, then applies 34:5DC2's word subtraction.
+  // Carry skips the complete embedded renderer; equality remains visible.
+  function settledEmbeddedViewportDecision(logicalEndpoint, xClip) {
+    for (const [value,label] of [
+      [logicalEndpoint,'settled embedded logical endpoint'],
+      [xClip,'settled embedded horizontal clip'],
+    ]) if (!Number.isInteger(value) || value < 0 || value > 0xffff)
+      throw new RangeError(`${label} must fit an unsigned word`);
+    const translatedEndpoint = (logicalEndpoint - xClip) & 0xffff;
+    const skipLeft = logicalEndpoint < xClip;
+    return {
+      action:skipLeft ? 'skip-left' : 'draw',
+      logicalEndpoint,
+      translatedEndpoint,
+      branchOutcomes:[`34:6659:${skipLeft ? 'taken' : 'fallthrough'}`],
+    };
+  }
+
   const SETTLED_LEFT_OVERFLOW_ROWS = Object.freeze([
     0x00,0x02,0x06,0x0e,0x06,0x02,0x00,
   ]);
@@ -5324,6 +5343,15 @@
   // the ROM. The containing pen advances by the structural record's +9 word.
   function executeSettledRecordProgram(inputs, entryId, options = {}) {
     const initialDepth = options.depth === undefined ? 0 : byte(options.depth, 'settled depth');
+    const editorViewport = options.editorViewport;
+    if (editorViewport !== undefined &&
+        (!editorViewport || typeof editorViewport !== 'object' ||
+         !Number.isInteger(editorViewport.xClip) || editorViewport.xClip < 0 ||
+         editorViewport.xClip > 0xffff ||
+         !Number.isInteger(editorViewport.xOrigin) || editorViewport.xOrigin < 0 ||
+         editorViewport.xOrigin > 0xffff))
+      throw new TypeError(
+        'settled record editor viewport must contain unsigned xClip and xOrigin words');
     const fontAdvance = (depth, code) => {
       if (options.glyphAdvance) {
         const value = options.glyphAdvance(depth, code);
@@ -5453,14 +5481,23 @@
               throw new RangeError(
                 `record 0x${record.id.toString(16)} embeds type 0x${subtype.toString(16)} ` +
                 `but record 0x${id.toString(16)} has type 0x${nested.type.toString(16)}`);
-            const savedDepth = controls.state.depth;
-            controls.state.depth = savedDepth + 1;
-            controls.visit(id, {
-              x:context.origin.x + pen.x,
-              y:context.origin.y + pen.y -
-                (nested.word0B - (savedDepth === 0 ? 3 : 2)),
-            });
-            controls.state.depth = savedDepth;
+            const logicalEndpoint = (
+              context.origin.x + pen.x + nested.word09 +
+              (editorViewport === undefined ? 0 : editorViewport.xOrigin)
+            ) & 0xffff;
+            const drawEmbedded = editorViewport === undefined ||
+              settledEmbeddedViewportDecision(
+                logicalEndpoint,editorViewport.xClip).action === 'draw';
+            if (drawEmbedded) {
+              const savedDepth = controls.state.depth;
+              controls.state.depth = savedDepth + 1;
+              controls.visit(id, {
+                x:context.origin.x + pen.x,
+                y:context.origin.y + pen.y -
+                  (nested.word0B - (savedDepth === 0 ? 3 : 2)),
+              });
+              controls.state.depth = savedDepth;
+            }
             pen.x += nested.word09;
             index += 4;
             continue;
@@ -5983,6 +6020,7 @@
     settledHorizontalOperation,
     settledEditorViewport,
     settledGlyphViewportDecision,
+    settledEmbeddedViewportDecision,
     settledEditorViewportOperations,
     settledEditorRightCueOperation,
     settledRunIndicatorTick,

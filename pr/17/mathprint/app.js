@@ -1022,11 +1022,6 @@ function generateRecordProgram(program, options = {}) {
   // source string or infer an AST from the emitted pixels.
   const settledAst = ROM_ENGINE.decodeSettledExpressionGraph(
     program.nodes, program.entry_id);
-  const recordOperations = ROM_ENGINE.executeSettledRecordProgram(
-    program.nodes, program.entry_id, {
-      origin:program.origin,
-      glyphAdvance:(depth, code) => depth ? FONT.small.glyphs[code].w : 6,
-    });
   const entry = program.nodes.find(node => node.record_id === program.entry_id);
   const recordWidth = entry && Number.isInteger(entry.word07)
     ? entry.word07 : 96;
@@ -1042,6 +1037,12 @@ function generateRecordProgram(program, options = {}) {
       previousXClip:options.previousXClip === undefined
         ? 0 : options.previousXClip,
     }) : null;
+  const recordOperations = ROM_ENGINE.executeSettledRecordProgram(
+    program.nodes, program.entry_id, {
+      origin:program.origin,
+      glyphAdvance:(depth, code) => depth ? FONT.small.glyphs[code].w : 6,
+      editorViewport:editorViewport || undefined,
+    });
   const operations = editorViewport
     ? ROM_ENGINE.settledEditorViewportOperations(
       recordOperations, editorViewport, recordHeight, {
