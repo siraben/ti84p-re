@@ -2620,6 +2620,59 @@
       'bitmap_61BE',0x61be,[0x02,0x01,0x00,0x1f,0x00,0x02,0x06]);
   }
 
+  // 34:759C–75C1 decides whether an editor cursor immediately before a
+  // structural marker contributes a six-pixel outer cell or a five-pixel
+  // nested cell.  The first comparison is word-sized and wraps like ADD HL,
+  // FFFAh.  Preserve the Y= selection guard even though valid page-6 editor
+  // states place the one-byte selection prefix at editTail and therefore fail
+  // the pointer comparison before that guard can fire.
+  function settledMetricMarkerTailGate(input) {
+    if (!input || typeof input !== 'object')
+      throw new TypeError('metric marker tail gate requires a state object');
+    const recordPointer = unsignedWord(
+      input.recordPointer, 'metric marker record pointer');
+    const editTail = unsignedWord(input.editTail, 'metric marker editTail');
+    const incomingA = byte(
+      input.incomingA === undefined ? 0 : input.incomingA,
+      'metric marker incoming A');
+    const cxCurApp = byte(input.cxCurApp, 'metric marker cxCurApp');
+    const tblFlags = byte(input.tblFlags, 'metric marker tblFlags');
+    const markerType = byte(input.markerType, 'metric marker type');
+    const nestingCounter = unsignedWord(
+      input.nestingCounter, 'metric marker nesting counter');
+    const branchOutcomes = [];
+    const finish = (terminal, returnA, zero) => ({
+      recordPointer, editTail, incomingA, cxCurApp, tblFlags,
+      markerType, nestingCounter, terminal, returnA, zero,
+      returnedFlags:zero ? 'Z' : 'NZ', branchOutcomes,
+      routine:'34:759C–75C1',
+    });
+
+    const sourcePointer = addWord(recordPointer, -6);
+    if (sourcePointer !== editTail) {
+      branchOutcomes.push('34:75A5:returned');
+      return finish('return_nz_pointer_mismatch',incomingA,false);
+    }
+    branchOutcomes.push('34:75A5:fallthrough');
+
+    const yEquSelection = Boolean(tblFlags & 0x01) && cxCurApp === 0x49;
+    branchOutcomes.push(`34:75A9:${yEquSelection ? 'taken' : 'fallthrough'}`);
+    if (yEquSelection)
+      return finish('return_nz_yequ_selection',incomingA | 1,false);
+
+    const specialMarker = markerType === 0x20 || markerType === 0x24 ||
+      markerType === 0x2a;
+    branchOutcomes.push(`34:75B0:${specialMarker ? 'taken' : 'fallthrough'}`);
+    if (!specialMarker)
+      return finish('return_nz_other_marker',markerType | 1,false);
+
+    const nested = nestingCounter !== 0;
+    branchOutcomes.push(`34:75BB:${nested ? 'fallthrough' : 'taken'}`);
+    return finish(
+      `return_z_special_marker_${nested ? 'nested' : 'top_level'}`,
+      nested ? 5 : 6,true);
+  }
+
   function decodedSettledNode(input) {
     if (!input || typeof input !== 'object')
       throw new TypeError('settled record node must be an object');
@@ -7676,13 +7729,18 @@
         // following cell. Fraction, nth-root, and postfix-power markers begin
         // with geometry rather than a full-size operator cell, so the editor
         // allocates a cursor cell immediately before those three structures.
-        const cursorBeforeGeometry = nextPart &&
-          nextPart.kind === 'embedded' &&
-          (nextPart.structural.render_type === 0x20 ||
-           nextPart.structural.render_type === 0x24 ||
-           nextPart.structural.render_type === 0x2a);
-        const width = !nextPart || cursorBeforeGeometry
-          ? renderDepth === 0 ? 6 : 5 : 0;
+        const markerTailGate = nextPart && nextPart.kind === 'embedded'
+          ? settledMetricMarkerTailGate({
+            recordPointer:6, editTail:0, incomingA:leaf.render_type,
+            cxCurApp:0, tblFlags:0,
+            markerType:nextPart.structural.render_type,
+            nestingCounter:renderDepth,
+          })
+          : null;
+        const cursorBeforeGeometry = markerTailGate && markerTailGate.zero;
+        const width = !nextPart
+          ? renderDepth === 0 ? 6 : 5
+          : cursorBeforeGeometry ? markerTailGate.returnA : 0;
         if (width) {
           mergeVerticalMetrics(height,baseline);
           leaf.word07 = checkedWord(
@@ -9514,6 +9572,7 @@
     decodeSettledRecord,
     settledRenderHandler,
     settledSharedMarkerPrimitive,
+    settledMetricMarkerTailGate,
     settledCompoundOperations,
     settledBraceOperations,
     matrixChildCount,
