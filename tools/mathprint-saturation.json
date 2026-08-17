@@ -59,9 +59,9 @@
     "external_direct_targets": 236,
     "structural_types_with_oracles": 13,
     "structural_type_domain": 13,
-    "symbolic_path_equivalence_classes": 3424,
-    "symbolic_distinct_branch_outcomes": 541,
-    "symbolic_per_domain_minimum_representatives": 255,
+    "symbolic_path_equivalence_classes": 3463,
+    "symbolic_distinct_branch_outcomes": 563,
+    "symbolic_per_domain_minimum_representatives": 262,
     "globally_saturated": false
   },
   "tables": {
@@ -8682,16 +8682,16 @@
     }
   },
   "symbolic_model_corpus": {
-    "scope": "all projected inputs and complete path equivalence classes in the 48 declared finite symbolic models",
+    "scope": "all projected inputs and complete path equivalence classes in the 49 declared finite symbolic models",
     "not_claimed": [
       "all Z80 register and RAM states",
       "calculator reachability of every representative",
       "all paths outside the declared finite models"
     ],
-    "path_equivalence_class_count": 3424,
-    "representative_path_corpus_count": 3424,
-    "distinct_modeled_branch_outcomes": 541,
-    "per_domain_minimum_branch_outcome_corpus_count": 255,
+    "path_equivalence_class_count": 3463,
+    "representative_path_corpus_count": 3463,
+    "distinct_modeled_branch_outcomes": 563,
+    "per_domain_minimum_branch_outcome_corpus_count": 262,
     "domains": [
       {
         "name": "structural_scan_kind_dispatch",
@@ -228691,6 +228691,1146 @@
             "39:6B93:taken",
             "39:6B9A:fallthrough",
             "39:6B9A:taken"
+          ],
+          "algorithm": "exact outcome-subset dynamic programming; minimum cases, then serialized input bytes, then class order",
+          "proven_minimum": true
+        }
+      },
+      {
+        "name": "page39_cell_emission",
+        "routine": "39:4E8E\u20134F19",
+        "projected_input_domain": 1048576,
+        "path_equivalence_class_count": 39,
+        "path_equivalence_classes": [
+          {
+            "class_index": 0,
+            "terminal": "cursor_state_boundary",
+            "projected_input_count": 4096,
+            "representative_state": {
+              "d": 31,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:fallthrough"
+            ]
+          },
+          {
+            "class_index": 1,
+            "terminal": "direct_glyph",
+            "projected_input_count": 160,
+            "representative_state": {
+              "d": 0,
+              "e": 66,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:fallthrough",
+              "39:4EDA:fallthrough",
+              "39:4EDF:taken",
+              "39:4EED:fallthrough"
+            ]
+          },
+          {
+            "class_index": 2,
+            "terminal": "direct_glyph",
+            "projected_input_count": 80,
+            "representative_state": {
+              "d": 0,
+              "e": 66,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:fallthrough",
+              "39:4EDF:taken",
+              "39:4EED:fallthrough"
+            ]
+          },
+          {
+            "class_index": 3,
+            "terminal": "direct_glyph",
+            "projected_input_count": 80,
+            "representative_state": {
+              "d": 0,
+              "e": 66,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:taken",
+              "39:4EED:fallthrough"
+            ]
+          },
+          {
+            "class_index": 4,
+            "terminal": "post_tail",
+            "projected_input_count": 2048,
+            "representative_state": {
+              "d": 130,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:fallthrough",
+              "39:4F0E:taken",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 5,
+            "terminal": "post_tail",
+            "projected_input_count": 2048,
+            "representative_state": {
+              "d": 130,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:fallthrough",
+              "39:4F0E:fallthrough",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 6,
+            "terminal": "post_tail",
+            "projected_input_count": 1020,
+            "representative_state": {
+              "d": 253,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:fallthrough",
+              "39:4EDA:fallthrough",
+              "39:4EDF:fallthrough",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:taken",
+              "39:4F0E:taken",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 7,
+            "terminal": "post_tail",
+            "projected_input_count": 255956,
+            "representative_state": {
+              "d": 0,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:fallthrough",
+              "39:4EDA:fallthrough",
+              "39:4EDF:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:taken",
+              "39:4F0E:taken",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 8,
+            "terminal": "post_tail",
+            "projected_input_count": 1004,
+            "representative_state": {
+              "d": 252,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:fallthrough",
+              "39:4EDA:fallthrough",
+              "39:4EDF:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:taken",
+              "39:4F0E:taken",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 9,
+            "terminal": "post_tail",
+            "projected_input_count": 1024,
+            "representative_state": {
+              "d": 255,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:fallthrough",
+              "39:4EDA:fallthrough",
+              "39:4EDF:taken",
+              "39:4EED:taken",
+              "39:4EF6:taken",
+              "39:4F0E:taken",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 10,
+            "terminal": "post_tail",
+            "projected_input_count": 1020,
+            "representative_state": {
+              "d": 253,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:fallthrough",
+              "39:4EDA:fallthrough",
+              "39:4EDF:fallthrough",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:taken",
+              "39:4F0E:fallthrough",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 11,
+            "terminal": "post_tail",
+            "projected_input_count": 255956,
+            "representative_state": {
+              "d": 0,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:fallthrough",
+              "39:4EDA:fallthrough",
+              "39:4EDF:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:taken",
+              "39:4F0E:fallthrough",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 12,
+            "terminal": "post_tail",
+            "projected_input_count": 1004,
+            "representative_state": {
+              "d": 252,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:fallthrough",
+              "39:4EDA:fallthrough",
+              "39:4EDF:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:taken",
+              "39:4F0E:fallthrough",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 13,
+            "terminal": "post_tail",
+            "projected_input_count": 1024,
+            "representative_state": {
+              "d": 255,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:fallthrough",
+              "39:4EDA:fallthrough",
+              "39:4EDF:taken",
+              "39:4EED:taken",
+              "39:4EF6:taken",
+              "39:4F0E:fallthrough",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 14,
+            "terminal": "post_tail",
+            "projected_input_count": 510,
+            "representative_state": {
+              "d": 253,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:fallthrough",
+              "39:4EDF:fallthrough",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:taken",
+              "39:4F0E:taken",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 15,
+            "terminal": "post_tail",
+            "projected_input_count": 127978,
+            "representative_state": {
+              "d": 0,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:fallthrough",
+              "39:4EDF:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:taken",
+              "39:4F0E:taken",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 16,
+            "terminal": "post_tail",
+            "projected_input_count": 502,
+            "representative_state": {
+              "d": 252,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:fallthrough",
+              "39:4EDF:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:taken",
+              "39:4F0E:taken",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 17,
+            "terminal": "post_tail",
+            "projected_input_count": 512,
+            "representative_state": {
+              "d": 255,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:fallthrough",
+              "39:4EDF:taken",
+              "39:4EED:taken",
+              "39:4EF6:taken",
+              "39:4F0E:taken",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 18,
+            "terminal": "post_tail",
+            "projected_input_count": 510,
+            "representative_state": {
+              "d": 253,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:fallthrough",
+              "39:4EDF:fallthrough",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:taken",
+              "39:4F0E:fallthrough",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 19,
+            "terminal": "post_tail",
+            "projected_input_count": 127978,
+            "representative_state": {
+              "d": 0,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:fallthrough",
+              "39:4EDF:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:taken",
+              "39:4F0E:fallthrough",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 20,
+            "terminal": "post_tail",
+            "projected_input_count": 502,
+            "representative_state": {
+              "d": 252,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:fallthrough",
+              "39:4EDF:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:taken",
+              "39:4F0E:fallthrough",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 21,
+            "terminal": "post_tail",
+            "projected_input_count": 512,
+            "representative_state": {
+              "d": 255,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:fallthrough",
+              "39:4EDF:taken",
+              "39:4EED:taken",
+              "39:4EF6:taken",
+              "39:4F0E:fallthrough",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 22,
+            "terminal": "post_tail",
+            "projected_input_count": 128488,
+            "representative_state": {
+              "d": 0,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:taken",
+              "39:4F0E:taken",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 23,
+            "terminal": "post_tail",
+            "projected_input_count": 502,
+            "representative_state": {
+              "d": 252,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:taken",
+              "39:4F0E:taken",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 24,
+            "terminal": "post_tail",
+            "projected_input_count": 512,
+            "representative_state": {
+              "d": 255,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:taken",
+              "39:4EED:taken",
+              "39:4EF6:taken",
+              "39:4F0E:taken",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 25,
+            "terminal": "post_tail",
+            "projected_input_count": 128488,
+            "representative_state": {
+              "d": 0,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:taken",
+              "39:4F0E:fallthrough",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 26,
+            "terminal": "post_tail",
+            "projected_input_count": 502,
+            "representative_state": {
+              "d": 252,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:taken",
+              "39:4F0E:fallthrough",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 27,
+            "terminal": "post_tail",
+            "projected_input_count": 512,
+            "representative_state": {
+              "d": 255,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:taken",
+              "39:4EED:taken",
+              "39:4EF6:taken",
+              "39:4F0E:fallthrough",
+              "39:4F15:returned"
+            ]
+          },
+          {
+            "class_index": 28,
+            "terminal": "row_retouch",
+            "projected_input_count": 4,
+            "representative_state": {
+              "d": 251,
+              "e": 199,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 1
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:fallthrough",
+              "39:4EDA:fallthrough",
+              "39:4EDF:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:taken",
+              "39:4F0E:taken",
+              "39:4F15:fallthrough"
+            ]
+          },
+          {
+            "class_index": 29,
+            "terminal": "row_retouch",
+            "projected_input_count": 4,
+            "representative_state": {
+              "d": 251,
+              "e": 199,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 1
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:fallthrough",
+              "39:4EDA:fallthrough",
+              "39:4EDF:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:taken",
+              "39:4F0E:fallthrough",
+              "39:4F15:fallthrough"
+            ]
+          },
+          {
+            "class_index": 30,
+            "terminal": "row_retouch",
+            "projected_input_count": 2,
+            "representative_state": {
+              "d": 251,
+              "e": 199,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 1
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:fallthrough",
+              "39:4EDF:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:taken",
+              "39:4F0E:taken",
+              "39:4F15:fallthrough"
+            ]
+          },
+          {
+            "class_index": 31,
+            "terminal": "row_retouch",
+            "projected_input_count": 2,
+            "representative_state": {
+              "d": 251,
+              "e": 199,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 1
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:fallthrough",
+              "39:4EDF:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:taken",
+              "39:4F0E:fallthrough",
+              "39:4F15:fallthrough"
+            ]
+          },
+          {
+            "class_index": 32,
+            "terminal": "row_retouch",
+            "projected_input_count": 2,
+            "representative_state": {
+              "d": 251,
+              "e": 199,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 1
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:taken",
+              "39:4F0E:taken",
+              "39:4F15:fallthrough"
+            ]
+          },
+          {
+            "class_index": 33,
+            "terminal": "row_retouch",
+            "projected_input_count": 2,
+            "representative_state": {
+              "d": 251,
+              "e": 199,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 1
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:taken",
+              "39:4F0E:fallthrough",
+              "39:4F15:fallthrough"
+            ]
+          },
+          {
+            "class_index": 34,
+            "terminal": "special_55",
+            "projected_input_count": 8,
+            "representative_state": {
+              "d": 253,
+              "e": 85,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:fallthrough",
+              "39:4EDA:fallthrough",
+              "39:4EDF:fallthrough",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:fallthrough"
+            ]
+          },
+          {
+            "class_index": 35,
+            "terminal": "special_55",
+            "projected_input_count": 2008,
+            "representative_state": {
+              "d": 0,
+              "e": 85,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:fallthrough",
+              "39:4EDA:fallthrough",
+              "39:4EDF:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:fallthrough"
+            ]
+          },
+          {
+            "class_index": 36,
+            "terminal": "special_55",
+            "projected_input_count": 4,
+            "representative_state": {
+              "d": 253,
+              "e": 85,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:fallthrough",
+              "39:4EDF:fallthrough",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:fallthrough"
+            ]
+          },
+          {
+            "class_index": 37,
+            "terminal": "special_55",
+            "projected_input_count": 1004,
+            "representative_state": {
+              "d": 0,
+              "e": 85,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:fallthrough",
+              "39:4EDF:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:fallthrough"
+            ]
+          },
+          {
+            "class_index": 38,
+            "terminal": "special_55",
+            "projected_input_count": 1008,
+            "representative_state": {
+              "d": 0,
+              "e": 85,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            "branch_outcomes": [
+              "39:4E91:taken",
+              "39:4EC1:taken",
+              "39:4ED7:taken",
+              "39:4EDA:taken",
+              "39:4EED:taken",
+              "39:4EF6:fallthrough",
+              "39:4EFA:fallthrough",
+              "39:4EFF:fallthrough"
+            ]
+          }
+        ],
+        "branch_outcome_count": 22,
+        "minimum_branch_outcome_corpus": {
+          "class_indices": [
+            0,
+            1,
+            4,
+            8,
+            9,
+            33,
+            34
+          ],
+          "selected_classes": [
+            {
+              "class_index": 0,
+              "terminal": "cursor_state_boundary",
+              "projected_input_count": 4096,
+              "representative_state": {
+                "d": 31,
+                "e": 0,
+                "draw_pass_active": 0,
+                "draw_callback_nonzero": 0,
+                "display_column_below_15": 0,
+                "marker_helper_nonzero": 0
+              },
+              "branch_outcomes": [
+                "39:4E91:fallthrough"
+              ]
+            },
+            {
+              "class_index": 1,
+              "terminal": "direct_glyph",
+              "projected_input_count": 160,
+              "representative_state": {
+                "d": 0,
+                "e": 66,
+                "draw_pass_active": 0,
+                "draw_callback_nonzero": 0,
+                "display_column_below_15": 0,
+                "marker_helper_nonzero": 0
+              },
+              "branch_outcomes": [
+                "39:4E91:taken",
+                "39:4EC1:taken",
+                "39:4ED7:fallthrough",
+                "39:4EDA:fallthrough",
+                "39:4EDF:taken",
+                "39:4EED:fallthrough"
+              ]
+            },
+            {
+              "class_index": 4,
+              "terminal": "post_tail",
+              "projected_input_count": 2048,
+              "representative_state": {
+                "d": 130,
+                "e": 0,
+                "draw_pass_active": 0,
+                "draw_callback_nonzero": 0,
+                "display_column_below_15": 1,
+                "marker_helper_nonzero": 0
+              },
+              "branch_outcomes": [
+                "39:4E91:taken",
+                "39:4EC1:fallthrough",
+                "39:4F0E:taken",
+                "39:4F15:returned"
+              ]
+            },
+            {
+              "class_index": 8,
+              "terminal": "post_tail",
+              "projected_input_count": 1004,
+              "representative_state": {
+                "d": 252,
+                "e": 0,
+                "draw_pass_active": 0,
+                "draw_callback_nonzero": 0,
+                "display_column_below_15": 1,
+                "marker_helper_nonzero": 0
+              },
+              "branch_outcomes": [
+                "39:4E91:taken",
+                "39:4EC1:taken",
+                "39:4ED7:fallthrough",
+                "39:4EDA:fallthrough",
+                "39:4EDF:taken",
+                "39:4EED:taken",
+                "39:4EF6:fallthrough",
+                "39:4EFA:taken",
+                "39:4F0E:taken",
+                "39:4F15:returned"
+              ]
+            },
+            {
+              "class_index": 9,
+              "terminal": "post_tail",
+              "projected_input_count": 1024,
+              "representative_state": {
+                "d": 255,
+                "e": 0,
+                "draw_pass_active": 0,
+                "draw_callback_nonzero": 0,
+                "display_column_below_15": 1,
+                "marker_helper_nonzero": 0
+              },
+              "branch_outcomes": [
+                "39:4E91:taken",
+                "39:4EC1:taken",
+                "39:4ED7:fallthrough",
+                "39:4EDA:fallthrough",
+                "39:4EDF:taken",
+                "39:4EED:taken",
+                "39:4EF6:taken",
+                "39:4F0E:taken",
+                "39:4F15:returned"
+              ]
+            },
+            {
+              "class_index": 33,
+              "terminal": "row_retouch",
+              "projected_input_count": 2,
+              "representative_state": {
+                "d": 251,
+                "e": 199,
+                "draw_pass_active": 1,
+                "draw_callback_nonzero": 1,
+                "display_column_below_15": 0,
+                "marker_helper_nonzero": 1
+              },
+              "branch_outcomes": [
+                "39:4E91:taken",
+                "39:4EC1:taken",
+                "39:4ED7:taken",
+                "39:4EDA:taken",
+                "39:4EED:taken",
+                "39:4EF6:fallthrough",
+                "39:4EFA:fallthrough",
+                "39:4EFF:taken",
+                "39:4F0E:fallthrough",
+                "39:4F15:fallthrough"
+              ]
+            },
+            {
+              "class_index": 34,
+              "terminal": "special_55",
+              "projected_input_count": 8,
+              "representative_state": {
+                "d": 253,
+                "e": 85,
+                "draw_pass_active": 0,
+                "draw_callback_nonzero": 0,
+                "display_column_below_15": 0,
+                "marker_helper_nonzero": 0
+              },
+              "branch_outcomes": [
+                "39:4E91:taken",
+                "39:4EC1:taken",
+                "39:4ED7:fallthrough",
+                "39:4EDA:fallthrough",
+                "39:4EDF:fallthrough",
+                "39:4EED:taken",
+                "39:4EF6:fallthrough",
+                "39:4EFA:fallthrough",
+                "39:4EFF:fallthrough"
+              ]
+            }
+          ],
+          "selected_case_count": 7,
+          "covered_outcomes": [
+            "39:4E91:fallthrough",
+            "39:4E91:taken",
+            "39:4EC1:fallthrough",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4ED7:taken",
+            "39:4EDA:fallthrough",
+            "39:4EDA:taken",
+            "39:4EDF:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:fallthrough",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EF6:taken",
+            "39:4EFA:fallthrough",
+            "39:4EFA:taken",
+            "39:4EFF:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:fallthrough",
+            "39:4F0E:taken",
+            "39:4F15:fallthrough",
+            "39:4F15:returned"
           ],
           "algorithm": "exact outcome-subset dynamic programming; minimum cases, then serialized input bytes, then class order",
           "proven_minimum": true
@@ -479414,6 +480554,2135 @@
         }
       ],
       "scope": "complete local inline-string dispatch domain; fallback continues into the separately modeled _KeyToString body"
+    },
+    "page39_cell_emission": {
+      "routine": "39:4E8E\u20134F19",
+      "state": [
+        "handler-cell D byte",
+        "handler-cell E byte",
+        "draw-pass flag",
+        "draw callback nonzero result",
+        "display column below 15",
+        "marker helper nonzero result"
+      ],
+      "projected_input_domain": 1048576,
+      "terminal_classes": [
+        {
+          "terminal": "cursor_state_boundary",
+          "actions": [
+            "cursor_marker"
+          ],
+          "branch_outcomes": [
+            "39:4E91:fallthrough"
+          ],
+          "projected_input_count": 4096,
+          "representative_states": [
+            {
+              "d": 31,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 31,
+              "e": 1,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 31,
+              "e": 2,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 31,
+              "e": 3,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "direct_glyph",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "direct_glyph"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:fallthrough"
+          ],
+          "projected_input_count": 160,
+          "representative_states": [
+            {
+              "d": 0,
+              "e": 66,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 1,
+              "e": 66,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 2,
+              "e": 66,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 3,
+              "e": 66,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "direct_glyph",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "counted_string",
+            "direct_glyph_probe",
+            "direct_glyph"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:fallthrough"
+          ],
+          "projected_input_count": 80,
+          "representative_states": [
+            {
+              "d": 0,
+              "e": 66,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 1,
+              "e": 66,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 2,
+              "e": 66,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 3,
+              "e": 66,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "direct_glyph",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "direct_glyph_probe",
+            "direct_glyph"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:taken",
+            "39:4EED:fallthrough"
+          ],
+          "projected_input_count": 80,
+          "representative_states": [
+            {
+              "d": 0,
+              "e": 66,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 1,
+              "e": 66,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 2,
+              "e": 66,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 3,
+              "e": 66,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "indexed_string",
+            "erase_eol",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:fallthrough",
+            "39:4F0E:taken",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 2048,
+          "representative_states": [
+            {
+              "d": 130,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 130,
+              "e": 1,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 130,
+              "e": 2,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 130,
+              "e": 3,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "indexed_string",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:fallthrough",
+            "39:4F0E:fallthrough",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 2048,
+          "representative_states": [
+            {
+              "d": 130,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 130,
+              "e": 1,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 130,
+              "e": 2,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 130,
+              "e": 3,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:fallthrough",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:taken",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 1020,
+          "representative_states": [
+            {
+              "d": 253,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 253,
+              "e": 1,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 253,
+              "e": 2,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 253,
+              "e": 3,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:taken",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 255956,
+          "representative_states": [
+            {
+              "d": 0,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 0,
+              "e": 1,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 0,
+              "e": 2,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 0,
+              "e": 3,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:taken",
+            "39:4F0E:taken",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 1004,
+          "representative_states": [
+            {
+              "d": 252,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 252,
+              "e": 1,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 252,
+              "e": 2,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 252,
+              "e": 3,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:taken",
+            "39:4F0E:taken",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 1024,
+          "representative_states": [
+            {
+              "d": 255,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 255,
+              "e": 1,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 255,
+              "e": 2,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 255,
+              "e": 3,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:fallthrough",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:fallthrough",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 1020,
+          "representative_states": [
+            {
+              "d": 253,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 253,
+              "e": 1,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 253,
+              "e": 2,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 253,
+              "e": 3,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:fallthrough",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 255956,
+          "representative_states": [
+            {
+              "d": 0,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 0,
+              "e": 1,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 0,
+              "e": 2,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 0,
+              "e": 3,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:taken",
+            "39:4F0E:fallthrough",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 1004,
+          "representative_states": [
+            {
+              "d": 252,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 252,
+              "e": 1,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 252,
+              "e": 2,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 252,
+              "e": 3,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:taken",
+            "39:4F0E:fallthrough",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 1024,
+          "representative_states": [
+            {
+              "d": 255,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 255,
+              "e": 1,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 255,
+              "e": 2,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 255,
+              "e": 3,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:fallthrough",
+            "39:4EDF:fallthrough",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:taken",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 510,
+          "representative_states": [
+            {
+              "d": 253,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 253,
+              "e": 1,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 253,
+              "e": 2,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 253,
+              "e": 3,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:taken",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 127978,
+          "representative_states": [
+            {
+              "d": 0,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 0,
+              "e": 1,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 0,
+              "e": 2,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 0,
+              "e": 3,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:taken",
+            "39:4F0E:taken",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 502,
+          "representative_states": [
+            {
+              "d": 252,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 252,
+              "e": 1,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 252,
+              "e": 2,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 252,
+              "e": 3,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:taken",
+            "39:4F0E:taken",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 512,
+          "representative_states": [
+            {
+              "d": 255,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 255,
+              "e": 1,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 255,
+              "e": 2,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 255,
+              "e": 3,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "counted_string",
+            "direct_glyph_probe",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:fallthrough",
+            "39:4EDF:fallthrough",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:fallthrough",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 510,
+          "representative_states": [
+            {
+              "d": 253,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 253,
+              "e": 1,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 253,
+              "e": 2,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 253,
+              "e": 3,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "counted_string",
+            "direct_glyph_probe",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:fallthrough",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 127978,
+          "representative_states": [
+            {
+              "d": 0,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 0,
+              "e": 1,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 0,
+              "e": 2,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 0,
+              "e": 3,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "counted_string",
+            "direct_glyph_probe",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:taken",
+            "39:4F0E:fallthrough",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 502,
+          "representative_states": [
+            {
+              "d": 252,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 252,
+              "e": 1,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 252,
+              "e": 2,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 252,
+              "e": 3,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "counted_string",
+            "direct_glyph_probe",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:taken",
+            "39:4F0E:fallthrough",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 512,
+          "representative_states": [
+            {
+              "d": 255,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 255,
+              "e": 1,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 255,
+              "e": 2,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 255,
+              "e": 3,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "direct_glyph_probe",
+            "erase_eol",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:taken",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 128488,
+          "representative_states": [
+            {
+              "d": 0,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 0,
+              "e": 1,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 0,
+              "e": 2,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 0,
+              "e": 3,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "direct_glyph_probe",
+            "erase_eol",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:taken",
+            "39:4F0E:taken",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 502,
+          "representative_states": [
+            {
+              "d": 252,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 252,
+              "e": 1,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 252,
+              "e": 2,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 252,
+              "e": 3,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "direct_glyph_probe",
+            "erase_eol",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:taken",
+            "39:4EED:taken",
+            "39:4EF6:taken",
+            "39:4F0E:taken",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 512,
+          "representative_states": [
+            {
+              "d": 255,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 255,
+              "e": 1,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 255,
+              "e": 2,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 255,
+              "e": 3,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "direct_glyph_probe",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:fallthrough",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 128488,
+          "representative_states": [
+            {
+              "d": 0,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 0,
+              "e": 1,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 0,
+              "e": 2,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 0,
+              "e": 3,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "direct_glyph_probe",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:taken",
+            "39:4F0E:fallthrough",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 502,
+          "representative_states": [
+            {
+              "d": 252,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 252,
+              "e": 1,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 252,
+              "e": 2,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 252,
+              "e": 3,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "direct_glyph_probe",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:taken",
+            "39:4EED:taken",
+            "39:4EF6:taken",
+            "39:4F0E:fallthrough",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 512,
+          "representative_states": [
+            {
+              "d": 255,
+              "e": 0,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 255,
+              "e": 1,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 255,
+              "e": 2,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 255,
+              "e": 3,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "row_retouch",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "marker_gate",
+            "row_retouch"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:taken",
+            "39:4F15:fallthrough"
+          ],
+          "projected_input_count": 4,
+          "representative_states": [
+            {
+              "d": 251,
+              "e": 199,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 1
+            },
+            {
+              "d": 251,
+              "e": 200,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 1
+            },
+            {
+              "d": 251,
+              "e": 199,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 1
+            },
+            {
+              "d": 251,
+              "e": 200,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 1
+            }
+          ]
+        },
+        {
+          "terminal": "row_retouch",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "marker_gate",
+            "row_retouch"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:fallthrough",
+            "39:4F15:fallthrough"
+          ],
+          "projected_input_count": 4,
+          "representative_states": [
+            {
+              "d": 251,
+              "e": 199,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 1
+            },
+            {
+              "d": 251,
+              "e": 200,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 1
+            },
+            {
+              "d": 251,
+              "e": 199,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 1
+            },
+            {
+              "d": 251,
+              "e": 200,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 1
+            }
+          ]
+        },
+        {
+          "terminal": "row_retouch",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "marker_gate",
+            "row_retouch"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:taken",
+            "39:4F15:fallthrough"
+          ],
+          "projected_input_count": 2,
+          "representative_states": [
+            {
+              "d": 251,
+              "e": 199,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 1
+            },
+            {
+              "d": 251,
+              "e": 200,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 1
+            }
+          ]
+        },
+        {
+          "terminal": "row_retouch",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "counted_string",
+            "direct_glyph_probe",
+            "marker_gate",
+            "row_retouch"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:fallthrough",
+            "39:4F15:fallthrough"
+          ],
+          "projected_input_count": 2,
+          "representative_states": [
+            {
+              "d": 251,
+              "e": 199,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 1
+            },
+            {
+              "d": 251,
+              "e": 200,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 1
+            }
+          ]
+        },
+        {
+          "terminal": "row_retouch",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "direct_glyph_probe",
+            "erase_eol",
+            "marker_gate",
+            "row_retouch"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:taken",
+            "39:4F15:fallthrough"
+          ],
+          "projected_input_count": 2,
+          "representative_states": [
+            {
+              "d": 251,
+              "e": 199,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 1
+            },
+            {
+              "d": 251,
+              "e": 200,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 1
+            }
+          ]
+        },
+        {
+          "terminal": "row_retouch",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "direct_glyph_probe",
+            "marker_gate",
+            "row_retouch"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:fallthrough",
+            "39:4F15:fallthrough"
+          ],
+          "projected_input_count": 2,
+          "representative_states": [
+            {
+              "d": 251,
+              "e": 199,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 1
+            },
+            {
+              "d": 251,
+              "e": 200,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 1
+            }
+          ]
+        },
+        {
+          "terminal": "special_55",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "special_55"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:fallthrough",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:fallthrough"
+          ],
+          "projected_input_count": 8,
+          "representative_states": [
+            {
+              "d": 253,
+              "e": 85,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 253,
+              "e": 85,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 1
+            },
+            {
+              "d": 253,
+              "e": 85,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 253,
+              "e": 85,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 1
+            }
+          ]
+        },
+        {
+          "terminal": "special_55",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "special_55"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:fallthrough"
+          ],
+          "projected_input_count": 2008,
+          "representative_states": [
+            {
+              "d": 0,
+              "e": 85,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 1,
+              "e": 85,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 2,
+              "e": 85,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 3,
+              "e": 85,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "special_55",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "special_55"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:fallthrough",
+            "39:4EDF:fallthrough",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:fallthrough"
+          ],
+          "projected_input_count": 4,
+          "representative_states": [
+            {
+              "d": 253,
+              "e": 85,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 253,
+              "e": 85,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 1
+            },
+            {
+              "d": 253,
+              "e": 85,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 253,
+              "e": 85,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "marker_helper_nonzero": 1
+            }
+          ]
+        },
+        {
+          "terminal": "special_55",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "special_55"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:fallthrough"
+          ],
+          "projected_input_count": 1004,
+          "representative_states": [
+            {
+              "d": 0,
+              "e": 85,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 1,
+              "e": 85,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 2,
+              "e": 85,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 3,
+              "e": 85,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        },
+        {
+          "terminal": "special_55",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "direct_glyph_probe",
+            "erase_eol",
+            "special_55"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:fallthrough"
+          ],
+          "projected_input_count": 1008,
+          "representative_states": [
+            {
+              "d": 0,
+              "e": 85,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 1,
+              "e": 85,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 2,
+              "e": 85,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            },
+            {
+              "d": 3,
+              "e": 85,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "marker_helper_nonzero": 0
+            }
+          ]
+        }
+      ],
+      "scope": "complete outer-controller branch domain; VAT prepass, installed callback, indexed-string, output bcall, and row-retouch bodies remain explicit boundaries"
     },
     "glyph_advance": {
       "routine": "34:6C4F\u20136C5B; 34:6CBC\u20136CC9",

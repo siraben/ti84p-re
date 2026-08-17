@@ -414,8 +414,8 @@ The visible `fnInt(` menu cell and the structural integral glyph are separate th
 | Summation glyph | `0xC6` family | Fixed glyph data; no direct `00 C6` page `0x39` handler cell has been found. |
 
 The fixed `Lintegral` glyph is emitted by the ordinary structural-glyph path:
-`39:4E8E` calls the delimiter classifier, falls through to `39:4F1A`, maps the cell to
-large-font code `0x08`, and emits it. [confirmed]
+`39:4E8E` runs the named-token prepass, continues to `39:4F1A`, maps the cell
+to large-font code `0x08`, and emits it. [confirmed]
 
 The static `39:5167` path can compose argument slots around a fixed glyph:
 
@@ -456,11 +456,22 @@ Cells reach pixels through a small set of output paths:
 | Rule / rectangle helpers | `39:6ABF`, `39:6AF5`, `ram:3555` | Draw fraction UI rectangles, boxes, and fixed chrome lines. |
 
 `39:6675` saves a matched delimiter cell's `E` byte in `keyExtend` and passes
-its `D` byte to `07:44DE`. The JavaScript cell classifier executes that remap.
+its `D` byte to `07:44DE`. This call is a prepass, not a terminal delimiter
+draw: `39:4E8E` restores the original `D:E` pair and continues through the
+counted-string and direct-glyph stages. The JavaScript emission controller
+preserves that order.
 The committed layout artifact contains every table entry addressable from the
 main entry. A pinned-byte interpreter compares all 65,536 combinations of
 display byte and `keyExtend`; they reduce to seven paths and 12 branch outcomes.
 The separate public entry at `07:44FE` is outside this main-entry domain. [confirmed]
+
+The translated `39:4E8E–4F19` outer controller covers all 1,048,576 projected
+states formed by `D:E`, the draw-pass flag and callback result, the
+`curCol < 15` relation, and the marker-helper result. They reduce to 39 ordered
+paths, 22 branch outcomes, and seven minimum representatives. The VAT-dependent
+`39:6675` body, installed callback, indexed-string printer, output bcalls, and
+row-retouch body remain named boundaries rather than simulated return values.
+[confirmed]
 
 `_KeyToString` at `01:6D10` uses that public entry for `FB`, `FC`, `FE`, and
 `FF` cells, scans 13 high-byte special strings, or selects one of 101 counted
@@ -615,7 +626,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 48 finite models. It also computes an
+complete path-equivalence class in 49 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -643,6 +654,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | `_KeyToString` `_sOK` prefix | 1,024 | 5 | 8 | 5 |
 | `_KeyToString` selector | 65,536 | 35 | 40 | 14 |
 | Page-39 cell-string selector | 131,072 | 14 | 16 | 8 |
+| Page-39 cell-emission controller | 1,048,576 | 39 | 22 | 7 |
 | Glyph advance and delimiter padding | 131,072 | 6 | 10 | 4 |
 | `_VPutMap` byte-boundary gate | 56 | 2 | 2 | 2 |
 | MathPrint `_VPutMap` right-edge gate | 3,584 | 4 | 6 | 2 |
@@ -671,8 +683,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 | FindAlpha OP scratch transition | 33,554,432 | 2 | 5 | 2 |
 
-The 48 models contain 3,424 path classes and 541 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 255 representatives. Each
+The 49 models contain 3,463 path classes and 563 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 262 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover

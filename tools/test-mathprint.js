@@ -299,6 +299,19 @@ const page39CellStringByte = address => {
       `cell-string oracle reached unpinned byte 39:${address.toString(16)}`);
   return page39CellStringByteMap.get(address);
 };
+const page39CellEmissionRomSpan = {address:0x4e8e,bytes:Buffer.from(
+  '7afe1f202cdde5e1e7cd071be5dde1cd9017da0827218384cd092daf329184' +
+  '218384cd853e3a4c84b7c2084f214b8435c9fe8220087bd63ecd2b3b183d' +
+  'd5cd7566d1d53e01fdcb3676c4bb2c200d7afefd20021600cd666bef0d45' +
+  'd1cd1a4f3804efe551c97afeff2810fefc280c7bfe552007cdb73ceff451' +
+  'c93a4c84fe0fd5dcb73cd1cd444fc8cd624fc9','hex')};
+const page39CellEmissionByte = address => {
+  const offset = address - page39CellEmissionRomSpan.address;
+  if (offset < 0 || offset >= page39CellEmissionRomSpan.bytes.length)
+    throw new Error(
+      `cell-emission oracle reached unpinned byte 39:${address.toString(16)}`);
+  return page39CellEmissionRomSpan.bytes[offset];
+};
 const keyToStringDataMemory = artifact => {
   const memory = new Map();
   const add = (address, value, label) => {
@@ -1869,6 +1882,102 @@ function runRawPage39CellStringSelection(
     }
   }
   throw new Error('cell-string oracle exceeded its instruction bound');
+}
+
+function runRawPage39CellEmission(
+    d, e, drawPassActive, drawCallbackNonzero, displayColumn,
+    markerHelperNonzero, layout, strings) {
+  const branchOutcomes = [];
+  const actions = [];
+  const pinned = (address, bytes) => {
+    for (let index = 0; index < bytes.length; index++)
+      if (page39CellEmissionByte(address + index) !== bytes[index])
+        throw new Error(`cell-emission byte mismatch at 39:${(address + index).toString(16)}`);
+  };
+  const branch = (address, condition, falseWord = 'fallthrough') =>
+    branchOutcomes.push(
+      `39:${address.toString(16).toUpperCase()}:` +
+      `${condition ? 'taken' : falseWord}`);
+  const finish = terminal => ({terminal,actions,branchOutcomes});
+  const postTail = () => {
+    pinned(0x4f08,[0x3a,0x4c,0x84,0xfe,0x0f,0xd5,0xdc,0xb7,0x3c]);
+    const eraseEol = displayColumn < 0x0f;
+    branch(0x4f0e,eraseEol);
+    if (eraseEol) actions.push('erase-eol');
+    actions.push('marker-gate');
+    const nonzero = d === 0xfb && (e === 0xc8 || e === 0xc7) && markerHelperNonzero;
+    branchOutcomes.push(`39:4F15:${nonzero ? 'fallthrough' : 'returned'}`);
+    if (!nonzero) return finish('post-tail');
+    actions.push('row-retouch');
+    return finish('row-retouch');
+  };
+
+  pinned(0x4e8e,[0x7a,0xfe,0x1f,0x20,0x2c]);
+  const ordinaryD = d !== 0x1f;
+  branch(0x4e91,ordinaryD);
+  if (!ordinaryD) {
+    actions.push('cursor-marker');
+    return finish('cursor-state-boundary');
+  }
+  pinned(0x4ebf,[0xfe,0x82,0x20,0x08]);
+  const generic = d !== 0x82;
+  branch(0x4ec1,generic);
+  if (!generic) {
+    actions.push('indexed-string');
+    return postTail();
+  }
+
+  pinned(0x4ecb,[0xd5,0xcd,0x75,0x66,0xd1,0xd5,0x3e,0x01]);
+  actions.push('named-token-prepass');
+  pinned(0x4ed3,[0xfd,0xcb,0x36,0x76,0xc4,0xbb,0x2c,0x20,0x0d]);
+  branch(0x4ed7,drawPassActive);
+  if (drawPassActive) actions.push('draw-pass-callback');
+  const bypassString = drawPassActive && drawCallbackNonzero;
+  branch(0x4eda,bypassString);
+  if (!bypassString) {
+    pinned(0x4edc,[0x7a,0xfe,0xfd,0x20,0x02,0x16,0x00]);
+    const fd = d === 0xfd;
+    branch(0x4edf,!fd);
+    const selection = runRawPage39CellStringSelection(
+      fd ? 0 : d,e,true,0,layout,strings);
+    actions.push(`counted-string:${selection.source}`);
+  }
+  const direct = runRawDirectGlyphSelection(d,e);
+  actions.push('direct-glyph-probe');
+  branchOutcomes.push(...direct.branchOutcomes);
+  pinned(0x4eea,[0xcd,0x1a,0x4f,0x38,0x04]);
+  branch(0x4eed,direct.carry);
+  if (!direct.carry) {
+    actions.push('direct-glyph');
+    return finish('direct-glyph');
+  }
+
+  pinned(0x4ef3,[0x7a,0xfe,0xff,0x28,0x10,0xfe,0xfc,0x28,0x0c]);
+  const ff = d === 0xff;
+  branch(0x4ef6,ff);
+  if (!ff) {
+    const fc = d === 0xfc;
+    branch(0x4efa,fc);
+    if (!fc) {
+      pinned(0x4efc,[0x7b,0xfe,0x55,0x20,0x07]);
+      const special55 = e === 0x55;
+      branch(0x4eff,!special55);
+      if (special55) {
+        actions.push('erase-eol','special-55');
+        return finish('special-55');
+      }
+    }
+  }
+  return postTail();
+}
+
+function page39CellEmissionProjection(result) {
+  return {
+    terminal:result.terminal,
+    actions:result.actions.map(action => action.kind === 'counted-string'
+      ? `counted-string:${action.selection.source}` : action.kind),
+    branchOutcomes:result.branchOutcomes,
+  };
 }
 
 function runRawVPutMapCompose(screen, width, glyphRow, inverse) {
@@ -4679,6 +4788,34 @@ expectEqual('39:6B62 gates FBC8 on H bit 0', [
   rom.settledPage39CellStringSelection(
     layout,0xfb,0xc8,{hBit0:true,keyExtend:0}).source,
 ], ['prefix-token-table','mathprint-inline-string']);
+let page39CellEmissionStates = 0;
+for (const scenario of [
+  {drawPassActive:false,drawCallbackNonzero:false,
+   displayColumn:0x0f,markerHelperNonzero:false},
+  {drawPassActive:true,drawCallbackNonzero:false,
+   displayColumn:0x0e,markerHelperNonzero:true},
+  {drawPassActive:true,drawCallbackNonzero:true,
+   displayColumn:0x0f,markerHelperNonzero:true},
+]) {
+  for (let d = 0; d <= 0xff; d++) {
+    for (let e = 0; e <= 0xff; e++) {
+      const translated = rom.settledPage39CellEmission(
+        layout,d,e,{...scenario,keyExtend:0});
+      const raw = runRawPage39CellEmission(
+        d,e,scenario.drawPassActive,scenario.drawCallbackNonzero,
+        scenario.displayColumn,scenario.markerHelperNonzero,layout,tokenStrings);
+      expectEqual(`39:4E8E cell-emission state ${page39CellEmissionStates}`,
+        page39CellEmissionProjection(translated),raw);
+      page39CellEmissionStates++;
+    }
+  }
+}
+expectEqual('39:4E8E cell-emission differential state count',
+  page39CellEmissionStates,3 * 0x10000);
+expectEqual('39:6675 remains a prepass before FC00 string selection',
+  rom.settledPage39CellEmission(layout,0xfc,0,{keyExtend:0}).actions
+    .map(action => action.kind),
+  ['named-token-prepass','counted-string','direct-glyph-probe','marker-gate']);
 for (const [label,displayByte,keyExtend,expected] of [
   ['FE-low',0xfe,0x00,[0x00,0xa8,'fe-low-table',0x4099,0x00]],
   ['FE-high',0xfe,0x69,[0x7e,0x00,'fe-high-table',0x4102,0x00]],

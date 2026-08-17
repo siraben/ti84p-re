@@ -4786,6 +4786,153 @@ def symbolic_page39_cell_string_paths() -> list[dict[str, object]]:
     ]
 
 
+def page39_cell_emission_path(
+    d: int,
+    e: int,
+    draw_pass_active: int,
+    draw_callback_nonzero: int,
+    display_column_below_15: int,
+    marker_helper_nonzero: int,
+) -> dict[str, object]:
+    """Translate the complete outer controller at 39:4E8E–4F19."""
+
+    if not 0 <= d <= 0xFF or not 0 <= e <= 0xFF:
+        raise ValueError("page-39 cell-emission inputs must be unsigned bytes")
+    draw_pass_active = int(bool(draw_pass_active))
+    draw_callback_nonzero = int(bool(draw_callback_nonzero))
+    display_column_below_15 = int(bool(display_column_below_15))
+    marker_helper_nonzero = int(bool(marker_helper_nonzero))
+    outcomes: list[str] = []
+    actions: list[str] = []
+
+    ordinary_d = d != 0x1F
+    outcomes.append(f"39:4E91:{'taken' if ordinary_d else 'fallthrough'}")
+    if not ordinary_d:
+        return {
+            "terminal": "cursor_state_boundary",
+            "actions": ["cursor_marker"],
+            "branch_outcomes": outcomes,
+        }
+
+    generic = d != 0x82
+    outcomes.append(f"39:4EC1:{'taken' if generic else 'fallthrough'}")
+    if generic:
+        actions.append("named_token_prepass")
+        outcomes.append(
+            f"39:4ED7:{'taken' if draw_pass_active else 'fallthrough'}"
+        )
+        if draw_pass_active:
+            actions.append("draw_pass_callback")
+        bypass_string = bool(draw_pass_active and draw_callback_nonzero)
+        outcomes.append(
+            f"39:4EDA:{'taken' if bypass_string else 'fallthrough'}"
+        )
+        if not bypass_string:
+            fd = d == 0xFD
+            outcomes.append(f"39:4EDF:{'fallthrough' if fd else 'taken'}")
+            actions.append("counted_string")
+        direct = direct_glyph_selection_path(d, e)
+        actions.append("direct_glyph_probe")
+        carry = bool(direct["carry"])
+        outcomes.append(f"39:4EED:{'taken' if carry else 'fallthrough'}")
+        if not carry:
+            actions.append("direct_glyph")
+            return {
+                "terminal": "direct_glyph",
+                "actions": actions,
+                "branch_outcomes": outcomes,
+            }
+        ff = d == 0xFF
+        outcomes.append(f"39:4EF6:{'taken' if ff else 'fallthrough'}")
+        if not ff:
+            fc = d == 0xFC
+            outcomes.append(f"39:4EFA:{'taken' if fc else 'fallthrough'}")
+            if not fc:
+                special_55 = e == 0x55
+                outcomes.append(
+                    f"39:4EFF:{'fallthrough' if special_55 else 'taken'}"
+                )
+                if special_55:
+                    actions.extend(("erase_eol", "special_55"))
+                    return {
+                        "terminal": "special_55",
+                        "actions": actions,
+                        "branch_outcomes": outcomes,
+                    }
+    else:
+        actions.append("indexed_string")
+
+    outcomes.append(
+        f"39:4F0E:{'taken' if display_column_below_15 else 'fallthrough'}"
+    )
+    if display_column_below_15:
+        actions.append("erase_eol")
+    actions.append("marker_gate")
+    marker = d == 0xFB and e in (0xC7, 0xC8)
+    marker_gate_nonzero = bool(marker and marker_helper_nonzero)
+    outcomes.append(
+        f"39:4F15:{'fallthrough' if marker_gate_nonzero else 'returned'}"
+    )
+    if marker_gate_nonzero:
+        actions.append("row_retouch")
+    return {
+        "terminal": "row_retouch" if marker_gate_nonzero else "post_tail",
+        "actions": actions,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_page39_cell_emission_paths() -> list[dict[str, object]]:
+    """Partition every effective outer-controller input at 39:4E8E."""
+
+    classes: dict[
+        tuple[str, tuple[str, ...], tuple[str, ...]], dict[str, object]
+    ] = {}
+    for draw_pass_active in (0, 1):
+        for draw_callback_nonzero in (0, 1):
+            for display_column_below_15 in (0, 1):
+                for marker_helper_nonzero in (0, 1):
+                    for d in range(0x100):
+                        for e in range(0x100):
+                            result = page39_cell_emission_path(
+                                d,
+                                e,
+                                draw_pass_active,
+                                draw_callback_nonzero,
+                                display_column_below_15,
+                                marker_helper_nonzero,
+                            )
+                            key = (
+                                str(result["terminal"]),
+                                tuple(str(item) for item in result["actions"]),
+                                tuple(str(item) for item in result["branch_outcomes"]),
+                            )
+                            row = classes.setdefault(key, {
+                                "projected_input_count": 0,
+                                "representative_states": [],
+                            })
+                            row["projected_input_count"] += 1
+                            states = row["representative_states"]
+                            if len(states) < 4:
+                                states.append({
+                                    "d": d,
+                                    "e": e,
+                                    "draw_pass_active": draw_pass_active,
+                                    "draw_callback_nonzero": draw_callback_nonzero,
+                                    "display_column_below_15": display_column_below_15,
+                                    "marker_helper_nonzero": marker_helper_nonzero,
+                                })
+    return [
+        {
+            "terminal": terminal,
+            "actions": list(actions),
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, actions, outcomes)],
+        }
+        for terminal, actions, outcomes in sorted(classes)
+    ]
+
+
 def glyph_advance_path(
     code: int,
     record_width: int,
@@ -5561,6 +5708,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             "39:6B62–6B9F",
             2 * 0x100**2,
             symbolic_page39_cell_string_paths(),
+        ),
+        (
+            "page39_cell_emission",
+            "39:4E8E–4F19",
+            16 * 0x100**2,
+            symbolic_page39_cell_emission_paths(),
         ),
         (
             "glyph_advance",
@@ -7231,6 +7384,21 @@ def build_report(
                 "scope": (
                     "complete local inline-string dispatch domain; fallback "
                     "continues into the separately modeled _KeyToString body"
+                ),
+            },
+            "page39_cell_emission": {
+                "routine": "39:4E8E–4F19",
+                "state": [
+                    "handler-cell D byte", "handler-cell E byte",
+                    "draw-pass flag", "draw callback nonzero result",
+                    "display column below 15", "marker helper nonzero result",
+                ],
+                "projected_input_domain": 16 * 0x100**2,
+                "terminal_classes": symbolic_page39_cell_emission_paths(),
+                "scope": (
+                    "complete outer-controller branch domain; VAT prepass, "
+                    "installed callback, indexed-string, output bcall, and "
+                    "row-retouch bodies remain explicit boundaries"
                 ),
             },
             "glyph_advance": {
