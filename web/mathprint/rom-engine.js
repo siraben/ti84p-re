@@ -1502,17 +1502,114 @@
     return settledPage39DirectGlyphSelection(d,e).glyph;
   }
 
-  function delimiterFamily(layout, d, e) {
+  function namedTokenFamily(layout, d, e) {
     requireLayout(layout);
     // 39:6675 scans the ten cells following the records at 39:62C8, 62DF,
-    // and 62F6. Those are classes 17h, 18h, and 19h in the extracted table.
-    for (const layoutClass of [0x17, 0x18, 0x19]) {
+    // and 62F6. The byte order is class 18h, then 17h, then 19h.
+    for (const layoutClass of [0x18, 0x17, 0x19]) {
       const record = handlerRecord(layout, layoutClass);
       const cells = record.items[0].cells;
       const index = cells.findIndex(cell => cell[0] === d && cell[1] === e);
       if (index >= 0) return { layoutClass, index };
     }
     return null;
+  }
+
+  // 39:6675–66BC checks whether a cell names an archived VAT variable. The
+  // three table families are remapped through 07:44DE and written to zeroed
+  // OP1. Other cells first pass through 39:4F1A; mapped codes become matrix
+  // names 5C:A through 05:4056. Both routes perform an exact fixed-token VAT
+  // lookup. ram:1785 backs the returned HL from the type byte to the page byte;
+  // a nonzero page emits the '*' marker through ram:3FDB.
+  function settledPage39NamedTokenPrepass(
+      layoutValue, dValue, eValue, options = {}) {
+    const layout = requireLayout(layoutValue);
+    const d = byte(dValue, 'named-token prepass D byte');
+    const e = byte(eValue, 'named-token prepass E byte');
+    if (!options || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('named-token prepass options must be an object');
+    const branchOutcomes = [];
+    const branch = (address, outcome) => branchOutcomes.push(
+      `39:${address.toString(16).toUpperCase()}:${outcome}`);
+    const finish = (terminal, extra = {}) => ({
+      d,e,terminal,branchOutcomes,routine:'39:6675–66BC',...extra,
+    });
+
+    const family = namedTokenFamily(layout,d,e);
+    branch(0x667b,family?.layoutClass === 0x18 ? 'taken' : 'fallthrough');
+    if (family?.layoutClass !== 0x18)
+      branch(0x6683,family?.layoutClass === 0x17 ? 'taken' : 'fallthrough');
+    if (family === null || family.layoutClass === 0x19)
+      branch(0x668b,family?.layoutClass === 0x19 ? 'fallthrough' : 'taken');
+
+    let lookupName;
+    let lookupSource;
+    let remapped = null;
+    let directGlyph = null;
+    let keyExtendAfter = options.keyExtend === undefined
+      ? null : byte(options.keyExtend, 'named-token prepass keyExtend byte');
+    let lookupCarryBranch;
+    if (family) {
+      keyExtendAfter = e;
+      remapped = settledPage7DisplayByteRemap(d,e,layout.displayByteMap);
+      branchOutcomes.push(...remapped.branchOutcomes);
+      lookupName = [remapped.d,remapped.e,0];
+      lookupSource = 'display-byte-family';
+      lookupCarryBranch = 0x66b0;
+    } else {
+      directGlyph = settledPage39DirectGlyphSelection(d,e);
+      branchOutcomes.push(...directGlyph.branchOutcomes);
+      branch(0x66a3,directGlyph.carry ? 'returned' : 'fallthrough');
+      if (directGlyph.carry) return finish('unmapped-cell', {
+        family:null,remapped,directGlyph,keyExtendAfter,
+        lookupName:null,lookupSource:null,lookupCalled:false,
+        resolved:true,found:false,page:null,starEmitted:false,
+      });
+      lookupName = [0x5c,directGlyph.glyph,0];
+      lookupSource = 'matrix-name';
+      lookupCarryBranch = 0x66a8;
+    }
+
+    const vatSnapshot = options.vatSnapshot;
+    if (vatSnapshot === undefined) return finish('vat-lookup-boundary', {
+      family,remapped,directGlyph,keyExtendAfter,
+      lookupName,lookupSource,lookupCalled:true,
+      resolved:false,found:null,page:null,starEmitted:null,
+      boundary:family ? '00:0E60 (_ChkFindSym)' : '00:0E65 (_FindSym)',
+    });
+    if (!Array.isArray(vatSnapshot))
+      throw new TypeError('named-token VAT snapshot must be an array');
+    let found = null;
+    for (let index = 0; index < vatSnapshot.length; index++) {
+      const entry = vatSnapshot[index];
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry))
+        throw new TypeError(`named-token VAT entry ${index} must be an object`);
+      const identity = editorNineByteBuffer(
+        entry.identity, `named-token VAT entry ${index} identity`);
+      const page = byte(entry.page, `named-token VAT entry ${index} page`);
+      if (identity[1] === lookupName[0] &&
+          identity[2] === lookupName[1] &&
+          identity[3] === lookupName[2]) {
+        found = {identity,page,index};
+        break;
+      }
+    }
+    branch(lookupCarryBranch,found === null ? 'returned' : 'fallthrough');
+    if (found === null) return finish('symbol-absent', {
+      family,remapped,directGlyph,keyExtendAfter,
+      lookupName,lookupSource,lookupCalled:true,
+      resolved:true,found:false,page:null,selectedIndex:null,starEmitted:false,
+    });
+    const archived = found.page !== 0;
+    branch(0x66b6,archived ? 'fallthrough' : 'returned');
+    return finish(archived ? 'archived-marker' : 'ram-symbol', {
+      family,remapped,directGlyph,keyExtendAfter,
+      lookupName,lookupSource,lookupCalled:true,
+      resolved:true,found:true,page:found.page,selectedIndex:found.index,
+      starEmitted:archived,output:archived ? {
+        code:0x2a,boundary:'ram:3FDB',
+      } : null,
+    });
   }
 
   // The non-prefix index arithmetic in _KeyToString at 01:6D10. Retain this
@@ -1853,11 +1950,9 @@
       return postTail();
     }
 
-    actions.push({
-      kind:'named-token-prepass',
-      family:delimiterFamily(layout,d,e),
-      boundary:'39:6675–66BC',
-    });
+    const namedTokenPrepass = settledPage39NamedTokenPrepass(
+      layout,d,e,options);
+    actions.push({kind:'named-token-prepass',result:namedTokenPrepass});
     branch(0x4ed7,drawPassActive ? 'taken' : 'fallthrough');
     if (drawPassActive)
       actions.push({kind:'draw-pass-callback',command:1,boundary:'00:2CBB'});
@@ -1867,8 +1962,12 @@
       const fd = d === 0xfd;
       branch(0x4edf,fd ? 'fallthrough' : 'taken');
       const stringD = fd ? 0 : d;
+      const stringOptions = {...options,hBit0:true};
+      if (stringOptions.keyExtend === undefined &&
+          namedTokenPrepass.keyExtendAfter !== null)
+        stringOptions.keyExtend = namedTokenPrepass.keyExtendAfter;
       const selection = settledPage39CellStringSelection(
-        layout,stringD,e,{...options,hBit0:true});
+        layout,stringD,e,stringOptions);
       actions.push({
         kind:'counted-string',input:[stringD,e],selection,
         outputBoundary:'01:5C52 (_PutPSB)',
@@ -1904,22 +2003,15 @@
     return postTail();
   }
 
-  // 39:4E8E branch selection, ending at the known output boundary.
+  // Retain a result-only primary-content classifier for inspectors. The ROM
+  // executes additional ordered side effects; settledPage39CellEmission is the
+  // authoritative translation of the complete outer controller.
   function classifyCell(layout, d, e) {
     byte(d, 'cell D');
     byte(e, 'cell E');
     if (d === 0x1f) return { kind: 'cursorMarker', d, e, routine: '39:4E93' };
     if (d === 0x82)
       return { kind: 'indexedString', d, e, index: (e - 0x3e) & 0xff, routine: '39:4EBF' };
-    const delimiter = delimiterFamily(layout, d, e);
-    if (delimiter) {
-      const remapped = settledPage7DisplayByteRemap(
-        d,e,layout.displayByteMap);
-      return {
-        kind:'fixedDelimiter',d,e,...delimiter,remapped,
-        routine:'39:6675 → 07:44DE',
-      };
-    }
     const glyph = mapDirectGlyph(d, e);
     if (glyph !== null)
       return { kind: 'directGlyph', d, e, glyph, routine: '39:4F1A' };
@@ -11451,6 +11543,7 @@
     keyToStringIndex,
     settledPage1KeyToStringSelection,
     settledPage39CellStringSelection,
+    settledPage39NamedTokenPrepass,
     settledPage39CellEmission,
     descriptor,
     selectDescriptor,

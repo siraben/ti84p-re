@@ -26,6 +26,7 @@ from analyze_mathprint_saturation import (
     key_to_string_sok_path,
     page39_cell_emission_path,
     page39_cell_string_path,
+    page39_named_token_prepass_path,
     drawing_hook_dispatch_path,
     editor_action03_controller_path,
     editor_action04_controller_path,
@@ -88,6 +89,7 @@ from analyze_mathprint_saturation import (
     symbolic_key_to_string_sok_paths,
     symbolic_page39_cell_emission_paths,
     symbolic_page39_cell_string_paths,
+    symbolic_page39_named_token_prepass_paths,
     symbolic_drawing_hook_dispatch_paths,
     symbolic_metric_marker_paths,
     symbolic_editor_action03_paths,
@@ -357,13 +359,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(3463, report["path_equivalence_class_count"])
-        self.assertEqual(3463, report["representative_path_corpus_count"])
-        self.assertEqual(563, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(3476, report["path_equivalence_class_count"])
+        self.assertEqual(3476, report["representative_path_corpus_count"])
+        self.assertEqual(577, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            262, report["per_domain_minimum_branch_outcome_corpus_count"]
+            268, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(49, len(report["domains"]))
+        self.assertEqual(50, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -1332,6 +1334,27 @@ class SymbolicHandlerTests(unittest.TestCase):
             0xFB, 0xD8, 0,
         )["terminal"])
 
+    def test_page39_named_token_prepass_partitions_vat_results(self) -> None:
+        paths = symbolic_page39_named_token_prepass_paths()
+
+        self.assertEqual(13, len(paths))
+        self.assertEqual(3 * 0x100**2, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        class_18 = page39_named_token_prepass_path(0xFE, 0xA7, "absent")
+        self.assertEqual(0x18, class_18["family"])
+        self.assertEqual(["39:667B:taken", "39:66B0:returned"],
+                         class_18["branch_outcomes"])
+        class_19 = page39_named_token_prepass_path(0xFC, 0x50, "archive")
+        self.assertEqual("archived_marker", class_19["terminal"])
+        self.assertEqual("39:668B:fallthrough", class_19["branch_outcomes"][2])
+        direct = page39_named_token_prepass_path(8, 0x42, "ram")
+        self.assertEqual("matrix_name", direct["lookup_source"])
+        self.assertEqual("ram_symbol", direct["terminal"])
+        unmapped = page39_named_token_prepass_path(0, 0, "archive")
+        self.assertEqual("unmapped_cell", unmapped["terminal"])
+        self.assertEqual("39:66A3:returned", unmapped["branch_outcomes"][-1])
+
     def test_page39_cell_emitter_partitions_complete_outer_controller(self) -> None:
         paths = symbolic_page39_cell_emission_paths()
 
@@ -1937,7 +1960,7 @@ class CheckedReportTests(unittest.TestCase):
             matrix_entry["sha256"],
         )
         self.assertEqual(
-            3463,
+            3476,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(

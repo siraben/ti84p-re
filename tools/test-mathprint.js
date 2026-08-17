@@ -312,6 +312,20 @@ const page39CellEmissionByte = address => {
       `cell-emission oracle reached unpinned byte 39:${address.toString(16)}`);
   return page39CellEmissionRomSpan.bytes[offset];
 };
+const page39NamedTokenPrepassRomSpan = {address:0x6667,bytes:Buffer.from(
+  '060a7e23ba20037ebbc82310f5c921e262cd6766281021cb62cd6766280821f9' +
+  '62cd676620137b3246847acd373bcdaf1b2179847223731807cd1a4fd8eff1' +
+  '51d7d81806c5cd600ec1d8cd85177eb7c83e2acddb3fc9','hex')};
+const page5MatrixNameRomSpan = Buffer.from(
+  '327a843e5c32798497327b84c9','hex');
+const page0VatPageBackstepRomSpan = Buffer.from('2b2b2b2b2bc9','hex');
+const page39NamedTokenPrepassByte = address => {
+  const offset = address - page39NamedTokenPrepassRomSpan.address;
+  if (offset < 0 || offset >= page39NamedTokenPrepassRomSpan.bytes.length)
+    throw new Error(
+      `named-token prepass oracle reached unpinned byte 39:${address.toString(16)}`);
+  return page39NamedTokenPrepassRomSpan.bytes[offset];
+};
 const keyToStringDataMemory = artifact => {
   const memory = new Map();
   const add = (address, value, label) => {
@@ -1417,6 +1431,109 @@ function runRawDirectGlyphSelection(d, e) {
   return {
     d,e,accumulator:a,carry,glyph:carry ? null : a,
     branchOutcomes,routine:'39:4F1A–4F43',
+  };
+}
+
+function runRawPage39NamedTokenPrepass(d, e, lookupOutcome, layout) {
+  if (!['absent','ram','archive'].includes(lookupOutcome))
+    throw new Error('named-token prepass oracle requires a VAT outcome');
+  const branchOutcomes = [];
+  const opcode = (address, expected) => {
+    const actual = page39NamedTokenPrepassByte(address);
+    if (actual !== expected)
+      throw new Error(
+        `named-token prepass expected 0x${expected.toString(16)} at ` +
+        `39:${address.toString(16)}, got 0x${actual.toString(16)}`);
+  };
+  const branch = (address, condition, trueWord = 'taken') =>
+    branchOutcomes.push(
+      `39:${address.toString(16).toUpperCase()}:` +
+      `${condition ? trueWord : 'fallthrough'}`);
+  const cellInClass = cls => {
+    const record = layout.classes.find(item => item.cls === cls);
+    const index = record.items[0].cells.findIndex(
+      cell => cell[0] === d && cell[1] === e);
+    return index < 0 ? null : {layoutClass:cls,index};
+  };
+  opcode(0x667b,0x28);
+  opcode(0x6683,0x28);
+  opcode(0x668b,0x20);
+  opcode(0x66a3,0xd8);
+  opcode(0x66a8,0xd8);
+  opcode(0x66b0,0xd8);
+  opcode(0x66b6,0xc8);
+  const class18 = cellInClass(0x18);
+  branch(0x667b,class18 !== null);
+  let family = class18;
+  if (family === null) {
+    const class17 = cellInClass(0x17);
+    branch(0x6683,class17 !== null);
+    family = class17;
+  }
+  if (family === null) {
+    const class19 = cellInClass(0x19);
+    branch(0x668b,class19 === null);
+    family = class19;
+  }
+  let lookupName = null;
+  let lookupSource = null;
+  let remapped = null;
+  let directGlyph = null;
+  let keyExtendAfter = null;
+  let carryBranch;
+  if (family !== null) {
+    remapped = runRawDisplayByteRemap(d,e,layout.displayByteMap);
+    branchOutcomes.push(...remapped.branchOutcomes);
+    lookupName = [remapped.d,remapped.e,0];
+    lookupSource = 'display-byte-family';
+    keyExtendAfter = e;
+    carryBranch = 0x66b0;
+  } else {
+    directGlyph = runRawDirectGlyphSelection(d,e);
+    branchOutcomes.push(...directGlyph.branchOutcomes);
+    branchOutcomes.push(
+      `39:66A3:${directGlyph.carry ? 'returned' : 'fallthrough'}`);
+    if (directGlyph.carry) return {
+      terminal:'unmapped-cell',family,lookupName,lookupSource,keyExtendAfter,
+      found:false,page:null,starEmitted:false,branchOutcomes,
+    };
+    expectEqual('05:4056 matrix-name helper bytes',
+      page5MatrixNameRomSpan.toString('hex'),
+      '327a843e5c32798497327b84c9');
+    lookupName = [0x5c,directGlyph.glyph,0];
+    lookupSource = 'matrix-name';
+    carryBranch = 0x66a8;
+  }
+  const found = lookupOutcome !== 'absent';
+  branchOutcomes.push(
+    `39:${carryBranch.toString(16).toUpperCase()}:` +
+    `${found ? 'fallthrough' : 'returned'}`);
+  if (!found) return {
+    terminal:'symbol-absent',family,lookupName,lookupSource,keyExtendAfter,
+    found:false,page:null,starEmitted:false,branchOutcomes,
+  };
+  expectEqual('ram:1785 VAT-page backstep bytes',
+    page0VatPageBackstepRomSpan.toString('hex'),'2b2b2b2b2bc9');
+  const archived = lookupOutcome === 'archive';
+  branchOutcomes.push(`39:66B6:${archived ? 'fallthrough' : 'returned'}`);
+  return {
+    terminal:archived ? 'archived-marker' : 'ram-symbol',
+    family,lookupName,lookupSource,keyExtendAfter,
+    found:true,page:archived ? 1 : 0,starEmitted:archived,branchOutcomes,
+  };
+}
+
+function page39NamedTokenPrepassProjection(result) {
+  return {
+    terminal:result.terminal,
+    family:result.family,
+    lookupName:result.lookupName,
+    lookupSource:result.lookupSource,
+    keyExtendAfter:result.keyExtendAfter,
+    found:result.found,
+    page:result.page,
+    starEmitted:result.starEmitted,
+    branchOutcomes:result.branchOutcomes,
   };
 }
 
@@ -4788,6 +4905,39 @@ expectEqual('39:6B62 gates FBC8 on H bit 0', [
   rom.settledPage39CellStringSelection(
     layout,0xfb,0xc8,{hBit0:true,keyExtend:0}).source,
 ], ['prefix-token-table','mathprint-inline-string']);
+let page39NamedTokenPrepassStates = 0;
+for (const lookupOutcome of ['absent','ram','archive']) {
+  for (let d = 0; d <= 0xff; d++) {
+    for (let e = 0; e <= 0xff; e++) {
+      const raw = runRawPage39NamedTokenPrepass(
+        d,e,lookupOutcome,layout);
+      const vatSnapshot = raw.lookupName === null || lookupOutcome === 'absent'
+        ? [] : [alphaVatEntry(
+          [0,...raw.lookupName,0,0,0,0,0].slice(0,9),
+          0x9f00,lookupOutcome === 'archive' ? 1 : 0)];
+      const translated = rom.settledPage39NamedTokenPrepass(
+        layout,d,e,{vatSnapshot});
+      expectEqual(
+        `39:6675 named-token prepass ${lookupOutcome}:${d}:${e}`,
+        page39NamedTokenPrepassProjection(translated),raw);
+      page39NamedTokenPrepassStates++;
+    }
+  }
+}
+expectEqual('39:6675 named-token prepass differential state count',
+  page39NamedTokenPrepassStates,3 * 0x10000);
+expectEqual('39:6675 scans class 18 before class 17 and class 19', [
+  rom.settledPage39NamedTokenPrepass(layout,0xfe,0xa7,{vatSnapshot:[]})
+    .branchOutcomes.slice(0,1),
+  rom.settledPage39NamedTokenPrepass(layout,0xfc,0,{vatSnapshot:[]})
+    .branchOutcomes.slice(0,2),
+  rom.settledPage39NamedTokenPrepass(layout,0xfc,0x50,{vatSnapshot:[]})
+    .branchOutcomes.slice(0,3),
+], [
+  ['39:667B:taken'],
+  ['39:667B:fallthrough','39:6683:taken'],
+  ['39:667B:fallthrough','39:6683:fallthrough','39:668B:fallthrough'],
+]);
 let page39CellEmissionStates = 0;
 for (const scenario of [
   {drawPassActive:false,drawCallbackNonzero:false,
@@ -4857,23 +5007,22 @@ expectEqual('39:4E8E cursor branch', rom.classifyCell(layout, 0x1f, 0x12),
   {kind:'cursorMarker', d:0x1f, e:0x12, routine:'39:4E93'});
 expectEqual('39:4E8E indexed-string branch', rom.classifyCell(layout, 0x82, 0x42),
   {kind:'indexedString', d:0x82, e:0x42, index:4, routine:'39:4EBF'});
-expectEqual('39:6675 delimiter branch', rom.classifyCell(layout, 0xfc, 0x00),
-  {kind:'fixedDelimiter', d:0xfc, e:0, layoutClass:0x17, index:0,
-   remapped:{
-     displayByte:0xfc,keyExtend:0,d:0x61,e:0,source:'fc-table',
-     sourceAddress:0x422c,normalizedIndex:0,
-     branchOutcomes:['07:44E0:fallthrough','07:44E4:taken'],
-     routine:'07:44DE–4538',
-   },routine:'39:6675 → 07:44DE'});
+expectEqual('39:6675 family cell still reaches its counted string', [
+  rom.classifyCell(layout,0xfc,0).kind,
+  rom.classifyCell(layout,0xfc,0).selection.codes,
+], ['keyString',[0x47,0x44,0x42,0x31]]);
 for (const [layoutClass,lead] of [[0x17,0x61],[0x18,0x60],[0x19,0xaa]]) {
   const emissions = rom.emitHandlerRow(layout,layoutClass,0).emissions;
   expectEqual(`39:6675 class ${layoutClass.toString(16)} remap count`,
     emissions.length,10);
-  for (let index = 0; index < emissions.length; index++)
+  for (let index = 0; index < emissions.length; index++) {
+    const prepass = rom.settledPage39NamedTokenPrepass(
+      layout,...emissions[index].cell,{vatSnapshot:[]});
     expectEqual(
       `39:6675 class ${layoutClass.toString(16)} remap ${index}`,
-      [emissions[index].output.remapped.d,emissions[index].output.remapped.e],
+      [prepass.remapped.d,prepass.remapped.e],
       [lead,index]);
+  }
 }
 expectEqual('01:6D10 E=1F index', rom.keyToStringIndex(6, 0x1f),
   {index:0x56, branch:'E=1F'});
@@ -4900,11 +5049,11 @@ for (const result of staticKeyStringSelections.values()) {
     (staticKeyStringSources[result.source] || 0) + 1;
 }
 expectEqual('01:6D10 resolves every unique static key-string cell',
-  [staticKeyStringSelections.size,staticKeyStringSources], [418,{
+  [staticKeyStringSelections.size,staticKeyStringSources], [447,{
     'key-string-pointer-table':62,
     'display-byte-token-table':67,
     'high-byte-special':13,
-    'prefix-token-table':275,
+    'prefix-token-table':304,
     'special-10:40':1,
   }]);
 
@@ -10661,8 +10810,8 @@ const CELL_CASES = [
   }],
   [[0xFE, 0x7D], { kind: 'glyph', code: 0 }],
   [[0xFE, 0xA7], {
-    kind:'delimiterFamily',d:0xFE,e:0xA7,family:0x18,index:0,
-    remapped:[0x60,0x00],remapSource:'fe-high-table',
+    kind:'keyString',d:0xFE,e:0xA7,codes:[0x50,0x69,0x63,0x31],
+    source:'prefix-token-table',
   }],
   [[0xFB, 0xCA], { kind: 'inlineString', d: 0xFB, e: 0xCA }],
   [[0xFB, 0xC8], { kind: 'runtimeConditional', d: 0xFB, e: 0xC8, condition: 'bit 0,H' }],

@@ -30,8 +30,9 @@ reader-facing write-up is
 | `tools/mathprint-vertical-viewport-oracle.json` | natural depth-four fraction trace, vertical viewport words, accepted-write hash, and exact LCD crop |
 
 `rom-engine.js` translates handler lookup, the ordered `39:4E8E–4F19`
-cell-emission controller, direct-glyph selection, the named-token prepass, the
-`07:44DE` display-byte remap, `_KeyToString` prefix/table/string selection,
+cell-emission controller, direct-glyph selection, the archived fixed-token VAT
+prepass, the `07:44DE` display-byte remap, and `_KeyToString`
+prefix/table/string selection,
 descriptor selection and iteration, fraction endpoints,
 class-6 row stepping, and the settled-redraw
 point and axis-aligned line wrappers at `34:5D96`–`34:5EA6`. Descriptor-family
