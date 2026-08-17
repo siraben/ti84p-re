@@ -17,6 +17,8 @@ from typing import Iterator, Sequence
 
 from analyze_tibasic_coverage import digest, parse_trace
 from hardware_trace import make_banker
+from rom_calls import analyze_calls
+from rom_image import RomImage
 from rom_signatures import TI84_PLUS_OS_255MP_SHA256
 from tilem_trace_resolve import (
     IDX_AF,
@@ -33,6 +35,16 @@ from tilem_trace_resolve import (
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ROM = ROOT / "tools" / "rom.bin"
 DEFAULT_OUTPUT = ROOT / "tools" / "tibasic-numeric-errors.json"
+
+
+SHIMS = {
+    0x26E8: ("OVERFLOW", 0x81),
+    0x26EC: ("DIVIDE BY 0", 0x82),
+    0x26F0: ("SINGULAR MAT", 0x83),
+    0x26F4: ("DOMAIN", 0x84),
+    0x26F8: ("INCREMENT", 0x85),
+    0x26FC: ("NONREAL ANSWERS", 0x87),
+}
 
 
 @dataclass(frozen=True)
@@ -108,7 +120,127 @@ EXAMPLES = {
             ("ram", 0x26F8),
         ),
     ),
+    "asindomain": ErrorExample(
+        "Disp sin^-1(2)",
+        "DOMAIN",
+        0x84,
+        "the inverse-sine operand is outside [-1, 1]",
+        (
+            ("page_02", 0x76F1),
+            ("page_02", 0x76F4),
+            ("page_02", 0x76F5),
+            ("ram", 0x26F4),
+        ),
+    ),
+    "acosdomain": ErrorExample(
+        "Disp cos^-1(2)",
+        "DOMAIN",
+        0x84,
+        "the inverse-cosine operand is outside [-1, 1]",
+        (
+            ("page_02", 0x76DF),
+            ("page_02", 0x76E2),
+            ("ram", 0x26F4),
+        ),
+    ),
+    "sqrtnonreal": ErrorExample(
+        "Disp sqrt(-1)",
+        "NONREAL ANSWERS",
+        0x87,
+        "a complex result reaches the real-mode result guard",
+        (
+            ("ram", 0x1B8F),
+            ("ram", 0x1B93),
+            ("ram", 0x26FC),
+        ),
+    ),
+    "singular": ErrorExample(
+        "Disp [[1,2][2,4]]^-1",
+        "SINGULAR MAT",
+        0x83,
+        "the pivot helper returns carry while saved bit 6 is clear",
+        (
+            ("page_02", 0x439C),
+            ("page_02", 0x439F),
+            ("page_02", 0x43A1),
+            ("page_02", 0x43A2),
+            ("page_02", 0x43A3),
+            ("page_02", 0x43A5),
+            ("ram", 0x26F0),
+        ),
+    ),
+    "lateincrement": ErrorExample(
+        "For(I,1E99,1E99):End",
+        "INCREMENT",
+        0x85,
+        "adding the default step does not change the loop variable",
+        (
+            ("page_38", 0x586D),
+            ("page_38", 0x5870),
+            ("page_38", 0x5873),
+            ("page_38", 0x5876),
+            ("ram", 0x26F8),
+        ),
+    ),
+    "negfactdomain": ErrorExample(
+        "Disp (-1)!",
+        "DOMAIN",
+        0x84,
+        "the factorial operand fails the nonnegative-integer check",
+        (
+            ("page_35", 0x79CF),
+            ("page_35", 0x79D2),
+            ("ram", 0x26F4),
+        ),
+    ),
+    "ncrdomain": ErrorExample(
+        "Disp (-1) nCr 1",
+        "DOMAIN",
+        0x84,
+        "the left combination operand fails the positive-value check",
+        (
+            ("page_02", 0x4FC8),
+            ("page_02", 0x4FA1),
+            ("ram", 0x2125),
+            ("ram", 0x1DFD),
+            ("ram", 0x1E00),
+            ("ram", 0x1E02),
+            ("ram", 0x2128),
+            ("ram", 0x211C),
+            ("ram", 0x211D),
+            ("ram", 0x26F4),
+        ),
+    ),
 }
+
+
+def caller_inventory(rom: RomImage) -> dict[str, object]:
+    """Enumerate direct ROM references to the six numeric error shims."""
+
+    reports = analyze_calls(rom, frozenset(SHIMS))
+    grouped: dict[int, list[str]] = {address: [] for address in SHIMS}
+    for report in reports:
+        address = int(str(report["resolved_target"]).split(":", 1)[1], 16)
+        grouped[address].append(str(report["location"]))
+    return {
+        "method": "direct CALL/JP operands in whole-ROM linear disassembly",
+        "limitation": (
+            "indirect transfers and helpers that load an error code before the "
+            "common error path are not included; decoded data can produce "
+            "candidates until CFG reachability is proved"
+        ),
+        "candidate_count": len(reports),
+        "shims": [
+            {
+                "entry": f"00:{address:04X}",
+                "error": error,
+                "error_code": f"{code:02X}",
+                "candidate_count": len(grouped[address]),
+                "candidates": sorted(grouped[address]),
+            }
+            for address, (error, code) in SHIMS.items()
+        ],
+    }
 
 
 def format_point(point: tuple[str, int]) -> str:
@@ -204,19 +336,25 @@ def build_report(
             details.append(f"missing labels: {', '.join(missing)}")
         raise ValueError("; ".join(details))
     rows = [analyze_trace(label, supplied[label]) for label in sorted(EXAMPLES)]
+    rom = RomImage.from_path(rom_path)
+    inventory = caller_inventory(rom)
+    direct_callers = {row["ordered_path"][-2] for row in rows}
     return {
-        "schema": 1,
+        "schema": 2,
         "rom": {"path": "tools/rom.bin", "sha256": digest(rom_path)},
         "scope": {
-            "claim": "ordered natural-program witnesses for five numeric error guards",
+            "claim": "whole-ROM direct-reference inventory plus ordered natural-program witnesses for selected numeric error guards",
             "complete": False,
-            "reason": "the report distinguishes selected causes; it does not enumerate every caller of each shared error shim",
+            "reason": "direct references are enumerated, but indirect transfers, shared helper predicates, and natural witnesses for every candidate remain open",
         },
+        "caller_inventory": inventory,
         "examples": rows,
         "summary": {
             "examples": len(rows),
             "distinct_errors": len({row["error"] for row in rows}),
             "distinct_guard_paths": len({tuple(row["ordered_path"]) for row in rows}),
+            "direct_reference_candidates": inventory["candidate_count"],
+            "distinct_direct_callers_witnessed": len(direct_callers),
             "verified": sum(bool(row["verified"]) for row in rows),
         },
     }
