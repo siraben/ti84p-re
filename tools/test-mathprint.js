@@ -269,6 +269,55 @@ const displayByteRemapByte = address => {
       `display-byte oracle reached unpinned code byte 07:${address.toString(16)}`);
   return displayByteRemapByteMap.get(address);
 };
+const keyToStringRomSpan = {address:0x6d10,bytes:Buffer.from(
+  '7afeff2811fefb2804fefc20072602cd313b1817fefe7b280dfe5a3814cd' +
+  'bd6dc8cd373b18052601cd313bcd0267c3b76dfe1f283bfe40384bfe59ca' +
+  '666dfe4020227afe107b201c214d6ffdcb354e3e08c41f3e18517afe0038' +
+  '043e6118133e40324484fe552819fe4c20093e5f18023e50821811fe5628' +
+  '04fe422005c609c60d82d61bd610fe6538023e136f26002911056e19fdcb' +
+  '354e28085f3e09cd1f3e28055e2356ebbf2bcd1d2223c921de6d060d18' +
+  '00be280623232310f8c923fdcb354e28de5f3e0acd1f3e18db18d4','hex')};
+const keyToStringByteMap = new Map(Array.from(
+  keyToStringRomSpan.bytes,
+  (value, offset) => [keyToStringRomSpan.address + offset,value]));
+const keyToStringByte = address => {
+  if (!keyToStringByteMap.has(address))
+    throw new Error(
+      `_KeyToString oracle reached unpinned byte 01:${address.toString(16)}`);
+  return keyToStringByteMap.get(address);
+};
+const page39CellStringRomSpan = {address:0x6b62,bytes:Buffer.from(
+  '2600180226017afefb202f7bcb442807fec821b26b2827feca21a96b2820' +
+  'fecb21ad6b2819fed621bf6b2812fed821cb6b280bfed721d76b2804efca' +
+  '45c911f297d5cd2b19e1c9','hex')};
+const page39CellStringByteMap = new Map(Array.from(
+  page39CellStringRomSpan.bytes,
+  (value, offset) => [page39CellStringRomSpan.address + offset,value]));
+const page39CellStringByte = address => {
+  if (!page39CellStringByteMap.has(address))
+    throw new Error(
+      `cell-string oracle reached unpinned byte 39:${address.toString(16)}`);
+  return page39CellStringByteMap.get(address);
+};
+const keyToStringDataMemory = artifact => {
+  const memory = new Map();
+  const add = (address, value, label) => {
+    if (memory.has(address) && memory.get(address) !== value)
+      throw new Error(`${label} disagrees at 01:${address.toString(16)}`);
+    memory.set(address,value);
+  };
+  artifact.pointerWords.forEach((pointer,index) => {
+    add(artifact.pointerTableAddress + 2 * index,pointer & 0xff,'key pointer low');
+    add(artifact.pointerTableAddress + 2 * index + 1,pointer >>> 8,'key pointer high');
+  });
+  artifact.highByteSpecials.forEach((entry,index) => {
+    const address = artifact.highByteSpecialTableAddress + 3 * index;
+    add(address,entry.value,'high-byte special value');
+    add(address + 1,entry.pointer & 0xff,'high-byte special pointer low');
+    add(address + 2,entry.pointer >>> 8,'high-byte special pointer high');
+  });
+  return memory;
+};
 const displayByteTableMemoryCache = new WeakMap();
 const displayByteTableMemory = artifact => {
   if (displayByteTableMemoryCache.has(artifact))
@@ -433,6 +482,8 @@ function runRawRenderNestingTail(renderType, childIndex, nestingCounter) {
         : pc + 2;
     } else if (opcode === 0x7b) {
       a = e; pc++;
+    } else if (opcode === 0x5f) {
+      e = a; pc++;
     } else if (opcode === 0xd8 || opcode === 0xc8 || opcode === 0xc0) {
       const returned = opcode === 0xd8 ? carry : opcode === 0xc8 ? zero : !zero;
       branchOutcomes.push(
@@ -1441,6 +1492,383 @@ function runRawDisplayByteRemap(displayByte, keyExtend, artifact) {
     }
   }
   throw new Error('display-byte oracle exceeded its instruction bound');
+}
+
+function runRawSOKForKeyToString(lead, index, artifact) {
+  if (![0xfb,0xfc,0xfe,0xff].includes(lead))
+    throw new RangeError('raw _sOK oracle requires a KeyToString prefix');
+  let pc = 0x44fe, a = lead === 0xfe || lead === 0xff ? index : lead;
+  let d = 0, e = index, h = lead === 0xfe || lead === 0xff ? 1 : 2, l = 0;
+  let zero = false, carry = false, sourceAddress = null;
+  const branchOutcomes = [];
+  const memory = displayByteTableMemory(artifact);
+  const word = address => displayByteRemapByte(address) |
+    displayByteRemapByte(address + 1) << 8;
+  const relative = address => {
+    const value = displayByteRemapByte(address);
+    return value < 0x80 ? value : value - 0x100;
+  };
+  const pair = (high, low) => high << 8 | low;
+  const split = value => [value >>> 8 & 0xff,value & 0xff];
+  const branch = (address, condition) => {
+    branchOutcomes.push(
+      `07:${address.toString(16).toUpperCase()}:` +
+      `${condition ? 'taken' : 'fallthrough'}`);
+    pc = condition ? address + 2 + relative(address + 1) : address + 2;
+  };
+  for (let instructions = 0; instructions < 40; instructions++) {
+    const opcode = displayByteRemapByte(pc);
+    if (opcode === 0x25) {
+      h = h - 1 & 0xff; zero = h === 0; pc++;
+    } else if (opcode === 0x28) {
+      branch(pc,zero);
+    } else if (opcode === 0x38) {
+      branch(pc,carry);
+    } else if (opcode === 0x30) {
+      branch(pc,!carry);
+    } else if (opcode === 0xfe) {
+      const value = displayByteRemapByte(pc + 1);
+      zero = a === value; carry = a < value; pc += 2;
+    } else if (opcode === 0x7b) {
+      a = e; pc++;
+    } else if (opcode === 0x5f) {
+      e = a; pc++;
+    } else if (opcode === 0x18) {
+      pc = pc + 2 + relative(pc + 1);
+    } else if (opcode === 0xd6) {
+      const value = displayByteRemapByte(pc + 1);
+      carry = a < value; a = a - value & 0xff; zero = a === 0; pc += 2;
+    } else if (opcode === 0x11 || opcode === 0x21) {
+      const value = word(pc + 1);
+      if (opcode === 0x11) [d,e] = split(value);
+      else [h,l] = split(value);
+      pc += 3;
+    } else if (opcode === 0x6f) {
+      l = a; pc++;
+    } else if (opcode === 0x26 || opcode === 0x16) {
+      if (opcode === 0x26) h = displayByteRemapByte(pc + 1);
+      else d = displayByteRemapByte(pc + 1);
+      pc += 2;
+    } else if (opcode === 0x29) {
+      [h,l] = split(pair(h,l) << 1 & 0xffff); pc++;
+    } else if (opcode === 0x19) {
+      [h,l] = split(pair(h,l) + pair(d,e) & 0xffff); pc++;
+    } else if (opcode === 0x5e) {
+      const address = pair(h,l);
+      if (sourceAddress === null) sourceAddress = address;
+      if (!memory.has(address))
+        throw new Error(`raw _sOK read outside extracted tables at 07:${address.toString(16)}`);
+      e = memory.get(address); pc++;
+    } else if (opcode === 0x53) {
+      d = e; pc++;
+    } else if (opcode === 0x23) {
+      [h,l] = split(pair(h,l) + 1 & 0xffff); pc++;
+    } else if (opcode === 0xc9) {
+      return {
+        lead,index,d,e,sourceAddress,branchOutcomes,
+        routine:'07:44FE–4538 (_KeyToString ABI)',
+      };
+    } else {
+      throw new Error(
+        `raw _sOK reached unsupported opcode 0x${opcode.toString(16)} ` +
+        `at 07:${pc.toString(16)}`);
+    }
+  }
+  throw new Error('raw _sOK oracle exceeded its instruction bound');
+}
+
+function runRawKeyToStringSelection(dInput, eInput, keyExtend, layout, strings) {
+  let pc = 0x6d10, a = 0, b = 0, d = dInput, e = eInput, h = 0, l = 0;
+  let zero = false, carry = false, remapped = null, glyphPointer = null;
+  let tokenSource = null, highSpecialIndex = null, finalRecord = null;
+  const callStack = [], branchOutcomes = [];
+  const memory = keyToStringDataMemory(strings.keyToString);
+  const word = address => keyToStringByte(address) |
+    keyToStringByte(address + 1) << 8;
+  const dataWord = address => {
+    if (!memory.has(address) || !memory.has(address + 1))
+      throw new Error(`_KeyToString oracle read missing word at 01:${address.toString(16)}`);
+    return memory.get(address) | memory.get(address + 1) << 8;
+  };
+  const pair = (high, low) => high << 8 | low;
+  const split = value => [value >>> 8 & 0xff,value & 0xff];
+  const relative = address => {
+    const value = keyToStringByte(address);
+    return value < 0x80 ? value : value - 0x100;
+  };
+  const branch = (address, condition) => {
+    branchOutcomes.push(
+      `01:${address.toString(16).toUpperCase()}:` +
+      `${condition ? 'taken' : 'fallthrough'}`);
+  };
+  const tokenEntry = selection => selection.table === 'single'
+    ? strings.singleByte.entries[selection.index]
+    : strings.twoByte.tables[selection.table]?.entries[selection.index];
+  const directEntries = [
+    ...strings.keyToString.semanticEntries,
+    ...strings.keyToString.highByteSpecials,
+    strings.keyToString.special1040,
+  ];
+  const directByPointer = new Map(directEntries.map(entry => [
+    entry.pointer,{pointer:entry.pointer,codes:entry.codes.slice()},
+  ]));
+  const projection = (source, resolved, pointer, codes) => ({
+    d:dInput,e:eInput,source,resolved,pointer,codes,
+    remapped:remapped && {
+      d:remapped.d,e:remapped.e,sourceAddress:remapped.sourceAddress,
+    },
+    glyphPointer:glyphPointer && {
+      lead:glyphPointer.lead,incomingIndex:glyphPointer.incomingIndex,
+      index:glyphPointer.index,table:glyphPointer.table,
+      tableAddress:glyphPointer.tableAddress,
+      pointerWordAddress:glyphPointer.pointerWordAddress,
+    },
+    branchOutcomes:[...branchOutcomes],routine:'01:6D10–6DBC',
+  });
+
+  for (let instructions = 0; instructions < 220; instructions++) {
+    const opcode = keyToStringByte(pc);
+    if (opcode === 0x7a) {
+      a = d; pc++;
+    } else if (opcode === 0x7b) {
+      a = e; pc++;
+    } else if (opcode === 0xfe) {
+      const value = keyToStringByte(pc + 1);
+      zero = a === value; carry = a < value; pc += 2;
+    } else if (opcode === 0x28 || opcode === 0x20 || opcode === 0x38) {
+      const condition = opcode === 0x28 ? zero : opcode === 0x20 ? !zero : carry;
+      branch(pc,condition);
+      pc = condition ? pc + 2 + relative(pc + 1) : pc + 2;
+    } else if (opcode === 0x26 || opcode === 0x06 || opcode === 0x3e) {
+      const value = keyToStringByte(pc + 1);
+      if (opcode === 0x26) h = value;
+      else if (opcode === 0x06) b = value;
+      else a = value;
+      pc += 2;
+    } else if (opcode === 0x18) {
+      pc = pc + 2 + relative(pc + 1);
+    } else if (opcode === 0xca) {
+      const condition = zero;
+      branch(pc,condition);
+      pc = condition ? word(pc + 1) : pc + 3;
+    } else if (opcode === 0xc3) {
+      pc = word(pc + 1);
+    } else if (opcode === 0xc8) {
+      branch(pc,zero);
+      if (!zero) { pc++; continue; }
+      if (callStack.length) { pc = callStack.pop(); continue; }
+      if (!finalRecord)
+        throw new Error('_KeyToString conditional return has no selected string');
+      return projection(finalRecord.source,true,
+        finalRecord.pointer,finalRecord.codes.slice());
+    } else if (opcode === 0xc9) {
+      if (callStack.length) { pc = callStack.pop(); continue; }
+      if (!finalRecord)
+        throw new Error('_KeyToString return has no selected string');
+      return projection(finalRecord.source,true,
+        finalRecord.pointer,finalRecord.codes.slice());
+    } else if (opcode === 0xcd) {
+      const target = word(pc + 1);
+      if (target === 0x3b31) {
+        const raw = runRawSOKForKeyToString(dInput,eInput,layout.displayByteMap);
+        d = raw.d; e = raw.e;
+        remapped = raw;
+        branchOutcomes.push(...raw.branchOutcomes);
+        tokenSource = 'prefix-token-table';
+        pc += 3;
+      } else if (target === 0x3b37) {
+        const raw = runRawDisplayByteRemap(a,keyExtend,layout.displayByteMap);
+        d = raw.d; e = raw.e;
+        remapped = raw;
+        branchOutcomes.push(...raw.branchOutcomes);
+        tokenSource = 'display-byte-token-table';
+        pc += 3;
+      } else if (target === 0x6702) {
+        const glyphLead = d, glyphIndex = e;
+        const raw = runRawGlyphPointerSelection(glyphLead,glyphIndex);
+        branchOutcomes.push(...raw.branchOutcomes);
+        const table = raw.tableAddress === strings.singleByte.pointerTableAddress
+          ? 'single'
+          : Object.entries(strings.twoByte.tables).find(
+            ([, candidate]) =>
+              candidate.pointerTableAddress === raw.tableAddress)?.[0];
+        if (!table)
+          throw new Error(`_KeyToString oracle selected unknown table 01:${raw.tableAddress.toString(16)}`);
+        glyphPointer = {
+          lead:glyphLead,incomingIndex:glyphIndex,table,...raw,
+        };
+        const entry = tokenEntry(glyphPointer);
+        if (!entry)
+          return projection('unresolved-token-pointer',false,undefined,null);
+        [h,l] = split(entry.pointer + 1 & 0xffff);
+        finalRecord = {
+          source:tokenSource,pointer:(entry.pointer + 1) & 0xffff,
+          codes:entry.codes,
+        };
+        pc += 3;
+      } else if (target === 0x6dbd) {
+        callStack.push(pc + 3); pc = target;
+      } else if (target === 0x221d) {
+        const countedPointer = pair(h,l) + 1 & 0xffff;
+        if (!finalRecord) {
+          const entry = directByPointer.get(countedPointer);
+          if (!entry)
+            throw new Error(
+              `_KeyToString oracle selected unknown string 01:${countedPointer.toString(16)}`);
+          const special1040 = dInput === 0x10 && eInput === 0x40;
+          finalRecord = {
+            source:special1040 ? 'special-10:40'
+              : highSpecialIndex === null
+                ? 'key-string-pointer-table' : 'high-byte-special',
+            ...entry,
+          };
+        }
+        pc += 3;
+      } else {
+        throw new Error(`_KeyToString oracle reached unstubbed call 01:${target.toString(16)}`);
+      }
+    } else if (opcode === 0xc4) {
+      branch(pc,!zero);
+      if (!zero)
+        throw new Error('_KeyToString oracle unexpectedly entered the font hook');
+      pc += 3;
+    } else if (opcode === 0x21 || opcode === 0x11) {
+      const value = word(pc + 1);
+      if (opcode === 0x21) [h,l] = split(value);
+      else [d,e] = split(value);
+      pc += 3;
+    } else if (opcode === 0xfd) {
+      if (keyToStringByte(pc + 1) !== 0xcb ||
+          keyToStringByte(pc + 2) !== 0x35 ||
+          keyToStringByte(pc + 3) !== 0x4e)
+        throw new Error('_KeyToString oracle reached an unknown IY instruction');
+      zero = true; pc += 4;
+    } else if (opcode === 0x82) {
+      const total = a + d;
+      carry = total > 0xff; a = total & 0xff; zero = a === 0; pc++;
+    } else if (opcode === 0xc6 || opcode === 0xd6) {
+      const value = keyToStringByte(pc + 1);
+      if (opcode === 0xc6) {
+        const total = a + value;
+        carry = total > 0xff; a = total & 0xff;
+      } else {
+        carry = a < value; a = a - value & 0xff;
+      }
+      zero = a === 0; pc += 2;
+    } else if (opcode === 0x6f) {
+      l = a; pc++;
+    } else if (opcode === 0x29) {
+      const total = pair(h,l) << 1;
+      carry = total > 0xffff; [h,l] = split(total & 0xffff); pc++;
+    } else if (opcode === 0x19) {
+      const total = pair(h,l) + pair(d,e);
+      carry = total > 0xffff; [h,l] = split(total & 0xffff); pc++;
+    } else if (opcode === 0x5f) {
+      e = a; pc++;
+    } else if (opcode === 0x5e || opcode === 0x56 || opcode === 0xbe) {
+      const address = pair(h,l);
+      if (!memory.has(address))
+        throw new Error(`_KeyToString oracle read missing byte at 01:${address.toString(16)}`);
+      const value = memory.get(address);
+      if (opcode === 0x5e) e = value;
+      else if (opcode === 0x56) d = value;
+      else {
+        zero = a === value; carry = a < value;
+        if (zero && 0x6dde <= address && address < 0x6e05)
+          highSpecialIndex = (address - 0x6dde) / 3;
+      }
+      pc++;
+    } else if (opcode === 0x23 || opcode === 0x2b) {
+      [h,l] = split(pair(h,l) + (opcode === 0x23 ? 1 : -1) & 0xffff);
+      pc++;
+    } else if (opcode === 0x10) {
+      b = b - 1 & 0xff;
+      const condition = b !== 0;
+      branch(pc,condition);
+      pc = condition ? pc + 2 + relative(pc + 1) : pc + 2;
+    } else if (opcode === 0xeb) {
+      [d,e,h,l] = [h,l,d,e]; pc++;
+    } else if (opcode === 0xbf) {
+      zero = true; carry = false; pc++;
+    } else {
+      throw new Error(
+        `_KeyToString oracle reached unsupported opcode 0x${opcode.toString(16)} ` +
+        `at 01:${pc.toString(16)}`);
+    }
+  }
+  throw new Error('_KeyToString oracle exceeded its instruction bound');
+}
+
+function runRawPage39CellStringSelection(
+    dInput, eInput, hBit0, keyExtend, layout, strings) {
+  let pc = hBit0 ? 0x6b66 : 0x6b62;
+  let a = 0, d = dInput, e = eInput, h = 0, l = 0, zero = false;
+  const branchOutcomes = [];
+  const word = address => page39CellStringByte(address) |
+    page39CellStringByte(address + 1) << 8;
+  const relative = address => {
+    const value = page39CellStringByte(address);
+    return value < 0x80 ? value : value - 0x100;
+  };
+  const branch = (address, condition) => {
+    branchOutcomes.push(
+      `39:${address.toString(16).toUpperCase()}:` +
+      `${condition ? 'taken' : 'fallthrough'}`);
+    pc = condition ? address + 2 + relative(address + 1) : address + 2;
+  };
+  const inlineByPointer = new Map(
+    strings.mathPrintInlineStrings.entries.map(entry => [entry.pointer,entry]));
+  for (let instructions = 0; instructions < 48; instructions++) {
+    const opcode = page39CellStringByte(pc);
+    if (opcode === 0x26) {
+      h = page39CellStringByte(pc + 1); pc += 2;
+    } else if (opcode === 0x18) {
+      pc = pc + 2 + relative(pc + 1);
+    } else if (opcode === 0x7a || opcode === 0x7b) {
+      a = opcode === 0x7a ? d : e; pc++;
+    } else if (opcode === 0xfe) {
+      zero = a === page39CellStringByte(pc + 1); pc += 2;
+    } else if (opcode === 0x20) {
+      branch(pc,!zero);
+    } else if (opcode === 0x28) {
+      branch(pc,zero);
+    } else if (opcode === 0xcb) {
+      if (page39CellStringByte(pc + 1) !== 0x44)
+        throw new Error('cell-string oracle reached an unknown CB opcode');
+      zero = (h & 1) === 0; pc += 2;
+    } else if (opcode === 0x21) {
+      const pointer = word(pc + 1);
+      h = pointer >>> 8; l = pointer & 0xff; pc += 3;
+    } else if (opcode === 0xef) {
+      if (word(pc + 1) !== 0x45ca)
+        throw new Error('cell-string oracle reached an unknown bcall');
+      const key = runRawKeyToStringSelection(
+        dInput,eInput,keyExtend,layout,strings);
+      return {
+        d:key.d,e:key.e,hBit0,source:key.source,resolved:key.resolved,
+        pointer:key.pointer,codes:key.codes,
+        remapped:key.remapped,glyphPointer:key.glyphPointer,
+        branchOutcomes:[...branchOutcomes,...key.branchOutcomes],
+        routine:'39:6B62–6BA8 → 01:6D10–6DBC',
+      };
+    } else if (opcode === 0x11 && pc === 0x6ba0) {
+      const pointer = h << 8 | l;
+      const entry = inlineByPointer.get(pointer);
+      if (!entry)
+        throw new Error(`cell-string oracle selected unknown inline pointer 39:${pointer.toString(16)}`);
+      return {
+        d:dInput,e:eInput,hBit0,source:'mathprint-inline-string',
+        resolved:true,pointer,codes:entry.codes.slice(),
+        remapped:null,glyphPointer:null,branchOutcomes,
+        routine:'39:6B62–6BA8',
+      };
+    } else {
+      throw new Error(
+        `cell-string oracle reached unsupported opcode 0x${opcode.toString(16)} ` +
+        `at 39:${pc.toString(16)}`);
+    }
+  }
+  throw new Error('cell-string oracle exceeded its instruction bound');
 }
 
 function runRawVPutMapCompose(screen, width, glyphRow, inverse) {
@@ -4150,6 +4578,107 @@ for (let displayByte = 0; displayByte <= 0xff; displayByte++) {
 }
 expectEqual('07:44DE display-byte differential state count',
   displayByteRemapStates,0x10000);
+let sokKeyToStringStates = 0;
+for (const lead of [0xfb,0xfc,0xfe,0xff]) {
+  for (let index = 0; index <= 0xff; index++) {
+    const translated = rom.settledPage7SOKForKeyToString(
+      lead,index,layout.displayByteMap);
+    const raw = runRawSOKForKeyToString(
+      lead,index,layout.displayByteMap);
+    expectEqual(`07:44FE _KeyToString state ${lead}:${index}`,{
+      lead,index,d:translated.d,e:translated.e,
+      sourceAddress:translated.sourceAddress,
+      branchOutcomes:translated.branchOutcomes,routine:translated.routine,
+    },raw);
+    sokKeyToStringStates++;
+  }
+}
+expectEqual('07:44FE _KeyToString differential state count',
+  sokKeyToStringStates,4 * 0x100);
+const keyToStringProjection = result => ({
+  d:result.d,e:result.e,source:result.source,resolved:result.resolved,
+  pointer:result.pointer,codes:result.codes,
+  remapped:result.remapped ? {
+    d:result.remapped.d,e:result.remapped.e,
+    sourceAddress:result.remapped.sourceAddress,
+  } : null,
+  glyphPointer:result.glyphPointer ? {
+    lead:result.glyphPointer.lead,
+    incomingIndex:result.glyphPointer.incomingIndex,
+    index:result.glyphPointer.index,table:result.glyphPointer.table,
+    tableAddress:result.glyphPointer.tableAddress,
+    pointerWordAddress:result.glyphPointer.pointerWordAddress,
+  } : null,
+  branchOutcomes:result.branchOutcomes,routine:result.routine,
+});
+let keyToStringStates = 0;
+for (let d = 0; d <= 0xff; d++) {
+  for (let e = 0; e <= 0xff; e++) {
+    const translated = rom.settledPage1KeyToStringSelection(
+      layout,d,e,{keyExtend:0});
+    const raw = runRawKeyToStringSelection(d,e,0,layout,tokenStrings);
+    expectEqual(`01:6D10 _KeyToString state ${d}:${e}`,
+      keyToStringProjection(translated),raw);
+    keyToStringStates++;
+  }
+}
+expectEqual('01:6D10 _KeyToString differential state count',
+  keyToStringStates,0x10000);
+expectEqual('01:6D10 resolves fnInt display cell',
+  rom.settledPage1KeyToStringSelection(layout,0x00,0xc8,{keyExtend:0}).codes,
+  [0x66,0x6e,0x49,0x6e,0x74,0x28]);
+expectEqual('01:6D10 FF shares the FE caller mapping',
+  rom.settledPage1KeyToStringSelection(layout,0xff,0x18,{keyExtend:0}).codes,
+  rom.settledPage1KeyToStringSelection(layout,0xfe,0x18,{keyExtend:0}).codes);
+expectEqual('01:6D10 clamps a wide E=1F index',
+  rom.settledPage1KeyToStringSelection(layout,0x20,0x1f,{keyExtend:0}).index,
+  0x13);
+expectEqual('01:6D10 exposes missing keyExtend only where it is consumed',
+  rom.settledPage1KeyToStringSelection(layout,0x00,0xfc).source,
+  'display-byte-remap-boundary');
+expectEqual('01:6D10 exposes the font-hook boundary',
+  rom.settledPage1KeyToStringSelection(
+    layout,0x00,0x10,{fontHookActive:true}).source,
+  'external-font-hook');
+const page39CellStringProjection = result => ({
+  d:result.d,e:result.e,hBit0:result.hBit0,
+  source:result.source,resolved:result.resolved,
+  pointer:result.pointer,codes:result.codes,
+  remapped:result.remapped ? {
+    d:result.remapped.d,e:result.remapped.e,
+    sourceAddress:result.remapped.sourceAddress,
+  } : null,
+  glyphPointer:result.glyphPointer ? {
+    lead:result.glyphPointer.lead,
+    incomingIndex:result.glyphPointer.incomingIndex,
+    index:result.glyphPointer.index,table:result.glyphPointer.table,
+    tableAddress:result.glyphPointer.tableAddress,
+    pointerWordAddress:result.glyphPointer.pointerWordAddress,
+  } : null,
+  branchOutcomes:result.branchOutcomes,routine:result.routine,
+});
+let page39CellStringStates = 0;
+for (const hBit0 of [false,true]) {
+  for (let d = 0; d <= 0xff; d++) {
+    for (let e = 0; e <= 0xff; e++) {
+      const translated = rom.settledPage39CellStringSelection(
+        layout,d,e,{hBit0,keyExtend:0});
+      const raw = runRawPage39CellStringSelection(
+        d,e,hBit0,0,layout,tokenStrings);
+      expectEqual(`39:6B62 cell-string state ${Number(hBit0)}:${d}:${e}`,
+        page39CellStringProjection(translated),raw);
+      page39CellStringStates++;
+    }
+  }
+}
+expectEqual('39:6B62 cell-string differential state count',
+  page39CellStringStates,2 * 0x10000);
+expectEqual('39:6B62 gates FBC8 on H bit 0', [
+  rom.settledPage39CellStringSelection(
+    layout,0xfb,0xc8,{hBit0:false,keyExtend:0}).source,
+  rom.settledPage39CellStringSelection(
+    layout,0xfb,0xc8,{hBit0:true,keyExtend:0}).source,
+], ['prefix-token-table','mathprint-inline-string']);
 for (const [label,displayByte,keyExtend,expected] of [
   ['FE-low',0xfe,0x00,[0x00,0xa8,'fe-low-table',0x4099,0x00]],
   ['FE-high',0xfe,0x69,[0x7e,0x00,'fe-high-table',0x4102,0x00]],
@@ -4213,6 +4742,34 @@ expectEqual('01:6D10 E=1F index', rom.keyToStringIndex(6, 0x1f),
   {index:0x56, branch:'E=1F'});
 expectEqual('01:6D10 ordinary index', rom.keyToStringIndex(0, 0x10),
   {index:0, branch:'ordinary E-10'});
+const staticCellPairs = [];
+for (const record of layout.classes)
+  if (record.items)
+    for (const row of record.items) staticCellPairs.push(...row.cells);
+for (const record of layout.descriptors) staticCellPairs.push(...record.cells);
+const staticKeyStringSelections = new Map();
+for (const [d,e] of staticCellPairs) {
+  const key = d << 8 | e;
+  if (staticKeyStringSelections.has(key) ||
+      rom.classifyCell(layout,d,e).kind !== 'keyString') continue;
+  staticKeyStringSelections.set(key,
+    rom.settledPage1KeyToStringSelection(layout,d,e,{keyExtend:0}));
+}
+const staticKeyStringSources = {};
+for (const result of staticKeyStringSelections.values()) {
+  if (!result.resolved)
+    throw new Error(`static _KeyToString cell remained unresolved: ${JSON.stringify(result)}`);
+  staticKeyStringSources[result.source] =
+    (staticKeyStringSources[result.source] || 0) + 1;
+}
+expectEqual('01:6D10 resolves every unique static key-string cell',
+  [staticKeyStringSelections.size,staticKeyStringSources], [418,{
+    'key-string-pointer-table':62,
+    'display-byte-token-table':67,
+    'high-byte-special':13,
+    'prefix-token-table':275,
+    'special-10:40':1,
+  }]);
 
 const fractionDescriptor = rom.descriptorState(layout, 0x686f);
 expectEqual('39:6A00 descriptor ABI', fractionDescriptor, {
@@ -9961,7 +10518,10 @@ for (const [expression, record] of Object.entries(drawOrder.scenarios)) {
 
 const CELL_CASES = [
   [[0xFC, 0x3C], { kind: 'glyph', code: 5 }],
-  [[0xFC, 0x41], { kind: 'familyToken', d: 0xFC, e: 0x41 }],
+  [[0xFC, 0x41], {
+    kind:'keyString',d:0xFC,e:0x41,codes:[0x3F],
+    source:'prefix-token-table',
+  }],
   [[0xFE, 0x7D], { kind: 'glyph', code: 0 }],
   [[0xFE, 0xA7], {
     kind:'delimiterFamily',d:0xFE,e:0xA7,family:0x18,index:0,

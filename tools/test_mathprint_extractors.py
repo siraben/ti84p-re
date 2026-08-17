@@ -24,6 +24,7 @@ class ArtifactTests(unittest.TestCase):
 
     def test_single_byte_token_spellings_match_rom_table(self):
         artifact = self.load("token-strings.json")
+        self.assertEqual(3, artifact["schema"])
         table = artifact["singleByte"]
 
         self.assertEqual(0x01, table["page"])
@@ -62,6 +63,39 @@ class ArtifactTests(unittest.TestCase):
             tables["BB"]["entries"][0xF6],
             tables["EF"]["entries"][0],
         )
+
+    def test_key_to_string_tables_cover_the_complete_main_entry_domain(self):
+        strings = self.load("token-strings.json")["keyToString"]
+
+        self.assertEqual((0x01, "01:6D10–6DBC", 0x6E05),
+                         (strings["page"], strings["routine"],
+                          strings["pointerTableAddress"]))
+        self.assertEqual(0x65, len(strings["pointerWords"]))
+        self.assertEqual(0x65, len(strings["semanticEntries"]))
+        self.assertEqual(strings["pointerWords"], [
+            entry["pointer"] for entry in strings["semanticEntries"]
+        ])
+        self.assertEqual((0x6DDE, 0x0D),
+                         (strings["highByteSpecialTableAddress"],
+                          len(strings["highByteSpecials"])))
+        self.assertEqual(
+            [0x5B, 0x6D, 0x75, 0x76, 0x79, 0x78, 0x77,
+             0x7B, 0x7A, 0x7C, 0x7D, 0x7E, 0x69],
+            [entry["value"] for entry in strings["highByteSpecials"]],
+        )
+        self.assertEqual([0x4E, 0x6F], strings["special1040"]["codes"])
+
+    def test_mathprint_inline_string_conditions_are_explicit(self):
+        inline = self.load("token-strings.json")["mathPrintInlineStrings"]
+
+        self.assertEqual((0x39, "39:6B62–6BA8", 6),
+                         (inline["page"], inline["routine"],
+                          len(inline["entries"])))
+        self.assertEqual([0xFB, 0xC8], inline["entries"][0]["cell"])
+        self.assertTrue(inline["entries"][0]["requiresHBit0"])
+        self.assertTrue(all(
+            not entry["requiresHBit0"] for entry in inline["entries"][1:]
+        ))
 
     def test_descriptor_cells_match_declared_dimensions(self):
         for descriptor in self.load("layout.json")["descriptors"]:

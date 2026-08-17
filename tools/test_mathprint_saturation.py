@@ -22,6 +22,9 @@ from analyze_mathprint_saturation import (
     deserialize_trace_summary,
     direct_glyph_selection_path,
     display_byte_remap_path,
+    key_to_string_path,
+    key_to_string_sok_path,
+    page39_cell_string_path,
     drawing_hook_dispatch_path,
     editor_action03_controller_path,
     editor_action04_controller_path,
@@ -80,6 +83,9 @@ from analyze_mathprint_saturation import (
     symbolic_counted_string_viewport_paths,
     symbolic_direct_glyph_selection_paths,
     symbolic_display_byte_remap_paths,
+    symbolic_key_to_string_paths,
+    symbolic_key_to_string_sok_paths,
+    symbolic_page39_cell_string_paths,
     symbolic_drawing_hook_dispatch_paths,
     symbolic_metric_marker_paths,
     symbolic_editor_action03_paths,
@@ -349,13 +355,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(3370, report["path_equivalence_class_count"])
-        self.assertEqual(3370, report["representative_path_corpus_count"])
-        self.assertEqual(481, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(3424, report["path_equivalence_class_count"])
+        self.assertEqual(3424, report["representative_path_corpus_count"])
+        self.assertEqual(541, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            228, report["per_domain_minimum_branch_outcome_corpus_count"]
+            255, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(45, len(report["domains"]))
+        self.assertEqual(48, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -1279,6 +1285,51 @@ class SymbolicHandlerTests(unittest.TestCase):
         wrapped = display_byte_remap_path(0x00, 0xFF)
         self.assertEqual(0xA6, wrapped["normalized_index"])
 
+    def test_key_to_string_sok_partitions_caller_valid_domain(self) -> None:
+        paths = symbolic_key_to_string_sok_paths()
+
+        self.assertEqual(5, len(paths))
+        self.assertEqual(4 * 0x100, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual(
+            key_to_string_sok_path(0xFE, 0x68)["branch_outcomes"],
+            key_to_string_sok_path(0xFF, 0x68)["branch_outcomes"],
+        )
+        self.assertEqual(
+            "07:450D:fallthrough",
+            key_to_string_sok_path(0xFB, 0x8C)["branch_outcomes"][-1],
+        )
+
+    def test_key_to_string_partitions_complete_hook_disabled_domain(self) -> None:
+        paths = symbolic_key_to_string_paths()
+
+        self.assertEqual(35, len(paths))
+        self.assertEqual(0x100**2, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual("sok_fe_or_ff", key_to_string_path(0xFF, 0)["terminal"])
+        self.assertEqual("high_byte_special", key_to_string_path(0, 0x75)["terminal"])
+        self.assertEqual("special_10_40", key_to_string_path(0x10, 0x40)["terminal"])
+        self.assertEqual(0x13, key_to_string_path(0x20, 0x1F)["index"])
+
+    def test_page39_cell_string_selector_partitions_both_entries(self) -> None:
+        paths = symbolic_page39_cell_string_paths()
+
+        self.assertEqual(14, len(paths))
+        self.assertEqual(2 * 0x100**2, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual("inline_c8", page39_cell_string_path(
+            0xFB, 0xC8, 1,
+        )["terminal"])
+        self.assertEqual("key_to_string", page39_cell_string_path(
+            0xFB, 0xC8, 0,
+        )["terminal"])
+        self.assertEqual("inline_d8", page39_cell_string_path(
+            0xFB, 0xD8, 0,
+        )["terminal"])
+
     def test_glyph_advance_partitions_complete_byte_domain(self) -> None:
         paths = symbolic_glyph_advance_paths()
 
@@ -1863,7 +1914,7 @@ class CheckedReportTests(unittest.TestCase):
             matrix_entry["sha256"],
         )
         self.assertEqual(
-            3370,
+            3424,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(

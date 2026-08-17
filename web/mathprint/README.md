@@ -15,7 +15,7 @@ reader-facing write-up is
 | `app.js` | renderer and three labeled timelines: RE-generated writes, captured writes, and model elements |
 | `rom-engine.js` | direct JavaScript translations of closed page `0x39`, page `0x34`, and page `0x01` routines |
 | `font.json` | large (`07:45FF`) + small (`03:4CD6`) font glyphs, extracted from ROM |
-| `token-strings.json` | single- and two-byte token display strings selected by `01:6702` |
+| `token-strings.json` | token display strings selected by `01:6702`, `_KeyToString` strings, and page-`0x39` inline strings |
 | `layout.json` | page `0x39` class-table records, selected descriptors, and page-`0x07` display-byte tables consumed by translated routines |
 | `record-programs.json` | six retained settled-record fixtures used only by offline comparisons |
 | `draw-order.json` | accepted visible-pixel LCD mutations from the retained integral traces |
@@ -31,7 +31,7 @@ reader-facing write-up is
 
 `rom-engine.js` translates handler lookup, row-cell emission, direct-glyph and
 delimiter classification, the `07:44DE` display-byte remap, `_KeyToString`
-index arithmetic, descriptor selection and iteration, fraction endpoints,
+prefix/table/string selection, descriptor selection and iteration, fraction endpoints,
 class-6 row stepping, and the settled-redraw
 point and axis-aligned line wrappers at `34:5D96`–`34:5EA6`. Descriptor-family
 selection uses the caller-supplied `flag02` byte for the `ram:025E`/`ram:0254`
@@ -320,7 +320,7 @@ as constructor inputs while leaving the record-list arena words explicit.
 | Tool | Purpose |
 |------|---------|
 | `export-font.py` | ROM → `font.json` (glyph data for the renderer and its font-table tab) |
-| `export-token-strings.py` | ROM → `token-strings.json` (single-byte token spelling table) |
+| `export-token-strings.py` | ROM → `token-strings.json` (token, `_KeyToString`, and inline cell strings) |
 | `export-layout.py` | ROM → `layout.json` (handler records, descriptors, and page-7 display-byte tables) |
 | `interp-cells.js` | command-line view of the browser's executable record-cell interpreter |
 | `analyze_mathprint_draw_trace.py` | attribute visible LCD mutations to dynamic page `0x34` and pixel-emitter call frames |

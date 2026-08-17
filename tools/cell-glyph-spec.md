@@ -147,6 +147,12 @@ input domain can address. A pinned-byte interpreter compares all 65,536
 display-byte and `keyExtend` pairs. The separate entry at `07:44FE` is outside
 this domain. [confirmed]
 
+`settledPage7SOKForKeyToString()` executes the caller-valid part of that
+separate entry. `_KeyToString` supplies `H=2` for `FB` and `FC`, or `H=1` for
+`FE` and `FF`. All 1,024 admitted prefix/index pairs are compared with the
+pinned bytes. `settledPage1KeyToStringSelection()` then carries the mapped
+cell through `01:6702` to the extracted counted display string. [confirmed]
+
 ### Default table at `07:4000`
 Code to large-font glyph:
 
@@ -311,13 +317,13 @@ Any other `FB:E` (and any non-FB pair on this path) falls through to
 
 ## Open questions
 
-- `_KeyToString` uses branch-specific index arithmetic, not the standard token
-  table directly. See `tools/token-name-spec.md` and the byte-anchored
-  `key_to_string_index` verifier in `tools/dump-mathprint-layout.py`.
+- Installed font and token hooks can replace `_KeyToString` pointers. Their
+  external bodies remain explicit boundaries. The normal hook-disabled path is
+  translated for every `D:E` input. See `tools/token-name-spec.md`.
 - FE-high, FC, and FB word tables emit *expanded TI tokens*, not font
-  codepoints; resolving those tokens to glyphs requires a second classification
-  pass through `07:44DE` or the OS token drawer. Only the default and
-  `cp 0x05` cases give a font codepoint directly.
+  codepoints. `_KeyToString` sends those pairs through `01:6702`; the
+  JavaScript translation now performs that second selection. Only the default
+  and `cp 0x05` branches of `07:44DE` produce font codepoints directly.
 - `0x8446` is a RAM mode/subcode byte set by the classic editor encoder
   (`07:4539`); the page `0x39` MathPrint path sets it from `E` in the
   styled path. Its full lifecycle across both paths was not exhaustively
