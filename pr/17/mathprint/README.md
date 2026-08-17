@@ -29,9 +29,10 @@ reader-facing write-up is
 | `tools/mathprint-list-oracles.json` | natural flat and radical-element list graphs, traces, screenshots, and cropped pixel hashes |
 | `tools/mathprint-vertical-viewport-oracle.json` | natural depth-four fraction trace, vertical viewport words, accepted-write hash, and exact LCD crop |
 
-`rom-engine.js` translates handler lookup, row-cell emission, direct-glyph and
-delimiter classification, the `07:44DE` display-byte remap, `_KeyToString`
-prefix/table/string selection, descriptor selection and iteration, fraction endpoints,
+`rom-engine.js` translates handler lookup, the ordered `39:4E8E–4F19`
+cell-emission controller, direct-glyph selection, the named-token prepass, the
+`07:44DE` display-byte remap, `_KeyToString` prefix/table/string selection,
+descriptor selection and iteration, fraction endpoints,
 class-6 row stepping, and the settled-redraw
 point and axis-aligned line wrappers at `34:5D96`–`34:5EA6`. Descriptor-family
 selection uses the caller-supplied `flag02` byte for the `ram:025E`/`ram:0254`

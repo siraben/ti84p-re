@@ -1795,6 +1795,115 @@
     };
   }
 
+  // 39:4E8E–4F19 is an ordered controller, not a one-of-N classifier. On the
+  // generic path 39:6675 runs first, the counted string can be drawn next, and
+  // 39:4F1A can still select a direct glyph afterward. Calls whose result
+  // depends on live editor/VAT state are explicit inputs or output boundaries.
+  function settledPage39CellEmission(
+      layoutValue, dValue, eValue, options = {}) {
+    const layout = requireLayout(layoutValue);
+    const d = byte(dValue, 'cell-emission D byte');
+    const e = byte(eValue, 'cell-emission E byte');
+    if (!options || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('cell-emission options must be an object');
+    const drawPassActive = options.drawPassActive === undefined
+      ? false : boolean(options.drawPassActive, 'draw-pass flag');
+    const drawCallbackNonzero = options.drawCallbackNonzero === undefined
+      ? false : boolean(options.drawCallbackNonzero, 'draw callback result');
+    const displayColumn = options.displayColumn === undefined
+      ? 0x0f : byte(options.displayColumn, 'display-column byte');
+    const markerHelperNonzero = options.markerHelperNonzero === undefined
+      ? false : boolean(options.markerHelperNonzero, 'marker helper result');
+    const branchOutcomes = [];
+    const actions = [];
+    const branch = (address, outcome) => branchOutcomes.push(
+      `39:${address.toString(16).toUpperCase()}:${outcome}`);
+    const finish = (terminal, extra = {}) => ({
+      d,e,terminal,actions,branchOutcomes,routine:'39:4E8E–4F19',...extra,
+    });
+    const postTail = () => {
+      const eraseEol = displayColumn < 0x0f;
+      branch(0x4f0e,eraseEol ? 'taken' : 'fallthrough');
+      if (eraseEol) actions.push({kind:'erase-eol',boundary:'00:3CB7'});
+      actions.push({kind:'marker-gate',cell:[d,e],routine:'39:4F44–4F61'});
+      const marker = d === 0xfb && (e === 0xc8 || e === 0xc7);
+      const markerGateNonzero = marker && markerHelperNonzero;
+      branch(0x4f15,markerGateNonzero ? 'fallthrough' : 'returned');
+      if (!markerGateNonzero) return finish('post-tail');
+      actions.push({kind:'row-retouch',boundary:'39:4F62–4F99'});
+      return finish('row-retouch');
+    };
+
+    const ordinaryD = d !== 0x1f;
+    branch(0x4e91,ordinaryD ? 'taken' : 'fallthrough');
+    if (!ordinaryD) {
+      actions.push({
+        kind:'cursor-marker',boundary:'39:4E93–4EBE',
+        note:'editor and cursor state determine the 4EB7 exit',
+      });
+      return finish('cursor-state-boundary');
+    }
+
+    const generic = d !== 0x82;
+    branch(0x4ec1,generic ? 'taken' : 'fallthrough');
+    if (!generic) {
+      actions.push({
+        kind:'indexed-string',index:e - 0x3e & 0xff,boundary:'00:3B2B',
+      });
+      return postTail();
+    }
+
+    actions.push({
+      kind:'named-token-prepass',
+      family:delimiterFamily(layout,d,e),
+      boundary:'39:6675–66BC',
+    });
+    branch(0x4ed7,drawPassActive ? 'taken' : 'fallthrough');
+    if (drawPassActive)
+      actions.push({kind:'draw-pass-callback',command:1,boundary:'00:2CBB'});
+    const bypassString = drawPassActive && drawCallbackNonzero;
+    branch(0x4eda,bypassString ? 'taken' : 'fallthrough');
+    if (!bypassString) {
+      const fd = d === 0xfd;
+      branch(0x4edf,fd ? 'fallthrough' : 'taken');
+      const stringD = fd ? 0 : d;
+      const selection = settledPage39CellStringSelection(
+        layout,stringD,e,{...options,hBit0:true});
+      actions.push({
+        kind:'counted-string',input:[stringD,e],selection,
+        outputBoundary:'01:5C52 (_PutPSB)',
+      });
+    }
+
+    const direct = settledPage39DirectGlyphSelection(d,e);
+    actions.push({kind:'direct-glyph-probe',result:direct});
+    branchOutcomes.push(...direct.branchOutcomes);
+    branch(0x4eed,direct.carry ? 'taken' : 'fallthrough');
+    if (!direct.carry) {
+      actions.push({
+        kind:'direct-glyph',glyph:direct.glyph,outputBoundary:'05:4619 (bcall 51E5)',
+      });
+      return finish('direct-glyph');
+    }
+
+    const ff = d === 0xff;
+    branch(0x4ef6,ff ? 'taken' : 'fallthrough');
+    if (!ff) {
+      const fc = d === 0xfc;
+      branch(0x4efa,fc ? 'taken' : 'fallthrough');
+      if (!fc) {
+        const special55 = e === 0x55;
+        branch(0x4eff,special55 ? 'fallthrough' : 'taken');
+        if (special55) {
+          actions.push({kind:'erase-eol',boundary:'00:3CB7'});
+          actions.push({kind:'special-55',boundary:'35:60D1 (bcall 51F4)'});
+          return finish('special-55');
+        }
+      }
+    }
+    return postTail();
+  }
+
   // 39:4E8E branch selection, ending at the known output boundary.
   function classifyCell(layout, d, e) {
     byte(d, 'cell D');
@@ -11342,6 +11451,7 @@
     keyToStringIndex,
     settledPage1KeyToStringSelection,
     settledPage39CellStringSelection,
+    settledPage39CellEmission,
     descriptor,
     selectDescriptor,
     descriptorState,

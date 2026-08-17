@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3c942aac.js";
+            window.path_to_searchindex_js = "searchindex-9363dd37.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14854,8 +14854,8 @@ vinculum drawing remains open.</p>
 </table>
 </div>
 <p>The fixed <code>Lintegral</code> glyph is emitted by the ordinary structural-glyph path:
-<code>39:4E8E</code> calls the delimiter classifier, falls through to <code>39:4F1A</code>, maps the cell to
-large-font code <code>0x08</code>, and emits it. [confirmed]</p>
+<code>39:4E8E</code> runs the named-token prepass, continues to <code>39:4F1A</code>, maps the cell
+to large-font code <code>0x08</code>, and emits it. [confirmed]</p>
 <p>The static <code>39:5167</code> path can compose argument slots around a fixed glyph:</p>
 <ol>
 <li>Place the tall integral glyph on the main axis.</li>
@@ -14895,11 +14895,21 @@ selects their height remains unidentified. [confirmed]</p>
 </table>
 </div>
 <p><code>39:6675</code> saves a matched delimiter cell’s <code>E</code> byte in <code>keyExtend</code> and passes
-its <code>D</code> byte to <code>07:44DE</code>. The JavaScript cell classifier executes that remap.
+its <code>D</code> byte to <code>07:44DE</code>. This call is a prepass, not a terminal delimiter
+draw: <code>39:4E8E</code> restores the original <code>D:E</code> pair and continues through the
+counted-string and direct-glyph stages. The JavaScript emission controller
+preserves that order.
 The committed layout artifact contains every table entry addressable from the
 main entry. A pinned-byte interpreter compares all 65,536 combinations of
 display byte and <code>keyExtend</code>; they reduce to seven paths and 12 branch outcomes.
 The separate public entry at <code>07:44FE</code> is outside this main-entry domain. [confirmed]</p>
+<p>The translated <code>39:4E8E–4F19</code> outer controller covers all 1,048,576 projected
+states formed by <code>D:E</code>, the draw-pass flag and callback result, the
+<code>curCol &lt; 15</code> relation, and the marker-helper result. They reduce to 39 ordered
+paths, 22 branch outcomes, and seven minimum representatives. The VAT-dependent
+<code>39:6675</code> body, installed callback, indexed-string printer, output bcalls, and
+row-retouch body remain named boundaries rather than simulated return values.
+[confirmed]</p>
 <p><code>_KeyToString</code> at <code>01:6D10</code> uses that public entry for <code>FB</code>, <code>FC</code>, <code>FE</code>, and
 <code>FF</code> cells, scans 13 high-byte special strings, or selects one of 101 counted
 strings through the pointer table at <code>01:6E05</code>. The JavaScript translation
@@ -15042,7 +15052,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 48 finite models. It also computes an
+complete path-equivalence class in 49 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -15073,6 +15083,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td><code>_KeyToString</code> <code>_sOK</code> prefix</td><td style="text-align: right">1,024</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">5</td></tr>
 <tr><td><code>_KeyToString</code> selector</td><td style="text-align: right">65,536</td><td style="text-align: right">35</td><td style="text-align: right">40</td><td style="text-align: right">14</td></tr>
 <tr><td>Page-39 cell-string selector</td><td style="text-align: right">131,072</td><td style="text-align: right">14</td><td style="text-align: right">16</td><td style="text-align: right">8</td></tr>
+<tr><td>Page-39 cell-emission controller</td><td style="text-align: right">1,048,576</td><td style="text-align: right">39</td><td style="text-align: right">22</td><td style="text-align: right">7</td></tr>
 <tr><td>Glyph advance and delimiter padding</td><td style="text-align: right">131,072</td><td style="text-align: right">6</td><td style="text-align: right">10</td><td style="text-align: right">4</td></tr>
 <tr><td><code>_VPutMap</code> byte-boundary gate</td><td style="text-align: right">56</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
 <tr><td>MathPrint <code>_VPutMap</code> right-edge gate</td><td style="text-align: right">3,584</td><td style="text-align: right">4</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
@@ -15103,8 +15114,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 48 models contain 3,424 path classes and 541 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 255 representatives. Each
+<p>The 49 models contain 3,463 path classes and 563 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 262 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
