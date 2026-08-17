@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f8be22ee.js";
+            window.path_to_searchindex_js = "searchindex-cb49a919.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -11862,6 +11862,34 @@ distinction prevents a common false inference from the nearby <code>CP ADh</code
 <code>00:270A</code>. For example, <code>_ErrDivBy0</code> at <code>00:26EC</code> selects <code>82h</code>, while the
 syntax entry at <code>00:2700</code> selects <code>88h</code>. Natural <code>Disp 1/0</code> and <code>Disp 1+</code>
 traces reach those entries, respectively. [confirmed]</p>
+<p>The entry identifies the error message, but its incoming guard identifies the
+cause. Five natural programs separate four errors into five guard paths:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Program</th><th>Originating guard</th><th>Predicate</th><th>Error shim</th></tr>
+</thead>
+<tbody>
+<tr><td><code>Disp 1/0</code></td><td><code>00:2548–254B</code></td><td>divisor in OP1 is zero</td><td><code>_ErrDivBy0</code> at <code>00:26EC</code></td></tr>
+<tr><td><code>Disp 10^100</code></td><td><code>02:7076–7078</code>, then <code>02:7053–7059</code></td><td>positive exponent argument is at least 100</td><td><code>_ErrOverflow</code> at <code>00:26E8</code></td></tr>
+<tr><td><code>Disp 1E99*1E99</code></td><td><code>00:2513–251D</code></td><td>adjusted sum of biased decimal exponents overflows</td><td><code>_ErrOverflow</code> at <code>00:26E8</code></td></tr>
+<tr><td><code>Disp ln(0)</code></td><td><code>02:6F1E</code>, then <code>00:212D–2131</code></td><td>logarithm operand in OP1 is zero</td><td><code>_ErrDomain</code> at <code>00:26F4</code></td></tr>
+<tr><td><code>For(I,1,3,0)</code></td><td><code>37:4268–426B</code></td><td>step value in OP1 is zero</td><td><code>_ErrIncrement</code> at <code>00:26F8</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The two OVERFLOW rows reach the same shim through different predicates. A trace
+that records only <code>00:26E8</code> therefore merges distinct numeric behavior. The
+compact numeric-error report retains the ordered guard path, the register state
+after each guard instruction, and the final error code in <code>A</code>. [confirmed]</p>
+<pre class="mermaid">flowchart LR
+    S["TI-BASIC expression"] --&gt; E["operator evaluator"]
+    E --&gt; G["numeric guard&lt;br/&gt;zero, range, or exponent"]
+    G --&gt; R["shared error shim&lt;br/&gt;00:26E8–2708"]
+    R --&gt; C["00:270A&lt;br/&gt;common error path"]
+    C --&gt; U["restore OPS, FPS,&lt;br/&gt;error SP, and page"]
+</pre>
+
 <p>The shared context wrapper at <code>00:27DA</code> does not save absolute <code>FPS</code> and <code>OPS</code>
 pointers. It saves each pointer as a delta from the corresponding base at
 <code>0x9822</code> or <code>0x9826</code>, together with the previous error stack and mapped page.
@@ -11949,8 +11977,9 @@ boundaries explicitly.</p>
 </table>
 </div>
 <p>The local finite-model evidence is <code>tools/tibasic-coverage.json</code>. The broader
-direct-CFG evidence is <code>tools/tibasic-saturation.json</code>. Both generators verify
-the pinned ROM before producing a report.</p>
+direct-CFG evidence is <code>tools/tibasic-saturation.json</code>. The selected backward
+error slices are in <code>tools/tibasic-numeric-errors.json</code>. All three generators
+verify the pinned ROM before producing a report.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="ti-basic-programming-patterns"><a class="header" href="#ti-basic-programming-patterns">TI-BASIC programming patterns</a></h1>
 <p>This page turns the recovered interpreter model into practical source-level
@@ -12659,10 +12688,32 @@ marks both traces with <code>termination: completed</code>. [confirmed]</p>
 <p>Two error fixtures provide real unwind witnesses. <code>syntaxerr</code> executes
 <code>Disp 1+</code> and reaches the syntax entry at <code>00:2700</code>; <code>divzero</code> executes
 <code>Disp 1/0</code> and reaches <code>_ErrDivBy0</code> at <code>00:26EC</code>. Together they naturalize four
-outcomes that the earlier natural corpus missed, including three outcomes that
-were previously probe-only. Only <code>divzero</code> adds a globally new CFG outcome, so
-the outcome minimizer omits <code>syntaxerr</code> while the documentation retains it for
-semantic diversity. [confirmed]</p>
+outcomes that the natural corpus otherwise misses. Only <code>divzero</code> adds a new
+CFG outcome, so the outcome minimizer omits <code>syntaxerr</code> while the documentation
+retains it for semantic diversity. [confirmed]</p>
+<p>Five selected numeric-error fixtures also retain the path before the shared
+error shim. The reducer restarts a candidate slice whenever it sees the guard’s
+first instruction. It accepts the slice only when the remaining guard and shim
+addresses occur in order and the shim leaves the expected error code in <code>A</code>.
+This prevents an unrelated earlier call to <code>_FPDiv</code>, <code>_FPMult</code>, or the zero
+checker from being attached to a later error. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Case</th><th>Ordered causal boundary</th><th>Result</th></tr>
+</thead>
+<tbody>
+<tr><td><code>divzero</code></td><td><code>00:2548 → 00:254B → 00:26EC</code></td><td>divisor-zero guard, code <code>82h</code></td></tr>
+<tr><td><code>overflow</code></td><td><code>02:7076 → 02:7078 → 02:7053 → 02:7056 → 02:7059 → 00:26E8</code></td><td><code>10^x</code> range guard, code <code>81h</code></td></tr>
+<tr><td><code>muloverflow</code></td><td><code>00:2513 → 00:2516 → 00:2517 → 00:2519 → 00:251B → 00:251D → 00:26E8</code></td><td>exponent-add overflow, code <code>81h</code></td></tr>
+<tr><td><code>lndomain</code></td><td><code>02:6F1E → 00:212D → 00:1DE9 → 00:2130 → 00:2131 → 00:211D → 00:26F4</code></td><td>logarithm zero guard, code <code>84h</code></td></tr>
+<tr><td><code>increment</code></td><td><code>37:4268 → 00:1DE9 → 37:426B → 00:26F8</code></td><td>zero loop step, code <code>85h</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>All five paths come from stored TI-BASIC programs. The report covers four error
+codes and five causes; it does not enumerate every caller of the shared error
+shims. [confirmed]</p>
 <h3 id="probe-outcomes"><a class="header" href="#probe-outcomes">Probe outcomes</a></h3>
 <p>Three public-bcall probes call <code>grf_435f = 5140h</code> with an input below the table,
 inside the table, and at its upper boundary. They cover both outcomes at
@@ -12732,6 +12783,23 @@ reuse the same trace arguments for the expanded report:</p>
 nix develop -c python3 tools/analyze_tibasic_saturation.py \
   --instruction-list /tmp/tibasic-instruction-starts.tsv \
   "$@" --output tools/tibasic-saturation.json
+</code></pre>
+<p>Capture and reduce the selected numeric-error paths separately. This keeps
+their semantic provenance without adding redundant traces to the branch-only
+minimum corpus:</p>
+<pre><code class="language-sh">python3 tools/tibasic_smoke.py \
+  --tilem "$TILEM" --rom tools/rom.bin \
+  --out-dir /tmp/tibasic-numeric-errors --keep-trace \
+  --case divzero --case overflow --case muloverflow \
+  --case lndomain --case increment
+
+PYTHONPATH=tools python3 tools/analyze_tibasic_numeric_errors.py \
+  --trace divzero=/tmp/tibasic-numeric-errors/divzero.trace \
+  --trace overflow=/tmp/tibasic-numeric-errors/overflow.trace \
+  --trace muloverflow=/tmp/tibasic-numeric-errors/muloverflow.trace \
+  --trace lndomain=/tmp/tibasic-numeric-errors/lndomain.trace \
+  --trace increment=/tmp/tibasic-numeric-errors/increment.trace \
+  --output tools/tibasic-numeric-errors.json
 </code></pre>
 <p>Delete the temporary traces after regeneration. They are reproducible evidence,
 not source assets.</p>
