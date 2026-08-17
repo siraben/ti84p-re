@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "rom": {
+    "path": "tools/rom.bin",
+    "sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d"
+  },
+  "scope": "N=25, first loop-body statement is a false single-line If",
+  "traces": {
+    "explicit_rparen": {
+      "sha256": "d8348851f6ba1c8d28f48bccc9f0af48da3aea9f80b1f61a1dd61ffa1f8b718d",
+      "bytes": 241359498,
+      "marker": "ram:9D95 opcode=0xC9",
+      "instructions": 145748,
+      "clocks": 1698162,
+      "parser_pointer_write_counts": {
+        "0x965D": 346,
+        "0x965E": 346,
+        "0x965F": 52,
+        "0x9660": 52
+      },
+      "equal_cursor_end_high_sequence": {
+        "count": 1,
+        "first": "0x9ECB",
+        "last": "0x9ECB",
+        "stride": null
+      }
+    },
+    "implicit_close": {
+      "sha256": "eef08147e170ff909b38212308362f7186e0189c79bc210711c4e7b183d2f6f3",
+      "bytes": 238131444,
+      "marker": "ram:9D95 opcode=0xC9",
+      "instructions": 157052,
+      "clocks": 1790338,
+      "parser_pointer_write_counts": {
+        "0x965D": 321,
+        "0x965E": 321,
+        "0x965F": 52,
+        "0x9660": 52
+      },
+      "equal_cursor_end_high_sequence": {
+        "count": 25,
+        "first": "0x9EC8",
+        "last": "0xA018",
+        "stride": 14
+      }
+    }
+  },
+  "implicit_minus_explicit": {
+    "instructions": 11304,
+    "instruction_percent": 7.75585256744518,
+    "clocks": 92176,
+    "clock_percent": 5.42798625808374
+  },
+  "buffer_filter": "nextParseByte == basic_end and address >= 0x9E80"
+}

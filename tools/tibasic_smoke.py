@@ -21,6 +21,7 @@ DEFAULT_MACRO = ROOT / "tools" / "macros" / "run-first-program.macro"
 FACTORIAL_MACRO = ROOT / "tools" / "macros" / "run-first-program-factorial5.macro"
 MD5_MACRO = ROOT / "tools" / "macros" / "run-first-program-md5.macro"
 GCFLASH_MACRO = ROOT / "tools" / "macros" / "run-first-program-gcflash.macro"
+BRANCH_STATE_MACRO = ROOT / "tools" / "macros" / "run-first-program-branch-state.macro"
 NAMES = ROOT / "tools" / "names.txt"
 TRACE_RESOLVE = ROOT / "tools" / "tilem_trace_resolve.py"
 DEFAULT_ROM = ROOT / "tools" / "rom.bin"
@@ -37,7 +38,7 @@ class VisualRegion:
 @dataclass(frozen=True)
 class Case:
     programs: tuple[str, ...]
-    screen: str
+    expected: str
     anchors: tuple[str, ...]
     macro: Path = DEFAULT_MACRO
     min_dark_pixels: int = 0
@@ -287,6 +288,113 @@ CASES: dict[str, Case] = {
             VisualRegion("Done marker", "28x9+66+46", 35),
         ),
     ),
+    "branchmatrix": Case(
+        ("BRANCHES.8xp", "ZPASS.8xp"),
+        "BRANCH; Done",
+        ("blockmatch_end_else", "parse_scan_tokens", "_Disp"),
+        BRANCH_STATE_MACRO,
+        memory_expectations=(
+            MemoryExpectation(
+                "selected Else-body marker",
+                Path("/tmp/tibasic-branchmatrix.ram"),
+                0x1340,
+                b"\xA5",
+            ),
+        ),
+    ),
+    "forparen": Case(
+        ("FORPAREN.8xp", "ZMARK.8xp", "ZPASS.8xp"),
+        "I reaches 26 and sets a RAM marker",
+        ("ram:9d95",),
+        BRANCH_STATE_MACRO,
+        memory_expectations=(
+            MemoryExpectation(
+                "For( explicit-close completion marker",
+                Path("/tmp/tibasic-branchmatrix.ram"),
+                0x1340,
+                b"\xA5",
+            ),
+        ),
+    ),
+    "forimplicit": Case(
+        ("FORIMPL.8xp", "ZMARK.8xp", "ZPASS.8xp"),
+        "I reaches 26 and sets a RAM marker",
+        ("ram:9d95",),
+        BRANCH_STATE_MACRO,
+        memory_expectations=(
+            MemoryExpectation(
+                "For( implicit-close completion marker",
+                Path("/tmp/tibasic-branchmatrix.ram"),
+                0x1340,
+                b"\xA5",
+            ),
+        ),
+    ),
+    "cflowlow": Case(
+        ("CFLOWLO.8xp", "ZCFLOWL.8xp"),
+        "OS error from below-range control-flow bcall input",
+        ("page_33:435f",),
+    ),
+    "cflowhigh": Case(
+        ("CFLOWHI.8xp", "ZCFLOWH.8xp"),
+        "OS error from above-range control-flow bcall input",
+        ("page_33:435f",),
+    ),
+    "cflowvalid": Case(
+        ("CFLOWOK.8xp", "ZCFLOWV.8xp"),
+        "valid control-flow table row executes",
+        ("page_33:435f",),
+    ),
+    "cmdclose": Case(
+        ("CMDCLOS.8xp", "ZCMDCLOS.8xp"),
+        "command finalization explicit-close outcome",
+        ("page_02:5676",),
+    ),
+    "cmdopen": Case(
+        ("CMDOPEN.8xp", "ZCMDOPEN.8xp"),
+        "command finalization open-form outcome",
+        ("page_02:5676",),
+    ),
+    "cmdunit": Case(
+        ("CMDUNIT.8xp", "ZCMDUNIT.8xp"),
+        "command finalization unit-form outcome",
+        ("page_02:5676",),
+    ),
+    "cmdbad": Case(
+        ("CMDBAD.8xp", "ZCMDBAD.8xp"),
+        "command finalization implicit-end and invalid-form outcomes",
+        ("page_02:5676",),
+    ),
+    "missingend": Case(
+        ("MISSEND.8xp",),
+        "OS error from a missing End",
+        ("blockmatch_end_else",),
+    ),
+    "terminalif": Case(
+        ("TERMIF.8xp",),
+        "OS error from a terminal nested If",
+        ("blockmatch_end_else",),
+    ),
+    "gramlow": Case(
+        ("GRAMLOW.8xp", "ZGRAMLOW.8xp"),
+        "grammar fold below F2h",
+        ("page_38:6fbc",),
+    ),
+    "gramhigh": Case(
+        ("GRAMHIGH.8xp", "ZGRAMHI.8xp"),
+        "grammar fold at F2h",
+        ("page_38:6fbc",),
+    ),
+    "gramflag": Case(
+        ("GRAMFLAG.8xp", "ZGRAMFLG.8xp"),
+        "grammar flag-hook internal-entry outcome",
+        ("page_38:702f",),
+    ),
+    "gramnonzero": Case(
+        ("GRAMNZ.8xp", "ZGRAMNZ.8xp"),
+        "grammar nonzero continuation internal-entry outcome",
+        ("page_38:7032",),
+    ),
 }
 
 
@@ -412,6 +520,12 @@ def run_case(name: str, case: Case, tilem: Path, rom: Path, out_dir: Path, keep_
     for expectation in case.memory_expectations:
         expectation.dump.unlink(missing_ok=True)
 
+    needs_visual = bool(
+        case.min_dark_pixels
+        or case.min_changed_pixels
+        or case.min_distinct_frames
+        or case.visual_regions
+    )
     cmd = [
         str(tilem),
         "--headless",
@@ -427,10 +541,10 @@ def run_case(name: str, case: Case, tilem: Path, rom: Path, out_dir: Path, keep_
         str(trace),
         "--trace-range",
         "all",
-        "--headless-record",
-        str(gif),
-        *[str(SAMPLES / program) for program in case.programs],
     ]
+    if needs_visual:
+        cmd.extend(["--headless-record", str(gif)])
+    cmd.extend(str(SAMPLES / program) for program in case.programs)
     run(cmd, cwd=ROOT)
 
     for expectation in case.memory_expectations:
@@ -443,7 +557,8 @@ def run_case(name: str, case: Case, tilem: Path, rom: Path, out_dir: Path, keep_
             f"{actual.hex()}"
         )
 
-    extract_final_frame(gif, final_png)
+    if needs_visual:
+        extract_final_frame(gif, final_png)
     coverage_text = resolve_trace(trace, coverage)
 
     missing = [anchor for anchor in case.anchors if anchor not in coverage_text]
@@ -491,7 +606,7 @@ def run_case(name: str, case: Case, tilem: Path, rom: Path, out_dir: Path, keep_
             )
         print(f"{name}: region {region.name}: {region_dark_pixels} dark pixels")
 
-    print(f"{name}: expected screen: {case.screen}")
+    print(f"{name}: expected result: {case.expected}")
     print(f"{name}: anchors ok: {', '.join(case.anchors)}")
     if not keep_trace:
         trace.unlink(missing_ok=True)
@@ -509,7 +624,7 @@ def main() -> None:
 
     if args.list:
         for name, case in CASES.items():
-            print(f"{name}: {' '.join(case.programs)} -> {case.screen}")
+            print(f"{name}: {' '.join(case.programs)} -> {case.expected}")
         return
 
     tilem = require_tilem(args.tilem or os.environ.get("TILEM"))

@@ -13,6 +13,7 @@ from analyze_tibasic_coverage import (
     build_branch_sites,
     build_report,
     finite_models,
+    logical_code_point,
 )
 from rom_image import RomImage
 
@@ -43,6 +44,10 @@ class TiBasicCoverageTests(unittest.TestCase):
         self.assertEqual(len(models["block matcher transition"].inputs), 524288)
         self.assertEqual(len(models["precedence handler family"].inputs), 65536)
 
+    def test_logical_targets_distinguish_fixed_ram_from_banked_flash(self) -> None:
+        self.assertEqual(logical_code_point(0x33, 0x2711), ("ram", 0x2711))
+        self.assertEqual(logical_code_point(0x33, 0x4381), ("page_33", 0x4381))
+
     @unittest.skipUnless(ROM.is_file(), "pinned ROM not present")
     def test_declared_branch_sites_are_conditional_rom_instructions(self) -> None:
         sites = build_branch_sites(RomImage.from_path(ROM))
@@ -61,12 +66,27 @@ class TiBasicCoverageTests(unittest.TestCase):
 
     def test_checked_report_matches_model_schema(self) -> None:
         report = json.loads(REPORT.read_text())
-        self.assertEqual(report["schema"], 1)
+        self.assertEqual(report["schema"], 2)
         self.assertEqual(report["finite_summary"]["states_exhausted"], 591360)
         self.assertEqual(report["finite_summary"]["semantic_outcomes"], 45)
-        self.assertEqual(report["dynamic"]["trace_count"], 6)
-        self.assertEqual(report["dynamic"]["branch_outcomes_observed"], 18)
+        self.assertEqual(report["dynamic"]["trace_count"], 20)
+        self.assertEqual(report["dynamic"]["branch_outcomes_observed"], 52)
+        self.assertEqual(
+            report["dynamic"]["branch_outcomes_observed_by_provenance"],
+            {
+                "internal_entry_probe": 18,
+                "natural_tibasic": 34,
+                "public_bcall_probe": 8,
+            },
+        )
+        self.assertEqual(
+            report["dynamic"]["minimum_outcome_corpus"]["selected_trace_count"],
+            15,
+        )
         self.assertTrue(report["dynamic"]["minimum_diverse_corpus"]["proven_minimum"])
+        self.assertTrue(
+            all(len(row["observed"]) == 2 for row in report["dynamic"]["branches"])
+        )
 
 
 if __name__ == "__main__":

@@ -58,7 +58,8 @@
             python3 tools/test_mathprint_draw_trace.py
             python3 tools/test_analyze_mathprint_records.py
             python3 tools/test_mathprint_saturation.py
-            PYTHONPATH=tools python3 -m unittest tools.test_tibasic_coverage
+            PYTHONPATH=tools python3 -m unittest \
+              tools.test_tibasic_coverage tools.test_tibasic_for_paren
           '';
           dontInstall = true;
           dontFixup = true;
