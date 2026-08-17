@@ -1,16 +1,11 @@
 # TI-BASIC programming patterns
 
-This page turns the interpreter traces into practical programming rules. It is
-a map from common TI-BASIC patterns to the OS paths they exercise.
+This page turns the recovered interpreter model into practical source-level
+choices. The central cost is not only arithmetic: every loop iteration also
+walks tokens, resolves variables, moves values through OP registers, and may
+scan ahead for a structural boundary.
 
-Confidence follows [Conventions](conventions.md): [confirmed] = observed in
-the disassembly or the headless TilEm traces; [standard] = matches TI-BASIC
-semantics and the traced interpreter shape; [hypothesis] = useful pattern
-not yet traced end to end in this repo.
-
----
-
-## Performance rules from traces
+## A source-level cost model
 
 1. **Keep parser work out of hot loops.** Every statement re-enters the page-38
    evaluator (`eval_stmt_entry`, `parse_refill`, `parse_advance`,
@@ -34,7 +29,7 @@ not yet traced end to end in this repo.
    scanning the program token stream, and escaping structured loops through
    `Goto` can leave loop bookkeeping behind. Use `For(`/`While`/`Repeat` plus
    `End` unless the jump is truly cold. [standard] The token-stream scanner is
-   [confirmed] in [TI-BASIC programs](sub-tibasic.md).
+   [confirmed] in [TI-BASIC execution](sub-tibasic.md).
 5. **Batch display and graph output.** `Disp` and `Output(` reach display
    primitives and LCD update paths; graph drawing reaches graph-buffer and pixel
    routines before display copy. Draw into the graph buffer and call
@@ -43,7 +38,20 @@ not yet traced end to end in this repo.
    a small command-finalization path, but it avoids the pathological
    implicit-close/false-`If` interaction. [confirmed]
 
-### Trace-backed cost map
+The rules follow one compact model:
+
+```text
+total work ≈ parsed statements
+           + variable/list lookups
+           + floating-point operations
+           + structural rescans
+           + display or graph writes
+```
+
+The terms are not equal-cost cycles, but they identify which part grows when a
+program is changed. [confirmed]
+
+### Trace-backed examples
 
 | Pattern | Trace evidence | Practical rule |
 |---------|----------------|----------------|
@@ -56,39 +64,11 @@ not yet traced end to end in this repo.
 | BASIC subprogram (`CALLSUB`, `CALLABI`) | page-38 program-body evaluator and shared VAT variables | Treat globals/lists/`Ans` as the calling convention. |
 | List algorithms (`BIGADD`, `BIGMUL`, `DFS`) | VAT lookup, element address, OP-register move per access | Preallocate lists; cache dimensions and reused elements in scalars. |
 
-### Evidence manifest
+The table is intentionally selective. The complete fixture and evidence list
+lives on [the dynamic tracing page](sub-tibasic-tracing.md), where it can be
+audited without interrupting the programming guidance.
 
-This branch keeps each claimed behavior tied to a runnable fixture or a
-negative probe trace. The visualization fixtures render visible output and pass
-first-to-final changed-pixel checks plus named crop-region checks for text,
-axes, circle arcs, nodes, and edges. `ANIMTXT` also has a distinct-frame threshold, so the animation fixture
-must show multiple captured LCD states rather than only a final still. The
-smoke runner also checks final-screen regions for the main text, list, ASM
-interop, arbitrary-precision, and DFS outputs. The full
-`tools/tibasic_smoke.py` suite also passed on 2026-06-07 against the current
-branch state.
-
-| Goal area | Fixture or probe | Evidence |
-|-----------|------------------|------------------|
-| Hello world | `HELLO.8xp` | Displays `HELLO, WORLD`, then `Done`; reaches page-38 statement parsing and `_Disp`. |
-| Factorial | `FACTOR.8xp` | Prompt input `5` displays `120`; reaches loop parsing and `_FPMult`. |
-| Data manipulation | `DATA.8xp` | Sorts, cumulatively sums, and displays list data; reaches list element stores and `sum(`'s list fold path. |
-| Text animation | `ANIMTXT.8xp` | Moves/writes `X` characters with `Output(`, then displays `DONE`; reaches LCD text routines each loop. |
-| Graph drawing | `GRAPHV.8xp` | Renders `DFS`, axes, a circle, and diagonal line on the graph screen; reaches `_ILine`, `_IPoint`, and `_PDspGrph`. |
-| Graph visualization | `GRAPHDFS.8xp`, `GRAPHLST.8xp` | Renders the four-node DFS topology with labels and edges; the list-driven fixture stores edge/node coordinates in lists and loops over them before `DispGraph`. |
-| Arbitrary precision arithmetic | `BIGADD.8xp`, `BIGMUL.8xp` | Adds and multiplies digit lists with carry propagation; reaches list indexing and FP helper paths. |
-| DFS / stack-style list algorithm | `DFS.8xp` | Displays traversal `1, 3, 2, 4` and visited list `{1 1 1 1}`; reaches nested scanner/control-flow paths. |
-| BASIC subprogram calling convention | `CALLSUB.8xp` + `SUBRT.8xp`; `ABICALL.8xp` + `ABISUB.8xp`; `CALLSTOP.8xp` + `STOPSUB.8xp` | Caller and callee share scalar/list/`Ans` state; `Return` resumes the caller, while `Stop` terminates the caller chain. |
-| BASIC to ASM | `ASMCALL.8xp` + `ASMRET.8xp` | `Asm(` runs an `AsmPrgm` payload (`C9`) and returns to BASIC, displaying `BEFORE` then `AFTER`. |
-| ASM-directed BASIC callback | `ASMBRIDG.8xp` + `ASMSIG.8xp` + `ZZBASIC.8xp` | ASM sets `Ans=1` with `_OP1Set1`/`_StoAns`, returns, and BASIC calls `prgmZZBASIC` through `If Ans`. |
-| ASM return value | `ASMRTN.8xp` + `ASMVAL.8xp` | ASM sets `Ans=2` with `_OP1Set2`/`_StoAns`; BASIC reads `Ans`, computes `Ans+3`, and displays `5`. |
-| ASM-side BASIC lookup | `ASMFIND.8xp` + `ZZFIND.8xp` + `ZZBASIC.8xp` | `AsmPrgm` can build `OP1={ProgObj,"ZZBASIC"}` and reach `findsym_scan`, then return to BASIC without running `ZZBASIC`. |
-| Direct ASM to BASIC execution | `ASMPARSE.8xp` + `ZZPARSE.8xp` + `ZZBASIC.8xp`; `ASMFORM.8xp` + `ZZFORM.8xp` + `ZZBASIC.8xp`; probes | `_ParseInpLastEnt` reaches parser setup but ends at `ERR:INVALID`; `_Find_Parse_Formula` reaches parser/find setup but ends at `ERR:UNDEFINED`; `_ExecuteNewPrgm`, `_JForceCmd`, `_PutTokString`, and `_rclToQueue` do not prove a standalone callable BASIC-program ABI. |
-
-## Run-confirmed fixtures
-
-The generator `tools/tibasic_samples.py` now emits these additional trace-ready
-fixtures.
+## Patterns tied to interpreter cost
 
 ### Text animation with `Output(`
 
@@ -214,7 +194,7 @@ The trace additionally hits `list_var_index` and `_GetLToOP1`, proving that the
 draw arguments came through list element recall rather than hard-coded
 coordinates. [confirmed]
 
-### BASIC subprogram calling convention
+### Subprogram interfaces
 
 Caller:
 
