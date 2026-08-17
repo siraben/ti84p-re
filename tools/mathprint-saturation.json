@@ -59,9 +59,9 @@
     "external_direct_targets": 236,
     "structural_types_with_oracles": 13,
     "structural_type_domain": 13,
-    "symbolic_path_equivalence_classes": 3476,
-    "symbolic_distinct_branch_outcomes": 577,
-    "symbolic_per_domain_minimum_representatives": 268,
+    "symbolic_path_equivalence_classes": 3484,
+    "symbolic_distinct_branch_outcomes": 587,
+    "symbolic_per_domain_minimum_representatives": 274,
     "globally_saturated": false
   },
   "tables": {
@@ -8682,16 +8682,16 @@
     }
   },
   "symbolic_model_corpus": {
-    "scope": "all projected inputs and complete path equivalence classes in the 50 declared finite symbolic models",
+    "scope": "all projected inputs and complete path equivalence classes in the 52 declared finite symbolic models",
     "not_claimed": [
       "all Z80 register and RAM states",
       "calculator reachability of every representative",
       "all paths outside the declared finite models"
     ],
-    "path_equivalence_class_count": 3476,
-    "representative_path_corpus_count": 3476,
-    "distinct_modeled_branch_outcomes": 577,
-    "per_domain_minimum_branch_outcome_corpus_count": 268,
+    "path_equivalence_class_count": 3484,
+    "representative_path_corpus_count": 3484,
+    "distinct_modeled_branch_outcomes": 587,
+    "per_domain_minimum_branch_outcome_corpus_count": 274,
     "domains": [
       {
         "name": "structural_scan_kind_dispatch",
@@ -229045,22 +229045,268 @@
         }
       },
       {
+        "name": "page39_marker_gate",
+        "routine": "39:4F44\u20134F61; 3D:7CBA\u20137DCC",
+        "projected_input_domain": 262144,
+        "path_equivalence_class_count": 5,
+        "path_equivalence_classes": [
+          {
+            "class_index": 0,
+            "terminal": "c7_restriction_clear",
+            "projected_input_count": 2,
+            "representative_state": {
+              "d": 251,
+              "e": 199,
+              "restriction_byte": 0
+            },
+            "branch_outcomes": [
+              "39:4F4A:taken",
+              "39:4F58:taken"
+            ]
+          },
+          {
+            "class_index": 1,
+            "terminal": "c7_restriction_set",
+            "projected_input_count": 2,
+            "representative_state": {
+              "d": 251,
+              "e": 199,
+              "restriction_byte": 2
+            },
+            "branch_outcomes": [
+              "39:4F4A:taken",
+              "39:4F58:taken"
+            ]
+          },
+          {
+            "class_index": 2,
+            "terminal": "c8_restriction_clear",
+            "projected_input_count": 2,
+            "representative_state": {
+              "d": 251,
+              "e": 200,
+              "restriction_byte": 0
+            },
+            "branch_outcomes": [
+              "39:4F4A:fallthrough",
+              "39:4F51:fallthrough",
+              "39:4F58:fallthrough"
+            ]
+          },
+          {
+            "class_index": 3,
+            "terminal": "c8_restriction_set",
+            "projected_input_count": 2,
+            "representative_state": {
+              "d": 251,
+              "e": 200,
+              "restriction_byte": 4
+            },
+            "branch_outcomes": [
+              "39:4F4A:fallthrough",
+              "39:4F51:returned"
+            ]
+          },
+          {
+            "class_index": 4,
+            "terminal": "not_marker",
+            "projected_input_count": 262136,
+            "representative_state": {
+              "d": 0,
+              "e": 0,
+              "restriction_byte": 0
+            },
+            "branch_outcomes": [
+              "39:4F4A:taken",
+              "39:4F58:fallthrough"
+            ]
+          }
+        ],
+        "branch_outcome_count": 6,
+        "minimum_branch_outcome_corpus": {
+          "class_indices": [
+            0,
+            2,
+            3
+          ],
+          "selected_classes": [
+            {
+              "class_index": 0,
+              "terminal": "c7_restriction_clear",
+              "projected_input_count": 2,
+              "representative_state": {
+                "d": 251,
+                "e": 199,
+                "restriction_byte": 0
+              },
+              "branch_outcomes": [
+                "39:4F4A:taken",
+                "39:4F58:taken"
+              ]
+            },
+            {
+              "class_index": 2,
+              "terminal": "c8_restriction_clear",
+              "projected_input_count": 2,
+              "representative_state": {
+                "d": 251,
+                "e": 200,
+                "restriction_byte": 0
+              },
+              "branch_outcomes": [
+                "39:4F4A:fallthrough",
+                "39:4F51:fallthrough",
+                "39:4F58:fallthrough"
+              ]
+            },
+            {
+              "class_index": 3,
+              "terminal": "c8_restriction_set",
+              "projected_input_count": 2,
+              "representative_state": {
+                "d": 251,
+                "e": 200,
+                "restriction_byte": 4
+              },
+              "branch_outcomes": [
+                "39:4F4A:fallthrough",
+                "39:4F51:returned"
+              ]
+            }
+          ],
+          "selected_case_count": 3,
+          "covered_outcomes": [
+            "39:4F4A:fallthrough",
+            "39:4F4A:taken",
+            "39:4F51:fallthrough",
+            "39:4F51:returned",
+            "39:4F58:fallthrough",
+            "39:4F58:taken"
+          ],
+          "algorithm": "exact outcome-subset dynamic programming; minimum cases, then serialized input bytes, then class order",
+          "proven_minimum": true
+        }
+      },
+      {
+        "name": "page39_row_retouch",
+        "routine": "39:4F62\u20134F99; 04:4025\u201340AC",
+        "projected_input_domain": 2048,
+        "path_equivalence_class_count": 3,
+        "path_equivalence_classes": [
+          {
+            "class_index": 0,
+            "terminal": "horizontal_split_window",
+            "projected_input_count": 512,
+            "representative_state": {
+              "cur_row": 0,
+              "split_flags": 1
+            },
+            "branch_outcomes": [
+              "39:4F8B:taken"
+            ]
+          },
+          {
+            "class_index": 1,
+            "terminal": "normal_window",
+            "projected_input_count": 768,
+            "representative_state": {
+              "cur_row": 0,
+              "split_flags": 0
+            },
+            "branch_outcomes": [
+              "39:4F8B:fallthrough",
+              "39:4F90:returned"
+            ]
+          },
+          {
+            "class_index": 2,
+            "terminal": "vertical_split_window",
+            "projected_input_count": 768,
+            "representative_state": {
+              "cur_row": 0,
+              "split_flags": 2
+            },
+            "branch_outcomes": [
+              "39:4F8B:fallthrough",
+              "39:4F90:fallthrough"
+            ]
+          }
+        ],
+        "branch_outcome_count": 4,
+        "minimum_branch_outcome_corpus": {
+          "class_indices": [
+            0,
+            1,
+            2
+          ],
+          "selected_classes": [
+            {
+              "class_index": 0,
+              "terminal": "horizontal_split_window",
+              "projected_input_count": 512,
+              "representative_state": {
+                "cur_row": 0,
+                "split_flags": 1
+              },
+              "branch_outcomes": [
+                "39:4F8B:taken"
+              ]
+            },
+            {
+              "class_index": 1,
+              "terminal": "normal_window",
+              "projected_input_count": 768,
+              "representative_state": {
+                "cur_row": 0,
+                "split_flags": 0
+              },
+              "branch_outcomes": [
+                "39:4F8B:fallthrough",
+                "39:4F90:returned"
+              ]
+            },
+            {
+              "class_index": 2,
+              "terminal": "vertical_split_window",
+              "projected_input_count": 768,
+              "representative_state": {
+                "cur_row": 0,
+                "split_flags": 2
+              },
+              "branch_outcomes": [
+                "39:4F8B:fallthrough",
+                "39:4F90:fallthrough"
+              ]
+            }
+          ],
+          "selected_case_count": 3,
+          "covered_outcomes": [
+            "39:4F8B:fallthrough",
+            "39:4F8B:taken",
+            "39:4F90:fallthrough",
+            "39:4F90:returned"
+          ],
+          "algorithm": "exact outcome-subset dynamic programming; minimum cases, then serialized input bytes, then class order",
+          "proven_minimum": true
+        }
+      },
+      {
         "name": "page39_cell_emission",
         "routine": "39:4E8E\u20134F19",
-        "projected_input_domain": 1048576,
+        "projected_input_domain": 2097152,
         "path_equivalence_class_count": 39,
         "path_equivalence_classes": [
           {
             "class_index": 0,
             "terminal": "cursor_state_boundary",
-            "projected_input_count": 4096,
+            "projected_input_count": 8192,
             "representative_state": {
               "d": 31,
               "e": 0,
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:fallthrough"
@@ -229069,14 +229315,14 @@
           {
             "class_index": 1,
             "terminal": "direct_glyph",
-            "projected_input_count": 160,
+            "projected_input_count": 320,
             "representative_state": {
               "d": 0,
               "e": 66,
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229090,14 +229336,14 @@
           {
             "class_index": 2,
             "terminal": "direct_glyph",
-            "projected_input_count": 80,
+            "projected_input_count": 160,
             "representative_state": {
               "d": 0,
               "e": 66,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229111,14 +229357,14 @@
           {
             "class_index": 3,
             "terminal": "direct_glyph",
-            "projected_input_count": 80,
+            "projected_input_count": 160,
             "representative_state": {
               "d": 0,
               "e": 66,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229131,14 +229377,14 @@
           {
             "class_index": 4,
             "terminal": "post_tail",
-            "projected_input_count": 2048,
+            "projected_input_count": 4096,
             "representative_state": {
               "d": 130,
               "e": 0,
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229150,14 +229396,14 @@
           {
             "class_index": 5,
             "terminal": "post_tail",
-            "projected_input_count": 2048,
+            "projected_input_count": 4096,
             "representative_state": {
               "d": 130,
               "e": 0,
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229169,14 +229415,14 @@
           {
             "class_index": 6,
             "terminal": "post_tail",
-            "projected_input_count": 1020,
+            "projected_input_count": 2040,
             "representative_state": {
               "d": 253,
               "e": 0,
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229195,14 +229441,14 @@
           {
             "class_index": 7,
             "terminal": "post_tail",
-            "projected_input_count": 255956,
+            "projected_input_count": 511912,
             "representative_state": {
               "d": 0,
               "e": 0,
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229221,14 +229467,14 @@
           {
             "class_index": 8,
             "terminal": "post_tail",
-            "projected_input_count": 1004,
+            "projected_input_count": 2008,
             "representative_state": {
               "d": 252,
               "e": 0,
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229246,14 +229492,14 @@
           {
             "class_index": 9,
             "terminal": "post_tail",
-            "projected_input_count": 1024,
+            "projected_input_count": 2048,
             "representative_state": {
               "d": 255,
               "e": 0,
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229270,14 +229516,14 @@
           {
             "class_index": 10,
             "terminal": "post_tail",
-            "projected_input_count": 1020,
+            "projected_input_count": 2040,
             "representative_state": {
               "d": 253,
               "e": 0,
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229296,14 +229542,14 @@
           {
             "class_index": 11,
             "terminal": "post_tail",
-            "projected_input_count": 255956,
+            "projected_input_count": 511912,
             "representative_state": {
               "d": 0,
               "e": 0,
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229322,14 +229568,14 @@
           {
             "class_index": 12,
             "terminal": "post_tail",
-            "projected_input_count": 1004,
+            "projected_input_count": 2008,
             "representative_state": {
               "d": 252,
               "e": 0,
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229347,14 +229593,14 @@
           {
             "class_index": 13,
             "terminal": "post_tail",
-            "projected_input_count": 1024,
+            "projected_input_count": 2048,
             "representative_state": {
               "d": 255,
               "e": 0,
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229371,14 +229617,14 @@
           {
             "class_index": 14,
             "terminal": "post_tail",
-            "projected_input_count": 510,
+            "projected_input_count": 1020,
             "representative_state": {
               "d": 253,
               "e": 0,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229397,14 +229643,14 @@
           {
             "class_index": 15,
             "terminal": "post_tail",
-            "projected_input_count": 127978,
+            "projected_input_count": 255956,
             "representative_state": {
               "d": 0,
               "e": 0,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229423,14 +229669,14 @@
           {
             "class_index": 16,
             "terminal": "post_tail",
-            "projected_input_count": 502,
+            "projected_input_count": 1004,
             "representative_state": {
               "d": 252,
               "e": 0,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229448,14 +229694,14 @@
           {
             "class_index": 17,
             "terminal": "post_tail",
-            "projected_input_count": 512,
+            "projected_input_count": 1024,
             "representative_state": {
               "d": 255,
               "e": 0,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229472,14 +229718,14 @@
           {
             "class_index": 18,
             "terminal": "post_tail",
-            "projected_input_count": 510,
+            "projected_input_count": 1020,
             "representative_state": {
               "d": 253,
               "e": 0,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229498,14 +229744,14 @@
           {
             "class_index": 19,
             "terminal": "post_tail",
-            "projected_input_count": 127978,
+            "projected_input_count": 255956,
             "representative_state": {
               "d": 0,
               "e": 0,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229524,14 +229770,14 @@
           {
             "class_index": 20,
             "terminal": "post_tail",
-            "projected_input_count": 502,
+            "projected_input_count": 1004,
             "representative_state": {
               "d": 252,
               "e": 0,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229549,14 +229795,14 @@
           {
             "class_index": 21,
             "terminal": "post_tail",
-            "projected_input_count": 512,
+            "projected_input_count": 1024,
             "representative_state": {
               "d": 255,
               "e": 0,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229573,14 +229819,14 @@
           {
             "class_index": 22,
             "terminal": "post_tail",
-            "projected_input_count": 128488,
+            "projected_input_count": 256976,
             "representative_state": {
               "d": 0,
               "e": 0,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229598,14 +229844,14 @@
           {
             "class_index": 23,
             "terminal": "post_tail",
-            "projected_input_count": 502,
+            "projected_input_count": 1004,
             "representative_state": {
               "d": 252,
               "e": 0,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229622,14 +229868,14 @@
           {
             "class_index": 24,
             "terminal": "post_tail",
-            "projected_input_count": 512,
+            "projected_input_count": 1024,
             "representative_state": {
               "d": 255,
               "e": 0,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229645,14 +229891,14 @@
           {
             "class_index": 25,
             "terminal": "post_tail",
-            "projected_input_count": 128488,
+            "projected_input_count": 256976,
             "representative_state": {
               "d": 0,
               "e": 0,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229670,14 +229916,14 @@
           {
             "class_index": 26,
             "terminal": "post_tail",
-            "projected_input_count": 502,
+            "projected_input_count": 1004,
             "representative_state": {
               "d": 252,
               "e": 0,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229694,14 +229940,14 @@
           {
             "class_index": 27,
             "terminal": "post_tail",
-            "projected_input_count": 512,
+            "projected_input_count": 1024,
             "representative_state": {
               "d": 255,
               "e": 0,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229717,14 +229963,14 @@
           {
             "class_index": 28,
             "terminal": "row_retouch",
-            "projected_input_count": 4,
+            "projected_input_count": 8,
             "representative_state": {
               "d": 251,
               "e": 199,
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 1
+              "restriction_byte": 2
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229743,14 +229989,14 @@
           {
             "class_index": 29,
             "terminal": "row_retouch",
-            "projected_input_count": 4,
+            "projected_input_count": 8,
             "representative_state": {
               "d": 251,
               "e": 199,
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 1
+              "restriction_byte": 2
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229769,14 +230015,14 @@
           {
             "class_index": 30,
             "terminal": "row_retouch",
-            "projected_input_count": 2,
+            "projected_input_count": 4,
             "representative_state": {
               "d": 251,
               "e": 199,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 1
+              "restriction_byte": 2
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229795,14 +230041,14 @@
           {
             "class_index": 31,
             "terminal": "row_retouch",
-            "projected_input_count": 2,
+            "projected_input_count": 4,
             "representative_state": {
               "d": 251,
               "e": 199,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 1
+              "restriction_byte": 2
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229821,14 +230067,14 @@
           {
             "class_index": 32,
             "terminal": "row_retouch",
-            "projected_input_count": 2,
+            "projected_input_count": 4,
             "representative_state": {
               "d": 251,
               "e": 199,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 1
+              "restriction_byte": 2
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229846,14 +230092,14 @@
           {
             "class_index": 33,
             "terminal": "row_retouch",
-            "projected_input_count": 2,
+            "projected_input_count": 4,
             "representative_state": {
               "d": 251,
               "e": 199,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 1
+              "restriction_byte": 2
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229871,14 +230117,14 @@
           {
             "class_index": 34,
             "terminal": "special_55",
-            "projected_input_count": 8,
+            "projected_input_count": 16,
             "representative_state": {
               "d": 253,
               "e": 85,
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229895,14 +230141,14 @@
           {
             "class_index": 35,
             "terminal": "special_55",
-            "projected_input_count": 2008,
+            "projected_input_count": 4016,
             "representative_state": {
               "d": 0,
               "e": 85,
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229919,14 +230165,14 @@
           {
             "class_index": 36,
             "terminal": "special_55",
-            "projected_input_count": 4,
+            "projected_input_count": 8,
             "representative_state": {
               "d": 253,
               "e": 85,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229943,14 +230189,14 @@
           {
             "class_index": 37,
             "terminal": "special_55",
-            "projected_input_count": 1004,
+            "projected_input_count": 2008,
             "representative_state": {
               "d": 0,
               "e": 85,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -229967,14 +230213,14 @@
           {
             "class_index": 38,
             "terminal": "special_55",
-            "projected_input_count": 1008,
+            "projected_input_count": 2016,
             "representative_state": {
               "d": 0,
               "e": 85,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             "branch_outcomes": [
               "39:4E91:taken",
@@ -230003,14 +230249,14 @@
             {
               "class_index": 0,
               "terminal": "cursor_state_boundary",
-              "projected_input_count": 4096,
+              "projected_input_count": 8192,
               "representative_state": {
                 "d": 31,
                 "e": 0,
                 "draw_pass_active": 0,
                 "draw_callback_nonzero": 0,
                 "display_column_below_15": 0,
-                "marker_helper_nonzero": 0
+                "restriction_byte": 0
               },
               "branch_outcomes": [
                 "39:4E91:fallthrough"
@@ -230019,14 +230265,14 @@
             {
               "class_index": 1,
               "terminal": "direct_glyph",
-              "projected_input_count": 160,
+              "projected_input_count": 320,
               "representative_state": {
                 "d": 0,
                 "e": 66,
                 "draw_pass_active": 0,
                 "draw_callback_nonzero": 0,
                 "display_column_below_15": 0,
-                "marker_helper_nonzero": 0
+                "restriction_byte": 0
               },
               "branch_outcomes": [
                 "39:4E91:taken",
@@ -230040,14 +230286,14 @@
             {
               "class_index": 4,
               "terminal": "post_tail",
-              "projected_input_count": 2048,
+              "projected_input_count": 4096,
               "representative_state": {
                 "d": 130,
                 "e": 0,
                 "draw_pass_active": 0,
                 "draw_callback_nonzero": 0,
                 "display_column_below_15": 1,
-                "marker_helper_nonzero": 0
+                "restriction_byte": 0
               },
               "branch_outcomes": [
                 "39:4E91:taken",
@@ -230059,14 +230305,14 @@
             {
               "class_index": 8,
               "terminal": "post_tail",
-              "projected_input_count": 1004,
+              "projected_input_count": 2008,
               "representative_state": {
                 "d": 252,
                 "e": 0,
                 "draw_pass_active": 0,
                 "draw_callback_nonzero": 0,
                 "display_column_below_15": 1,
-                "marker_helper_nonzero": 0
+                "restriction_byte": 0
               },
               "branch_outcomes": [
                 "39:4E91:taken",
@@ -230084,14 +230330,14 @@
             {
               "class_index": 9,
               "terminal": "post_tail",
-              "projected_input_count": 1024,
+              "projected_input_count": 2048,
               "representative_state": {
                 "d": 255,
                 "e": 0,
                 "draw_pass_active": 0,
                 "draw_callback_nonzero": 0,
                 "display_column_below_15": 1,
-                "marker_helper_nonzero": 0
+                "restriction_byte": 0
               },
               "branch_outcomes": [
                 "39:4E91:taken",
@@ -230108,14 +230354,14 @@
             {
               "class_index": 33,
               "terminal": "row_retouch",
-              "projected_input_count": 2,
+              "projected_input_count": 4,
               "representative_state": {
                 "d": 251,
                 "e": 199,
                 "draw_pass_active": 1,
                 "draw_callback_nonzero": 1,
                 "display_column_below_15": 0,
-                "marker_helper_nonzero": 1
+                "restriction_byte": 2
               },
               "branch_outcomes": [
                 "39:4E91:taken",
@@ -230133,14 +230379,14 @@
             {
               "class_index": 34,
               "terminal": "special_55",
-              "projected_input_count": 8,
+              "projected_input_count": 16,
               "representative_state": {
                 "d": 253,
                 "e": 85,
                 "draw_pass_active": 0,
                 "draw_callback_nonzero": 0,
                 "display_column_below_15": 0,
-                "marker_helper_nonzero": 0
+                "restriction_byte": 0
               },
               "branch_outcomes": [
                 "39:4E91:taken",
@@ -481359,6 +481605,227 @@
       ],
       "scope": "complete cell and exact fixed-token VAT-result domain; the separately documented _FindSym scanner supplies the lookup result"
     },
+    "page39_marker_gate": {
+      "routine": "39:4F44\u20134F61; 3D:7CBA\u20137DCC",
+      "state": [
+        "handler-cell D byte",
+        "handler-cell E byte",
+        "effective restriction-byte bits 1 and 2"
+      ],
+      "projected_input_domain": 262144,
+      "terminal_classes": [
+        {
+          "terminal": "c7_restriction_clear",
+          "action": 6,
+          "mask": 2,
+          "branch_outcomes": [
+            "39:4F4A:taken",
+            "39:4F58:taken"
+          ],
+          "projected_input_count": 2,
+          "representative_states": [
+            {
+              "d": 251,
+              "e": 199,
+              "restriction_byte": 0
+            },
+            {
+              "d": 251,
+              "e": 199,
+              "restriction_byte": 4
+            }
+          ]
+        },
+        {
+          "terminal": "c7_restriction_set",
+          "action": 6,
+          "mask": 2,
+          "branch_outcomes": [
+            "39:4F4A:taken",
+            "39:4F58:taken"
+          ],
+          "projected_input_count": 2,
+          "representative_states": [
+            {
+              "d": 251,
+              "e": 199,
+              "restriction_byte": 2
+            },
+            {
+              "d": 251,
+              "e": 199,
+              "restriction_byte": 6
+            }
+          ]
+        },
+        {
+          "terminal": "c8_restriction_clear",
+          "action": 7,
+          "mask": 4,
+          "branch_outcomes": [
+            "39:4F4A:fallthrough",
+            "39:4F51:fallthrough",
+            "39:4F58:fallthrough"
+          ],
+          "projected_input_count": 2,
+          "representative_states": [
+            {
+              "d": 251,
+              "e": 200,
+              "restriction_byte": 0
+            },
+            {
+              "d": 251,
+              "e": 200,
+              "restriction_byte": 2
+            }
+          ]
+        },
+        {
+          "terminal": "c8_restriction_set",
+          "action": 7,
+          "mask": 4,
+          "branch_outcomes": [
+            "39:4F4A:fallthrough",
+            "39:4F51:returned"
+          ],
+          "projected_input_count": 2,
+          "representative_states": [
+            {
+              "d": 251,
+              "e": 200,
+              "restriction_byte": 4
+            },
+            {
+              "d": 251,
+              "e": 200,
+              "restriction_byte": 6
+            }
+          ]
+        },
+        {
+          "terminal": "not_marker",
+          "action": null,
+          "mask": null,
+          "branch_outcomes": [
+            "39:4F4A:taken",
+            "39:4F58:fallthrough"
+          ],
+          "projected_input_count": 262136,
+          "representative_states": [
+            {
+              "d": 0,
+              "e": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 0,
+              "e": 1,
+              "restriction_byte": 0
+            },
+            {
+              "d": 0,
+              "e": 2,
+              "restriction_byte": 0
+            },
+            {
+              "d": 0,
+              "e": 3,
+              "restriction_byte": 0
+            }
+          ]
+        }
+      ],
+      "scope": "complete local cell comparison and action-6/action-7 mask domain; the byte source at 3D:45D9 remains an explicit input"
+    },
+    "page39_row_retouch": {
+      "routine": "39:4F62\u20134F99; 04:4025\u201340AC",
+      "state": [
+        "display row",
+        "sGrFlags bits 0, 1, and 3"
+      ],
+      "projected_input_domain": 2048,
+      "terminal_classes": [
+        {
+          "terminal": "horizontal_split_window",
+          "branch_outcomes": [
+            "39:4F8B:taken"
+          ],
+          "projected_input_count": 512,
+          "representative_states": [
+            {
+              "cur_row": 0,
+              "split_flags": 1
+            },
+            {
+              "cur_row": 0,
+              "split_flags": 3
+            },
+            {
+              "cur_row": 1,
+              "split_flags": 1
+            },
+            {
+              "cur_row": 1,
+              "split_flags": 3
+            }
+          ]
+        },
+        {
+          "terminal": "normal_window",
+          "branch_outcomes": [
+            "39:4F8B:fallthrough",
+            "39:4F90:returned"
+          ],
+          "projected_input_count": 768,
+          "representative_states": [
+            {
+              "cur_row": 0,
+              "split_flags": 0
+            },
+            {
+              "cur_row": 0,
+              "split_flags": 8
+            },
+            {
+              "cur_row": 0,
+              "split_flags": 9
+            },
+            {
+              "cur_row": 1,
+              "split_flags": 0
+            }
+          ]
+        },
+        {
+          "terminal": "vertical_split_window",
+          "branch_outcomes": [
+            "39:4F8B:fallthrough",
+            "39:4F90:fallthrough"
+          ],
+          "projected_input_count": 768,
+          "representative_states": [
+            {
+              "cur_row": 0,
+              "split_flags": 2
+            },
+            {
+              "cur_row": 0,
+              "split_flags": 10
+            },
+            {
+              "cur_row": 0,
+              "split_flags": 11
+            },
+            {
+              "cur_row": 1,
+              "split_flags": 2
+            }
+          ]
+        }
+      ],
+      "scope": "complete row-coordinate and split-window branch domain; the separately translated _DarkLine body supplies the ordered point stream"
+    },
     "page39_cell_emission": {
       "routine": "39:4E8E\u20134F19",
       "state": [
@@ -481367,9 +481834,9 @@
         "draw-pass flag",
         "draw callback nonzero result",
         "display column below 15",
-        "marker helper nonzero result"
+        "effective restriction-byte bits 1 and 2"
       ],
-      "projected_input_domain": 1048576,
+      "projected_input_domain": 2097152,
       "terminal_classes": [
         {
           "terminal": "cursor_state_boundary",
@@ -481379,7 +481846,7 @@
           "branch_outcomes": [
             "39:4E91:fallthrough"
           ],
-          "projected_input_count": 4096,
+          "projected_input_count": 8192,
           "representative_states": [
             {
               "d": 31,
@@ -481387,7 +481854,7 @@
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 31,
@@ -481395,7 +481862,7 @@
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 31,
@@ -481403,7 +481870,7 @@
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 31,
@@ -481411,7 +481878,7 @@
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             }
           ]
         },
@@ -481427,6 +481894,59 @@
             "39:4E91:taken",
             "39:4EC1:taken",
             "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:fallthrough"
+          ],
+          "projected_input_count": 320,
+          "representative_states": [
+            {
+              "d": 0,
+              "e": 66,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 1,
+              "e": 66,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 2,
+              "e": 66,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 3,
+              "e": 66,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            }
+          ]
+        },
+        {
+          "terminal": "direct_glyph",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "counted_string",
+            "direct_glyph_probe",
+            "direct_glyph"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
             "39:4EDA:fallthrough",
             "39:4EDF:taken",
             "39:4EED:fallthrough"
@@ -481436,63 +481956,10 @@
             {
               "d": 0,
               "e": 66,
-              "draw_pass_active": 0,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 1,
-              "e": 66,
-              "draw_pass_active": 0,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 2,
-              "e": 66,
-              "draw_pass_active": 0,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 3,
-              "e": 66,
-              "draw_pass_active": 0,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            }
-          ]
-        },
-        {
-          "terminal": "direct_glyph",
-          "actions": [
-            "named_token_prepass",
-            "draw_pass_callback",
-            "counted_string",
-            "direct_glyph_probe",
-            "direct_glyph"
-          ],
-          "branch_outcomes": [
-            "39:4E91:taken",
-            "39:4EC1:taken",
-            "39:4ED7:taken",
-            "39:4EDA:fallthrough",
-            "39:4EDF:taken",
-            "39:4EED:fallthrough"
-          ],
-          "projected_input_count": 80,
-          "representative_states": [
-            {
-              "d": 0,
-              "e": 66,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 1,
@@ -481500,7 +481967,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 2,
@@ -481508,7 +481975,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 3,
@@ -481516,7 +481983,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             }
           ]
         },
@@ -481535,7 +482002,7 @@
             "39:4EDA:taken",
             "39:4EED:fallthrough"
           ],
-          "projected_input_count": 80,
+          "projected_input_count": 160,
           "representative_states": [
             {
               "d": 0,
@@ -481543,7 +482010,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 1,
@@ -481551,7 +482018,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 2,
@@ -481559,7 +482026,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 3,
@@ -481567,7 +482034,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             }
           ]
         },
@@ -481584,7 +482051,7 @@
             "39:4F0E:taken",
             "39:4F15:returned"
           ],
-          "projected_input_count": 2048,
+          "projected_input_count": 4096,
           "representative_states": [
             {
               "d": 130,
@@ -481592,7 +482059,7 @@
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 130,
@@ -481600,7 +482067,7 @@
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 130,
@@ -481608,7 +482075,7 @@
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 130,
@@ -481616,7 +482083,7 @@
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             }
           ]
         },
@@ -481632,39 +482099,268 @@
             "39:4F0E:fallthrough",
             "39:4F15:returned"
           ],
+          "projected_input_count": 4096,
+          "representative_states": [
+            {
+              "d": 130,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 130,
+              "e": 1,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 130,
+              "e": 2,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 130,
+              "e": 3,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:fallthrough",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:taken",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 2040,
+          "representative_states": [
+            {
+              "d": 253,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "restriction_byte": 0
+            },
+            {
+              "d": 253,
+              "e": 1,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "restriction_byte": 0
+            },
+            {
+              "d": 253,
+              "e": 2,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "restriction_byte": 0
+            },
+            {
+              "d": 253,
+              "e": 3,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "restriction_byte": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:taken",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 511912,
+          "representative_states": [
+            {
+              "d": 0,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "restriction_byte": 0
+            },
+            {
+              "d": 0,
+              "e": 1,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "restriction_byte": 0
+            },
+            {
+              "d": 0,
+              "e": 2,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "restriction_byte": 0
+            },
+            {
+              "d": 0,
+              "e": 3,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "restriction_byte": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:taken",
+            "39:4F0E:taken",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 2008,
+          "representative_states": [
+            {
+              "d": 252,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "restriction_byte": 0
+            },
+            {
+              "d": 252,
+              "e": 1,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "restriction_byte": 0
+            },
+            {
+              "d": 252,
+              "e": 2,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "restriction_byte": 0
+            },
+            {
+              "d": 252,
+              "e": 3,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "restriction_byte": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:taken",
+            "39:4F0E:taken",
+            "39:4F15:returned"
+          ],
           "projected_input_count": 2048,
           "representative_states": [
             {
-              "d": 130,
+              "d": 255,
               "e": 0,
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "display_column_below_15": 1,
+              "restriction_byte": 0
             },
             {
-              "d": 130,
+              "d": 255,
               "e": 1,
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "display_column_below_15": 1,
+              "restriction_byte": 0
             },
             {
-              "d": 130,
+              "d": 255,
               "e": 2,
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "display_column_below_15": 1,
+              "restriction_byte": 0
             },
             {
-              "d": 130,
+              "d": 255,
               "e": 3,
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "display_column_below_15": 1,
+              "restriction_byte": 0
             }
           ]
         },
@@ -481674,13 +482370,239 @@
             "named_token_prepass",
             "counted_string",
             "direct_glyph_probe",
-            "erase_eol",
             "marker_gate"
           ],
           "branch_outcomes": [
             "39:4E91:taken",
             "39:4EC1:taken",
             "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:fallthrough",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:fallthrough",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 2040,
+          "representative_states": [
+            {
+              "d": 253,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 253,
+              "e": 1,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 253,
+              "e": 2,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 253,
+              "e": 3,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:fallthrough",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 511912,
+          "representative_states": [
+            {
+              "d": 0,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 0,
+              "e": 1,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 0,
+              "e": 2,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 0,
+              "e": 3,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:taken",
+            "39:4F0E:fallthrough",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 2008,
+          "representative_states": [
+            {
+              "d": 252,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 252,
+              "e": 1,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 252,
+              "e": 2,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 252,
+              "e": 3,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:taken",
+            "39:4F0E:fallthrough",
+            "39:4F15:returned"
+          ],
+          "projected_input_count": 2048,
+          "representative_states": [
+            {
+              "d": 255,
+              "e": 0,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 255,
+              "e": 1,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 255,
+              "e": 2,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 255,
+              "e": 3,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            }
+          ]
+        },
+        {
+          "terminal": "post_tail",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "marker_gate"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
             "39:4EDA:fallthrough",
             "39:4EDF:fallthrough",
             "39:4EED:taken",
@@ -481695,34 +482617,34 @@
             {
               "d": 253,
               "e": 0,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 253,
               "e": 1,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 253,
               "e": 2,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 253,
               "e": 3,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             }
           ]
         },
@@ -481730,6 +482652,7 @@
           "terminal": "post_tail",
           "actions": [
             "named_token_prepass",
+            "draw_pass_callback",
             "counted_string",
             "direct_glyph_probe",
             "erase_eol",
@@ -481738,7 +482661,7 @@
           "branch_outcomes": [
             "39:4E91:taken",
             "39:4EC1:taken",
-            "39:4ED7:fallthrough",
+            "39:4ED7:taken",
             "39:4EDA:fallthrough",
             "39:4EDF:taken",
             "39:4EED:taken",
@@ -481753,34 +482676,34 @@
             {
               "d": 0,
               "e": 0,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 0,
               "e": 1,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 0,
               "e": 2,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 0,
               "e": 3,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             }
           ]
         },
@@ -481788,6 +482711,7 @@
           "terminal": "post_tail",
           "actions": [
             "named_token_prepass",
+            "draw_pass_callback",
             "counted_string",
             "direct_glyph_probe",
             "erase_eol",
@@ -481796,7 +482720,7 @@
           "branch_outcomes": [
             "39:4E91:taken",
             "39:4EC1:taken",
-            "39:4ED7:fallthrough",
+            "39:4ED7:taken",
             "39:4EDA:fallthrough",
             "39:4EDF:taken",
             "39:4EED:taken",
@@ -481810,34 +482734,34 @@
             {
               "d": 252,
               "e": 0,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 252,
               "e": 1,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 252,
               "e": 2,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 252,
               "e": 3,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             }
           ]
         },
@@ -481845,6 +482769,7 @@
           "terminal": "post_tail",
           "actions": [
             "named_token_prepass",
+            "draw_pass_callback",
             "counted_string",
             "direct_glyph_probe",
             "erase_eol",
@@ -481853,7 +482778,7 @@
           "branch_outcomes": [
             "39:4E91:taken",
             "39:4EC1:taken",
-            "39:4ED7:fallthrough",
+            "39:4ED7:taken",
             "39:4EDA:fallthrough",
             "39:4EDF:taken",
             "39:4EED:taken",
@@ -481866,34 +482791,34 @@
             {
               "d": 255,
               "e": 0,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 255,
               "e": 1,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 255,
               "e": 2,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 255,
               "e": 3,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             }
           ]
         },
@@ -481901,6 +482826,7 @@
           "terminal": "post_tail",
           "actions": [
             "named_token_prepass",
+            "draw_pass_callback",
             "counted_string",
             "direct_glyph_probe",
             "marker_gate"
@@ -481908,7 +482834,7 @@
           "branch_outcomes": [
             "39:4E91:taken",
             "39:4EC1:taken",
-            "39:4ED7:fallthrough",
+            "39:4ED7:taken",
             "39:4EDA:fallthrough",
             "39:4EDF:fallthrough",
             "39:4EED:taken",
@@ -481923,34 +482849,34 @@
             {
               "d": 253,
               "e": 0,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 253,
               "e": 1,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 253,
               "e": 2,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 253,
               "e": 3,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             }
           ]
         },
@@ -481958,6 +482884,7 @@
           "terminal": "post_tail",
           "actions": [
             "named_token_prepass",
+            "draw_pass_callback",
             "counted_string",
             "direct_glyph_probe",
             "marker_gate"
@@ -481965,7 +482892,7 @@
           "branch_outcomes": [
             "39:4E91:taken",
             "39:4EC1:taken",
-            "39:4ED7:fallthrough",
+            "39:4ED7:taken",
             "39:4EDA:fallthrough",
             "39:4EDF:taken",
             "39:4EED:taken",
@@ -481980,34 +482907,34 @@
             {
               "d": 0,
               "e": 0,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 0,
               "e": 1,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 0,
               "e": 2,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 0,
               "e": 3,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             }
           ]
         },
@@ -482015,6 +482942,7 @@
           "terminal": "post_tail",
           "actions": [
             "named_token_prepass",
+            "draw_pass_callback",
             "counted_string",
             "direct_glyph_probe",
             "marker_gate"
@@ -482022,7 +482950,7 @@
           "branch_outcomes": [
             "39:4E91:taken",
             "39:4EC1:taken",
-            "39:4ED7:fallthrough",
+            "39:4ED7:taken",
             "39:4EDA:fallthrough",
             "39:4EDF:taken",
             "39:4EED:taken",
@@ -482036,34 +482964,34 @@
             {
               "d": 252,
               "e": 0,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 252,
               "e": 1,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 252,
               "e": 2,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 252,
               "e": 3,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             }
           ]
         },
@@ -482071,6 +482999,7 @@
           "terminal": "post_tail",
           "actions": [
             "named_token_prepass",
+            "draw_pass_callback",
             "counted_string",
             "direct_glyph_probe",
             "marker_gate"
@@ -482078,7 +483007,7 @@
           "branch_outcomes": [
             "39:4E91:taken",
             "39:4EC1:taken",
-            "39:4ED7:fallthrough",
+            "39:4ED7:taken",
             "39:4EDA:fallthrough",
             "39:4EDF:taken",
             "39:4EED:taken",
@@ -482091,472 +483020,10 @@
             {
               "d": 255,
               "e": 0,
-              "draw_pass_active": 0,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 255,
-              "e": 1,
-              "draw_pass_active": 0,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 255,
-              "e": 2,
-              "draw_pass_active": 0,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 255,
-              "e": 3,
-              "draw_pass_active": 0,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            }
-          ]
-        },
-        {
-          "terminal": "post_tail",
-          "actions": [
-            "named_token_prepass",
-            "draw_pass_callback",
-            "counted_string",
-            "direct_glyph_probe",
-            "erase_eol",
-            "marker_gate"
-          ],
-          "branch_outcomes": [
-            "39:4E91:taken",
-            "39:4EC1:taken",
-            "39:4ED7:taken",
-            "39:4EDA:fallthrough",
-            "39:4EDF:fallthrough",
-            "39:4EED:taken",
-            "39:4EF6:fallthrough",
-            "39:4EFA:fallthrough",
-            "39:4EFF:taken",
-            "39:4F0E:taken",
-            "39:4F15:returned"
-          ],
-          "projected_input_count": 510,
-          "representative_states": [
-            {
-              "d": 253,
-              "e": 0,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 253,
-              "e": 1,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 253,
-              "e": 2,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 253,
-              "e": 3,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
-            }
-          ]
-        },
-        {
-          "terminal": "post_tail",
-          "actions": [
-            "named_token_prepass",
-            "draw_pass_callback",
-            "counted_string",
-            "direct_glyph_probe",
-            "erase_eol",
-            "marker_gate"
-          ],
-          "branch_outcomes": [
-            "39:4E91:taken",
-            "39:4EC1:taken",
-            "39:4ED7:taken",
-            "39:4EDA:fallthrough",
-            "39:4EDF:taken",
-            "39:4EED:taken",
-            "39:4EF6:fallthrough",
-            "39:4EFA:fallthrough",
-            "39:4EFF:taken",
-            "39:4F0E:taken",
-            "39:4F15:returned"
-          ],
-          "projected_input_count": 127978,
-          "representative_states": [
-            {
-              "d": 0,
-              "e": 0,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 0,
-              "e": 1,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 0,
-              "e": 2,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 0,
-              "e": 3,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
-            }
-          ]
-        },
-        {
-          "terminal": "post_tail",
-          "actions": [
-            "named_token_prepass",
-            "draw_pass_callback",
-            "counted_string",
-            "direct_glyph_probe",
-            "erase_eol",
-            "marker_gate"
-          ],
-          "branch_outcomes": [
-            "39:4E91:taken",
-            "39:4EC1:taken",
-            "39:4ED7:taken",
-            "39:4EDA:fallthrough",
-            "39:4EDF:taken",
-            "39:4EED:taken",
-            "39:4EF6:fallthrough",
-            "39:4EFA:taken",
-            "39:4F0E:taken",
-            "39:4F15:returned"
-          ],
-          "projected_input_count": 502,
-          "representative_states": [
-            {
-              "d": 252,
-              "e": 0,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 252,
-              "e": 1,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 252,
-              "e": 2,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 252,
-              "e": 3,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
-            }
-          ]
-        },
-        {
-          "terminal": "post_tail",
-          "actions": [
-            "named_token_prepass",
-            "draw_pass_callback",
-            "counted_string",
-            "direct_glyph_probe",
-            "erase_eol",
-            "marker_gate"
-          ],
-          "branch_outcomes": [
-            "39:4E91:taken",
-            "39:4EC1:taken",
-            "39:4ED7:taken",
-            "39:4EDA:fallthrough",
-            "39:4EDF:taken",
-            "39:4EED:taken",
-            "39:4EF6:taken",
-            "39:4F0E:taken",
-            "39:4F15:returned"
-          ],
-          "projected_input_count": 512,
-          "representative_states": [
-            {
-              "d": 255,
-              "e": 0,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 255,
-              "e": 1,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 255,
-              "e": 2,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 255,
-              "e": 3,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
-            }
-          ]
-        },
-        {
-          "terminal": "post_tail",
-          "actions": [
-            "named_token_prepass",
-            "draw_pass_callback",
-            "counted_string",
-            "direct_glyph_probe",
-            "marker_gate"
-          ],
-          "branch_outcomes": [
-            "39:4E91:taken",
-            "39:4EC1:taken",
-            "39:4ED7:taken",
-            "39:4EDA:fallthrough",
-            "39:4EDF:fallthrough",
-            "39:4EED:taken",
-            "39:4EF6:fallthrough",
-            "39:4EFA:fallthrough",
-            "39:4EFF:taken",
-            "39:4F0E:fallthrough",
-            "39:4F15:returned"
-          ],
-          "projected_input_count": 510,
-          "representative_states": [
-            {
-              "d": 253,
-              "e": 0,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 253,
-              "e": 1,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 253,
-              "e": 2,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 253,
-              "e": 3,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            }
-          ]
-        },
-        {
-          "terminal": "post_tail",
-          "actions": [
-            "named_token_prepass",
-            "draw_pass_callback",
-            "counted_string",
-            "direct_glyph_probe",
-            "marker_gate"
-          ],
-          "branch_outcomes": [
-            "39:4E91:taken",
-            "39:4EC1:taken",
-            "39:4ED7:taken",
-            "39:4EDA:fallthrough",
-            "39:4EDF:taken",
-            "39:4EED:taken",
-            "39:4EF6:fallthrough",
-            "39:4EFA:fallthrough",
-            "39:4EFF:taken",
-            "39:4F0E:fallthrough",
-            "39:4F15:returned"
-          ],
-          "projected_input_count": 127978,
-          "representative_states": [
-            {
-              "d": 0,
-              "e": 0,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 0,
-              "e": 1,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 0,
-              "e": 2,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 0,
-              "e": 3,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            }
-          ]
-        },
-        {
-          "terminal": "post_tail",
-          "actions": [
-            "named_token_prepass",
-            "draw_pass_callback",
-            "counted_string",
-            "direct_glyph_probe",
-            "marker_gate"
-          ],
-          "branch_outcomes": [
-            "39:4E91:taken",
-            "39:4EC1:taken",
-            "39:4ED7:taken",
-            "39:4EDA:fallthrough",
-            "39:4EDF:taken",
-            "39:4EED:taken",
-            "39:4EF6:fallthrough",
-            "39:4EFA:taken",
-            "39:4F0E:fallthrough",
-            "39:4F15:returned"
-          ],
-          "projected_input_count": 502,
-          "representative_states": [
-            {
-              "d": 252,
-              "e": 0,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 252,
-              "e": 1,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 252,
-              "e": 2,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 252,
-              "e": 3,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            }
-          ]
-        },
-        {
-          "terminal": "post_tail",
-          "actions": [
-            "named_token_prepass",
-            "draw_pass_callback",
-            "counted_string",
-            "direct_glyph_probe",
-            "marker_gate"
-          ],
-          "branch_outcomes": [
-            "39:4E91:taken",
-            "39:4EC1:taken",
-            "39:4ED7:taken",
-            "39:4EDA:fallthrough",
-            "39:4EDF:taken",
-            "39:4EED:taken",
-            "39:4EF6:taken",
-            "39:4F0E:fallthrough",
-            "39:4F15:returned"
-          ],
-          "projected_input_count": 512,
-          "representative_states": [
-            {
-              "d": 255,
-              "e": 0,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 255,
@@ -482564,7 +483031,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 255,
@@ -482572,7 +483039,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 255,
@@ -482580,7 +483047,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             }
           ]
         },
@@ -482605,7 +483072,7 @@
             "39:4F0E:taken",
             "39:4F15:returned"
           ],
-          "projected_input_count": 128488,
+          "projected_input_count": 256976,
           "representative_states": [
             {
               "d": 0,
@@ -482613,7 +483080,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 0,
@@ -482621,7 +483088,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 0,
@@ -482629,7 +483096,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 0,
@@ -482637,7 +483104,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             }
           ]
         },
@@ -482661,7 +483128,7 @@
             "39:4F0E:taken",
             "39:4F15:returned"
           ],
-          "projected_input_count": 502,
+          "projected_input_count": 1004,
           "representative_states": [
             {
               "d": 252,
@@ -482669,7 +483136,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 252,
@@ -482677,7 +483144,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 252,
@@ -482685,7 +483152,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 252,
@@ -482693,7 +483160,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             }
           ]
         },
@@ -482716,7 +483183,7 @@
             "39:4F0E:taken",
             "39:4F15:returned"
           ],
-          "projected_input_count": 512,
+          "projected_input_count": 1024,
           "representative_states": [
             {
               "d": 255,
@@ -482724,7 +483191,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 255,
@@ -482732,7 +483199,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 255,
@@ -482740,7 +483207,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 255,
@@ -482748,7 +483215,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             }
           ]
         },
@@ -482772,7 +483239,7 @@
             "39:4F0E:fallthrough",
             "39:4F15:returned"
           ],
-          "projected_input_count": 128488,
+          "projected_input_count": 256976,
           "representative_states": [
             {
               "d": 0,
@@ -482780,7 +483247,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 0,
@@ -482788,7 +483255,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 0,
@@ -482796,7 +483263,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 0,
@@ -482804,7 +483271,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             }
           ]
         },
@@ -482827,7 +483294,7 @@
             "39:4F0E:fallthrough",
             "39:4F15:returned"
           ],
-          "projected_input_count": 502,
+          "projected_input_count": 1004,
           "representative_states": [
             {
               "d": 252,
@@ -482835,7 +483302,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 252,
@@ -482843,7 +483310,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 252,
@@ -482851,7 +483318,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 252,
@@ -482859,7 +483326,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             }
           ]
         },
@@ -482881,7 +483348,7 @@
             "39:4F0E:fallthrough",
             "39:4F15:returned"
           ],
-          "projected_input_count": 512,
+          "projected_input_count": 1024,
           "representative_states": [
             {
               "d": 255,
@@ -482889,7 +483356,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 255,
@@ -482897,7 +483364,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 255,
@@ -482905,7 +483372,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 255,
@@ -482913,7 +483380,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             }
           ]
         },
@@ -482940,7 +483407,7 @@
             "39:4F0E:taken",
             "39:4F15:fallthrough"
           ],
-          "projected_input_count": 4,
+          "projected_input_count": 8,
           "representative_states": [
             {
               "d": 251,
@@ -482948,7 +483415,7 @@
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 1
+              "restriction_byte": 2
             },
             {
               "d": 251,
@@ -482956,23 +483423,23 @@
               "draw_pass_active": 0,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 1
+              "restriction_byte": 4
             },
             {
               "d": 251,
               "e": 199,
               "draw_pass_active": 0,
-              "draw_callback_nonzero": 1,
+              "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 1
+              "restriction_byte": 6
             },
             {
               "d": 251,
               "e": 200,
               "draw_pass_active": 0,
-              "draw_callback_nonzero": 1,
+              "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 1
+              "restriction_byte": 6
             }
           ]
         },
@@ -482998,75 +483465,75 @@
             "39:4F0E:fallthrough",
             "39:4F15:fallthrough"
           ],
+          "projected_input_count": 8,
+          "representative_states": [
+            {
+              "d": 251,
+              "e": 199,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 2
+            },
+            {
+              "d": 251,
+              "e": 200,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 4
+            },
+            {
+              "d": 251,
+              "e": 199,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 6
+            },
+            {
+              "d": 251,
+              "e": 200,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 6
+            }
+          ]
+        },
+        {
+          "terminal": "row_retouch",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "marker_gate",
+            "row_retouch"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:taken",
+            "39:4F0E:taken",
+            "39:4F15:fallthrough"
+          ],
           "projected_input_count": 4,
           "representative_states": [
             {
               "d": 251,
               "e": 199,
-              "draw_pass_active": 0,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 1
-            },
-            {
-              "d": 251,
-              "e": 200,
-              "draw_pass_active": 0,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 1
-            },
-            {
-              "d": 251,
-              "e": 199,
-              "draw_pass_active": 0,
-              "draw_callback_nonzero": 1,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 1
-            },
-            {
-              "d": 251,
-              "e": 200,
-              "draw_pass_active": 0,
-              "draw_callback_nonzero": 1,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 1
-            }
-          ]
-        },
-        {
-          "terminal": "row_retouch",
-          "actions": [
-            "named_token_prepass",
-            "draw_pass_callback",
-            "counted_string",
-            "direct_glyph_probe",
-            "erase_eol",
-            "marker_gate",
-            "row_retouch"
-          ],
-          "branch_outcomes": [
-            "39:4E91:taken",
-            "39:4EC1:taken",
-            "39:4ED7:taken",
-            "39:4EDA:fallthrough",
-            "39:4EDF:taken",
-            "39:4EED:taken",
-            "39:4EF6:fallthrough",
-            "39:4EFA:fallthrough",
-            "39:4EFF:taken",
-            "39:4F0E:taken",
-            "39:4F15:fallthrough"
-          ],
-          "projected_input_count": 2,
-          "representative_states": [
-            {
-              "d": 251,
-              "e": 199,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 1
+              "restriction_byte": 2
             },
             {
               "d": 251,
@@ -483074,7 +483541,23 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 1
+              "restriction_byte": 4
+            },
+            {
+              "d": 251,
+              "e": 199,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "restriction_byte": 6
+            },
+            {
+              "d": 251,
+              "e": 200,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 1,
+              "restriction_byte": 6
             }
           ]
         },
@@ -483101,7 +483584,7 @@
             "39:4F0E:fallthrough",
             "39:4F15:fallthrough"
           ],
-          "projected_input_count": 2,
+          "projected_input_count": 4,
           "representative_states": [
             {
               "d": 251,
@@ -483109,7 +483592,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 1
+              "restriction_byte": 2
             },
             {
               "d": 251,
@@ -483117,7 +483600,23 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 1
+              "restriction_byte": 4
+            },
+            {
+              "d": 251,
+              "e": 199,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 6
+            },
+            {
+              "d": 251,
+              "e": 200,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 6
             }
           ]
         },
@@ -483143,7 +483642,7 @@
             "39:4F0E:taken",
             "39:4F15:fallthrough"
           ],
-          "projected_input_count": 2,
+          "projected_input_count": 4,
           "representative_states": [
             {
               "d": 251,
@@ -483151,7 +483650,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 1
+              "restriction_byte": 2
             },
             {
               "d": 251,
@@ -483159,7 +483658,23 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 1,
-              "marker_helper_nonzero": 1
+              "restriction_byte": 4
+            },
+            {
+              "d": 251,
+              "e": 199,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "restriction_byte": 6
+            },
+            {
+              "d": 251,
+              "e": 200,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 1,
+              "restriction_byte": 6
             }
           ]
         },
@@ -483184,7 +483699,7 @@
             "39:4F0E:fallthrough",
             "39:4F15:fallthrough"
           ],
-          "projected_input_count": 2,
+          "projected_input_count": 4,
           "representative_states": [
             {
               "d": 251,
@@ -483192,7 +483707,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 1
+              "restriction_byte": 2
             },
             {
               "d": 251,
@@ -483200,7 +483715,23 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 1
+              "restriction_byte": 4
+            },
+            {
+              "d": 251,
+              "e": 199,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "restriction_byte": 6
+            },
+            {
+              "d": 251,
+              "e": 200,
+              "draw_pass_active": 1,
+              "draw_callback_nonzero": 1,
+              "display_column_below_15": 0,
+              "restriction_byte": 6
             }
           ]
         },
@@ -483217,6 +483748,119 @@
             "39:4E91:taken",
             "39:4EC1:taken",
             "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:fallthrough",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:fallthrough"
+          ],
+          "projected_input_count": 16,
+          "representative_states": [
+            {
+              "d": 253,
+              "e": 85,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 253,
+              "e": 85,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 2
+            },
+            {
+              "d": 253,
+              "e": 85,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 4
+            },
+            {
+              "d": 253,
+              "e": 85,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 6
+            }
+          ]
+        },
+        {
+          "terminal": "special_55",
+          "actions": [
+            "named_token_prepass",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "special_55"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:fallthrough",
+            "39:4EDA:fallthrough",
+            "39:4EDF:taken",
+            "39:4EED:taken",
+            "39:4EF6:fallthrough",
+            "39:4EFA:fallthrough",
+            "39:4EFF:fallthrough"
+          ],
+          "projected_input_count": 4016,
+          "representative_states": [
+            {
+              "d": 0,
+              "e": 85,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 1,
+              "e": 85,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 2,
+              "e": 85,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            },
+            {
+              "d": 3,
+              "e": 85,
+              "draw_pass_active": 0,
+              "draw_callback_nonzero": 0,
+              "display_column_below_15": 0,
+              "restriction_byte": 0
+            }
+          ]
+        },
+        {
+          "terminal": "special_55",
+          "actions": [
+            "named_token_prepass",
+            "draw_pass_callback",
+            "counted_string",
+            "direct_glyph_probe",
+            "erase_eol",
+            "special_55"
+          ],
+          "branch_outcomes": [
+            "39:4E91:taken",
+            "39:4EC1:taken",
+            "39:4ED7:taken",
             "39:4EDA:fallthrough",
             "39:4EDF:fallthrough",
             "39:4EED:taken",
@@ -483229,34 +483873,34 @@
             {
               "d": 253,
               "e": 85,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 253,
               "e": 85,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 1
+              "restriction_byte": 2
             },
             {
               "d": 253,
               "e": 85,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
-              "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
+              "display_column_below_15": 0,
+              "restriction_byte": 4
             },
             {
               "d": 253,
               "e": 85,
-              "draw_pass_active": 0,
+              "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
-              "display_column_below_15": 1,
-              "marker_helper_nonzero": 1
+              "display_column_below_15": 0,
+              "restriction_byte": 6
             }
           ]
         },
@@ -483264,6 +483908,7 @@
           "terminal": "special_55",
           "actions": [
             "named_token_prepass",
+            "draw_pass_callback",
             "counted_string",
             "direct_glyph_probe",
             "erase_eol",
@@ -483272,7 +483917,7 @@
           "branch_outcomes": [
             "39:4E91:taken",
             "39:4EC1:taken",
-            "39:4ED7:fallthrough",
+            "39:4ED7:taken",
             "39:4EDA:fallthrough",
             "39:4EDF:taken",
             "39:4EED:taken",
@@ -483285,124 +483930,10 @@
             {
               "d": 0,
               "e": 85,
-              "draw_pass_active": 0,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 1,
-              "e": 85,
-              "draw_pass_active": 0,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 2,
-              "e": 85,
-              "draw_pass_active": 0,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 3,
-              "e": 85,
-              "draw_pass_active": 0,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            }
-          ]
-        },
-        {
-          "terminal": "special_55",
-          "actions": [
-            "named_token_prepass",
-            "draw_pass_callback",
-            "counted_string",
-            "direct_glyph_probe",
-            "erase_eol",
-            "special_55"
-          ],
-          "branch_outcomes": [
-            "39:4E91:taken",
-            "39:4EC1:taken",
-            "39:4ED7:taken",
-            "39:4EDA:fallthrough",
-            "39:4EDF:fallthrough",
-            "39:4EED:taken",
-            "39:4EF6:fallthrough",
-            "39:4EFA:fallthrough",
-            "39:4EFF:fallthrough"
-          ],
-          "projected_input_count": 4,
-          "representative_states": [
-            {
-              "d": 253,
-              "e": 85,
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 253,
-              "e": 85,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 1
-            },
-            {
-              "d": 253,
-              "e": 85,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 1,
-              "marker_helper_nonzero": 0
-            },
-            {
-              "d": 253,
-              "e": 85,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 1,
-              "marker_helper_nonzero": 1
-            }
-          ]
-        },
-        {
-          "terminal": "special_55",
-          "actions": [
-            "named_token_prepass",
-            "draw_pass_callback",
-            "counted_string",
-            "direct_glyph_probe",
-            "erase_eol",
-            "special_55"
-          ],
-          "branch_outcomes": [
-            "39:4E91:taken",
-            "39:4EC1:taken",
-            "39:4ED7:taken",
-            "39:4EDA:fallthrough",
-            "39:4EDF:taken",
-            "39:4EED:taken",
-            "39:4EF6:fallthrough",
-            "39:4EFA:fallthrough",
-            "39:4EFF:fallthrough"
-          ],
-          "projected_input_count": 1004,
-          "representative_states": [
-            {
-              "d": 0,
-              "e": 85,
-              "draw_pass_active": 1,
-              "draw_callback_nonzero": 0,
-              "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 1,
@@ -483410,7 +483941,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 2,
@@ -483418,7 +483949,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 3,
@@ -483426,7 +483957,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 0,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             }
           ]
         },
@@ -483449,7 +483980,7 @@
             "39:4EFA:fallthrough",
             "39:4EFF:fallthrough"
           ],
-          "projected_input_count": 1008,
+          "projected_input_count": 2016,
           "representative_states": [
             {
               "d": 0,
@@ -483457,7 +483988,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 1,
@@ -483465,7 +483996,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 2,
@@ -483473,7 +484004,7 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             },
             {
               "d": 3,
@@ -483481,12 +484012,12 @@
               "draw_pass_active": 1,
               "draw_callback_nonzero": 1,
               "display_column_below_15": 0,
-              "marker_helper_nonzero": 0
+              "restriction_byte": 0
             }
           ]
         }
       ],
-      "scope": "complete outer-controller branch domain; VAT prepass, installed callback, indexed-string, output bcall, and row-retouch bodies remain explicit boundaries"
+      "scope": "complete outer-controller branch domain; VAT prepass, installed callback, indexed-string, and output bcall bodies remain explicit boundaries; marker and retouch callees are modeled separately"
     },
     "glyph_advance": {
       "routine": "34:6C4F\u20136C5B; 34:6CBC\u20136CC9",
@@ -565527,12 +566058,14 @@
         "01:6297",
         "01:6360\u20136445",
         "01:6702",
-        "39:4F1A\u20134F43",
+        "39:4E8E\u20134F99",
         "04:4025\u20134315",
         "01:6D10\u20136DBC",
         "04:42B5\u201342E3",
         "04:431D\u201343C7",
+        "39:6675\u201366BC",
         "39:6B62\u20136B9F",
+        "3D:7CBA\u20137DCC",
         "07:44DE\u20134538",
         "07:4588\u20134605"
       ],
@@ -565556,6 +566089,10 @@
         "settledPage7SOKForKeyToString",
         "settledPage1KeyToStringSelection",
         "settledPage39CellStringSelection",
+        "settledPage39NamedTokenPrepass",
+        "settledPage39MarkerGate",
+        "settledPage39RowRetouch",
+        "settledPage39CellEmission",
         "settledPage7LargeGlyphRecord",
         "settledOperationPixels",
         "settledBlits",
@@ -565565,7 +566102,7 @@
         "tools/test-mathprint.js",
         "tools/test_mathprint_draw_trace.py"
       ],
-      "scope": "hook-disabled page-4 style expansion, offsets, bounds, point address, clear/set/XOR/test modes, buffer routing, and the composed point pipeline; MathPrint's style-inactive LCD-only point transition; hook-disabled dark-line stepping and ordered horizontal/vertical viewport clipping, including the complete glyph row-window transition; the complete page-39 direct cell-to-large-glyph byte domain; the complete page-7 display-byte remapper input domain; the complete hook-disabled page-1 _KeyToString D:E domain and its caller-valid page-7 _sOK prefix domain; both page-39 inline-string entry modes over every D:E cell; the complete page-1 glyph-pointer selector byte domain; small-font byte-boundary selection, row alignment, ordinary and inverse byte composition, crossing-byte write order, and the root-versus-raised MathPrint row and right-edge states; page-7 large-glyph stride, record building, and hook gates; and synchronous accepted LCD writes, including unchanged writes; drawing-hook bodies, font internals, and external LCD timing remain open"
+      "scope": "hook-disabled page-4 style expansion, offsets, bounds, point address, clear/set/XOR/test modes, buffer routing, and the composed point pipeline; MathPrint's style-inactive LCD-only point transition; hook-disabled dark-line stepping and ordered horizontal/vertical viewport clipping, including the complete glyph row-window transition; the complete page-39 direct cell-to-large-glyph byte domain; the complete page-7 display-byte remapper input domain; the complete hook-disabled page-1 _KeyToString D:E domain and its caller-valid page-7 _sOK prefix domain; both page-39 inline-string entry modes over every D:E cell; the page-39 archived-token prepass, marker restriction masks, split-window row retouch, and outer cell-emission order; the complete page-1 glyph-pointer selector byte domain; small-font byte-boundary selection, row alignment, ordinary and inverse byte composition, crossing-byte write order, and the root-versus-raised MathPrint row and right-edge states; page-7 large-glyph stride, record building, and hook gates; and synchronous accepted LCD writes, including unchanged writes; drawing-hook bodies, font internals, and external LCD timing remain open"
     },
     {
       "name": "glyph viewport and timer run indicator",

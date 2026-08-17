@@ -312,6 +312,26 @@ const page39CellEmissionByte = address => {
       `cell-emission oracle reached unpinned byte 39:${address.toString(16)}`);
   return page39CellEmissionRomSpan.bytes[offset];
 };
+const page39MarkerGateRomSpan = {address:0x4f44,bytes:Buffer.from(
+  '21c8fbcdbb2120063e07cd9138c021c7fbcdbb212802afc93e06cd9138c9',
+  'hex')};
+const page39MarkerGateByte = address => {
+  const offset = address - page39MarkerGateRomSpan.address;
+  if (offset < 0 || offset >= page39MarkerGateRomSpan.bytes.length)
+    throw new Error(
+      `marker-gate oracle reached unpinned byte 39:${address.toString(16)}`);
+  return page39MarkerGateRomSpan.bytes[offset];
+};
+const page39RowRetouchRomSpan = {address:0x4f62,bytes:Buffer.from(
+  '3a4b84878787060b165eed44c63bc5d5cd0f22d1c14f5fcd60203af289f5' +
+  'fdcb02cecd5535f132f2892007cd5d21c8c31422210a22c31722','hex')};
+const page39RowRetouchByte = address => {
+  const offset = address - page39RowRetouchRomSpan.address;
+  if (offset < 0 || offset >= page39RowRetouchRomSpan.bytes.length)
+    throw new Error(
+      `row-retouch oracle reached unpinned byte 39:${address.toString(16)}`);
+  return page39RowRetouchRomSpan.bytes[offset];
+};
 const page39NamedTokenPrepassRomSpan = {address:0x6667,bytes:Buffer.from(
   '060a7e23ba20037ebbc82310f5c921e262cd6766281021cb62cd6766280821f9' +
   '62cd676620137b3246847acd373bcdaf1b2179847223731807cd1a4fd8eff1' +
@@ -2001,9 +2021,193 @@ function runRawPage39CellStringSelection(
   throw new Error('cell-string oracle exceeded its instruction bound');
 }
 
+function runRawPage39MarkerGate(dInput, eInput, restrictionByte) {
+  let pc = 0x4f44, a = 0, h = 0, l = 0, zero = false;
+  const d = dInput & 0xff, e = eInput & 0xff;
+  const branchOutcomes = [];
+  const word = address => page39MarkerGateByte(address) |
+    page39MarkerGateByte(address + 1) << 8;
+  const relative = address => {
+    const value = page39MarkerGateByte(address);
+    return value < 0x80 ? value : value - 0x100;
+  };
+  let action = null, mask = null, helperValue = 0;
+  const finish = () => ({
+    d,e,restrictionByte,matched:action !== null,action,mask,helperValue,zero,
+    terminal:action === null ? 'not-marker'
+      : `${action === 7 ? 'c8' : 'c7'}-restriction-${zero ? 'clear' : 'set'}`,
+    branchOutcomes,
+  });
+  for (let instructions = 0; instructions < 24; instructions++) {
+    const opcode = page39MarkerGateByte(pc);
+    if (opcode === 0x21) {
+      const value = word(pc + 1); h = value >>> 8; l = value & 0xff; pc += 3;
+    } else if (opcode === 0xcd) {
+      const target = word(pc + 1);
+      if (target === 0x21bb) zero = (h << 8 | l) === (d << 8 | e);
+      else if (target === 0x3891) {
+        action = a;
+        mask = action === 7 ? 0x04 : action === 6 ? 0x02 : 0;
+        a = restrictionByte & mask;
+        helperValue = a;
+        zero = a === 0;
+      } else throw new Error(
+        `marker-gate oracle reached unstubbed call 39:${target.toString(16)}`);
+      pc += 3;
+    } else if (opcode === 0x20 || opcode === 0x28) {
+      const condition = opcode === 0x20 ? !zero : zero;
+      branchOutcomes.push(
+        `39:${pc.toString(16).toUpperCase()}:` +
+        `${condition ? 'taken' : 'fallthrough'}`);
+      pc = condition ? pc + 2 + relative(pc + 1) : pc + 2;
+    } else if (opcode === 0x3e) {
+      a = page39MarkerGateByte(pc + 1); pc += 2;
+    } else if (opcode === 0xc0) {
+      branchOutcomes.push(`39:4F51:${zero ? 'fallthrough' : 'returned'}`);
+      if (!zero) return finish();
+      pc++;
+    } else if (opcode === 0xaf) {
+      a = 0; zero = true; pc++;
+    } else if (opcode === 0xc9) {
+      return finish();
+    } else throw new Error(
+      `marker-gate oracle reached unsupported opcode 0x${opcode.toString(16)} ` +
+      `at 39:${pc.toString(16)}`);
+  }
+  throw new Error('marker-gate oracle exceeded its instruction bound');
+}
+
+function page39MarkerGateProjection(result) {
+  return {
+    d:result.d,e:result.e,restrictionByte:result.restrictionByte,
+    matched:result.matched,action:result.action,mask:result.mask,
+    helperValue:result.helperValue,zero:result.zero,terminal:result.terminal,
+    branchOutcomes:result.branchOutcomes,
+  };
+}
+
+function runRawPage39RowRetouch(curRow, splitFlags, plotFlagsInput) {
+  let pc = 0x4f62, a = 0, b = 0, c = 0, d = 0, e = 0, h = 0, l = 0;
+  let zero = false, plotFlags = plotFlagsInput;
+  const stack = [];
+  const branchOutcomes = [];
+  const normalWindow = [0x00,0x40,0x60,0x5f,0x5e];
+  const verticalSplitWindow = [0x0c,0x34,0x30,0x2f,0x2e];
+  const horizontalSplitWindow = [0x20,0x20,0x60,0x5f,0x5e];
+  let lineWindow = null, finalWindow = null, endpoints = null;
+  const word = address => page39RowRetouchByte(address) |
+    page39RowRetouchByte(address + 1) << 8;
+  const relative = address => {
+    const value = page39RowRetouchByte(address);
+    return value < 0x80 ? value : value - 0x100;
+  };
+  const pair = (high,low) => high << 8 | low;
+  const split = value => [value >>> 8 & 0xff,value & 0xff];
+  const finish = terminal => ({
+    curRow,splitFlags,plotFlagsBefore:plotFlagsInput,
+    plotFlagsDuring:plotFlagsInput | 0x02,plotFlagsAfter:plotFlags,
+    y:endpoints[1],endpoints,lineWindow,finalWindow,terminal,branchOutcomes,
+  });
+  for (let instructions = 0; instructions < 80; instructions++) {
+    const opcode = page39RowRetouchByte(pc);
+    if (opcode === 0x3a) {
+      const address = word(pc + 1);
+      a = address === 0x844b ? curRow : address === 0x89f2 ? plotFlags : 0;
+      pc += 3;
+    } else if (opcode === 0x87) {
+      a = a << 1 & 0xff; zero = a === 0; pc++;
+    } else if (opcode === 0x06 || opcode === 0x16) {
+      const value = page39RowRetouchByte(pc + 1);
+      if (opcode === 0x06) b = value; else d = value;
+      pc += 2;
+    } else if (opcode === 0xed && page39RowRetouchByte(pc + 1) === 0x44) {
+      a = -a & 0xff; zero = a === 0; pc += 2;
+    } else if (opcode === 0xc6) {
+      a = a + page39RowRetouchByte(pc + 1) & 0xff;
+      zero = a === 0; pc += 2;
+    } else if (opcode === 0xc5) {
+      stack.push(pair(b,c)); pc++;
+    } else if (opcode === 0xd5) {
+      stack.push(pair(d,e)); pc++;
+    } else if (opcode === 0xf5) {
+      stack.push(pair(a,zero ? 0x40 : 0)); pc++;
+    } else if (opcode === 0xc1) {
+      [b,c] = split(stack.pop()); pc++;
+    } else if (opcode === 0xd1) {
+      [d,e] = split(stack.pop()); pc++;
+    } else if (opcode === 0xf1) {
+      let flags;
+      [a,flags] = split(stack.pop()); zero = Boolean(flags & 0x40); pc++;
+    } else if (opcode === 0x4f) {
+      c = a; pc++;
+    } else if (opcode === 0x5f) {
+      e = a; pc++;
+    } else if (opcode === 0xcd) {
+      const target = word(pc + 1);
+      if (target === 0x220f) {
+        lineWindow = normalWindow.slice(); finalWindow = normalWindow.slice();
+      } else if (target === 0x2060) {
+        zero = Boolean(splitFlags & 0x08) || !(splitFlags & 0x01);
+      } else if (target === 0x3555) {
+        endpoints = [b,c,d,e];
+      } else if (target === 0x215d) {
+        zero = !(splitFlags & 0x02);
+      } else throw new Error(
+        `row-retouch oracle reached unstubbed call 39:${target.toString(16)}`);
+      pc += 3;
+    } else if (opcode === 0xfd && page39RowRetouchByte(pc + 1) === 0xcb &&
+               page39RowRetouchByte(pc + 3) === 0xce) {
+      plotFlags |= 0x02; pc += 4;
+    } else if (opcode === 0x32) {
+      const address = word(pc + 1);
+      if (address !== 0x89f2)
+        throw new Error('row-retouch oracle reached an unknown byte store');
+      plotFlags = a; pc += 3;
+    } else if (opcode === 0x20) {
+      const condition = !zero;
+      branchOutcomes.push(
+        `39:${pc.toString(16).toUpperCase()}:` +
+        `${condition ? 'taken' : 'fallthrough'}`);
+      pc = condition ? pc + 2 + relative(pc + 1) : pc + 2;
+    } else if (opcode === 0xc8) {
+      branchOutcomes.push(`39:4F90:${zero ? 'returned' : 'fallthrough'}`);
+      if (zero) return finish('normal-window');
+      pc++;
+    } else if (opcode === 0x21) {
+      const value = word(pc + 1); h = value >>> 8; l = value & 0xff; pc += 3;
+    } else if (opcode === 0xc3) {
+      const target = word(pc + 1);
+      if (target === 0x2214) {
+        finalWindow = verticalSplitWindow.slice();
+        return finish('vertical-split-window');
+      }
+      if (target === 0x2217 && pair(h,l) === 0x220a) {
+        finalWindow = horizontalSplitWindow.slice();
+        return finish('horizontal-split-window');
+      }
+      throw new Error(
+        `row-retouch oracle reached unknown tail 39:${target.toString(16)}`);
+    } else throw new Error(
+      `row-retouch oracle reached unsupported opcode 0x${opcode.toString(16)} ` +
+      `at 39:${pc.toString(16)}`);
+  }
+  throw new Error('row-retouch oracle exceeded its instruction bound');
+}
+
+function page39RowRetouchProjection(result) {
+  return {
+    curRow:result.curRow,splitFlags:result.splitFlags,
+    plotFlagsBefore:result.plotFlagsBefore,
+    plotFlagsDuring:result.plotFlagsDuring,plotFlagsAfter:result.plotFlagsAfter,
+    y:result.y,endpoints:result.endpoints,
+    lineWindow:result.lineWindow,finalWindow:result.finalWindow,
+    terminal:result.terminal,branchOutcomes:result.branchOutcomes,
+  };
+}
+
 function runRawPage39CellEmission(
     d, e, drawPassActive, drawCallbackNonzero, displayColumn,
-    markerHelperNonzero, layout, strings) {
+    restrictionByte, layout, strings) {
   const branchOutcomes = [];
   const actions = [];
   const pinned = (address, bytes) => {
@@ -2022,7 +2226,7 @@ function runRawPage39CellEmission(
     branch(0x4f0e,eraseEol);
     if (eraseEol) actions.push('erase-eol');
     actions.push('marker-gate');
-    const nonzero = d === 0xfb && (e === 0xc8 || e === 0xc7) && markerHelperNonzero;
+    const nonzero = !runRawPage39MarkerGate(d,e,restrictionByte).zero;
     branchOutcomes.push(`39:4F15:${nonzero ? 'fallthrough' : 'returned'}`);
     if (!nonzero) return finish('post-tail');
     actions.push('row-retouch');
@@ -4938,14 +5142,57 @@ expectEqual('39:6675 scans class 18 before class 17 and class 19', [
   ['39:667B:fallthrough','39:6683:taken'],
   ['39:667B:fallthrough','39:6683:fallthrough','39:668B:fallthrough'],
 ]);
+let page39MarkerGateStates = 0;
+for (const restrictionByte of [0x00,0x02,0x04,0x06]) {
+  for (let d = 0; d <= 0xff; d++) {
+    for (let e = 0; e <= 0xff; e++) {
+      const raw = runRawPage39MarkerGate(d,e,restrictionByte);
+      const translated = rom.settledPage39MarkerGate(d,e,restrictionByte);
+      expectEqual(
+        `39:4F44 marker gate ${restrictionByte}:${d}:${e}`,
+        page39MarkerGateProjection(translated),raw);
+      page39MarkerGateStates++;
+    }
+  }
+}
+expectEqual('39:4F44 marker-gate effective state count',
+  page39MarkerGateStates,4 * 0x10000);
+expectEqual('39:4F44 uses distinct restriction masks', [
+  rom.settledPage39MarkerGate(0xfb,0xc8,0x02).zero,
+  rom.settledPage39MarkerGate(0xfb,0xc8,0x04).zero,
+  rom.settledPage39MarkerGate(0xfb,0xc7,0x02).zero,
+  rom.settledPage39MarkerGate(0xfb,0xc7,0x04).zero,
+], [true,false,false,true]);
+let page39RowRetouchStates = 0;
+for (let curRow = 0; curRow <= 0xff; curRow++) {
+  for (let splitFlags = 0; splitFlags <= 0xff; splitFlags++) {
+    const plotFlags = curRow + splitFlags & 0xff;
+    const raw = runRawPage39RowRetouch(curRow,splitFlags,plotFlags);
+    const translated = rom.settledPage39RowRetouch(
+      curRow,splitFlags,plotFlags);
+    expectEqual(
+      `39:4F62 row retouch ${curRow}:${splitFlags}`,
+      page39RowRetouchProjection(translated),raw);
+    page39RowRetouchStates++;
+  }
+}
+expectEqual('39:4F62 row-retouch state count',
+  page39RowRetouchStates,0x10000);
+expectEqual('39:4F62 divider includes both endpoints', [
+  rom.settledPage39RowRetouch(0).line.points.length,
+  rom.settledPage39RowRetouch(0).line.points[0],
+  rom.settledPage39RowRetouch(0).line.points.at(-1),
+], [0x54,[0x0b,0x3b],[0x5e,0x3b]]);
 let page39CellEmissionStates = 0;
 for (const scenario of [
   {drawPassActive:false,drawCallbackNonzero:false,
-   displayColumn:0x0f,markerHelperNonzero:false},
+   displayColumn:0x0f,restrictionByte:0x00},
   {drawPassActive:true,drawCallbackNonzero:false,
-   displayColumn:0x0e,markerHelperNonzero:true},
+   displayColumn:0x0e,restrictionByte:0x06,
+   curRow:3,splitFlags:0x01,plotFlags:0x5a},
   {drawPassActive:true,drawCallbackNonzero:true,
-   displayColumn:0x0f,markerHelperNonzero:true},
+   displayColumn:0x0f,restrictionByte:0x06,
+   curRow:4,splitFlags:0x02,plotFlags:0xa5},
 ]) {
   for (let d = 0; d <= 0xff; d++) {
     for (let e = 0; e <= 0xff; e++) {
@@ -4953,7 +5200,7 @@ for (const scenario of [
         layout,d,e,{...scenario,keyExtend:0});
       const raw = runRawPage39CellEmission(
         d,e,scenario.drawPassActive,scenario.drawCallbackNonzero,
-        scenario.displayColumn,scenario.markerHelperNonzero,layout,tokenStrings);
+        scenario.displayColumn,scenario.restrictionByte,layout,tokenStrings);
       expectEqual(`39:4E8E cell-emission state ${page39CellEmissionStates}`,
         page39CellEmissionProjection(translated),raw);
       page39CellEmissionStates++;
@@ -4962,6 +5209,18 @@ for (const scenario of [
 }
 expectEqual('39:4E8E cell-emission differential state count',
   page39CellEmissionStates,3 * 0x10000);
+const integratedMarkerRetouch = rom.settledPage39CellEmission(
+  layout,0xfb,0xc8,{
+    restrictionByte:0x04,curRow:2,splitFlags:0x02,plotFlags:0x80,
+  });
+expectEqual('39:4E8E accepted marker executes translated row retouch', [
+  integratedMarkerRetouch.terminal,
+  integratedMarkerRetouch.actions.at(-1).result.terminal,
+  integratedMarkerRetouch.actions.at(-1).result.endpoints,
+], ['row-retouch','vertical-split-window',[0x0b,0x2b,0x5e,0x2b]]);
+expectThrows('39:4E8E accepted marker requires live retouch state',TypeError,
+  () => rom.settledPage39CellEmission(
+    layout,0xfb,0xc8,{restrictionByte:0x04}));
 expectEqual('39:6675 remains a prepass before FC00 string selection',
   rom.settledPage39CellEmission(layout,0xfc,0,{keyExtend:0}).actions
     .map(action => action.kind),

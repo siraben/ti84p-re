@@ -26,7 +26,9 @@ from analyze_mathprint_saturation import (
     key_to_string_sok_path,
     page39_cell_emission_path,
     page39_cell_string_path,
+    page39_marker_gate_path,
     page39_named_token_prepass_path,
+    page39_row_retouch_path,
     drawing_hook_dispatch_path,
     editor_action03_controller_path,
     editor_action04_controller_path,
@@ -89,7 +91,9 @@ from analyze_mathprint_saturation import (
     symbolic_key_to_string_sok_paths,
     symbolic_page39_cell_emission_paths,
     symbolic_page39_cell_string_paths,
+    symbolic_page39_marker_gate_paths,
     symbolic_page39_named_token_prepass_paths,
+    symbolic_page39_row_retouch_paths,
     symbolic_drawing_hook_dispatch_paths,
     symbolic_metric_marker_paths,
     symbolic_editor_action03_paths,
@@ -359,13 +363,13 @@ class SymbolicHandlerTests(unittest.TestCase):
     def test_symbolic_model_corpus_minimizes_each_finite_domain(self) -> None:
         report = symbolic_model_corpus()
 
-        self.assertEqual(3476, report["path_equivalence_class_count"])
-        self.assertEqual(3476, report["representative_path_corpus_count"])
-        self.assertEqual(577, report["distinct_modeled_branch_outcomes"])
+        self.assertEqual(3484, report["path_equivalence_class_count"])
+        self.assertEqual(3484, report["representative_path_corpus_count"])
+        self.assertEqual(587, report["distinct_modeled_branch_outcomes"])
         self.assertEqual(
-            268, report["per_domain_minimum_branch_outcome_corpus_count"]
+            274, report["per_domain_minimum_branch_outcome_corpus_count"]
         )
-        self.assertEqual(50, len(report["domains"]))
+        self.assertEqual(52, len(report["domains"]))
         for domain in report["domains"]:
             minimum = domain["minimum_branch_outcome_corpus"]
             selected_outcomes = {
@@ -1359,7 +1363,7 @@ class SymbolicHandlerTests(unittest.TestCase):
         paths = symbolic_page39_cell_emission_paths()
 
         self.assertEqual(39, len(paths))
-        self.assertEqual(16 * 0x100**2, sum(
+        self.assertEqual(32 * 0x100**2, sum(
             row["projected_input_count"] for row in paths
         ))
         delimiter = page39_cell_emission_path(0xFC, 0, 0, 0, 0, 0)
@@ -1372,9 +1376,49 @@ class SymbolicHandlerTests(unittest.TestCase):
         bypass = page39_cell_emission_path(0, 0x55, 1, 1, 0, 0)
         self.assertNotIn("counted_string", bypass["actions"])
         self.assertEqual("special_55", bypass["terminal"])
-        marker = page39_cell_emission_path(0xFB, 0xC8, 0, 0, 1, 1)
+        marker = page39_cell_emission_path(0xFB, 0xC8, 0, 0, 1, 0x04)
         self.assertEqual("row_retouch", marker["terminal"])
         self.assertEqual("39:4F15:fallthrough", marker["branch_outcomes"][-1])
+
+    def test_page39_marker_gate_partitions_both_action_masks(self) -> None:
+        paths = symbolic_page39_marker_gate_paths()
+
+        self.assertEqual(5, len(paths))
+        self.assertEqual(4 * 0x100**2, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual("c8_restriction_clear", page39_marker_gate_path(
+            0xFB, 0xC8, 0x02,
+        )["terminal"])
+        self.assertEqual("c8_restriction_set", page39_marker_gate_path(
+            0xFB, 0xC8, 0x04,
+        )["terminal"])
+        self.assertEqual("c7_restriction_set", page39_marker_gate_path(
+            0xFB, 0xC7, 0x02,
+        )["terminal"])
+        self.assertEqual("c7_restriction_clear", page39_marker_gate_path(
+            0xFB, 0xC7, 0x04,
+        )["terminal"])
+
+    def test_page39_row_retouch_partitions_split_modes(self) -> None:
+        paths = symbolic_page39_row_retouch_paths()
+
+        self.assertEqual(3, len(paths))
+        self.assertEqual(8 * 0x100, sum(
+            row["projected_input_count"] for row in paths
+        ))
+        self.assertEqual("normal_window", page39_row_retouch_path(
+            0, 0,
+        )["terminal"])
+        self.assertEqual("horizontal_split_window", page39_row_retouch_path(
+            0, 1,
+        )["terminal"])
+        self.assertEqual("vertical_split_window", page39_row_retouch_path(
+            0, 2,
+        )["terminal"])
+        overridden = page39_row_retouch_path(1, 0x09)
+        self.assertEqual("normal_window", overridden["terminal"])
+        self.assertEqual([0x0B,0x33,0x5E,0x33], overridden["endpoints"])
 
     def test_glyph_advance_partitions_complete_byte_domain(self) -> None:
         paths = symbolic_glyph_advance_paths()
@@ -1960,7 +2004,7 @@ class CheckedReportTests(unittest.TestCase):
             matrix_entry["sha256"],
         )
         self.assertEqual(
-            3476,
+            3484,
             report["symbolic_model_corpus"]["path_equivalence_class_count"],
         )
         integral = next(

@@ -469,12 +469,32 @@ main entry. A pinned-byte interpreter compares all 65,536 combinations of
 display byte and `keyExtend`; they reduce to seven paths and 12 branch outcomes.
 The separate public entry at `07:44FE` is outside this main-entry domain. [confirmed]
 
-The translated `39:4E8E–4F19` outer controller covers all 1,048,576 projected
+The translated `39:4E8E–4F19` outer controller covers all 2,097,152 projected
 states formed by `D:E`, the draw-pass flag and callback result, the
-`curCol < 15` relation, and the marker-helper result. They reduce to 39 ordered
-paths, 22 branch outcomes, and seven minimum representatives. The installed
-callback, indexed-string printer, output bcalls, and row-retouch body remain
-named boundaries rather than simulated return values.
+`curCol < 15` relation, and effective restriction-byte bits 1 and 2. They
+reduce to 39 ordered paths, 22 branch outcomes, and seven minimum
+representatives. The installed callback, indexed-string printer, and output
+bcalls remain named boundaries rather than simulated return values.
+[confirmed]
+
+The marker gate at `39:4F44–4F61` compares `D:E` with `FBC8` and `FBC7`.
+`FBC8` selects action `7` and mask `04h`; `FBC7` selects action `6` and mask
+`02h`. Both actions reach `3D:7DC4` through `ram:3891`. `3D:7DC4` ANDs the byte
+returned by `3D:45D9` with the selected mask. The JavaScript translation covers
+all 262,144 combinations of `D:E` and the two effective restriction bits.
+They reduce to five paths, six branch outcomes, and three minimum
+representatives. [confirmed]
+
+When the marker gate returns NZ, `39:4F62–4F99` draws a horizontal divider from
+$(11, 59 - 8\mathit{curRow})$ through $(94, 59 - 8\mathit{curRow})$, with the
+row coordinate reduced modulo 256. The routine copies `00 40 60 5F 5E` to the
+five-byte display window at `0x8DA2`, forces `plotFlags.plotDisp` during
+`_DarkLine`, and then restores the original `plotFlags` byte. `_DarkLine` at
+`04:4025` preserves `AF`, so the branch at `39:4F8B` consumes the preceding
+`_CheckSplitFlag` result. A horizontal split installs `20 20 60 5F 5E`; a
+vertical split installs `0C 34 30 2F 2E`; otherwise the normal window remains.
+The finite model covers all 2,048 row and effective `sGrFlags` states. They
+reduce to three paths, four branch outcomes, and three minimum representatives.
 [confirmed]
 
 The `39:6675–66BC` translation covers every `D:E` pair with absent, RAM, and
@@ -637,7 +657,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 50 finite models. It also computes an
+complete path-equivalence class in 52 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -666,7 +686,9 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | `_KeyToString` selector | 65,536 | 35 | 40 | 14 |
 | Page-39 cell-string selector | 131,072 | 14 | 16 | 8 |
 | Page-39 archived-token prepass | 196,608 | 13 | 14 | 6 |
-| Page-39 cell-emission controller | 1,048,576 | 39 | 22 | 7 |
+| Page-39 marker restriction gate | 262,144 | 5 | 6 | 3 |
+| Page-39 marker row retouch | 2,048 | 3 | 4 | 3 |
+| Page-39 cell-emission controller | 2,097,152 | 39 | 22 | 7 |
 | Glyph advance and delimiter padding | 131,072 | 6 | 10 | 4 |
 | `_VPutMap` byte-boundary gate | 56 | 2 | 2 | 2 |
 | MathPrint `_VPutMap` right-edge gate | 3,584 | 4 | 6 | 2 |
@@ -695,8 +717,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 | FindAlpha OP scratch transition | 33,554,432 | 2 | 5 | 2 |
 
-The 50 models contain 3,476 path classes and 577 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 268 representatives. Each
+The 52 models contain 3,484 path classes and 587 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 274 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
