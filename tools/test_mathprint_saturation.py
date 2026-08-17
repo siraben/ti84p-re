@@ -1646,7 +1646,6 @@ class OracleCoverageTests(unittest.TestCase):
             ("page_34", 0x5678): {(2, 0)},
             ("page_34", 0x580C): {(0xBB, 0xBB31)},
             ("page_34", 0x6143): {(0x25, 0)},
-            ("page_34", 0x5935): {(0, 0xEF33)},
             ("page_34", 0x6105): {(0x29, 0)},
             ("page_33", 0x4F6D): {(0x0A, 0)},
             ("page_39", 0x4C31): {(0x13, 0)},
@@ -1655,9 +1654,6 @@ class OracleCoverageTests(unittest.TestCase):
             "34:75B0:taken", "34:75BB:taken",
         )}})
 
-        self.assertIn("entry_state:34:5678:A=0x2", features)
-        self.assertIn("entry_state:34:580C:A=0xBB,E=0x31", features)
-        self.assertIn("entry_state:34:6143:A=0x25", features)
         self.assertTrue(any(feature.startswith(
             "modeled_path:34:5678:fraction_operand_scan:") for feature in features))
         self.assertTrue(any(feature.startswith(
@@ -1666,7 +1662,6 @@ class OracleCoverageTests(unittest.TestCase):
             "modeled_path:34:6143:glyph_DB_set_iy32_bit2:") for feature in features))
         self.assertTrue(any(feature.startswith(
             "observed_path:34:759C:") for feature in features))
-        self.assertIn("dispatch_input:34:5935:DE=0xEF33", features)
         self.assertIn("dispatch_index:34:6105:type=0x29", features)
         self.assertIn("dispatch_index:33:4F6D:index=0x0A", features)
         self.assertIn("dispatch_index:39:4C31:class=0x13", features)
@@ -1692,7 +1687,7 @@ class OracleCoverageTests(unittest.TestCase):
         self.assertEqual(2, report["unique_expressions"])
         self.assertEqual({"0x00": 2, "0x2A": 1}, report["record_types"])
 
-    def test_oracle_features_group_record_lcd_and_case_family(self) -> None:
+    def test_oracle_features_group_record_and_lcd_render_types(self) -> None:
         document = {
             "schema": 1,
             "power_cases": [{
@@ -1711,13 +1706,10 @@ class OracleCoverageTests(unittest.TestCase):
             features = oracle_trace_features((path,))
 
         self.assertEqual({
-            "oracle_case:mathprint-test-oracles:power_cases:def",
             "record_oracle:type=0x00", "record_oracle:type=0x2A",
             "lcd_oracle:type=0x00", "lcd_oracle:type=0x2A",
         }, features["abc"])
-        self.assertEqual({
-            "oracle_case:mathprint-test-oracles:viewport_cases:jkl",
-        }, features["ghi"])
+        self.assertNotIn("ghi", features)
 
     def test_minimizes_trace_outcomes_deterministically(self) -> None:
         a = ("page_34", 0x5000, "taken")
@@ -1899,8 +1891,10 @@ class CheckedReportTests(unittest.TestCase):
             Path(__file__).with_name("mathprint-saturation.json").read_text()
         )
 
-        self.assertEqual(3, report["schema"])
+        self.assertEqual(4, report["schema"])
         self.assertNotIn("symbolic_predicates", report)
+        self.assertNotIn("minimized_dynamic_feature_corpus", report)
+        self.assertNotIn("minimized_natural_dynamic_feature_corpus", report)
         self.assertEqual(276, len(report["traces"]))
         self.assertEqual(
             275,
@@ -2470,22 +2464,30 @@ class CheckedReportTests(unittest.TestCase):
             selected_branch_labels,
         )
         self.assertEqual(
-            1607,
-            report["minimized_dynamic_feature_corpus"]["covered_features"],
+            1106,
+            report["minimized_diversity_trace_corpus"]["covered_features"],
         )
         self.assertEqual(
-            208,
-            report["minimized_dynamic_feature_corpus"]["selected_trace_count"],
+            26,
+            report["minimized_diversity_trace_corpus"]["selected_trace_count"],
         )
+        self.assertEqual({
+            "branch_outcome": 1012,
+            "dispatch_index": 33,
+            "lcd_oracle": 14,
+            "modeled_path": 14,
+            "observed_path": 18,
+            "record_oracle": 15,
+        }, report["minimized_diversity_trace_corpus"]["feature_kind_counts"])
         self.assertEqual(
-            1605,
-            report["minimized_natural_dynamic_feature_corpus"][
+            1104,
+            report["minimized_natural_diversity_trace_corpus"][
                 "covered_features"
             ],
         )
         self.assertEqual(
-            207,
-            report["minimized_natural_dynamic_feature_corpus"][
+            26,
+            report["minimized_natural_diversity_trace_corpus"][
                 "selected_trace_count"
             ],
         )
