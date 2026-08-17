@@ -47,7 +47,27 @@ TRACE_FEATURES = {
     "dfs": {"statement", "two_byte_token", "list_store", "while_end", "for_end", "if_then_else_scan", "nested_blocks", "display"},
     "callabi": {"statement", "two_byte_token", "list_store", "program_call", "return", "shared_globals", "ans", "display"},
     "callstop": {"statement", "program_call", "stop", "nonlocal_termination", "display"},
+    "branchmatrix": {"block_matrix", "else", "repeat", "optional_quote", "nested_blocks"},
+    "missingend": {"missing_end_error"},
+    "terminalif": {"terminal_if_error"},
 }
+
+TRACE_PROVENANCE = {
+    **{label: "natural_tibasic" for label in TRACE_FEATURES},
+    "cflowlow": "public_bcall_probe",
+    "cflowhigh": "public_bcall_probe",
+    "cflowvalid": "public_bcall_probe",
+    "cmdclose": "internal_entry_probe",
+    "cmdopen": "internal_entry_probe",
+    "cmdunit": "internal_entry_probe",
+    "cmdbad": "internal_entry_probe",
+    "gramlow": "internal_entry_probe",
+    "gramhigh": "internal_entry_probe",
+    "gramflag": "internal_entry_probe",
+    "gramnonzero": "internal_entry_probe",
+}
+
+ERROR_TRACES = frozenset({"missingend", "terminalif"})
 
 
 @dataclass(frozen=True)
@@ -56,8 +76,8 @@ class BranchSite:
     location: RomLocation
     instruction: str
     kind: str
-    target: RomLocation | None
-    fallthrough: RomLocation
+    target: tuple[str, int] | None
+    fallthrough: tuple[str, int]
 
     @property
     def key(self) -> tuple[str, int]:
@@ -66,6 +86,21 @@ class BranchSite:
     @property
     def identifier(self) -> str:
         return str(self.location)
+
+
+def logical_code_point(page: int, address: int) -> tuple[str, int]:
+    """Resolve a static logical target in the fixed or current page window."""
+
+    return ("ram", address) if address < 0x4000 else (f"page_{page:02X}", address)
+
+
+def format_code_point(point: tuple[str, int]) -> str:
+    space, address = point
+    return (
+        f"ram:{address:04X}"
+        if space == "ram"
+        else f"{space.removeprefix('page_')}:{address:04X}"
+    )
 
 
 @dataclass(frozen=True)
@@ -315,19 +350,18 @@ def build_branch_sites(rom: RomImage) -> tuple[BranchSite, ...]:
             sites.append(BranchSite(
                 component, instruction.location, instruction.text,
                 instruction.mnemonic,
-                None if target_address is None else RomLocation(page, target_address),
-                RomLocation(page, instruction.end_address),
+                None if target_address is None else logical_code_point(page, target_address),
+                logical_code_point(page, instruction.end_address),
             ))
     return tuple(sites)
 
 
 def classify_successor(site: BranchSite, space: str, address: int) -> str | None:
-    current_space = f"page_{site.location.page:02X}"
     if site.kind == "ret":
-        return "fallthrough" if (space, address) == (current_space, site.fallthrough.address) else "returned"
-    if site.target and (space, address) == (current_space, site.target.address):
+        return "fallthrough" if (space, address) == site.fallthrough else "returned"
+    if site.target and (space, address) == site.target:
         return "taken"
-    if (space, address) == (current_space, site.fallthrough.address):
+    if (space, address) == site.fallthrough:
         return "fallthrough"
     return None
 
@@ -365,8 +399,18 @@ def scan_trace(
             instruction_count += 1
     features = {f"branch:{identifier}" for identifier in outcomes}
     features.update(f"semantic:{feature}" for feature in TRACE_FEATURES.get(label, set()))
+    provenance = TRACE_PROVENANCE.get(label, "unspecified")
+    termination = (
+        "error"
+        if label in ERROR_TRACES
+        else "completed"
+        if provenance == "natural_tibasic"
+        else "probe_exit_or_error"
+    )
     return ({
         "label": label,
+        "provenance": provenance,
+        "termination": termination,
         "sha256": digest(path),
         "bytes": path.stat().st_size,
         "instructions": instruction_count,
@@ -414,8 +458,10 @@ def build_report(rom_path: Path, traces: Sequence[tuple[str, Path]]) -> dict[str
     labels = sorted(trace_features)
     selected = z3_minimum_cover(labels, trace_features) if labels else ()
     aggregate_outcomes: Counter[str] = Counter()
+    outcomes_by_provenance: dict[str, Counter[str]] = defaultdict(Counter)
     for row in trace_rows:
         aggregate_outcomes.update(row["branch_outcomes"])
+        outcomes_by_provenance[row["provenance"]].update(row["branch_outcomes"])
     branch_rows = []
     for site in sites:
         possible = ("returned", "fallthrough") if site.kind == "ret" else ("taken", "fallthrough")
@@ -428,17 +474,27 @@ def build_report(rom_path: Path, traces: Sequence[tuple[str, Path]]) -> dict[str
             "component": site.component,
             "location": site.identifier,
             "instruction": site.instruction,
-            "target": None if site.target is None else str(site.target),
-            "fallthrough": str(site.fallthrough),
+            "target": None if site.target is None else format_code_point(site.target),
+            "fallthrough": format_code_point(site.fallthrough),
             "observed": observed,
         })
     feature_universe = set().union(*trace_features.values()) if trace_features else set()
+    outcome_features = {
+        label: {feature for feature in features if feature.startswith("branch:")}
+        for label, features in trace_features.items()
+    }
+    outcome_labels = sorted(
+        label for label, features in outcome_features.items() if features
+    )
+    selected_outcomes = (
+        z3_minimum_cover(outcome_labels, outcome_features) if outcome_labels else ()
+    )
     return {
-        "schema": 1,
+        "schema": 2,
         "rom": {"path": "tools/rom.bin", "sha256": digest(rom_path)},
         "scope": {
-            "claim": "bounded TI-BASIC parser decisions plus outcomes observed in named natural calculator traces",
-            "not_a_claim": "complete TI-BASIC grammar, arbitrary token-stream, error-state, floating-point, VAT, or whole-ROM path coverage",
+            "claim": "bounded TI-BASIC parser decisions plus provenance-labeled outcomes from natural programs and exact-ROM probes",
+            "not_a_claim": "natural reachability of probe-only states, complete TI-BASIC grammar, arbitrary token-stream, error-state, floating-point, VAT, or whole-ROM path coverage",
         },
         "rom_signatures": signatures,
         "finite_models": models,
@@ -453,6 +509,10 @@ def build_report(rom_path: Path, traces: Sequence[tuple[str, Path]]) -> dict[str
             "branch_sites": len(sites),
             "branch_outcomes_possible": 2 * len(sites),
             "branch_outcomes_observed": len(aggregate_outcomes),
+            "branch_outcomes_observed_by_provenance": {
+                provenance: len(outcomes)
+                for provenance, outcomes in sorted(outcomes_by_provenance.items())
+            },
             "traces": sorted(trace_rows, key=lambda row: row["label"]),
             "branches": branch_rows,
             "minimum_diverse_corpus": {
@@ -466,13 +526,23 @@ def build_report(rom_path: Path, traces: Sequence[tuple[str, Path]]) -> dict[str
                 "feature_kinds": dict(sorted(Counter(feature.partition(":")[0] for feature in feature_universe).items())),
                 "proven_minimum": True,
             },
+            "minimum_outcome_corpus": {
+                "algorithm": "exact lexicographic Optimize set cover via Z3",
+                "objective": "preserve every observed branch outcome",
+                "source_trace_count": len(outcome_labels),
+                "selected_trace_count": len(selected_outcomes),
+                "selected": list(selected_outcomes),
+                "omitted": sorted(set(outcome_labels) - set(selected_outcomes)),
+                "covered_outcomes": len(aggregate_outcomes),
+                "proven_minimum": True,
+            },
         },
         "open_paths": [
             "computed parser-handler destinations and recursive handler bodies",
             "arbitrary-length token streams, quoted strings, and nested blocks",
             "loop-frame byte layout and error unwinding",
             "floating-point, VAT, list, graph, and display subsystem internals",
-            "unobserved outcomes in the declared dynamic branch-site set",
+            "natural-program witnesses for outcomes currently reached only by probes",
         ],
     }
 

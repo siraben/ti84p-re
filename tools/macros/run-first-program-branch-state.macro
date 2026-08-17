@@ -1,0 +1,18 @@
+# Run the first loaded program, then preserve logical RAM for a state assertion.
+# ZPASS writes A5h to plotSScreen only after the fixture's semantic condition
+# succeeds; the home-screen text path does not use that graph buffer.
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.6s
+key ENTER
+wait 0.8s
+key ENTER
+wait 8s
+memdump /tmp/tibasic-branchmatrix.ram ram-logical

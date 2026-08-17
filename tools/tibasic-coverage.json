@@ -1,12 +1,12 @@
 {
-  "schema": 1,
+  "schema": 2,
   "rom": {
     "path": "tools/rom.bin",
     "sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d"
   },
   "scope": {
-    "claim": "bounded TI-BASIC parser decisions plus outcomes observed in named natural calculator traces",
-    "not_a_claim": "complete TI-BASIC grammar, arbitrary token-stream, error-state, floating-point, VAT, or whole-ROM path coverage"
+    "claim": "bounded TI-BASIC parser decisions plus provenance-labeled outcomes from natural programs and exact-ROM probes",
+    "not_a_claim": "natural reachability of probe-only states, complete TI-BASIC grammar, arbitrary token-stream, error-state, floating-point, VAT, or whole-ROM path coverage"
   },
   "rom_signatures": [
     {
@@ -298,13 +298,69 @@
     "minimum_representatives": 45
   },
   "dynamic": {
-    "trace_count": 6,
+    "trace_count": 20,
     "branch_sites": 26,
     "branch_outcomes_possible": 52,
-    "branch_outcomes_observed": 18,
+    "branch_outcomes_observed": 52,
+    "branch_outcomes_observed_by_provenance": {
+      "internal_entry_probe": 18,
+      "natural_tibasic": 34,
+      "public_bcall_probe": 8
+    },
     "traces": [
       {
+        "label": "branchmatrix",
+        "provenance": "natural_tibasic",
+        "termination": "completed",
+        "sha256": "5a4c24583fa4d5068fadf2c667570d0f6dae328f1d8d63300a40d93719348faa",
+        "bytes": 219164160,
+        "instructions": 4451220,
+        "branch_sites_hit": 19,
+        "branch_outcomes": {
+          "38:4136:fallthrough": 19,
+          "38:4139:fallthrough": 2,
+          "38:4139:taken": 17,
+          "38:413D:fallthrough": 1,
+          "38:413D:taken": 1,
+          "38:414D:fallthrough": 4,
+          "38:414D:taken": 13,
+          "38:4153:fallthrough": 4,
+          "38:415F:fallthrough": 1,
+          "38:415F:taken": 12,
+          "38:4166:fallthrough": 11,
+          "38:4166:taken": 1,
+          "38:416A:fallthrough": 10,
+          "38:416A:taken": 1,
+          "38:416E:fallthrough": 2,
+          "38:416E:taken": 8,
+          "38:4178:fallthrough": 2,
+          "38:417B:fallthrough": 1,
+          "38:417B:taken": 1,
+          "38:4187:fallthrough": 36,
+          "38:4187:returned": 19,
+          "38:418A:fallthrough": 7,
+          "38:418A:taken": 29,
+          "38:4192:fallthrough": 1,
+          "38:4192:taken": 6,
+          "38:4198:taken": 29,
+          "38:7014:fallthrough": 4,
+          "38:7018:fallthrough": 4,
+          "38:702F:fallthrough": 4,
+          "38:7032:fallthrough": 4
+        },
+        "unclassified_branch_successors": 0,
+        "semantic_features": [
+          "block_matrix",
+          "else",
+          "nested_blocks",
+          "optional_quote",
+          "repeat"
+        ]
+      },
+      {
         "label": "callabi",
+        "provenance": "natural_tibasic",
+        "termination": "completed",
         "sha256": "e0f7c84c936ea66a4d41acadbdb2edcb8800160d3aca022286f9b98795d90986",
         "bytes": 222210210,
         "instructions": 4513407,
@@ -329,6 +385,8 @@
       },
       {
         "label": "callstop",
+        "provenance": "natural_tibasic",
+        "termination": "completed",
         "sha256": "d546bec142f42105aea5ab5821efef20011a6e7501a023664f3cacdfe4acc26b",
         "bytes": 219921102,
         "instructions": 4467115,
@@ -349,7 +407,144 @@
         ]
       },
       {
+        "label": "cflowhigh",
+        "provenance": "public_bcall_probe",
+        "termination": "probe_exit_or_error",
+        "sha256": "b72b7434a234dd450c585b41286bdb8f32ca9c2a80088dfca4d4645d00eef0ed",
+        "bytes": 209188686,
+        "instructions": 4251974,
+        "branch_sites_hit": 6,
+        "branch_outcomes": {
+          "33:436D:fallthrough": 1,
+          "33:4372:taken": 1,
+          "38:7014:fallthrough": 1,
+          "38:7018:fallthrough": 1,
+          "38:702F:fallthrough": 1,
+          "38:7032:fallthrough": 1
+        },
+        "unclassified_branch_successors": 0,
+        "semantic_features": []
+      },
+      {
+        "label": "cflowlow",
+        "provenance": "public_bcall_probe",
+        "termination": "probe_exit_or_error",
+        "sha256": "494d3cc9f3a6eda762170ac4ee63361861b18aa2b86901c4af0343dbd1004ef9",
+        "bytes": 209392884,
+        "instructions": 4256139,
+        "branch_sites_hit": 5,
+        "branch_outcomes": {
+          "33:436D:taken": 1,
+          "38:7014:fallthrough": 1,
+          "38:7018:fallthrough": 1,
+          "38:702F:fallthrough": 1,
+          "38:7032:fallthrough": 1
+        },
+        "unclassified_branch_successors": 0,
+        "semantic_features": []
+      },
+      {
+        "label": "cflowvalid",
+        "provenance": "public_bcall_probe",
+        "termination": "probe_exit_or_error",
+        "sha256": "1a8c74a3e4a674d3d1f9d1fbc5489c73f1f66f8507d12dd1c98a9fc91814a5c3",
+        "bytes": 209394186,
+        "instructions": 4256157,
+        "branch_sites_hit": 6,
+        "branch_outcomes": {
+          "33:436D:fallthrough": 1,
+          "33:4372:fallthrough": 1,
+          "38:7014:fallthrough": 1,
+          "38:7018:fallthrough": 1,
+          "38:702F:fallthrough": 1,
+          "38:7032:fallthrough": 1
+        },
+        "unclassified_branch_successors": 0,
+        "semantic_features": []
+      },
+      {
+        "label": "cmdbad",
+        "provenance": "internal_entry_probe",
+        "termination": "probe_exit_or_error",
+        "sha256": "95498d8b77f06fe8f77cccc04cf3aa9a0ebf5abe2fb560bbd49d8607084b6332",
+        "bytes": 205789866,
+        "instructions": 4183275,
+        "branch_sites_hit": 8,
+        "branch_outcomes": {
+          "02:5679:fallthrough": 2,
+          "02:567D:fallthrough": 2,
+          "02:5681:fallthrough": 2,
+          "02:5684:fallthrough": 1,
+          "02:5684:taken": 1,
+          "38:7014:fallthrough": 1,
+          "38:7018:fallthrough": 1,
+          "38:702F:fallthrough": 1,
+          "38:7032:fallthrough": 1
+        },
+        "unclassified_branch_successors": 0,
+        "semantic_features": []
+      },
+      {
+        "label": "cmdclose",
+        "provenance": "internal_entry_probe",
+        "termination": "probe_exit_or_error",
+        "sha256": "95ee862cd8797e7db96039a6fdfcce64ecd81634c8d36ecd5ee094bf30bded58",
+        "bytes": 209456568,
+        "instructions": 4257414,
+        "branch_sites_hit": 5,
+        "branch_outcomes": {
+          "02:5679:taken": 1,
+          "38:7014:fallthrough": 1,
+          "38:7018:fallthrough": 1,
+          "38:702F:fallthrough": 1,
+          "38:7032:fallthrough": 1
+        },
+        "unclassified_branch_successors": 0,
+        "semantic_features": []
+      },
+      {
+        "label": "cmdopen",
+        "provenance": "internal_entry_probe",
+        "termination": "probe_exit_or_error",
+        "sha256": "661a26bc3ef82ab4a11052c8b199cd4c116487acaa22569f54904eba2e31413d",
+        "bytes": 209375058,
+        "instructions": 4255739,
+        "branch_sites_hit": 6,
+        "branch_outcomes": {
+          "02:5679:fallthrough": 1,
+          "02:567D:taken": 1,
+          "38:7014:fallthrough": 1,
+          "38:7018:fallthrough": 1,
+          "38:702F:fallthrough": 1,
+          "38:7032:fallthrough": 1
+        },
+        "unclassified_branch_successors": 0,
+        "semantic_features": []
+      },
+      {
+        "label": "cmdunit",
+        "provenance": "internal_entry_probe",
+        "termination": "probe_exit_or_error",
+        "sha256": "de32d49a9b5cc8055af8b1b10ea604276451bbe2c0e5214bab6aa147103d2872",
+        "bytes": 209382696,
+        "instructions": 4255904,
+        "branch_sites_hit": 7,
+        "branch_outcomes": {
+          "02:5679:fallthrough": 1,
+          "02:567D:fallthrough": 1,
+          "02:5681:taken": 1,
+          "38:7014:fallthrough": 1,
+          "38:7018:fallthrough": 1,
+          "38:702F:fallthrough": 1,
+          "38:7032:fallthrough": 1
+        },
+        "unclassified_branch_successors": 0,
+        "semantic_features": []
+      },
+      {
         "label": "data",
+        "provenance": "natural_tibasic",
+        "termination": "completed",
         "sha256": "50244e818cb24e4e7108be044c4ca236527be91eb40365ba258889755a76c8fa",
         "bytes": 192961158,
         "instructions": 3921752,
@@ -372,6 +567,8 @@
       },
       {
         "label": "dfs",
+        "provenance": "natural_tibasic",
+        "termination": "completed",
         "sha256": "bb4c3f8d22f363c0271aa6cd87c47da4228edc42d2927ade9ae1c32d0af6b63a",
         "bytes": 232688520,
         "instructions": 4725185,
@@ -410,6 +607,8 @@
       },
       {
         "label": "factorial",
+        "provenance": "natural_tibasic",
+        "termination": "completed",
         "sha256": "8776de7dbcf4525836a772abf3d07f576acec266603da3cbf4a4c072ad92c283",
         "bytes": 206810988,
         "instructions": 4201659,
@@ -431,7 +630,84 @@
         ]
       },
       {
+        "label": "gramflag",
+        "provenance": "internal_entry_probe",
+        "termination": "probe_exit_or_error",
+        "sha256": "bdbcba75e11b52c40c452edd543afa4cc7d7d10c31116b318f426825c4601ca3",
+        "bytes": 202993776,
+        "instructions": 4133183,
+        "branch_sites_hit": 4,
+        "branch_outcomes": {
+          "38:7014:fallthrough": 1,
+          "38:7014:taken": 1,
+          "38:7018:fallthrough": 1,
+          "38:702F:fallthrough": 1,
+          "38:702F:taken": 1,
+          "38:7032:fallthrough": 2
+        },
+        "unclassified_branch_successors": 0,
+        "semantic_features": []
+      },
+      {
+        "label": "gramhigh",
+        "provenance": "internal_entry_probe",
+        "termination": "probe_exit_or_error",
+        "sha256": "4a607264feb2c5c8cac8eb9d5533378b3c62b1df2c2e862a388814acf527ff44",
+        "bytes": 213069132,
+        "instructions": 4330335,
+        "branch_sites_hit": 5,
+        "branch_outcomes": {
+          "38:6FBC:fallthrough": 1,
+          "38:7014:fallthrough": 2,
+          "38:7018:fallthrough": 1,
+          "38:7018:taken": 1,
+          "38:702F:fallthrough": 2,
+          "38:7032:fallthrough": 2
+        },
+        "unclassified_branch_successors": 0,
+        "semantic_features": []
+      },
+      {
+        "label": "gramlow",
+        "provenance": "internal_entry_probe",
+        "termination": "probe_exit_or_error",
+        "sha256": "266498a101f2cfb8e5dbfa6b1ac419283deb86c765e779de4bb9f9f6107f948a",
+        "bytes": 216588402,
+        "instructions": 4398597,
+        "branch_sites_hit": 5,
+        "branch_outcomes": {
+          "38:6FBC:taken": 1,
+          "38:7014:fallthrough": 3,
+          "38:7018:fallthrough": 2,
+          "38:7018:taken": 1,
+          "38:702F:fallthrough": 3,
+          "38:7032:fallthrough": 3
+        },
+        "unclassified_branch_successors": 0,
+        "semantic_features": []
+      },
+      {
+        "label": "gramnonzero",
+        "provenance": "internal_entry_probe",
+        "termination": "probe_exit_or_error",
+        "sha256": "8f4db319481621f2acdefc9c6fab6db3dc6dc0961fa2dd9d74337b3d2f2476c9",
+        "bytes": 212920062,
+        "instructions": 4324517,
+        "branch_sites_hit": 4,
+        "branch_outcomes": {
+          "38:7014:fallthrough": 2,
+          "38:7018:fallthrough": 2,
+          "38:702F:fallthrough": 2,
+          "38:7032:fallthrough": 2,
+          "38:7032:taken": 1
+        },
+        "unclassified_branch_successors": 0,
+        "semantic_features": []
+      },
+      {
         "label": "hello",
+        "provenance": "natural_tibasic",
+        "termination": "completed",
         "sha256": "a8e71a4372ce70f959355ca47bf0b8d174319b16dc1211e55ba4b04574c627dc",
         "bytes": 192883170,
         "instructions": 3921097,
@@ -448,6 +724,71 @@
           "statement",
           "string"
         ]
+      },
+      {
+        "label": "missingend",
+        "provenance": "natural_tibasic",
+        "termination": "error",
+        "sha256": "2b933fa2f77fd3366ad89df017fefaa751f101e4dfd9f38aed203b7ddd34283e",
+        "bytes": 194469114,
+        "instructions": 3952577,
+        "branch_sites_hit": 15,
+        "branch_outcomes": {
+          "38:4136:fallthrough": 2,
+          "38:4136:returned": 1,
+          "38:4139:taken": 2,
+          "38:414D:taken": 2,
+          "38:415F:taken": 2,
+          "38:4166:fallthrough": 2,
+          "38:416A:fallthrough": 2,
+          "38:416E:taken": 2,
+          "38:4187:fallthrough": 3,
+          "38:4187:returned": 3,
+          "38:418A:fallthrough": 1,
+          "38:418A:taken": 2,
+          "38:4192:taken": 1,
+          "38:4198:taken": 2,
+          "38:7014:fallthrough": 1,
+          "38:7018:fallthrough": 1,
+          "38:702F:fallthrough": 1,
+          "38:7032:fallthrough": 1
+        },
+        "unclassified_branch_successors": 0,
+        "semantic_features": [
+          "missing_end_error"
+        ]
+      },
+      {
+        "label": "terminalif",
+        "provenance": "natural_tibasic",
+        "termination": "error",
+        "sha256": "1d9527a77a04f1dc807a956c722240cf152e9aa34eb4d08556abdc5c86060905",
+        "bytes": 190815060,
+        "instructions": 3878797,
+        "branch_sites_hit": 15,
+        "branch_outcomes": {
+          "38:4136:fallthrough": 2,
+          "38:4139:taken": 2,
+          "38:414D:taken": 2,
+          "38:415F:taken": 2,
+          "38:4166:fallthrough": 2,
+          "38:416A:fallthrough": 2,
+          "38:416E:fallthrough": 1,
+          "38:416E:taken": 1,
+          "38:4178:returned": 1,
+          "38:4187:fallthrough": 3,
+          "38:4187:returned": 3,
+          "38:418A:taken": 3,
+          "38:4198:taken": 3,
+          "38:7014:fallthrough": 1,
+          "38:7018:fallthrough": 1,
+          "38:702F:fallthrough": 1,
+          "38:7032:fallthrough": 1
+        },
+        "unclassified_branch_successors": 0,
+        "semantic_features": [
+          "terminal_if_error"
+        ]
       }
     ],
     "branches": [
@@ -458,7 +799,8 @@
         "target": null,
         "fallthrough": "38:4137",
         "observed": {
-          "fallthrough": 36
+          "returned": 1,
+          "fallthrough": 59
         }
       },
       {
@@ -468,7 +810,8 @@
         "target": "38:414B",
         "fallthrough": "38:413B",
         "observed": {
-          "taken": 36
+          "taken": 57,
+          "fallthrough": 2
         }
       },
       {
@@ -477,7 +820,10 @@
         "instruction": "jr nz,$+25",
         "target": "38:4156",
         "fallthrough": "38:413F",
-        "observed": {}
+        "observed": {
+          "taken": 1,
+          "fallthrough": 1
+        }
       },
       {
         "component": "block matching",
@@ -486,8 +832,8 @@
         "target": "38:415D",
         "fallthrough": "38:414F",
         "observed": {
-          "taken": 27,
-          "fallthrough": 9
+          "taken": 44,
+          "fallthrough": 13
         }
       },
       {
@@ -497,7 +843,8 @@
         "target": "38:4141",
         "fallthrough": "38:4155",
         "observed": {
-          "taken": 9
+          "taken": 9,
+          "fallthrough": 4
         }
       },
       {
@@ -507,7 +854,8 @@
         "target": "38:4164",
         "fallthrough": "38:4161",
         "observed": {
-          "taken": 27
+          "taken": 43,
+          "fallthrough": 1
         }
       },
       {
@@ -517,7 +865,8 @@
         "target": "38:4161",
         "fallthrough": "38:4168",
         "observed": {
-          "fallthrough": 27
+          "taken": 1,
+          "fallthrough": 42
         }
       },
       {
@@ -527,7 +876,8 @@
         "target": "38:4161",
         "fallthrough": "38:416C",
         "observed": {
-          "fallthrough": 27
+          "taken": 1,
+          "fallthrough": 41
         }
       },
       {
@@ -537,7 +887,8 @@
         "target": "38:4156",
         "fallthrough": "38:4170",
         "observed": {
-          "taken": 27
+          "taken": 38,
+          "fallthrough": 3
         }
       },
       {
@@ -546,7 +897,10 @@
         "instruction": "ret c",
         "target": null,
         "fallthrough": "38:4179",
-        "observed": {}
+        "observed": {
+          "returned": 1,
+          "fallthrough": 2
+        }
       },
       {
         "component": "block matching",
@@ -554,7 +908,10 @@
         "instruction": "jr nz,$-72",
         "target": "38:4133",
         "fallthrough": "38:417D",
-        "observed": {}
+        "observed": {
+          "taken": 1,
+          "fallthrough": 1
+        }
       },
       {
         "component": "token scanning",
@@ -563,8 +920,8 @@
         "target": null,
         "fallthrough": "38:4188",
         "observed": {
-          "returned": 44,
-          "fallthrough": 223
+          "returned": 69,
+          "fallthrough": 265
         }
       },
       {
@@ -574,7 +931,8 @@
         "target": "38:4195",
         "fallthrough": "38:418C",
         "observed": {
-          "taken": 223
+          "taken": 257,
+          "fallthrough": 8
         }
       },
       {
@@ -583,7 +941,10 @@
         "instruction": "jr nz,$-18",
         "target": "38:4180",
         "fallthrough": "38:4194",
-        "observed": {}
+        "observed": {
+          "taken": 7,
+          "fallthrough": 1
+        }
       },
       {
         "component": "token scanning",
@@ -592,7 +953,7 @@
         "target": "38:4180",
         "fallthrough": "38:419A",
         "observed": {
-          "taken": 189,
+          "taken": 223,
           "fallthrough": 34
         }
       },
@@ -602,7 +963,10 @@
         "instruction": "jr c,$+4",
         "target": "38:6FC0",
         "fallthrough": "38:6FBE",
-        "observed": {}
+        "observed": {
+          "taken": 1,
+          "fallthrough": 1
+        }
       },
       {
         "component": "grammar dispatch",
@@ -611,7 +975,8 @@
         "target": "38:7021",
         "fallthrough": "38:7016",
         "observed": {
-          "fallthrough": 70
+          "taken": 1,
+          "fallthrough": 91
         }
       },
       {
@@ -621,17 +986,19 @@
         "target": "38:7026",
         "fallthrough": "38:701A",
         "observed": {
-          "fallthrough": 70
+          "taken": 2,
+          "fallthrough": 89
         }
       },
       {
         "component": "grammar dispatch",
         "location": "38:702F",
         "instruction": "call nz,02cd9h",
-        "target": "38:2CD9",
+        "target": "ram:2CD9",
         "fallthrough": "38:7032",
         "observed": {
-          "fallthrough": 70
+          "taken": 1,
+          "fallthrough": 91
         }
       },
       {
@@ -641,7 +1008,8 @@
         "target": "38:7040",
         "fallthrough": "38:7034",
         "observed": {
-          "fallthrough": 70
+          "taken": 1,
+          "fallthrough": 92
         }
       },
       {
@@ -650,7 +1018,10 @@
         "instruction": "jr z,$+74",
         "target": "02:56C3",
         "fallthrough": "02:567B",
-        "observed": {}
+        "observed": {
+          "taken": 1,
+          "fallthrough": 4
+        }
       },
       {
         "component": "command finalization",
@@ -658,7 +1029,10 @@
         "instruction": "jr z,$+48",
         "target": "02:56AD",
         "fallthrough": "02:567F",
-        "observed": {}
+        "observed": {
+          "taken": 1,
+          "fallthrough": 3
+        }
       },
       {
         "component": "command finalization",
@@ -666,52 +1040,110 @@
         "instruction": "jr z,$+57",
         "target": "02:56BA",
         "fallthrough": "02:5683",
-        "observed": {}
+        "observed": {
+          "taken": 1,
+          "fallthrough": 2
+        }
       },
       {
         "component": "command finalization",
         "location": "02:5684",
         "instruction": "jp nz,02708h",
-        "target": "02:2708",
+        "target": "ram:2708",
         "fallthrough": "02:5687",
-        "observed": {}
+        "observed": {
+          "taken": 1,
+          "fallthrough": 1
+        }
       },
       {
         "component": "control-flow dispatch",
         "location": "33:436D",
         "instruction": "jp c,02711h",
-        "target": "33:2711",
+        "target": "ram:2711",
         "fallthrough": "33:4370",
-        "observed": {}
+        "observed": {
+          "taken": 1,
+          "fallthrough": 2
+        }
       },
       {
         "component": "control-flow dispatch",
         "location": "33:4372",
         "instruction": "jp nc,02711h",
-        "target": "33:2711",
+        "target": "ram:2711",
         "fallthrough": "33:4375",
-        "observed": {}
+        "observed": {
+          "taken": 1,
+          "fallthrough": 1
+        }
       }
     ],
     "minimum_diverse_corpus": {
       "algorithm": "exact lexicographic Optimize set cover via Z3",
       "objective": "preserve every observed branch outcome and semantic interpreter feature",
-      "source_trace_count": 6,
-      "selected_trace_count": 6,
+      "source_trace_count": 20,
+      "selected_trace_count": 20,
       "selected": [
+        "branchmatrix",
         "callabi",
         "callstop",
+        "cflowhigh",
+        "cflowlow",
+        "cflowvalid",
+        "cmdbad",
+        "cmdclose",
+        "cmdopen",
+        "cmdunit",
         "data",
         "dfs",
         "factorial",
-        "hello"
+        "gramflag",
+        "gramhigh",
+        "gramlow",
+        "gramnonzero",
+        "hello",
+        "missingend",
+        "terminalif"
       ],
       "omitted": [],
-      "covered_features": 38,
+      "covered_features": 78,
       "feature_kinds": {
-        "branch": 18,
-        "semantic": 20
+        "branch": 52,
+        "semantic": 26
       },
+      "proven_minimum": true
+    },
+    "minimum_outcome_corpus": {
+      "algorithm": "exact lexicographic Optimize set cover via Z3",
+      "objective": "preserve every observed branch outcome",
+      "source_trace_count": 20,
+      "selected_trace_count": 15,
+      "selected": [
+        "branchmatrix",
+        "cflowhigh",
+        "cflowlow",
+        "cflowvalid",
+        "cmdbad",
+        "cmdclose",
+        "cmdopen",
+        "cmdunit",
+        "dfs",
+        "gramflag",
+        "gramhigh",
+        "gramlow",
+        "gramnonzero",
+        "missingend",
+        "terminalif"
+      ],
+      "omitted": [
+        "callabi",
+        "callstop",
+        "data",
+        "factorial",
+        "hello"
+      ],
+      "covered_outcomes": 52,
       "proven_minimum": true
     }
   },
@@ -720,6 +1152,6 @@
     "arbitrary-length token streams, quoted strings, and nested blocks",
     "loop-frame byte layout and error unwinding",
     "floating-point, VAT, list, graph, and display subsystem internals",
-    "unobserved outcomes in the declared dynamic branch-site set"
+    "natural-program witnesses for outcomes currently reached only by probes"
   ]
 }

@@ -20,6 +20,7 @@ T = {
     "rparen": 0x11,
     "string": 0x2A,
     "comma": 0x2B,
+    "equal": 0x6A,
     "enter": 0x3F,
     "space": 0x29,
     "add": 0x70,
@@ -74,7 +75,9 @@ T = {
     "sum": 0xB6,
     "if": 0xCE,
     "then": 0xCF,
+    "else": 0xD0,
     "while": 0xD1,
+    "repeat": 0xD2,
     "for": 0xD3,
     "end": 0xD4,
     "return": 0xD5,
@@ -120,6 +123,23 @@ def string_literal(text: str) -> list[int]:
 
 def hex_literal(text: str) -> list[int]:
     return [T[ch] for ch in text.upper() if ch.strip()]
+
+
+def asm_payload(machine_hex: str) -> tuple[str, list[int]]:
+    return (
+        f"AsmPrgm\n{machine_hex}",
+        [T["2byte"], T["asmprgm"], T["enter"], *hex_literal(machine_hex), T["enter"]],
+    )
+
+
+def asm_wrapper(program: str) -> tuple[str, list[int]]:
+    return (
+        f'Asm(prgm{program})\nDisp "RETURN"',
+        [
+            T["2byte"], T["asm"], T["prog"], *letters(program), T["rparen"], T["enter"],
+            T["disp"], *string_literal("RETURN"), T["enter"],
+        ],
+    )
 
 
 SAMPLES: dict[str, tuple[str, list[int]]] = {
@@ -168,6 +188,13 @@ SAMPLES: dict[str, tuple[str, list[int]]] = {
         ],
     ),
     "asmret": (
+        "AsmPrgm\nC9",
+        [
+            T["2byte"], T["asmprgm"], T["enter"],
+            T["C"], T["9"], T["enter"],
+        ],
+    ),
+    "zmark": (
         "AsmPrgm\nC9",
         [
             T["2byte"], T["asmprgm"], T["enter"],
@@ -580,6 +607,129 @@ SAMPLES: dict[str, tuple[str, list[int]]] = {
             T["disp"], T["varlst"], 0x02, T["enter"],
         ],
     ),
+    "branchmatrix": (
+        'If 0\nThen\nDisp "DEAD\nIf 1\nThen\nDisp "INNER"\nElse\nDisp "ALT"\nEnd\n'
+        'While 0\nDisp "LOOP"\nEnd\nRepeat 1\nDisp "REPEAT"\nEnd\n'
+        'For(I,2,1)\nDisp "FOR"\nEnd\nIf 0\nDisp "ONE"\nElse\nAsm(prgmZPASS)\nDisp "BRANCH"\nEnd',
+        [
+            T["if"], T["0"], T["enter"],
+            T["then"], T["enter"],
+            T["disp"], T["string"], *letters("DEAD"), T["enter"],
+            T["if"], T["1"], T["enter"],
+            T["then"], T["enter"],
+            T["disp"], *string_literal("INNER"), T["enter"],
+            T["else"], T["enter"],
+            T["disp"], *string_literal("ALT"), T["enter"],
+            T["end"], T["enter"],
+            T["while"], T["0"], T["enter"],
+            T["disp"], *string_literal("LOOP"), T["enter"],
+            T["end"], T["enter"],
+            T["repeat"], T["1"], T["enter"],
+            T["disp"], *string_literal("REPEAT"), T["enter"],
+            T["end"], T["enter"],
+            T["for"], T["I"], T["comma"], T["2"], T["comma"], T["1"], T["rparen"], T["enter"],
+            T["disp"], *string_literal("FOR"), T["enter"],
+            T["end"], T["enter"],
+            T["if"], T["0"], T["enter"],
+            T["disp"], *string_literal("ONE"), T["enter"],
+            T["else"], T["enter"],
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["P"], T["A"], T["S"], T["S"], T["rparen"], T["enter"],
+            T["disp"], *string_literal("BRANCH"), T["enter"],
+            T["end"], T["enter"],
+        ],
+    ),
+    "forparen": (
+        "Asm(prgmZMARK)\nFor(I,1,25)\nIf 0\n1\nEnd\nAsm(prgmZMARK)\nIf I=26\nAsm(prgmZPASS)",
+        [
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["M"], T["A"], T["R"], T["K"], T["rparen"], T["enter"],
+            T["for"], T["I"], T["comma"], T["1"], T["comma"], T["2"], T["5"], T["rparen"], T["enter"],
+            T["if"], T["0"], T["enter"],
+            T["1"], T["enter"],
+            T["end"], T["enter"],
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["M"], T["A"], T["R"], T["K"], T["rparen"], T["enter"],
+            T["if"], T["I"], T["equal"], T["2"], T["6"], T["enter"],
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["P"], T["A"], T["S"], T["S"], T["rparen"], T["enter"],
+        ],
+    ),
+    "forimplicit": (
+        "Asm(prgmZMARK)\nFor(I,1,25\nIf 0\n1\nEnd\nAsm(prgmZMARK)\nIf I=26\nAsm(prgmZPASS)",
+        [
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["M"], T["A"], T["R"], T["K"], T["rparen"], T["enter"],
+            T["for"], T["I"], T["comma"], T["1"], T["comma"], T["2"], T["5"], T["enter"],
+            T["if"], T["0"], T["enter"],
+            T["1"], T["enter"],
+            T["end"], T["enter"],
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["M"], T["A"], T["R"], T["K"], T["rparen"], T["enter"],
+            T["if"], T["I"], T["equal"], T["2"], T["6"], T["enter"],
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["P"], T["A"], T["S"], T["S"], T["rparen"], T["enter"],
+        ],
+    ),
+    "zcflowlow": (
+        "AsmPrgm\n3E1FEF4051C9",
+        [T["2byte"], T["asmprgm"], T["enter"], *hex_literal("3E1FEF4051C9"), T["enter"]],
+    ),
+    "cflowlow": (
+        'Asm(prgmZCFLOWL)\nDisp "RETURN"',
+        [
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["C"], T["F"], T["L"], T["O"], T["W"], T["L"], T["rparen"], T["enter"],
+            T["disp"], *string_literal("RETURN"), T["enter"],
+        ],
+    ),
+    "zcflowhigh": (
+        "AsmPrgm\n3E2DEF4051C9",
+        [T["2byte"], T["asmprgm"], T["enter"], *hex_literal("3E2DEF4051C9"), T["enter"]],
+    ),
+    "cflowhigh": (
+        'Asm(prgmZCFLOWH)\nDisp "RETURN"',
+        [
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["C"], T["F"], T["L"], T["O"], T["W"], T["H"], T["rparen"], T["enter"],
+            T["disp"], *string_literal("RETURN"), T["enter"],
+        ],
+    ),
+    "zcflowvalid": (
+        "AsmPrgm\n3E20EF4051C9",
+        [T["2byte"], T["asmprgm"], T["enter"], *hex_literal("3E20EF4051C9"), T["enter"]],
+    ),
+    "cflowvalid": (
+        'Asm(prgmZCFLOWV)\nDisp "RETURN"',
+        [
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["C"], T["F"], T["L"], T["O"], T["W"], T["V"], T["rparen"], T["enter"],
+            T["disp"], *string_literal("RETURN"), T["enter"],
+        ],
+    ),
+    "zcmdclose": asm_payload("F33E02D3060E1121A49DCD7656FBC9C9"),
+    "cmdclose": asm_wrapper("ZCMDCLOS"),
+    "zcmdopen": asm_payload("F33E02D3060E1021A49DCD7656FBC9C9"),
+    "cmdopen": asm_wrapper("ZCMDOPEN"),
+    "zcmdunit": asm_payload("F33E02D3060E0121A49DCD7656FBC9C9"),
+    "cmdunit": asm_wrapper("ZCMDUNIT"),
+    "zcmdbad": asm_payload("F33E02D3060E0021A99DCD76560E02CD7656FBC9C9"),
+    "cmdbad": asm_wrapper("ZCMDBAD"),
+    "missingend": (
+        'If 0\nThen\nDisp "DEAD"',
+        [
+            T["if"], T["0"], T["enter"],
+            T["then"], T["enter"],
+            T["disp"], *string_literal("DEAD"), T["enter"],
+        ],
+    ),
+    "terminalif": (
+        "If 0\nThen\nIf 1",
+        [
+            T["if"], T["0"], T["enter"],
+            T["then"], T["enter"],
+            T["if"], T["1"], T["enter"],
+        ],
+    ),
+    "zpass": asm_payload("3EA5324093C9"),
+    "zgramlow": asm_payload("F33E38D3063EF1CDBA6FFBC9"),
+    "gramlow": asm_wrapper("ZGRAMLOW"),
+    "zgramhigh": asm_payload("F33E38D3063EF2CDBA6FFBC9"),
+    "gramhigh": asm_wrapper("ZGRAMHI"),
+    "zgramflag": asm_payload("F33E38D306FDCB36CE3E000E02CD1070FBC9"),
+    "gramflag": asm_wrapper("ZGRAMFLG"),
+    "zgramnonzero": asm_payload("F33E38D3063E01B7CD3270FBC9"),
+    "gramnonzero": asm_wrapper("ZGRAMNZ"),
 }
 
 PROGRAM_NAMES = {
@@ -588,6 +738,7 @@ PROGRAM_NAMES = {
     "data": "DATA",
     "gcflash": "GCFLASH",
     "asmret": "ASMRET",
+    "zmark": "ZMARK",
     "md5test": "MD5TEST",
     "asmmd5": "ASMMD5",
     "asmcall": "ASMCALL",
@@ -615,6 +766,34 @@ PROGRAM_NAMES = {
     "bigadd": "BIGADD",
     "bigmul": "BIGMUL",
     "dfs": "DFS",
+    "branchmatrix": "BRANCHES",
+    "forparen": "FORPAREN",
+    "forimplicit": "FORIMPL",
+    "zcflowlow": "ZCFLOWL",
+    "cflowlow": "CFLOWLO",
+    "zcflowhigh": "ZCFLOWH",
+    "cflowhigh": "CFLOWHI",
+    "zcflowvalid": "ZCFLOWV",
+    "cflowvalid": "CFLOWOK",
+    "zcmdclose": "ZCMDCLOS",
+    "cmdclose": "CMDCLOS",
+    "zcmdopen": "ZCMDOPEN",
+    "cmdopen": "CMDOPEN",
+    "zcmdunit": "ZCMDUNIT",
+    "cmdunit": "CMDUNIT",
+    "zcmdbad": "ZCMDBAD",
+    "cmdbad": "CMDBAD",
+    "missingend": "MISSEND",
+    "terminalif": "TERMIF",
+    "zpass": "ZPASS",
+    "zgramlow": "ZGRAMLOW",
+    "gramlow": "GRAMLOW",
+    "zgramhigh": "ZGRAMHI",
+    "gramhigh": "GRAMHIGH",
+    "zgramflag": "ZGRAMFLG",
+    "gramflag": "GRAMFLAG",
+    "zgramnonzero": "ZGRAMNZ",
+    "gramnonzero": "GRAMNZ",
 }
 
 
