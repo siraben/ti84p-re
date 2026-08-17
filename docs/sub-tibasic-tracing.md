@@ -1,107 +1,140 @@
 # TI-BASIC dynamic tracing
 
-TI-BASIC behavior in these notes is grounded by generated programs, headless
-TilEm runs, resolved instruction coverage, and screen captures. This page is
-the book-facing recipe for reproducing those traces; the lower-level tooling
-details live in `tools/dynamic-tracing.md`.
+TI-BASIC coverage combines exhaustive local models with natural calculator
+traces. The models answer “did every input to this bounded decision get
+classified?”; traces answer “which decisions did these complete programs reach
+with real parser, VAT, floating-point, and display state?” Neither answer alone
+is whole-interpreter coverage.
 
-## Fixture suite
+## Evidence layers
 
-The fixture generator emits readable source, token bytes, and `.8xp` link files:
+| Layer | Establishes | Does not establish |
+|-------|-------------|--------------------|
+| ROM signature | The modeled instructions are still the expected OS 2.55MP bytes | Meaning of every surrounding routine |
+| Finite model | Every state in a declared finite domain has an outcome | Arbitrary sequences or external RAM/stack state |
+| Natural trace | A real program reached an instruction and took a branch outcome | Feasibility of unobserved outcomes |
+| LCD assertion | The program produced the expected visible result | Which internal path was uniquely responsible |
+
+`tools/analyze_tibasic_coverage.py` refuses a ROM whose SHA-256 differs from
+the pinned OS 2.55MP image, then verifies short byte signatures at every modeled
+decision family. [confirmed]
+
+## Exhaustive finite models
+
+The checked report exhausts 591,360 states and 45 semantic outcomes:
+
+| Model | Exhausted states | Outcomes | Boundary |
+|-------|-----------------:|---------:|----------|
+| Encoded token width | 256 | 2 | Lead-byte membership, not second-byte validity |
+| Statement delimiter | 256 | 4 | Byte classification, not refill faults |
+| Token scan step | 256 | 4 | One step, not arbitrary stream length |
+| Block matcher transition | 524,288 | 10 | Every 16-bit depth over eight decision-equivalent token classes |
+| Extended grammar fold | 256 | 2 | `CP F2h`/`ADD 12h`, not later handlers |
+| Precedence handler family | 65,536 | 3 | Grammar class × selector byte, not recursive handler state |
+| Command finalization gate | 256 | 5 | First page-02 gate only |
+| Control-flow table bounds | 256 | 15 | Index validation, not the 13 handler bodies |
+
+The block model uses token equivalence classes because the ROM performs the
+same comparisons for every non-control byte. It still enumerates all 65,536
+values of the 16-bit `DE` depth, including the zero and increment-wrap boundaries. This
+is exhaustive over the stated local transition, not a depth limit of 255.
+
+Z3 minimizes one representative per semantic outcome after exhaustive
+enumeration establishes the partition. Z3 is not being presented as a proof of
+the entire Z80 routine or of arbitrary token streams.
+
+## Diverse natural corpus
+
+Six fixtures cover distinct interpreter behaviors without committing redundant
+raw traces:
+
+| Case | Distinct behavior | Visible oracle |
+|------|-------------------|----------------|
+| `hello` | straight-line statement, quoted string, `Disp` | `HELLO, WORLD`; `Done` |
+| `factorial` | `Prompt`, scalar stores, `For(`/`End`, FP multiplication | input `5`; result `120` |
+| `data` | two-byte list tokens, literal/store, built-in list fold | sorted/cumulative lists; `14` |
+| `dfs` | nested `While`, `If ... Then`, `For`, list-backed stack | traversal `1,3,2,4`; visited list |
+| `callabi` | nested BASIC call, shared scalar/list/`Ans`, `Return` | `11`; `{2 4 9}`; `11` |
+| `callstop` | nested BASIC call and nonlocal `Stop` | `BEFORE`; `STOP`; no `AFTER` |
+
+The current traces contain 25,750,215 instruction records. Across 26 declared
+conditional branch sites, they observe 18 of 52 possible outcomes at 15 sites.
+`DFS` supplies the block-scanner outcomes; the other programs deliberately
+exercise different semantic state even when their selected branch outcomes
+overlap. No declared branch transition had an unclassifiable successor.
+[confirmed]
+
+An exact Z3 set cover over both observed branch outcomes and semantic feature
+tags retains all six cases. That result is useful: removing any one would lose
+a distinct behavior such as quoted-string display, prompted arithmetic, a list
+fold, nested blocks, `Return`, or `Stop`. The larger fixture library remains
+available for targeted subsystem work, but it is not described as the minimum
+TI-BASIC coverage corpus.
+
+The selected traces total about 1.27 GB, so only their SHA-256 digests, record
+counts, outcome counts, and minimization result are checked in. The JSON report
+is about 20 KB.
+
+## Reproduce the report
+
+Generate the source/token/link fixtures first:
 
 ```sh
 tools/tibasic_samples.py --write-dir tools/tibasic-samples
 ```
 
-The smoke runner executes the exported programs, records a GIF, extracts the
-final frame, resolves trace coverage through `tools/tilem_trace_resolve.py`, and
-checks each case's expected anchors:
+The TilEm binary must support loading command-line `.8xp` files before the
+macro starts. Run the six cases while retaining their temporary traces:
 
 ```sh
-TILEM=~/Git/tilem-headless/result/bin/tilem2
-tools/tibasic_smoke.py --tilem "$TILEM" --rom tools/rom.bin \
-  --out-dir /tmp/tibasic-smoke-full
+TILEM=/path/to/patched/tilem2
+python3 tools/tibasic_smoke.py \
+  --tilem "$TILEM" --rom tools/rom.bin \
+  --out-dir /tmp/tibasic-coverage --keep-trace \
+  --case hello --case factorial --case data \
+  --case dfs --case callabi --case callstop
 ```
 
-Use `--case NAME` to run a subset, and `--keep-trace` when the raw binary trace
-is needed for instruction-level inspection. The runner deletes trace files by
-default because several cases produce hundreds of MiB per run.
+The smoke runner checks trace anchors and named LCD crop regions before the
+coverage analyzer sees a trace. Build the compact report through the Nix shell
+so `z80dasm` and Z3 are pinned:
 
-The full suite passed on 2026-06-07 with the command above against OS 2.55MP and
-the local patched TilEm runner. The output directory kept final PNGs, GIFs, and
-coverage text for all cases; raw trace files were deleted by default.
+```sh
+nix develop -c python3 tools/analyze_tibasic_coverage.py \
+  --trace hello=/tmp/tibasic-coverage/hello.trace \
+  --trace factorial=/tmp/tibasic-coverage/factorial.trace \
+  --trace data=/tmp/tibasic-coverage/data.trace \
+  --trace dfs=/tmp/tibasic-coverage/dfs.trace \
+  --trace callabi=/tmp/tibasic-coverage/callabi.trace \
+  --trace callstop=/tmp/tibasic-coverage/callstop.trace \
+  --output tools/tibasic-coverage.json
+```
 
-The current headless workflow relies on a local TilEm patch that loads command
-line `.8xp` files before the macro starts. Without that patch, load the target
-programs into calculator RAM first, then run the same macro and resolver steps.
+Delete the temporary traces after regeneration. They are reproducible evidence,
+not source assets.
 
-## Operation coverage
+## Reading gaps honestly
 
-| Case | Program(s) | Operations exercised | Anchor examples |
-|------|------------|----------------------|-----------------|
-| `hello` | `HELLO.8xp` | `ClrHome`, `Disp`, string scan, `Done` | `eval_stmt_entry`, `_Disp` |
-| `factorial` | `FACTOR.8xp` | `Prompt`, scalar stores, `For(`/`End`, FP multiply | `_FPMult`, `_Disp` |
-| `data` | `DATA.8xp` | list literal, `SortA(`, `cumSum(`, `sum(` | `store_list_elem`, `list_fold_dispatch` |
-| `asmcall` | `ASMCALL.8xp` + `ASMRET.8xp` | BASIC `Asm(prgmNAME)` into `AsmPrgm` payload | `_ExecutePrgm`, `ram:9D95` |
-| `asmbridge` | `ASMBRIDG.8xp` + `ASMSIG.8xp` + `ZZBASIC.8xp` | ASM return code through `Ans`, BASIC callback | `_OP1Set1`, `_StoAns`, `_AnsName`, `eval_eqn_recursive` |
-| `asmreturn` | `ASMRTN.8xp` + `ASMVAL.8xp` | ASM return value through `Ans`, then BASIC arithmetic | `_OP1Set2`, `_StoAns`, `_AnsName`, `_FPAdd` |
-| `asmfind` | `ASMFIND.8xp` + `ZZFIND.8xp` + `ZZBASIC.8xp` | ASM-side VAT lookup of a BASIC program without executing it | `ram:9D95`, `findsym_scan`, `_Disp` |
-| `asmparse` | `ASMPARSE.8xp` + `ZZPARSE.8xp` + `ZZBASIC.8xp` | ASM parser-entry negative probe ending at `ERR:INVALID` | `_ParseInpLastEnt`, `_ParseInp`, `parseinp_find_setup` |
-| `asmformula` | `ASMFORM.8xp` + `ZZFORM.8xp` + `ZZBASIC.8xp` | ASM formula-parser negative probe ending at `ERR:UNDEFINED` | `_Find_Parse_Formula`, `parse_init_findsym`, `findsym_scan` |
-| `animtext` | `ANIMTXT.8xp` | text placement animation with `Output(` | `_OutputExpr`, `_Disp` |
-| `graphviz` | `GRAPHV.8xp` | graph-buffer primitives and `DispGraph` | `_GrBufClr`, `_ILine`, `_IPoint`, `_PDspGrph` |
-| `graphdfs` | `GRAPHDFS.8xp` | graph visualization from DFS topology | `_StoSysTok`, `_ILine`, `_IPoint`, `_PDspGrph` |
-| `graphlist` | `GRAPHLST.8xp` | list-driven graph visualization from edge/node coordinate lists | `list_var_index`, `_GetLToOP1`, `_ILine`, `_IPoint` |
-| `callsub` | `CALLSUB.8xp` + `SUBRT.8xp` | BASIC `prgmNAME`, shared globals, `Return` | `stmt_eval_body_entry`, `call_eval_eqn_recursive` |
-| `callabi` | `ABICALL.8xp` + `ABISUB.8xp` | BASIC subprogram ABI through `Ans`, scalar `A`, and list `L1` | `_AnsName`, `store_list_elem`, `eval_eqn_recursive` |
-| `callstop` | `CALLSTOP.8xp` + `STOPSUB.8xp` | BASIC subprogram `Stop` terminates the caller chain | `stmt_eval_body_entry`, `call_eval_eqn_recursive`, `_Disp` |
-| `bigadd` | `BIGADD.8xp` | list-digit arithmetic and carry propagation | `list_var_index`, `_GetLToOP1`, `_PutToL`, `_FPMult` |
-| `bigmul` | `BIGMUL.8xp` | list-digit multiplication, nested loops, carry normalization | `list_var_index`, `_GetLToOP1`, `_PutToL`, `_FPMult` |
-| `dfs` | `DFS.8xp` | list-backed stack, nested `While`/`If`/`For` | `blockmatch_end_else`, `parse_scan_tokens`, `eval_stmt_entry` |
+The current trace overlay does not enter the modeled command-finalization or
+page-33 table-bound branches. In particular, `factorial` and `dfs` execute
+stored-program loops without reaching the static `33:435F` path. The report
+therefore leaves the exact stored-program loop-handler transition open instead
+of treating the static dispatcher as dynamically confirmed.
 
-The visualization cases also enforce visible output by thresholding the final
-frame and comparing it with the first recorded frame. `ANIMTXT`, `GRAPHV`,
-`GRAPHDFS`, and `GRAPHLST` must contain at least 100, 100, 200, and 200 dark
-pixels respectively, and must change by at least the same number of pixels from
-first to final frame. `ANIMTXT` must also produce at least five distinct
-captured frames. The smoke runner also checks named crop regions. Visual cases
-check home-screen text, graph labels, axes, circle arcs, and node/edge regions.
-Text/list cases check important final-screen lines such as `HELLO, WORLD`,
-factorial `120`, `DATA` list outputs, `BEFORE`/`CALLED`/`AFTER`, `SUB`,
-big-integer digit lists, and the DFS traversal/visited-list output. `ASMRTN`
-checks the displayed `5`, `ABICALL` checks the scalar line, mutated list line,
-returned `Ans` line, and `Done`, and `CALLSTOP` checks `BEFORE`, `STOP`,
-`Done`, and a bounded low-pixel region where caller text `AFTER` would appear.
-`ASMFIND` checks the wrapper's `BEFORE`, `AFTER`, and `Done` output plus a
-bounded low-pixel region where an unexpected third line would appear.
-`ASMPARSE` checks the `ERR:INVALID`, `1:Quit`, and `2:Goto` error-screen
-regions. `ASMFORM` checks the corresponding `ERR:UNDEFINED` error-screen
-regions.
+Other open dimensions include arbitrary token-stream length, recursive grammar
+paths, quoted-string contents, error unwinding, loop-record field layout,
+computed handler destinations, and the internal state spaces of VAT, lists,
+floating point, graphing, and display code.
 
-For the visual graph cases, the 2026-06-07 run measured 212, 619, 466, and 466
-dark pixels, with matching first-to-final pixel changes.
+The next useful coverage expansion is not “add more examples.” It is:
 
-## Reading the evidence
+1. identify one specific unobserved branch or state boundary;
+2. construct the smallest natural program expected to distinguish it;
+3. confirm the screen or RAM oracle;
+4. add the trace only if Z3 shows that it contributes a new branch outcome or
+   semantic feature; and
+5. update the relevant interpreter explanation with the newly established
+   transition.
 
-Trace anchors prove control reached the relevant ROM path; they do not by
-themselves prove the final screen looked right. Use both the coverage file and
-the final PNG/GIF for display or graph claims. This distinction matters for
-`GRAPHDFS`, where `_ILine` and `_IPoint` coverage only proves drawing routines
-ran, while the final frame proves the graph-screen topology is visible.
-
-For parser and calling-convention claims, prefer resolved coverage plus a narrow
-routine trace. For example, the BASIC subprogram case uses the private
-`38:6910` → `38:6914` → `38:778F` body-evaluator path after the top-level
-homescreen parse has already seeded parser RAM. That is why the negative
-ASM-to-BASIC probes in [TI-BASIC programming patterns](sub-tibasic-programming.md)
-are negative fixtures or probes: they reach useful ROM paths, but they
-do not display the target BASIC program.
-
-## Related pages
-
-- [TI-BASIC programs](sub-tibasic.md) explains the parser, statement evaluator,
-  control flow, display commands, `Asm(`, and `prgmNAME`.
-- [TI-BASIC programming patterns](sub-tibasic-programming.md) turns the traces
-  into performance and calling-convention guidance.
-- [TI-BASIC `For(` optional paren trap](sub-tibasic-for-paren.md) is a focused
-  trace study of one parser-performance edge case.
+Lower-level trace formats and memory-write decoding are documented in
+`tools/dynamic-tracing.md`.
