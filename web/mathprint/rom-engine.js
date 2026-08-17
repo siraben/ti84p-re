@@ -1892,6 +1892,98 @@
     };
   }
 
+  // 39:4F44 compares the emitted D:E cell with FBC8 and FBC7. The matching
+  // action reaches 3D:7DC4 through ram:3891; that helper ANDs the restriction
+  // byte returned by 3D:45D9 with 04h for FBC8 or 02h for FBC7.
+  function settledPage39MarkerGate(
+      dValue, eValue, restrictionByteValue = 0) {
+    const d = byte(dValue, 'page-39 marker-gate D byte');
+    const e = byte(eValue, 'page-39 marker-gate E byte');
+    const restrictionByte = byte(
+      restrictionByteValue, 'page-39 marker restriction byte');
+    const branchOutcomes = [];
+    const branch = (address, outcome) => branchOutcomes.push(
+      `39:${address.toString(16).toUpperCase()}:${outcome}`);
+    const c8 = d === 0xfb && e === 0xc8;
+    branch(0x4f4a,c8 ? 'fallthrough' : 'taken');
+    if (c8) {
+      const helperValue = restrictionByte & 0x04;
+      const nonzero = helperValue !== 0;
+      branch(0x4f51,nonzero ? 'returned' : 'fallthrough');
+      if (nonzero) return {
+        d,e,restrictionByte,matched:true,action:7,mask:0x04,
+        helperValue,zero:false,terminal:'c8-restriction-set',
+        branchOutcomes,routine:'39:4F44–4F61 → 3D:7CBA–7DCC',
+      };
+    }
+    const c7 = d === 0xfb && e === 0xc7;
+    branch(0x4f58,c7 ? 'taken' : 'fallthrough');
+    if (c7) {
+      const helperValue = restrictionByte & 0x02;
+      return {
+        d,e,restrictionByte,matched:true,action:6,mask:0x02,
+        helperValue,zero:helperValue === 0,
+        terminal:helperValue === 0
+          ? 'c7-restriction-clear' : 'c7-restriction-set',
+        branchOutcomes,routine:'39:4F44–4F61 → 3D:7CBA–7DCC',
+      };
+    }
+    return {
+      d,e,restrictionByte,matched:c8,action:c8 ? 7 : null,
+      mask:c8 ? 0x04 : null,helperValue:0,zero:true,
+      terminal:c8 ? 'c8-restriction-clear' : 'not-marker',
+      branchOutcomes,routine:'39:4F44–4F61 → 3D:7CBA–7DCC',
+    };
+  }
+
+  // 39:4F62 draws the marker divider from (0Bh,y) to (5Eh,y), where
+  // y = 3Bh - 8*curRow modulo 256. _DarkLine preserves AF, so 39:4F8B uses
+  // the _CheckSplitFlag result from before the call. The surrounding save and
+  // restore also leave plotFlags unchanged after forcing plotDisp temporarily.
+  function settledPage39RowRetouch(
+      curRowValue, splitFlagsValue = 0, plotFlagsValue = 0) {
+    const curRow = byte(curRowValue, 'page-39 row-retouch curRow');
+    const splitFlags = byte(
+      splitFlagsValue, 'page-39 row-retouch sGrFlags');
+    const plotFlags = byte(
+      plotFlagsValue, 'page-39 row-retouch plotFlags');
+    const y = (0x3b - 8 * curRow) & 0xff;
+    const normalWindow = [0x00,0x40,0x60,0x5f,0x5e];
+    const verticalSplitWindow = [0x0c,0x34,0x30,0x2f,0x2e];
+    const horizontalSplitWindow = [0x20,0x20,0x60,0x5f,0x5e];
+    const branchOutcomes = [];
+    const splitOverride = Boolean(splitFlags & 0x08);
+    const graphSplit = Boolean(splitFlags & 0x01);
+    const checkSplitNonzero = !splitOverride && graphSplit;
+    branchOutcomes.push(
+      `39:4F8B:${checkSplitNonzero ? 'taken' : 'fallthrough'}`);
+    let terminal, finalWindow;
+    if (checkSplitNonzero) {
+      terminal = 'horizontal-split-window';
+      finalWindow = horizontalSplitWindow;
+    } else {
+      const verticalSplit = Boolean(splitFlags & 0x02);
+      branchOutcomes.push(
+        `39:4F90:${verticalSplit ? 'fallthrough' : 'returned'}`);
+      if (verticalSplit) {
+        terminal = 'vertical-split-window';
+        finalWindow = verticalSplitWindow;
+      } else {
+        terminal = 'normal-window';
+        finalWindow = normalWindow;
+      }
+    }
+    return {
+      curRow,splitFlags,plotFlagsBefore:plotFlags,
+      plotFlagsDuring:plotFlags | 0x02,plotFlagsAfter:plotFlags,
+      y,endpoints:[0x0b,y,0x5e,y],
+      line:settledPage4DarkLineTrace(0x0b,y,0x5e,y),
+      lineWindow:normalWindow.slice(),finalWindow:finalWindow.slice(),
+      terminal,branchOutcomes,
+      routine:'39:4F62–4F99 → 04:4025–40AC',
+    };
+  }
+
   // 39:4E8E–4F19 is an ordered controller, not a one-of-N classifier. On the
   // generic path 39:6675 runs first, the counted string can be drawn next, and
   // 39:4F1A can still select a direct glyph afterward. Calls whose result
@@ -1909,8 +2001,8 @@
       ? false : boolean(options.drawCallbackNonzero, 'draw callback result');
     const displayColumn = options.displayColumn === undefined
       ? 0x0f : byte(options.displayColumn, 'display-column byte');
-    const markerHelperNonzero = options.markerHelperNonzero === undefined
-      ? false : boolean(options.markerHelperNonzero, 'marker helper result');
+    const restrictionByte = options.restrictionByte === undefined
+      ? 0 : byte(options.restrictionByte, 'marker restriction byte');
     const branchOutcomes = [];
     const actions = [];
     const branch = (address, outcome) => branchOutcomes.push(
@@ -1922,12 +2014,20 @@
       const eraseEol = displayColumn < 0x0f;
       branch(0x4f0e,eraseEol ? 'taken' : 'fallthrough');
       if (eraseEol) actions.push({kind:'erase-eol',boundary:'00:3CB7'});
-      actions.push({kind:'marker-gate',cell:[d,e],routine:'39:4F44–4F61'});
-      const marker = d === 0xfb && (e === 0xc8 || e === 0xc7);
-      const markerGateNonzero = marker && markerHelperNonzero;
+      const markerGate = settledPage39MarkerGate(d,e,restrictionByte);
+      actions.push({kind:'marker-gate',cell:[d,e],result:markerGate});
+      const markerGateNonzero = !markerGate.zero;
       branch(0x4f15,markerGateNonzero ? 'fallthrough' : 'returned');
       if (!markerGateNonzero) return finish('post-tail');
-      actions.push({kind:'row-retouch',boundary:'39:4F62–4F99'});
+      if (options.curRow === undefined || options.splitFlags === undefined ||
+          options.plotFlags === undefined)
+        throw new TypeError(
+          'accepted page-39 marker requires curRow, splitFlags, and plotFlags');
+      actions.push({
+        kind:'row-retouch',
+        result:settledPage39RowRetouch(
+          options.curRow,options.splitFlags,options.plotFlags),
+      });
       return finish('row-retouch');
     };
 
@@ -11544,6 +11644,8 @@
     settledPage1KeyToStringSelection,
     settledPage39CellStringSelection,
     settledPage39NamedTokenPrepass,
+    settledPage39MarkerGate,
+    settledPage39RowRetouch,
     settledPage39CellEmission,
     descriptor,
     selectDescriptor,

@@ -383,10 +383,10 @@ TRANSLATION_SURFACES = (
     {
         "name": "font, primitive, and LCD emission",
         "rom": [
-            "01:6297", "01:6360–6445", "01:6702", "39:4F1A–4F43",
+            "01:6297", "01:6360–6445", "01:6702", "39:4E8E–4F99",
             "04:4025–4315",
             "01:6D10–6DBC", "04:42B5–42E3", "04:431D–43C7",
-            "39:6B62–6B9F",
+            "39:6675–66BC", "39:6B62–6B9F", "3D:7CBA–7DCC",
             "07:44DE–4538",
             "07:4588–4605",
         ],
@@ -405,6 +405,9 @@ TRANSLATION_SURFACES = (
             "settledPage7SOKForKeyToString",
             "settledPage1KeyToStringSelection",
             "settledPage39CellStringSelection",
+            "settledPage39NamedTokenPrepass",
+            "settledPage39MarkerGate", "settledPage39RowRetouch",
+            "settledPage39CellEmission",
             "settledPage7LargeGlyphRecord", "settledOperationPixels",
             "settledBlits", "settledOperationWrites",
         ],
@@ -420,6 +423,8 @@ TRANSLATION_SURFACES = (
             "the complete hook-disabled page-1 _KeyToString D:E domain and "
             "its caller-valid page-7 _sOK prefix domain; "
             "both page-39 inline-string entry modes over every D:E cell; "
+            "the page-39 archived-token prepass, marker restriction masks, "
+            "split-window row retouch, and outer cell-emission order; "
             "the complete page-1 glyph-pointer selector byte domain; "
             "small-font byte-boundary selection, row alignment, ordinary and "
             "inverse byte composition, crossing-byte write order, and the "
@@ -4903,13 +4908,167 @@ def symbolic_page39_named_token_prepass_paths() -> list[dict[str, object]]:
     ]
 
 
+def page39_marker_gate_path(
+    d: int,
+    e: int,
+    restriction_byte: int,
+) -> dict[str, object]:
+    """Translate 39:4F44–4F61 and the action-6/7 restriction masks."""
+
+    if not 0 <= d <= 0xFF or not 0 <= e <= 0xFF:
+        raise ValueError("page-39 marker-gate cells must be unsigned bytes")
+    if restriction_byte not in (0x00, 0x02, 0x04, 0x06):
+        raise ValueError("marker restriction byte must project bits 1 and 2")
+    outcomes: list[str] = []
+    c8 = d == 0xFB and e == 0xC8
+    outcomes.append(f"39:4F4A:{'fallthrough' if c8 else 'taken'}")
+    if c8:
+        helper_value = restriction_byte & 0x04
+        nonzero = helper_value != 0
+        outcomes.append(f"39:4F51:{'returned' if nonzero else 'fallthrough'}")
+        if nonzero:
+            return {
+                "terminal": "c8_restriction_set",
+                "action": 7,
+                "mask": 0x04,
+                "helper_value": helper_value,
+                "branch_outcomes": outcomes,
+            }
+    c7 = d == 0xFB and e == 0xC7
+    outcomes.append(f"39:4F58:{'taken' if c7 else 'fallthrough'}")
+    if c7:
+        helper_value = restriction_byte & 0x02
+        return {
+            "terminal": (
+                "c7_restriction_clear" if helper_value == 0
+                else "c7_restriction_set"
+            ),
+            "action": 6,
+            "mask": 0x02,
+            "helper_value": helper_value,
+            "branch_outcomes": outcomes,
+        }
+    return {
+        "terminal": "c8_restriction_clear" if c8 else "not_marker",
+        "action": 7 if c8 else None,
+        "mask": 0x04 if c8 else None,
+        "helper_value": 0,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_page39_marker_gate_paths() -> list[dict[str, object]]:
+    """Partition every D:E cell and effective action-6/7 restriction state."""
+
+    classes: dict[
+        tuple[str, int | None, int | None, tuple[str, ...]], dict[str, object]
+    ] = {}
+    for restriction_byte in (0x00, 0x02, 0x04, 0x06):
+        for d in range(0x100):
+            for e in range(0x100):
+                result = page39_marker_gate_path(d, e, restriction_byte)
+                key = (
+                    str(result["terminal"]),
+                    result["action"],
+                    result["mask"],
+                    tuple(str(item) for item in result["branch_outcomes"]),
+                )
+                row = classes.setdefault(key, {
+                    "projected_input_count": 0,
+                    "representative_states": [],
+                })
+                row["projected_input_count"] += 1
+                states = row["representative_states"]
+                if len(states) < 4:
+                    states.append({
+                        "d": d, "e": e,
+                        "restriction_byte": restriction_byte,
+                    })
+    return [
+        {
+            "terminal": terminal,
+            "action": action,
+            "mask": mask,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, action, mask, outcomes)],
+        }
+        for terminal, action, mask, outcomes in sorted(
+            classes,
+            key=lambda item: (
+                item[0], -1 if item[1] is None else item[1],
+                -1 if item[2] is None else item[2], item[3],
+            ),
+        )
+    ]
+
+
+def page39_row_retouch_path(cur_row: int, split_flags: int) -> dict[str, object]:
+    """Translate the effective row and sGrFlags domain at 39:4F62–4F99."""
+
+    if not 0 <= cur_row <= 0xFF:
+        raise ValueError("page-39 row-retouch row must be an unsigned byte")
+    if split_flags & ~0x0B:
+        raise ValueError("row-retouch split flags project bits 0, 1, and 3")
+    y = (0x3B - 8 * cur_row) & 0xFF
+    outcomes: list[str] = []
+    check_split_nonzero = not bool(split_flags & 0x08) and bool(split_flags & 1)
+    outcomes.append(
+        f"39:4F8B:{'taken' if check_split_nonzero else 'fallthrough'}"
+    )
+    if check_split_nonzero:
+        terminal = "horizontal_split_window"
+    else:
+        vertical_split = bool(split_flags & 0x02)
+        outcomes.append(
+            f"39:4F90:{'fallthrough' if vertical_split else 'returned'}"
+        )
+        terminal = (
+            "vertical_split_window" if vertical_split else "normal_window"
+        )
+    return {
+        "terminal": terminal,
+        "y": y,
+        "endpoints": [0x0B, y, 0x5E, y],
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_page39_row_retouch_paths() -> list[dict[str, object]]:
+    """Partition all rows and effective split-mode flag combinations."""
+
+    classes: dict[tuple[str, tuple[str, ...]], dict[str, object]] = {}
+    for cur_row in range(0x100):
+        for split_flags in (0x00, 0x01, 0x02, 0x03, 0x08, 0x09, 0x0A, 0x0B):
+            result = page39_row_retouch_path(cur_row, split_flags)
+            key = (
+                str(result["terminal"]),
+                tuple(str(item) for item in result["branch_outcomes"]),
+            )
+            row = classes.setdefault(key, {
+                "projected_input_count": 0,
+                "representative_states": [],
+            })
+            row["projected_input_count"] += 1
+            states = row["representative_states"]
+            if len(states) < 4:
+                states.append({"cur_row": cur_row, "split_flags": split_flags})
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
 def page39_cell_emission_path(
     d: int,
     e: int,
     draw_pass_active: int,
     draw_callback_nonzero: int,
     display_column_below_15: int,
-    marker_helper_nonzero: int,
+    restriction_byte: int,
 ) -> dict[str, object]:
     """Translate the complete outer controller at 39:4E8E–4F19."""
 
@@ -4918,7 +5077,8 @@ def page39_cell_emission_path(
     draw_pass_active = int(bool(draw_pass_active))
     draw_callback_nonzero = int(bool(draw_callback_nonzero))
     display_column_below_15 = int(bool(display_column_below_15))
-    marker_helper_nonzero = int(bool(marker_helper_nonzero))
+    if restriction_byte not in (0x00, 0x02, 0x04, 0x06):
+        raise ValueError("marker restriction byte must project bits 1 and 2")
     outcomes: list[str] = []
     actions: list[str] = []
 
@@ -4985,8 +5145,9 @@ def page39_cell_emission_path(
     if display_column_below_15:
         actions.append("erase_eol")
     actions.append("marker_gate")
-    marker = d == 0xFB and e in (0xC7, 0xC8)
-    marker_gate_nonzero = bool(marker and marker_helper_nonzero)
+    marker_gate_nonzero = page39_marker_gate_path(
+        d, e, restriction_byte,
+    )["helper_value"] != 0
     outcomes.append(
         f"39:4F15:{'fallthrough' if marker_gate_nonzero else 'returned'}"
     )
@@ -5008,7 +5169,7 @@ def symbolic_page39_cell_emission_paths() -> list[dict[str, object]]:
     for draw_pass_active in (0, 1):
         for draw_callback_nonzero in (0, 1):
             for display_column_below_15 in (0, 1):
-                for marker_helper_nonzero in (0, 1):
+                for restriction_byte in (0x00, 0x02, 0x04, 0x06):
                     for d in range(0x100):
                         for e in range(0x100):
                             result = page39_cell_emission_path(
@@ -5017,7 +5178,7 @@ def symbolic_page39_cell_emission_paths() -> list[dict[str, object]]:
                                 draw_pass_active,
                                 draw_callback_nonzero,
                                 display_column_below_15,
-                                marker_helper_nonzero,
+                                restriction_byte,
                             )
                             key = (
                                 str(result["terminal"]),
@@ -5037,7 +5198,7 @@ def symbolic_page39_cell_emission_paths() -> list[dict[str, object]]:
                                     "draw_pass_active": draw_pass_active,
                                     "draw_callback_nonzero": draw_callback_nonzero,
                                     "display_column_below_15": display_column_below_15,
-                                    "marker_helper_nonzero": marker_helper_nonzero,
+                                    "restriction_byte": restriction_byte,
                                 })
     return [
         {
@@ -5833,9 +5994,21 @@ def symbolic_model_corpus() -> dict[str, object]:
             symbolic_page39_named_token_prepass_paths(),
         ),
         (
+            "page39_marker_gate",
+            "39:4F44–4F61; 3D:7CBA–7DCC",
+            4 * 0x100**2,
+            symbolic_page39_marker_gate_paths(),
+        ),
+        (
+            "page39_row_retouch",
+            "39:4F62–4F99; 04:4025–40AC",
+            8 * 0x100,
+            symbolic_page39_row_retouch_paths(),
+        ),
+        (
             "page39_cell_emission",
             "39:4E8E–4F19",
-            16 * 0x100**2,
+            32 * 0x100**2,
             symbolic_page39_cell_emission_paths(),
         ),
         (
@@ -7523,19 +7696,48 @@ def build_report(
                     "lookup result"
                 ),
             },
+            "page39_marker_gate": {
+                "routine": "39:4F44–4F61; 3D:7CBA–7DCC",
+                "state": [
+                    "handler-cell D byte", "handler-cell E byte",
+                    "effective restriction-byte bits 1 and 2",
+                ],
+                "projected_input_domain": 4 * 0x100**2,
+                "terminal_classes": symbolic_page39_marker_gate_paths(),
+                "scope": (
+                    "complete local cell comparison and action-6/action-7 "
+                    "mask domain; the byte source at 3D:45D9 remains an "
+                    "explicit input"
+                ),
+            },
+            "page39_row_retouch": {
+                "routine": "39:4F62–4F99; 04:4025–40AC",
+                "state": [
+                    "display row", "sGrFlags bits 0, 1, and 3",
+                ],
+                "projected_input_domain": 8 * 0x100,
+                "terminal_classes": symbolic_page39_row_retouch_paths(),
+                "scope": (
+                    "complete row-coordinate and split-window branch domain; "
+                    "the separately translated _DarkLine body supplies the "
+                    "ordered point stream"
+                ),
+            },
             "page39_cell_emission": {
                 "routine": "39:4E8E–4F19",
                 "state": [
                     "handler-cell D byte", "handler-cell E byte",
                     "draw-pass flag", "draw callback nonzero result",
-                    "display column below 15", "marker helper nonzero result",
+                    "display column below 15",
+                    "effective restriction-byte bits 1 and 2",
                 ],
-                "projected_input_domain": 16 * 0x100**2,
+                "projected_input_domain": 32 * 0x100**2,
                 "terminal_classes": symbolic_page39_cell_emission_paths(),
                 "scope": (
                     "complete outer-controller branch domain; VAT prepass, "
-                    "installed callback, indexed-string, output bcall, and "
-                    "row-retouch bodies remain explicit boundaries"
+                    "installed callback, indexed-string, and output bcall "
+                    "bodies remain explicit boundaries; marker and retouch "
+                    "callees are modeled separately"
                 ),
             },
             "glyph_advance": {
