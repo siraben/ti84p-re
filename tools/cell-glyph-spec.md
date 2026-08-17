@@ -61,7 +61,17 @@ Dispatch on `D`:
    cell has no single-glyph mapping. `D = 0xFF` or `D = 0xFC` finishes, while
    `E = 0x55` takes a special path.
 
-The result is a layout action, a counted string, or a direct large-font glyph.
+These stages are sequential. In particular, a match at `39:6675` does not
+return from `39:4E8E`: the caller restores the original `D:E`, may emit the
+counted string, and still probes `39:4F1A`. The JavaScript translation models
+the complete outer controller through `39:4F19`. A pinned-byte oracle checks
+196,608 representative full-byte states, and the finite model partitions all
+1,048,576 projected flag/result states into 39 paths. The VAT-dependent prepass
+and output helpers remain explicit boundaries. [confirmed]
+
+The result can therefore be an ordered sequence of a layout prepass, a counted
+string, a direct large-font glyph, and post-output handling; it is not always a
+single mutually exclusive action. [confirmed]
 
 ---
 
