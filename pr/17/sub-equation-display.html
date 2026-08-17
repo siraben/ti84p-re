@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-92ad08b4.js";
+            window.path_to_searchindex_js = "searchindex-1c963da1.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -772,7 +772,7 @@ or any other byte stops it. The analyzer enumerates every accepted digit/letter
 prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
-<p>Schema 3 of the report retains one deterministic representative for every
+<p>Schema 4 of the report retains one deterministic representative for every
 complete path-equivalence class in 52 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
@@ -925,20 +925,20 @@ invocation paths, register or RAM states, dispatch indices, record cases, or LCD
 write cases. The all-evidence branch cover selects 20 traces and preserves
 1,012 outcomes in 4,424,233,548 bytes. The natural-only cover selects 21 traces
 and preserves 1,010 outcomes in 4,580,267,958 bytes.</p>
-<p>The tagged cover includes branch outcomes, complete observed paths, entry-state
-projections, dispatch values, record types, LCD-oracle types, and every
-independent oracle case. Its all-evidence universe has 1,607 tags and needs 208
-traces. The natural-only universe has 1,605 tags and needs 207 traces. Every
-independent oracle case creates an exclusive tag for at least one trace, so
-this larger minimum is expected. Both covers minimize trace count first,
-retained bytes second, and labels third. The retained byte totals are
-32,504,461,296 and 32,408,577,378, respectively. The broad set remains the RE
-and regression corpus; the public gallery uses a smaller, diverse selection.
+<p>The diversity cover adds complete observed paths, modeled path classes,
+dispatch indices, record types, and LCD-oracle types. It deliberately excludes
+individual oracle identities, neighboring editor-state labels, raw register
+values, and raw token values. Those values belong to regression fixtures rather
+than the mechanism-diversity objective. The all-evidence universe has 1,106
+tags and needs 26 traces. The natural-only universe has 1,104 tags and also
+needs 26 traces. The retained byte totals are 5,118,199,506 and 5,204,001,186,
+respectively. Both covers minimize trace count first, retained bytes second,
+and labels third. [confirmed]</p>
+<p>The diversity cover preserves only mechanisms represented by its tags. It does
+not turn unobserved RAM into an observed state or prove that the traces reach
+every symbolic valuation. The separate exhaustive models state their
+preconditions; the dynamic cover states what the retained traces exercise.
 [confirmed]</p>
-<p>The tagged cover preserves only states represented by its tags. It does not
-turn unobserved RAM into an observed state or prove that the traces reach every
-symbolic valuation. The separate exhaustive models state their preconditions;
-the dynamic cover states what the retained traces actually exercise. [confirmed]</p>
 <p>The 20-trace all-evidence branch cover retains the nested derivative, complete
 root-level structural-navigation, depth-two fraction <strong>LEFT</strong>, mixed
 radical/fraction traversal, integral, and <strong>Y=</strong>/table runs below. Other selected
