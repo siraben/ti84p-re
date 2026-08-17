@@ -385,7 +385,9 @@ TRANSLATION_SURFACES = (
         "rom": [
             "01:6297", "01:6360–6445", "01:6702", "39:4F1A–4F43",
             "04:4025–4315",
-            "04:42B5–42E3", "04:431D–43C7", "07:44DE–4538",
+            "01:6D10–6DBC", "04:42B5–42E3", "04:431D–43C7",
+            "39:6B62–6B9F",
+            "07:44DE–4538",
             "07:4588–4605",
         ],
         "javascript": [
@@ -400,6 +402,9 @@ TRANSLATION_SURFACES = (
             "settledPage1MathPrintGlyphPlan",
             "settledPage39DirectGlyphSelection",
             "settledPage7DisplayByteRemap",
+            "settledPage7SOKForKeyToString",
+            "settledPage1KeyToStringSelection",
+            "settledPage39CellStringSelection",
             "settledPage7LargeGlyphRecord", "settledOperationPixels",
             "settledBlits", "settledOperationWrites",
         ],
@@ -412,6 +417,9 @@ TRANSLATION_SURFACES = (
             "including the complete glyph row-window transition; "
             "the complete page-39 direct cell-to-large-glyph byte domain; "
             "the complete page-7 display-byte remapper input domain; "
+            "the complete hook-disabled page-1 _KeyToString D:E domain and "
+            "its caller-valid page-7 _sOK prefix domain; "
+            "both page-39 inline-string entry modes over every D:E cell; "
             "the complete page-1 glyph-pointer selector byte domain; "
             "small-font byte-boundary selection, row alignment, ordinary and "
             "inverse byte composition, crossing-byte write order, and the "
@@ -4499,6 +4507,285 @@ def symbolic_display_byte_remap_paths() -> list[dict[str, object]]:
     ]
 
 
+def key_to_string_sok_path(lead: int, index: int) -> dict[str, object]:
+    """Translate _sOK at 07:44FE for _KeyToString's four caller prefixes."""
+
+    if lead not in (0xFB, 0xFC, 0xFE, 0xFF):
+        raise ValueError("_sOK KeyToString lead must be FB, FC, FE, or FF")
+    if not 0 <= index <= 0xFF:
+        raise ValueError("_sOK KeyToString index must be an unsigned byte")
+    outcomes: list[str] = []
+    h_one = lead in (0xFE, 0xFF)
+    outcomes.append(f"07:44FF:{'taken' if h_one else 'fallthrough'}")
+    if h_one:
+        high = index >= 0x69
+        outcomes.append(f"07:4523:{'taken' if high else 'fallthrough'}")
+        terminal = "fe_high_pair" if high else "fe_low_byte"
+    else:
+        fc = lead == 0xFC
+        outcomes.append(f"07:4504:{'taken' if fc else 'fallthrough'}")
+        if fc:
+            terminal = "fc_pair"
+        else:
+            low = index < 0x8C
+            outcomes.append(f"07:450D:{'taken' if low else 'fallthrough'}")
+            terminal = "fb_pair_low" if low else "fb_pair_folded"
+    return {"terminal": terminal, "branch_outcomes": outcomes}
+
+
+def symbolic_key_to_string_sok_paths() -> list[dict[str, object]]:
+    """Partition all 1,024 caller-valid _sOK lead/index states."""
+
+    classes: dict[tuple[str, tuple[str, ...]], dict[str, object]] = {}
+    for lead in (0xFB, 0xFC, 0xFE, 0xFF):
+        for index in range(0x100):
+            result = key_to_string_sok_path(lead, index)
+            key = (
+                str(result["terminal"]),
+                tuple(str(item) for item in result["branch_outcomes"]),
+            )
+            row = classes.setdefault(key, {
+                "projected_input_count": 0,
+                "representative_states": [],
+            })
+            row["projected_input_count"] += 1
+            states = row["representative_states"]
+            if len(states) < 4:
+                states.append({"lead": lead, "index": index})
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
+KEY_TO_STRING_HIGH_SPECIALS = (
+    0x5B, 0x6D, 0x75, 0x76, 0x79, 0x78, 0x77,
+    0x7B, 0x7A, 0x7C, 0x7D, 0x7E, 0x69,
+)
+
+
+def key_to_string_path(d: int, e: int) -> dict[str, object]:
+    """Translate _KeyToString's normal, hook-disabled 01:6D10 main entry."""
+
+    if not 0 <= d <= 0xFF or not 0 <= e <= 0xFF:
+        raise ValueError("_KeyToString inputs must be unsigned bytes")
+    outcomes: list[str] = []
+    ff = d == 0xFF
+    outcomes.append(f"01:6D13:{'taken' if ff else 'fallthrough'}")
+    if ff:
+        outcomes.append("01:6D27:taken")
+        return {"terminal": "sok_fe_or_ff", "branch_outcomes": outcomes}
+    fb = d == 0xFB
+    outcomes.append(f"01:6D17:{'taken' if fb else 'fallthrough'}")
+    if fb:
+        return {"terminal": "sok_fb", "branch_outcomes": outcomes}
+    fc = d == 0xFC
+    outcomes.append(f"01:6D1B:{'fallthrough' if fc else 'taken'}")
+    if fc:
+        return {"terminal": "sok_fc", "branch_outcomes": outcomes}
+    fe = d == 0xFE
+    outcomes.append(f"01:6D27:{'taken' if fe else 'fallthrough'}")
+    if fe:
+        return {"terminal": "sok_fe_or_ff", "branch_outcomes": outcomes}
+
+    low_control = e < 0x5A
+    outcomes.append(f"01:6D2B:{'taken' if low_control else 'fallthrough'}")
+    if not low_control:
+        special_index = None
+        for index, value in enumerate(KEY_TO_STRING_HIGH_SPECIALS):
+            match = e == value
+            outcomes.append(f"01:6DC5:{'taken' if match else 'fallthrough'}")
+            if match:
+                outcomes.extend(("01:6DD2:taken", "01:6D30:taken"))
+                special_index = index
+                break
+            outcomes.append(
+                f"01:6DCA:{'taken' if index + 1 < len(KEY_TO_STRING_HIGH_SPECIALS) else 'fallthrough'}"
+            )
+        if special_index is not None:
+            return {
+                "terminal": "high_byte_special",
+                "special_index": special_index,
+                "branch_outcomes": outcomes,
+            }
+        outcomes.append("01:6D30:fallthrough")
+        return {"terminal": "display_byte_remap", "branch_outcomes": outcomes}
+
+    e1f = e == 0x1F
+    outcomes.append(f"01:6D43:{'taken' if e1f else 'fallthrough'}")
+    if e1f:
+        index = (0x50 + d) & 0xFF
+        source = "E=1F"
+    else:
+        below_40 = e < 0x40
+        outcomes.append(f"01:6D47:{'taken' if below_40 else 'fallthrough'}")
+        if below_40:
+            index = (e - 0x10) & 0xFF
+            source = "ordinary_E_minus_10"
+        else:
+            e59 = e == 0x59
+            outcomes.append(f"01:6D4B:{'taken' if e59 else 'fallthrough'}")
+            if e59:
+                outcomes.append("01:6D69:fallthrough")
+                index = (0x61 + d) & 0xFF
+                source = "E=59"
+            else:
+                not_40 = e != 0x40
+                outcomes.append(
+                    f"01:6D50:{'taken' if not_40 else 'fallthrough'}"
+                )
+                if not not_40:
+                    special_1040 = d == 0x10
+                    outcomes.append(
+                        f"01:6D56:{'fallthrough' if special_1040 else 'taken'}"
+                    )
+                    if special_1040:
+                        outcomes.append("01:6D61:fallthrough")
+                        return {
+                            "terminal": "special_10_40",
+                            "branch_outcomes": outcomes,
+                        }
+                e55 = e == 0x55
+                outcomes.append(f"01:6D76:{'taken' if e55 else 'fallthrough'}")
+                if e55:
+                    index = (e + d - 0x2B) & 0xFF
+                    source = "E=55"
+                else:
+                    e4c = e == 0x4C
+                    outcomes.append(
+                        f"01:6D7A:{'fallthrough' if e4c else 'taken'}"
+                    )
+                    if e4c:
+                        index = (0x5F + d) & 0xFF
+                        source = "E=4C"
+                    else:
+                        e56 = e == 0x56
+                        outcomes.append(
+                            f"01:6D87:{'taken' if e56 else 'fallthrough'}"
+                        )
+                        if e56:
+                            index = (e + 0x16 + d - 0x2B) & 0xFF
+                            source = "E=56"
+                        else:
+                            not_42 = e != 0x42
+                            outcomes.append(
+                                f"01:6D8B:{'taken' if not_42 else 'fallthrough'}"
+                            )
+                            index = (
+                                e - 0x2B if not_42
+                                else e + 0x16 + d - 0x2B
+                            ) & 0xFF
+                            source = "ordinary_high" if not_42 else "E=42"
+
+    semantic_index = index < 0x65
+    outcomes.append(
+        f"01:6D98:{'taken' if semantic_index else 'fallthrough'}"
+    )
+    if not semantic_index:
+        index = 0x13
+    outcomes.append("01:6DA8:taken")
+    return {
+        "terminal": "pointer_table",
+        "index": index,
+        "index_source": source,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_key_to_string_paths() -> list[dict[str, object]]:
+    """Partition every D:E pair by _KeyToString's normal main-entry path."""
+
+    classes: dict[tuple[str, tuple[str, ...]], dict[str, object]] = {}
+    for d in range(0x100):
+        for e in range(0x100):
+            result = key_to_string_path(d, e)
+            key = (
+                str(result["terminal"]),
+                tuple(str(item) for item in result["branch_outcomes"]),
+            )
+            row = classes.setdefault(key, {
+                "projected_input_count": 0,
+                "representative_states": [],
+            })
+            row["projected_input_count"] += 1
+            states = row["representative_states"]
+            if len(states) < 4:
+                states.append({"d": d, "e": e})
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
+def page39_cell_string_path(d: int, e: int, h_bit_0: int) -> dict[str, object]:
+    """Translate the local inline-string selector at 39:6B62–6B9F."""
+
+    if not 0 <= d <= 0xFF or not 0 <= e <= 0xFF:
+        raise ValueError("page-39 cell-string inputs must be unsigned bytes")
+    h_bit_0 = int(bool(h_bit_0))
+    outcomes: list[str] = []
+    fb = d == 0xFB
+    outcomes.append(f"39:6B6B:{'fallthrough' if fb else 'taken'}")
+    if not fb:
+        return {"terminal": "key_to_string", "branch_outcomes": outcomes}
+    outcomes.append(f"39:6B70:{'fallthrough' if h_bit_0 else 'taken'}")
+    candidates = [
+        (0xCA, 0x6B7E, "inline_ca"),
+        (0xCB, 0x6B85, "inline_cb"),
+        (0xD6, 0x6B8C, "inline_d6"),
+        (0xD8, 0x6B93, "inline_d8"),
+        (0xD7, 0x6B9A, "inline_d7"),
+    ]
+    if h_bit_0:
+        candidates.insert(0, (0xC8, 0x6B77, "inline_c8"))
+    for value, address, terminal in candidates:
+        match = e == value
+        outcomes.append(
+            f"39:{address:04X}:{'taken' if match else 'fallthrough'}"
+        )
+        if match:
+            return {"terminal": terminal, "branch_outcomes": outcomes}
+    return {"terminal": "key_to_string", "branch_outcomes": outcomes}
+
+
+def symbolic_page39_cell_string_paths() -> list[dict[str, object]]:
+    """Partition both H-bit entries and every D:E cell pair."""
+
+    classes: dict[tuple[str, tuple[str, ...]], dict[str, object]] = {}
+    for h_bit_0 in (0, 1):
+        for d in range(0x100):
+            for e in range(0x100):
+                result = page39_cell_string_path(d, e, h_bit_0)
+                key = (
+                    str(result["terminal"]),
+                    tuple(str(item) for item in result["branch_outcomes"]),
+                )
+                row = classes.setdefault(key, {
+                    "projected_input_count": 0,
+                    "representative_states": [],
+                })
+                row["projected_input_count"] += 1
+                states = row["representative_states"]
+                if len(states) < 4:
+                    states.append({"h_bit_0": h_bit_0, "d": d, "e": e})
+    return [
+        {
+            "terminal": terminal,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, outcomes)],
+        }
+        for terminal, outcomes in sorted(classes)
+    ]
+
+
 def glyph_advance_path(
     code: int,
     record_width: int,
@@ -5256,6 +5543,24 @@ def symbolic_model_corpus() -> dict[str, object]:
             "07:44DE–4538",
             0x100**2,
             symbolic_display_byte_remap_paths(),
+        ),
+        (
+            "key_to_string_sok",
+            "07:44FE–4538",
+            4 * 0x100,
+            symbolic_key_to_string_sok_paths(),
+        ),
+        (
+            "key_to_string_selection",
+            "01:6D10–6DBC",
+            0x100**2,
+            symbolic_key_to_string_paths(),
+        ),
+        (
+            "page39_cell_string_selection",
+            "39:6B62–6B9F",
+            2 * 0x100**2,
+            symbolic_page39_cell_string_paths(),
         ),
         (
             "glyph_advance",
@@ -6896,6 +7201,36 @@ def build_report(
                 "scope": (
                     "complete main-entry byte domain, including wrapped "
                     "ordinary indices and both FB index regions"
+                ),
+            },
+            "key_to_string_sok": {
+                "routine": "07:44FE–4538",
+                "state": ["_KeyToString prefix byte", "cell index byte"],
+                "projected_input_domain": 4 * 0x100,
+                "terminal_classes": symbolic_key_to_string_sok_paths(),
+                "scope": (
+                    "complete caller-valid FB, FC, FE, and FF prefix domain; "
+                    "other raw H/A/E entry states remain outside this ABI"
+                ),
+            },
+            "key_to_string_selection": {
+                "routine": "01:6D10–6DBC",
+                "state": ["handler-cell D byte", "handler-cell E byte"],
+                "projected_input_domain": 0x100**2,
+                "terminal_classes": symbolic_key_to_string_paths(),
+                "scope": (
+                    "complete normal-ROM D:E selector domain with font and "
+                    "token hooks disabled; hook bodies remain external"
+                ),
+            },
+            "page39_cell_string_selection": {
+                "routine": "39:6B62–6B9F",
+                "state": ["H bit 0", "handler-cell D byte", "handler-cell E byte"],
+                "projected_input_domain": 2 * 0x100**2,
+                "terminal_classes": symbolic_page39_cell_string_paths(),
+                "scope": (
+                    "complete local inline-string dispatch domain; fallback "
+                    "continues into the separately modeled _KeyToString body"
                 ),
             },
             "glyph_advance": {

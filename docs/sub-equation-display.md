@@ -462,6 +462,15 @@ main entry. A pinned-byte interpreter compares all 65,536 combinations of
 display byte and `keyExtend`; they reduce to seven paths and 12 branch outcomes.
 The separate public entry at `07:44FE` is outside this main-entry domain. [confirmed]
 
+`_KeyToString` at `01:6D10` uses that public entry for `FB`, `FC`, `FE`, and
+`FF` cells, scans 13 high-byte special strings, or selects one of 101 counted
+strings through the pointer table at `01:6E05`. The JavaScript translation
+compares all 65,536 `D:E` pairs with a pinned-byte interpreter. A second
+comparison covers all 1,024 prefix/index states admitted by the `_KeyToString`
+caller at `07:44FE`. Together they resolve all 418 unique key-string cells in
+the decoded handler records and descriptors. Installed font and token hook
+bodies remain explicit external boundaries. [confirmed]
+
 The page-7 large-font service copies fixed glyph rows. It does not measure a radicand or
 stretch a glyph by itself. [confirmed]
 
@@ -606,7 +615,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 45 finite models. It also computes an
+complete path-equivalence class in 48 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -631,6 +640,9 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | Token-hook dispatch | 1,048,576 | 9 | 10 | 5 |
 | Direct cell-to-large-glyph selection | 65,536 | 9 | 16 | 9 |
 | Display-byte remapper | 65,536 | 7 | 12 | 7 |
+| `_KeyToString` `_sOK` prefix | 1,024 | 5 | 8 | 5 |
+| `_KeyToString` selector | 65,536 | 35 | 40 | 14 |
+| Page-39 cell-string selector | 131,072 | 14 | 16 | 8 |
 | Glyph advance and delimiter padding | 131,072 | 6 | 10 | 4 |
 | `_VPutMap` byte-boundary gate | 56 | 2 | 2 | 2 |
 | MathPrint `_VPutMap` right-edge gate | 3,584 | 4 | 6 | 2 |
@@ -659,8 +671,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 | FindAlpha OP scratch transition | 33,554,432 | 2 | 5 | 2 |
 
-The 45 models contain 3,370 path classes and 481 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 228 representatives. Each
+The 48 models contain 3,424 path classes and 541 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 255 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -3171,9 +3183,9 @@ word removes the final two-pixel difference from the reset-origin screenshot.
 The class table, decoded handler records, selected descriptors, and page-7
 display-byte tables are extracted to `web/mathprint/layout.json` by
 `tools/export-layout.py`;
-the fonts to `web/mathprint/font.json` by `tools/export-font.py`; and the
-single- and two-byte token spellings to
-`web/mathprint/token-strings.json` by `tools/export-token-strings.py`. The font
+the fonts to `web/mathprint/font.json` by `tools/export-font.py`; and the token,
+`_KeyToString`, and inline cell strings to `web/mathprint/token-strings.json`
+by `tools/export-token-strings.py`. The font
 data appears on the interactive
 renderer's font-table tab. `tools/interp-cells.js` and the browser share the executable
 translations in `web/mathprint/rom-engine.js`. The translated routines consume

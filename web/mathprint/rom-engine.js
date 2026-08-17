@@ -50,10 +50,28 @@
   function setSettledTokenStrings(input) {
     const table = input && input.singleByte;
     const twoByte = input && input.twoByte;
-    if (!table || table.page !== 0x01 || table.pointerTableAddress !== 0x4252 ||
+    const keyStrings = input && input.keyToString;
+    const inlineStrings = input && input.mathPrintInlineStrings;
+    if (!input || input.schema !== 3 ||
+        !table || table.page !== 0x01 || table.pointerTableAddress !== 0x4252 ||
         !Array.isArray(table.entries) || table.entries.length !== 0x100 ||
         !twoByte || twoByte.page !== 0x01 || !Array.isArray(twoByte.leadBytes) ||
-        !twoByte.tables || twoByte.bbClampIndex !== 0xf6)
+        !twoByte.tables || twoByte.bbClampIndex !== 0xf6 ||
+        !keyStrings || keyStrings.page !== 0x01 ||
+        keyStrings.routine !== '01:6D10–6DBC' ||
+        keyStrings.pointerTableAddress !== 0x6e05 ||
+        !Array.isArray(keyStrings.pointerWords) ||
+        keyStrings.pointerWords.length !== 0x65 ||
+        !Array.isArray(keyStrings.semanticEntries) ||
+        keyStrings.semanticEntries.length !== 0x65 ||
+        keyStrings.highByteSpecialTableAddress !== 0x6dde ||
+        !Array.isArray(keyStrings.highByteSpecials) ||
+        keyStrings.highByteSpecials.length !== 0x0d ||
+        !keyStrings.special1040 ||
+        !inlineStrings || inlineStrings.page !== 0x39 ||
+        inlineStrings.routine !== '39:6B62–6BA8' ||
+        !Array.isArray(inlineStrings.entries) ||
+        inlineStrings.entries.length !== 6)
       throw new TypeError('expected the decoded 01:6702 token-string artifact');
     const decodeEntries = (rawEntries, label) => rawEntries.map((entry, token) => {
       if (!entry || !Number.isInteger(entry.pointer) ||
@@ -76,12 +94,54 @@
         throw new TypeError(`two-byte token table ${name} is invalid`);
       tables[name] = decodeEntries(decoded.entries, `two-byte table ${name}`);
     }
+    const decodeCounted = (entry, label) => {
+      if (!entry || !Number.isInteger(entry.pointer) ||
+          entry.pointer < 0x4000 || entry.pointer >= 0x8000 ||
+          !Array.isArray(entry.codes) || entry.codes.length > 0x10)
+        throw new TypeError(`${label} is invalid`);
+      return {
+        pointer:entry.pointer,
+        codes:entry.codes.map((code, index) =>
+          byte(code, `${label} display code ${index}`)),
+      };
+    };
+    const pointerWords = keyStrings.pointerWords.map((pointer, index) =>
+      unsignedWord(pointer, `_KeyToString pointer word ${index}`));
+    const semanticEntries = keyStrings.semanticEntries.map((entry, index) => {
+      const decoded = decodeCounted(entry, `_KeyToString index 0x${index.toString(16)}`);
+      if (decoded.pointer !== pointerWords[index])
+        throw new TypeError(`_KeyToString index 0x${index.toString(16)} pointer disagrees`);
+      return decoded;
+    });
+    const highByteSpecials = keyStrings.highByteSpecials.map((entry, index) => ({
+      value:byte(entry.value, `_KeyToString special ${index} value`),
+      ...decodeCounted(entry, `_KeyToString special ${index}`),
+    }));
+    if (new Set(highByteSpecials.map(entry => entry.value)).size !== 0x0d)
+      throw new TypeError('_KeyToString high-byte special values repeat');
+    const special1040 = decodeCounted(
+      keyStrings.special1040, '_KeyToString 10:40 literal');
+    const mathPrintInlineStrings = inlineStrings.entries.map((entry, index) => {
+      if (!Array.isArray(entry.cell) || entry.cell.length !== 2 ||
+          typeof entry.requiresHBit0 !== 'boolean')
+        throw new TypeError(`MathPrint inline string ${index} is invalid`);
+      return {
+        cell:entry.cell.map((value, part) =>
+          byte(value, `MathPrint inline string ${index} cell ${part}`)),
+        requiresHBit0:entry.requiresHBit0,
+        ...decodeCounted(entry, `MathPrint inline string ${index}`),
+      };
+    });
     SETTLED_TOKEN_STRINGS = {
       entries,
       tables,
       bbClampIndex:twoByte.bbClampIndex,
       twoByteLeadBytes:new Set(twoByte.leadBytes.map((lead, index) =>
         byte(lead, `two-byte token lead ${index}`))),
+      keyToString:{
+        pointerWords,semanticEntries,highByteSpecials,special1040,
+      },
+      mathPrintInlineStrings,
     };
   }
 
@@ -1340,6 +1400,37 @@
       artifact.ordinary.address + index,index);
   }
 
+  // _KeyToString enters the public _sOK service at 07:44FE with H=2 for FB
+  // and FC cells, or H=1 for FE and FF cells. Those caller states select the
+  // same immutable tables as 07:44DE, but execute a different branch prefix.
+  // Keep its actual conditional sites while sharing the table-result oracle.
+  function settledPage7SOKForKeyToString(
+      leadValue, indexValue, artifactValue) {
+    const lead = byte(leadValue, '_sOK KeyToString lead');
+    const index = byte(indexValue, '_sOK KeyToString index');
+    if (![0xfb,0xfc,0xfe,0xff].includes(lead))
+      throw new RangeError('_sOK KeyToString lead must be FB, FC, FE, or FF');
+    const canonicalLead = lead === 0xff ? 0xfe : lead;
+    const mapped = settledPage7DisplayByteRemap(
+      canonicalLead,index,artifactValue);
+    const branchOutcomes = [];
+    const branch = (address, outcome) => branchOutcomes.push(
+      `07:${address.toString(16).toUpperCase()}:${outcome}`);
+    const hOne = lead === 0xfe || lead === 0xff;
+    branch(0x44ff,hOne ? 'taken' : 'fallthrough');
+    if (hOne) {
+      branch(0x4523,index >= 0x69 ? 'taken' : 'fallthrough');
+    } else {
+      const fc = lead === 0xfc;
+      branch(0x4504,fc ? 'taken' : 'fallthrough');
+      if (!fc) branch(0x450d,index < 0x8c ? 'taken' : 'fallthrough');
+    }
+    return {
+      ...mapped,inputLead:lead,displayByte:canonicalLead,
+      branchOutcomes,routine:'07:44FE–4538 (_KeyToString ABI)',
+    };
+  }
+
   // 39:4F1A–4F43 maps three D:E cell families to large-font codes. Preserve
   // the accumulator, carry flag, and complete conditional path because the
   // caller distinguishes a mapped glyph from the carry-set fallback.
@@ -1424,28 +1515,284 @@
     return null;
   }
 
-  // The non-prefix index arithmetic in _KeyToString at 01:6D10. A null index
-  // is an explicit prefix/control branch whose remaining interpreter is open.
+  // The non-prefix index arithmetic in _KeyToString at 01:6D10. Retain this
+  // result-only helper for inspectors; the complete selector below resolves
+  // its prefix, high-byte, literal, table, and hook-boundary paths.
   function keyToStringIndex(d, e) {
     byte(d, 'cell D');
     byte(e, 'cell E');
     if ([0xff, 0xfe, 0xfc, 0xfb].includes(d))
       return { index: null, branch: 'prefix dispatch' };
     if (e >= 0x5a) return { index: null, branch: 'control dispatch' };
-    if (e === 0x1f) return { index: (0x50 + d) & 0xff, branch: 'E=1F' };
+    const clamp = value => value < 0x65 ? value : 0x13;
+    if (e === 0x1f) return {
+      index:clamp((0x50 + d) & 0xff),branch:'E=1F',
+    };
     if (e >= 0x40) {
-      if (e === 0x59) return { index: (0x61 + d) & 0xff, branch: 'E=59' };
+      if (e === 0x59) return {
+        index:clamp((0x61 + d) & 0xff),branch:'E=59',
+      };
       if (e === 0x40 && d === 0x10)
         return { index: null, branch: 'special literal at 01:6F4D' };
-      if (e === 0x4c) return { index: (0x5f + d) & 0xff, branch: 'E=4C' };
+      if (e === 0x4c) return {
+        index:clamp((0x5f + d) & 0xff),branch:'E=4C',
+      };
       const adjusted = e === 0x56 || e === 0x42
         ? (e + 0x16 + d - 0x1b - 0x10) & 0xff
         : (e - 0x1b - 0x10) & 0xff;
-      return { index: adjusted <= 0x64 ? adjusted : 0x13,
+      return { index: clamp(adjusted),
                branch: e === 0x56 || e === 0x42 ? 'E=56/42 adjusted' : 'E>=40 adjusted' };
     }
     const adjusted = (e - 0x10) & 0xff;
-    return { index: adjusted <= 0x64 ? adjusted : 0x13, branch: 'ordinary E-10' };
+    return { index: clamp(adjusted), branch: 'ordinary E-10' };
+  }
+
+  // _KeyToString at 01:6D10 converts a page-39 D:E display cell to one
+  // counted display-code string. The normal OS path has both hook bits clear;
+  // callers that enable either hook stop at an explicit external boundary.
+  // The clamp at 01:6D96 limits every main-entry path to the 101 pointer
+  // words at indices 00h..64h, all of which are decoded as strings.
+  function settledPage1KeyToStringSelection(
+      layoutValue, dValue, eValue, options = {}) {
+    const layout = requireLayout(layoutValue);
+    const d = byte(dValue, '_KeyToString D byte');
+    const e = byte(eValue, '_KeyToString E byte');
+    if (!SETTLED_TOKEN_STRINGS)
+      throw new TypeError('decoded token-string artifact is not installed');
+    if (!options || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('_KeyToString options must be an object');
+    const fontHookActive = options.fontHookActive === undefined
+      ? false : boolean(options.fontHookActive, '_KeyToString font hook flag');
+    const tokenHookActive = options.tokenHookActive === undefined
+      ? false : boolean(options.tokenHookActive, '_KeyToString token hook flag');
+    const keyExtend = options.keyExtend === undefined
+      ? null : byte(options.keyExtend, '_KeyToString keyExtend byte');
+    const keyStrings = SETTLED_TOKEN_STRINGS.keyToString;
+    const branchOutcomes = [];
+    const branch = (address, outcome) => branchOutcomes.push(
+      `01:${address.toString(16).toUpperCase()}:${outcome}`);
+    const boundary = (source, extra = {}) => ({
+      d,e,source,resolved:false,codes:null,
+      branchOutcomes:[...branchOutcomes],
+      routine:'01:6D10–6DBC',...extra,
+    });
+    const direct = (source, entry, extra = {}) => ({
+      d,e,source,resolved:true,pointer:entry.pointer,
+      codes:entry.codes.slice(),branchOutcomes:[...branchOutcomes],
+      routine:'01:6D10–6DBC',...extra,
+    });
+    const tokenString = (source, remapped, extra = {}) => {
+      const glyphPointer = settledPage1GlyphPointerSelection(
+        remapped.d,remapped.e);
+      branchOutcomes.push(...glyphPointer.branchOutcomes);
+      if (tokenHookActive) return boundary('external-token-hook', {
+        remapped,glyphPointer,...extra,
+      });
+      const entry = glyphPointer.table === 'single'
+        ? SETTLED_TOKEN_STRINGS.entries[glyphPointer.index]
+        : SETTLED_TOKEN_STRINGS.tables[glyphPointer.table]?.[glyphPointer.index];
+      if (!entry) return boundary('unresolved-token-pointer', {
+        remapped,glyphPointer,...extra,
+      });
+      return direct(source, {
+        pointer:(entry.pointer + 1) & 0xffff,
+        codes:entry.codes,
+      }, {remapped,glyphPointer,...extra});
+    };
+
+    const ff = d === 0xff;
+    branch(0x6d13,ff ? 'taken' : 'fallthrough');
+    if (ff) {
+      branch(0x6d27,'taken');
+      const remapped = settledPage7SOKForKeyToString(
+        d,e,layout.displayByteMap);
+      branchOutcomes.push(...remapped.branchOutcomes);
+      return tokenString('prefix-token-table',remapped);
+    }
+
+    const fb = d === 0xfb;
+    branch(0x6d17,fb ? 'taken' : 'fallthrough');
+    if (fb) {
+      const remapped = settledPage7SOKForKeyToString(
+        d,e,layout.displayByteMap);
+      branchOutcomes.push(...remapped.branchOutcomes);
+      return tokenString('prefix-token-table',remapped);
+    }
+
+    const fc = d === 0xfc;
+    branch(0x6d1b,fc ? 'fallthrough' : 'taken');
+    if (fc) {
+      const remapped = settledPage7SOKForKeyToString(
+        d,e,layout.displayByteMap);
+      branchOutcomes.push(...remapped.branchOutcomes);
+      return tokenString('prefix-token-table',remapped);
+    }
+
+    const fe = d === 0xfe;
+    branch(0x6d27,fe ? 'taken' : 'fallthrough');
+    if (fe) {
+      const remapped = settledPage7SOKForKeyToString(
+        d,e,layout.displayByteMap);
+      branchOutcomes.push(...remapped.branchOutcomes);
+      return tokenString('prefix-token-table',remapped);
+    }
+
+    const lowControl = e < 0x5a;
+    branch(0x6d2b,lowControl ? 'taken' : 'fallthrough');
+    if (!lowControl) {
+      let special = null;
+      for (let index = 0; index < keyStrings.highByteSpecials.length; index++) {
+        const candidate = keyStrings.highByteSpecials[index];
+        const match = e === candidate.value;
+        branch(0x6dc5,match ? 'taken' : 'fallthrough');
+        if (match) {
+          branch(0x6dd2,fontHookActive ? 'fallthrough' : 'taken');
+          if (fontHookActive) return boundary('external-font-hook', {
+            hookCommand:0x0a,hookArgument:e,specialIndex:index,
+          });
+          special = {candidate,index};
+          break;
+        }
+        branch(0x6dca,index + 1 < keyStrings.highByteSpecials.length
+          ? 'taken' : 'fallthrough');
+      }
+      branch(0x6d30,special ? 'taken' : 'fallthrough');
+      if (special) return direct(
+        'high-byte-special',special.candidate,
+        {specialIndex:special.index,specialValue:e});
+      if ([0xfb,0xfc,0xfe].includes(e) && keyExtend === null)
+        return boundary('display-byte-remap-boundary', {
+          missing:'keyExtend for FB/FC/FE display byte',displayByte:e,
+        });
+      const remapped = settledPage7DisplayByteRemap(
+        e,keyExtend === null ? 0 : keyExtend,layout.displayByteMap);
+      branchOutcomes.push(...remapped.branchOutcomes);
+      return tokenString('display-byte-token-table',remapped);
+    }
+
+    const e1f = e === 0x1f;
+    branch(0x6d43,e1f ? 'taken' : 'fallthrough');
+    let index;
+    let indexSource;
+    if (e1f) {
+      index = 0x50 + d & 0xff;
+      indexSource = 'E=1F';
+    } else {
+      const below40 = e < 0x40;
+      branch(0x6d47,below40 ? 'taken' : 'fallthrough');
+      if (below40) {
+        index = e - 0x10 & 0xff;
+        indexSource = 'ordinary E-10';
+      } else {
+        const e59 = e === 0x59;
+        branch(0x6d4b,e59 ? 'taken' : 'fallthrough');
+        if (e59) {
+          branch(0x6d69,'fallthrough');
+          index = 0x61 + d & 0xff;
+          indexSource = 'E=59';
+        } else {
+          const not40 = e !== 0x40;
+          branch(0x6d50,not40 ? 'taken' : 'fallthrough');
+          if (!not40) {
+            const special1040 = d === 0x10;
+            branch(0x6d56,special1040 ? 'fallthrough' : 'taken');
+            if (special1040) {
+              branch(0x6d61,fontHookActive ? 'taken' : 'fallthrough');
+              if (fontHookActive) return boundary('external-font-hook', {
+                hookCommand:0x08,hookArgument:e,
+              });
+              return direct('special-10:40',keyStrings.special1040);
+            }
+          }
+          const e55 = e === 0x55;
+          branch(0x6d76,e55 ? 'taken' : 'fallthrough');
+          if (e55) {
+            index = e + d - 0x2b & 0xff;
+            indexSource = 'E=55 adjusted';
+          } else if (e === 0x4c) {
+            branch(0x6d7a,'fallthrough');
+            index = 0x5f + d & 0xff;
+            indexSource = 'E=4C';
+          } else {
+            branch(0x6d7a,'taken');
+            if (e === 0x56) {
+              branch(0x6d87,'taken');
+              index = e + 0x16 + d - 0x2b & 0xff;
+              indexSource = 'E=56 adjusted';
+            } else {
+              branch(0x6d87,'fallthrough');
+              const not42 = e !== 0x42;
+              branch(0x6d8b,not42 ? 'taken' : 'fallthrough');
+              index = not42
+                ? e - 0x2b & 0xff
+                : e + 0x16 + d - 0x2b & 0xff;
+              indexSource = not42 ? 'E>=40 adjusted' : 'E=42 adjusted';
+            }
+          }
+        }
+      }
+    }
+
+    const semanticIndex = index < 0x65;
+    branch(0x6d98,semanticIndex ? 'taken' : 'fallthrough');
+    if (!semanticIndex) index = 0x13;
+    branch(0x6da8,fontHookActive ? 'fallthrough' : 'taken');
+    if (fontHookActive) return boundary('external-font-hook', {
+      hookCommand:0x09,hookArgument:index,index,indexSource,
+    });
+    const pointer = keyStrings.pointerWords[index];
+    const entry = keyStrings.semanticEntries[index];
+    if (!entry) return boundary('unresolved-key-string-pointer', {
+      index,indexSource,pointer,
+    });
+    return direct('key-string-pointer-table',entry,{index,indexSource});
+  }
+
+  // 39:6B62 and 39:6B66 differ only in H bit 0. The set-bit entry admits the
+  // conditional FBC8 string; both entries recognize the other five inline
+  // strings before delegating to _KeyToString.
+  function settledPage39CellStringSelection(
+      layoutValue, dValue, eValue, options = {}) {
+    const layout = requireLayout(layoutValue);
+    const d = byte(dValue, 'page-39 cell-string D byte');
+    const e = byte(eValue, 'page-39 cell-string E byte');
+    if (!SETTLED_TOKEN_STRINGS)
+      throw new TypeError('decoded token-string artifact is not installed');
+    if (!options || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('page-39 cell-string options must be an object');
+    const hBit0 = options.hBit0 === undefined
+      ? true : boolean(options.hBit0, 'page-39 cell-string H bit 0');
+    const branchOutcomes = [];
+    const branch = (address, outcome) => branchOutcomes.push(
+      `39:${address.toString(16).toUpperCase()}:${outcome}`);
+    const fb = d === 0xfb;
+    branch(0x6b6b,fb ? 'fallthrough' : 'taken');
+    if (fb) {
+      branch(0x6b70,hBit0 ? 'fallthrough' : 'taken');
+      const candidates = SETTLED_TOKEN_STRINGS.mathPrintInlineStrings;
+      const order = hBit0 ? [0,1,2,3,5,4] : [1,2,3,5,4];
+      const addressByIndex = [
+        0x6b77,0x6b7e,0x6b85,0x6b8c,0x6b9a,0x6b93,
+      ];
+      for (const index of order) {
+        const entry = candidates[index];
+        const address = addressByIndex[index];
+        const match = e === entry.cell[1];
+        branch(address,match ? 'taken' : 'fallthrough');
+        if (match) return {
+          d,e,hBit0,source:'mathprint-inline-string',resolved:true,
+          inlineIndex:index,pointer:entry.pointer,codes:entry.codes.slice(),
+          branchOutcomes,routine:'39:6B62–6BA8',
+        };
+      }
+    }
+    const keyToString = settledPage1KeyToStringSelection(
+      layout,d,e,options);
+    return {
+      ...keyToString,hBit0,keyToString,
+      branchOutcomes:[...branchOutcomes,...keyToString.branchOutcomes],
+      routine:'39:6B62–6BA8 → 01:6D10–6DBC',
+    };
   }
 
   // 39:4E8E branch selection, ending at the known output boundary.
@@ -1473,7 +1820,14 @@
       return { kind: 'conditionalInlineString', d, e, condition: 'bit 0,H', routine: '39:6B66' };
     if (d === 0xfb && [0xca, 0xcb, 0xd6, 0xd7, 0xd8].includes(e))
       return { kind: 'inlineString', d, e, routine: '39:6B66' };
-    return { kind: 'keyString', d, e, ...keyToStringIndex(d, e), routine: '01:6D10' };
+    const selection = settledPage39CellStringSelection(
+      layout,d,e,{hBit0:true});
+    return {
+      kind:'keyString',d,e,
+      index:selection.index === undefined ? null : selection.index,
+      branch:selection.indexSource || selection.source,
+      selection,routine:'39:6B66 → 01:6D10',
+    };
   }
 
   // 39:4DE6 walks a selected row in slot order and calls 39:4E8E for each cell.
@@ -10986,6 +11340,8 @@
     mapDirectGlyph,
     classifyCell,
     keyToStringIndex,
+    settledPage1KeyToStringSelection,
+    settledPage39CellStringSelection,
     descriptor,
     selectDescriptor,
     descriptorState,
@@ -11045,6 +11401,7 @@
     settledPage1VPutMapCompose,
     settledPage1VPutMapRow,
     settledPage7DisplayByteRemap,
+    settledPage7SOKForKeyToString,
     settledPage39DirectGlyphSelection,
     settledPage34GlyphAdvance,
     settledPage1MathPrintGlyphPlan,

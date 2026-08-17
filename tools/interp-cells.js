@@ -9,9 +9,12 @@ const path = require('path');
 const root = path.dirname(__dirname);
 const layout = JSON.parse(fs.readFileSync(path.join(root, 'web', 'mathprint', 'layout.json')));
 const rom = require(path.join(root, 'web', 'mathprint', 'rom-engine.js'));
+const tokenStrings = JSON.parse(fs.readFileSync(
+  path.join(root, 'web', 'mathprint', 'token-strings.json')));
+rom.setSettledTokenStrings(tokenStrings);
 
-// Preserve the older inspection vocabulary while delegating branch decisions
-// to the browser's executable 39:4E8E/4F1A translation.
+// Delegate cell decisions and counted-string resolution to the browser's
+// executable page-39/page-1 translations.
 function resolveCell(d, e) {
   const decoded = rom.classifyCell(layout, d, e);
   if (decoded.kind === 'cursorMarker')
@@ -29,8 +32,11 @@ function resolveCell(d, e) {
       remapped:[decoded.remapped.d,decoded.remapped.e],
       remapSource:decoded.remapped.source,
     };
-  if (d === 0xFB || d === 0xFC || d === 0xFE) return { kind: 'familyToken', d, e };
-  return { kind: 'keyString', d, e };
+  if (decoded.kind === 'keyString') return {
+    kind:'keyString',d,e,codes:decoded.selection.codes,
+    source:decoded.selection.source,
+  };
+  throw new Error(`unhandled decoded cell kind ${decoded.kind}`);
 }
 
 function fmt(d, e) {
@@ -39,8 +45,11 @@ function fmt(d, e) {
   if (r.kind === 'glyph') return `${hex} →glyph 0x${r.code.toString(16)}`;
   if (r.kind === 'colGlyph') return `${hex} →col-glyph #${r.index}`;
   if (r.kind === 'marker') return `${hex} [${r.what}]`;
-  if (r.kind === 'keyString') return `${hex} →_KeyToString`;
-  if (r.kind === 'familyToken') return `${hex} →family-token (${d.toString(16)})`;
+  if (r.kind === 'keyString') {
+    const codes = r.codes === null ? 'unresolved' : r.codes.map(value =>
+      value.toString(16).padStart(2,'0')).join(' ');
+    return `${hex} →_KeyToString [${codes}] via ${r.source}`;
+  }
   if (r.kind === 'inlineString') return `${hex} →inline string`;
   if (r.kind === 'specialAction') return `${hex} →special action`;
   if (r.kind === 'runtimeConditional') return `${hex} →conditional (${r.condition})`;

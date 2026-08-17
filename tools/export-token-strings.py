@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract the OS 2.55MP token display-string tables.
+"""Extract the OS 2.55MP token and MathPrint cell display strings.
 
 `smallfont_glyph_ptr` (`01:6702`) selects a word table from the token's lead
 byte, then indexes it with the token byte. Each pointer selects a metadata byte
@@ -48,6 +48,19 @@ TWO_BYTE_TABLES = (
     # page-01 data and must not be interpreted as token-string pointers.
     ("EF", 0x47E8, 0x41),
 )
+KEY_TO_STRING_POINTER_TABLE = 0x6E05
+KEY_TO_STRING_POINTER_COUNT = 0x65
+KEY_TO_STRING_SPECIAL_TABLE = 0x6DDE
+KEY_TO_STRING_SPECIAL_COUNT = 0x0D
+KEY_TO_STRING_LITERAL_1040 = 0x6F4D
+MATHPRINT_INLINE_STRINGS = (
+    (0xFB, 0xC8, 0x6BB2, True),
+    (0xFB, 0xCA, 0x6BA9, False),
+    (0xFB, 0xCB, 0x6BAD, False),
+    (0xFB, 0xD6, 0x6BBF, False),
+    (0xFB, 0xD7, 0x6BD7, False),
+    (0xFB, 0xD8, 0x6BCB, False),
+)
 
 
 def flat(page: int, address: int) -> int:
@@ -80,6 +93,77 @@ def extract_table(rom: bytes, address: int, count: int, label: str) -> dict:
     }
 
 
+def counted_string(rom: bytes, page: int, pointer: int, label: str) -> dict:
+    if not 0x4000 <= pointer < 0x8000:
+        raise ValueError(f"{label} points outside page {page:02X}")
+    offset = flat(page, pointer)
+    length = rom[offset]
+    if length > 0x10 or pointer + 1 + length > 0x8000:
+        raise ValueError(f"{label} has invalid counted length 0x{length:02X}")
+    return {
+        "pointer": pointer,
+        "codes": list(rom[offset + 1:offset + 1 + length]),
+    }
+
+
+def extract_key_to_string(rom: bytes) -> dict[str, object]:
+    table = flat(PAGE, KEY_TO_STRING_POINTER_TABLE)
+    pointers = [
+        int.from_bytes(rom[table + 2 * index:table + 2 * index + 2], "little")
+        for index in range(KEY_TO_STRING_POINTER_COUNT)
+    ]
+    entries = [
+        counted_string(rom, PAGE, pointers[index],
+                       f"_KeyToString index 0x{index:02X}")
+        for index in range(KEY_TO_STRING_POINTER_COUNT)
+    ]
+    specials = []
+    for index in range(KEY_TO_STRING_SPECIAL_COUNT):
+        address = KEY_TO_STRING_SPECIAL_TABLE + 3 * index
+        offset = flat(PAGE, address)
+        value = rom[offset]
+        pointer = int.from_bytes(rom[offset + 1:offset + 3], "little")
+        specials.append({
+            "value": value,
+            **counted_string(
+                rom, PAGE, pointer,
+                f"_KeyToString high-byte special 0x{value:02X}",
+            ),
+        })
+    return {
+        "page": PAGE,
+        "routine": "01:6D10–6DBC",
+        "pointerTableAddress": KEY_TO_STRING_POINTER_TABLE,
+        "pointerWords": pointers,
+        "semanticEntries": entries,
+        "highByteSpecialTableAddress": KEY_TO_STRING_SPECIAL_TABLE,
+        "highByteSpecials": specials,
+        "special1040": counted_string(
+            rom, PAGE, KEY_TO_STRING_LITERAL_1040,
+            "_KeyToString 10:40 literal",
+        ),
+    }
+
+
+def extract_mathprint_inline_strings(rom: bytes) -> dict[str, object]:
+    return {
+        "page": 0x39,
+        "routine": "39:6B62–6BA8",
+        "entries": [
+            {
+                "cell": [lead, second],
+                "requiresHBit0": requires_h_bit0,
+                **counted_string(
+                    rom, 0x39, pointer,
+                    f"MathPrint inline string {lead:02X}:{second:02X}",
+                ),
+            }
+            for lead, second, pointer, requires_h_bit0
+            in MATHPRINT_INLINE_STRINGS
+        ],
+    }
+
+
 def extract(rom: bytes) -> dict[str, object]:
     single_byte = extract_table(rom, POINTER_TABLE, ENTRY_COUNT, "single byte")
     single_byte["page"] = PAGE
@@ -88,7 +172,7 @@ def extract(rom: bytes) -> dict[str, object]:
         for name, address, count in TWO_BYTE_TABLES
     }
     return {
-        "schema": 2,
+        "schema": 3,
         "romSha256": TI84_PLUS_OS_255MP_SHA256,
         "routine": "smallfont_glyph_ptr at 01:6702",
         "singleByte": single_byte,
@@ -98,6 +182,8 @@ def extract(rom: bytes) -> dict[str, object]:
             "tables": tables,
             "bbClampIndex": 0xF6,
         },
+        "keyToString": extract_key_to_string(rom),
+        "mathPrintInlineStrings": extract_mathprint_inline_strings(rom),
     }
 
 
@@ -125,7 +211,9 @@ def main() -> None:
     two_byte_count = sum(count for _, _, count in TWO_BYTE_TABLES)
     print(
         f"wrote {args.json} "
-        f"({ENTRY_COUNT} single-byte and {two_byte_count} two-byte table entries)"
+        f"({ENTRY_COUNT} single-byte, {two_byte_count} two-byte, "
+        f"{KEY_TO_STRING_POINTER_COUNT} _KeyToString, and "
+        f"{len(MATHPRINT_INLINE_STRINGS)} inline entries)"
     )
 
 
