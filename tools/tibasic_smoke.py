@@ -383,7 +383,27 @@ CASES: dict[str, Case] = {
     "divzero": Case(
         ("DIVZERO.8xp",),
         "natural ERR:DIVIDE BY 0",
-        ("ram:26ec",),
+        ("ram:254b", "ram:26ec"),
+    ),
+    "overflow": Case(
+        ("OVRFLOW.8xp",),
+        "natural ERR:OVERFLOW from the 10^x input-exponent gate",
+        ("page_02:7059", "ram:26e8"),
+    ),
+    "lndomain": Case(
+        ("LNDOM.8xp",),
+        "natural ERR:DOMAIN from the ln(0) zero guard",
+        ("ram:212d", "ram:2131", "ram:26f4"),
+    ),
+    "muloverflow": Case(
+        ("MULOVR.8xp",),
+        "natural ERR:OVERFLOW from floating-point exponent addition",
+        ("ram:251d", "ram:26e8"),
+    ),
+    "increment": Case(
+        ("INCERR.8xp",),
+        "natural ERR:INCREMENT from a zero For( step",
+        ("ram:26f8",),
     ),
     "gramlow": Case(
         ("GRAMLOW.8xp", "ZGRAMLOW.8xp"),
