@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-cb49a919.js";
+            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -232,20 +232,20 @@ enumeration establishes the partition. Z3 is not being presented as a proof of
 the entire Z80 routine or of arbitrary token streams.</p>
 <h2 id="coverage-by-provenance"><a class="header" href="#coverage-by-provenance">Coverage by provenance</a></h2>
 <p>The report declares 26 branch sites and both outcomes at each site. Natural
-programs reach 34 of those 52 outcomes. Public-bcall probes add the four
-page-33 bounds outcomes. Internal-entry probes add the remaining 14 outcomes.
+programs reach 38 of those 52 outcomes. Public-bcall probes add the four
+page-33 bounds outcomes. Internal-entry probes add the remaining 10 outcomes.
 The union reaches 52 of 52, but only the first number describes natural
 TI-BASIC reachability. [confirmed]</p>
 <pre class="mermaid">flowchart LR
-    N["Natural TI-BASIC&lt;br/&gt;34 / 52 outcomes"] --&gt; U["Declared outcome union&lt;br/&gt;52 / 52"]
+    N["Natural TI-BASIC&lt;br/&gt;38 / 52 outcomes"] --&gt; U["Declared outcome union&lt;br/&gt;52 / 52"]
     B["Public bcall probes&lt;br/&gt;4 additional outcomes"] --&gt; U
-    I["Internal-entry probes&lt;br/&gt;14 additional outcomes"] --&gt; U
+    I["Internal-entry probes&lt;br/&gt;10 additional outcomes"] --&gt; U
     F["Eight finite models&lt;br/&gt;591,360 states"] --&gt; R["Compact report"]
     U --&gt; R
     R --&gt; Z["Exact Z3 set cover&lt;br/&gt;15 outcome traces"]
 </pre>
 
-<p>The per-provenance counts in the JSON are 34, 8, and 18 because wrappers share
+<p>The per-provenance counts in the JSON are 38, 8, and 18 because wrappers share
 ordinary grammar outcomes. Those counts overlap. The additional-outcome counts
 in the diagram describe what each probe layer contributes after the preceding
 layer. No successor at a declared branch is unclassified. [confirmed]</p>
@@ -254,20 +254,20 @@ the interpreter denominator. The broader CFG audit seeds all valid destinations
 from the parser table at <code>38:4000</code> and the 13-entry page-33 table at <code>33:4381</code>,
 then follows direct control flow through five bounded components. [confirmed]</p>
 <h2 id="expanded-cfg-saturation"><a class="header" href="#expanded-cfg-saturation">Expanded CFG saturation</a></h2>
-<p>The expanded graph contains 7,651 reachable instructions and 1,230 conditional
-branches. Its 2,460 possible outcomes produce this trace breakdown:</p>
+<p>The expanded graph contains 8,490 reachable instructions and 1,351 conditional
+branches. Its 2,702 possible outcomes produce this trace breakdown:</p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>Component</th><th style="text-align: right">Possible</th><th style="text-align: right">All evidence</th><th style="text-align: right">Natural programs</th></tr>
 </thead>
 <tbody>
-<tr><td>Parser core</td><td style="text-align: right">1,956</td><td style="text-align: right">565</td><td style="text-align: right">559</td></tr>
-<tr><td>Command arguments</td><td style="text-align: right">162</td><td style="text-align: right">35</td><td style="text-align: right">25</td></tr>
+<tr><td>Parser core</td><td style="text-align: right">1,956</td><td style="text-align: right">625</td><td style="text-align: right">619</td></tr>
+<tr><td>Command arguments</td><td style="text-align: right">162</td><td style="text-align: right">54</td><td style="text-align: right">48</td></tr>
 <tr><td>Page-33 control flow</td><td style="text-align: right">174</td><td style="text-align: right">13</td><td style="text-align: right">0</td></tr>
-<tr><td>Value storage</td><td style="text-align: right">154</td><td style="text-align: right">111</td><td style="text-align: right">111</td></tr>
-<tr><td>Numeric and error checks</td><td style="text-align: right">14</td><td style="text-align: right">4</td><td style="text-align: right">4</td></tr>
-<tr><td><strong>Total</strong></td><td style="text-align: right"><strong>2,460</strong></td><td style="text-align: right"><strong>728</strong></td><td style="text-align: right"><strong>699</strong></td></tr>
+<tr><td>Value storage</td><td style="text-align: right">154</td><td style="text-align: right">112</td><td style="text-align: right">112</td></tr>
+<tr><td>Numeric and error checks</td><td style="text-align: right">256</td><td style="text-align: right">120</td><td style="text-align: right">119</td></tr>
+<tr><td><strong>Total</strong></td><td style="text-align: right"><strong>2,702</strong></td><td style="text-align: right"><strong>924</strong></td><td style="text-align: right"><strong>898</strong></td></tr>
 </tbody>
 </table>
 </div>
@@ -276,16 +276,16 @@ branches. Its 2,460 possible outcomes produce this trace breakdown:</p>
 are <code>38:5836</code> and <code>38:587D</code>. They still do not enter the page-33 probe
 dispatcher. [confirmed]</p>
 <pre class="mermaid">flowchart LR
-    T["81 parser handlers&lt;br/&gt;plus subsystem entries"] --&gt; G["7,651-instruction&lt;br/&gt;direct CFG"]
-    G --&gt; B["2,460 outcomes"]
-    N["Natural programs"] --&gt; O["699 observed"]
-    P["ABI and entry probes"] --&gt; A["728 observed total"]
+    T["81 parser handlers&lt;br/&gt;plus subsystem entries"] --&gt; G["8,490-instruction&lt;br/&gt;direct CFG"]
+    G --&gt; B["2,702 outcomes"]
+    N["Natural programs"] --&gt; O["898 observed"]
+    P["ABI and entry probes"] --&gt; A["924 observed total"]
     O --&gt; A
     B --&gt; A
-    B --&gt; U["1,732 unobserved"]
+    B --&gt; U["1,778 unobserved"]
 </pre>
 
-<p>The exact outcome cover retains 19 of 22 traces. <code>hello</code>, <code>callstop</code>, and the
+<p>The exact outcome cover retains 30 of 33 traces. <code>hello</code>, <code>callstop</code>, and the
 natural syntax-error trace remain useful semantic examples, but they do not add
 a branch outcome to the larger graph. The report therefore separates the
 minimum outcome corpus from the selective documentation corpus. [confirmed]</p>
@@ -311,13 +311,13 @@ minimum outcome corpus from the selective documentation corpus. [confirmed]</p>
 They exercise carry returns that closed blocks do not reach, then finish through
 page-38 cleanup and display <code>Done</code>; they do not raise an OS error. The report
 marks both traces with <code>termination: completed</code>. [confirmed]</p>
-<p>Two error fixtures provide real unwind witnesses. <code>syntaxerr</code> executes
-<code>Disp 1+</code> and reaches the syntax entry at <code>00:2700</code>; <code>divzero</code> executes
-<code>Disp 1/0</code> and reaches <code>_ErrDivBy0</code> at <code>00:26EC</code>. Together they naturalize four
-outcomes that the natural corpus otherwise misses. Only <code>divzero</code> adds a new
-CFG outcome, so the outcome minimizer omits <code>syntaxerr</code> while the documentation
-retains it for semantic diversity. [confirmed]</p>
-<p>Five selected numeric-error fixtures also retain the path before the shared
+<p>The syntax and divide-by-zero fixtures provide baseline unwind witnesses.
+<code>syntaxerr</code> executes <code>Disp 1+</code> and reaches the syntax entry at <code>00:2700</code>.
+<code>divzero</code> executes <code>Disp 1/0</code> and reaches <code>_ErrDivBy0</code> at <code>00:26EC</code>. The expanded numeric corpus
+raises the natural local-matrix result from 34 to 38 outcomes. The 15-trace
+outcome minimum omits the error fixtures because other traces cover those local
+branches; the semantic corpus retains their distinct causes. [confirmed]</p>
+<p>Twelve selected numeric-error fixtures also retain the path before the shared
 error shim. The reducer restarts a candidate slice whenever it sees the guard’s
 first instruction. It accepts the slice only when the remaining guard and shim
 addresses occur in order and the shim leaves the expected error code in <code>A</code>.
@@ -334,12 +334,24 @@ checker from being attached to a later error. [confirmed]</p>
 <tr><td><code>muloverflow</code></td><td><code>00:2513 → 00:2516 → 00:2517 → 00:2519 → 00:251B → 00:251D → 00:26E8</code></td><td>exponent-add overflow, code <code>81h</code></td></tr>
 <tr><td><code>lndomain</code></td><td><code>02:6F1E → 00:212D → 00:1DE9 → 00:2130 → 00:2131 → 00:211D → 00:26F4</code></td><td>logarithm zero guard, code <code>84h</code></td></tr>
 <tr><td><code>increment</code></td><td><code>37:4268 → 00:1DE9 → 37:426B → 00:26F8</code></td><td>zero loop step, code <code>85h</code></td></tr>
+<tr><td><code>asindomain</code></td><td><code>02:76F1 → 02:76F4 → 02:76F5 → 00:26F4</code></td><td>inverse-sine range guard, code <code>84h</code></td></tr>
+<tr><td><code>acosdomain</code></td><td><code>02:76DF → 02:76E2 → 00:26F4</code></td><td>inverse-cosine range guard, code <code>84h</code></td></tr>
+<tr><td><code>sqrtnonreal</code></td><td><code>00:1B8F → 00:1B93 → 00:26FC</code></td><td>real-mode result guard, code <code>87h</code></td></tr>
+<tr><td><code>singular</code></td><td><code>02:439C → 02:439F → 02:43A1 → 02:43A2 → 02:43A3 → 02:43A5 → 00:26F0</code></td><td>matrix-pivot guard, code <code>83h</code></td></tr>
+<tr><td><code>lateincrement</code></td><td><code>38:586D → 38:5870 → 38:5873 → 38:5876 → 00:26F8</code></td><td>loop no-progress guard, code <code>85h</code></td></tr>
+<tr><td><code>negfactdomain</code></td><td><code>35:79CF → 35:79D2 → 00:26F4</code></td><td>factorial sign/integer guard, code <code>84h</code></td></tr>
+<tr><td><code>ncrdomain</code></td><td><code>02:4FC8 → 02:4FA1 → 00:2125 → 00:1DFD → 00:1E00 → 00:1E02 → 00:2128 → 00:211C → 00:211D → 00:26F4</code></td><td>combination left-operand guard, code <code>84h</code></td></tr>
 </tbody>
 </table>
 </div>
-<p>All five paths come from stored TI-BASIC programs. The report covers four error
-codes and five causes; it does not enumerate every caller of the shared error
-shims. [confirmed]</p>
+<p>All 12 paths come from stored TI-BASIC programs. They cover all six numeric
+error codes, 12 causes, and 11 distinct direct caller sites. [confirmed]</p>
+<p>The report separately inventories 114 whole-ROM direct-reference candidates:
+9 overflow, 2 divide-by-zero, 3 singular-matrix, 91 domain, 6 increment, and 3
+non-real. Linear disassembly can decode data as instructions, so each candidate
+still needs CFG or dynamic reachability evidence. Indirect transfers and helpers
+that load <code>A</code> before entering <code>00:270A</code> remain outside that inventory.
+[confirmed]</p>
 <h3 id="probe-outcomes"><a class="header" href="#probe-outcomes">Probe outcomes</a></h3>
 <p>Three public-bcall probes call <code>grf_435f = 5140h</code> with an input below the table,
 inside the table, and at its upper boundary. They cover both outcomes at
@@ -351,11 +363,11 @@ RAM, and let the exact ROM execute the branch. <code>cmdbad</code> combines the 
 implicit-end case with the invalid class, which removes one redundant trace.
 These probes establish branch behavior only; they do not establish a natural
 caller or a supported interface. [confirmed]</p>
-<p>Across all 20 traces, the report records 84,936,043 instructions. The raw files
-total about 4.18 GB. Only SHA-256 digests, counts, outcomes, provenance, and the
-33 KB report are checked in. Exact outcome-only set cover retains 15 traces.
-The semantic-feature cover retains all 20 because the five omitted from the
-outcome cover provide distinct successful behaviors. [confirmed]</p>
+<p>Across all 33 traces, the saturation report records 132,634,495 instructions.
+The raw files total about 6.08 GiB. Only SHA-256 digests, counts, outcomes,
+provenance, and the 47 KB report are checked in. Exact outcome-only set cover
+retains 30 traces. The three omitted traces remain useful semantic examples.
+[confirmed]</p>
 <h2 id="reproduce-the-report"><a class="header" href="#reproduce-the-report">Reproduce the report</a></h2>
 <p>Generate the source/token/link fixtures first:</p>
 <pre><code class="language-sh">tools/tibasic_samples.py --write-dir tools/tibasic-samples
@@ -369,7 +381,10 @@ python3 tools/tibasic_smoke.py \
   --case hello --case factorial --case data \
   --case dfs --case callabi --case callstop \
   --case branchmatrix --case missingend --case terminalif \
-  --case syntaxerr --case divzero
+  --case syntaxerr --case divzero \
+  --case overflow --case muloverflow --case lndomain --case increment \
+  --case asindomain --case acosdomain --case sqrtnonreal --case singular \
+  --case lateincrement --case negfactdomain --case ncrdomain
 </code></pre>
 <p>Run the probe cases in the same output directory:</p>
 <pre><code class="language-sh">python3 tools/tibasic_smoke.py \
@@ -383,12 +398,15 @@ python3 tools/tibasic_smoke.py \
 probe cases use resolved trace anchors. Existing user-facing samples retain LCD
 oracles where the displayed result is part of the behavior.</p>
 <p>Build the compact report through the Nix shell so <code>z80dasm</code> and Z3 are pinned.
-The checked command passes all 20 <code>LABEL=PATH</code> pairs; the complete ordered label
+The checked command passes all 33 <code>LABEL=PATH</code> pairs; the complete ordered label
 list is the <code>dynamic.traces</code> array in <code>tools/tibasic-coverage.json</code>.</p>
 <pre><code class="language-sh">set --
 for label in \
   hello factorial data dfs callabi callstop \
   branchmatrix missingend terminalif syntaxerr divzero \
+  overflow muloverflow lndomain increment \
+  asindomain acosdomain sqrtnonreal singular \
+  lateincrement negfactdomain ncrdomain \
   cflowlow cflowhigh cflowvalid \
   cmdclose cmdopen cmdunit cmdbad \
   gramlow gramhigh gramflag gramnonzero
@@ -417,22 +435,32 @@ minimum corpus:</p>
   --tilem "$TILEM" --rom tools/rom.bin \
   --out-dir /tmp/tibasic-numeric-errors --keep-trace \
   --case divzero --case overflow --case muloverflow \
-  --case lndomain --case increment
+  --case lndomain --case increment --case asindomain \
+  --case acosdomain --case sqrtnonreal --case singular \
+  --case lateincrement --case negfactdomain --case ncrdomain
 
-PYTHONPATH=tools python3 tools/analyze_tibasic_numeric_errors.py \
+nix develop -c env PYTHONPATH=tools \
+  python3 tools/analyze_tibasic_numeric_errors.py \
   --trace divzero=/tmp/tibasic-numeric-errors/divzero.trace \
   --trace overflow=/tmp/tibasic-numeric-errors/overflow.trace \
   --trace muloverflow=/tmp/tibasic-numeric-errors/muloverflow.trace \
   --trace lndomain=/tmp/tibasic-numeric-errors/lndomain.trace \
   --trace increment=/tmp/tibasic-numeric-errors/increment.trace \
+  --trace asindomain=/tmp/tibasic-numeric-errors/asindomain.trace \
+  --trace acosdomain=/tmp/tibasic-numeric-errors/acosdomain.trace \
+  --trace sqrtnonreal=/tmp/tibasic-numeric-errors/sqrtnonreal.trace \
+  --trace singular=/tmp/tibasic-numeric-errors/singular.trace \
+  --trace lateincrement=/tmp/tibasic-numeric-errors/lateincrement.trace \
+  --trace negfactdomain=/tmp/tibasic-numeric-errors/negfactdomain.trace \
+  --trace ncrdomain=/tmp/tibasic-numeric-errors/ncrdomain.trace \
   --output tools/tibasic-numeric-errors.json
 </code></pre>
 <p>Delete the temporary traces after regeneration. They are reproducible evidence,
 not source assets.</p>
 <h2 id="reading-gaps-honestly"><a class="header" href="#reading-gaps-honestly">Reading gaps honestly</a></h2>
 <p>Full coverage of the small matrix means both outcomes at 26 selected sites. The
-expanded report gives the more useful denominator: 728 of 2,460 outcomes across
-five declared components, with 699 reached naturally. Neither number means
+expanded report gives the more useful denominator: 924 of 2,702 outcomes across
+five declared components, with 898 reached naturally. Neither number means
 whole-interpreter coverage.</p>
 <p>The graph expands all four declared computed jumps over their valid domains:
 14 literal parser continuations at <code>38:4390</code>, 27 nonzero destinations from the
@@ -442,12 +470,12 @@ corrupted class, stack, or pointer outside those domains. Other open dimensions
 include arbitrary token-stream length, every nested error context, full OPS/FPS
 record layout, arbitrary VAT and list shapes, floating-point path classes, and
 display or graph subsystem continuations.</p>
-<p>The next useful coverage expansion is not “add more examples.” It is:</p>
+<p>The next useful coverage expansion starts with the unresolved caller census:</p>
 <ol>
-<li>prove the caller-side bounds of one modeled computed-dispatch domain;</li>
-<li>select a high-value unobserved loop, error, VAT, or numeric outcome;</li>
+<li>reject linear-disassembly candidates that are data or unreachable code;</li>
+<li>backward-slice one remaining executable caller to its input predicate;</li>
 <li>construct the smallest natural program and a RAM or value oracle;</li>
-<li>retain its trace only if Z3 proves that it adds an outcome; and</li>
+<li>retain its trace only when it adds a guard path or CFG outcome; and</li>
 <li>update the relevant interpreter model with the established transition.</li>
 </ol>
 <p>Lower-level trace formats and memory-write decoding are documented in
