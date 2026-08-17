@@ -322,7 +322,8 @@ syntax entry at `00:2700` selects `88h`. Natural `Disp 1/0` and `Disp 1+`
 traces reach those entries, respectively. [confirmed]
 
 The entry identifies the error message, but its incoming guard identifies the
-cause. Five natural programs separate four errors into five guard paths:
+cause. Twelve natural programs separate all six numeric error entries into 12
+guard paths. This table groups related paths so the mechanism stays visible:
 
 | Program | Originating guard | Predicate | Error shim |
 |---------|-------------------|-----------|------------|
@@ -330,12 +331,33 @@ cause. Five natural programs separate four errors into five guard paths:
 | `Disp 10^100` | `02:7076–7078`, then `02:7053–7059` | positive exponent argument is at least 100 | `_ErrOverflow` at `00:26E8` |
 | `Disp 1E99*1E99` | `00:2513–251D` | adjusted sum of biased decimal exponents overflows | `_ErrOverflow` at `00:26E8` |
 | `Disp ln(0)` | `02:6F1E`, then `00:212D–2131` | logarithm operand in OP1 is zero | `_ErrDomain` at `00:26F4` |
-| `For(I,1,3,0)` | `37:4268–426B` | step value in OP1 is zero | `_ErrIncrement` at `00:26F8` |
+| `Disp sin⁻¹(2)` / `cos⁻¹(2)` | `02:76F1–76F5` / `02:76DF–76E2` | operand lies outside $[-1,1]$ | `_ErrDomain` at `00:26F4` |
+| `Disp (-1)!` / `(-1) nCr 1` | `35:79CF–79D2` / `02:4FC8`, then `00:2125–211D` | operand fails the operation's sign or integer check | `_ErrDomain` at `00:26F4` |
+| `Disp sqrt(-1)` | `00:1B8F–1B93` | a complex result reaches the real-mode guard | `_ErrNon_Real` at `00:26FC` |
+| `Disp [[1,2][2,4]]⁻¹` | `02:439C–43A5` | the pivot helper rejects the rank-deficient matrix | `_ErrSingularMat` at `00:26F0` |
+| `For(I,1,3,0)` / `For(I,1E99,1E99)` | `37:4268–426B` / `38:586D–5876` | the step is zero / adding it makes no progress | `_ErrIncrement` at `00:26F8` |
 
 The two OVERFLOW rows reach the same shim through different predicates. A trace
 that records only `00:26E8` therefore merges distinct numeric behavior. The
 compact numeric-error report retains the ordered guard path, the register state
 after each guard instruction, and the final error code in `A`. [confirmed]
+
+A whole-ROM direct-reference scan finds 114 candidate `CALL` or `JP` operands
+to the six shims. The natural corpus reaches 11 distinct direct callers:
+
+| Error entry | Direct-reference candidates | Witnessed callers |
+|-------------|----------------------------:|------------------:|
+| `_ErrOverflow` at `00:26E8` | 9 | 2 |
+| `_ErrDivBy0` at `00:26EC` | 2 | 1 |
+| `_ErrSingularMat` at `00:26F0` | 3 | 1 |
+| `_ErrDomain` at `00:26F4` | 91 | 4 |
+| `_ErrIncrement` at `00:26F8` | 6 | 2 |
+| `_ErrNon_Real` at `00:26FC` | 3 | 1 |
+
+These 114 sites are linear-disassembly candidates, not 114 established
+predicates. The scan can decode data as instructions. It also omits indirect
+transfers and helpers that load an error code before entering the common path.
+The report preserves that distinction. [confirmed]
 
 ```mermaid
 flowchart LR
@@ -391,7 +413,7 @@ one scan step, one block-depth transition, the extended-class fold, precedence
 family selection, command finalization, and page-33 table bounds. Z3 proves a
 minimum representative set for the semantic outcomes. [confirmed]
 
-Dynamic evidence is a separate layer. Natural programs reach 34 of 52 outcomes
+Dynamic evidence is a separate layer. Natural programs reach 38 of 52 outcomes
 at 26 selected branch sites. Public-bcall and internal-entry probes bring the
 declared outcome set to 52 of 52 while preserving provenance. The report records
 only trace hashes and compact counts; raw traces remain outside the repository.
@@ -399,10 +421,10 @@ See [TI-BASIC dynamic tracing](sub-tibasic-tracing.md) for commands and exact
 boundaries. [confirmed]
 
 The broader saturation audit starts at all 81 grammar-handler destinations and
-selected command, control-flow, value-storage, and error entries. It reaches
-7,651 ROM instructions and 1,230 conditional branches, or 2,460 possible
-branch outcomes. The retained traces observe 728 outcomes; natural TI-BASIC
-programs account for 699. [confirmed]
+selected command, control-flow, value-storage, and numeric-error entries. It
+reaches 8,490 ROM instructions and 1,351 conditional branches, or 2,702
+possible branch outcomes. The retained traces observe 924 outcomes; natural
+TI-BASIC programs account for 898. [confirmed]
 
 This is deliberately not a claim of complete interpreter coverage. The four
 declared computed jumps are expanded over their ROM-defined valid domains, but
