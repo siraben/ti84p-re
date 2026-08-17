@@ -24,6 +24,10 @@ DEFAULT_ROM = ROOT / "tools" / "rom.bin"
 MARKER = ("ram", 0x9D95, 0xC9)
 CURSOR_BYTES = range(0x965D, 0x9661)
 TEMP_BUFFER_FLOOR = 0x9E80
+END_HANDLER = ("page_38", 0x4200)
+OPS_PTR = 0x9828
+FPS_PTR = 0x9824
+LOOP_RECORD_SIZE = 5
 
 
 def digest(path: Path) -> str:
@@ -47,6 +51,19 @@ def summarize_addresses(values: list[int]) -> dict[str, object]:
     }
 
 
+def summarize_values(values: list[int]) -> dict[str, object]:
+    """Summarize an ordered word-valued state sequence."""
+
+    if not values:
+        return {"count": 0, "first": None, "last": None, "distinct": 0}
+    return {
+        "count": len(values),
+        "first": f"0x{values[0]:04X}",
+        "last": f"0x{values[-1]:04X}",
+        "distinct": len(set(values)),
+    }
+
+
 def analyze_trace(
     path: Path, *, marker: tuple[str, int, int] = MARKER
 ) -> dict[str, object]:
@@ -55,6 +72,8 @@ def analyze_trace(
     pending_writes: list[tuple[int, int]] = []
     cursor_writes: list[tuple[int, int, int]] = []
     markers: list[tuple[int, int]] = []
+    memory: dict[int, int] = {}
+    loop_records: list[dict[str, object]] = []
 
     with path.open("rb") as stream:
         header = read_header(stream)
@@ -64,6 +83,7 @@ def analyze_trace(
             if record_type == 0x02:
                 address, value = payload
                 pending_writes.append((address, value))
+                memory[address] = value
                 continue
             if record_type != 0x01:
                 continue
@@ -74,6 +94,21 @@ def analyze_trace(
             pending_writes.clear()
 
             (space, address, _flat, _page), _switch = resolve_instruction(banker, payload)
+            if (space, address) == END_HANDLER:
+                ops = memory.get(OPS_PTR, 0) | memory.get(OPS_PTR + 1, 0) << 8
+                fps = memory.get(FPS_PTR, 0) | memory.get(FPS_PTR + 1, 0) << 8
+                record = bytes(
+                    memory.get(ops + offset, 0)
+                    for offset in range(1, LOOP_RECORD_SIZE + 1)
+                )
+                loop_records.append({
+                    "ops": f"0x{ops:04X}",
+                    "fps": f"0x{fps:04X}",
+                    "bytes_from_ops_plus_1": record.hex(),
+                    "sentinel": f"0x{record[0]:02X}",
+                    "continuation": f"0x{int.from_bytes(record[1:3], 'little'):04X}",
+                    "state_word": f"0x{int.from_bytes(record[3:5], 'little'):04X}",
+                })
             if (space, address, payload[IDX_OPCODE]) == marker:
                 markers.append((instruction_index, payload[IDX_CLOCK]))
             instruction_index += 1
@@ -107,6 +142,15 @@ def analyze_trace(
         "clocks": (end_clock - start_clock) & 0xFFFFFFFF,
         "parser_pointer_write_counts": dict(sorted(write_counts.items())),
         "equal_cursor_end_high_sequence": summarize_addresses(equal_high_states),
+        "loop_end_visits": len(loop_records),
+        "loop_record_variants": sorted({
+            row["bytes_from_ops_plus_1"] for row in loop_records
+        }),
+        "loop_record_first": loop_records[0] if loop_records else None,
+        "loop_record_steady": loop_records[1] if len(loop_records) > 1 else None,
+        "loop_end_fps": summarize_values([
+            int(row["fps"], 16) for row in loop_records
+        ]),
     }
 
 
@@ -121,7 +165,7 @@ def build_report(
     instruction_delta = implicit_row["instructions"] - explicit_row["instructions"]
     clock_delta = implicit_row["clocks"] - explicit_row["clocks"]
     return {
-        "schema": 1,
+        "schema": 2,
         "rom": {"path": "tools/rom.bin", "sha256": rom_digest},
         "scope": "N=25, first loop-body statement is a false single-line If",
         "traces": {"explicit_rparen": explicit_row, "implicit_close": implicit_row},
@@ -132,6 +176,13 @@ def build_report(
             "clock_percent": 100 * clock_delta / explicit_row["clocks"],
         },
         "buffer_filter": "nextParseByte == basic_end and address >= 0x9E80",
+        "loop_record": {
+            "handler": "38:4200",
+            "storage": "five bytes beginning at OPS + 1",
+            "byte_order": "sentinel, little-endian continuation, little-endian state word",
+            "initial_continuation": "38:5836",
+            "steady_continuation": "38:587D",
+        },
     }
 
 

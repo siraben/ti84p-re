@@ -728,7 +728,7 @@
       {
         "label": "missingend",
         "provenance": "natural_tibasic",
-        "termination": "error",
+        "termination": "completed",
         "sha256": "2b933fa2f77fd3366ad89df017fefaa751f101e4dfd9f38aed203b7ddd34283e",
         "bytes": 194469114,
         "instructions": 3952577,
@@ -755,13 +755,13 @@
         },
         "unclassified_branch_successors": 0,
         "semantic_features": [
-          "missing_end_error"
+          "eof_missing_end"
         ]
       },
       {
         "label": "terminalif",
         "provenance": "natural_tibasic",
-        "termination": "error",
+        "termination": "completed",
         "sha256": "1d9527a77a04f1dc807a956c722240cf152e9aa34eb4d08556abdc5c86060905",
         "bytes": 190815060,
         "instructions": 3878797,
@@ -787,7 +787,7 @@
         },
         "unclassified_branch_successors": 0,
         "semantic_features": [
-          "terminal_if_error"
+          "eof_terminal_if"
         ]
       }
     ],

@@ -367,13 +367,23 @@ CASES: dict[str, Case] = {
     ),
     "missingend": Case(
         ("MISSEND.8xp",),
-        "OS error from a missing End",
+        "end-of-program cleanup with a missing End",
         ("blockmatch_end_else",),
     ),
     "terminalif": Case(
         ("TERMIF.8xp",),
-        "OS error from a terminal nested If",
+        "end-of-program cleanup with a terminal nested If",
         ("blockmatch_end_else",),
+    ),
+    "syntaxerr": Case(
+        ("SYNERR.8xp",),
+        "natural ERR:SYNTAX",
+        ("ram:2700",),
+    ),
+    "divzero": Case(
+        ("DIVZERO.8xp",),
+        "natural ERR:DIVIDE BY 0",
+        ("ram:26ec",),
     ),
     "gramlow": Case(
         ("GRAMLOW.8xp", "ZGRAMLOW.8xp"),

@@ -48,8 +48,10 @@ TRACE_FEATURES = {
     "callabi": {"statement", "two_byte_token", "list_store", "program_call", "return", "shared_globals", "ans", "display"},
     "callstop": {"statement", "program_call", "stop", "nonlocal_termination", "display"},
     "branchmatrix": {"block_matrix", "else", "repeat", "optional_quote", "nested_blocks"},
-    "missingend": {"missing_end_error"},
-    "terminalif": {"terminal_if_error"},
+    "missingend": {"eof_missing_end"},
+    "terminalif": {"eof_terminal_if"},
+    "syntaxerr": {"syntax_error", "error_unwind"},
+    "divzero": {"division_by_zero", "error_unwind", "fp_arithmetic"},
 }
 
 TRACE_PROVENANCE = {
@@ -67,7 +69,7 @@ TRACE_PROVENANCE = {
     "gramnonzero": "internal_entry_probe",
 }
 
-ERROR_TRACES = frozenset({"missingend", "terminalif"})
+ERROR_TRACES = frozenset({"syntaxerr", "divzero"})
 
 
 @dataclass(frozen=True)

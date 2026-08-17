@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "rom": {
     "path": "tools/rom.bin",
     "sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d"
@@ -23,6 +23,33 @@
         "first": "0x9ECB",
         "last": "0x9ECB",
         "stride": null
+      },
+      "loop_end_visits": 25,
+      "loop_record_variants": [
+        "0036581200",
+        "007d581200"
+      ],
+      "loop_record_first": {
+        "ops": "0xFC94",
+        "fps": "0x9F02",
+        "bytes_from_ops_plus_1": "0036581200",
+        "sentinel": "0x00",
+        "continuation": "0x5836",
+        "state_word": "0x0012"
+      },
+      "loop_record_steady": {
+        "ops": "0xFC94",
+        "fps": "0x9F02",
+        "bytes_from_ops_plus_1": "007d581200",
+        "sentinel": "0x00",
+        "continuation": "0x587D",
+        "state_word": "0x0012"
+      },
+      "loop_end_fps": {
+        "count": 25,
+        "first": "0x9F02",
+        "last": "0x9F02",
+        "distinct": 1
       }
     },
     "implicit_close": {
@@ -42,6 +69,33 @@
         "first": "0x9EC8",
         "last": "0xA018",
         "stride": 14
+      },
+      "loop_end_visits": 25,
+      "loop_record_variants": [
+        "0036581200",
+        "007d581200"
+      ],
+      "loop_record_first": {
+        "ops": "0xFC95",
+        "fps": "0x9EFF",
+        "bytes_from_ops_plus_1": "0036581200",
+        "sentinel": "0x00",
+        "continuation": "0x5836",
+        "state_word": "0x0012"
+      },
+      "loop_record_steady": {
+        "ops": "0xFC8C",
+        "fps": "0x9F0D",
+        "bytes_from_ops_plus_1": "007d581200",
+        "sentinel": "0x00",
+        "continuation": "0x587D",
+        "state_word": "0x0012"
+      },
+      "loop_end_fps": {
+        "count": 25,
+        "first": "0x9EFF",
+        "last": "0xA04F",
+        "distinct": 25
       }
     }
   },
@@ -51,5 +105,12 @@
     "clocks": 92176,
     "clock_percent": 5.42798625808374
   },
-  "buffer_filter": "nextParseByte == basic_end and address >= 0x9E80"
+  "buffer_filter": "nextParseByte == basic_end and address >= 0x9E80",
+  "loop_record": {
+    "handler": "38:4200",
+    "storage": "five bytes beginning at OPS + 1",
+    "byte_order": "sentinel, little-endian continuation, little-endian state word",
+    "initial_continuation": "38:5836",
+    "steady_continuation": "38:587D"
+  }
 }
