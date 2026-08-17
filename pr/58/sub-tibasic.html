@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-84a14797.js";
+            window.path_to_searchindex_js = "searchindex-1aced576.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-8ea2fd80.js"></script>
+        <script src="toc-e4551b79.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -335,15 +335,14 @@ only the latter opens a block. Nested <code>Else</code> tokens are ignored until
 returns to zero. The comparisons and counter changes are visible at
 <code>38:4137–417E</code>; the counter is the 16-bit <code>DE</code> register. [confirmed]</p>
 <h3 id="the-loop-dispatch-boundary-remains-open"><a class="header" href="#the-loop-dispatch-boundary-remains-open">The loop-dispatch boundary remains open</a></h3>
-<p>The page-02 command dispatcher contains explicit <code>For(</code>/<code>While</code>/<code>Repeat</code>/<code>End</code>
-stubs. Those stubs select command IDs and invoke bcall <code>5140h</code> or <code>513Dh</code>, whose
-target is <code>33:435F</code>. That routine subtracts <code>20h</code>, accepts 13 indices, and jumps
-through the table at <code>33:4381</code>. The bytes and table bounds are [confirmed].</p>
-<p>The current natural stored-program traces do not enter <code>02:5676</code> or
-<code>33:435F</code>, even when <code>FACTOR</code> and <code>DFS</code> execute loops. Therefore this page no
-longer identifies that static command path as the sole live stored-program loop
-handler. Connecting the observed page-38/page-02 execution path to the actual
-loop-record operations is an open tracing task.</p>
+<p>The public page-33 routine behind bcall <code>grf_435f = 5140h</code> subtracts <code>20h</code>,
+accepts 13 indices, and jumps through the table at <code>33:4381</code>. Three ABI probes
+confirm both bounds outcomes at <code>33:436D</code> and <code>33:4372</code>. [confirmed]</p>
+<p>Natural stored-program traces do not enter <code>02:5676</code> or <code>33:435F</code>, even when
+<code>FACTOR</code>, <code>DFS</code>, and the paired <code>For(</code> benchmark execute loops. The public
+page-33 dispatcher is therefore not established as the stored-program loop
+transition. Connecting the observed page-38 execution path to the loop-record
+operations remains open.</p>
 <p>Conceptually, a loop record must retain:</p>
 <ul>
 <li>the loop kind;</li>
@@ -353,9 +352,10 @@ loop-record operations is an open tracing task.</p>
 <p>The language behavior requires a saved body position, and the trace shows the
 body being revisited. The exact handler transition and byte order of every FPS
 loop-record field are still [hypothesis].</p>
-<p>The optional closing <code>)</code> in <code>For(</code> changes which page-02 finalization path runs
-before that record is created. The measured performance consequence is covered
-in <a href="sub-tibasic-for-paren.html">the <code>For(</code> optional-paren trap</a>.</p>
+<p>The optional closing <code>)</code> in <code>For(</code> changes marker-to-marker work and parser
+buffer state. Neither spelling reaches the page-02 finalization gate in the
+paired trace, so the exact causal transition remains open. The measured effect
+is covered in <a href="sub-tibasic-for-paren.html">the <code>For(</code> parenthesis trap</a>.</p>
 <h3 id="labels-rescan-instead-of-indexing"><a class="header" href="#labels-rescan-instead-of-indexing">Labels rescan instead of indexing</a></h3>
 <p><code>goto_lbl_name_scanner</code> (<code>38:4870</code>) reads the label name after <code>Goto</code> or <code>Lbl</code>.
 The search path at <code>38:7600</code> rescans the program body for a matching <code>Lbl</code>, then
@@ -424,12 +424,12 @@ in the pinned ROM. It exhausts 591,360 states across token width, delimiters,
 one scan step, one block-depth transition, the extended-class fold, precedence
 family selection, command finalization, and page-33 table bounds. Z3 proves a
 minimum representative set for the semantic outcomes. [confirmed]</p>
-<p>Natural calculator traces are a separate layer. The report overlays a small,
-diverse program corpus on 26 selected conditional branch sites in the scanner,
-grammar selector, command finalizer, and loop dispatcher. It records only trace
-hashes and outcome counts; raw traces remain outside the repository. See
-<a href="sub-tibasic-tracing.html">TI-BASIC dynamic tracing</a> for commands and current
-counts.</p>
+<p>Dynamic evidence is a separate layer. Natural programs reach 34 of 52 outcomes
+at 26 selected branch sites. Public-bcall and internal-entry probes bring the
+declared outcome set to 52 of 52 while preserving provenance. The report records
+only trace hashes and compact counts; raw traces remain outside the repository.
+See <a href="sub-tibasic-tracing.html">TI-BASIC dynamic tracing</a> for commands and exact
+boundaries. [confirmed]</p>
 <p>This is deliberately not a claim of complete interpreter coverage. The finite
 models bound local decisions, while arbitrary token streams, recursion depth,
 quoted-string contents, errors, computed handler bodies, VAT state, and
