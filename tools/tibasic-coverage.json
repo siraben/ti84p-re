@@ -1,0 +1,725 @@
+{
+  "schema": 1,
+  "rom": {
+    "path": "tools/rom.bin",
+    "sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d"
+  },
+  "scope": {
+    "claim": "bounded TI-BASIC parser decisions plus outcomes observed in named natural calculator traces",
+    "not_a_claim": "complete TI-BASIC grammar, arbitrary token-stream, error-state, floating-point, VAT, or whole-ROM path coverage"
+  },
+  "rom_signatures": [
+    {
+      "location": "00:1FE8",
+      "sha256": "5d4a14567ea72571504b59d9aa7cdc7726c84d846743a534a1a2fd00d7fc80d0"
+    },
+    {
+      "location": "38:4130",
+      "sha256": "46374893b61e080e1fad3564c7e6f7d811c91b12d6252159412dd40aec54be53"
+    },
+    {
+      "location": "38:4180",
+      "sha256": "3f3fc4a64c5b143b36519eca9fab9c7da4e334b4a9cdcd5c5ebd7669027d0334"
+    },
+    {
+      "location": "38:6FB7",
+      "sha256": "fe500573cea9107cec2c720b61dd12bdb012caeec1e320123b3ce5f773492ced"
+    },
+    {
+      "location": "38:7010",
+      "sha256": "a2e8d73c053a33a70d831119a00c1795383b076c2417fc61a39cb127c89b09b9"
+    },
+    {
+      "location": "02:5676",
+      "sha256": "ce35c2742a782ac085d12c9ecd11660131f35f05ec5a63c3b5a7e6d539360303"
+    },
+    {
+      "location": "33:436B",
+      "sha256": "57028c55ca7a51b7c36a7944cd4e55367353b30e64b0fb52fc76f69d231dd91e"
+    }
+  ],
+  "finite_models": [
+    {
+      "name": "encoded token width",
+      "rom": "00:1FE8\u20132000",
+      "input_domain": "all 256 lead bytes",
+      "states_exhausted": 256,
+      "semantic_outcomes": 2,
+      "outcome_counts": {
+        "one_byte": 245,
+        "two_byte": 11
+      },
+      "minimum_representatives": {
+        "one_byte": 0,
+        "two_byte": 92
+      },
+      "minimum_representative_count": 2,
+      "minimizer": "exact lexicographic Optimize set cover via Z3",
+      "boundary": "Models the CPIR membership result, not validity of the second byte."
+    },
+    {
+      "name": "statement delimiter",
+      "rom": "38:72DA\u201372E4",
+      "input_domain": "all 256 fetched bytes",
+      "states_exhausted": 256,
+      "semantic_outcomes": 4,
+      "outcome_counts": {
+        "colon": 1,
+        "end": 1,
+        "eol": 1,
+        "ordinary": 253
+      },
+      "minimum_representatives": {
+        "colon": 62,
+        "end": 0,
+        "eol": 63,
+        "ordinary": 1
+      },
+      "minimum_representative_count": 4,
+      "minimizer": "exact lexicographic Optimize set cover via Z3",
+      "boundary": "Models the byte classifier; refill and parser-memory faults remain external."
+    },
+    {
+      "name": "token scan step",
+      "rom": "38:4180\u2013419D",
+      "input_domain": "all 256 current bytes",
+      "states_exhausted": 256,
+      "semantic_outcomes": 4,
+      "outcome_counts": {
+        "delimiter_return": 3,
+        "quoted_string_scan": 1,
+        "skip_one_byte": 241,
+        "skip_two_bytes": 11
+      },
+      "minimum_representatives": {
+        "delimiter_return": 0,
+        "quoted_string_scan": 42,
+        "skip_one_byte": 1,
+        "skip_two_bytes": 92
+      },
+      "minimum_representative_count": 4,
+      "minimizer": "exact lexicographic Optimize set cover via Z3",
+      "boundary": "Models one outer scan decision; quoted-string contents and stream length are unbounded."
+    },
+    {
+      "name": "block matcher transition",
+      "rom": "38:4130\u2013417E",
+      "input_domain": "all 65,536 DE depths \u00d7 8 decision-equivalent token/lookahead classes",
+      "states_exhausted": 524288,
+      "semantic_outcomes": 10,
+      "outcome_counts": {
+        "close_nested": 65535,
+        "open_if_then": 65535,
+        "open_if_wrap": 1,
+        "open_loop": 196605,
+        "open_loop_wrap": 3,
+        "scan_ordinary": 65536,
+        "single_line_if": 65536,
+        "skip_nested_else": 65535,
+        "stop_else": 1,
+        "stop_end": 1
+      },
+      "minimum_representatives": {
+        "close_nested": [
+          1,
+          212,
+          0
+        ],
+        "open_if_then": [
+          0,
+          206,
+          1
+        ],
+        "open_if_wrap": [
+          65535,
+          206,
+          1
+        ],
+        "open_loop": [
+          0,
+          211,
+          0
+        ],
+        "open_loop_wrap": [
+          65535,
+          211,
+          0
+        ],
+        "scan_ordinary": [
+          0,
+          0,
+          0
+        ],
+        "single_line_if": [
+          0,
+          206,
+          0
+        ],
+        "skip_nested_else": [
+          1,
+          208,
+          0
+        ],
+        "stop_else": [
+          0,
+          208,
+          0
+        ],
+        "stop_end": [
+          0,
+          212,
+          0
+        ]
+      },
+      "minimum_representative_count": 10,
+      "minimizer": "exact lexicographic Optimize set cover via Z3",
+      "boundary": "Models one 16-bit nest-counter transition, including wrap; arbitrary block streams remain unbounded."
+    },
+    {
+      "name": "extended grammar fold",
+      "rom": "38:6FB7\u20136FC2",
+      "input_domain": "all 256 token-class bytes",
+      "states_exhausted": 256,
+      "semantic_outcomes": 2,
+      "outcome_counts": {
+        "below_f2": 242,
+        "extended_add_12_wraps": 14
+      },
+      "minimum_representatives": {
+        "below_f2": 0,
+        "extended_add_12_wraps": 242
+      },
+      "minimum_representative_count": 2,
+      "minimizer": "exact lexicographic Optimize set cover via Z3",
+      "boundary": "Models the CP F2h / ADD 12h decision and carry boundary, not later grammar handlers."
+    },
+    {
+      "name": "precedence handler family",
+      "rom": "38:7010\u20137029",
+      "input_domain": "256 grammar classes \u00d7 all 256 C values",
+      "states_exhausted": 65536,
+      "semantic_outcomes": 3,
+      "outcome_counts": {
+        "base_table_4000": 65024,
+        "leaf_7175": 256,
+        "postfix_478c": 256
+      },
+      "minimum_representatives": {
+        "base_table_4000": [
+          0,
+          0
+        ],
+        "leaf_7175": [
+          0,
+          3
+        ],
+        "postfix_478c": [
+          0,
+          2
+        ]
+      },
+      "minimum_representative_count": 3,
+      "minimizer": "exact lexicographic Optimize set cover via Z3",
+      "boundary": "Models handler-family selection; the computed table destination and recursive handler state remain separate."
+    },
+    {
+      "name": "command finalization gate",
+      "rom": "02:5676\u2013568A",
+      "input_domain": "all 256 C values",
+      "states_exhausted": 256,
+      "semantic_outcomes": 5,
+      "outcome_counts": {
+        "explicit_rparen": 1,
+        "implicit_statement_end": 1,
+        "left_paren_form": 1,
+        "syntax_error": 252,
+        "unit_form": 1
+      },
+      "minimum_representatives": {
+        "explicit_rparen": 17,
+        "implicit_statement_end": 0,
+        "left_paren_form": 16,
+        "syntax_error": 2,
+        "unit_form": 1
+      },
+      "minimum_representative_count": 5,
+      "minimizer": "exact lexicographic Optimize set cover via Z3",
+      "boundary": "Models the first gate only; the three cleanup continuations execute outside this bounded decision."
+    },
+    {
+      "name": "control-flow table dispatch",
+      "rom": "33:436B\u20134380",
+      "input_domain": "all 256 incoming A values",
+      "states_exhausted": 256,
+      "semantic_outcomes": 15,
+      "outcome_counts": {
+        "error_at_or_above_2d": 211,
+        "error_below_20": 32,
+        "table_row_00": 1,
+        "table_row_01": 1,
+        "table_row_02": 1,
+        "table_row_03": 1,
+        "table_row_04": 1,
+        "table_row_05": 1,
+        "table_row_06": 1,
+        "table_row_07": 1,
+        "table_row_08": 1,
+        "table_row_09": 1,
+        "table_row_0a": 1,
+        "table_row_0b": 1,
+        "table_row_0c": 1
+      },
+      "minimum_representatives": {
+        "error_at_or_above_2d": 45,
+        "error_below_20": 0,
+        "table_row_00": 32,
+        "table_row_01": 33,
+        "table_row_02": 34,
+        "table_row_03": 35,
+        "table_row_04": 36,
+        "table_row_05": 37,
+        "table_row_06": 38,
+        "table_row_07": 39,
+        "table_row_08": 40,
+        "table_row_09": 41,
+        "table_row_0a": 42,
+        "table_row_0b": 43,
+        "table_row_0c": 44
+      },
+      "minimum_representative_count": 15,
+      "minimizer": "exact lexicographic Optimize set cover via Z3",
+      "boundary": "Models bounds and table index; loop-frame and handler bodies remain external."
+    }
+  ],
+  "finite_summary": {
+    "models": 8,
+    "states_exhausted": 591360,
+    "semantic_outcomes": 45,
+    "minimum_representatives": 45
+  },
+  "dynamic": {
+    "trace_count": 6,
+    "branch_sites": 26,
+    "branch_outcomes_possible": 52,
+    "branch_outcomes_observed": 18,
+    "traces": [
+      {
+        "label": "callabi",
+        "sha256": "e0f7c84c936ea66a4d41acadbdb2edcb8800160d3aca022286f9b98795d90986",
+        "bytes": 222210210,
+        "instructions": 4513407,
+        "branch_sites_hit": 4,
+        "branch_outcomes": {
+          "38:7014:fallthrough": 4,
+          "38:7018:fallthrough": 4,
+          "38:702F:fallthrough": 4,
+          "38:7032:fallthrough": 4
+        },
+        "unclassified_branch_successors": 0,
+        "semantic_features": [
+          "ans",
+          "display",
+          "list_store",
+          "program_call",
+          "return",
+          "shared_globals",
+          "statement",
+          "two_byte_token"
+        ]
+      },
+      {
+        "label": "callstop",
+        "sha256": "d546bec142f42105aea5ab5821efef20011a6e7501a023664f3cacdfe4acc26b",
+        "bytes": 219921102,
+        "instructions": 4467115,
+        "branch_sites_hit": 4,
+        "branch_outcomes": {
+          "38:7014:fallthrough": 3,
+          "38:7018:fallthrough": 3,
+          "38:702F:fallthrough": 3,
+          "38:7032:fallthrough": 3
+        },
+        "unclassified_branch_successors": 0,
+        "semantic_features": [
+          "display",
+          "nonlocal_termination",
+          "program_call",
+          "statement",
+          "stop"
+        ]
+      },
+      {
+        "label": "data",
+        "sha256": "50244e818cb24e4e7108be044c4ca236527be91eb40365ba258889755a76c8fa",
+        "bytes": 192961158,
+        "instructions": 3921752,
+        "branch_sites_hit": 4,
+        "branch_outcomes": {
+          "38:7014:fallthrough": 4,
+          "38:7018:fallthrough": 4,
+          "38:702F:fallthrough": 4,
+          "38:7032:fallthrough": 4
+        },
+        "unclassified_branch_successors": 0,
+        "semantic_features": [
+          "display",
+          "list_fold",
+          "list_literal",
+          "list_store",
+          "statement",
+          "two_byte_token"
+        ]
+      },
+      {
+        "label": "dfs",
+        "sha256": "bb4c3f8d22f363c0271aa6cd87c47da4228edc42d2927ade9ae1c32d0af6b63a",
+        "bytes": 232688520,
+        "instructions": 4725185,
+        "branch_sites_hit": 15,
+        "branch_outcomes": {
+          "38:4136:fallthrough": 36,
+          "38:4139:taken": 36,
+          "38:414D:fallthrough": 9,
+          "38:414D:taken": 27,
+          "38:4153:taken": 9,
+          "38:415F:taken": 27,
+          "38:4166:fallthrough": 27,
+          "38:416A:fallthrough": 27,
+          "38:416E:taken": 27,
+          "38:4187:fallthrough": 223,
+          "38:4187:returned": 44,
+          "38:418A:taken": 223,
+          "38:4198:fallthrough": 34,
+          "38:4198:taken": 189,
+          "38:7014:fallthrough": 49,
+          "38:7018:fallthrough": 49,
+          "38:702F:fallthrough": 49,
+          "38:7032:fallthrough": 49
+        },
+        "unclassified_branch_successors": 0,
+        "semantic_features": [
+          "display",
+          "for_end",
+          "if_then_else_scan",
+          "list_store",
+          "nested_blocks",
+          "statement",
+          "two_byte_token",
+          "while_end"
+        ]
+      },
+      {
+        "label": "factorial",
+        "sha256": "8776de7dbcf4525836a772abf3d07f576acec266603da3cbf4a4c072ad92c283",
+        "bytes": 206810988,
+        "instructions": 4201659,
+        "branch_sites_hit": 4,
+        "branch_outcomes": {
+          "38:7014:fallthrough": 8,
+          "38:7018:fallthrough": 8,
+          "38:702F:fallthrough": 8,
+          "38:7032:fallthrough": 8
+        },
+        "unclassified_branch_successors": 0,
+        "semantic_features": [
+          "display",
+          "for_end",
+          "fp_arithmetic",
+          "prompt",
+          "scalar_store",
+          "statement"
+        ]
+      },
+      {
+        "label": "hello",
+        "sha256": "a8e71a4372ce70f959355ca47bf0b8d174319b16dc1211e55ba4b04574c627dc",
+        "bytes": 192883170,
+        "instructions": 3921097,
+        "branch_sites_hit": 4,
+        "branch_outcomes": {
+          "38:7014:fallthrough": 2,
+          "38:7018:fallthrough": 2,
+          "38:702F:fallthrough": 2,
+          "38:7032:fallthrough": 2
+        },
+        "unclassified_branch_successors": 0,
+        "semantic_features": [
+          "display",
+          "statement",
+          "string"
+        ]
+      }
+    ],
+    "branches": [
+      {
+        "component": "block matching",
+        "location": "38:4136",
+        "instruction": "ret c",
+        "target": null,
+        "fallthrough": "38:4137",
+        "observed": {
+          "fallthrough": 36
+        }
+      },
+      {
+        "component": "block matching",
+        "location": "38:4139",
+        "instruction": "jr nz,$+18",
+        "target": "38:414B",
+        "fallthrough": "38:413B",
+        "observed": {
+          "taken": 36
+        }
+      },
+      {
+        "component": "block matching",
+        "location": "38:413D",
+        "instruction": "jr nz,$+25",
+        "target": "38:4156",
+        "fallthrough": "38:413F",
+        "observed": {}
+      },
+      {
+        "component": "block matching",
+        "location": "38:414D",
+        "instruction": "jr nz,$+16",
+        "target": "38:415D",
+        "fallthrough": "38:414F",
+        "observed": {
+          "taken": 27,
+          "fallthrough": 9
+        }
+      },
+      {
+        "component": "block matching",
+        "location": "38:4153",
+        "instruction": "jr z,$-18",
+        "target": "38:4141",
+        "fallthrough": "38:4155",
+        "observed": {
+          "taken": 9
+        }
+      },
+      {
+        "component": "block matching",
+        "location": "38:415F",
+        "instruction": "jr nz,$+5",
+        "target": "38:4164",
+        "fallthrough": "38:4161",
+        "observed": {
+          "taken": 27
+        }
+      },
+      {
+        "component": "block matching",
+        "location": "38:4166",
+        "instruction": "jr z,$-5",
+        "target": "38:4161",
+        "fallthrough": "38:4168",
+        "observed": {
+          "fallthrough": 27
+        }
+      },
+      {
+        "component": "block matching",
+        "location": "38:416A",
+        "instruction": "jr z,$-9",
+        "target": "38:4161",
+        "fallthrough": "38:416C",
+        "observed": {
+          "fallthrough": 27
+        }
+      },
+      {
+        "component": "block matching",
+        "location": "38:416E",
+        "instruction": "jr nz,$-24",
+        "target": "38:4156",
+        "fallthrough": "38:4170",
+        "observed": {
+          "taken": 27
+        }
+      },
+      {
+        "component": "block matching",
+        "location": "38:4178",
+        "instruction": "ret c",
+        "target": null,
+        "fallthrough": "38:4179",
+        "observed": {}
+      },
+      {
+        "component": "block matching",
+        "location": "38:417B",
+        "instruction": "jr nz,$-72",
+        "target": "38:4133",
+        "fallthrough": "38:417D",
+        "observed": {}
+      },
+      {
+        "component": "token scanning",
+        "location": "38:4187",
+        "instruction": "ret z",
+        "target": null,
+        "fallthrough": "38:4188",
+        "observed": {
+          "returned": 44,
+          "fallthrough": 223
+        }
+      },
+      {
+        "component": "token scanning",
+        "location": "38:418A",
+        "instruction": "jr nz,$+11",
+        "target": "38:4195",
+        "fallthrough": "38:418C",
+        "observed": {
+          "taken": 223
+        }
+      },
+      {
+        "component": "token scanning",
+        "location": "38:4192",
+        "instruction": "jr nz,$-18",
+        "target": "38:4180",
+        "fallthrough": "38:4194",
+        "observed": {}
+      },
+      {
+        "component": "token scanning",
+        "location": "38:4198",
+        "instruction": "jr nz,$-24",
+        "target": "38:4180",
+        "fallthrough": "38:419A",
+        "observed": {
+          "taken": 189,
+          "fallthrough": 34
+        }
+      },
+      {
+        "component": "grammar dispatch",
+        "location": "38:6FBC",
+        "instruction": "jr c,$+4",
+        "target": "38:6FC0",
+        "fallthrough": "38:6FBE",
+        "observed": {}
+      },
+      {
+        "component": "grammar dispatch",
+        "location": "38:7014",
+        "instruction": "jr z,$+13",
+        "target": "38:7021",
+        "fallthrough": "38:7016",
+        "observed": {
+          "fallthrough": 70
+        }
+      },
+      {
+        "component": "grammar dispatch",
+        "location": "38:7018",
+        "instruction": "jr z,$+14",
+        "target": "38:7026",
+        "fallthrough": "38:701A",
+        "observed": {
+          "fallthrough": 70
+        }
+      },
+      {
+        "component": "grammar dispatch",
+        "location": "38:702F",
+        "instruction": "call nz,02cd9h",
+        "target": "38:2CD9",
+        "fallthrough": "38:7032",
+        "observed": {
+          "fallthrough": 70
+        }
+      },
+      {
+        "component": "grammar dispatch",
+        "location": "38:7032",
+        "instruction": "jr nz,$+14",
+        "target": "38:7040",
+        "fallthrough": "38:7034",
+        "observed": {
+          "fallthrough": 70
+        }
+      },
+      {
+        "component": "command finalization",
+        "location": "02:5679",
+        "instruction": "jr z,$+74",
+        "target": "02:56C3",
+        "fallthrough": "02:567B",
+        "observed": {}
+      },
+      {
+        "component": "command finalization",
+        "location": "02:567D",
+        "instruction": "jr z,$+48",
+        "target": "02:56AD",
+        "fallthrough": "02:567F",
+        "observed": {}
+      },
+      {
+        "component": "command finalization",
+        "location": "02:5681",
+        "instruction": "jr z,$+57",
+        "target": "02:56BA",
+        "fallthrough": "02:5683",
+        "observed": {}
+      },
+      {
+        "component": "command finalization",
+        "location": "02:5684",
+        "instruction": "jp nz,02708h",
+        "target": "02:2708",
+        "fallthrough": "02:5687",
+        "observed": {}
+      },
+      {
+        "component": "control-flow dispatch",
+        "location": "33:436D",
+        "instruction": "jp c,02711h",
+        "target": "33:2711",
+        "fallthrough": "33:4370",
+        "observed": {}
+      },
+      {
+        "component": "control-flow dispatch",
+        "location": "33:4372",
+        "instruction": "jp nc,02711h",
+        "target": "33:2711",
+        "fallthrough": "33:4375",
+        "observed": {}
+      }
+    ],
+    "minimum_diverse_corpus": {
+      "algorithm": "exact lexicographic Optimize set cover via Z3",
+      "objective": "preserve every observed branch outcome and semantic interpreter feature",
+      "source_trace_count": 6,
+      "selected_trace_count": 6,
+      "selected": [
+        "callabi",
+        "callstop",
+        "data",
+        "dfs",
+        "factorial",
+        "hello"
+      ],
+      "omitted": [],
+      "covered_features": 38,
+      "feature_kinds": {
+        "branch": 18,
+        "semantic": 20
+      },
+      "proven_minimum": true
+    }
+  },
+  "open_paths": [
+    "computed parser-handler destinations and recursive handler bodies",
+    "arbitrary-length token streams, quoted strings, and nested blocks",
+    "loop-frame byte layout and error unwinding",
+    "floating-point, VAT, list, graph, and display subsystem internals",
+    "unobserved outcomes in the declared dynamic branch-site set"
+  ]
+}
