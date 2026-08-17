@@ -1,0 +1,395 @@
+{
+  "schema": 1,
+  "rom": {
+    "path": "tools/rom.bin",
+    "sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d"
+  },
+  "scope": {
+    "claim": "ordered natural-program witnesses for five numeric error guards",
+    "complete": false,
+    "reason": "the report distinguishes selected causes; it does not enumerate every caller of each shared error shim"
+  },
+  "examples": [
+    {
+      "label": "divzero",
+      "source": "Disp 1/0",
+      "error": "DIVIDE BY 0",
+      "error_code": "82",
+      "predicate": "the divisor in OP1 is zero",
+      "ordered_path": [
+        "00:2548",
+        "00:254B",
+        "00:26EC"
+      ],
+      "verified": true,
+      "missing_path": [],
+      "completed_paths": 1,
+      "path_hits": {
+        "00:2548": 13,
+        "00:254B": 13,
+        "00:26EC": 1
+      },
+      "causal_path_snapshots": {
+        "00:2548": {
+          "A": "00",
+          "F": "44",
+          "BC": "0000",
+          "DE": "0180",
+          "HL": "8499",
+          "SP": "FFD3"
+        },
+        "00:254B": {
+          "A": "00",
+          "F": "54",
+          "BC": "0000",
+          "DE": "0180",
+          "HL": "8499",
+          "SP": "FFD5"
+        },
+        "00:26EC": {
+          "A": "82",
+          "F": "54",
+          "BC": "0000",
+          "DE": "0180",
+          "HL": "8499",
+          "SP": "FFD5"
+        }
+      },
+      "trace": {
+        "sha256": "4a05737965012462ff4adf2f0601198a7cc939212876a87c55b3357439c68556",
+        "bytes": 191704302,
+        "instructions": 3898627
+      }
+    },
+    {
+      "label": "increment",
+      "source": "For(I,1,3,0):End",
+      "error": "INCREMENT",
+      "error_code": "85",
+      "predicate": "the For( step value in OP1 is zero",
+      "ordered_path": [
+        "37:4268",
+        "00:1DE9",
+        "37:426B",
+        "00:26F8"
+      ],
+      "verified": true,
+      "missing_path": [],
+      "completed_paths": 1,
+      "path_hits": {
+        "37:4268": 1,
+        "00:1DE9": 51,
+        "37:426B": 1,
+        "00:26F8": 1
+      },
+      "causal_path_snapshots": {
+        "37:4268": {
+          "A": "00",
+          "F": "54",
+          "BC": "0E2F",
+          "DE": "000E",
+          "HL": "69C4",
+          "SP": "FFDF"
+        },
+        "00:1DE9": {
+          "A": "00",
+          "F": "54",
+          "BC": "0E2F",
+          "DE": "000E",
+          "HL": "69C4",
+          "SP": "FFDF"
+        },
+        "37:426B": {
+          "A": "00",
+          "F": "54",
+          "BC": "0E2F",
+          "DE": "000E",
+          "HL": "69C4",
+          "SP": "FFE1"
+        },
+        "00:26F8": {
+          "A": "85",
+          "F": "54",
+          "BC": "0E2F",
+          "DE": "000E",
+          "HL": "69C4",
+          "SP": "FFE1"
+        }
+      },
+      "trace": {
+        "sha256": "e97664c4ae957963e053d374497e7e38169d13f56aea22d07a2233791132f4ee",
+        "bytes": 158972238,
+        "instructions": 3229169
+      }
+    },
+    {
+      "label": "lndomain",
+      "source": "Disp ln(0)",
+      "error": "DOMAIN",
+      "error_code": "84",
+      "predicate": "the logarithm operand in OP1 is zero",
+      "ordered_path": [
+        "02:6F1E",
+        "00:212D",
+        "00:1DE9",
+        "00:2130",
+        "00:2131",
+        "00:211D",
+        "00:26F4"
+      ],
+      "verified": true,
+      "missing_path": [],
+      "completed_paths": 1,
+      "path_hits": {
+        "02:6F1E": 1,
+        "00:212D": 1,
+        "00:1DE9": 49,
+        "00:2130": 1,
+        "00:2131": 1,
+        "00:211D": 1,
+        "00:26F4": 1
+      },
+      "causal_path_snapshots": {
+        "02:6F1E": {
+          "A": "00",
+          "F": "44",
+          "BC": "BE02",
+          "DE": "84AF",
+          "HL": "8478",
+          "SP": "FFD1"
+        },
+        "00:212D": {
+          "A": "00",
+          "F": "44",
+          "BC": "BE02",
+          "DE": "84AF",
+          "HL": "8478",
+          "SP": "FFCF"
+        },
+        "00:1DE9": {
+          "A": "00",
+          "F": "44",
+          "BC": "BE02",
+          "DE": "84AF",
+          "HL": "8478",
+          "SP": "FFCF"
+        },
+        "00:2130": {
+          "A": "00",
+          "F": "54",
+          "BC": "BE02",
+          "DE": "84AF",
+          "HL": "8478",
+          "SP": "FFD1"
+        },
+        "00:2131": {
+          "A": "00",
+          "F": "54",
+          "BC": "BE02",
+          "DE": "84AF",
+          "HL": "8478",
+          "SP": "FFD1"
+        },
+        "00:211D": {
+          "A": "00",
+          "F": "54",
+          "BC": "BE02",
+          "DE": "84AF",
+          "HL": "8478",
+          "SP": "FFD1"
+        },
+        "00:26F4": {
+          "A": "84",
+          "F": "54",
+          "BC": "BE02",
+          "DE": "84AF",
+          "HL": "8478",
+          "SP": "FFD1"
+        }
+      },
+      "trace": {
+        "sha256": "7ffcfe1ec1ac08572927cdb849275491d973b6ed37b54af19aaf6fa0e268f740",
+        "bytes": 174111084,
+        "instructions": 3542463
+      }
+    },
+    {
+      "label": "muloverflow",
+      "source": "Disp 1E99*1E99",
+      "error": "OVERFLOW",
+      "error_code": "81",
+      "predicate": "the adjusted sum of the two biased decimal exponents exceeds the representable range",
+      "ordered_path": [
+        "00:2513",
+        "00:2516",
+        "00:2517",
+        "00:2519",
+        "00:251B",
+        "00:251D",
+        "00:26E8"
+      ],
+      "verified": true,
+      "missing_path": [],
+      "completed_paths": 1,
+      "path_hits": {
+        "00:2513": 17,
+        "00:2516": 17,
+        "00:2517": 17,
+        "00:2519": 15,
+        "00:251B": 15,
+        "00:251D": 1,
+        "00:26E8": 1
+      },
+      "causal_path_snapshots": {
+        "00:2513": {
+          "A": "E3",
+          "F": "10",
+          "BC": "0000",
+          "DE": "E383",
+          "HL": "8499",
+          "SP": "FFD3"
+        },
+        "00:2516": {
+          "A": "C6",
+          "F": "81",
+          "BC": "0000",
+          "DE": "E383",
+          "HL": "8499",
+          "SP": "FFD3"
+        },
+        "00:2517": {
+          "A": "C6",
+          "F": "81",
+          "BC": "0000",
+          "DE": "E383",
+          "HL": "8499",
+          "SP": "FFD3"
+        },
+        "00:2519": {
+          "A": "46",
+          "F": "05",
+          "BC": "0000",
+          "DE": "E383",
+          "HL": "8499",
+          "SP": "FFD3"
+        },
+        "00:251B": {
+          "A": "46",
+          "F": "05",
+          "BC": "0000",
+          "DE": "E383",
+          "HL": "8499",
+          "SP": "FFD3"
+        },
+        "00:251D": {
+          "A": "46",
+          "F": "05",
+          "BC": "0000",
+          "DE": "E383",
+          "HL": "8499",
+          "SP": "FFD3"
+        },
+        "00:26E8": {
+          "A": "81",
+          "F": "05",
+          "BC": "0000",
+          "DE": "E383",
+          "HL": "8499",
+          "SP": "FFD3"
+        }
+      },
+      "trace": {
+        "sha256": "9e9dcc59d30b83e8557ee0e509c68af5406ffe7db814dddd092c047dcc4059c9",
+        "bytes": 162089286,
+        "instructions": 3299010
+      }
+    },
+    {
+      "label": "overflow",
+      "source": "Disp 10^100",
+      "error": "OVERFLOW",
+      "error_code": "81",
+      "predicate": "the positive 10^x argument is at least 100",
+      "ordered_path": [
+        "02:7076",
+        "02:7078",
+        "02:7053",
+        "02:7056",
+        "02:7059",
+        "00:26E8"
+      ],
+      "verified": true,
+      "missing_path": [],
+      "completed_paths": 1,
+      "path_hits": {
+        "02:7076": 1,
+        "02:7078": 1,
+        "02:7053": 1,
+        "02:7056": 1,
+        "02:7059": 1,
+        "00:26E8": 1
+      },
+      "causal_path_snapshots": {
+        "02:7076": {
+          "A": "02",
+          "F": "42",
+          "BC": "0211",
+          "DE": "8482",
+          "HL": "8498",
+          "SP": "FFC5"
+        },
+        "02:7078": {
+          "A": "02",
+          "F": "42",
+          "BC": "0211",
+          "DE": "8482",
+          "HL": "8498",
+          "SP": "FFC5"
+        },
+        "02:7053": {
+          "A": "02",
+          "F": "42",
+          "BC": "0211",
+          "DE": "8482",
+          "HL": "8498",
+          "SP": "FFC3"
+        },
+        "02:7056": {
+          "A": "00",
+          "F": "54",
+          "BC": "0211",
+          "DE": "8482",
+          "HL": "8498",
+          "SP": "FFC5"
+        },
+        "02:7059": {
+          "A": "00",
+          "F": "54",
+          "BC": "0211",
+          "DE": "8482",
+          "HL": "8498",
+          "SP": "FFC5"
+        },
+        "00:26E8": {
+          "A": "81",
+          "F": "54",
+          "BC": "0211",
+          "DE": "8482",
+          "HL": "8498",
+          "SP": "FFC5"
+        }
+      },
+      "trace": {
+        "sha256": "51662b88893c4acde8fc78e02ac1db7798e30f3d5f5fcd3bcda67850dee2443f",
+        "bytes": 182183202,
+        "instructions": 3705884
+      }
+    }
+  ],
+  "summary": {
+    "examples": 5,
+    "distinct_errors": 4,
+    "distinct_guard_paths": 5,
+    "verified": 5
+  }
+}
