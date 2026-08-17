@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1aced576.js";
+            window.path_to_searchindex_js = "searchindex-f8be22ee.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -214,9 +214,10 @@ primitives and LCD update paths; graph drawing reaches graph-buffer and pixel
 routines before display copy. Draw into the graph buffer and call
 <code>DispGraph</code> once when possible. [confirmed]</li>
 <li><strong>Write the optional syntax in loops.</strong> Closing <code>For(</code> with <code>)</code> avoids the
-advancing temporary parser range measured in the false-<code>If</code> pair. The exact
-page-38 transition remains open. [confirmed] for the RAM-state difference;
-[hypothesis] for its unresolved cause.</li>
+advancing temporary parser and <code>FPS</code> range measured in the false-<code>If</code> pair.
+Both forms use the same page-38 <code>For(</code>/<code>End</code> entries and OPS record; the
+branch that selects temporary-state reuse remains open. [confirmed] for the
+RAM and OPS state; [hypothesis] for that unresolved selection predicate.</li>
 </ol>
 <p>The rules follow one compact model:</p>
 <p>$$

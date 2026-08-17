@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1aced576.js";
+            window.path_to_searchindex_js = "searchindex-f8be22ee.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -246,10 +246,39 @@ equal and at or above <code>0x9E80</code>.</p>
 advances through 25 states from <code>0x9EC8</code> to <code>0xA018</code> in <code>0x0E</code>-byte steps.
 This is direct RAM-state evidence that the two token streams manage temporary
 parse space differently. [confirmed]</p>
+<p>The <code>FPS</code> pointer distinguishes the forms at every <code>End</code> visit:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Form</th><th>First <code>FPS</code></th><th>Last <code>FPS</code></th><th style="text-align: right">Distinct values</th></tr>
+</thead>
+<tbody>
+<tr><td>Explicit <code>)</code></td><td><code>0x9F02</code></td><td><code>0x9F02</code></td><td style="text-align: right">1</td></tr>
+<tr><td>Implicit close</td><td><code>0x9EFF</code></td><td><code>0xA04F</code></td><td style="text-align: right">25</td></tr>
+</tbody>
+</table>
+</div>
+<p>The implicit sequence advances by <code>0x0E</code> per iteration. The explicit sequence
+keeps one <code>FPS</code> value after the first body setup. This matches the temporary
+cursor/end stride without using an LCD image as an oracle. [confirmed]</p>
+<h2 id="the-natural-loop-record"><a class="header" href="#the-natural-loop-record">The natural loop record</a></h2>
+<p>Both forms reach <code>For(</code> production entry <code>38:41E5</code> and <code>End</code> production entry
+<code>38:4200</code>. At each <code>End</code>, <code>38:4200</code> consumes five bytes beginning at <code>OPS + 1</code>:</p>
+<pre class="mermaid">flowchart LR
+    R["OPS + 1 … OPS + 5"] --&gt; Z["00h&lt;br/&gt;sentinel"]
+    R --&gt; C["36 58 or 7D 58&lt;br/&gt;continuation"]
+    R --&gt; S["12 00&lt;br/&gt;state word"]
+    C --&gt; I["38:5836 first update"]
+    C --&gt; T["38:587D steady update"]
+</pre>
+
+<p>The first continuation prepares the loop update. The steady continuation
+re-enters the update path on later iterations. The trace observes 25 <code>End</code>
+visits and the same two record variants in both spellings. [confirmed]</p>
 <p>The pair does not enter the command-finalization gate at <code>02:5676</code> or the
-page-33 dispatcher at <code>33:435F</code>. Those routines therefore do not explain this
-measurement. The exact page-38 transition that selects the advancing temporary
-range remains [hypothesis].</p>
+page-33 dispatcher at <code>33:435F</code>; those routines do not explain the difference.
+The exact branch between <code>For(</code> argument parsing and temporary <code>FPS</code> allocation
+that selects reuse versus <code>0x0E</code>-byte growth remains [hypothesis].</p>
 <h2 id="reproduce-the-evidence"><a class="header" href="#reproduce-the-evidence">Reproduce the evidence</a></h2>
 <p>Generate the programs, run both cases, and retain their traces:</p>
 <pre><code class="language-sh">tools/tibasic_samples.py --write-dir tools/tibasic-samples
@@ -267,8 +296,9 @@ python3 tools/tibasic_smoke.py \
   --output tools/tibasic-for-paren.json
 </code></pre>
 <p><code>tools/tibasic-for-paren.json</code> stores the hashes, marker intervals, pointer-write
-counts, and high-state sequence summary. The smoke check reads the completion
-marker from a logical-RAM dump. Raw traces remain outside the repository.</p>
+counts, high-state sequence, <code>FPS</code> summary, and decoded OPS record variants.
+The smoke check reads the completion marker from a logical-RAM dump. Raw traces
+remain outside the repository.</p>
 <h2 id="practical-rule"><a class="header" href="#practical-rule">Practical rule</a></h2>
 <p>Write the closing <code>)</code> when a <code>For(</code> body begins with a single-line guard:</p>
 <pre><code class="language-ti-basic">For(I,1,N)

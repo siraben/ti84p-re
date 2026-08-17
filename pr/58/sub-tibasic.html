@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1aced576.js";
+            window.path_to_searchindex_js = "searchindex-f8be22ee.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -195,17 +195,18 @@ structure.</p>
 many token bytes. There are no stored line numbers: <code>3Fh</code> separates lines, and
 <code>3Eh</code> separates colon-delimited statements. [confirmed]</p>
 <p>Execution can be read as a pipeline:</p>
-<pre><code class="language-text">VAT program object
-    │ size word selects the token body
-    ▼
-parse cursor (`nextParseByte` .. `basic_end`)
-    │ fetch and classify one token
-    ▼
-statement or recursive expression handler
-    │ variable lookup, FP operation, command, or control transfer
-    ▼
-OP1 result / stored variable / updated parse cursor
-</code></pre>
+<pre class="mermaid">flowchart LR
+    V["VAT program object"] --&gt;|"size selects token body"| C["parse cursor&lt;br/&gt;nextParseByte … basic_end"]
+    C --&gt;|"fetch and classify"| H["statement or expression handler"]
+    H --&gt; E["recursive expression"]
+    H --&gt; M["variable or list access"]
+    H --&gt; D["command or control transfer"]
+    E --&gt; R["OP1 result"]
+    M --&gt; R
+    D --&gt; R
+    R --&gt;|"advance or replace cursor"| C
+</pre>
+
 <p>The page-38 evaluator owns the cursor and grammar. Statement commands can
 cross to page 02, control-flow bodies to page 33, display code to pages 01/03/37,
 and variable lookup to the VAT routines. Those page changes are continuations
@@ -282,7 +283,8 @@ handler recursively consume tighter-binding operands. The selector at
 </table>
 </div>
 <p>For the main family, the grammar class in <code>A</code> indexes a table of little-endian
-handler pointers at <code>38:4000</code>. The bytes there are data—beginning <code>9F 41 F0 45 1C 42 ...</code>—not executable Z80. The selector doubles the class, reads the
+handler pointers at <code>38:4000</code>. Its 87 slots contain 84 valid pointers and 81
+distinct handler destinations. The bytes there are data—beginning <code>9F 41 F0 45 1C 42 ...</code>—not executable Z80. The selector doubles the class, reads the
 pointer, and calls the chosen production. [confirmed]</p>
 <pre><code class="language-pseudocode">evaluate_production(class, level):
   if level == 2:
@@ -300,6 +302,24 @@ Binary productions move operands through the OS floating-point stack and apply
 operations such as <code>_FPAdd</code>, <code>_FPMult</code>, or <code>_BinOPExec</code>; the completed value is
 left in <code>OP1</code>. <code>38:6FB7–6FC2</code> also folds token classes <code>F2h</code> and above by adding
 <code>12h</code> before dispatch. [confirmed]</p>
+<p>The other indirect jumps in the declared interpreter graph also have bounded
+ROM-owned destinations:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Jump</th><th>Selector source</th><th style="text-align: right">Valid destinations</th></tr>
+</thead>
+<tbody>
+<tr><td><code>38:4390</code></td><td>14 entry wrappers load literal continuations</td><td style="text-align: right">14</td></tr>
+<tr><td><code>38:7244</code></td><td>49-class table at <code>38:4FDB</code>; five rows are zero/invalid</td><td style="text-align: right">27 distinct</td></tr>
+<tr><td><code>02:5675</code></td><td>Five preceding token comparisons load literal targets</td><td style="text-align: right">5</td></tr>
+<tr><td><code>33:4380</code></td><td>Bounds-checked 13-row table at <code>33:4381</code></td><td style="text-align: right">13</td></tr>
+</tbody>
+</table>
+</div>
+<p>The CFG follows those destinations without treating adjacent table bytes as
+instructions. The bounds describe valid interpreter state, not arbitrary
+register or stack corruption. [confirmed]</p>
 <p>The shared statement loop can then do one of three things with the result:</p>
 <ul>
 <li>store it through a parsed variable name;</li>
@@ -309,6 +329,42 @@ left in <code>OP1</code>. <code>38:6FB7–6FC2</code> also folds token classes <
 <p><code>_AnsName</code> (<code>38:74B7</code>) constructs the internal name with class byte <code>72h</code>;
 <code>_RclAns</code> (<code>38:679F</code>) recalls it through the ordinary variable machinery.
 [confirmed]</p>
+<h2 id="variable-identity-and-value-payload-are-separate"><a class="header" href="#variable-identity-and-value-payload-are-separate">Variable identity and value payload are separate</a></h2>
+<p>The parser first builds a variable-name descriptor in <code>OP1</code>. The descriptor’s
+type byte selects a VAT object class and the following bytes encode the token or
+name. <code>findsym_scan</code> (<code>07:565F</code>) resolves that identity to a VAT entry and data
+pointer; only then does the recall path copy or address the value payload.
+[confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Object class</th><th>Type</th><th>Payload used by BASIC</th></tr>
+</thead>
+<tbody>
+<tr><td>Real</td><td><code>00h</code></td><td>One 9-byte <code>TIFloat</code></td></tr>
+<tr><td>Real list</td><td><code>01h</code></td><td>2-byte length, then 9-byte elements</td></tr>
+<tr><td>Matrix</td><td><code>02h</code></td><td>Two dimensions, then 9-byte elements</td></tr>
+<tr><td>String</td><td><code>04h</code></td><td>2-byte length, then token/character bytes</td></tr>
+<tr><td>Program</td><td><code>05h</code></td><td>2-byte length, then token bytes</td></tr>
+<tr><td>Protected program</td><td><code>06h</code></td><td>Program payload with protected edit semantics</td></tr>
+<tr><td>Complex list</td><td><code>0Dh</code></td><td>2-byte length, then complex elements</td></tr>
+</tbody>
+</table>
+</div>
+<pre class="mermaid">flowchart LR
+    T["name token"] --&gt; N["OP1 name descriptor"]
+    N --&gt; V["07:565F&lt;br/&gt;VAT scan"]
+    V --&gt;|"recall"| P["typed payload"]
+    P --&gt; R["OP1 value or element address"]
+    R --&gt; A["FP/list/matrix operation"]
+    A --&gt;|"store"| S["create, resize, or replace VAT payload"]
+</pre>
+
+<p>Scalar arithmetic copies a 9-byte value into the OP registers. List and matrix
+access instead checks the container type and dimensions, computes one element
+address, and moves that element through <code>OP1</code>. Stores can therefore fail before
+arithmetic runs: name lookup, type compatibility, dimensions, and allocation
+are distinct boundaries. [confirmed]</p>
 <h2 id="statements-end-locally-blocks-scan-structurally"><a class="header" href="#statements-end-locally-blocks-scan-structurally">Statements end locally; blocks scan structurally</a></h2>
 <p>A false single-line <code>If</code> only has to skip one statement. A false <code>If ... Then</code>,
 <code>While</code>, <code>Repeat</code>, or <code>For(</code> must find a matching structural boundary without
@@ -334,24 +390,42 @@ executing the intervening tokens. That is the purpose of
 only the latter opens a block. Nested <code>Else</code> tokens are ignored until the depth
 returns to zero. The comparisons and counter changes are visible at
 <code>38:4137–417E</code>; the counter is the 16-bit <code>DE</code> register. [confirmed]</p>
-<h3 id="the-loop-dispatch-boundary-remains-open"><a class="header" href="#the-loop-dispatch-boundary-remains-open">The loop-dispatch boundary remains open</a></h3>
+<h3 id="natural-loops-use-a-page-38-ops-record"><a class="header" href="#natural-loops-use-a-page-38-ops-record">Natural loops use a page-38 OPS record</a></h3>
 <p>The public page-33 routine behind bcall <code>grf_435f = 5140h</code> subtracts <code>20h</code>,
 accepts 13 indices, and jumps through the table at <code>33:4381</code>. Three ABI probes
-confirm both bounds outcomes at <code>33:436D</code> and <code>33:4372</code>. [confirmed]</p>
-<p>Natural stored-program traces do not enter <code>02:5676</code> or <code>33:435F</code>, even when
-<code>FACTOR</code>, <code>DFS</code>, and the paired <code>For(</code> benchmark execute loops. The public
-page-33 dispatcher is therefore not established as the stored-program loop
-transition. Connecting the observed page-38 execution path to the loop-record
-operations remains open.</p>
-<p>Conceptually, a loop record must retain:</p>
-<ul>
-<li>the loop kind;</li>
-<li>the <code>For(</code> variable, limit, and step when applicable; and</li>
-<li>the body cursor used by <code>End</code> to resume or exit.</li>
-</ul>
-<p>The language behavior requires a saved body position, and the trace shows the
-body being revisited. The exact handler transition and byte order of every FPS
-loop-record field are still [hypothesis].</p>
+confirm both bounds outcomes at <code>33:436D</code> and <code>33:4372</code>, but natural stored
+programs do not enter it. It is not the <code>For(</code>/<code>End</code> transition. [confirmed]</p>
+<p>Natural <code>For(</code> execution reaches grammar-table destination <code>38:41E5</code>. Natural
+<code>End</code> execution reaches <code>38:4200</code>, which consumes a five-byte record from the
+operator stack at <code>OPS + 1</code>. The observed bytes use this order: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Offset</th><th>First <code>End</code></th><th>Later <code>End</code> visits</th><th>Role</th></tr>
+</thead>
+<tbody>
+<tr><td><code>+0</code></td><td><code>00h</code></td><td><code>00h</code></td><td>Sentinel consumed by <code>38:4200</code></td></tr>
+<tr><td><code>+1..+2</code></td><td><code>36 58</code></td><td><code>7D 58</code></td><td>Little-endian continuation <code>38:5836</code> or <code>38:587D</code></td></tr>
+<tr><td><code>+3..+4</code></td><td><code>12 00</code></td><td><code>12 00</code></td><td>Stable state word <code>0012h</code></td></tr>
+</tbody>
+</table>
+</div>
+<pre class="mermaid">flowchart LR
+    F["For( token"] --&gt; P["38:41E5&lt;br/&gt;create production state"]
+    P --&gt; B["execute loop body"]
+    B --&gt; E["End token&lt;br/&gt;38:4200"]
+    E --&gt; O["pop sentinel + continuation + state word"]
+    O --&gt; I["38:5836&lt;br/&gt;first update"]
+    O --&gt; S["38:587D&lt;br/&gt;steady update"]
+    I --&gt; B
+    S --&gt; B
+</pre>
+
+<p>The continuation path resolves the loop variable through the VAT, applies the
+floating-point increment, compares the updated value, and either revisits the
+body or removes the record. The paired trace confirms the record bytes and the
+two continuations. The complete layout of the associated limit, step, and
+temporary floating-point values is not yet decoded. [confirmed]</p>
 <p>The optional closing <code>)</code> in <code>For(</code> changes marker-to-marker work and parser
 buffer state. Neither spelling reaches the page-02 finalization gate in the
 paired trace, so the exact causal transition remains open. The measured effect
@@ -418,6 +492,43 @@ editor’s internal cursor and redraw state are not yet mapped.</p>
 token-attribute table; returned key codes come from <code>_GetKey</code> on page 06. This
 distinction prevents a common false inference from the nearby <code>CP ADh</code> bytes.
 [confirmed]</p>
+<h2 id="errors-unwind-saved-relative-stack-state"><a class="header" href="#errors-unwind-saved-relative-stack-state">Errors unwind saved relative stack state</a></h2>
+<p>The error entries first select an error code, then join the common path at
+<code>00:270A</code>. For example, <code>_ErrDivBy0</code> at <code>00:26EC</code> selects <code>82h</code>, while the
+syntax entry at <code>00:2700</code> selects <code>88h</code>. Natural <code>Disp 1/0</code> and <code>Disp 1+</code>
+traces reach those entries, respectively. [confirmed]</p>
+<p>The shared context wrapper at <code>00:27DA</code> does not save absolute <code>FPS</code> and <code>OPS</code>
+pointers. It saves each pointer as a delta from the corresponding base at
+<code>0x9822</code> or <code>0x9826</code>, together with the previous error stack and mapped page.
+The unwind path at <code>00:27BB–27D9</code> restores them in reverse order. [confirmed]</p>
+<pre><code class="language-pseudocode">save_error_context(target):
+  push current_flash_page
+  push previous_error_stack
+  push FPS - word_at(0x9822)
+  push OPS - word_at(0x9826)
+  error_stack = SP
+  jump target
+
+unwind_error(error_code):
+  SP = error_stack
+  OPS = word_at(0x9826) + pop_word()
+  FPS = word_at(0x9822) + pop_word()
+  error_stack = pop_word()
+  restore_flash_page(pop_word())
+  return error_code
+</code></pre>
+<pre class="mermaid">flowchart LR
+    E["error entry&lt;br/&gt;82h or 88h"] --&gt; C["00:270A&lt;br/&gt;common error path"]
+    C --&gt; U["00:27BB&lt;br/&gt;load saved error SP"]
+    U --&gt; O["restore OPS delta"]
+    O --&gt; F["restore FPS delta"]
+    F --&gt; P["restore previous error SP and page"]
+    P --&gt; H["error UI / caller continuation"]
+</pre>
+
+<p>The traces confirm the entry, common unwind, and pointer restoration. The
+error-screen <code>Goto</code> editor and every nested-error caller remain outside the
+current interpreter model.</p>
 <h2 id="what-the-coverage-model-establishes"><a class="header" href="#what-the-coverage-model-establishes">What the coverage model establishes</a></h2>
 <p><code>tools/analyze_tibasic_coverage.py</code> ties eight finite models to byte signatures
 in the pinned ROM. It exhausts 591,360 states across token width, delimiters,
@@ -430,10 +541,18 @@ declared outcome set to 52 of 52 while preserving provenance. The report records
 only trace hashes and compact counts; raw traces remain outside the repository.
 See <a href="sub-tibasic-tracing.html">TI-BASIC dynamic tracing</a> for commands and exact
 boundaries. [confirmed]</p>
-<p>This is deliberately not a claim of complete interpreter coverage. The finite
-models bound local decisions, while arbitrary token streams, recursion depth,
-quoted-string contents, errors, computed handler bodies, VAT state, and
-floating-point state remain open.</p>
+<p>The broader saturation audit starts at all 81 grammar-handler destinations and
+selected command, control-flow, value-storage, and error entries. It reaches
+7,651 ROM instructions and 1,230 conditional branches, or 2,460 possible
+branch outcomes. The retained traces observe 728 outcomes; natural TI-BASIC
+programs account for 699. [confirmed]</p>
+<p>This is deliberately not a claim of complete interpreter coverage. The four
+declared computed jumps are expanded over their ROM-defined valid domains, but
+corrupted or otherwise out-of-domain dispatch state is not modeled. Calls into
+display, graphing, and other ROM pages leave the declared regions, and arbitrary
+token streams, recursion depths, VAT layouts, and floating-point values remain
+open. The compact <code>tools/tibasic-saturation.json</code> report records those
+boundaries explicitly.</p>
 <h2 id="address-map"><a class="header" href="#address-map">Address map</a></h2>
 <div class="table-wrapper">
 <table>
@@ -445,6 +564,8 @@ floating-point state remain open.</p>
 <tr><td><code>38:4000</code></td><td>Grammar-handler pointer table</td></tr>
 <tr><td><code>38:4130</code></td><td>Matching <code>End</code>/<code>Else</code> scanner</td></tr>
 <tr><td><code>38:4180</code></td><td>Token-aware skip scanner</td></tr>
+<tr><td><code>38:41E5</code></td><td>Natural <code>For(</code> production entry</td></tr>
+<tr><td><code>38:4200</code></td><td>Natural <code>End</code> record consumer</td></tr>
 <tr><td><code>38:4870</code></td><td><code>Goto</code>/<code>Lbl</code> name scanner</td></tr>
 <tr><td><code>38:5987</code></td><td><code>_ParseInp</code></td></tr>
 <tr><td><code>38:5AB3</code></td><td>Recursive expression evaluator</td></tr>
@@ -462,9 +583,9 @@ floating-point state remain open.</p>
 </tbody>
 </table>
 </div>
-<p>The compact machine-readable evidence is
-<code>tools/tibasic-coverage.json</code>; the generator verifies the ROM hash and the
-local byte signatures before producing a report.</p>
+<p>The local finite-model evidence is <code>tools/tibasic-coverage.json</code>. The broader
+direct-CFG evidence is <code>tools/tibasic-saturation.json</code>. Both generators verify
+the pinned ROM before producing a report.</p>
 
                     </main>
 
