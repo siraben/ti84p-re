@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-b1248ca0.js";
+            window.path_to_searchindex_js = "searchindex-ce2a6f3e.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -180,19 +180,35 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="equation-display-mathprint"><a class="header" href="#equation-display-mathprint">Equation display (MathPrint)</a></h1>
-<p>MathPrint is the OS subsystem that turns a tokenized expression into a two-dimensional
-screen layout. It is used by the homescreen entry line, the Y= editor, the Solver
-equation line, and the template menus. Page <code>39</code> handles template editing and
-record selection. The live editor and settled homescreen redraw traverse
-display objects on page <code>34</code>. Both paths drive the services described in
-<a href="display-lcd.html">Display and LCD</a>.
-It consumes the token stream described in <a href="tokenizer-basic.html">Tokenizer &amp; TI-BASIC</a>
-and preserves the OP registers described in <a href="floating-point.html">Floating-point engine</a>.</p>
-<p>The editor path is a cell-grid typesetter. The OS classifies each token, selects
-a compact handler record, walks the expression into rows and slots, maps each
-cell to pixel coordinates, and emits glyphs or graph-buffer rules. A page <code>34</code>
-object walker redraws the record graph through page <code>01</code> glyph output and page
-<code>04</code> line and point routines. [confirmed]</p>
+<p>MathPrint is the OS subsystem that turns a tokenized expression into a
+two-dimensional screen layout. It serves the home-screen entry line, the
+<strong>Y=</strong> editor, the Solver equation line, and the template menus. It consumes
+the token stream described in <a href="tokenizer-basic.html">Tokenizer &amp; TI-BASIC</a> and
+preserves the OP registers described in
+<a href="floating-point.html">Floating-point engine</a>.</p>
+<p>The token stream, record graph, and editor state coexist while an expression
+is being edited; together they emit a transient drawing stream. MathPrint does
+not repeatedly flatten the equation to pixels and parse it back. [confirmed]</p>
+<p>The table below separates those three stored representations from their
+output:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Representation</th><th>What it preserves</th><th>Main code</th></tr>
+</thead>
+<tbody>
+<tr><td>Native token stream</td><td>Calculator tokens and the active gap-buffer split.</td><td>Page <code>06</code> editor helpers</td></tr>
+<tr><td>Live record graph</td><td>Expression nesting, child order, active child, and per-record geometry.</td><td>Page <code>34</code> construction and traversal</td></tr>
+<tr><td>Editor layout state</td><td>Token classes, handler rows, argument slots, and focused cells.</td><td>Page <code>39</code></td></tr>
+<tr><td>Drawing stream</td><td>Positioned glyphs, points, lines, and accepted LCD writes.</td><td>Pages <code>01</code>, <code>04</code>, and <code>07</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Page <code>39</code> is a cell-grid typesetter for the editable template view. It
+classifies a token, selects a compact handler record, walks rows and argument
+slots, and turns cells into positioned output. Page <code>34</code> constructs, measures,
+and redraws the live record graph. Both paths eventually use the services in
+<a href="display-lcd.html">Display and LCD</a>. [confirmed]</p>
 <pre class="mermaid">flowchart TD
     token["Token or template action"] --&gt; dispatch["39:4A74&lt;br/&gt;class selection"]
     dispatch --&gt; table["39:4C27&lt;br/&gt;class table 39:5E45"]
@@ -207,8 +223,8 @@ object walker redraws the record graph through page <code>01</code> glyph output
     geom --&gt; rules["39:6ABF / ram:3555&lt;br/&gt;rules and rectangles"]
 </pre>
 
-<p>The diagram shows the page <code>39</code> editor path. It does not describe the page <code>34</code>
-record-graph walker. [confirmed]</p>
+<p>This first diagram follows the page <code>39</code> cell path. The record graph in the
+next section is a separate, longer-lived representation. [confirmed]</p>
 <h2 id="editor-state-and-record-graph"><a class="header" href="#editor-state-and-record-graph">Editor state and record graph</a></h2>
 <p>MathPrint keeps native token bytes in an editor gap buffer and maintains a live
 arena of numbered records. Page <code>39</code> treats the active expression as token
@@ -228,10 +244,10 @@ the transient layout view of that live equation. [confirmed]</p>
     gap --&gt; editor["Page 39 layout state&lt;br/&gt;classes, rows, slots, D:E cells"]
     gap --&gt; scan["34:58F9 / 34:5A99&lt;br/&gt;token and argument scans"]
     scan --&gt; build
-    build["34:4900 record allocation"] --&gt; graph["Live record arena&lt;br/&gt;leaf programs + structural child IDs"]
+    build["34:4900 record allocation"] --&gt; recordArena["Live record arena&lt;br/&gt;leaf programs + structural child IDs"]
     gap --&gt; substitute["34:4AAF&lt;br/&gt;active-leaf substitution"]
-    substitute --&gt; graph
-    graph --&gt; metrics["34:7393 / 34:7609&lt;br/&gt;metrics and geometry"]
+    substitute --&gt; recordArena
+    recordArena --&gt; metrics["34:7393 / 34:7609&lt;br/&gt;metrics and geometry"]
     metrics --&gt; render["34:6105 / 34:660A&lt;br/&gt;record and leaf rendering"]
     render --&gt; primitive["Page 1 / 4 / 7&lt;br/&gt;glyphs, points, and lines"]
     primitive --&gt; lcd["Accepted LCD data writes"]
@@ -274,8 +290,13 @@ fields that matter for reading the page <code>0x39</code> code. [confirmed]</p>
 measuring or preparing state; set means it may emit pixels. Several other <code>IY</code> flags bias
 class selection: <code>(IY+0x09)</code> bit 0 selects fraction/argument context, while <code>(IY+0x02)</code>
 bits 4, 5, and 6 select exponent and alternate edit forms. [confirmed]</p>
-<h2 id="handler-records"><a class="header" href="#handler-records">Handler records</a></h2>
-<p>A visible expression is driven by handler records reached through the class table at
+<h2 id="page-39-handler-recipes"><a class="header" href="#page-39-handler-recipes">Page 39 handler recipes</a></h2>
+<p>MathPrint uses two formats that are easy to confuse. A page <code>39</code> handler is a
+shared layout recipe selected by token class. A page <code>34</code> arena record is one
+node in the current expression: it stores the operands and geometry for that
+particular occurrence. The recipe says <em>how</em> to arrange a class; the arena
+record says <em>what</em> this expression contains. [confirmed]</p>
+<p>A visible expression is driven by handler recipes reached through the class table at
 <code>39:5E45</code>. Each class has one word entry:</p>
 <pre><code class="language-text">handler = word(39:5E45 + 2 * class)
 </code></pre>
@@ -312,7 +333,7 @@ emitter at <code>39:4DE6</code> then walks the selected row and calls <code>39:4
 </div>
 <p>The display cell <code>00 C8</code> is the visible <code>fnInt(</code> name. It appears in class <code>0x08</code> and
 class <code>0x30</code>; it is distinct from the fixed <code>Lintegral</code> glyph cells in class <code>0x0D</code>. [confirmed]</p>
-<h2 id="settled-record-graph"><a class="header" href="#settled-record-graph">Settled record graph</a></h2>
+<h2 id="page-34-expression-records"><a class="header" href="#page-34-expression-records">Page 34 expression records</a></h2>
 <p>Every settled record begins with this 20-byte header. The word names remain
 address-based where different render types assign different meanings. [confirmed]</p>
 <pre><code class="language-c">#pragma pack(push, 1)
@@ -341,11 +362,27 @@ writes place the parent record ID at <code>+3</code>. [confirmed]</p>
 that embedded object without drawing a glyph. Ordinary native token bytes stay
 in program order around those markers. A power record of type <code>0x2A</code> binds the
 preceding leaf run as its base and child 1 as its exponent. [confirmed]</p>
-<p>Construction uses three ROM table families. <code>34:594D</code> maps 16 source-token
+<h3 id="construction-tables"><a class="header" href="#construction-tables">Construction tables</a></h3>
+<p>Construction is table-driven rather than a switch over complete expressions:</p>
+<pre><code class="language-pseudocode">\begin{algorithm}
+\caption{Construct one structural arena record}
+\begin{algorithmic}
+\STATE $t \gets \Call{LookupRenderType}{sourceToken}$ \COMMENT{table at \texttt{34:594D}}
+\STATE $g \gets \Call{LookupAllocationGeometry}{t}$ \COMMENT{table at \texttt{33:4F82}}
+\STATE $record \gets \Call{AllocateArenaRecord}{g}$
+\STATE \Call{ReserveChildIds}{$record, g$}
+\STATE $s \gets \Call{LookupChildScan}{t}$ \COMMENT{table at \texttt{34:59AC}}
+\STATE $children \gets \Call{ScanSourceArguments}{s}$
+\STATE \Call{StoreChildrenInRenderOrder}{$record, children$}
+\end{algorithmic}
+\end{algorithm}
+</code></pre>
+<p>Three ROM table families supply those steps. <code>34:594D</code> maps 16 source-token
 pairs to render types. <code>34:59AC</code> gives one five-byte scan row for each type
 <code>0x1F</code>–<code>0x2B</code>. <code>33:4F82</code> gives the corresponding allocation geometry. The
 metric and geometry passes dispatch the same 13-type domain through <code>34:739F</code>
 and <code>34:7611</code>. [confirmed]</p>
+<h3 id="capacity-gate"><a class="header" href="#capacity-gate">Capacity gate</a></h3>
 <p><code>33:4F6D</code> also decodes the three-byte allocation rows at <code>33:4F82</code>. It returns
 the workspace request in <code>DE</code>, the child-slot count in <code>BC</code>, and the record
 size in <code>HL</code>. For example, the type-<code>0x22</code> integral row returns 112 workspace
@@ -365,8 +402,8 @@ words and the reserve-gate bit into six paths. A 524,287-state raw-byte
 differential basis covers each word value at the range and request boundaries.
 The initial values of <code>0x8DB1</code>, <code>0x8DBE</code>, and <code>0x8DF8</code> still depend on the
 calling editor state, so this gate alone does not define one source-character
-limit for every home-screen expression. [confirmed] for the gate and projected
-model; [hypothesis] for a context-independent character limit.</p>
+limit for every home-screen expression. The gate and projected model are
+[confirmed]. A context-independent character limit remains [hypothesis].</p>
 <p><code>settledRecordAllocationCheck()</code> translates the closed caller ABI at <code>34:4862</code>:
 it obtains the workspace request from the type/matrix geometry row and passes
 that request to the capacity gate, retaining the allocator’s <code>A=02h</code> carry
@@ -405,7 +442,7 @@ class. It first handles the special <code>0x3D</code> template handoff, then app
 <p>This is why the same token can render differently in ordinary and stacked contexts. For
 example, class <code>0x08</code> and class <code>0x30</code> share the <code>fnInt(</code>/<code>nDeriv(</code> operator family, but
 <code>0x30</code> is selected after the fraction-context bias. [confirmed]</p>
-<h2 id="layout-pass"><a class="header" href="#layout-pass">Layout pass</a></h2>
+<h2 id="argument-composition"><a class="header" href="#argument-composition">Argument composition</a></h2>
 <p>The high-level loop is:</p>
 <ol>
 <li>Save display and OP state.</li>
@@ -434,23 +471,28 @@ consumes one or two display rows, adjusts <code>0x844B</code>, emits slot marker
 and emits the saved operand through <code>39:5B10</code> or <code>39:5B1D</code>. These bytes define
 row composition around fixed structural cells. The filled and nested-integral
 traces below do not select this entry. [confirmed]</p>
-<p>Action <code>0x03</code> enters <code>39:51F1</code>. A nonzero argument index dispatches to the
-reverse walker at <code>39:523B</code>. At index zero, bit 0 of <code>(IY+1Dh)</code> selects the
-row-token tail. A clear bit with fewer than eight arguments enters the
-do-while loop at <code>39:50A1</code>. The loop calls <code>39:5167</code> once per count value; a
-zero count decrements through <code>0xFF</code> and therefore makes 256 calls. Counts of
-eight or more set the index to <code>count - 1</code>. The path computes the first
-visible slot as <code>count - 8 + baseline</code> with byte arithmetic. <code>39:4DCA</code>
-looks up the current handler row from <code>0x85DF</code>; <code>39:4CA4</code> then emits the suffix
-beginning at the computed slot. The path emits the final argument on row 7
-through <code>39:4E14</code>. [confirmed]</p>
-<p>Action <code>0x04</code> enters <code>39:52A5</code> and computes
-<code>((count - 1) - index) &amp; 0xFF</code> once. A nonzero result calls <code>39:5167</code>. The jump
-at <code>39:52B6</code> then targets <code>39:52A2</code>. The delegated walker returns through
-<code>39:5447</code>, and the outer path enters that row-token tail again. Only an
-initially zero result reaches the bit-0 test on <code>(IY+1Dh)</code>. A set bit selects
-the same tail. With the bit clear, the zero comparison leaves <code>A=0</code>, so the
-jump to <code>39:513E</code> lays out argument zero. [confirmed]</p>
+<p>The action byte chooses how that argument window advances:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Action</th><th>Decision</th><th>Result</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x03</code> at <code>39:51F1</code></td><td>Argument index is nonzero.</td><td>Walk backward through <code>39:523B</code>.</td></tr>
+<tr><td><code>0x03</code> at <code>39:51F1</code></td><td>Index is zero and <code>(IY+1Dh).0</code> is set.</td><td>Emit the row-token tail.</td></tr>
+<tr><td><code>0x03</code> at <code>39:51F1</code></td><td>Index is zero, the flag is clear, and count is below eight.</td><td>Call <code>39:5167</code> once per byte count, then emit the visible suffix and final row-7 argument.</td></tr>
+<tr><td><code>0x03</code> at <code>39:51F1</code></td><td>Count is at least eight.</td><td>Begin the visible window at <code>count - 8 + baseline</code>.</td></tr>
+<tr><td><code>0x04</code> at <code>39:52A5</code></td><td><code>uint8((count - 1) - index)</code> is nonzero.</td><td>Walk once through <code>39:5167</code>, then emit the row-token tail.</td></tr>
+<tr><td><code>0x04</code> at <code>39:52A5</code></td><td>The difference is zero and <code>(IY+1Dh).0</code> is set.</td><td>Emit the same row-token tail.</td></tr>
+<tr><td><code>0x04</code> at <code>39:52A5</code></td><td>The difference is zero and the flag is clear.</td><td>Lay out argument zero through <code>39:513E</code>.</td></tr>
+</tbody>
+</table>
+</div>
+<p>All count arithmetic is byte-sized. In particular, an initial zero in the
+action-<code>0x03</code> do-while loop at <code>39:50A1</code> wraps to <code>0xFF</code> and makes 256 calls.
+<code>39:4DCA</code> locates the handler row, <code>39:4CA4</code> emits its visible suffix, and
+<code>39:4E14</code> emits the final argument on row 7. The action-<code>0x04</code> delegated return
+passes through <code>39:5447</code> and <code>39:52A2</code>. [confirmed]</p>
 <h2 id="cell-coordinates"><a class="header" href="#cell-coordinates">Cell coordinates</a></h2>
 <p>Descriptor-backed templates use a fixed ABI. A descriptor is:</p>
 <pre><code class="language-c">typedef struct {
@@ -461,9 +503,12 @@ jump to <code>39:513E</code> lays out argument zero. [confirmed]</p>
     uint16_t cell_pointer;  /* pointer to descriptor cells */
 } EqDispTemplateDescriptor;
 </code></pre>
-<p>The mapper at <code>39:683D</code> converts a descriptor cell to pixels. The <code>+7</code> loop (<code>DEC B; ADD A,7</code>)
-builds the <em>high</em> byte and the <code>+(rowHeight+2)</code> loop builds the <em>low</em> byte; the caller stores
-<code>HL</code> to <code>penCol</code>(<code>0x86D7</code>, low→x) / <code>penRow</code>(<code>0x86D8</code>, high→y), so the two products land as:</p>
+<p>The mapper at <code>39:683D</code> converts a descriptor cell to pixels. Its index names
+are transposed relative to conventional screen coordinates: the descriptor
+row advances LCD $x$, while the descriptor column advances $y$. The <code>+7</code> loop
+(<code>DEC B; ADD A,7</code>) builds the packed high byte, and the
+<code>rowHeight + 2</code> loop builds the low byte. The caller stores <code>HL</code> to <code>penCol</code>
+(<code>0x86D7</code>, low to $x$) and <code>penRow</code> (<code>0x86D8</code>, high to $y$):</p>
 <p>$$
 \begin{aligned}
 x &amp;= \mathit{base}_x \\
@@ -517,17 +562,24 @@ then folds that raised row into the parent layout. [confirmed]</p>
 <p>This means <code>X^2</code> is stored and walked as ordinary cells in different rows. The row selection
 does the work; the glyph for <code>2</code> is the ordinary one.</p>
 <h2 id="radicals"><a class="header" href="#radicals">Radicals</a></h2>
-<p>The large-font table contains the fixed <code>Lroot</code> glyph (<code>0x10</code>) at <code>07:466F</code>.
-The root/power records also contain the payload cell <code>00 10</code> in classes <code>0x2A</code>
-and <code>0x31</code>. These facts do not establish a direct emission path between the
-cell and that glyph. [confirmed]</p>
-<p>The same records also contain low-byte <code>E=1F</code> cells for related power/root pieces. Those
-cells follow the ordinary token-string path; they are not the special high-byte <code>D=1F</code>
-cell form used by the <code>39:4E8E</code> IX-backed branch. [confirmed]</p>
-<p>The direct mapper at <code>39:4F1A</code> does not accept <code>00 10</code>. If that cell follows the
-ordinary string path, <code>_KeyToString</code> selects <code>All+</code>, not <code>Lroot</code>. The final
-root-mark emitter must therefore be selected by an upstream or dynamic path
-that remains unidentified. [hypothesis]</p>
+<p>The recovered pieces establish where the radical data lives, but not yet the
+complete page <code>39</code> emission route:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Finding</th><th>Evidence</th><th>Confidence</th></tr>
+</thead>
+<tbody>
+<tr><td>The large-font table contains <code>Lroot</code> code <code>0x10</code>.</td><td><code>07:466F</code></td><td>[confirmed]</td></tr>
+<tr><td>Classes <code>0x2A</code> and <code>0x31</code> contain cell <code>00 10</code>; related cells use low byte <code>E=1F</code>.</td><td>Decoded handler recipes</td><td>[confirmed]</td></tr>
+<tr><td><code>39:4F1A</code> does not map <code>00 10</code>; the ordinary <code>_KeyToString</code> interpretation is <code>All+</code>.</td><td>Direct mapper and string table</td><td>[confirmed]</td></tr>
+<tr><td>An upstream or dynamic path must select the final root-mark emitter.</td><td>The direct path remains unidentified.</td><td>[hypothesis]</td></tr>
+</tbody>
+</table>
+</div>
+<p>The low-byte <code>E=1F</code> cells use the ordinary token-string path. They are not the
+special high-byte <code>D=1F</code> form used by the <code>39:4E8E</code> IX-backed branch.
+[confirmed]</p>
 <p>The static <code>39:5167</code> path can advance a recursive operand window when selected,
 but the demonstrated traces do not connect it to the radical records. The
 precise division between fixed root glyphs, radicand placement, and any
@@ -657,31 +709,6 @@ hook. A hook that returns Z either completes the copy entry or supplies the
 pattern pointer consumed by the shifted entry. The 32 hook predicate states
 reduce to 14 complete branch paths. Hook-provided pattern bytes remain external
 to the translation. [confirmed]</p>
-<h2 id="algorithm-summary"><a class="header" href="#algorithm-summary">Algorithm summary</a></h2>
-<pre><code class="language-pseudocode">\begin{algorithm}
-\caption{MathPrint layout}
-\begin{algorithmic}
-\STATE save display flags and OP scratch registers
-\FOR{each visible token or template action}
-  \STATE classify the token into a layout class
-  \STATE load the class handler record from \texttt{39:5E45}
-  \STATE read row count, row actions, and row cell counts
-  \IF{the selected cell is an operand slot}
-    \STATE recurse through the argument walker
-  \ELSIF{the selected cell is a descriptor-backed template cell}
-    \STATE map descriptor row/column to pixel coordinates
-    \STATE emit the descriptor cell or marker action
-  \ELSIF{the selected cell is a structural glyph}
-    \STATE map it through the direct glyph path and emit the fixed glyph
-  \ELSE
-    \STATE convert it through the string or display-byte path
-  \ENDIF
-  \STATE update row, column, and overflow state
-\ENDFOR
-\STATE restore display flags and OP scratch registers
-\end{algorithmic}
-\end{algorithm}
-</code></pre>
 <h2 id="evidence-anchors"><a class="header" href="#evidence-anchors">Evidence anchors</a></h2>
 <p>The page is intentionally an architecture summary, not a verifier log. These are the main
 anchors for readers who want to check the disassembly. [confirmed]</p>
@@ -718,6 +745,13 @@ anchors for readers who want to check the disassembly. [confirmed]</p>
 </table>
 </div>
 <h2 id="mathprint-pipeline-coverage"><a class="header" href="#mathprint-pipeline-coverage">MathPrint pipeline coverage</a></h2>
+<p>Coverage here has three layers. The declared control-flow graph defines the
+branches being counted; finite models exhaust selected routine-level input
+projections; dynamic traces show which of those branches calculator-created
+states actually reach. A complete finite projection is not whole-machine
+coverage, and a branch absent from the corpus is unresolved rather than
+infeasible unless a separate invariant rules it out.</p>
+<h3 id="scope-of-the-analyzer"><a class="header" href="#scope-of-the-analyzer">Scope of the analyzer</a></h3>
 <p><code>tools/analyze_mathprint_saturation.py</code> bounds the coverage claim to nine
 declared components: settled construction, settled rendering, metrics and
 geometry, record allocation, editor layout, small-font/LCD output, point and
@@ -772,6 +806,7 @@ or any other byte stops it. The analyzer enumerates every accepted digit/letter
 prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
+<h3 id="finite-symbolic-models"><a class="header" href="#finite-symbolic-models">Finite symbolic models</a></h3>
 <p>The analyzer generates one deterministic representative for every complete
 path-equivalence class in 52 finite models. It also computes an exact minimum
 representative set for the branch outcomes in each model. The checked unit test
@@ -862,6 +897,7 @@ does so. Existing fraction construction instead reaches the same scanner
 through another entry route. The outcome remains unresolved because the
 metadata value proves local relevance but does not prove caller reachability.
 [confirmed]</p>
+<h3 id="dynamic-coverage"><a class="header" href="#dynamic-coverage">Dynamic coverage</a></h3>
 <p>The report keeps complete path witnesses separate from individual branch
 outcome witnesses. A class whose branch outcomes all occur somewhere in the
 corpus is not necessarily a class traversed by one invocation. The editor ABI
@@ -921,6 +957,7 @@ Synthetic direct calls to internal metric handlers do not share the ABI.
 infeasible from <code>01:6702</code>. Both outcomes of <code>01:6776</code> are also infeasible
 because that comparison’s only predecessor is the dead taken edge at
 <code>01:6765</code>. [confirmed]</p>
+<h3 id="minimal-diverse-trace-corpus"><a class="header" href="#minimal-diverse-trace-corpus">Minimal diverse trace corpus</a></h3>
 <p>The report computes two exact Z3 covers. The first preserves every individual
 branch outcome observed in the supplied traces. It does not preserve complete
 invocation paths, register or RAM states, dispatch indices, record cases, or LCD
@@ -1014,6 +1051,24 @@ source in the 276-trace report. It supplies the only evidence for
 <code>34:5A23</code> fallthrough and <code>34:6992</code> taken. The token-built matrix traversal
 supplies the first natural witness for <code>34:6B94</code> taken. The full minimum
 retains it; the natural minimum excludes it by construction. [confirmed]</p>
+<h2 id="live-editor-reconstruction"><a class="header" href="#live-editor-reconstruction">Live editor reconstruction</a></h2>
+<p>The coverage report above says which observations support the recovered
+logic. This section changes viewpoint: it follows an edit from the gap buffer,
+through the record graph, and back to pixels. [confirmed]</p>
+<h3 id="gap-buffer-and-record-regions"><a class="header" href="#gap-buffer-and-record-regions">Gap buffer and record regions</a></h3>
+<p>The four editor pointers describe two live byte ranges separated by unused
+space:</p>
+<pre><code class="language-c">typedef struct {
+    uint16_t top;       /* editTop: first address of the left segment */
+    uint16_t cursor;    /* editCursor: one past the left segment */
+    uint16_t tail;      /* editTail: first address of the right segment */
+    uint16_t bottom;    /* editBtm: one past the right segment */
+} MathPrintEditorGapPointers;
+
+uint16_t active_leaf;   /* separate record pointer stored at 0x8DC2 */
+
+/* Logical payload = [top, cursor) followed by [tail, bottom). */
+</code></pre>
 <p>The in-progress editor is a gap buffer. <code>editTop</code> (<code>0x96F4</code>) and <code>editCursor</code>
 (<code>0x96F6</code>) bound the left segment. <code>editTail</code> (<code>0x96F8</code>) and <code>editBtm</code>
 (<code>0x96FA</code>) bound the right segment. Moving across a structural object exposes
@@ -1080,6 +1135,7 @@ reconstructing it matches every record field by ID. Executing the reconstructed
 record program in the cursor-off phase also matches the complete 96×64
 calculator screenshot bitmap. The hashes in the last column cover all 768 LCD
 bytes. [confirmed]</p>
+<h3 id="ordinary-token-insertion"><a class="header" href="#ordinary-token-insertion">Ordinary token insertion</a></h3>
 <p>Ordinary token insertion follows <code>34:4775–47A4</code> into <code>34:4BB9–4C0D</code>. The
 non-structural branch reaches the page-6 gap writer through <code>00:3699</code>.
 <code>06:4341–4388</code> checks available space, stores the one- or two-byte packed token
@@ -1108,6 +1164,47 @@ post-key cursor tree, every reconstructed record field, and the complete
 cursor-off 96×64 LCD bitmap. Directly appending the byte to the previous
 semantic tree would miss four of the five regrouping transitions. Cursor
 navigation is tested separately below. [confirmed]</p>
+<h3 id="structural-template-insertion"><a class="header" href="#structural-template-insertion">Structural template insertion</a></h3>
+<p>Most structural insertions share the same transaction. A small type policy
+decides which packed token, if any, moves into a child and which child receives
+the cursor:</p>
+<pre><code class="language-pseudocode">\begin{algorithm}
+\caption{Insert a structural template}
+\begin{algorithmic}
+\STATE $rule \gets \Call{TemplateRule}{renderType}$
+\STATE split the active leaf at the cursor on a packed-token boundary
+\STATE consume one token on the right when $rule$ requires replacement
+\STATE write placeholder \texttt{EF type 00 00 EF 2D} into the containing leaf
+\STATE allocate the structural record and its ordered child leaves
+\STATE patch the marker with the allocated record ID
+\STATE distribute the left payload according to $rule$
+\STATE select $rule.initialChild$ and install its gap payload
+\STATE remeasure ancestors while retaining editor-only record fields
+\end{algorithmic}
+\end{algorithm}
+</code></pre>
+<p>The policy table makes the structural differences explicit. “Initial focus”
+describes blank insertion; leading, mid-leaf, and leaf-end cases can migrate
+payload or choose a different child as described below. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Source token</th><th style="text-align: right">Type</th><th>Ordered children</th><th>Initial focus</th></tr>
+</thead>
+<tbody>
+<tr><td><code>EF2Eh</code></td><td style="text-align: right"><code>0x20</code></td><td>numerator, denominator</td><td>numerator</td></tr>
+<tr><td><code>00B2h</code></td><td style="text-align: right"><code>0x21</code></td><td>enclosed expression</td><td>enclosed expression</td></tr>
+<tr><td><code>0024h</code></td><td style="text-align: right"><code>0x22</code></td><td>lower bound, upper bound, body, variable</td><td>lower bound</td></tr>
+<tr><td><code>0025h</code></td><td style="text-align: right"><code>0x23</code></td><td>variable, body, evaluation value</td><td>variable</td></tr>
+<tr><td><code>00F1h</code></td><td style="text-align: right"><code>0x24</code></td><td>index, radicand</td><td>radicand, with <code>Ans</code> as the index</td></tr>
+<tr><td><code>00BFh</code> / <code>00C1h</code></td><td style="text-align: right"><code>0x25</code> / <code>0x26</code></td><td>exponent</td><td>exponent</td></tr>
+<tr><td><code>00BCh</code></td><td style="text-align: right"><code>0x27</code></td><td>radicand</td><td>radicand</td></tr>
+<tr><td><code>EF34h</code></td><td style="text-align: right"><code>0x28</code></td><td>base, argument</td><td>base</td></tr>
+<tr><td><code>EF33h</code></td><td style="text-align: right"><code>0x29</code></td><td>variable, lower bound, upper bound, body</td><td>variable</td></tr>
+<tr><td><code>00F0h</code></td><td style="text-align: right"><code>0x2A</code></td><td>exponent; base precedes the marker</td><td>exponent</td></tr>
+</tbody>
+</table>
+</div>
 <p>The blank entry line stores a zero-byte active leaf. Its only semantic node is
 the cursor at byte offset zero; inactive empty leaves remain invalid. Selecting
 the <strong>n/d</strong> template supplies source token <code>EF 2E</code>. <code>34:5935</code> maps that token to
@@ -1126,111 +1223,47 @@ the empty numerator, and creates an <code>EF 1E</code> token in both children. T
 post-key tree, all five record headers, and the complete cursor-off LCD bitmap
 match the calculator. The constructor also returns that decoded arena directly,
 so a following translated edit does not need to import RAM again. [confirmed]</p>
-<p>A second reset-origin transition begins with root payload <code>31</code> and a leaf-end
-cursor. The same template path moves <code>31</code> into numerator record <code>9</code>, creates an
-empty denominator in record <code>10</code>, and moves the cursor to the denominator. The
-migrated numerator retains <code>word0F = 0</code> while <code>word11 = 1</code>; the editor AST keeps
-that leaf-only state so reconstruction matches the ROM header. [confirmed]</p>
-<p>A third transition begins with <code>12</code> and the cursor between the two tokens. It
-moves the left segment, <code>31</code>, into numerator record <code>9</code>, creates an empty
-denominator in record <code>10</code>, and retains the right segment, <code>32</code>, after the
-six-byte fraction marker in the root leaf. The translated cursor tree, every
-record field, and the complete 96×64 post-key LCD bitmap match the ROM capture
-in all three transitions. [confirmed]</p>
-<p>A fourth root transition begins with <code>12</code> and the cursor before both tokens. It
-creates an empty fraction, selects numerator record <code>9</code>, and retains the entire
-<code>31 32</code> right segment after marker <code>EF 20 08 00 EF 2D</code>. The children both hold
-<code>EF 1E</code>; neither receives the right segment. Blank, leading, mid-leaf, and
-leaf-end cases now cover every root cursor class. [confirmed]</p>
-<p>A fifth reset-origin transition inserts a fraction after <code>1</code> in an outer
-fraction’s numerator. The outer fraction retains record <code>8</code> and child records
-<code>9</code> and <code>10</code>; the allocator appends inner fraction <code>11</code> and child records <code>12</code>
-and <code>13</code>. Parent leaf <code>9</code> changes from payload <code>31</code> to marker
-<code>EF 20 0B 00 EF 2D</code>, migrated <code>31</code> becomes inner numerator <code>12</code>, and the cursor
-moves to inner denominator <code>13</code>. Structural depth advances from one to two.
+<p>Fraction insertion exposes the four cursor classes most clearly:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Cursor state before insertion</th><th>New numerator</th><th>Bytes retained after the marker</th><th>Selected child</th></tr>
+</thead>
+<tbody>
+<tr><td>Blank root</td><td><code>EF 1E</code></td><td>none</td><td>numerator</td></tr>
+<tr><td>After <code>1</code></td><td><code>1</code></td><td>none</td><td>denominator</td></tr>
+<tr><td>Between <code>1</code> and <code>2</code></td><td><code>1</code></td><td><code>2</code></td><td>denominator</td></tr>
+<tr><td>Before <code>12</code></td><td><code>EF 1E</code></td><td><code>12</code></td><td>numerator</td></tr>
+</tbody>
+</table>
+</div>
+<p>The migrated leaf keeps editor-only header state: the leaf-end case retains
+<code>word0F = 0</code> and <code>word11 = 1</code>. In a nested example, outer records <code>8</code>–<code>10</code>
+remain in place while the allocator appends fraction <code>11</code> and children <code>12</code>
+and <code>13</code>; the left payload migrates to child <code>12</code>, and structural depth advances
+from one to two. Rebuilding the semantic tree from scratch would lose these
+record identities. [confirmed]</p>
+<p>Natural-input oracles cover all four cursor classes at the root and in both
+children of an outer fraction. In every case the translated cursor AST,
+record fields, ancestor metrics, and all 768 LCD bytes match the calculator.
+Deeper fraction positions remain open. [confirmed]</p>
+<p>Integral, <code>nDeriv(</code>, summation, log-base, and the one-child forms join the
+shared marker path at <code>34:5057</code>, then allocate at <code>34:4862–34:492B</code>.
+One-child forms also pass through <code>34:5473</code> and <code>34:58A0</code>. Multi-argument forms
+reserve their child IDs in the table order above, initialize every child with
+<code>EF 1E</code>, and select the first child. The three captured permutations therefore
+distinguish integral <code>(lower, upper, body, variable)</code>, derivative
+<code>(variable, body, value)</code>, and summation <code>(variable, lower, upper, body)</code>.
 [confirmed]</p>
-<p>This live allocation order differs from rebuilding the final expression from
-an empty arena. The editor AST therefore retains structural and leaf record
-IDs in addition to the semantic tree. The constructor honors those identities
-while recomputing metrics and ancestor markers. For the nested transition, the
-translated AST, every record field, and all 768 post-key LCD bytes match the
-ROM capture. The additional transitions below cover the other numerator cursor
-classes and the denominator child. [confirmed]</p>
-<p>Inserting into the outer fraction’s empty numerator consumes its <code>EF 1E</code>
-placeholder. Parent leaf <code>9</code> becomes marker <code>EF 20 0B 00 EF 2D</code>; no empty-slot
-token follows that marker. Inner fraction <code>11</code> receives empty children <code>12</code> and
-<code>13</code>, and the cursor selects numerator <code>12</code>. The translated mutation matches
-the complete record graph and post-key LCD bitmap. [confirmed]</p>
-<p>With <code>12</code> in the outer numerator and the cursor between the tokens, insertion
-migrates <code>31</code> into inner numerator <code>12</code> and retains <code>32</code> after the inner marker
-in outer numerator leaf <code>9</code>. The cursor selects inner denominator <code>13</code>.
-Reconstruction matches the seven-byte outer-numerator payload, all ancestor
-metrics, and the complete LCD bitmap. [confirmed]</p>
-<p>With the cursor before outer-numerator payload <code>31 32</code>, insertion retains both
-bytes after marker <code>EF 20 0B 00 EF 2D</code>. The new numerator and denominator keep
-their <code>EF 1E</code> placeholders, and the cursor selects inner numerator <code>12</code>.
-Together with the blank, mid-leaf, and leaf-end transitions, this covers every
-nested-numerator cursor class. [confirmed]</p>
-<p>Moving the cursor to the outer denominator exercises child 2 of record <code>8</code>.
-Insertion into its <code>EF 1E</code> placeholder replaces leaf <code>10</code> with the inner marker
-and selects empty inner numerator <code>12</code>. Insertion after denominator token <code>31</code>
-migrates that token into inner numerator <code>12</code> and selects inner denominator
-<code>13</code>. The JavaScript reconstruction matches every record field and all 768 LCD
-bytes in both states. [confirmed]</p>
-<p>With the cursor before denominator payload <code>31 32</code>, insertion retains both
-bytes after the inner marker and selects inner numerator <code>12</code>. With the cursor
-between those bytes, insertion migrates <code>31</code> into inner numerator <code>12</code>, retains
-<code>32</code> after the marker, and selects inner denominator <code>13</code>. These transitions
-complete the blank, leading, mid-leaf, and leaf-end denominator classes. The
-root leaf and both child leaves of one outer fraction now have natural-input
-oracles for every cursor class. Deeper fraction positions remain open.
-[confirmed]</p>
-<p>Source token <code>0024h</code> maps to integral type <code>0x22</code> at <code>34:594D</code>. The editor
-dispatcher joins the shared marker path at <code>34:5057</code>. Allocation at
-<code>34:4862</code>–<code>34:492B</code> creates integral record <code>8</code> and reserves child records
-<code>9</code>–<code>12</code> for the lower bound, upper bound, body, and variable. All four children
-begin with <code>EF 1E</code>, and the cursor enters the lower-bound child. [confirmed]</p>
-<p>Blank and leaf-end insertion retain the payload left of the cursor in the
-parent leaf. Leading and mid-leaf insertion replace one packed token
-immediately to the cursor’s right. Four reset-origin captures cover every root
-cursor class. The translated cursor AST, all seven records, and all 768 LCD
-bytes match the calculator states. [confirmed]</p>
-<p>Source token <code>0025h</code> maps to <code>nDeriv(</code> type <code>0x23</code> at <code>34:594D</code>. Allocation
-creates structural record <code>8</code>, then reserves variable record <code>9</code>, body record
-<code>10</code>, and evaluation-value record <code>11</code>. All three children begin with <code>EF 1E</code>,
-and the cursor enters the variable child. Blank and leaf-end insertion retain
-left payload in the parent. Leading and mid-leaf insertion replace one packed
-token to the cursor’s right. [confirmed]</p>
-<p>The live blank-variable state adds two pixels between the derivative fraction
-and the body. The renderer repeats that variable after the evaluation bar and
-draws its active <code>EF 1E</code> cell as a solid five-pixel focus box. Four root cursor
-captures match the translated AST, all six records, and all 768 LCD bytes.
-[confirmed]</p>
-<p>Source token <code>EF33h</code> maps to summation type <code>0x29</code> at <code>34:594D</code>. Allocation
-creates structural record <code>8</code>, then reserves records <code>9</code>–<code>12</code> for the variable,
-lower bound, upper bound, and body. All four children begin with <code>EF 1E</code>, and
-the cursor enters the variable. Blank and leaf-end insertion retain left
-payload in the parent. Leading and mid-leaf insertion replace one packed token
-to the cursor’s right. [confirmed]</p>
-<p>Four root cursor captures match the translated AST, all seven records, and all
-768 LCD bytes. Together with integral and <code>nDeriv(</code>, these captures distinguish
-the three multi-argument child permutations used by the live constructors.
-[confirmed]</p>
-<p>Source tokens <code>B2h</code>, <code>BFh</code>, <code>C1h</code>, and <code>BCh</code> map to the one-child types
-<code>0x21</code>, <code>0x25</code>, <code>0x26</code>, and <code>0x27</code> at <code>34:5935</code>. The dispatcher sends all four
-through <code>34:5057</code>, <code>34:5473</code>, and <code>34:58A0</code> before allocation at <code>34:4862</code>.
-The parent receives <code>EF type id_lo id_hi EF 2D</code>; the new child receives
-<code>EF 1E</code>, and the cursor enters that child. [confirmed]</p>
-<p>Four $e^x$ captures cover blank, leaf-end, leading, and mid-leaf insertion in
-the root. Insertion at the end appends the marker. Leading and mid-leaf
-insertion replace the packed token immediately to the cursor’s right. Blank
-absolute-value and $10^x$ captures exercise the other translated one-child
-kinds. <code>editorInsertStructuralTemplate()</code> produces the decoded cursor AST,
-every record field, and all 768 LCD bytes for all six transitions. [confirmed]</p>
-<p>Source token <code>F1h</code> maps to nth-root type <code>0x24</code> at <code>34:594D</code>. The insertion
-dispatcher takes <code>34:504F</code> into <code>34:51C0–51D9</code>. All four root cursor classes
-continue through <code>34:51D6</code>, <code>34:5473</code>, the marker writer at <code>34:58A0</code>, and the
-three-record allocator at <code>34:4862</code>. [confirmed]</p>
+<p>Across these forms, blank and leaf-end insertion retain the payload to the
+left of the cursor; leading and mid-leaf insertion replace one complete packed
+token on the right. Root-level natural captures cover all four cursor classes
+and match the decoded cursor AST, every record field, and all 768 LCD bytes.
+The blank derivative variable is visually distinctive: it adds two pixels
+between the derivative fraction and body, repeats after the evaluation bar,
+and renders <code>EF 1E</code> as a solid five-pixel focus box. [confirmed]</p>
+<p>The nth-root route is separate: <code>34:504F</code> enters <code>34:51C0–51D9</code>, then reaches
+<code>34:5473</code>, <code>34:58A0</code>, and the three-record allocator at <code>34:4862</code>.</p>
 <p>Blank-root insertion places <code>Ans</code> (<code>72h</code>) in the index child and <code>EF 1E</code> in the
 radicand child. The cursor enters the radicand. Leaf-end and mid-leaf insertion
 move the payload left of the cursor into the index. Leading insertion creates
@@ -1239,16 +1272,6 @@ insertion replace the packed token immediately to the cursor’s right.
 <code>tools/mathprint-editor-structural-mutation-oracles.json</code> captures the four
 states. The translated AST, every record field, and all 768 LCD bytes match
 their calculator states. [confirmed]</p>
-<p>Source token <code>EF34h</code> maps to log-base type <code>0x28</code> at <code>34:594D</code>. The dispatcher
-falls through the type tests at <code>34:5043</code>–<code>34:5054</code> and joins the shared marker
-path at <code>34:5057</code>. It allocates the structural record and two children through
-<code>34:4862</code>–<code>34:492B</code>. Both children begin with <code>EF 1E</code>, and the cursor enters the
-base child. [confirmed]</p>
-<p>Blank and leaf-end insertion leave the payload left of the cursor in the
-parent. Leading and mid-leaf insertion replace one packed token immediately to
-the cursor’s right. Four reset-origin captures cover every root cursor class.
-The translated cursor AST, every record field, and all 768 LCD bytes match the
-calculator states. [confirmed]</p>
 <p>Source token <code>F0h</code> maps to postfix-power type <code>0x2A</code> at <code>34:594D</code>. The editor
 dispatcher enters <code>34:50EF–511D</code>, then joins the shared marker and allocation
 path at <code>34:5057</code>. Blank-root insertion supplies <code>Ans</code> (<code>72h</code>) as the base.
@@ -1320,6 +1343,26 @@ same record and LCD parity. Seven additional transitions cover insertion before
 an existing fraction marker. Other deeper structural positions and
 structural-boundary navigation outside the fraction, integral, summation,
 <code>nDeriv(</code>, and log-base cases remain open. [confirmed]</p>
+<h3 id="cursor-navigation"><a class="header" href="#cursor-navigation">Cursor navigation</a></h3>
+<p>Cursor movement is token movement until it reaches a structural boundary. At
+that point it becomes tree navigation:</p>
+<pre><code class="language-pseudocode">\begin{algorithm}
+\caption{Move the MathPrint cursor}
+\begin{algorithmic}
+\IF{a packed token exists in the requested direction}
+  \STATE move the complete one- or two-byte token across the gap
+\ELSIF{the cursor is entering a structural marker}
+  \STATE select the first child for \textsc{right}, or the last child for \textsc{left}
+\ELSIF{a sibling exists in the requested direction}
+  \STATE commit the current child and select the sibling endpoint
+\ELSIF{the cursor is inside a structural record}
+  \STATE commit the child and return before or after the containing marker
+\ELSE
+  \STATE leave the root state unchanged
+\ENDIF
+\end{algorithmic}
+\end{algorithm}
+</code></pre>
 <p>Ordinary in-leaf navigation uses the page-6 gap movers. <strong>LEFT</strong> reaches
 <code>06:4294–42C7</code> through <code>34:42B4</code> and <code>00:3B49</code>; <strong>RIGHT</strong> reaches
 <code>06:42C8–4301</code> through <code>34:4193</code> and <code>00:367B</code>. Both paths call
@@ -1456,6 +1499,28 @@ the decoded arena returned by <code>editorInsertStructuralTemplate()</code> for 
 root rather than from the first recorded summation state. Each reconstructed
 state matches the calculator’s record fields and cursor-off LCD bitmap.
 [confirmed]</p>
+<h3 id="deletion-and-structural-collapse"><a class="header" href="#deletion-and-structural-collapse">Deletion and structural collapse</a></h3>
+<p>Deletion distinguishes ordinary bytes from empty structural children:</p>
+<pre><code class="language-pseudocode">\begin{algorithm}
+\caption{Delete at the MathPrint cursor}
+\begin{algorithmic}
+\IF{the target is an ordinary packed token}
+  \STATE remove the complete native token
+  \IF{a non-root leaf becomes empty}
+    \STATE install the empty-slot token \texttt{EF 1E}
+  \ENDIF
+\ELSIF{the target is an empty structural child}
+  \IF{the record has one child}
+    \STATE unwrap that child
+  \ELSIF{the type is a fraction or nth root}
+    \STATE promote the sibling payload
+  \ELSE
+    \STATE retain the blank child
+  \ENDIF
+\ENDIF
+\end{algorithmic}
+\end{algorithm}
+</code></pre>
 <p>The generic transition tests apply the same decoded-arena rules to types
 <code>0x20</code>–<code>0x2B</code>, a six-child matrix, two-byte child tokens, and depth-two nested
 markers. The type-<code>0x01</code> variable rule is also tested in the integral,
@@ -1524,11 +1589,12 @@ is set, it preserves <code>A</code> while testing <code>cxCurApp</code> against 
 zero result therefore requires both the bit and the <strong>Y=</strong> application. Natural
 RAM and screenshot captures show the bit set while the inverse-video <code>=</code> field
 is selected. [confirmed]</p>
+<h3 id="y-selection-state"><a class="header" href="#y-selection-state"><strong>Y=</strong> selection state</a></h3>
 <p>The <strong>Y=</strong> editor stores a one-byte selection-field prefix at <code>editTail</code>, then
 advances the page-6 record source past it. The first compared source pointer is
 therefore <code>editTail + 1</code>; later records advance farther through the bounded edit
 buffer. The short <code>X^2</code> selection trace enters both metric passes with
-<code>editTail=FC9Ah</code> and source pointer <code>FC9Bh</code>. An overflowing six-power expression
+<code>editTail = 0xFC9A</code> and source pointer <code>0xFC9B</code>. An overflowing six-power expression
 enters 12 times with source deltas 1, 9, 17, 25, 33, and 41 in each of its two
 passes. Selecting <code>=</code> on an empty expression makes no metric call. These three
 captures are recorded in <code>tools/mathprint-yequ-selection-oracle.json</code>. Thus a
@@ -1546,6 +1612,7 @@ top-level power-marker path. The mixed radical/fraction trace naturally
 exercises <code>34:75B0</code> fallthrough. Both depth-two fraction directions naturally
 exercise <code>34:75BB</code> fallthrough at nonzero depth. The <strong>RIGHT</strong> fraction trace
 remains the first report witness for the latter. [confirmed]</p>
+<h3 id="record-oracle-coverage"><a class="header" href="#record-oracle-coverage">Record-oracle coverage</a></h3>
 <p>The record-oracle corpus contains 114 captured cases and includes every type
 from <code>0x1F</code> through <code>0x2B</code>. Types <code>0x20</code>–<code>0x2B</code> have decoded record nodes and
 complete accepted-write oracles. The type-<code>0x1F</code> case is the transparent
@@ -1559,6 +1626,7 @@ the bytes <code>43 61</code>, the pointer <code>6143h</code>. <code>_LdHLind</co
 a type-<code>0x1F</code> table dispatch enter <code>34:6143</code> with <code>A=0x43</code>. That value follows
 the fixed default path to the seven-row bitmap at <code>34:61BE</code>; <code>(IY+44h).3</code> and
 <code>0x8520</code> do not affect this ABI. [confirmed]</p>
+<h2 id="shared-marker-rendering"><a class="header" href="#shared-marker-rendering">Shared marker rendering</a></h2>
 <p>The editor calls the same helper through a different route. <code>06:7F29</code> loads
 <code>editTail</code>, <code>06:7F2D</code> reads the marker type at <code>editTail + 1</code> into <code>A</code>, and
 <code>06:7F2E</code> calls the bjump descriptor at <code>ram:30BD</code>. Its bytes
@@ -1620,8 +1688,13 @@ order, row composition, descriptor mapping, and draw paths are decoded. The
 browser-side ROM engine now translates the <code>39:4A74</code> token/action dispatch and
 its <code>IY+2</code> exponent-context and <code>IY+9</code> fraction-context class adjustments
 through <code>editorTokenDispatch()</code>. It returns the measured-template handoff at
-<code>39:672E</code> separately from normal <code>39:4C27</code> handler lookup. [confirmed]
-The <code>editorArgumentClamp()</code>, <code>editorRowFromArg()</code>, and
+<code>39:672E</code> separately from normal <code>39:4C27</code> handler lookup. [confirmed]</p>
+<h2 id="page-39-argument-layout-and-vat-search"><a class="header" href="#page-39-argument-layout-and-vat-search">Page 39 argument layout and VAT search</a></h2>
+<p>Page <code>39</code> maps the current token class to a handler recipe, selects a visible
+argument window, and emits its cells. When scrolling needs the neighboring
+named operand, saved OP identities feed the alphabetic VAT search rather than
+a parser-stream scan. [confirmed]</p>
+<p>The <code>editorArgumentClamp()</code>, <code>editorRowFromArg()</code>, and
 <code>editorLayoutArgument()</code> translations cover the arithmetic at <code>39:50CF</code>,
 <code>39:5101</code>, and <code>39:513E</code>: argument-count clamping, six-row window origin,
 seven-row mapping, and restoration of the caller’s baseline row. The
@@ -1641,6 +1714,7 @@ their alphabetic outcomes from one shared VAT state. A missing VAT state
 stops at the saved-F2 search instead of selecting a scroll branch.
 The increment-wrap guard cannot execute: its preceding unsigned predicate
 requires a nonzero count and an index at most <code>count - 2</code>. [confirmed]</p>
+<h3 id="alphabetic-vat-selection"><a class="header" href="#alphabetic-vat-selection">Alphabetic VAT selection</a></h3>
 <p>The saved-operand wrappers at <code>39:5B10</code>–<code>39:5B44</code> move nine-byte operand
 buffers through OP1 at <code>0x8478</code>. The E7 wrappers restore from <code>0x85E7</code>; the F2
 wrappers restore from <code>0x85F2</code>. Each restore uses <code>_Mov9B</code> at <code>00:1A92</code>.
@@ -1680,17 +1754,17 @@ cross to <code>00:3A53</code> and <code>00:306F</code>, respectively. The fixed-
 They return the selected variable in OP1 and OP3 and its VAT pointer in <code>HL</code>;
 carry reports that no matching entry remains. Carry clear then calls
 <code>39:5C2E</code>; only class <code>0x03</code> with subclass byte <code>0x01</code> enters <code>39:1942</code>.
-<code>A=06</code> repeats the alphabetic search, while every other value returns with
+<code>A = 06h</code> repeats the alphabetic search, while every other value returns with
 carry clear. The JavaScript model derives each result from OP1 and a logical
 VAT snapshot. It derives the post-search <code>A</code> from the selected OP1 type, so a
 protected-program entry repeats without an injected return sequence. Nested
 and multi-argument states can therefore exercise the search without replaying
-an LCD stream. [confirmed] for the page-39 control flow and bcall identities;
-[confirmed] for the page-7 input, output, and flag behavior.</p>
+an LCD stream. The page <code>39</code> control flow and bcall identities are [confirmed].
+The page <code>07</code> inputs, outputs, and flag behavior are [confirmed].</p>
 <p><code>editorFindAlphaVat()</code> translates the selection state over an explicit logical
 VAT snapshot. Each snapshot entry contains its nine-byte OP-format identity,
 the byte immediately below its record, its VAT type-byte address, and its
-data-page byte. <code>07:50BB</code> loads <code>A=00h</code>, discarding the caller’s
+data-page byte. <code>07:50BB</code> loads <code>A = 00h</code>, discarding the caller’s
 value; <code>07:5104</code>–<code>07:511D</code> always compare the normalized type class.
 [confirmed] <code>07:5247</code> maps protected programs to the program
 class, complex lists to the list class, type <code>0x0B</code> to equation class <code>0x03</code>,
@@ -1716,8 +1790,8 @@ after the NUL-terminated name length; the one-byte <code>5Dh</code> prefix has c
 length two. A failed search restores the complete original, unpadded OP1 from
 OP3.
 [confirmed]</p>
-<p>Success returns <code>A=00h</code>, Z set, and carry clear. Failure restores all 11
-incoming bytes to OP1/OP3 and returns <code>A=FEh</code>, Z clear, and carry set.
+<p>Success returns <code>A = 00h</code>, Z set, and carry clear. Failure restores all 11
+incoming bytes to OP1/OP3 and returns <code>A = FEh</code>, Z clear, and carry set.
 [confirmed]</p>
 <p><code>editorDecodeAlphaVatSnapshot()</code> builds the logical snapshot from a 64 KiB RAM
 image. The initializer at <code>07:50BE</code>–<code>07:50F9</code> chooses one of two regions.
@@ -1755,7 +1829,8 @@ every synchronous accepted data write, including writes that leave the byte
 unchanged. Timer-interrupt run-indicator writes stay outside the MathPrint
 parity surface. A matching byte stream proves the tested construction and draw
 path; it does not close an unobserved editor or parser branch. [confirmed]</p>
-<h2 id="filled-and-nested-integrand-traces"><a class="header" href="#filled-and-nested-integrand-traces">Filled and nested-integrand traces</a></h2>
+<h2 id="from-live-editor-state-to-settled-drawing"><a class="header" href="#from-live-editor-state-to-settled-drawing">From live editor state to settled drawing</a></h2>
+<h3 id="trace-provenance-and-scope"><a class="header" href="#trace-provenance-and-scope">Trace provenance and scope</a></h3>
 <p>Two reset-origin TLMT v2 traces use the pinned ROM SHA-256
 <code>7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d</code>.
 The raw traces remain outside the repository because they are 162 MB and 202 MB.
@@ -1784,6 +1859,24 @@ cell mapper and geometry selector, confirming that handler-record emission and
 descriptor geometry compose in one rendered expression. Neither trace reaches
 the exact entries <code>39:5167</code>, <code>39:5949</code>, <code>39:5B10</code>, <code>39:5B1D</code>, or <code>39:6ABF</code>.
 [confirmed]</p>
+<h3 id="settled-render-dispatch"><a class="header" href="#settled-render-dispatch">Settled render dispatch</a></h3>
+<p>For either a live-editor or settled redraw, page <code>34</code> walks the arena
+recursively. The live path first substitutes the active gap payload through
+<code>34:4AAF</code>. A leaf then executes its token-and-marker payload; a structural
+record delegates placement to the handler for its type:</p>
+<pre><code class="language-pseudocode">\begin{algorithm}
+\caption{Render an arena record}
+\begin{algorithmic}
+\STATE $record \gets \Call{ResolveRecordId}{id}$
+\IF{$record.type &lt; \mathtt{0x1F}$}
+  \STATE \Call{ExecuteLeafProgram}{$record.payload, origin, depth$}
+\ELSE
+  \STATE $handler \gets \Call{StructuralHandler}{record.type}$
+  \STATE \Call{RenderPlacedChildrenAndPrimitives}{$handler, record, origin, depth$}
+\ENDIF
+\end{algorithmic}
+\end{algorithm}
+</code></pre>
 <p>The settled walker dispatches object kinds <code>0</code>–<code>12</code> through the word table at
 <code>34:7012</code>. The handlers are <code>34:6D0C</code>, <code>706A</code>, <code>70B8</code>, <code>702C</code>, <code>7133</code>, <code>70A0</code>,
 <code>70E2</code>, <code>70E2</code>, <code>7087</code>, <code>7102</code>, <code>717E</code>, <code>70C1</code>, and <code>71C6</code>, in order. Kinds 6
@@ -1801,6 +1894,20 @@ are <code>34:5FE7</code> → <code>ram:34E9</code> (158 writes), <code>34:6CA8</
 <code>ram:3579</code> (10). The remaining 25 writes precede the page <code>34</code> object traversal
 and come from the large-font path. The fixed-page stubs dispatch to page <code>04</code>
 line and point routines and page <code>01:6297</code> small-font output. [confirmed]</p>
+<h3 id="point-and-line-primitives"><a class="header" href="#point-and-line-primitives">Point and line primitives</a></h3>
+<p>A structural handler emits local points or axis-aligned lines. The shared
+drawing backend then applies four stages in order:</p>
+<ol>
+<li>Add the word-sized logical record origin.</li>
+<li>Subtract the horizontal or vertical viewport clip.</li>
+<li>Add the byte-sized physical screen origin and reject out-of-bounds points.</li>
+<li>Route each accepted point to the LCD, <code>plotSScreen</code>, or
+<code>appBackUpScreen</code> according to the destination flags.</li>
+</ol>
+<p>The split between logical and physical origins is intentional.
+<code>ram:8DFE</code>/<code>ram:8E00</code> hold the logical origin, <code>ram:8DFA</code>/<code>ram:8DFB</code> hold the
+physical origin, and <code>ram:8E02</code>/<code>ram:8E04</code> hold the viewport clips.
+[confirmed]</p>
 <p>The point wrapper at <code>34:5E85</code> clips each object coordinate through <code>34:5DD1</code>
 and <code>34:5DEF</code>. Its closed tail at <code>34:5E98</code>–<code>34:5EA6</code> passes <code>B=x</code>,
 <code>C=63-y</code>, and <code>D=1</code> to <code>_PointOn</code> at <code>04:4155</code>. Dynamic samples include
@@ -1905,6 +2012,7 @@ Physical MathPrint lines now compose this stepper with the translated point
 state transition. A hook-handled point remains delegated to the external hook
 body and produces no inferred local LCD write.
 [confirmed]</p>
+<h3 id="word-sized-geometry-and-clipping"><a class="header" href="#word-sized-geometry-and-clipping">Word-sized geometry and clipping</a></h3>
 <p>The structural handlers retain coordinates and dimensions as 16-bit words.
 For example, <code>34:62B4</code>–<code>34:62C3</code> reads a radical child’s width word, increments
 <code>DE</code> three times, and passes the resulting word endpoint to <code>34:5DA6</code>.
@@ -1913,6 +2021,29 @@ The translated renderer therefore accepts widths beyond 255 and wraps additions
 at 16 bits before viewport clipping. A radical with record width 258 reaches a
 clipped vinculum from $x=-167$ through $x=87$ instead of rejecting the record
 as byte-sized geometry. [confirmed]</p>
+<h3 id="structural-render-handlers"><a class="header" href="#structural-render-handlers">Structural render handlers</a></h3>
+<p>The dispatcher is easiest to read as a vocabulary of visual constructs. The
+paragraphs below retain the coordinate and trace details for each row.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Type</th><th>Construct</th><th>Handler</th><th>Distinctive ordered output</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x20</code></td><td>Stacked fraction</td><td><code>34:620A</code></td><td>Numerator, denominator, then a rule sized from the wider child.</td></tr>
+<tr><td><code>0x21</code></td><td>Absolute value</td><td><code>34:6347</code></td><td>Two vertical bars, then child 1.</td></tr>
+<tr><td><code>0x22</code></td><td>Integral</td><td><code>34:622F</code></td><td>Inclusive stem and four hook points; child placement comes from the record.</td></tr>
+<tr><td><code>0x23</code></td><td><code>nDeriv(</code></td><td>table at <code>34:6119</code></td><td>Derivative fraction, body, variable, evaluation bar, then repeated variable and value.</td></tr>
+<tr><td><code>0x24</code></td><td>nth root</td><td><code>34:6315</code></td><td>Index, root hook and stem, radicand, then vinculum.</td></tr>
+<tr><td><code>0x25</code> / <code>0x26</code></td><td>$e^x$ / $10^x$</td><td><code>34:6381</code></td><td>Fixed glyph, then exponent child.</td></tr>
+<tr><td><code>0x27</code></td><td>Square root</td><td><code>34:62A1</code></td><td>Root hook and stem, radicand, then vinculum.</td></tr>
+<tr><td><code>0x28</code></td><td><code>logBASE(</code></td><td><code>34:63B2</code></td><td>Prefix, base, opening shape, argument, then closing shape.</td></tr>
+<tr><td><code>0x29</code></td><td>Summation</td><td><code>34:6504</code></td><td>Sigma/equals forms, children 1–3, then delimited child 4.</td></tr>
+<tr><td><code>0x2A</code></td><td>Postfix power wrapper</td><td><code>34:6375</code></td><td>Recursively renders child 1; emits no primitive itself.</td></tr>
+<tr><td><code>0x2B</code></td><td>Matrix</td><td><code>34:65AA</code></td><td>Left bracket, row-major children, then right bracket.</td></tr>
+</tbody>
+</table>
+</div>
 <p>Render-record type <code>0x22</code> dispatches through <code>34:6105</code> and the table at
 <code>34:6119</code> to <code>34:622F</code>. The word at record offset <code>+7</code> is the integral-sign
 height $h$. The handler draws the inclusive stem <code>(2,1)</code>–<code>(2,h-2)</code>, then hook
@@ -1975,6 +2106,7 @@ the dimensions at record bytes <code>+0x12</code> and <code>+0x13</code>. The hi
 stores the column count. Byte <code>+0x13</code> stores the row count. A settled
 $2\times2$ identity matrix renders four children between the bracket operations.
 [confirmed]</p>
+<h3 id="matrix-layout"><a class="header" href="#matrix-layout">Matrix layout</a></h3>
 <p>The type-<code>0x2B</code> constructor lays out elements in row-major order. For element
 width $w_{r,c}$, height $h_{r,c}$, and baseline $b_{r,c}$, define each column
 width, row baseline, descent, and height as [confirmed]</p>
@@ -2056,6 +2188,33 @@ state. Row 0 uses the bitmap bytes at <code>34:61BE</code>, as fixed by the tabl
 the captured type-<code>0x1F</code> wrapper instead uses the direct-child ABI above. The
 <code>nDeriv(</code> handler renders child 1 again at <code>34:64B3</code>, then
 places display code <code>0x3D</code> after that child’s <code>+7</code> width. [confirmed]</p>
+<h3 id="recovering-semantic-trees-from-records"><a class="header" href="#recovering-semantic-trees-from-records">Recovering semantic trees from records</a></h3>
+<p>A leaf is both text and a small program. Ordinary native tokens expand to
+display codes; embedded markers invoke structural records by ID without
+discarding the text on either side:</p>
+<pre><code class="language-pseudocode">\begin{algorithm}
+\caption{Execute a leaf record program}
+\begin{algorithmic}
+\WHILE{$pc &lt; payloadEnd$}
+  \IF{$pc$ names an embedded structural record}
+    \STATE \Call{RenderRecord}{$\Call{ResolveRecordId}{marker.id}, pen, depth$}
+    \STATE advance past the marker
+  \ELSIF{$pc$ is an embedded-object separator}
+    \STATE advance past the separator
+  \ELSE
+    \STATE $(token, pc) \gets \Call{DecodeNativeToken}{pc}$
+    \FOR{each $displayCode$ in \Call{KeyToString}{token}}
+      \STATE \Call{EmitGlyph}{$displayCode, pen, depth$}
+    \ENDFOR
+  \ENDIF
+\ENDWHILE
+\end{algorithmic}
+\end{algorithm}
+</code></pre>
+<p>The record graph is a layout program. The semantic AST is a second view
+decoded from ordered children, balanced native delimiters, and embedded-record
+markers. The live-editor path substitutes the active gap payload before this
+decode. Neither view is inferred from LCD pixels or screenshots. [confirmed]</p>
 <p>The trace analyzer recovers leaf records from the resolver path. At <code>34:6CCD</code>,
 <code>DE</code> is the one-based child index and <code>ram:8DF2</code> points at the parent. At
 <code>34:6CD8</code>, <code>DE</code> contains the selected child ID and <code>HL</code> points at its resolved
@@ -2106,6 +2265,7 @@ replaying captured glyph events. Tests provide record headers, child IDs, and
 payload bytes as input. They compare the generated display-code, coordinate,
 depth, and order tuples with independently captured <code>34:6C37</code> observations for
 absolute value, summation with an exponent, and nested <code>nDeriv(</code>. [confirmed]</p>
+<h3 id="glyph-selection-and-hooks"><a class="header" href="#glyph-selection-and-hooks">Glyph selection and hooks</a></h3>
 <p>The ordinary-token path resolves payload bytes through <code>smallfont_glyph_ptr</code>
 at <code>01:6702</code>. A zero lead selects the word table at <code>01:4252</code>. The two-byte
 leads <code>5Ch</code>, <code>5Dh</code>, <code>5Eh</code>, <code>60h</code>–<code>63h</code>, <code>7Eh</code>, <code>AAh</code>, <code>BBh</code>, and <code>EFh</code> select
@@ -2170,6 +2330,7 @@ data write through the outer <code>34:660A</code> return: absolute value (49 wri
 root (69), radical (82), summation (66), <code>nDeriv(</code> (96), and a nested
 integral/fraction (114). This comparison includes accepted writes whose value
 does not change the displayed byte. [confirmed]</p>
+<h3 id="compositional-metrics"><a class="header" href="#compositional-metrics">Compositional metrics</a></h3>
 <p>When a containing leaf appends a box with metrics $(h,b)$ to its current
 metrics $(H,B)$, the metric pass unions the extents above and below the
 baseline: [confirmed]</p>
@@ -2227,6 +2388,7 @@ The translated composition matches a pinned-byte interpreter for all 917,504
 screen-byte, width, glyph-row, and inverse-flag inputs. An independent row test
 covers 7,340,032 screen-window, offset, width, and inverse states, including
 both sides of every LCD byte boundary. [confirmed]</p>
+<h3 id="absolute-values-powers-and-roots"><a class="header" href="#absolute-values-powers-and-roots">Absolute values, powers, and roots</a></h3>
 <p>The absolute-value constructor translates a closed slice of the earlier record
 pass. <code>34:5935</code> maps source token <code>00B2h</code> through the table at <code>34:594D</code> to
 render type <code>0x21</code>. The translated <code>34:4900</code>, <code>34:7393</code>, and <code>34:7609</code> paths
@@ -2315,6 +2477,7 @@ constructed record fields and every accepted LCD data write. Their streams
 contain 17, 22, 22, and 32 writes, respectively. These captures test one, two,
 and three raised levels without supplying records or writes to the constructor.
 [confirmed]</p>
+<h3 id="fixed-base-exponentials-and-log-base"><a class="header" href="#fixed-base-exponentials-and-log-base">Fixed-base exponentials and log base</a></h3>
 <p>The type-<code>0x25</code> and type-<code>0x26</code> constructors map source tokens <code>00BFh</code> and
 <code>00C1h</code> through <code>34:594D</code>. Both allocate one exponent child. The child begins at
 <code>x=6</code>, uses raised small-font metrics, and determines the parent height, width,
@@ -2387,6 +2550,7 @@ cases are <code>sqrt(2^X^2)</code>, <code>sqrt(sqrt(2))</code>, <code>X^sqrt(2)<
 <code>sqrt(X^sqrt(2))</code>. Their generated graphs and complete accepted-write streams
 match the traces. The root bitmap comparison includes accepted writes whose
 value does not change the LCD byte. [confirmed]</p>
+<h3 id="nth-roots-and-fractions"><a class="header" href="#nth-roots-and-fractions">Nth roots and fractions</a></h3>
 <p>The type-<code>0x24</code> constructor maps source token <code>00F1h</code> through <code>34:594D</code>, then
 allocates the containing leaf, structural record, index child, and radicand
 child. The index uses the raised small-font metrics. The radicand begins four
@@ -2445,6 +2609,7 @@ each with an ordinary body and a powered body. Before parity is accepted, the
 trace analyzer must decode each settled graph to the asserted expression. The
 JavaScript constructor then matches every record field and allocation ID, plus
 every accepted LCD data write through the outer <code>34:660A</code> return. [confirmed]</p>
+<h3 id="integrals-summations-and-derivatives"><a class="header" href="#integrals-summations-and-derivatives">Integrals, summations, and derivatives</a></h3>
 <p>The type-<code>0x22</code> constructor maps integral source token <code>0024h</code> through
 <code>34:594D</code>. <code>34:4900</code> allocates the integral record, then reserves all four child
 leaf IDs before it scans any child payload. The children hold the lower bound,
@@ -2580,8 +2745,9 @@ The translated graph matches all 18 records and the final normalized
 LCD writes. Their byte-column and row sequence matches the trace after removing
 an eight-write timer interrupt. [confirmed]</p>
 <p><code>34:6C6B</code> adds the four-pixel glyph advance to logical pen positions <code>87</code>,
-<code>91</code>, and <code>95</code>. <code>34:6C76</code> derives the one-past-right coordinate <code>96</code>.
-The compare at <code>34:6C7C</code> draws the first two glyphs because their endpoints are
+<code>91</code>, and <code>95</code>. <code>34:6C76</code> derives the one-past-right coordinate <code>96</code>.</p>
+<h3 id="final-clipping-and-the-run-indicator"><a class="header" href="#final-clipping-and-the-run-indicator">Final clipping and the run indicator</a></h3>
+<p>The compare at <code>34:6C7C</code> draws the first two glyphs because their endpoints are
 <code>91</code> and <code>95</code>; it skips the third glyph because its endpoint is <code>99</code>.
 The JavaScript applies the same whole-glyph gate. [confirmed]</p>
 <p>The interrupt reaches <code>run_indicator_tick</code> at <code>ram:027B</code> with
@@ -2607,6 +2773,7 @@ arbitrary-expression branches are still untranslated.
 Nested fraction <code>1/2</code> reaches <code>34:5DA6</code> with the local rule <code>(1,6)</code>–<code>(5,6)</code>
 and origin <code>(16,5)</code>. Page 4 therefore receives the translated endpoints
 <code>(17,52)</code> and <code>(21,52)</code>. [confirmed]</p>
+<h3 id="record-header-recap"><a class="header" href="#record-header-recap">Record header recap</a></h3>
 <p>The fixed 20-byte record header contains a two-byte ID at <code>+0</code>, a type byte at
 <code>+2</code>, eight unaligned little-endian words at <code>+3</code>, <code>+5</code>, <code>+7</code>, <code>+9</code>, <code>+0x0B</code>,
 <code>+0x0D</code>, <code>+0x0F</code>, and <code>+0x11</code>, and a byte at <code>+0x13</code>. The analyzer names words
@@ -2618,15 +2785,26 @@ root header are child IDs. <code>34:6CCD</code> passes an ID through <code>34:4B
 instruction under the nearest preceding symbol. It places 69 instructions in
 the <code>39:5167</code> bucket for each scenario even though the entry itself has zero
 hits. <code>tools/test_hardware_trace.py</code> covers this distinction. [confirmed]</p>
-<h2 id="cell-encoding"><a class="header" href="#cell-encoding">Cell encoding</a></h2>
-<p><code>eqdisp_emit_glyph</code> (<code>39:4E8E</code>) dispatches each <code>D:E</code> cell by its <code>D</code> byte:
-<code>D=0x1F</code> is a cursor marker (no draw), <code>D=0x82</code> selects an indexed string or
-title, and
-otherwise a counted-string selection (<code>39:6B66</code> → <code>_KeyToString = 45CAh</code> → <code>01:6D10</code>,
-<code>_KeyToString</code>, with its pointer table at <code>01:6E05</code>) or a direct glyph via
-<code>39:4F1A</code> (<code>FC3C</code>–<code>FC40</code> → glyph <code>E - 0x3C + 5</code>,
-<code>FE7D</code>–<code>FE81</code> → <code>E - 0x7D</code>, <code>E = 0x42</code> and <code>D &lt; 0x0A</code> → glyph <code>D</code>). So <code>00C8</code> draws the literal name
-“fnInt(”, not a glyph. The full decode is in
+<h2 id="page-39-cell-encoding"><a class="header" href="#page-39-cell-encoding">Page 39 cell encoding</a></h2>
+<p><code>eqdisp_emit_glyph</code> (<code>39:4E8E</code>) interprets each packed <code>D:E</code> cell as one of
+four output classes:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Cell class</th><th>Meaning</th><th>Result</th></tr>
+</thead>
+<tbody>
+<tr><td><code>D = 1Fh</code></td><td>Cursor marker</td><td>Update cursor state without drawing a glyph.</td></tr>
+<tr><td><code>D = 82h</code></td><td>Indexed string or title</td><td>Emit the selected string.</td></tr>
+<tr><td>Counted-token case</td><td><code>39:6B66</code> to <code>_KeyToString</code> (<code>45CAh</code>, implemented at <code>01:6D10</code>)</td><td>Emit each display code from the counted string.</td></tr>
+<tr><td>Direct-glyph case</td><td>Mapper at <code>39:4F1A</code></td><td>Map the packed cell to one large-font code.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The direct mapper recognizes three ranges: <code>FC3C</code>–<code>FC40</code> becomes
+<code>E - 3Ch + 5</code>, <code>FE7D</code>–<code>FE81</code> becomes <code>E - 7Dh</code>, and cells with <code>E = 42h</code> and
+<code>D &lt; 0Ah</code> become glyph <code>D</code>. <code>00C8</code> therefore draws the literal name <code>fnInt(</code>,
+not one glyph. The full decode is in
 <code>tools/cell-glyph-spec.md</code> and
 <code>tools/token-name-spec.md</code>; the placement geometry
 (<code>683D</code>, <code>6B1C</code>, <code>5167</code>/<code>5949</code>, pen conversion) is in
@@ -2636,7 +2814,24 @@ carry flag, and every conditional outcome through <code>39:4F43</code>. The hand
 classifier consumes that translation rather than a separate mapping table. A
 pinned-byte interpreter compares all 65,536 <code>D:E</code> inputs. They reduce to nine
 complete paths and 16 branch outcomes. [confirmed]</p>
-<h2 id="trace-replay-and-renderer-checks"><a class="header" href="#trace-replay-and-renderer-checks">Trace replay and renderer checks</a></h2>
+<h2 id="validation-and-renderer-checks"><a class="header" href="#validation-and-renderer-checks">Validation and renderer checks</a></h2>
+<p>No single comparison establishes parity. The verification stack deliberately
+checks increasingly large boundaries:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Check</th><th>Compares</th><th>What it establishes</th></tr>
+</thead>
+<tbody>
+<tr><td>Pinned-byte differential</td><td>JavaScript transition against the corresponding ROM helper bytes</td><td>Closed helper branches, flags, and wrap behavior.</td></tr>
+<tr><td>Decoded-graph oracle</td><td>Requested AST against the calculator’s RAM record graph</td><td>The calculator accepted the intended expression structure.</td></tr>
+<tr><td>Accepted-write oracle</td><td>Ordered LCD <code>(column, row, value)</code> tuples</td><td>Construction and draw order, including accepted writes that do not change a byte.</td></tr>
+<tr><td>Final-bitmap differential</td><td>Generated 96×64 pixels against TilEm</td><td>Visible parity, but not operation order by itself.</td></tr>
+<tr><td>Fuzz run</td><td>Native tokens through calculator RAM and screen against the translated graph and frame</td><td>Composition across supported constructors.</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="from-lcd-writes-to-pixels"><a class="header" href="#from-lcd-writes-to-pixels">From LCD writes to pixels</a></h3>
 <p>The renderer writes through the LCD ports rather than a RAM framebuffer.
 <code>tools/trace_lcd.py</code> replays reset-origin TilEm TLMT v2 LCD I/O through the
 pinned TilEm T6A04 state model, including mirrored ports, data reads, busy-write
@@ -2651,6 +2846,7 @@ the <code>34:4ACE</code> and <code>34:4A83</code> walks above. It compares that 
 semantic expression with the JavaScript graph before comparing pixels. A
 dropped key or incomplete template exit therefore rejects the run instead of
 appearing as a renderer mismatch. [confirmed]</p>
+<h3 id="ram-and-ast-differential-oracles"><a class="header" href="#ram-and-ast-differential-oracles">RAM and AST differential oracles</a></h3>
 <p>The RAM oracle avoids an instruction trace for each fuzz case. TilEm still runs
 the calculator to accept the key sequence and produce the screen, but the
 ordinary case retains only a RAM dump and screenshot. A mismatched graph gets
@@ -2691,6 +2887,7 @@ deeply nested expressions pin every intermediate write and the packed final
 framebuffer without loading a captured write stream. These deterministic cases
 exercise summation, integral, <code>nDeriv(</code>, matrix, and a three-level raised
 fraction. [confirmed]</p>
+<h3 id="horizontal-viewport"><a class="header" href="#horizontal-viewport">Horizontal viewport</a></h3>
 <p>The editable input
 <code>int(1,3,(1//2)X,X)+int(1,3,(1//2)X,X)</code> has a 106-pixel expression endpoint.
 The root record stores <code>112</code> at <code>+7</code>: the expression plus a six-pixel cursor
@@ -2735,6 +2932,7 @@ transition to both its full model metadata and its 96-pixel LCD writer. An
 eight-integral boundary regression reaches a 442-pixel record and clip 353
 without truncating its 127 native token bytes. This case is a deterministic
 translation regression.</p>
+<h3 id="vertical-viewport"><a class="header" href="#vertical-viewport">Vertical viewport</a></h3>
 <p>The vertical editor viewport is a separate word transition at
 <code>34:5F8B</code>–<code>34:5FC0</code>. The routine reads the logical cursor top from <code>ram:8518</code>
 and subtracts the previous clip at <code>ram:8E04</code>. A borrow at <code>34:5F96</code> clears the
@@ -2813,8 +3011,9 @@ by the seven-row left-overflow cue, reproduces all 870 pixels of the cropped
 <p>Root-hook bitmaps use the same display-unit gate. <code>34:630C</code> enters <code>34:6C37</code>,
 whose bitmap header supplies a five-pixel advance before <code>34:6C5F</code> performs the
 left-edge comparison. The reset-origin expression
-<code>(sqrt(nDeriv(1,A,1)+11111))</code> reaches <code>34:6C69</code> with logical pen 6 and clip 7.
-The subtraction produces <code>FFFFh</code> with carry, so the ROM omits the complete
+<code>(sqrt(nDeriv(1,A,1)+11111))</code> reaches <code>34:6C69</code> with logical pen 6 and clip 7.</p>
+<h3 id="nested-clipping"><a class="header" href="#nested-clipping">Nested clipping</a></h3>
+<p>The subtraction produces <code>FFFFh</code> with carry, so the ROM omits the complete
 five-pixel hook. The vertical stem and vinculum continue through <code>34:5D96</code> and
 <code>34:5DA6</code>. Translating that unit skip reproduces all pixels in the cropped
 87×15 calculator frame. <code>tools/mathprint-radical-viewport-oracles.json</code> pins
@@ -2867,6 +3066,7 @@ blink separately writes <code>0x7C</code>
 to byte column 11 on the same rows. The browser models the cue selector and
 keeps the unrelated <code>34:6CA8</code> stream outside settled expression timelines.
 [confirmed]</p>
+<h3 id="text-overflow-and-structural-depth"><a class="header" href="#text-overflow-and-structural-depth">Text overflow and structural depth</a></h3>
 <p>The text-cell path has a separate overflow boundary. <code>39:4F08</code> compares
 <code>curCol</code> (<code>0x844C</code>) with <code>0x0F</code> before marker handling and calls the fixed-bank
 <code>_EraseEOL</code> jump at <code>00:3CB7</code>. <code>39:6712</code> then sets <code>curCol</code> to <code>1</code>, emits the
@@ -2928,6 +3128,7 @@ reaches <code>03:467F</code>. That routine returns through the dispatcher’s ex
 word to <code>ram:0002</code>, entering the reset path through <code>ram:028C</code> and <code>3F:412C</code>.
 The JavaScript translation reports this reset boundary and does not define
 type-<code>0x2C</code> metadata, geometry, or rendering support. [confirmed]</p>
+<h3 id="source-grammar-boundaries"><a class="header" href="#source-grammar-boundaries">Source grammar boundaries</a></h3>
 <p>The English external token table names <code>EF37h</code> <code>MATHPRINT</code> and <code>EF38h</code>
 <code>CLASSIC</code>; it has no <code>EF36h</code> entry. These names come from the
 <a href="https://github.com/TI-Toolkit/tokens">TI-Toolkit token sheet</a>, not from the
@@ -2979,6 +3180,7 @@ $2\times2$ trace with <code>sqrt(2)</code> and $X^2$ pins the structural-cell pa
 sets bit 6 in <code>B</code>, resumes the scan, and reaches the matrix delimiter. The
 JavaScript parse-ahead translation applies that branch to ordinary, <code>BB</code>, and
 <code>EF</code> opener classes. [confirmed]</p>
+<h3 id="browser-model-and-fuzz-domains"><a class="header" href="#browser-model-and-fuzz-domains">Browser model and fuzz domains</a></h3>
 <p>When a fraction appears inside a matrix element or another delimited argument,
 the direct <code>34:5795</code> scan can pass the enclosing <code>07h</code> or <code>11h</code> delimiter. The
 translated parser intersects that scan endpoint with the active kind-<code>6</code> or
@@ -3052,7 +3254,24 @@ tall-summation input above, the final trace reaches <code>34:62D0</code> with
 <code>ram:8515=2</code>, radical height 17, and stem endpoint 11. Translating the returned
 word removes the final two-pixel difference from the reset-origin screenshot.
 [confirmed]</p>
-<h2 id="extracted-records-and-interactive-model"><a class="header" href="#extracted-records-and-interactive-model">Extracted records and interactive model</a></h2>
+<h2 id="browser-model-and-current-boundary"><a class="header" href="#browser-model-and-current-boundary">Browser model and current boundary</a></h2>
+<p>Closed supported expressions use the translated record graph. The browser does
+not replay a record fixture or captured LCD stream for this path. Partial or
+unsupported editor text remains a separate preview mode and is not presented
+as ROM parity. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Browser path</th><th>Input</th><th>Output</th><th>Boundary</th></tr>
+</thead>
+<tbody>
+<tr><td>Translated ROM path</td><td>Supported complete native expression</td><td>Record graph, primitive stream, ordered LCD writes, and pixels</td><td>Untranslated source or constructor branches fail explicitly.</td></tr>
+<tr><td>Live-arena decoder</td><td>Captured arena, active gap leaf, and cursor</td><td>Cursor-annotated semantic AST</td><td>Does not predict every next key mutation.</td></tr>
+<tr><td><code>hex:</code> path</td><td>Explicit native bytes</td><td>Translated construction and render result</td><td>Malformed or unsupported forms report an error.</td></tr>
+<tr><td>Fallback compositor</td><td>Partial or unsupported preview text</td><td>Approximate editable boxes</td><td>Not a ROM-parity claim.</td></tr>
+</tbody>
+</table>
+</div>
 <p>The class table, decoded handler records, selected descriptors, and page-7
 display-byte tables are extracted to <code>web/mathprint/layout.json</code> by
 <code>tools/export-layout.py</code>;
