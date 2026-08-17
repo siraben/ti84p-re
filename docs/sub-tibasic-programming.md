@@ -35,9 +35,10 @@ scan ahead for a structural boundary.
    routines before display copy. Draw into the graph buffer and call
    `DispGraph` once when possible. [confirmed]
 6. **Write the optional syntax in loops.** Closing `For(` with `)` avoids the
-   advancing temporary parser range measured in the false-`If` pair. The exact
-   page-38 transition remains open. [confirmed] for the RAM-state difference;
-   [hypothesis] for its unresolved cause.
+   advancing temporary parser and `FPS` range measured in the false-`If` pair.
+   Both forms use the same page-38 `For(`/`End` entries and OPS record; the
+   branch that selects temporary-state reuse remains open. [confirmed] for the
+   RAM and OPS state; [hypothesis] for that unresolved selection predicate.
 
 The rules follow one compact model:
 
