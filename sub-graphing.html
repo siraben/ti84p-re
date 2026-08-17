@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c675d19f.js";
+            window.path_to_searchindex_js = "searchindex-b1248ca0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -268,15 +268,23 @@ a menu covers it). [confirmed]</li>
 <pre><code class="language-pseudocode">(0x844F) = (x &gt;&gt; 3) | 0x20     ; LCD byte-column command for the horizontal group
 (0x8451) = (0x3F - y) | 0x80   ; LCD row command, vertically mirrored
 returns (table_42E4)[x &amp; 7]    ; the 1-of-8 bit mask within the byte (bit = x mod 8)
+HL = 3 * ((4 * display_row) &amp; 0xFF) + (x &gt;&gt; 3)
 </code></pre>
 <p>This maps a <code>(x,y)</code> pixel to a byte+bit in the buffer and produces the matching LCD
-command bytes. [confirmed]</p>
-<p><code>_IPoint</code> (<code>04:4157</code>): set/clear/test one pixel in <code>plotSScreen</code>. Honors the current
-pen mode / plot style: reads style at <code>(IY+0x14)</code> and a style selector at <code>0x9775</code>
-(<code>0x9775</code> = 1 selects the “thick/line connect” branch that draws an extra adjacent
-pixel; 1..3 select dotted/animated styles), clips against the X-offset (<code>XOffset</code>) and the
-buffer bounds (<code>_IBounds</code>), then OR/AND/XORs the mask from <code>_IOffset</code>. <code>_PointOn</code>
-(<code>04:4155</code>) is the plain set-pixel entry. [confirmed]</p>
+command bytes. Adding <code>HL</code> to <code>0x9340</code> addresses <code>plotSScreen</code>; adding it to
+<code>0x9872</code> addresses <code>appBackUpScreen</code>. [confirmed]</p>
+<p><code>_IPoint</code> (<code>04:4157</code>) applies one of four byte operations selected by <code>D</code>: <code>0</code>
+clears the mask, <code>1</code> sets it, <code>2</code> XORs it, and <code>3</code> tests it without writing.
+<code>_PointOn</code> (<code>04:4155</code>) fixes <code>D=1</code>. The style path at <code>04:4173</code> can emit adjacent
+points before the byte operation; the drawing hook at <code>04:415A</code> can replace the
+normal path. [confirmed]</p>
+<p>The normal path routes the byte through <code>(IY+3Ch)</code> and <code>plotFlags.1</code> at
+<code>(IY+02h)</code>. Routing bit 3 selects <code>appBackUpScreen</code> without LCD I/O. Bit 0
+selects the corresponding direct <code>plotSScreen</code> route. When both are clear,
+the routine reads and writes the LCD controller. <code>plotFlags.1</code> preserves
+<code>plotSScreen</code> and uses the LCD byte as the source; clearing it uses and rewrites
+the RAM byte. Routing bit 2 also stores the result in <code>appBackUpScreen</code>.
+[confirmed]</p>
 <p><code>_PixelTest</code> (<code>04:79E7</code>): the <code>pxl-Test(</code> command — validates the row/col against the
 current graph dimensions <code>lcdTallP</code> (<code>0x8DA3</code>) and <code>pixWide_m_1</code> (<code>0x8DA5</code>) — 63 and 95 on a
 full screen, smaller when split — maps the split-screen offset, and returns whether that buffer
