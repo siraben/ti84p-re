@@ -66,7 +66,9 @@ ram:236b	_DToR
 ram:2374	_RToD
 ram:26e8	_ErrOverflow
 ram:26ec	_ErrDivBy0
+ram:26f0	_ErrSingularMat
 ram:26f4	_ErrDomain
+ram:26f8	_ErrIncrement
 ram:26fc	_ErrNon_Real
 ram:2119	_ErrD_OP1NotPos
 ram:212d	_ErrD_OP1_0

@@ -405,6 +405,41 @@ CASES: dict[str, Case] = {
         "natural ERR:INCREMENT from a zero For( step",
         ("ram:26f8",),
     ),
+    "asindomain": Case(
+        ("ASINDOM.8xp",),
+        "natural ERR:DOMAIN from inverse sine outside [-1,1]",
+        ("page_02:76f5", "ram:26f4"),
+    ),
+    "sqrtnonreal": Case(
+        ("SQRTNEG.8xp",),
+        "natural ERR:NONREAL ANSWERS from sqrt(-1) in Real mode",
+        ("ram:1b93", "ram:26fc"),
+    ),
+    "singular": Case(
+        ("SINGULAR.8xp",),
+        "natural ERR:SINGULAR MAT from a rank-deficient matrix inverse",
+        ("page_02:43a5", "ram:26f0"),
+    ),
+    "lateincrement": Case(
+        ("LATEINC.8xp",),
+        "natural ERR:INCREMENT when adding the default For( step makes no progress",
+        ("page_38:5876", "ram:26f8"),
+    ),
+    "acosdomain": Case(
+        ("ACOSDOM.8xp",),
+        "natural ERR:DOMAIN from inverse cosine outside [-1,1]",
+        ("page_02:76e2", "ram:26f4"),
+    ),
+    "negfactdomain": Case(
+        ("NEGFACT.8xp",),
+        "natural ERR:DOMAIN from a negative factorial operand",
+        ("page_35:79d2", "ram:26f4"),
+    ),
+    "ncrdomain": Case(
+        ("NCRDOM.8xp",),
+        "natural ERR:DOMAIN from an invalid combination operand",
+        ("page_02:4fc8", "ram:211d", "ram:26f4"),
+    ),
     "gramlow": Case(
         ("GRAMLOW.8xp", "ZGRAMLOW.8xp"),
         "grammar fold below F2h",
