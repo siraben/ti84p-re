@@ -11,10 +11,10 @@ scan ahead for a structural boundary.
    evaluator (`eval_stmt_entry`, `parse_refill`, `parse_advance`,
    `chk_tok_end`). Tiny loop bodies can still spend most of their time walking
    tokens and rebuilding temporary parse state. The
-   [`For(` optional-paren trap](sub-tibasic-for-paren.md) is the sharpest
-   example: with a first-line false `If`, dropping the closing `)` made an
-   `N=100` benchmark grow from 521,723 to 885,912 marker-to-marker instructions.
-   [confirmed]
+   [`For(` parenthesis trap](sub-tibasic-for-paren.md) is the sharpest
+   example: with a first-line false `If`, dropping the closing `)` makes the
+   reproduced `N=25` pair grow from 145,748 to 157,052 marker-to-marker
+   instructions. [confirmed]
 2. **Prefer built-ins for list-wide work.** `SortA(`, `cumSum(`, and `sum(`
    cross into OS routines that run one parser setup and then loop internally.
    The `DATA.8xp` trace hits `list_fold_dispatch` (`02:6104`) for `sum(` rather
@@ -34,19 +34,22 @@ scan ahead for a structural boundary.
    primitives and LCD update paths; graph drawing reaches graph-buffer and pixel
    routines before display copy. Draw into the graph buffer and call
    `DispGraph` once when possible. [confirmed]
-6. **Write the optional syntax in loops.** Closing `For(` with `)` costs at most
-   a small command-finalization path, but it avoids the pathological
-   implicit-close/false-`If` interaction. [confirmed]
+6. **Write the optional syntax in loops.** Closing `For(` with `)` avoids the
+   advancing temporary parser range measured in the false-`If` pair. The exact
+   page-38 transition remains open. [confirmed] for the RAM-state difference;
+   [hypothesis] for its unresolved cause.
 
 The rules follow one compact model:
 
-```text
-total work ≈ parsed statements
-           + variable/list lookups
-           + floating-point operations
-           + structural rescans
-           + display or graph writes
-```
+$$
+\begin{aligned}
+W \approx{}& N_{\text{statements}} \\\\
+  &{}+ N_{\text{variable/list lookups}} \\\\
+  &{}+ N_{\text{floating-point operations}} \\\\
+  &{}+ N_{\text{structural rescans}} \\\\
+  &{}+ N_{\text{display or graph writes}}.
+\end{aligned}
+$$
 
 The terms are not equal-cost cycles, but they identify which part grows when a
 program is changed. [confirmed]

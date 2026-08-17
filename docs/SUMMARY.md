@@ -41,7 +41,7 @@
   - [TI-BASIC execution](sub-tibasic.md)
     - [TI-BASIC programming patterns](sub-tibasic-programming.md)
     - [TI-BASIC dynamic tracing](sub-tibasic-tracing.md)
-    - [TI-BASIC `For(` paren trap](sub-tibasic-for-paren.md)
+    - [TI-BASIC `For(` parenthesis trap](sub-tibasic-for-paren.md)
 - [Display and LCD](display-lcd.md)
     - [LCD controller and display bus](lcd-hardware.md)
     - [Graphing](sub-graphing.md)

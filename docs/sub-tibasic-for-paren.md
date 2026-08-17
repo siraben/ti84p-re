@@ -1,178 +1,128 @@
-# TI-BASIC `For(` paren trap
+# TI-BASIC `For(` parenthesis trap
 
-This note explains a TI-BASIC performance trap:
+The closing `)` in `For(` is optional syntax, but the two spellings can produce
+different parser-buffer behavior. A paired OS 2.55MP trace with a false
+single-line `If` as the first body statement measures the difference without
+including boot, link transfer, menu navigation, or final display work.
 
-```ti-basic
-For(I,1,N
-If 0
-1
-End
-```
+## Reproduced pair
 
-is much slower than the visually similar:
-
-```ti-basic
-For(I,1,N)
-If 0
-1
-End
-```
-
-The closing `)` is syntactically optional, but it is not performance-neutral
-when the first loop-body statement is a single-line false `If`.
-
-Confidence: [confirmed] = measured in TilEm instruction traces or read from
-ROM bytes; [standard] = consistent with the interpreter structure but not
-field-mapped down to every loop-frame byte.
-
----
-
-## Benchmark shape
-
-The test program brackets only the loop with an `AsmPrgm` marker:
+The fixtures differ by one token byte:
 
 ```ti-basic
 Asm(prgmZMARK)
-For(I,1,100)
+For(I,1,25)
 If 0
 1
 End
 Asm(prgmZMARK)
-Disp I
+If I=26
+Asm(prgmZPASS)
 ```
 
-`ZMARK` is:
+```ti-basic
+Asm(prgmZMARK)
+For(I,1,25
+If 0
+1
+End
+Asm(prgmZMARK)
+If I=26
+Asm(prgmZPASS)
+```
+
+`ZMARK` contains one Z80 instruction:
 
 ```ti-basic
 AsmPrgm
 C9
 ```
 
-`C9` is Z80 `RET`. In both traces the marker payload executes at
-`ram:9D95 op=0xC9`, so the interval from the first marker `RET` to the second
-marker `RET` excludes boot, link transfer, menu navigation, and the final
-display.
+`C9` is `RET`. Both traces execute it twice at `ram:9D95`. The analyzer counts
+instructions and clocks from the first marker to the second. After the second
+marker, each program calls `ZPASS` only when `I=26`; `ZPASS` writes `A5h` to
+`plotSScreen` at `0x9340`. The smoke runner asserts that RAM byte directly.
+[confirmed]
 
-The compared token streams differ by exactly one byte in the `For(` header:
-
-```text
-For(I,1,25) / If 0:  D3 49 2B 31 2B 32 35 11 3F CE 30 ...
-For(I,1,25  / If 0:  D3 49 2B 31 2B 32 35    3F CE 30 ...
-```
-
-`D3` is `tFor`, `11` is `tRParen`, `3F` is EOL, and `CE` is `tIf`.
-
-## Trace results
-
-All runs completed and displayed the expected final loop variable (`26` for
-`N=25`, `101` for `N=100`). Counts are marker-to-marker instruction records and
-Z80 clock deltas from the TilEm trace.
-
-| Loop body | N | `For(... )` | `For(...` | Delta |
-|-----------|---|-------------|-----------|-------|
-| `If 0` / `1` | 25 | 144,805 instr / 1,519,710 clocks | 156,292 instr / 1,604,282 clocks | +7.9% instr / +5.6% clocks |
-| `If 0` / `1` | 100 | 521,723 instr / 5,498,347 clocks | 885,912 instr / 8,862,729 clocks | +69.8% instr / +61.2% clocks |
-| `If 1` / `1` | 25 | 185,032 instr / 1,920,085 clocks | 179,874 instr / 1,859,796 clocks | -2.8% instr / -3.1% clocks |
-
-The true-condition control matters: omitting `)` is not inherently slower. The
-large slowdown appears when the omitted close is followed immediately by a
-single-line false `If`.
-
-## Dispatch difference
-
-The optional close is handled by the page-2 command-finalization gate
-`02:5676` [confirmed]:
-
-```z80
-02:5676  LD A,C
-02:5677  CP 11h          ; explicit ")"
-02:5679  JR Z,56C3h
-02:5683  OR A            ; implicit close / statement end
-02:5684  JP NZ,2708h     ; syntax/type error for other cases
-02:5687  CALL 5675h      ; direct command handler path
-```
-
-The explicit `)` path (`02:56C3...`) calls through the command cleanup path
-before returning to statement execution. The implicit-close path (`C=0`) calls
-the command handler directly. For `For(`, that handler is the page-2 stub
-`02:6A30`, which calls bcall `grf_435f` (`33:435F`) and indexes the control-flow
-jump table at `33:4381`; the `For` entry is table index `0x29 - 0x20 = 9`, and
-`End` is index `0x2A - 0x20 = 10` [confirmed].
-
-That one-byte syntax difference therefore changes the parser state at exactly
-the point where the `For` loop frame records the body cursor.
-
-## What the slow case does
-
-The marker interval profiler shows that the no-paren/false-`If` case spends its
-extra time in name/VAT scanning and pointer walking, not arithmetic:
+The headers differ only by `tRParen = 11h`:
 
 ```text
-false N=25, no paren minus explicit paren:
-  +18,900 instr  07:565F  findsym_scan
-   +3,600 instr  ram:1787      dec_hl_tail_1787
-   +1,800 instr  ram:1785      dec_hl_tail_1785
-     +900 instr  ram:1784      dec_hl_tail_1784
+explicit: D3 49 2B 31 2B 32 35 11 3F CE 30 ...
+implicit: D3 49 2B 31 2B 32 35    3F CE 30 ...
 ```
 
-The parser-cursor writes explain why. In the explicit-paren trace, the
-single-line false `If` path repeatedly uses the same temporary parser buffer:
+## Measured work
 
-```text
-... write nextParseByte=9EA8, parseEnd=9EA8
-... restore nextParseByte=9E3B, parseEnd=9E4C
-... write nextParseByte=9EA8, parseEnd=9EA8
-... restore nextParseByte=9E3B, parseEnd=9E4C
+| Form | Instructions | Clocks | Trace ID |
+|------|-------------:|-------:|----------|
+| Explicit `)` | 145,748 | 1,698,162 | `d8348851f6ba…` |
+| Implicit close | 157,052 | 1,790,338 | `eef08147e170…` |
+
+The implicit form adds 11,304 instructions, or 7.76%, and 92,176 clocks, or
+5.43%. These values describe this `N=25`, false-`If` pair. They do not imply the
+same ratio for other bodies or trip counts. [confirmed]
+The compact JSON report retains each complete SHA-256 digest.
+
+## Parser-buffer state
+
+The trace records writes to `nextParseByte` (`0x965D`) and `basic_end`
+(`0x965F`). The analyzer selects temporary states where the two pointers are
+equal and at or above `0x9E80`.
+
+```mermaid
+flowchart LR
+    E["Explicit close"] --> ES["one equal high state<br/>0x9ECB"]
+    I["Implicit close"] --> IS["25 equal high states<br/>0x9EC8–0xA018<br/>stride 0x0E"]
 ```
 
-In the omitted-paren trace, the equivalent temporary buffer advances on each
-iteration:
+The explicit trace reuses one equal-pointer high state. The implicit trace
+advances through 25 states from `0x9EC8` to `0xA018` in `0x0E`-byte steps.
+This is direct RAM-state evidence that the two token streams manage temporary
+parse space differently. [confirmed]
 
-```text
-iteration 1: nextParseByte=9EA7, parseEnd=9EA7
-iteration 2: nextParseByte=9EB4, parseEnd=9EB4
-iteration 3: nextParseByte=9EC1, parseEnd=9EC1
-iteration 4: nextParseByte=9ECE, parseEnd=9ECE
-iteration 5: nextParseByte=9EDB, parseEnd=9EDB
+The pair does not enter the command-finalization gate at `02:5676` or the
+page-33 dispatcher at `33:435F`. Those routines therefore do not explain this
+measurement. The exact page-38 transition that selects the advancing temporary
+range remains [hypothesis].
+
+## Reproduce the evidence
+
+Generate the programs, run both cases, and retain their traces:
+
+```sh
+tools/tibasic_samples.py --write-dir tools/tibasic-samples
+
+TILEM=/path/to/patched/tilem2
+python3 tools/tibasic_smoke.py \
+  --tilem "$TILEM" --rom tools/rom.bin \
+  --out-dir /tmp/tibasic-for-paren --keep-trace \
+  --case forparen --case forimplicit
 ```
 
-Those addresses come from writes to `nextParseByte` (`0x965D`) and `basic_end`
-(`0x965F`) inside the marker interval. The advancing high-water mark matches
-the growing `findsym_scan` cost: the interpreter keeps allocating/walking
-temporary expression storage instead of reusing one stable temporary range.
+Reduce the traces to the checked compact report:
 
-## Mechanism
+```sh
+PYTHONPATH=tools python3 tools/analyze_tibasic_for_paren.py \
+  --explicit /tmp/tibasic-for-paren/forparen.trace \
+  --implicit /tmp/tibasic-for-paren/forimplicit.trace \
+  --output tools/tibasic-for-paren.json
+```
 
-The false single-line `If` path is the amplifier [standard]:
-
-1. `For(` with explicit `)` enters the `02:56C3` close/cleanup path before the
-   control-flow handler records the loop continuation.
-2. `For(` without `)` takes the `C=0` direct path at `02:5687`.
-3. With a first body line of `If 0`, the loop immediately enters the
-   single-statement false-`If` skip path (`if_isg_stmt_handler` at `38:6F63`,
-   with skip/temporary-parser work through the page-38 statement evaluator).
-4. In the direct-path case, that skip work is performed with a temporary parse
-   range that advances every iteration. More iterations mean longer VAT/name
-   and pointer scans, so the cost grows much faster than the explicit-paren
-   version.
-
-This is why `N=25` shows only a modest penalty while `N=100` shows a large one.
-The omitted `)` saves a little cleanup work in the `If 1` control, but with
-`If 0` first it changes the loop/skip interaction and leaks work into temporary
-parser storage.
+`tools/tibasic-for-paren.json` stores the hashes, marker intervals, pointer-write
+counts, and high-state sequence summary. The smoke check reads the completion
+marker from a logical-RAM dump. Raw traces remain outside the repository.
 
 ## Practical rule
 
-When a `For(` loop body starts with a guard like `If not(condition)` or `If 0`,
-write the closing `)`:
+Write the closing `)` when a `For(` body begins with a single-line guard:
 
 ```ti-basic
 For(I,1,N)
-If A
-...
+If condition
+statement
 End
 ```
 
-Better still, avoid single-line false guards as the first statement of a hot
-loop. Use `If ... Then` blocks when the body is structured, or invert the loop
-so the common path does not repeatedly exercise the false-`If` skip scanner.
+The explicit form avoids the measured advancing temporary-buffer sequence in
+this pattern. Use the trace pair as evidence for this case, not as a general
+claim that every implicit `For(` close is slower.
