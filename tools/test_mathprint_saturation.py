@@ -1899,7 +1899,8 @@ class CheckedReportTests(unittest.TestCase):
             Path(__file__).with_name("mathprint-saturation.json").read_text()
         )
 
-        self.assertEqual(2, report["schema"])
+        self.assertEqual(3, report["schema"])
+        self.assertNotIn("symbolic_predicates", report)
         self.assertEqual(276, len(report["traces"]))
         self.assertEqual(
             275,
