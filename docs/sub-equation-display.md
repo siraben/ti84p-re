@@ -656,10 +656,12 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
-Schema 4 of the report retains one deterministic representative for every
-complete path-equivalence class in 52 finite models. It also computes an
-exact minimum representative set for the branch outcomes in each model. The
-minimums are per domain: the five- and eight-byte name-loop ABIs share branch
+The analyzer generates one deterministic representative for every complete
+path-equivalence class in 52 finite models. It also computes an exact minimum
+representative set for the branch outcomes in each model. The checked unit test
+regenerates the complete corpus from the model functions. Schema 5 of the report
+stores its aggregate counts rather than repeating the generated representatives.
+The minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
 
 | Finite model | Projected inputs | Path classes | Branch outcomes | Minimum representatives |

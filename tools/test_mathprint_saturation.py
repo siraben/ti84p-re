@@ -1891,8 +1891,9 @@ class CheckedReportTests(unittest.TestCase):
             Path(__file__).with_name("mathprint-saturation.json").read_text()
         )
 
-        self.assertEqual(4, report["schema"])
+        self.assertEqual(5, report["schema"])
         self.assertNotIn("symbolic_predicates", report)
+        self.assertNotIn("symbolic_model_corpus", report)
         self.assertNotIn("minimized_dynamic_feature_corpus", report)
         self.assertNotIn("minimized_natural_dynamic_feature_corpus", report)
         self.assertEqual(276, len(report["traces"]))
@@ -2000,7 +2001,7 @@ class CheckedReportTests(unittest.TestCase):
         )
         self.assertEqual(
             3484,
-            report["symbolic_model_corpus"]["path_equivalence_class_count"],
+            report["summary"]["symbolic_path_equivalence_classes"],
         )
         integral = next(
             row for row in report["traces"]
