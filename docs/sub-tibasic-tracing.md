@@ -130,10 +130,28 @@ marks both traces with `termination: completed`. [confirmed]
 Two error fixtures provide real unwind witnesses. `syntaxerr` executes
 `Disp 1+` and reaches the syntax entry at `00:2700`; `divzero` executes
 `Disp 1/0` and reaches `_ErrDivBy0` at `00:26EC`. Together they naturalize four
-outcomes that the earlier natural corpus missed, including three outcomes that
-were previously probe-only. Only `divzero` adds a globally new CFG outcome, so
-the outcome minimizer omits `syntaxerr` while the documentation retains it for
-semantic diversity. [confirmed]
+outcomes that the natural corpus otherwise misses. Only `divzero` adds a new
+CFG outcome, so the outcome minimizer omits `syntaxerr` while the documentation
+retains it for semantic diversity. [confirmed]
+
+Five selected numeric-error fixtures also retain the path before the shared
+error shim. The reducer restarts a candidate slice whenever it sees the guard's
+first instruction. It accepts the slice only when the remaining guard and shim
+addresses occur in order and the shim leaves the expected error code in `A`.
+This prevents an unrelated earlier call to `_FPDiv`, `_FPMult`, or the zero
+checker from being attached to a later error. [confirmed]
+
+| Case | Ordered causal boundary | Result |
+|------|-------------------------|--------|
+| `divzero` | `00:2548 → 00:254B → 00:26EC` | divisor-zero guard, code `82h` |
+| `overflow` | `02:7076 → 02:7078 → 02:7053 → 02:7056 → 02:7059 → 00:26E8` | `10^x` range guard, code `81h` |
+| `muloverflow` | `00:2513 → 00:2516 → 00:2517 → 00:2519 → 00:251B → 00:251D → 00:26E8` | exponent-add overflow, code `81h` |
+| `lndomain` | `02:6F1E → 00:212D → 00:1DE9 → 00:2130 → 00:2131 → 00:211D → 00:26F4` | logarithm zero guard, code `84h` |
+| `increment` | `37:4268 → 00:1DE9 → 37:426B → 00:26F8` | zero loop step, code `85h` |
+
+All five paths come from stored TI-BASIC programs. The report covers four error
+codes and five causes; it does not enumerate every caller of the shared error
+shims. [confirmed]
 
 ### Probe outcomes
 
@@ -224,6 +242,26 @@ ghidra-analyzeHeadless "$PWD" ti84 \
 nix develop -c python3 tools/analyze_tibasic_saturation.py \
   --instruction-list /tmp/tibasic-instruction-starts.tsv \
   "$@" --output tools/tibasic-saturation.json
+```
+
+Capture and reduce the selected numeric-error paths separately. This keeps
+their semantic provenance without adding redundant traces to the branch-only
+minimum corpus:
+
+```sh
+python3 tools/tibasic_smoke.py \
+  --tilem "$TILEM" --rom tools/rom.bin \
+  --out-dir /tmp/tibasic-numeric-errors --keep-trace \
+  --case divzero --case overflow --case muloverflow \
+  --case lndomain --case increment
+
+PYTHONPATH=tools python3 tools/analyze_tibasic_numeric_errors.py \
+  --trace divzero=/tmp/tibasic-numeric-errors/divzero.trace \
+  --trace overflow=/tmp/tibasic-numeric-errors/overflow.trace \
+  --trace muloverflow=/tmp/tibasic-numeric-errors/muloverflow.trace \
+  --trace lndomain=/tmp/tibasic-numeric-errors/lndomain.trace \
+  --trace increment=/tmp/tibasic-numeric-errors/increment.trace \
+  --output tools/tibasic-numeric-errors.json
 ```
 
 Delete the temporary traces after regeneration. They are reproducible evidence,
