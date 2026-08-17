@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ef38135a.js";
+            window.path_to_searchindex_js = "searchindex-3c942aac.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-a4cbc596.js"></script>
@@ -14900,6 +14900,14 @@ The committed layout artifact contains every table entry addressable from the
 main entry. A pinned-byte interpreter compares all 65,536 combinations of
 display byte and <code>keyExtend</code>; they reduce to seven paths and 12 branch outcomes.
 The separate public entry at <code>07:44FE</code> is outside this main-entry domain. [confirmed]</p>
+<p><code>_KeyToString</code> at <code>01:6D10</code> uses that public entry for <code>FB</code>, <code>FC</code>, <code>FE</code>, and
+<code>FF</code> cells, scans 13 high-byte special strings, or selects one of 101 counted
+strings through the pointer table at <code>01:6E05</code>. The JavaScript translation
+compares all 65,536 <code>D:E</code> pairs with a pinned-byte interpreter. A second
+comparison covers all 1,024 prefix/index states admitted by the <code>_KeyToString</code>
+caller at <code>07:44FE</code>. Together they resolve all 418 unique key-string cells in
+the decoded handler records and descriptors. Installed font and token hook
+bodies remain explicit external boundaries. [confirmed]</p>
 <p>The page-7 large-font service copies fixed glyph rows. It does not measure a radicand or
 stretch a glyph by itself. [confirmed]</p>
 <p>The caller enters <code>07:4588</code> with the glyph code in <code>A</code> and its eight-byte
@@ -15034,7 +15042,7 @@ prefix, stop class, and counter exit. These are finite byte-class projections,
 not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]</p>
 <p>Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 45 finite models. It also computes an
+complete path-equivalence class in 48 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
@@ -15062,6 +15070,9 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 <tr><td>Token-hook dispatch</td><td style="text-align: right">1,048,576</td><td style="text-align: right">9</td><td style="text-align: right">10</td><td style="text-align: right">5</td></tr>
 <tr><td>Direct cell-to-large-glyph selection</td><td style="text-align: right">65,536</td><td style="text-align: right">9</td><td style="text-align: right">16</td><td style="text-align: right">9</td></tr>
 <tr><td>Display-byte remapper</td><td style="text-align: right">65,536</td><td style="text-align: right">7</td><td style="text-align: right">12</td><td style="text-align: right">7</td></tr>
+<tr><td><code>_KeyToString</code> <code>_sOK</code> prefix</td><td style="text-align: right">1,024</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">5</td></tr>
+<tr><td><code>_KeyToString</code> selector</td><td style="text-align: right">65,536</td><td style="text-align: right">35</td><td style="text-align: right">40</td><td style="text-align: right">14</td></tr>
+<tr><td>Page-39 cell-string selector</td><td style="text-align: right">131,072</td><td style="text-align: right">14</td><td style="text-align: right">16</td><td style="text-align: right">8</td></tr>
 <tr><td>Glyph advance and delimiter padding</td><td style="text-align: right">131,072</td><td style="text-align: right">6</td><td style="text-align: right">10</td><td style="text-align: right">4</td></tr>
 <tr><td><code>_VPutMap</code> byte-boundary gate</td><td style="text-align: right">56</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
 <tr><td>MathPrint <code>_VPutMap</code> right-edge gate</td><td style="text-align: right">3,584</td><td style="text-align: right">4</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
@@ -15092,8 +15103,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 </tbody>
 </table>
 </div>
-<p>The 45 models contain 3,370 path classes and 481 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 228 representatives. Each
+<p>The 48 models contain 3,424 path classes and 541 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 255 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -17308,9 +17319,9 @@ word removes the final two-pixel difference from the reset-origin screenshot.
 <p>The class table, decoded handler records, selected descriptors, and page-7
 display-byte tables are extracted to <code>web/mathprint/layout.json</code> by
 <code>tools/export-layout.py</code>;
-the fonts to <code>web/mathprint/font.json</code> by <code>tools/export-font.py</code>; and the
-single- and two-byte token spellings to
-<code>web/mathprint/token-strings.json</code> by <code>tools/export-token-strings.py</code>. The font
+the fonts to <code>web/mathprint/font.json</code> by <code>tools/export-font.py</code>; and the token,
+<code>_KeyToString</code>, and inline cell strings to <code>web/mathprint/token-strings.json</code>
+by <code>tools/export-token-strings.py</code>. The font
 data appears on the interactive
 renderer’s font-table tab. <code>tools/interp-cells.js</code> and the browser share the executable
 translations in <code>web/mathprint/rom-engine.js</code>. The translated routines consume

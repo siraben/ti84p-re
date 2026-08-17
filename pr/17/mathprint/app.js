@@ -1989,7 +1989,7 @@ async function main() {
   expressionInput.addEventListener('input', noteLoadingInput);
   const [fontResponse, layoutResponse, orderResponse, tokenResponse] = await Promise.all([
     fetch('font.json?v=0cfe06ff92b6'), fetch('layout.json?v=164a00655059'), fetch('draw-order.json?v=2c632ef03f4b'),
-    fetch('token-strings.json?v=e6a3a84e940e'),
+    fetch('token-strings.json?v=2647b3d1ffd9'),
   ]);
   FONT = await fontResponse.json();
   LAYOUT = await layoutResponse.json();
