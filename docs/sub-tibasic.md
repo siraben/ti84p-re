@@ -321,6 +321,31 @@ The error entries first select an error code, then join the common path at
 syntax entry at `00:2700` selects `88h`. Natural `Disp 1/0` and `Disp 1+`
 traces reach those entries, respectively. [confirmed]
 
+The entry identifies the error message, but its incoming guard identifies the
+cause. Five natural programs separate four errors into five guard paths:
+
+| Program | Originating guard | Predicate | Error shim |
+|---------|-------------------|-----------|------------|
+| `Disp 1/0` | `00:2548–254B` | divisor in OP1 is zero | `_ErrDivBy0` at `00:26EC` |
+| `Disp 10^100` | `02:7076–7078`, then `02:7053–7059` | positive exponent argument is at least 100 | `_ErrOverflow` at `00:26E8` |
+| `Disp 1E99*1E99` | `00:2513–251D` | adjusted sum of biased decimal exponents overflows | `_ErrOverflow` at `00:26E8` |
+| `Disp ln(0)` | `02:6F1E`, then `00:212D–2131` | logarithm operand in OP1 is zero | `_ErrDomain` at `00:26F4` |
+| `For(I,1,3,0)` | `37:4268–426B` | step value in OP1 is zero | `_ErrIncrement` at `00:26F8` |
+
+The two OVERFLOW rows reach the same shim through different predicates. A trace
+that records only `00:26E8` therefore merges distinct numeric behavior. The
+compact numeric-error report retains the ordered guard path, the register state
+after each guard instruction, and the final error code in `A`. [confirmed]
+
+```mermaid
+flowchart LR
+    S["TI-BASIC expression"] --> E["operator evaluator"]
+    E --> G["numeric guard<br/>zero, range, or exponent"]
+    G --> R["shared error shim<br/>00:26E8–2708"]
+    R --> C["00:270A<br/>common error path"]
+    C --> U["restore OPS, FPS,<br/>error SP, and page"]
+```
+
 The shared context wrapper at `00:27DA` does not save absolute `FPS` and `OPS`
 pointers. It saves each pointer as a delta from the corresponding base at
 `0x9822` or `0x9826`, together with the previous error stack and mapped page.
@@ -413,5 +438,6 @@ boundaries explicitly.
 | `33:435F` | Bounded control-flow command dispatcher |
 
 The local finite-model evidence is `tools/tibasic-coverage.json`. The broader
-direct-CFG evidence is `tools/tibasic-saturation.json`. Both generators verify
-the pinned ROM before producing a report.
+direct-CFG evidence is `tools/tibasic-saturation.json`. The selected backward
+error slices are in `tools/tibasic-numeric-errors.json`. All three generators
+verify the pinned ROM before producing a report.
