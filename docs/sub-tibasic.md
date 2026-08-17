@@ -167,16 +167,15 @@ returns to zero. The comparisons and counter changes are visible at
 
 ### The loop-dispatch boundary remains open
 
-The page-02 command dispatcher contains explicit `For(`/`While`/`Repeat`/`End`
-stubs. Those stubs select command IDs and invoke bcall `5140h` or `513Dh`, whose
-target is `33:435F`. That routine subtracts `20h`, accepts 13 indices, and jumps
-through the table at `33:4381`. The bytes and table bounds are [confirmed].
+The public page-33 routine behind bcall `grf_435f = 5140h` subtracts `20h`,
+accepts 13 indices, and jumps through the table at `33:4381`. Three ABI probes
+confirm both bounds outcomes at `33:436D` and `33:4372`. [confirmed]
 
-The current natural stored-program traces do not enter `02:5676` or
-`33:435F`, even when `FACTOR` and `DFS` execute loops. Therefore this page no
-longer identifies that static command path as the sole live stored-program loop
-handler. Connecting the observed page-38/page-02 execution path to the actual
-loop-record operations is an open tracing task.
+Natural stored-program traces do not enter `02:5676` or `33:435F`, even when
+`FACTOR`, `DFS`, and the paired `For(` benchmark execute loops. The public
+page-33 dispatcher is therefore not established as the stored-program loop
+transition. Connecting the observed page-38 execution path to the loop-record
+operations remains open.
 
 Conceptually, a loop record must retain:
 
@@ -188,9 +187,10 @@ The language behavior requires a saved body position, and the trace shows the
 body being revisited. The exact handler transition and byte order of every FPS
 loop-record field are still [hypothesis].
 
-The optional closing `)` in `For(` changes which page-02 finalization path runs
-before that record is created. The measured performance consequence is covered
-in [the `For(` optional-paren trap](sub-tibasic-for-paren.md).
+The optional closing `)` in `For(` changes marker-to-marker work and parser
+buffer state. Neither spelling reaches the page-02 finalization gate in the
+paired trace, so the exact causal transition remains open. The measured effect
+is covered in [the `For(` parenthesis trap](sub-tibasic-for-paren.md).
 
 ### Labels rescan instead of indexing
 
@@ -260,12 +260,12 @@ one scan step, one block-depth transition, the extended-class fold, precedence
 family selection, command finalization, and page-33 table bounds. Z3 proves a
 minimum representative set for the semantic outcomes. [confirmed]
 
-Natural calculator traces are a separate layer. The report overlays a small,
-diverse program corpus on 26 selected conditional branch sites in the scanner,
-grammar selector, command finalizer, and loop dispatcher. It records only trace
-hashes and outcome counts; raw traces remain outside the repository. See
-[TI-BASIC dynamic tracing](sub-tibasic-tracing.md) for commands and current
-counts.
+Dynamic evidence is a separate layer. Natural programs reach 34 of 52 outcomes
+at 26 selected branch sites. Public-bcall and internal-entry probes bring the
+declared outcome set to 52 of 52 while preserving provenance. The report records
+only trace hashes and compact counts; raw traces remain outside the repository.
+See [TI-BASIC dynamic tracing](sub-tibasic-tracing.md) for commands and exact
+boundaries. [confirmed]
 
 This is deliberately not a claim of complete interpreter coverage. The finite
 models bound local decisions, while arbitrary token streams, recursion depth,
