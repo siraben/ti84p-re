@@ -69,13 +69,13 @@ class TiBasicCoverageTests(unittest.TestCase):
         self.assertEqual(report["schema"], 2)
         self.assertEqual(report["finite_summary"]["states_exhausted"], 591360)
         self.assertEqual(report["finite_summary"]["semantic_outcomes"], 45)
-        self.assertEqual(report["dynamic"]["trace_count"], 20)
+        self.assertEqual(report["dynamic"]["trace_count"], 33)
         self.assertEqual(report["dynamic"]["branch_outcomes_observed"], 52)
         self.assertEqual(
             report["dynamic"]["branch_outcomes_observed_by_provenance"],
             {
                 "internal_entry_probe": 18,
-                "natural_tibasic": 34,
+                "natural_tibasic": 38,
                 "public_bcall_probe": 8,
             },
         )

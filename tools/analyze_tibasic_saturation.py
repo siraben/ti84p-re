@@ -273,13 +273,31 @@ def components(rom: RomImage) -> tuple[Component, ...]:
         ),
         Component(
             "numeric_errors",
-            "type checks, floating-point boundaries, and shared error entries",
-            (Region(0x00, 0x1F00, 0x2800),),
-            tuple(RomLocation(0, address) for address in (
-                0x1F0F, 0x1FD6, 0x2119, 0x2123, 0x212D,
-                0x26E8, 0x26EC, 0x26F4, 0x26FC, 0x2700,
-                0x2715, 0x2719, 0x2721,
-            )),
+            "numeric guards, loop progress checks, and shared error entries",
+            (
+                Region(0x00, 0x1B80, 0x1BA4),
+                Region(0x00, 0x1D80, 0x2800),
+                Region(0x02, 0x4390, 0x43B0),
+                Region(0x02, 0x4F90, 0x4FD8),
+                Region(0x02, 0x6F00, 0x7140),
+                Region(0x02, 0x76D0, 0x7720),
+                Region(0x35, 0x79B0, 0x79E0),
+                Region(0x37, 0x4250, 0x4270),
+            ),
+            (
+                *(RomLocation(0, address) for address in (
+                    0x1B8F, 0x1DFD, 0x1F0F, 0x1FD6, 0x2119, 0x2123,
+                    0x2125, 0x212D, 0x2513, 0x2548, 0x26E8, 0x26EC,
+                    0x26F0, 0x26F4, 0x26F8, 0x26FC, 0x2700, 0x2715,
+                    0x2719, 0x2721,
+                )),
+                *(RomLocation(0x02, address) for address in (
+                    0x439C, 0x4FA1, 0x4FC8, 0x6F1E, 0x7053, 0x7076,
+                    0x76DF, 0x76F1,
+                )),
+                RomLocation(0x35, 0x79CF),
+                RomLocation(0x37, 0x4268),
+            ),
         ),
     )
 
@@ -571,7 +589,8 @@ def build_report(
         },
         "next_expansion": [
             "prove caller-side bounds for every modeled computed-dispatch domain",
-            "add minimal natural witnesses for high-value unobserved loop, error, and VAT outcomes",
+            "reject non-code and unreachable members of the 114-site numeric error reference census",
+            "backward-slice executable error callers and retain minimal natural witnesses for distinct predicates",
             "model OPS/FPS record transitions and parser restore state as finite relations",
             "seed command-specific tables only after a natural trace enters their dispatcher",
         ],
