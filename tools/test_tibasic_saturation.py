@@ -35,19 +35,19 @@ class TiBasicSaturationTests(unittest.TestCase):
     def test_checked_report_is_explicitly_partial_and_compact(self) -> None:
         report = json.loads(REPORT.read_text())
         self.assertFalse(report["scope"]["complete"])
-        self.assertEqual(report["static"]["reachable_instructions"], 7651)
-        self.assertEqual(report["static"]["conditional_branches"], 1230)
-        self.assertEqual(report["static"]["possible_outcomes"], 2460)
-        self.assertEqual(report["dynamic"]["outcomes_observed"], 728)
-        self.assertEqual(report["dynamic"]["natural_outcomes_observed"], 699)
+        self.assertEqual(report["static"]["reachable_instructions"], 8490)
+        self.assertEqual(report["static"]["conditional_branches"], 1351)
+        self.assertEqual(report["static"]["possible_outcomes"], 2702)
+        self.assertEqual(report["dynamic"]["outcomes_observed"], 924)
+        self.assertEqual(report["dynamic"]["natural_outcomes_observed"], 898)
         self.assertLess(REPORT.stat().st_size, 50_000)
 
     def test_natural_component_coverage_does_not_include_probe_dispatch(self) -> None:
         report = json.loads(REPORT.read_text())
         rows = {row["name"]: row for row in report["dynamic"]["components"]}
         self.assertEqual(rows["control_flow"]["natural_outcomes_observed"], 0)
-        self.assertEqual(rows["value_storage"]["natural_outcomes_observed"], 111)
-        self.assertEqual(rows["numeric_errors"]["natural_outcomes_observed"], 4)
+        self.assertEqual(rows["value_storage"]["natural_outcomes_observed"], 112)
+        self.assertEqual(rows["numeric_errors"]["natural_outcomes_observed"], 119)
 
     def test_declared_computed_dispatches_have_bounded_destinations(self) -> None:
         report = json.loads(REPORT.read_text())

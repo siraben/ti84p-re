@@ -52,6 +52,17 @@ TRACE_FEATURES = {
     "terminalif": {"eof_terminal_if"},
     "syntaxerr": {"syntax_error", "error_unwind"},
     "divzero": {"division_by_zero", "error_unwind", "fp_arithmetic"},
+    "overflow": {"overflow", "power_range", "error_unwind", "fp_arithmetic"},
+    "muloverflow": {"overflow", "exponent_add", "error_unwind", "fp_arithmetic"},
+    "lndomain": {"domain_error", "log_zero", "error_unwind", "fp_arithmetic"},
+    "increment": {"increment_error", "for_zero_step", "error_unwind", "for_end"},
+    "asindomain": {"domain_error", "inverse_sine", "error_unwind", "fp_arithmetic"},
+    "acosdomain": {"domain_error", "inverse_cosine", "error_unwind", "fp_arithmetic"},
+    "sqrtnonreal": {"nonreal_error", "real_mode_guard", "error_unwind", "fp_arithmetic"},
+    "singular": {"singular_matrix", "matrix_inverse", "error_unwind"},
+    "lateincrement": {"increment_error", "for_no_progress", "error_unwind", "for_end"},
+    "negfactdomain": {"domain_error", "factorial_guard", "error_unwind", "fp_arithmetic"},
+    "ncrdomain": {"domain_error", "combination_guard", "error_unwind", "fp_arithmetic"},
 }
 
 TRACE_PROVENANCE = {
@@ -69,7 +80,11 @@ TRACE_PROVENANCE = {
     "gramnonzero": "internal_entry_probe",
 }
 
-ERROR_TRACES = frozenset({"syntaxerr", "divzero"})
+ERROR_TRACES = frozenset({
+    "syntaxerr", "divzero", "overflow", "muloverflow", "lndomain",
+    "increment", "asindomain", "acosdomain", "sqrtnonreal", "singular",
+    "lateincrement", "negfactdomain", "ncrdomain",
+})
 
 
 @dataclass(frozen=True)
