@@ -430,16 +430,19 @@ nested-integral traces use `39:4CA4` instead, so the expression or cursor state
 that selects `39:5167` remains open. Fixed glyph cells use `39:4E8E` and
 `39:4F1A`; page `07:4588` copies large-font records. [confirmed]
 
-## Delimiters
+## Archived fixed-token markers
 
-The fixed delimiter families are handler records. Classes
-`0x17`, `0x18`, and `0x19` point to one-row records at `39:62C8`, `39:62DF`, and
-`39:62F6`. Each record contains ten cells. Page 7 maps those cells to output families
-`61 00`–`61 09`, `60 00`–`60 09`, and `AA 00`–`AA 09`. [confirmed]
+Classes `0x17`, `0x18`, and `0x19` point to one-row records at `39:62C8`,
+`39:62DF`, and `39:62F6`. Each record contains ten cells. Page 7 maps them to
+fixed-token names `61 00`–`61 09` (`GDB1`–`GDB0`), `60 00`–`60 09`
+(`Pic1`–`Pic0`), and `AA 00`–`AA 09` (`Str1`–`Str0`). [confirmed]
 
-This covers the fixed delimiter surface. The delimiter families remain fixed
-handler records and page `0x07` display-byte mappings. A runtime path that
-selects their height remains unidentified. [confirmed]
+`39:6675–66BC` looks up each mapped name in the VAT. `_FindSym` returns the VAT
+page byte through the record referenced by `HL`; five `DEC HL` instructions at
+`ram:1785` move from the returned type byte to that page byte. A zero page
+returns without output. A nonzero archive page emits display code `2Ah` (`*`)
+through `ram:3FDB`. The original cell then continues through the counted-string
+and direct-glyph stages. [confirmed]
 
 ## Emission paths
 
@@ -455,11 +458,12 @@ Cells reach pixels through a small set of output paths:
 | Large-font blit | page `07:4588` | Copies one fixed large-font glyph record. |
 | Rule / rectangle helpers | `39:6ABF`, `39:6AF5`, `ram:3555` | Draw fraction UI rectangles, boxes, and fixed chrome lines. |
 
-`39:6675` saves a matched delimiter cell's `E` byte in `keyExtend` and passes
-its `D` byte to `07:44DE`. This call is a prepass, not a terminal delimiter
-draw: `39:4E8E` restores the original `D:E` pair and continues through the
-counted-string and direct-glyph stages. The JavaScript emission controller
-preserves that order.
+`39:6675` saves a matched fixed-token cell's `E` byte in `keyExtend` and passes
+its `D` byte to `07:44DE`. It constructs the VAT lookup name from the remapped
+pair. Unmatched cells that map through `39:4F1A` instead use `05:4056` to build
+a `5C:A` matrix name. The prepass emits `*` when the selected VAT record has a
+nonzero page byte. The JavaScript translation preserves the lookup and output
+order.
 The committed layout artifact contains every table entry addressable from the
 main entry. A pinned-byte interpreter compares all 65,536 combinations of
 display byte and `keyExtend`; they reduce to seven paths and 12 branch outcomes.
@@ -468,17 +472,24 @@ The separate public entry at `07:44FE` is outside this main-entry domain. [confi
 The translated `39:4E8E–4F19` outer controller covers all 1,048,576 projected
 states formed by `D:E`, the draw-pass flag and callback result, the
 `curCol < 15` relation, and the marker-helper result. They reduce to 39 ordered
-paths, 22 branch outcomes, and seven minimum representatives. The VAT-dependent
-`39:6675` body, installed callback, indexed-string printer, output bcalls, and
-row-retouch body remain named boundaries rather than simulated return values.
+paths, 22 branch outcomes, and seven minimum representatives. The installed
+callback, indexed-string printer, output bcalls, and row-retouch body remain
+named boundaries rather than simulated return values.
 [confirmed]
+
+The `39:6675–66BC` translation covers every `D:E` pair with absent, RAM, and
+archived exact-VAT results. These 196,608 projected states reduce to 13 paths,
+14 branch outcomes, and six minimum representatives. The existing `_FindSym`
+documentation supplies the exact fixed-token scan contract; the prepass model
+accepts a logical VAT snapshot and performs the corresponding three-byte name
+match. [confirmed]
 
 `_KeyToString` at `01:6D10` uses that public entry for `FB`, `FC`, `FE`, and
 `FF` cells, scans 13 high-byte special strings, or selects one of 101 counted
 strings through the pointer table at `01:6E05`. The JavaScript translation
 compares all 65,536 `D:E` pairs with a pinned-byte interpreter. A second
 comparison covers all 1,024 prefix/index states admitted by the `_KeyToString`
-caller at `07:44FE`. Together they resolve all 418 unique key-string cells in
+caller at `07:44FE`. Together they resolve all 447 unique key-string cells in
 the decoded handler records and descriptors. Installed font and token hook
 bodies remain explicit external boundaries. [confirmed]
 
@@ -626,7 +637,7 @@ not claims that every packed token or name occurs in a calculator-created
 expression. [confirmed]
 
 Schema 2 of the report retains one deterministic representative for every
-complete path-equivalence class in 49 finite models. It also computes an
+complete path-equivalence class in 50 finite models. It also computes an
 exact minimum representative set for the branch outcomes in each model. The
 minimums are per domain: the five- and eight-byte name-loop ABIs share branch
 addresses, but a representative for one ABI does not cover the other. [confirmed]
@@ -654,6 +665,7 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | `_KeyToString` `_sOK` prefix | 1,024 | 5 | 8 | 5 |
 | `_KeyToString` selector | 65,536 | 35 | 40 | 14 |
 | Page-39 cell-string selector | 131,072 | 14 | 16 | 8 |
+| Page-39 archived-token prepass | 196,608 | 13 | 14 | 6 |
 | Page-39 cell-emission controller | 1,048,576 | 39 | 22 | 7 |
 | Glyph advance and delimiter padding | 131,072 | 6 | 10 | 4 |
 | `_VPutMap` byte-boundary gate | 56 | 2 | 2 | 2 |
@@ -683,8 +695,8 @@ addresses, but a representative for one ABI does not cover the other. [confirmed
 | FindAlpha endpoint | 2 | 2 | 4 | 2 |
 | FindAlpha OP scratch transition | 33,554,432 | 2 | 5 | 2 |
 
-The 49 models contain 3,463 path classes and 563 distinct modeled branch
-outcomes. Their per-domain minimum corpora contain 262 representatives. Each
+The 50 models contain 3,476 path classes and 577 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 268 representatives. Each
 class records its concrete representative, projected-state count, terminal,
 and complete branch-outcome sequence. These representatives saturate the
 declared projections. They do not establish calculator reachability or cover
@@ -3201,8 +3213,8 @@ by `tools/export-token-strings.py`. The font
 data appears on the interactive
 renderer's font-table tab. `tools/interp-cells.js` and the browser share the executable
 translations in `web/mathprint/rom-engine.js`. The translated routines consume
-`layout.json` for handler lookup, row-cell iteration, direct glyph and delimiter
-classification, display-byte remapping, descriptor iteration, fraction
+`layout.json` for handler lookup, row-cell iteration, direct glyph selection,
+archived fixed-token lookup, display-byte remapping, descriptor iteration, fraction
 endpoints, and class-6 row stepping. `web/mathprint/record-programs.json`
 contains six retained record
 snapshots for offline comparison. The browser does not fetch them. Closed

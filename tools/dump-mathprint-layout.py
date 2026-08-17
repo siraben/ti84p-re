@@ -3023,7 +3023,7 @@ CELL_EMISSION_ALGORITHM_ANCHORS = [
 
 CELL_EMISSION_ALGORITHM_XREF_TARGETS = [
     (0x4E8E, "cell emitter"),
-    (0x6675, "delimiter/fixed-pair classifier"),
+    (0x6675, "archived fixed-token marker prepass"),
     (0x4F1A, "direct large-font mapper"),
     (0x6B66, "generic string selector"),
     (0x4F08, "overflow/square-marker tail"),
@@ -3040,7 +3040,7 @@ SUFFIX_1F_FLOW_ANCHORS = [
     (
         0x4ECB,
         "d5cd7566d1d53e01fdcb3676c4bb2c200d7afefd20021600cd666bef0d45d1cd1a4f3804",
-        "generic cell path: classify delimiter, optionally call 6B66 then _PutPSB, then try direct glyph mapper",
+        "generic cell path: check archived fixed-token marker, optionally call 6B66 then _PutPSB, then try direct glyph mapper",
     ),
     (
         0x4F1A,
@@ -3720,7 +3720,7 @@ DISPLAY_BYTE_CALLER_ANCHORS = [
         0x39,
         0x6692,
         "cd373b",
-        "page-39 delimiter classifier caller: matched fixed delimiter pairs route through display-byte mapper",
+        "page-39 archive-marker prepass: matched fixed-token cells route through display-byte mapper",
     ),
 ]
 
@@ -3735,7 +3735,7 @@ DISPLAY_BYTE_EXPECTED_CALLERS = [
     (0x34, 0x4634, "page-34 parser/object display helper"),
     (0x37, 0x618F, "page-37 app/UI display helper"),
     (0x37, 0x6535, "page-37 app/UI display helper"),
-    (0x39, 0x6692, "page-39 fixed delimiter-pair classifier"),
+    (0x39, 0x6692, "page-39 archived fixed-token prepass"),
 ]
 
 DISPLAY_BYTE_CALLER_STATE_WORDS = [
@@ -4413,17 +4413,17 @@ DELIMITER_FLOW_ANCHORS = [
     (
         0x62CB,
         "fc00fc01fc02fc1ffc20fc21fc25fc26fc27fc28",
-        "paren/delimiter pair table A: ten fixed two-byte display cells",
+        "GDB-name source table: ten fixed two-byte display cells",
     ),
     (
         0x62E2,
         "fea7fea8fea9fc22fc23fc24fc29fc2afc2bfc2c",
-        "paren/delimiter pair table B: ten fixed two-byte display cells",
+        "Pic-name source table: ten fixed two-byte display cells",
     ),
     (
         0x62F9,
         "fc50fc51fc52fc53fc54fc55fc56fc57fc58fc59",
-        "paren/delimiter pair table C: ten fixed two-byte display cells",
+        "Str-name source table: ten fixed two-byte display cells",
     ),
     (
         0x6667,
@@ -4433,12 +4433,12 @@ DELIMITER_FLOW_ANCHORS = [
     (
         0x6675,
         "21e262cd6766281021cb62cd6766280821f962cd676620137b3246847acd373b",
-        "delimiter classifier: try three pair tables, then route matched pair through bjump 3B37",
+        "archive-marker prepass: try three name tables, then remap a matched pair through bjump 3B37",
     ),
     (
         0x66A0,
         "cd1a4fd8eff151d7d81806",
-        "fallback for non-pair cells: map through 4F1A and emit ordinary large-font glyph",
+        "non-table path: map through 4F1A, construct matrix name 5C:A, and query the VAT",
     ),
     (
         0x66BD,
@@ -4450,9 +4450,9 @@ DELIMITER_FLOW_ANCHORS = [
 DELIMITER_FLOW_XREF_TARGETS = [0x6667, 0x6675, 0x3B37, 0x4F1A, 0x66BD]
 
 DELIMITER_DISPLAY_MAP_TABLES = [
-    (0x62CB, "A", 0x61, "fixed FC delimiter family A -> 6100..6109"),
-    (0x62E2, "B", 0x60, "fixed FE/FC delimiter family B -> 6000..6009"),
-    (0x62F9, "C", 0xAA, "fixed FC delimiter family C -> AA00..AA09"),
+    (0x62CB, "A", 0x61, "fixed FC source cells -> GDB1..GDB0"),
+    (0x62E2, "B", 0x60, "fixed FE/FC source cells -> Pic1..Pic0"),
+    (0x62F9, "C", 0xAA, "fixed FC source cells -> Str1..Str0"),
 ]
 
 DELIMITER_RECORD_FAMILY_CLASSES = [
@@ -4464,7 +4464,7 @@ DELIMITER_RECORD_FAMILY_CLASSES = [
         "A",
         0x61,
         "010a31fc00fc01fc02fc1ffc20fc21fc25fc26fc27fc28",
-        "delimiter family A handler record",
+        "GDB archive-marker source handler record",
     ),
     (
         0x18,
@@ -4474,7 +4474,7 @@ DELIMITER_RECORD_FAMILY_CLASSES = [
         "B",
         0x60,
         "010a3ffea7fea8fea9fc22fc23fc24fc29fc2afc2bfc2c",
-        "delimiter family B handler record",
+        "Pic archive-marker source handler record",
     ),
     (
         0x19,
@@ -4484,7 +4484,7 @@ DELIMITER_RECORD_FAMILY_CLASSES = [
         "C",
         0xAA,
         "010a52fc50fc51fc52fc53fc54fc55fc56fc57fc58fc59",
-        "delimiter family C handler record",
+        "Str archive-marker source handler record",
     ),
 ]
 
@@ -4840,13 +4840,13 @@ STRUCTURAL_SYMBOL_FLOW_ANCHORS = [
         0x39,
         0x4ECC,
         "cd7566d1d53e01fdcb3676c4bb2c200d7afefd20021600cd666bef0d45d1cd1a4f3804efe551c97a",
-        "generic record-cell emitter tail: delimiter classifier, string path, then direct 4F1A glyph fallback",
+        "generic record-cell emitter tail: archive-marker prepass, string path, then direct 4F1A glyph fallback",
     ),
     (
         0x39,
         0x6675,
         "21e262cd6766281021cb62cd6766280821f962cd676620137b3246847acd373bcdaf1b2179847223731807cd1a4fd8eff151d7d8",
-        "delimiter classifier: three fixed pair tables, matched cells via 3B37, unmatched cells via 4F1A/RST28",
+        "archive-marker prepass: remap fixed-name table cells or construct a matrix name, then query the VAT",
     ),
     (
         0x39,
@@ -7791,8 +7791,8 @@ def dump_cell_emission_algorithm_flow(rom):
     print("\n4E8E branch algorithm")
     print("  if D == 1F: use the IX-backed OP/string special form, emit it, then run the overflow row cleanup")
     print("  else if D == 82: convert E-3E to an indexed string through bjump 3B2B")
-    print("  else: classify delimiter-pair cells through 6675")
-    print("  after delimiter classification, bit 6 of (IY+36) may call the page-3B draw-state callback 2CBB")
+    print("  else: check archived fixed-token names through 6675")
+    print("  after the archive-marker prepass, bit 6 of (IY+36) may call the page-3B draw-state callback 2CBB")
     print("  then non-direct cells may call 6B66 and _PutPSB; direct fixed glyph cells call 4F1A and RST28 _PutMap-style output")
     print("  the tail handles line overflow through 3CB7, then checks FB C8/FB C7 marker gates at 4F44 and row retouch at 4F62")
 
@@ -7988,7 +7988,7 @@ def dump_lroot_final_emitter_boundary_flow(rom):
     print("  decoded records: " + (", ".join(records) or "none"))
     print("  decoded descriptors: " + (", ".join(descriptors) or "none"))
     delimiter_hits = delimiter_family_locations(rom, (0x00, 0x10))
-    print("  delimiter family membership: " + (", ".join(delimiter_hits) or "none"))
+    print("  archive-marker source membership: " + (", ".join(delimiter_hits) or "none"))
     print("  4F1A direct glyph: " + (f"L{mapped:02X}" if mapped is not None else "no"))
     if idx is None:
         print(f"  _KeyToString index: none ({rule})")
@@ -9156,7 +9156,7 @@ def dump_delimiter_flow(rom):
         status = "ok" if actual == expected else "MISMATCH"
         print(f"  39:{addr:04X}: {status} {actual.hex().upper()}  {note}")
 
-    print("\nfixed delimiter-pair tables")
+    print("\nfixed-token archive-marker source tables")
     for addr, _, note in DELIMITER_FLOW_ANCHORS[:3]:
         raw = rom_bytes(rom, addr, 20)
         cells = " ".join(fmt_cell(raw[i], raw[i + 1]) for i in range(0, 20, 2))
@@ -9170,10 +9170,10 @@ def dump_delimiter_flow(rom):
         print(f"  {target:04X}: direct {refs}; raw {raw}")
 
     print("\ninterpretation")
-    print("  39:6675 classifies three fixed ten-entry delimiter-pair tables through 39:6667")
-    print("  matched pairs store the low byte at 8446 and route the high byte through bjump 3B37")
-    print("  unmatched cells fall back to 4F1A, the ordinary token-to-large-font mapper")
-    print("  this path has no measured height, repeat count, rectangle/fill call, or stretched-delimiter builder")
+    print("  39:6675 scans Pic, GDB, and Str source-cell tables through 39:6667")
+    print("  matched pairs store the low byte at 8446 and remap the high byte through bjump 3B37")
+    print("  unmatched direct glyph codes become matrix names through bcall 51F1")
+    print("  both lookup paths emit '*' only when _FindSym returns a nonzero VAT page byte")
 
 
 def dump_delimiter_display_map_flow(rom):
@@ -9189,7 +9189,7 @@ def dump_delimiter_display_map_flow(rom):
         status = "ok" if actual == expected else "MISMATCH"
         print(f"  07:{addr:04X}: {status} {actual.hex().upper()}  {note}")
 
-    print("\ndelimiter pair tables through page-7 display-byte map")
+    print("\nfixed-token source tables through page-7 display-byte map")
     unexpected = []
     for table_addr, table_name, expected_high, note in DELIMITER_DISPLAY_MAP_TABLES:
         raw = rom_bytes(rom, table_addr, 20)
@@ -9231,14 +9231,14 @@ def dump_delimiter_display_map_flow(rom):
                 md, me = mapped
                 print(f"  {table_name}[{idx}] {fmt_cell(d, e)} mapped unexpectedly to {fmt_cell(md, me)}")
     else:
-        print("  all 30 delimiter cells map to the expected fixed output families")
+        print("  all 30 source cells map to the expected fixed-token name families")
 
     print("\ninterpretation")
-    print("  page-39 delimiter classification selects one of three fixed ten-entry encoded families")
-    print("  page-7 display-byte tables map those cells to 6100..6109, 6000..6009, or AA00..AA09")
+    print("  page-39 archive-marker handling selects one of three fixed ten-entry encoded families")
+    print("  page-7 tables map those cells to GDB, Pic, or Str fixed-token names")
     print("  raw page-39 output-cell byte coincidences are not decoded records/descriptors")
-    print("  delimiter variants are generated display-byte outputs, not page-39 record/descriptor recipes")
-    print("  this closes the fixed delimiter-map surface; runtime height selection remains unidentified")
+    print("  the generated outputs are VAT lookup names, not page-39 record/descriptor recipes")
+    print("  a nonzero _FindSym page result adds the archive '*' marker before normal cell output")
 
 
 def dump_delimiter_record_family_flow(rom):
@@ -9295,12 +9295,12 @@ def dump_delimiter_record_family_flow(rom):
             print(f"  family {family}: {label} mismatch near 39:{addr:04X}")
     else:
         print("  class 17/18/19 handler-table pointers, record bytes, decoded rows, and display-byte outputs all agree")
-        print("  each delimiter family is a ROM handler record containing exactly ten fixed cells")
+        print("  each archived-name source family is a ROM handler record containing exactly ten fixed cells")
 
     print("\ninterpretation")
-    print("  delimiter families A/B/C are not renderer-invented cells: they are decoded class records at 39:62C8/62DF/62F6")
-    print("  the row actions select fixed ten-cell families that page-7 maps to 6100..6109, 6000..6009, and AA00..AA09")
-    print("  this proves the fixed delimiter family surface is ROM-backed; the remaining gap is the upstream dynamic variant selector")
+    print("  archived-name source families A/B/C are decoded class records at 39:62C8/62DF/62F6")
+    print("  the row actions select fixed ten-cell families that page 7 maps to GDB, Pic, and Str names")
+    print("  39:6675 uses the mapped names for VAT lookup and emits '*' when the returned page is nonzero")
 
 
 def dump_menu_cell_flow(rom):
@@ -9702,7 +9702,7 @@ def dump_structural_symbol_flow(rom):
         print(f"  {fmt_cell(d, e)}  {note}")
         print("    records: " + (", ".join(records) or "none"))
         print("    descriptors: " + (", ".join(descs) or "none"))
-        print("    delimiter-pair tables: " + (", ".join(pairs) or "none"))
+        print("    archive-marker source tables: " + (", ".join(pairs) or "none"))
         if mapped is None:
             print("    4F1A direct glyph: no")
         else:
@@ -9711,7 +9711,7 @@ def dump_structural_symbol_flow(rom):
     print("\nemission path interpretation")
     print("  fnInt's 00C8 cell is selected from class 08/30 row 0; it is not the class 0D Lintegral glyph cell")
     print("  class 0D supplies the fixed Lintegral cells FC3F and 0842 on separate structural-symbol rows")
-    print("  FC3F and 0842 are emitted as fixed Lintegral glyphs: 4E8E -> 6675 fallback -> 4F1A -> RST28")
+    print("  FC3F and 0842 are emitted as fixed Lintegral glyphs: 4E8E -> 6675 prepass -> 4F1A -> RST28")
     print("  0010 is a root/power record cell, but not a 4F1A direct glyph; _KeyToString alone would resolve it as table string index 00")
     print("  00C8 and FB C8 remain display/menu-control cells and do not become structural glyph stretch recipes")
     print("  no path here consumes measured radicand/limit height, repeat counts, or rectangle/rule endpoints")

@@ -66,7 +66,7 @@ strings. [confirmed]
 
 `settledPage1KeyToStringSelection()` compares every one of the 65,536 `D:E`
 pairs against the pinned `01:6D10–6DBC` bytes with both hook flags clear. It
-resolves all 418 unique key-string cells present in the decoded handler records
+resolves all 447 unique key-string cells present in the decoded handler records
 and descriptors. Raw prefix combinations that select beyond a declared token
 table stop at that pointer boundary instead of reading adjacent ROM data as a
 string. [confirmed]

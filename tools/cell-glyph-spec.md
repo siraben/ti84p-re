@@ -40,13 +40,14 @@ Dispatch on `D`:
 |--------------|------------------|--------------|
 | `D = 0x1F`   | cursor / answer marker (`39:4E93`) | Runs cursor/edit-area setup, decrements `0x844B`, and draws no glyph. |
 | `D = 0x82`   | indexed string/title (`39:4EBF`) | `A = E - 0x3E; call ram:3B2B` reaches the indexed-string printer at `01:7183`. `E` selects an entry, not a font code. |
-| everything else | generic path (`39:4ECB`) | Checks named-token lists at `39:6675`, selects a string at `39:6B66`, then tries the direct mapper at `39:4F1A`. |
+| everything else | generic path (`39:4ECB`) | Checks archived fixed-token names at `39:6675`, selects a string at `39:6B66`, then tries the direct mapper at `39:4F1A`. |
 
 ### Generic path
 
-1. `call 6675` (`eqdisp_classify_paren`) matches `D:E` against three
-   10-entry token lists. On match it stores `E` to `0x8446`, moves `D` to `A`, and
-   routes to the fixed delimiter display-byte subtable path.
+1. `call 6675` matches `D:E` against three 10-entry fixed-token lists. On a
+   match it stores `E` to `0x8446`, moves `D` to `A`, remaps the pair, and looks
+   up the resulting `GDB`, `Pic`, or `Str` name in the VAT. An archived match
+   emits `*` before the remaining cell stages.
 2. `bit 6,(iy+036h)` selects alternate handling through `ram:2CBB` when set.
    If `D = 0xFD`, force `D = 0x00` (`16 00` at `39:4EE1`) before:
 3. `39:6B66` selects an inline counted string when `D = 0xFB` and `E` is one of
@@ -66,7 +67,7 @@ return from `39:4E8E`: the caller restores the original `D:E`, may emit the
 counted string, and still probes `39:4F1A`. The JavaScript translation models
 the complete outer controller through `39:4F19`. A pinned-byte oracle checks
 196,608 representative full-byte states, and the finite model partitions all
-1,048,576 projected flag/result states into 39 paths. The VAT-dependent prepass
+1,048,576 projected flag/result states into 39 paths. The installed callback
 and output helpers remain explicit boundaries. [confirmed]
 
 The result can therefore be an ordered sequence of a layout prepass, a counted
@@ -262,15 +263,25 @@ index into the standard token table. Selected `FB:E` values use inline strings;
 
 ---
 
-## Named-token lists
+## Archived fixed-token markers
 
 `39:6675` calls `39:6667` three times. The latter scans 10 two-byte entries and
-returns Z on a `D:E` match. Matching cells take the styled subtable draw
-path. `ram:3B37` reaches the display-byte remapper at `07:44DE`;
-`ram:1BAF` clears OP1. The path also saves `D:E` to `0x8479`.
-These are fixed delimiter families. Page `0x07` maps them to `6100`–`6109`,
-`6000`–`6009`, and `AA00`–`AA09`; they do not establish measured-height
-template geometry. [confirmed]
+returns Z on a `D:E` match. The ROM scans class `0x18`, then `0x17`, then
+`0x19`. `ram:3B37` reaches the display-byte remapper at `07:44DE`, and
+`ram:1BAF` clears OP1 before the mapped name is stored at `0x8479`.
+Page `0x07` maps the lists to `6100`–`6109` (`GDB1`–`GDB0`),
+`6000`–`6009` (`Pic1`–`Pic0`), and `AA00`–`AA09` (`Str1`–`Str0`). [confirmed]
+
+The mapped path calls `_ChkFindSym` at `ram:0E60`. An unmatched list cell may
+instead map through `39:4F1A`; `05:4056` then constructs matrix name `5C:A`
+before `_FindSym`. On either successful lookup, `ram:1785` decrements `HL` five
+times from the returned VAT type byte to the page byte. Page zero returns.
+A nonzero page emits `2Ah` (`*`) through `ram:3FDB`. [confirmed]
+
+The JavaScript translation accepts the same logical VAT snapshots used by the
+editor search model. A pinned-byte oracle checks all 196,608 `D:E` and
+absent/RAM/archive projections. The finite model reduces them to 13 paths and
+14 branch outcomes. [confirmed]
 
 - `39:62CB`: `FC00 FC01 FC02 FC1F FC20 FC21 FC25 FC26 FC27 FC28`
 - `39:62E2`: `FEA7 FEA8 FEA9 FC22 FC23 FC24 FC29 FC2A FC2B FC2C`
@@ -309,7 +320,7 @@ Any other `FB:E` (and any non-FB pair on this path) falls through to
 | `D = 0xFF, *`  | on the `4F1A`-carry path (`39:4EF3`) treated as a terminator/skip (no glyph). |
 | `D = 0xFC` with `E >= 0x41` | Carry path; either a styled operator or a token name, not a single glyph. |
 | `*:0x55` on the carry path | Special case at `39:4EFD`; calls `ram:3CB7` and bcall ID `51F4h`. |
-| `D` matching the named-token lists | Fixed delimiter display-byte remap, with `E` saved in `0x8446`. |
+| `D:E` matching the fixed-token lists | Remap to a `GDB`, `Pic`, or `Str` VAT name; emit `*` first when the variable is archived. |
 | `D = 0x82`     | Indexed string/title: `index = E - 0x3E`, printed by `01:7183` through the `ram:3B2B` bjump. |
 
 ---

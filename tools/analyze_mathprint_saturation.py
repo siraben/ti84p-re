@@ -4786,6 +4786,123 @@ def symbolic_page39_cell_string_paths() -> list[dict[str, object]]:
     ]
 
 
+PAGE39_NAMED_TOKEN_FAMILIES = {
+    0x18: {
+        (0xFE, 0xA7), (0xFE, 0xA8), (0xFE, 0xA9),
+        (0xFC, 0x22), (0xFC, 0x23), (0xFC, 0x24),
+        (0xFC, 0x29), (0xFC, 0x2A), (0xFC, 0x2B), (0xFC, 0x2C),
+    },
+    0x17: {
+        (0xFC, 0x00), (0xFC, 0x01), (0xFC, 0x02),
+        (0xFC, 0x1F), (0xFC, 0x20), (0xFC, 0x21),
+        (0xFC, 0x25), (0xFC, 0x26), (0xFC, 0x27), (0xFC, 0x28),
+    },
+    0x19: {(0xFC, value) for value in range(0x50, 0x5A)},
+}
+
+
+def page39_named_token_prepass_path(
+    d: int,
+    e: int,
+    vat_result: str,
+) -> dict[str, object]:
+    """Translate 39:6675–66BC with the exact VAT result projected."""
+
+    if not 0 <= d <= 0xFF or not 0 <= e <= 0xFF:
+        raise ValueError("named-token prepass inputs must be unsigned bytes")
+    if vat_result not in ("absent", "ram", "archive"):
+        raise ValueError("named-token VAT result must be absent, ram, or archive")
+    outcomes: list[str] = []
+    pair = (d, e)
+    family = 0x18 if pair in PAGE39_NAMED_TOKEN_FAMILIES[0x18] else None
+    outcomes.append(f"39:667B:{'taken' if family == 0x18 else 'fallthrough'}")
+    if family is None:
+        family = 0x17 if pair in PAGE39_NAMED_TOKEN_FAMILIES[0x17] else None
+        outcomes.append(f"39:6683:{'taken' if family == 0x17 else 'fallthrough'}")
+    if family is None:
+        family = 0x19 if pair in PAGE39_NAMED_TOKEN_FAMILIES[0x19] else None
+        outcomes.append(f"39:668B:{'fallthrough' if family == 0x19 else 'taken'}")
+
+    if family is None:
+        direct = direct_glyph_selection_path(d, e)
+        carry = bool(direct["carry"])
+        outcomes.append(f"39:66A3:{'returned' if carry else 'fallthrough'}")
+        if carry:
+            return {
+                "terminal": "unmapped_cell",
+                "family": None,
+                "lookup_source": None,
+                "branch_outcomes": outcomes,
+            }
+        lookup_source = "matrix_name"
+        carry_branch = 0x66A8
+    else:
+        lookup_source = "display_byte_family"
+        carry_branch = 0x66B0
+
+    found = vat_result != "absent"
+    outcomes.append(
+        f"39:{carry_branch:04X}:{'fallthrough' if found else 'returned'}"
+    )
+    if not found:
+        return {
+            "terminal": "symbol_absent",
+            "family": family,
+            "lookup_source": lookup_source,
+            "branch_outcomes": outcomes,
+        }
+    archived = vat_result == "archive"
+    outcomes.append(f"39:66B6:{'fallthrough' if archived else 'returned'}")
+    return {
+        "terminal": "archived_marker" if archived else "ram_symbol",
+        "family": family,
+        "lookup_source": lookup_source,
+        "branch_outcomes": outcomes,
+    }
+
+
+def symbolic_page39_named_token_prepass_paths() -> list[dict[str, object]]:
+    """Partition every D:E pair and three exact VAT lookup outcomes."""
+
+    classes: dict[
+        tuple[str, int | None, str | None, tuple[str, ...]], dict[str, object]
+    ] = {}
+    for vat_result in ("absent", "ram", "archive"):
+        for d in range(0x100):
+            for e in range(0x100):
+                result = page39_named_token_prepass_path(d, e, vat_result)
+                key = (
+                    str(result["terminal"]),
+                    result["family"],
+                    result["lookup_source"],
+                    tuple(str(item) for item in result["branch_outcomes"]),
+                )
+                row = classes.setdefault(key, {
+                    "projected_input_count": 0,
+                    "representative_states": [],
+                })
+                row["projected_input_count"] += 1
+                states = row["representative_states"]
+                if len(states) < 4:
+                    states.append({"d": d, "e": e, "vat_result": vat_result})
+    return [
+        {
+            "terminal": terminal,
+            "family": family,
+            "lookup_source": lookup_source,
+            "branch_outcomes": list(outcomes),
+            **classes[(terminal, family, lookup_source, outcomes)],
+        }
+        for terminal, family, lookup_source, outcomes in sorted(
+            classes,
+            key=lambda item: (
+                item[0], -1 if item[1] is None else item[1],
+                "" if item[2] is None else item[2], item[3],
+            ),
+        )
+    ]
+
+
 def page39_cell_emission_path(
     d: int,
     e: int,
@@ -5708,6 +5825,12 @@ def symbolic_model_corpus() -> dict[str, object]:
             "39:6B62–6B9F",
             2 * 0x100**2,
             symbolic_page39_cell_string_paths(),
+        ),
+        (
+            "page39_named_token_prepass",
+            "39:6675–66BC",
+            3 * 0x100**2,
+            symbolic_page39_named_token_prepass_paths(),
         ),
         (
             "page39_cell_emission",
@@ -7384,6 +7507,20 @@ def build_report(
                 "scope": (
                     "complete local inline-string dispatch domain; fallback "
                     "continues into the separately modeled _KeyToString body"
+                ),
+            },
+            "page39_named_token_prepass": {
+                "routine": "39:6675–66BC",
+                "state": [
+                    "handler-cell D byte", "handler-cell E byte",
+                    "exact VAT result: absent, RAM, or archive",
+                ],
+                "projected_input_domain": 3 * 0x100**2,
+                "terminal_classes": symbolic_page39_named_token_prepass_paths(),
+                "scope": (
+                    "complete cell and exact fixed-token VAT-result domain; "
+                    "the separately documented _FindSym scanner supplies the "
+                    "lookup result"
                 ),
             },
             "page39_cell_emission": {
