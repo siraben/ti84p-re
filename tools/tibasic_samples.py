@@ -721,6 +721,14 @@ SAMPLES: dict[str, tuple[str, list[int]]] = {
             T["if"], T["1"], T["enter"],
         ],
     ),
+    "syntaxerr": (
+        "Disp 1+",
+        [T["disp"], T["1"], T["add"], T["enter"]],
+    ),
+    "divzero": (
+        "Disp 1/0",
+        [T["disp"], T["1"], T["div"], T["0"], T["enter"]],
+    ),
     "zpass": asm_payload("3EA5324093C9"),
     "zgramlow": asm_payload("F33E38D3063EF1CDBA6FFBC9"),
     "gramlow": asm_wrapper("ZGRAMLOW"),
@@ -785,6 +793,8 @@ PROGRAM_NAMES = {
     "cmdbad": "CMDBAD",
     "missingend": "MISSEND",
     "terminalif": "TERMIF",
+    "syntaxerr": "SYNERR",
+    "divzero": "DIVZERO",
     "zpass": "ZPASS",
     "zgramlow": "ZGRAMLOW",
     "gramlow": "GRAMLOW",

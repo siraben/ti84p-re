@@ -8,7 +8,11 @@ import struct
 import tempfile
 import unittest
 
-from analyze_tibasic_for_paren import analyze_trace, summarize_addresses
+from analyze_tibasic_for_paren import (
+    analyze_trace,
+    summarize_addresses,
+    summarize_values,
+)
 from tilem_trace_resolve import HEADER_FMT, INSTR_FMT, MAGIC
 
 
@@ -28,6 +32,17 @@ class TiBasicForParenTests(unittest.TestCase):
         self.assertEqual(
             summarize_addresses([0x9EA9, 0x9EB7, 0x9EC5]),
             {"count": 3, "first": "0x9EA9", "last": "0x9EC5", "stride": 14},
+        )
+
+    def test_value_summary_counts_distinct_words(self) -> None:
+        self.assertEqual(
+            summarize_values([0x9F02, 0x9F02, 0x9F10]),
+            {
+                "count": 3,
+                "first": "0x9F02",
+                "last": "0x9F10",
+                "distinct": 2,
+            },
         )
 
     def test_minimal_trace_reduces_marker_interval_and_buffer_state(self) -> None:
@@ -59,6 +74,14 @@ class TiBasicForParenTests(unittest.TestCase):
         self.assertEqual(implicit["instructions"], 157052)
         self.assertEqual(explicit["equal_cursor_end_high_sequence"]["count"], 1)
         self.assertEqual(implicit["equal_cursor_end_high_sequence"]["count"], 25)
+        self.assertEqual(explicit["loop_end_visits"], 25)
+        self.assertEqual(implicit["loop_end_visits"], 25)
+        self.assertEqual(
+            explicit["loop_record_variants"],
+            ["0036581200", "007d581200"],
+        )
+        self.assertEqual(explicit["loop_end_fps"]["distinct"], 1)
+        self.assertEqual(implicit["loop_end_fps"]["distinct"], 25)
 
 
 if __name__ == "__main__":
