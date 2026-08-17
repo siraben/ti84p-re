@@ -80,10 +80,39 @@ advances through 25 states from `0x9EC8` to `0xA018` in `0x0E`-byte steps.
 This is direct RAM-state evidence that the two token streams manage temporary
 parse space differently. [confirmed]
 
+The `FPS` pointer distinguishes the forms at every `End` visit:
+
+| Form | First `FPS` | Last `FPS` | Distinct values |
+|------|-------------|------------|----------------:|
+| Explicit `)` | `0x9F02` | `0x9F02` | 1 |
+| Implicit close | `0x9EFF` | `0xA04F` | 25 |
+
+The implicit sequence advances by `0x0E` per iteration. The explicit sequence
+keeps one `FPS` value after the first body setup. This matches the temporary
+cursor/end stride without using an LCD image as an oracle. [confirmed]
+
+## The natural loop record
+
+Both forms reach `For(` production entry `38:41E5` and `End` production entry
+`38:4200`. At each `End`, `38:4200` consumes five bytes beginning at `OPS + 1`:
+
+```mermaid
+flowchart LR
+    R["OPS + 1 … OPS + 5"] --> Z["00h<br/>sentinel"]
+    R --> C["36 58 or 7D 58<br/>continuation"]
+    R --> S["12 00<br/>state word"]
+    C --> I["38:5836 first update"]
+    C --> T["38:587D steady update"]
+```
+
+The first continuation prepares the loop update. The steady continuation
+re-enters the update path on later iterations. The trace observes 25 `End`
+visits and the same two record variants in both spellings. [confirmed]
+
 The pair does not enter the command-finalization gate at `02:5676` or the
-page-33 dispatcher at `33:435F`. Those routines therefore do not explain this
-measurement. The exact page-38 transition that selects the advancing temporary
-range remains [hypothesis].
+page-33 dispatcher at `33:435F`; those routines do not explain the difference.
+The exact branch between `For(` argument parsing and temporary `FPS` allocation
+that selects reuse versus `0x0E`-byte growth remains [hypothesis].
 
 ## Reproduce the evidence
 
@@ -109,8 +138,9 @@ PYTHONPATH=tools python3 tools/analyze_tibasic_for_paren.py \
 ```
 
 `tools/tibasic-for-paren.json` stores the hashes, marker intervals, pointer-write
-counts, and high-state sequence summary. The smoke check reads the completion
-marker from a logical-RAM dump. Raw traces remain outside the repository.
+counts, high-state sequence, `FPS` summary, and decoded OPS record variants.
+The smoke check reads the completion marker from a logical-RAM dump. Raw traces
+remain outside the repository.
 
 ## Practical rule
 

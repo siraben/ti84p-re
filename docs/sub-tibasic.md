@@ -20,17 +20,17 @@ many token bytes. There are no stored line numbers: `3Fh` separates lines, and
 
 Execution can be read as a pipeline:
 
-```text
-VAT program object
-    │ size word selects the token body
-    ▼
-parse cursor (`nextParseByte` .. `basic_end`)
-    │ fetch and classify one token
-    ▼
-statement or recursive expression handler
-    │ variable lookup, FP operation, command, or control transfer
-    ▼
-OP1 result / stored variable / updated parse cursor
+```mermaid
+flowchart LR
+    V["VAT program object"] -->|"size selects token body"| C["parse cursor<br/>nextParseByte … basic_end"]
+    C -->|"fetch and classify"| H["statement or expression handler"]
+    H --> E["recursive expression"]
+    H --> M["variable or list access"]
+    H --> D["command or control transfer"]
+    E --> R["OP1 result"]
+    M --> R
+    D --> R
+    R -->|"advance or replace cursor"| C
 ```
 
 The page-38 evaluator owns the cursor and grammar. Statement commands can
@@ -102,7 +102,8 @@ handler recursively consume tighter-binding operands. The selector at
 | `03h` | code at `38:7175` | Leaf production |
 
 For the main family, the grammar class in `A` indexes a table of little-endian
-handler pointers at `38:4000`. The bytes there are data—beginning `9F 41 F0 45
+handler pointers at `38:4000`. Its 87 slots contain 84 valid pointers and 81
+distinct handler destinations. The bytes there are data—beginning `9F 41 F0 45
 1C 42 ...`—not executable Z80. The selector doubles the class, reads the
 pointer, and calls the chosen production. [confirmed]
 
@@ -125,6 +126,20 @@ operations such as `_FPAdd`, `_FPMult`, or `_BinOPExec`; the completed value is
 left in `OP1`. `38:6FB7–6FC2` also folds token classes `F2h` and above by adding
 `12h` before dispatch. [confirmed]
 
+The other indirect jumps in the declared interpreter graph also have bounded
+ROM-owned destinations:
+
+| Jump | Selector source | Valid destinations |
+|------|-----------------|-------------------:|
+| `38:4390` | 14 entry wrappers load literal continuations | 14 |
+| `38:7244` | 49-class table at `38:4FDB`; five rows are zero/invalid | 27 distinct |
+| `02:5675` | Five preceding token comparisons load literal targets | 5 |
+| `33:4380` | Bounds-checked 13-row table at `33:4381` | 13 |
+
+The CFG follows those destinations without treating adjacent table bytes as
+instructions. The bounds describe valid interpreter state, not arbitrary
+register or stack corruption. [confirmed]
+
 The shared statement loop can then do one of three things with the result:
 
 - store it through a parsed variable name;
@@ -134,6 +149,40 @@ The shared statement loop can then do one of three things with the result:
 `_AnsName` (`38:74B7`) constructs the internal name with class byte `72h`;
 `_RclAns` (`38:679F`) recalls it through the ordinary variable machinery.
 [confirmed]
+
+## Variable identity and value payload are separate
+
+The parser first builds a variable-name descriptor in `OP1`. The descriptor's
+type byte selects a VAT object class and the following bytes encode the token or
+name. `findsym_scan` (`07:565F`) resolves that identity to a VAT entry and data
+pointer; only then does the recall path copy or address the value payload.
+[confirmed]
+
+| Object class | Type | Payload used by BASIC |
+|--------------|------|-----------------------|
+| Real | `00h` | One 9-byte `TIFloat` |
+| Real list | `01h` | 2-byte length, then 9-byte elements |
+| Matrix | `02h` | Two dimensions, then 9-byte elements |
+| String | `04h` | 2-byte length, then token/character bytes |
+| Program | `05h` | 2-byte length, then token bytes |
+| Protected program | `06h` | Program payload with protected edit semantics |
+| Complex list | `0Dh` | 2-byte length, then complex elements |
+
+```mermaid
+flowchart LR
+    T["name token"] --> N["OP1 name descriptor"]
+    N --> V["07:565F<br/>VAT scan"]
+    V -->|"recall"| P["typed payload"]
+    P --> R["OP1 value or element address"]
+    R --> A["FP/list/matrix operation"]
+    A -->|"store"| S["create, resize, or replace VAT payload"]
+```
+
+Scalar arithmetic copies a 9-byte value into the OP registers. List and matrix
+access instead checks the container type and dimensions, computes one element
+address, and moves that element through `OP1`. Stores can therefore fail before
+arithmetic runs: name lookup, type compatibility, dimensions, and allocation
+are distinct boundaries. [confirmed]
 
 ## Statements end locally; blocks scan structurally
 
@@ -165,27 +214,40 @@ only the latter opens a block. Nested `Else` tokens are ignored until the depth
 returns to zero. The comparisons and counter changes are visible at
 `38:4137–417E`; the counter is the 16-bit `DE` register. [confirmed]
 
-### The loop-dispatch boundary remains open
+### Natural loops use a page-38 OPS record
 
 The public page-33 routine behind bcall `grf_435f = 5140h` subtracts `20h`,
 accepts 13 indices, and jumps through the table at `33:4381`. Three ABI probes
-confirm both bounds outcomes at `33:436D` and `33:4372`. [confirmed]
+confirm both bounds outcomes at `33:436D` and `33:4372`, but natural stored
+programs do not enter it. It is not the `For(`/`End` transition. [confirmed]
 
-Natural stored-program traces do not enter `02:5676` or `33:435F`, even when
-`FACTOR`, `DFS`, and the paired `For(` benchmark execute loops. The public
-page-33 dispatcher is therefore not established as the stored-program loop
-transition. Connecting the observed page-38 execution path to the loop-record
-operations remains open.
+Natural `For(` execution reaches grammar-table destination `38:41E5`. Natural
+`End` execution reaches `38:4200`, which consumes a five-byte record from the
+operator stack at `OPS + 1`. The observed bytes use this order: [confirmed]
 
-Conceptually, a loop record must retain:
+| Offset | First `End` | Later `End` visits | Role |
+|--------|-------------|--------------------|------|
+| `+0` | `00h` | `00h` | Sentinel consumed by `38:4200` |
+| `+1..+2` | `36 58` | `7D 58` | Little-endian continuation `38:5836` or `38:587D` |
+| `+3..+4` | `12 00` | `12 00` | Stable state word `0012h` |
 
-- the loop kind;
-- the `For(` variable, limit, and step when applicable; and
-- the body cursor used by `End` to resume or exit.
+```mermaid
+flowchart LR
+    F["For( token"] --> P["38:41E5<br/>create production state"]
+    P --> B["execute loop body"]
+    B --> E["End token<br/>38:4200"]
+    E --> O["pop sentinel + continuation + state word"]
+    O --> I["38:5836<br/>first update"]
+    O --> S["38:587D<br/>steady update"]
+    I --> B
+    S --> B
+```
 
-The language behavior requires a saved body position, and the trace shows the
-body being revisited. The exact handler transition and byte order of every FPS
-loop-record field are still [hypothesis].
+The continuation path resolves the loop variable through the VAT, applies the
+floating-point increment, compares the updated value, and either revisits the
+body or removes the record. The paired trace confirms the record bytes and the
+two continuations. The complete layout of the associated limit, step, and
+temporary floating-point values is not yet decoded. [confirmed]
 
 The optional closing `)` in `For(` changes marker-to-marker work and parser
 buffer state. Neither spelling reaches the page-02 finalization gate in the
@@ -252,6 +314,50 @@ token-attribute table; returned key codes come from `_GetKey` on page 06. This
 distinction prevents a common false inference from the nearby `CP ADh` bytes.
 [confirmed]
 
+## Errors unwind saved relative stack state
+
+The error entries first select an error code, then join the common path at
+`00:270A`. For example, `_ErrDivBy0` at `00:26EC` selects `82h`, while the
+syntax entry at `00:2700` selects `88h`. Natural `Disp 1/0` and `Disp 1+`
+traces reach those entries, respectively. [confirmed]
+
+The shared context wrapper at `00:27DA` does not save absolute `FPS` and `OPS`
+pointers. It saves each pointer as a delta from the corresponding base at
+`0x9822` or `0x9826`, together with the previous error stack and mapped page.
+The unwind path at `00:27BB–27D9` restores them in reverse order. [confirmed]
+
+```pseudocode
+save_error_context(target):
+  push current_flash_page
+  push previous_error_stack
+  push FPS - word_at(0x9822)
+  push OPS - word_at(0x9826)
+  error_stack = SP
+  jump target
+
+unwind_error(error_code):
+  SP = error_stack
+  OPS = word_at(0x9826) + pop_word()
+  FPS = word_at(0x9822) + pop_word()
+  error_stack = pop_word()
+  restore_flash_page(pop_word())
+  return error_code
+```
+
+```mermaid
+flowchart LR
+    E["error entry<br/>82h or 88h"] --> C["00:270A<br/>common error path"]
+    C --> U["00:27BB<br/>load saved error SP"]
+    U --> O["restore OPS delta"]
+    O --> F["restore FPS delta"]
+    F --> P["restore previous error SP and page"]
+    P --> H["error UI / caller continuation"]
+```
+
+The traces confirm the entry, common unwind, and pointer restoration. The
+error-screen `Goto` editor and every nested-error caller remain outside the
+current interpreter model.
+
 ## What the coverage model establishes
 
 `tools/analyze_tibasic_coverage.py` ties eight finite models to byte signatures
@@ -267,10 +373,19 @@ only trace hashes and compact counts; raw traces remain outside the repository.
 See [TI-BASIC dynamic tracing](sub-tibasic-tracing.md) for commands and exact
 boundaries. [confirmed]
 
-This is deliberately not a claim of complete interpreter coverage. The finite
-models bound local decisions, while arbitrary token streams, recursion depth,
-quoted-string contents, errors, computed handler bodies, VAT state, and
-floating-point state remain open.
+The broader saturation audit starts at all 81 grammar-handler destinations and
+selected command, control-flow, value-storage, and error entries. It reaches
+7,651 ROM instructions and 1,230 conditional branches, or 2,460 possible
+branch outcomes. The retained traces observe 728 outcomes; natural TI-BASIC
+programs account for 699. [confirmed]
+
+This is deliberately not a claim of complete interpreter coverage. The four
+declared computed jumps are expanded over their ROM-defined valid domains, but
+corrupted or otherwise out-of-domain dispatch state is not modeled. Calls into
+display, graphing, and other ROM pages leave the declared regions, and arbitrary
+token streams, recursion depths, VAT layouts, and floating-point values remain
+open. The compact `tools/tibasic-saturation.json` report records those
+boundaries explicitly.
 
 ## Address map
 
@@ -280,6 +395,8 @@ floating-point state remain open.
 | `38:4000` | Grammar-handler pointer table |
 | `38:4130` | Matching `End`/`Else` scanner |
 | `38:4180` | Token-aware skip scanner |
+| `38:41E5` | Natural `For(` production entry |
+| `38:4200` | Natural `End` record consumer |
 | `38:4870` | `Goto`/`Lbl` name scanner |
 | `38:5987` | `_ParseInp` |
 | `38:5AB3` | Recursive expression evaluator |
@@ -295,6 +412,6 @@ floating-point state remain open.
 | `02:5676` | Command finalization gate |
 | `33:435F` | Bounded control-flow command dispatcher |
 
-The compact machine-readable evidence is
-`tools/tibasic-coverage.json`; the generator verifies the ROM hash and the
-local byte signatures before producing a report.
+The local finite-model evidence is `tools/tibasic-coverage.json`. The broader
+direct-CFG evidence is `tools/tibasic-saturation.json`. Both generators verify
+the pinned ROM before producing a report.

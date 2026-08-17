@@ -68,6 +68,46 @@ ordinary grammar outcomes. Those counts overlap. The additional-outcome counts
 in the diagram describe what each probe layer contributes after the preceding
 layer. No successor at a declared branch is unclassified. [confirmed]
 
+That 52-outcome matrix is a regression test for eight local models. It is not
+the interpreter denominator. The broader CFG audit seeds all valid destinations
+from the parser table at `38:4000` and the 13-entry page-33 table at `33:4381`,
+then follows direct control flow through five bounded components. [confirmed]
+
+## Expanded CFG saturation
+
+The expanded graph contains 7,651 reachable instructions and 1,230 conditional
+branches. Its 2,460 possible outcomes produce this trace breakdown:
+
+| Component | Possible | All evidence | Natural programs |
+|-----------|---------:|-------------:|-----------------:|
+| Parser core | 1,956 | 565 | 559 |
+| Command arguments | 162 | 35 | 25 |
+| Page-33 control flow | 174 | 13 | 0 |
+| Value storage | 154 | 111 | 111 |
+| Numeric and error checks | 14 | 4 | 4 |
+| **Total** | **2,460** | **728** | **699** |
+
+Natural `factorial` and `dfs` traces now identify the actual page-38 loop path:
+`For(` reaches `38:41E5`, `End` reaches `38:4200`, and the loop continuations
+are `38:5836` and `38:587D`. They still do not enter the page-33 probe
+dispatcher. [confirmed]
+
+```mermaid
+flowchart LR
+    T["81 parser handlers<br/>plus subsystem entries"] --> G["7,651-instruction<br/>direct CFG"]
+    G --> B["2,460 outcomes"]
+    N["Natural programs"] --> O["699 observed"]
+    P["ABI and entry probes"] --> A["728 observed total"]
+    O --> A
+    B --> A
+    B --> U["1,732 unobserved"]
+```
+
+The exact outcome cover retains 19 of 22 traces. `hello`, `callstop`, and the
+natural syntax-error trace remain useful semantic examples, but they do not add
+a branch outcome to the larger graph. The report therefore separates the
+minimum outcome corpus from the selective documentation corpus. [confirmed]
+
 ### Natural programs
 
 Seven successful fixtures cover distinct interpreter behaviors:
@@ -82,9 +122,18 @@ Seven successful fixtures cover distinct interpreter behaviors:
 | `callstop` | nested BASIC call and nonlocal `Stop` | absence of the post-call line |
 | `branchmatrix` | `Else`, `Repeat`, nested blocks, and an omitted string quote | `A5h` at `plotSScreen` (`0x9340`) |
 
-`missingend` and `terminalif` add natural end-of-input error boundaries. They
-exercise the two carry returns that successful block structure cannot reach.
-The report marks both traces with `termination: error`. [confirmed]
+`missingend` and `terminalif` add natural end-of-input structural boundaries.
+They exercise carry returns that closed blocks do not reach, then finish through
+page-38 cleanup and display `Done`; they do not raise an OS error. The report
+marks both traces with `termination: completed`. [confirmed]
+
+Two error fixtures provide real unwind witnesses. `syntaxerr` executes
+`Disp 1+` and reaches the syntax entry at `00:2700`; `divzero` executes
+`Disp 1/0` and reaches `_ErrDivBy0` at `00:26EC`. Together they naturalize four
+outcomes that the earlier natural corpus missed, including three outcomes that
+were previously probe-only. Only `divzero` adds a globally new CFG outcome, so
+the outcome minimizer omits `syntaxerr` while the documentation retains it for
+semantic diversity. [confirmed]
 
 ### Probe outcomes
 
@@ -124,7 +173,8 @@ python3 tools/tibasic_smoke.py \
   --out-dir /tmp/tibasic-coverage --keep-trace \
   --case hello --case factorial --case data \
   --case dfs --case callabi --case callstop \
-  --case branchmatrix --case missingend --case terminalif
+  --case branchmatrix --case missingend --case terminalif \
+  --case syntaxerr --case divzero
 ```
 
 Run the probe cases in the same output directory:
@@ -150,7 +200,7 @@ list is the `dynamic.traces` array in `tools/tibasic-coverage.json`.
 set --
 for label in \
   hello factorial data dfs callabi callstop \
-  branchmatrix missingend terminalif \
+  branchmatrix missingend terminalif syntaxerr divzero \
   cflowlow cflowhigh cflowvalid \
   cmdclose cmdopen cmdunit cmdbad \
   gramlow gramhigh gramflag gramnonzero
@@ -161,32 +211,47 @@ nix develop -c python3 tools/analyze_tibasic_coverage.py "$@" \
   --output tools/tibasic-coverage.json
 ```
 
+Export exact instruction boundaries from the rebuilt Ghidra database, then
+reuse the same trace arguments for the expanded report:
+
+```sh
+ghidra-analyzeHeadless "$PWD" ti84 \
+  -process ti84_page00.bin -noanalysis -readOnly \
+  -scriptPath "$PWD/tools" \
+  -postScript ExportTiBasicInstructionStarts.java \
+  /tmp/tibasic-instruction-starts.tsv
+
+nix develop -c python3 tools/analyze_tibasic_saturation.py \
+  --instruction-list /tmp/tibasic-instruction-starts.tsv \
+  "$@" --output tools/tibasic-saturation.json
+```
+
 Delete the temporary traces after regeneration. They are reproducible evidence,
 not source assets.
 
 ## Reading gaps honestly
 
-Full coverage here means both outcomes at the 26 declared sites. It does not
-mean full control-flow coverage of the interpreter. Natural programs still lack
-witnesses for 18 declared outcomes, and internal-entry probes do not prove that
-their prepared states have natural callers.
+Full coverage of the small matrix means both outcomes at 26 selected sites. The
+expanded report gives the more useful denominator: 728 of 2,460 outcomes across
+five declared components, with 699 reached naturally. Neither number means
+whole-interpreter coverage.
 
-`factorial`, `dfs`, and both `For(` benchmark spellings do not enter `02:5676`
-or `33:435F`. The exact stored-program loop-handler transition therefore
-remains open. Other open dimensions include arbitrary token-stream length,
-recursive handler bodies, error unwinding, loop-record field layout, computed
-handler destinations, and the internal state spaces of VAT, lists, floating
-point, graphing, and display code.
+The graph expands all four declared computed jumps over their valid domains:
+14 literal parser continuations at `38:4390`, 27 nonzero destinations from the
+49-class table used by `38:7244`, five literal command targets at `02:5675`,
+and 13 bounds-checked rows at `33:4380`. This does not establish behavior for a
+corrupted class, stack, or pointer outside those domains. Other open dimensions
+include arbitrary token-stream length, every nested error context, full OPS/FPS
+record layout, arbitrary VAT and list shapes, floating-point path classes, and
+display or graph subsystem continuations.
 
 The next useful coverage expansion is not “add more examples.” It is:
 
-1. identify one specific unobserved branch or state boundary;
-2. construct the smallest natural program expected to distinguish it;
-3. confirm the screen or RAM oracle;
-4. add the trace only if Z3 shows that it contributes a new branch outcome or
-   semantic feature; and
-5. update the relevant interpreter explanation with the newly established
-   transition.
+1. prove the caller-side bounds of one modeled computed-dispatch domain;
+2. select a high-value unobserved loop, error, VAT, or numeric outcome;
+3. construct the smallest natural program and a RAM or value oracle;
+4. retain its trace only if Z3 proves that it adds an outcome; and
+5. update the relevant interpreter model with the established transition.
 
 Lower-level trace formats and memory-write decoding are documented in
 `tools/dynamic-tracing.md`.
