@@ -895,35 +895,14 @@ def iter_oracle_cases(document: object) -> Iterator[dict[str, object]]:
 
 
 def oracle_trace_features(paths: Iterable[Path]) -> dict[str, set[str]]:
-    """Map captured trace hashes to record, LCD, and corpus-family tags."""
+    """Map captured trace hashes to record- and LCD-render-type tags."""
 
     features: dict[str, set[str]] = defaultdict(set)
     for path in sorted(paths):
         document = json.loads(path.read_text())
         if not isinstance(document, dict):
             continue
-        captures = document.get("captures")
-        if isinstance(captures, dict):
-            for capture_name, capture in captures.items():
-                if not isinstance(capture_name, str) or not isinstance(capture, dict):
-                    continue
-                trace_sha256 = capture.get("trace_sha256")
-                if not isinstance(trace_sha256, str):
-                    continue
-                tags = features[trace_sha256]
-                tags.add(
-                    f"oracle_case:{path.stem}:captures:{capture_name}:{trace_sha256}"
-                )
-                states = capture.get("states")
-                if isinstance(states, list):
-                    for state in states:
-                        name = state.get("name") if isinstance(state, dict) else None
-                        if isinstance(name, str):
-                            tags.add(
-                                f"editor_navigation_state:{path.stem}:"
-                                f"{capture_name}:{name}"
-                            )
-        for family, raw_cases in document.items():
+        for _family, raw_cases in document.items():
             if not isinstance(raw_cases, list):
                 continue
             for case in raw_cases:
@@ -932,17 +911,11 @@ def oracle_trace_features(paths: Iterable[Path]) -> dict[str, set[str]]:
                 trace_sha256 = case.get("trace_sha256")
                 if not isinstance(trace_sha256, str):
                     continue
-                tags = features[trace_sha256]
-                case_key = (
-                    case.get("accepted_write_sha256")
-                    or case.get("final_lcd_sha256")
-                    or trace_sha256
-                )
-                tags.add(f"oracle_case:{path.stem}:{family}:{case_key}")
                 for node in case.get("nodes", []):
                     render_type = node.get("render_type") if isinstance(node, dict) else None
                     if not isinstance(render_type, int):
                         continue
+                    tags = features[trace_sha256]
                     tags.add(f"record_oracle:type=0x{render_type:02X}")
                     if isinstance(case.get("accepted_write_sha256"), str):
                         tags.add(f"lcd_oracle:type=0x{render_type:02X}")
@@ -6417,11 +6390,6 @@ def dynamic_path_feature(routine: str, result: dict[str, object]) -> str:
     return f"modeled_path:{routine}:{result['terminal']}:{outcomes}"
 
 
-def entry_feature(routine: str, fields: dict[str, int]) -> str:
-    values = ",".join(f"{name}=0x{value:X}" for name, value in fields.items())
-    return f"entry_state:{routine}:{values}"
-
-
 PATH_ROUTINE_BRANCHES = {
     "34:5678": frozenset({0x567A, 0x567C, 0x5680, 0x5682, 0x5686, 0x5688}),
     "34:583D": frozenset({0x5840, 0x5845, 0x5849, 0x584D, 0x5853}),
@@ -6472,29 +6440,21 @@ def trace_dynamic_features(
     entry_states: dict[tuple[str, int], set[tuple[int, int]]],
     path_signatures: dict[str, set[tuple[str, ...]]] | None = None,
 ) -> set[str]:
-    """Tag outcomes plus complete paths derived from observed entry states."""
+    """Tag outcome, path-shape, and dispatch-class diversity."""
 
     features = {f"branch_outcome:{outcome_id(key)}" for key in outcomes}
     for a, _de in entry_states.get(("page_34", 0x5678), set()):
-        fields = {"A": a}
-        features.add(entry_feature("34:5678", fields))
         features.add(dynamic_path_feature("34:5678", scan_kind_path(a)))
     for a, de in entry_states.get(("page_34", 0x580C), set()):
-        fields = {"A": a, "E": de & 0xFF}
-        features.add(entry_feature("34:580C", fields))
         features.add(dynamic_path_feature(
             "34:580C", raised_extended_token_path(a, de & 0xFF)
         ))
     for a, _de in entry_states.get(("page_34", 0x6143), set()):
-        fields = {"A": a}
-        features.add(entry_feature("34:6143", fields))
         # The current trace format does not contain IY-relative RAM or 8520h.
         # Only paths whose tested predicates are fixed by A are sound here.
         if a == 0x27 or a == 0x2B:
             continue
         features.add(dynamic_path_feature("34:6143", type1f_path(a, 0, 0)))
-    for _a, de in entry_states.get(("page_34", 0x5935), set()):
-        features.add(f"dispatch_input:34:5935:DE=0x{de:04X}")
     for a, _de in entry_states.get(("page_34", 0x6105), set()):
         features.add(f"dispatch_index:34:6105:type=0x{a:02X}")
     for a, _de in entry_states.get(("page_33", 0x4F6D), set()):
@@ -6531,7 +6491,7 @@ def scan_trace(
     witnesses: dict[tuple[str, int, str], dict[str, object]] = {}
     feature_entries = {
         ("page_33", 0x4F6D), ("page_34", 0x5678),
-        ("page_34", 0x580C), ("page_34", 0x5935),
+        ("page_34", 0x580C),
         ("page_34", 0x6105), ("page_34", 0x6143),
         ("page_34", 0x759C), ("page_39", 0x4C31),
     }
@@ -7398,7 +7358,7 @@ def build_report(
     }
     symbolic_corpus = symbolic_model_corpus()
     report = {
-        "schema": 3,
+        "schema": 4,
         "claim": {
             "scope": "declared MathPrint entries, decoded table rows, modeled predicate projections, and named traces",
             "not_claimed": [
@@ -7486,10 +7446,10 @@ def build_report(
             {label: trace_sizes[label] for label in natural_trace_outcomes},
             {label: TRACE_PROVENANCE_NATURAL for label in natural_trace_outcomes},
         ),
-        "minimized_dynamic_feature_corpus": minimize_trace_features(
+        "minimized_diversity_trace_corpus": minimize_trace_features(
             trace_features, trace_sizes, provenance,
         ),
-        "minimized_natural_dynamic_feature_corpus": minimize_trace_features(
+        "minimized_natural_diversity_trace_corpus": minimize_trace_features(
             natural_trace_features,
             {label: trace_sizes[label] for label in natural_trace_features},
             {label: TRACE_PROVENANCE_NATURAL for label in natural_trace_features},
