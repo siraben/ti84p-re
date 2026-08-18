@@ -25,14 +25,14 @@ The keypad has two paths into the ASIC. Matrix keys are polled by software. **ON
 flowchart LR
     K["matrix key"] --> M["diode-less 8×8 matrix"]
     M --> P1["port 01<br/>group select and columns"]
-    P1 --> SCAN["timer-1 scanner<br/>ram:03B4"]
+    P1 --> SCAN["kbd_tick_debounce_repeat<br/>ram:03B4"]
     SCAN --> CSC["kbdScanCode<br/>_GetCSC"]
     CSC --> GK["_GetKey<br/>modifiers and cooked code"]
 
     ON["ON key"] --> P4["port 04 bit 3<br/>active-low level"]
     ON --> IRQ["port 04 bit 0<br/>pending interrupt"]
-    IRQ --> ISR["IM1 · ram:015B"]
-    ISR --> DB["ON debounce<br/>ram:0964"]
+    IRQ --> ISR["on_irq · ram:015B"]
+    ISR --> DB["on_key_debounce_power<br/>ram:0964"]
     DB --> RUN["break, power-off, or wake flow"]
 ```
 
@@ -307,7 +307,10 @@ The two APIs therefore have different contracts:
 
 From idle, scan code `0x36` sets `shift2nd` at `06:4AD5` and loops without returning. A second **2nd** cancels it at `06:4B8E`; another key clears the flag at `06:4B87` before translation. Scan code `0x30` sets uppercase alpha at `06:4AE8`. **[2nd]** then **ALPHA** sets both `shiftALock` and `shiftAlpha` at `06:4B96`–`06:4B9A`. In a lowercase-capable context, another **ALPHA** sets `shiftLwrAlph` at `06:4C0D`; the next cycle cancels alpha. [confirmed]
 
-`key_clear_alpha_if_unlocked` at `ram:04BF` preserves alpha when `shiftALock` or `shiftKeepAlph` is set and otherwise clears `shiftAlpha`. The timer ISR can also clear a pending **2nd** at `ram:01E0`, preventing an abandoned modifier from persisting indefinitely. [confirmed]
+`key_clear_alpha_if_unlocked` at `ram:04BF` preserves alpha when `shiftALock` or
+`shiftKeepAlph` is set and otherwise clears `shiftAlpha`. `legacy_link_irq` at
+`ram:01E0` can also clear a pending **2nd**, preventing an abandoned modifier
+from persisting indefinitely. [confirmed]
 
 `_KeyToString` at `01:6D10` performs the next layer: cooked key code to editor token or string. The complete input path is matrix → scanner → `_GetCSC` → `_GetKey` → `_KeyToString` → tokenizer. See [Tokenizer & TI-BASIC](tokenizer-basic.md). [confirmed]
 
@@ -322,7 +325,9 @@ The **ON** circuit uses two ports. [standard]
 | port `0x04` read | 0 | ON interrupt pending |
 | port `0x04` read | 3 | live ON level, active low |
 
-The IM1 dispatcher reads port `0x04` and enters `ram:015B` when bit 0 is set. That branch calls `on_key_debounce_power` at `ram:0964`, clears a link/interrupt sub-flag, and acknowledges through the common port-`0x03` path. [confirmed]
+The IM1 dispatcher reads port `0x04` and enters `on_irq` at `ram:015B` when bit
+0 is set. That branch calls `on_key_debounce_power`, clears a link/interrupt
+sub-flag, and acknowledges through the common port-`0x03` path. [confirmed]
 
 Port `0x04` bit 0 says that the source is pending; bit 3 says whether the button is currently held. Software must not substitute one for the other. The handler uses bit 3 to decide whether the stable state is press or release. [confirmed]
 
@@ -361,7 +366,9 @@ This debounce is independent of the matrix's five-sample release filter. It poll
 
 `_GetKey` recognizes the ON request as an internal `0xFF` event at `06:4A93`. It clears `shift2nd`. If `appRetKeyOff` is set, it returns the context key `0x3F`; otherwise it jumps to `_PowerOff`, body `ram:09E6`. [confirmed]
 
-Explicit power-off and Auto Power Down (APD) perform different cleanup, then join the shared shutdown path at `ram:0A24`. The final hardware operations are: [confirmed]
+Explicit power-off and Auto Power Down (APD) perform different cleanup, then
+join `poweroff_shared_tail` at `ram:0A24`. The final hardware operations are:
+[confirmed]
 
 | Address | Operation | Effect |
 |---------|-----------|--------|
@@ -371,11 +378,16 @@ Explicit power-off and Auto Power Down (APD) perform different cleanup, then joi
 | `ram:0A51` | clear `shift2nd` | discard the power-off modifier |
 | `ram:0A55` | clear `onRunning` | mark the OS powered down |
 | `ram:0A5B` | `EI` | accept a selected wake interrupt |
-| `ram:0A5C` | `HALT; JR ram:0A5C` | remain in the low-power loop |
+| `poweroff_halt_loop` at `ram:0A5C` | `HALT; JR ram:0A5C` | remain in the low-power loop |
 
 Port-`0x03` bit 3 being clear selects low power only when the Z80 executes `HALT`. The `0x11` write alone does not complete shutdown. ON and link activity remain wake sources. [standard]
 
-The trace confirms the complete sequence. The shutdown side restores CPU speed, writes `0x06` to port `0x04`, acknowledges with `0x08`, disables the LCD with command `0x02`, writes `0x11`, and reaches the `ram:0A5C` loop. A later **ON** event enters the same 4,118-iteration debounce. The wake side then writes normal interrupt mask `0x0B` at `ram:0C9E` and sends LCD commands `0x40,0x05,0x01,0x03,0x17,0x0B,0xEF` through `06:4D38`. [confirmed]
+The trace confirms the complete sequence. The shutdown side restores CPU
+speed, writes `0x06` to port `0x04`, acknowledges with `0x08`, disables the LCD
+with command `0x02`, writes `0x11`, and reaches `poweroff_halt_loop`. A later
+**ON** event enters the same 4,118-iteration debounce. The wake side then writes
+normal interrupt mask `0x0B` at `ram:0C9E` and sends LCD commands
+`0x40,0x05,0x01,0x03,0x17,0x0B,0xEF` through `06:4D38`. [confirmed]
 
 ## Dynamic reproduction
 
@@ -560,7 +572,7 @@ above additionally require disassembly of their surrounding routines.
 - [confirmed] Initial and subsequent repeat delays are 50 and 10 timer-1 ticks, and only arrows, diagonals, and **DEL** repeat at this layer.
 - [confirmed] `_GetCSC` is a destructive one-byte mailbox read, so it can lose overwritten events.
 - [confirmed] ON debounce forces nominal 6 MHz and requires 4,118 stable reads, about 46.7 ms in the trace.
-- [confirmed] Explicit power-off and APD share the `ram:0A24` low-power tail; **ON** wake restores the interrupt mask and reinitializes the LCD.
+- [confirmed] Explicit power-off and APD share `poweroff_shared_tail`; **ON** wake restores the interrupt mask and reinitializes the LCD.
 - [standard] TilEm iterates matrix closure, Wabbitemu performs only pairwise closure, and MAME XORs selected positions.
 - [standard] TilEm requests ON interrupts on press and release; Wabbitemu and MAME request only on press.
 - [standard] A guarded direct-core TilEm run reproduces its transitive closure, eight stored rows, exact group byte, scancode bounds, separate ON path, both-edge latch, and reset state.

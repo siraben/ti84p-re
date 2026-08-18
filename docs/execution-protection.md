@@ -37,7 +37,8 @@ The boot sequence establishes these values. [confirmed]
 | `0x25` | `0x10` | lower executable RAM chunk in 1 KiB units |
 | `0x26` | `0x20` | upper executable RAM chunk in 1 KiB units |
 
-The five writes occupy `3F:41D5`–`4206`: [confirmed]
+`boot_execution_protection_init` at `3F:41D5` performs the five writes through
+`3F:4206`: [confirmed]
 
 ```z80
 3F:41D5  ld a,0x00
@@ -759,7 +760,7 @@ emulator agreement is only a test oracle for emulator behavior.
 
 | Source | Use |
 |--------|-----|
-| OS 2.55MP and boot 1.03 ROM, especially `3F:41D5`–`4206` and `3F:4784`–`478C` | protected writes and bcall body |
+| OS 2.55MP and boot 1.03 ROM, especially `boot_execution_protection_init` and `_SetFlashLowerBound` | protected writes and bcall body |
 | [TilEm `calcs.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/calcs.c), [`z80.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/z80.c), [`x4_init.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c), and [`x4_memory.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c) | full reset sequence, TI-84 Plus reset fields, Flash and RAM fetch predicates, and post-opcode exception handling |
 | [TilEm x4 I/O model at `f56ad63`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) | protected register writes and mask updates |
 | Headless TilEm fork at `8da54573ac49fe271fa22c60924b4c6a7cb9639f` | boundary execution traces; binary SHA-256 `1c1f7dbe04fe074c2b9aca1657d0eb5ac5cfd1f7cbd480725eb7fb39b8126f33`, `x4_memory.c` SHA-256 `ddaa1e45330e3e4ad49486bd5c3675a0a0dff01bfda4d01817ba3387e309ac89` |

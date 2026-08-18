@@ -715,18 +715,32 @@ a worker. [confirmed]
 
 ## RAM-worker launcher
 
-`3F:48C5` launches length-prefixed boot workers. `IX` points at a little-endian length word followed by worker bytes. The launcher copies that many bytes to `ramCode` at `0x8100`, restores the caller's `HL`, `DE`, and `BC`, and calls the copied code. [confirmed]
+`boot_ram_worker_launcher` at `3F:48C5` launches length-prefixed boot workers.
+`IX` points at this packed descriptor: [confirmed]
+
+```c
+typedef struct {
+    uint16_t length;
+    uint8_t code[];
+} RamWorkerDescriptor;
+```
+
+The flexible `code[]` member describes the serialized ROM object. Ghidra applies
+the reusable type to the two-byte header only because each payload has a
+different length; the payload begins at `descriptor + 2`. The launcher copies
+`descriptor->length` bytes from there to `ramCode` at `0x8100`. It then restores
+the caller's `HL`, `DE`, and `BC` and calls the copied code. [confirmed]
 
 The interrupt wrapper at `3F:48EE` records IFF2 from `LD A,I` in `0x82A2`, disables interrupts, and returns to the launcher. After the worker returns, `3F:48E1` executes `EI` only if interrupts were enabled before entry. The worker therefore runs atomically while preserving the caller's prior interrupt-enabled state. [confirmed]
 
 | Worker | Prefix | Source bytes | RAM destination |
 |--------|-------:|--------------|-----------------|
-| sector erase | `0x0052` at `3F:4C3B` | `3F:4C3D`–`3F:4C8E` | `0x8100`–`0x8151` |
-| block program | `0x007C` at `3F:4CC8` | `3F:4CCA`–`3F:4D45` | `0x8100`–`0x817B` |
+| sector erase | `boot_flash_erase_worker_descriptor` at `3F:4C3B`, `0x0052` | descriptor `+ 2`, at `3F:4C3D`–`3F:4C8E` | `ramCode`–`ramCode + 0x51` |
+| block program | `flash_program_worker_descriptor` at `3F:4CC8`, `0x007C` | `flash_program_worker_code` at `3F:4CCA`–`3F:4D45` | `ramCode`–`ramCode + 0x7B` |
 
-Page `3D` contains a relocated copy of the same launcher structure at
-`3D:678C`. It runs the `_FlashToRam` descriptor at `3D:6761` and the internal
-certificate-program descriptor at `3D:7308`. Its interrupt wrapper at
+Page `3D` contains a relocated copy of the launcher at `3D:678C`. It runs
+`flash_to_ram_worker_descriptor` at `3D:6761` and
+`certificate_worker_descriptor` at `3D:7308`. Its interrupt wrapper at
 `3D:67B5` has the same IFF2-save, `DI`, conditional-`EI` behavior as the boot
 launcher. The inferred name `ram_worker_launcher` therefore describes both
 call paths. [confirmed]
@@ -781,9 +795,10 @@ Forcing page `3F` is part of the worker ABI. The outer bcall dispatcher restores
 
 `certificate_write_byte` at `3D:72E5` launches a second byte-program worker.
 It sets `BC=1`, clears `(IY+0x25).1`, normalizes the target page for the current
-calculator model, and passes descriptor `3D:7308` to `ram_worker_launcher`.
-The descriptor contains 129 bytes at `3D:730A`–`3D:738A`. The boot block worker
-contains 124 bytes at `3F:4CCA`–`3F:4D45`. [confirmed]
+calculator model, and passes `certificate_worker_descriptor` to
+`ram_worker_launcher`. Its code begins at descriptor `+ 2` and contains 129
+bytes at `3D:730A`–`3D:738A`. `flash_program_worker_code` contains 124 bytes at
+`3F:4CCA`–`3F:4D45`. [confirmed]
 
 The only direct call to `certificate_write_byte` is `3D:4332`, inside
 `certificate_copy_from_flash` at `3D:431A`. The loop obtains an ordinary Flash
@@ -818,6 +833,29 @@ blocks: [confirmed]
 | `0x1F18` | `0xC8` | `0x1F18`–`0x1FDF` |
 | `0x1FE0` | `0x20` | `0x1FE0`–`0x1FFF` |
 
+The adjacent App-restriction bytes make the complete decoded tail easier to
+address as a partial structure based at half offset `0x1DD2`: [confirmed]
+
+```c
+typedef struct {
+    uint8_t restriction_control;        // +0x000, half offset 0x1DD2
+    uint8_t restriction_record[13];     // +0x001, half offset 0x1DD3
+    uint8_t unresolved_1de0_1de9[10];   // +0x00E
+    uint8_t gc_recovery[0x66];          // +0x018, half offset 0x1DEA
+    uint8_t ti84_app_trials[0xC8];      // +0x07E, half offset 0x1E50
+    uint8_t alternate_model_span[0xC8]; // +0x146, half offset 0x1F18
+    uint8_t validity[0x20];             // +0x20E, half offset 0x1FE0
+} CertificateMetadataTail;
+```
+
+The `unresolved_1de0_1de9` name deliberately records only its bounds. The ROM
+evidence does not identify an owner for those ten bytes. The notation below
+uses `certificate_tail` for a `CertificateMetadataTail` view of the selected
+certificate half. `BuildTypes.java` registers this reusable type but does not
+apply it at one fixed address: the ROM selects the certificate half at runtime,
+so `certificate_tail` means a conceptual pointer to `selected_half + 0x1DD2`,
+not a global Ghidra symbol. [confirmed]
+
 Six helpers at `3D:5227`–`3D:5256` add fixed or model-selected offsets to
 `_GetCertificateStart`'s result. Raw `CALL` scanning finds the complete direct
 caller sets without relying on disassembler labels: [confirmed]
@@ -843,9 +881,11 @@ above its `TI_84P` enum and clear for its TI-83 Plus family. This supports the
 family split implemented by the ROM but remains evidence about the emulator,
 not a physical measurement. [standard]
 
-Consequently `0x1E50`–`0x1F17` is the active App-trial table on TI-84 Plus.
+Consequently `certificate_tail.ti84_app_trials`, at
+`0x1E50`–`0x1F17`, is the active App-trial table on TI-84 Plus.
 When port-`0x02` bit 7 is clear, the same clear, write, query, and display paths
-select the alternate table at `0x1F18`–`0x1FDF`. TI-84 Plus rebuild modes `0`
+select `certificate_tail.alternate_model_span` at
+`0x1F18`–`0x1FDF`. TI-84 Plus rebuild modes `0`
 and `2` still stage or replace that alternate-model span together with validity
 metadata, but no TI-84 Plus per-entry semantic accessor to that span has been
 identified. Giving it another TI-84 Plus field name would exceed the evidence.
@@ -937,9 +977,9 @@ The main bcall table pins mode `6` to the App-restriction API: [confirmed]
 | `_RemoveAppRestrictions` | `52F9h` | `3D:7C1B` |
 | `_QueryAppRestrictions` | `52FCh` | `3D:7CBA` |
 
-The restriction storage occupies certificate offsets `0x1DD2`–`0x1DDF`.
-Offset `0x1DD2` is a control byte. The 13 bytes at `0x1DD3`–`0x1DDF` act as a
-record or as an App-restriction bitmap, depending on the API operation. For an
+`certificate_tail.restriction_control` occupies certificate offset
+`0x1DD2`. The 13-byte `restriction_record` field at `0x1DD3`–`0x1DDF` acts as
+a record or as an App-restriction bitmap, depending on the API operation. For an
 App on Flash page $p$, the bitmap index is $p - 8$. `3D:7D69` divides that
 index by eight, and the mask helper at `3D:785D` uses least-significant-bit-first
 ordering. A clear bitmap bit means that the App is restricted. [confirmed]
@@ -988,7 +1028,7 @@ bit from zero to one requires the erase-and-rebuild path. The inverse routine,
 require an erase. [confirmed]
 
 The boot bcall table and page-`3F` bodies independently confirm the OS-validity
-bit at offset `0x1FE0`: [confirmed]
+bit in `certificate_tail.validity[0]`, at offset `0x1FE0`: [confirmed]
 
 | Bcall | ID | Body | Behavior |
 |-------|----|------|----------|
@@ -998,7 +1038,8 @@ bit at offset `0x1FE0`: [confirmed]
 
 Bit `0` clear means that the OS is valid; bit `0` set means that it is invalid.
 WikiTI gives the same field label, but the conclusion above comes from the boot
-ROM paths. WikiTI also labels `0x1DEA` as garbage-collection information. The
+ROM paths. WikiTI also labels `certificate_tail.gc_recovery` at
+`0x1DEA` as garbage-collection information. The
 mode-`3` and mode-`4` call chains independently confirm that the
 `0x1DEA`–`0x1E4F` block stores garbage-collection recovery metadata. The exact
 meaning of every byte is not established: the first six fields and the live
@@ -1164,9 +1205,9 @@ A write that crosses from page `3D` computes page `3E` but skips the page-select
 An emulator-only TilEm fixture exercises the page-`3D` boundary with `A=0x3D`,
 `DE=0x7FFF`, `BC=2`, and RAM source bytes `0x40,0xE0`. It patches only the tail
 of a protected page-`3C` unlock wrapper in a copy of the exact OS image. The
-worker copied from `3F:4CCA` remains unchanged. The generated assembly program
-checks all eight patched bytes and exits on an unmodified ROM before it can
-unlock Flash. [confirmed] for the fixture construction.
+copied `flash_program_worker_code` remains unchanged. The generated
+assembly program checks all eight patched bytes and exits on an unmodified ROM
+before it can unlock Flash. [confirmed] for the fixture construction.
 
 The trace decodes two byte-program commands followed by one array reset:
 [confirmed] for TilEm behavior.
@@ -1255,7 +1296,7 @@ receive-to-memory loop at `36:40E7`. It fills `0x983A` through the page-35
 endpoint helper at `35:4FA1`, which reads port `0xA1` at `35:500E`, then calls
 the page-`3C` dispatcher at `36:415C`. [confirmed]
 
-At `3D:65BA`, the source is `arcInfo.destPtr`. Setup at `07:6331` saves the
+At `3D:65BA`, the source is `arcInfo.dest_ptr`. Setup at `07:6331` saves the
 incoming data pointer from the variable lookup in that field. It is a RAM data
 pointer on the RAM-to-Flash path; the Flash-to-RAM path later replaces it at
 `07:622E` with the newly allocated RAM destination. The GC trace reaches this
@@ -1882,8 +1923,8 @@ hardware observation. [standard]
 
 A second guarded mode boots the exact retail ROM, injects a four-byte
 `rst 28h`/`8087h` harness into RAM page 1, and sets the documented
-`_WriteFlashUnsafe` ABI registers. The bcall copies the original 124-byte
-worker from `3F:4CCA` to `0x8100` and executes it. The harness directly opens
+`_WriteFlashUnsafe` ABI registers. The bcall copies the 124 bytes beginning at
+`flash_program_worker_code` to `ramCode` and executes them. The harness directly opens
 Wabbitemu's in-memory ASIC gate, so it does not test the protected port-`0x14`
 unlock sequence or an OS/UI caller. [confirmed] for the pinned native run.
 
@@ -1914,11 +1955,12 @@ unclassified port-`0x14` candidate on page `3D`. [confirmed]
 
 All six reconstructed recovery images take that protected unlock → recovery →
 relock path. The observer identifies the public block-program worker by
-comparing all 124 RAM bytes at `0x8100` with `3F:4CCA`–`3F:4D45`. Each
+comparing all 124 bytes at `ramCode` with
+`flash_program_worker_code`. Each
 `_WriteFlashUnsafe` visit reaches one matching worker entry and one success
 tail at `ram:816B`; no run reaches the failure tail at `ram:8175`. [confirmed]
 
-| Input phase | `_WriteFlashUnsafe` / worker entries | Data writes at `ram:8149` | `_EraseFlash` entries |
+| Input phase | `_WriteFlashUnsafe` / worker entries | Data writes at `ramCode + 0x49` (`ram:8149`) | `_EraseFlash` entries |
 |------------:|-------------------------------------:|-------------------------------:|----------------------:|
 | `0xFF` | 33 | 48 | 3 |
 | `0xFE` | 32 | 47 | 3 |

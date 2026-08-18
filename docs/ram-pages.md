@@ -174,7 +174,7 @@ in a normal workflow." These paths are confirmed or have a concrete next scenari
 | `81` normal bank-B RAM | Run any cold-boot, home, expression, or graph trace. | Port `7 = 81` is the normal restore value; every current trace writes all page-`81` addresses. [confirmed] |
 | `83` display capture | Run `boot-idle.macro` or `graph-y1-x2.macro`. | Ghidra shows `_SaveDisp` (`39:5DD8`) calls `lcd_read_block` (`ram:1890`) at the `39:5E03` call site; coverage hits both, and writes `5A7E-5D7D`. [confirmed] |
 | `83` homescreen previous-entry history | Run `home-2plus3.macro`. | The trace adds `577E-5790`, advances `lastEntryPTR` from `577E` to `5791`, and sets `numLastEntries` to `01`. [confirmed] |
-| `83` expression scratch copy | Run `home-2plus3.macro`. | The trace adds `4373-4390` through `flash_copy_block` at `ram:1868`/`ram:187C`. [confirmed] |
+| `83` expression scratch copy | Run `home-2plus3.macro`. | The trace adds `4373-4390` through `flash_copy_block`; its page-select instruction is at `+0x14` (`ram:187C`). [confirmed] |
 | `83` split-screen/table copy | Enter a split-screen/table workflow that calls `screen_split`. | Ghidra shows `screen_split` at `05:7712` calls `flash_copy_block` at `05:772A`; this path is not hit by the current macros. [confirmed] |
 | `83` edit-buffer initialization | Enter an edit-buffer workflow that reaches `editbuf_init_buf`. | Ghidra shows `editbuf_init_buf` at `03:6BC4` calls `flash_copy_block` at `03:6BCD`; this path is not hit by the current macros. [confirmed] |
 | `83` app-menu state restore | Open an app/menu workflow that reaches `mnu_restore_app_state`. | Ghidra shows `mnu_restore_app_state` at `39:6D96` calls `flash_copy_block` at `39:6DA0`; this path is not hit by the current macros. [confirmed] |
@@ -203,16 +203,17 @@ more than anonymous free RAM. Keep the evidence classes separate:
 
 | Range | Use | Evidence |
 |-------|-----|----------|
-| `4373-4390` | Expression-path page-`83` scratch copy | Added by the `2+3 ENTER` trace. The block write is the `LDIR` at `ram:187E` in the page-`83` copy helper (page `83` mapped via `OUT (6),A` at `ram:187C`); the caller is still unlabeled. [confirmed] |
-| `43D9-44BD` | Boot/home page-`83` scratch copy | Present in the idle trace. The block write is the `LDIR` at `ram:187E` in the page-`83` copy helper (page `83` mapped via `OUT (6),A` at `ram:187C`), plus one byte stored at `37:44D8`. [confirmed] |
+| `4373-4390` | Expression-path page-`83` scratch copy | Added by the `2+3 ENTER` trace. `flash_copy_block+0x16` (`ram:187E`) performs the `LDIR`; `flash_copy_block+0x14` (`ram:187C`) maps page `83`. The caller is still unlabeled. [confirmed] |
+| `43D9-44BD` | Boot/home page-`83` scratch copy | Present in the idle trace. `flash_copy_block+0x16` performs the `LDIR`, and `37:44D8` stores one additional byte. [confirmed] |
 | `577E-5A7D` | Homescreen previous-entry history | Page `33` references `577E`, the `5A7E` upper bound, `lastEntryPTR` (`0x8DA7`), and `numLastEntries` (`0x8E29`). The `2+3 ENTER` trace writes `577E-5790`, advances `lastEntryPTR` to `5791`, and sets `numLastEntries` to `01`. [confirmed] |
 | `5A7E-5DF2` | LCD/home display capture area | Present in the idle trace. The `_SaveDisp` LCD capture (`ram:1890`) fills the first `0x300` bytes, `5A7E-5D7D` (the 96×64 framebuffer); the `5D7E-5DF2` tail is additional page-`83` writes in the same scenario. Ghidra decompiles `ram:1890` as an LCD-read helper that maps page `83` through port `6` and stores bytes read from LCD port `11`. [confirmed] |
 | `4000-4080` | App base-page staging before app execution | WikiTI public note; the two traces on this page do not launch an app. [standard] |
 | `4100-433A` | USB communication buffers | WikiTI public note; the two traces on this page do not exercise USB transfer. [standard] |
 
-Ghidra identifies the page-`83` block-copy helper at `ram:1868`. It saves the current
-port-`6` value, writes `0x83` to port `6`, runs `LDIR`, and restores the previous page
-through the page-set helper:
+`flash_copy_block` at `ram:1868` saves the current port-`6` value, writes
+`0x83` to port `6`, runs `LDIR`, and restores the previous page through the
+page-set helper. The two repeatedly cited instructions are offsets within this
+routine rather than separate functions:
 
 ```z80
 ram:1877  IN A,(6)

@@ -26,7 +26,8 @@ run of 16 KiB flash pages whose first page begins with a TLV app header.
 An app header is a sequence of type-length-value fields starting at offset 0 of the
 app's first page. Each field begins with two bytes in WikiTI's `TT TS` notation: the high
 12 bits are the field number, and the low nibble of the second byte encodes the payload
-length. The decoder bytes are around `3D:7285`, but the disassembly does not expose a live function there:
+length. The decoder bytes are at `init_flash_page_counter+0x08`
+(`3D:7285`), but the disassembly does not expose a separate function there:
 
 | size nibble | field payload size |
 |-------------|--------------------|
@@ -240,8 +241,14 @@ The RAM-reset path (`35:719F`):
 71ED JP 0x0BD9                              ; re-init RAM (page-0 boot init)
 ```
 So a RAM reset clears two blocks to 0:
-1. **System RAM** `0x8000-0x9BC3` (~7 KiB: OS scratch, the Context block, system buffers).
-2. **User RAM** `0x9BD0-0xFFFF` (`0x6430` = 25648 bytes, ~25 KiB: the VAT and all user variables/programs).
+
+1. **System RAM:** the half-open interval `[appData, 0x9BC4)`, corresponding
+   to `0x8000`–`0x9BC3`.
+2. **User RAM:** `[restartClr, 0x10000)`, corresponding to
+   `0x9BD0`–`0xFFFF` (`0x6430` bytes).
+
+The first interval contains OS scratch, the context block, and system buffers.
+The second contains the VAT and user variables and programs. [confirmed]
 
 A handful of flag bits are explicitly preserved across the wipe (`IY+0x3F` bit7,
 `IY+0x34` bit6, `IY+0x35` bits0/1, and the word at `0x9B73`) so the calculator knows it is
@@ -361,7 +368,7 @@ line-by-line, but every target bit/byte is confirmed from the setters and inc eq
 3D:5DE7   app_5de7
 3D:5FB1   app_find_next_page
 3D:727D   init_flash_page_counter
-3D:7285   TLV-length candidate (inferred label); no defined function in live DB
+3D:7285   init_flash_page_counter+0x08   ; TLV-length decode block, not a function
 3D:4AA3   _FindAppNumPages bcall target; no live function in current DB
 ram:0936       _AppInit
 ram:08AF       _PutAway
@@ -369,7 +376,7 @@ ram:08AF       _PutAway
 3B:7571   default app vectors data block (12 bytes + appFlags), not a function
 3B:7412   app-quit restore candidate (inferred label); no defined function in live DB
 35:7180   mem_reset_dispatch
-35:719F   ram_reset_wipe         (zeroes 0x8000-0x9BC3 and 0x9BD0-0xFFFF)
+35:719F   ram_reset_wipe         (zeroes [appData,9BC4) and [restartClr,10000))
 ram:0BD9       ram_init_after_reset
 ram:0B27       full_reset_wipe        (zeroes all 0x8000-0xFFFF)
 3C:71F8   gc_command

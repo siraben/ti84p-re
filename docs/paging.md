@@ -85,7 +85,7 @@ Port `0x05` does not select a visible window in this mode. [standard]
 
 For example, the TI-84 Plus reset selector `0x3F` produces Flash page `3E` in
 window A and page `3F` in window B. The boot trace begins at logical `0x8000`,
-which therefore executes `3F:4000`. [confirmed]
+which therefore executes `retail_boot_reset_stub` at `3F:4000`. [confirmed]
 
 Changing bit 0 reinterprets all three banked windows at once. Code that changes
 the mode must execute from fixed page 0 or from a physical page visible at the
@@ -240,8 +240,8 @@ implementation oracle, not a fidelity endorsement. [standard]
 
 ## Boot mapping transition
 
-The retail boot page contains a reset stub at `3F:4000`. Under TilEm's reset
-mapping it executes at logical `0x8000`: [confirmed]
+The retail boot page contains `retail_boot_reset_stub` at `3F:4000`. Under
+TilEm's reset mapping it executes at logical `0x8000`: [confirmed]
 
 ```z80
 3F:4000  LD A,0x07
@@ -258,8 +258,8 @@ Page 0 also contains a restart path at `00:0000` → `00:028C`. It tests port
 port `0x06`, selects paired mode, and jumps to the same logical `0x812C`.
 Both values written to `0x0E` have low two bits equal to three. [confirmed]
 
-The continuation changes to independent mode without paging out its next
-instruction: [confirmed]
+`boot_os_entry` at `3F:412C` changes to independent mode without paging out its
+next instruction: [confirmed]
 
 ```z80
 3F:412C  IM 1

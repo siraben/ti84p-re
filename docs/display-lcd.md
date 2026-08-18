@@ -42,7 +42,18 @@ flowchart LR
 | `0x86EC`–`0x89EB` | `saveSScreen` | 768 bytes | saved display image |
 | `0x9340`–`0x963F` | `plotSScreen` | 768 bytes | graph/back buffer, 12 bytes × 64 rows |
 
-Controller video RAM is a third image store outside Z80 RAM. Direct text output can change it without changing `plotSScreen`, while graph drawing can change `plotSScreen` without changing the panel until `_GrBufCpy` runs. [confirmed]
+Both 768-byte buffers use the `MonoFramebuffer` layout: [confirmed]
+
+```c
+typedef struct {
+    uint8_t rows[64][12];
+} MonoFramebuffer;
+```
+
+Each `rows[y][byte_column]` byte holds eight pixels, most-significant bit first.
+Controller video RAM is a third image store outside Z80 RAM. Direct text output
+can change it without changing `plotSScreen`, while graph drawing can change
+`plotSScreen` without changing the panel until `_GrBufCpy` runs. [confirmed]
 
 ## Large-font text
 
@@ -62,7 +73,10 @@ The renderer positions the controller from `curRow` and `curCol`. Glyph edges us
 
 ## Cursor and indicators
 
-`_CursorOn` and `_CursorOff` reload `curTime` with 50. Standard hardware timer 1 reaches the cursor handler at `06:7C45`, which toggles the cursor every 50 ticks. See [Clock, timers, and power](clock-timers-power.md#cursor-blink-cadence). [confirmed]
+`_CursorOn` and `_CursorOff` reload `curTime` with 50. Standard hardware timer
+1 reaches `cursor_blink_tick` at `06:7C45`, which toggles the cursor every 50
+ticks. See [Clock, timers, and power](clock-timers-power.md#cursor-blink-cadence).
+[confirmed]
 
 The run indicator uses `indicCounter` and `indicBusy` at `0x8476`/`0x8477`. `_RunIndicOn` seeds it, and `run_indicator_tick` at `ram:027B` advances it from the same standard-timer interrupt. `_ClrLCDFull` temporarily clears and then restores the indicator-enable bit around the physical clear. [confirmed]
 

@@ -8,7 +8,7 @@ The TI-84 Plus OS runs the Z80 in interrupt mode 1 (IM1) and polls the ASIC's in
 
 | Evidence | Scope | Confidence |
 |----------|-------|------------|
-| Page-0 bytes at `ram:0038`–`ram:0244` | IM1 entry, USB and legacy gates, source-test order, handlers, acknowledgement, and exit | [confirmed] |
+| Page-0 bytes from `im1_vector` at `ram:0038` through `ram:0244` | IM1 entry, USB and legacy gates, source-test order, handlers, acknowledgement, and exit | [confirmed] |
 | Power-cycle trace from `tools/macros/power-cycle.macro` | OS mask writes, low-power `HALT`, ON wake, status read, debounce, and restoration | [confirmed] |
 | WikiTI ports `0x03` and `0x04` | Bit-level enable, status, clear-on-zero, timer-rate, mapping, battery-selector, and low-power contract | [standard] |
 | TilEm commit `f56ad63` and Wabbitemu commit `48c2dc0` | Two executable interpretations of the registers and their fidelity gaps | [standard] |
@@ -22,7 +22,10 @@ The ROM proves how OS 2.55MP uses the registers. Public notes and emulators desc
 
 ## IM1 entry and context
 
-IM1 accepts a maskable interrupt at fixed address `ram:0038`. The OS vector jumps to `ram:006D`, where it swaps `AF`, `BC`, `DE`, and `HL` with the alternate register set. The normal exit swaps them back, executes `EI`, and returns with `RETI`. [confirmed]
+IM1 accepts a maskable interrupt at `im1_vector`, the fixed address `ram:0038`.
+The vector jumps to `int_entry_save_alt_regs` at `ram:006D`, which swaps `AF`,
+`BC`, `DE`, and `HL` with the alternate register set. The normal exit swaps
+them back, executes `EI`, and returns with `RETI`. [confirmed]
 
 ```z80
 ram:0038  jr ram:006D
@@ -52,11 +55,18 @@ ram:00F3  reti
 
 ## USB gate and legacy controller
 
-Port `0x55` is the active-low USB interrupt summary. The three instructions at `ram:006F` invert and mask its low five bits. A result of zero jumps directly to the legacy status read at `ram:003A`. A nonzero result enters the USB activity-hook and port-`0x56` event paths before the handler considers the legacy controller. [confirmed]
+Port `0x55` is the active-low USB interrupt summary. The three instructions at
+`int_entry_save_alt_regs + 0x02` invert and mask its low five bits. A result of
+zero jumps directly to `interrupt_legacy_status` at `ram:003A`. A nonzero
+result enters the USB activity-hook and port-`0x56` event paths before the
+handler considers the legacy controller. [confirmed]
 
 This ordering does not make port `0x55` a summary of ON, standard-timer, or legacy link requests. Those sources appear at port `0x04`. Port `0x56` is a USB line-event bitmap, not the mask for port `0x04`. [confirmed] for the separate ROM paths; [standard] for the register roles.
 
-The disconnected TilEm x4 model returns `0x1F` from port `0x55` and zero from port `0x56`. Its ordinary trace therefore takes `ram:006F` → `ram:003A` without USB event work. [standard]
+The disconnected TilEm x4 model returns `0x1F` from port `0x55` and zero from
+port `0x56`. Its ordinary trace therefore takes
+`int_entry_save_alt_regs + 0x02` → `interrupt_legacy_status` without USB event
+work. [standard]
 
 See [USB ASIC and link assist](sub-usb-asic.md#interrupt-integration-confirmed) for the port-`0x56` event-bit branches and page-35 handlers.
 
@@ -92,11 +102,11 @@ Reading port `0x04` returns status. Bit 3 is the live active-low ON level; it is
 
 | Bit | Read meaning | OS use | Evidence |
 |----:|--------------|--------|----------|
-| 0 | ON request pending | branch to `ram:015B` | ROM test at `ram:00D2`–`ram:00D5` [confirmed]; latch role [standard] |
-| 1 | standard timer 1 pending | branch to `ram:0167` | ROM test at `ram:00D6`–`ram:00D9` [confirmed]; pending role [standard] |
+| 0 | ON request pending | branch to `on_irq` at `ram:015B` | ROM test at `ram:00D2`–`ram:00D5` [confirmed]; latch role [standard] |
+| 1 | standard timer 1 pending | branch to `standard_timer1_irq` at `ram:0167` | ROM test at `ram:00D6`–`ram:00D9` [confirmed]; pending role [standard] |
 | 2 | standard timer 2 pending | branch to `ram:01F1` | ROM test at `ram:00C8`–`ram:00CB` [confirmed]; pending role [standard] |
 | 3 | one when ON is released, zero while pressed | debounce reads at `ram:0975` | ROM interpretation [confirmed]; electrical level [standard] |
-| 4 | legacy link activity pending | branch to `ram:01E0` | ROM test at `ram:00CD`–`ram:00D0` [confirmed]; pending role [standard] |
+| 4 | legacy link activity pending | branch to `legacy_link_irq` at `ram:01E0` | ROM test at `ram:00CD`–`ram:00D0` [confirmed]; pending role [standard] |
 | 5 | programmable timer 1 finished | test timer-1 mode at port `0x31` | ROM tests at `ram:0041` and `ram:013A` [confirmed]; completion role [standard] |
 | 6 | programmable timer 2 finished | page-35 handler with `A = 0x0B` | ROM tests at `ram:0046` and `ram:0154` [confirmed]; completion role [standard] |
 | 7 | programmable timer 3 finished | test timer-3 mode at port `0x37` | ROM tests at `ram:003C` and `ram:012C` [confirmed]; completion role [standard] |
@@ -179,7 +189,9 @@ The standard timers belong to the legacy mask block. Port-`0x03` bits 1 and 2 en
 
 The three programmable timers have source, mode/status, and counter triplets at ports `0x30`–`0x38`. Their port-`0x04` bits are completion observations, not enable bits. Timer mode bit 1 selects whether completion requests a maskable interrupt. [standard]
 
-OS 2.55MP uses programmable timer 1 for its timer bcall state machine and programmable timer 3 for a USB timeout path. Standard timer 1 drives keypad scanning, cursor blink, the run indicator, and Auto Power Down (APD) through `ram:0167`. [confirmed]
+OS 2.55MP uses programmable timer 1 for its timer bcall state machine and
+programmable timer 3 for a USB timeout path. `standard_timer1_irq` drives keypad
+scanning, cursor blink, the run indicator, and Auto Power Down (APD). [confirmed]
 
 See [Clock, timers, and power](clock-timers-power.md) for programmable-timer modes, the bcall ABI, and kernel-tick consumers.
 
@@ -195,7 +207,10 @@ See [Keypad and ON-key hardware](keypad-on-hardware.md#on-interrupt-and-level) f
 
 ## Link interrupt versus periodic link polling
 
-Port-`0x03` bit 4 controls the legacy link-activity interrupt. The shutdown mask `0x11` uses it as a wake source. The port-`0x04` bit-4 dispatcher branch enters the power restoration path at `ram:01E0`. [confirmed] for OS use; [standard] for the interrupt source.
+Port-`0x03` bit 4 controls the legacy link-activity interrupt. The shutdown
+mask `0x11` uses it as a wake source. The port-`0x04` bit-4 dispatcher branch
+enters `legacy_link_irq`, the power-restoration path. [confirmed] for OS use;
+[standard] for the interrupt source.
 
 Normal operation uses mask `0x0B`, so legacy link interrupts are disabled. Standard timer 1 still performs a periodic silent-link check at `ram:01B1`: the raw path reads port `0x00`, and the assist path reads port `0x09`. This polling is separate from a direct port-`0x04` bit-4 request. [confirmed]
 
@@ -203,7 +218,9 @@ See [Two-wire link port hardware](link-port-hardware.md#background-link-detectio
 
 ## Low-power entry and wake
 
-The shared power-off tail first acknowledges legacy sources with `0x08`. It then writes `0x06` to port `0x04`, writes `0x11` to port `0x03`, enables interrupts, and loops on `HALT`. [confirmed]
+`poweroff_shared_tail` at `ram:0A24` first acknowledges legacy sources with
+`0x08`. It then writes `0x06` to port `0x04`, writes `0x11` to port `0x03`,
+enables interrupts, and reaches `poweroff_halt_loop` at `ram:0A5C`. [confirmed]
 
 ```z80
 ram:0A4B  out (0x04),a        ; A = 0x06

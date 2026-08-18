@@ -155,12 +155,15 @@ As a C struct:
 
 ```c
 typedef struct {
-    uint8_t machineID;   /* 0x8674: machine-ID (peer/local device class) */
-    uint8_t commandID;   /* 0x8675: command-ID                           */
-    uint8_t lenLo;       /* 0x8676: data length, low byte                */
-    uint8_t lenHi;       /* 0x8677: data length, high byte               */
-} LinkPacketHeader;                                  /* 4 bytes (0x8674..0x8677) */
+    uint8_t  machine_id;   /* +0: peer/local device class */
+    uint8_t  command_id;   /* +1: command byte            */
+    uint16_t data_length;  /* +2: little-endian length    */
+} LinkPacketHeader;      /* 4 bytes at header = 0x8674 */
 ```
+
+The typed RAM view therefore exposes `header.machine_id`, `header.command_id`,
+and `header.data_length`; the disassembly below retains the concrete addresses
+that establish those fields. [confirmed]
 
 ### 3a. Send a header — `41C3` [confirmed]
 
@@ -292,7 +295,8 @@ The TI-84 Plus branch requires port `0x02` bit 7 set and port `0x21` bits
 the bcall. [confirmed]
 
 After the bcall or page rejection, `3C:6B06` saves the resulting `DE` in
-`0x84DB`. The comparison at `3C:6B0A` increments the stored page at `0x83EE`
+`iMathPtr5` (`0x84DB`). The comparison at `3C:6B0A` increments `arcInfo.page`
+at `0x83EE`
 when the starting `DE` is greater than or equal to the final `DE`. Normal
 receive callers pass 1–16 bytes on an eligible page. A dispatcher call with
 zero count or an invalid page leaves `DE` unchanged, so the equality case
@@ -357,11 +361,12 @@ link_xfer_op (3C:4DD2):
 
 ### 5a. Resolve the variable for sending — `4763` [confirmed]
 
-`4763` reads the var-header type byte at `867F` and branches by class. For graph/equation types
-(`0x0F‥0x14`) it uses a cross-page helper; otherwise `47AB`: `_CkOP1Real`, checks size, then
-`_ChkFindSym` (`0E60`) to locate the VAT entry, and for an archived var it routes through the
-flash path (`_Chk_Batt_Low`, `83F7` size save). The actual data ptr/page/length come from
-`_SetupPagedPtr` inside the DATA sender.
+`4763` reads the var-header type byte at `867F` and branches by class. For
+graph/equation types (`0x0F‥0x14`) it uses a cross-page helper. Otherwise
+`47AB` calls `_CkOP1Real`, checks the size, then calls `_ChkFindSym` (`0E60`)
+to locate the VAT entry. An archived variable routes through the Flash path,
+where `_Chk_Batt_Low` saves `arcInfo.size` at `0x83F7`. `_SetupPagedPtr`
+supplies the data pointer, page, and length inside the DATA sender.
 
 ### 5b. Send the DATA payload — `40DA` [confirmed]
 

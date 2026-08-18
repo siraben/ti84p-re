@@ -58,6 +58,21 @@ system variables recalled by name (`[2nd][STAT] ▸ VARS`):
 | `8B12` | `QuartE`  | `e`   | regression coeff e |
 | `8B1B`…`8B50` | `MedX1/2/3`, `MedY1/2/3` (`8B1B/8B24/8B2D/8B36/8B3F/8B48`) | | Med-Med (×3 partitions) |
 
+These 31 consecutive values form the typed prefix used by the Ghidra database:
+
+```c
+typedef struct {
+    TIFloat StatN, XMean, SumX, SumXSqr, StdX, StdPX, MinX, MaxX;
+    TIFloat MinY, MaxY, YMean, SumY, SumYSqr, StdY, StdPY, SumXY;
+    TIFloat Corr, MedX, Q1, Q3, QuadA, QuadB, QuadC, CubeD, QuartE;
+    TIFloat MedX1, MedX2, MedX3, MedY1, MedY2, MedY3;
+} TIStatResultsPrefix; /* 31 × 9 bytes at statVars */
+```
+
+This makes, for example, `statVars.XMean` and `statVars.Corr` distinct fields
+rather than unrelated constants `0x8A43` and `0x8ACA`. The address table remains
+the byte-level evidence for the layout. [confirmed]
+
 Continuing past the table (also `.inc`): `PStat`/`ZStat`/`TStat`/`ChiStat`/
 `FStat`/`DF`/`Phat…`/`MeanX1`/`StdX1`/`StatN1`/`MeanX2`/`StdX2`/`StatN2`/`StdXP2`/
 `SLower`/`SUpper`/`SStat` — these hold the inferential-stats outputs (the STAT-TESTS
@@ -74,7 +89,7 @@ own command handlers reached from the parser's command dispatch, separate from t
 engine documented here. The exact per-test handler addresses are not exposed as named routines
 in this DB; those per-test handler addresses are [hypothesis]. [confirmed]
 
-A scratch byte `0x8A36` (immediately below `statVars`) holds the stat-command
+A scratch byte `stat_calc_command` (`0x8A36`, immediately below `statVars`) holds the stat-command
 discriminator (the model index, set from the command token — see §3) for the
 duration of the computation. Working list/element pointers used by the loop live
 in the OP-scratch RAM `0x84AF…0x84DB` (`84D3`=median data ptr, `84D5/84D7`=current
@@ -125,7 +140,7 @@ _OneVar (3A:6420):
 ```
 
 Key facts read from the disassembly:
-- The command byte is saved at `(0x8A36)` and steers everything afterward.
+- The command byte is saved in `stat_calc_command` and steers everything afterward.
 - `LD HL,0x8AEE` (= `QuadA`) is the regression coefficient destination; the
   solver writes `a,b,c,d,e` there in descending order of power.
 - `_ErrStat` (`00:2741`, id `0x44C2`, code `0x15` "STAT") and `_ErrStatPlot`
@@ -138,8 +153,9 @@ Key facts read from the disassembly:
 
 ## 3. STAT command token map (`STATCMD = 0xF2`) [confirmed]
 
-The parser passes the command token; `_OneVar` stores it at `0x8A36` and treats it
-as a model index. From `ti83plus.inc`:
+The parser passes the command token; `_OneVar` stores it in
+`stat_calc_command` (`0x8A36`) and treats it as a model index. From
+`ti83plus.inc`:
 
 | Token | Value | Command | Model |
 |-------|-------|---------|-------|
@@ -211,7 +227,8 @@ power-sums `Σxⁱ` (i = 0 … 2d) and the right-hand side `Σxⁱy`, stored as 
 `658a`+ checks the command code and, for `ExpReg`/`PwrReg` (`ln y`),
 `LnReg`/`PwrReg` (`ln x`), pre-applies the logarithm to each element before
 accumulating, then exponentiates the resulting linear coefficients off page 0x3A. The
-per-element `ln` is in the element fetch `stat_next_elem` (`3A:6F6A`): `LD A,(8A36); CP 4;
+per-element `ln` is in the element fetch `stat_next_elem` (`3A:6F6A`):
+`LD A,(8A36); CP 4;
 RET NC` then `bcall _LnX` at `3A:6F72` for model codes `< 4` (`ExpReg`/`LnReg`/`PwrReg`); the
 back-transform `_EToX`/`_TenX` lives on page 0x02 (see `sub-calculation.md §5`). This is the standard
 "linearize, fit a line, transform back" method; `r` is the correlation of the
@@ -321,7 +338,7 @@ stat plot reads back out of `statVars`.
 
 1. Parser pushes the list args, sets `A = command token`, `bcall(_OneVar)`.
 2. `_OneVar` parses args → x-list ptr `(84D3)`, y-list `(84D5)`, freq `(84DB)`;
-   saves the model code to `(8A36)`.
+   saves the model code to `stat_calc_command`.
 3. **Accumulation pass** (§4): one walk of L1/L2 building `n, Σx, Σx², Σy, Σy²,
    Σxy` and `minX/maxX/minY/maxY` into `statVars`, plus the 2×2 moment matrix.
 4. **Moments** (§4a): $\bar x=\tfrac{\sum x}{n}$, $\bar y=\tfrac{\sum y}{n}$; the sample/population
@@ -380,7 +397,7 @@ named routine in this DB. [hypothesis]
         │ (element fetch 3A:6F6A)               ▲
         ▼                                       │ (_Rcl_StatVar 00:2149)
    _OneVar (3A:6420, id 0x4BA3)  ──►  per-element accumulation pass (3A:6572)
-        │  cmd code → 0x8A36                     │  uses FP engine:
+        │  cmd code → stat_calc_command          │  uses FP engine:
         │                                        │   RST30 _FPAdd, 238B _FPMult,
         ├─ moments / Sx,σx (3A:6984..)           │   238A _FPSquare, 2541 _FPDiv,
         ├─ Gauss-Jordan solve (3A:67C6..) ───►   │   3939 _SqRoot, 2294 _Minus1
@@ -424,7 +441,7 @@ equations, depositing every output as a named `TIFloat` in the `statVars` block.
 | `33:65DC` | `_ZmStats` | ZoomStat — fit window to plotted data, id 0x47A4 |
 | `00:2715` | `_ErrDimMismatch` | list length mismatch (0x8B) |
 
-**RAM:** `statVars=0x8A3A`, model-discriminator `0x8A36`, work ptrs `0x84AF-0x84DB`
+**RAM:** `statVars=0x8A3A`, `stat_calc_command=0x8A36`, work ptrs `0x84AF-0x84DB`
 (`84D3` x/median ptr, `84D5/84D7` element ptrs, `84D9` sums-matrix base,
 `84DB` freq ptr, `84B1/84B2` loop counters, `84B3` element count).
 **FP engine reused:** `RST 30h`=`_FPAdd`, `RST 08h`=OP1→OP2, `00:238B`=`_FPMult`,

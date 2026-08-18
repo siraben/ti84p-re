@@ -278,7 +278,11 @@ This explains why OS input and timer activity can react to a peer that pulls one
 
 Port-`0x03` bit 4 also keeps link activity available as a wake source in the standard hardware interrupt block. The power-off path writes `0x11` before `HALT`, enabling ON and link wake while disabling the standard timers. [confirmed] for the ROM write; [standard] for the port-bit role.
 
-Port-`0x04` bit 4 has lower OS dispatch priority than the three programmable timers and standard timer 2, but higher priority than ON and standard timer 1. The branch enters the power-restoration path at `ram:01E0`. See [Interrupts (IM1)](interrupts.md#dispatch-order-and-simultaneous-sources) for acknowledgement and simultaneous-source behavior. [confirmed]
+Port-`0x04` bit 4 has lower OS dispatch priority than the three programmable
+timers and standard timer 2, but higher priority than ON and standard timer 1.
+The branch enters `legacy_link_irq` at `ram:01E0`. See
+[Interrupts (IM1)](interrupts.md#dispatch-order-and-simultaneous-sources) for
+acknowledgement and simultaneous-source behavior. [confirmed]
 
 ## Error cleanup and the both-low abort pulse
 

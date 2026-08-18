@@ -4,10 +4,10 @@
 
 The retail boot page changes the reset memory map into the OS runtime map,
 checks that both RAM windows are writable, programs the ASIC registers, and
-selects an OS or recovery path. This page follows the executed sequence from
-`3F:4000` through the first keypad scan at `3F:422D` and decodes the destructive
-RAM diagnostic at `3F:461A`. It also documents dormant LCD and keypad test code
-at `3F:4658`.
+selects an OS or recovery path. This page follows `retail_boot_reset_stub` at
+`3F:4000` through the first keypad scan at `3F:422D` and decodes
+`boot_ram_test` at `3F:461A`. It also documents
+`boot_lcd_keypad_diagnostic` at `3F:4658`.
 
 ## Evidence boundaries
 
@@ -26,8 +26,8 @@ one path through those bytes. Neither source measures a physical ASIC reset.
 
 ## Reset entry and delay
 
-The reset stub establishes a paired mapping and jumps to the continuation on
-page `3F`: [confirmed]
+`retail_boot_reset_stub` at `3F:4000` establishes a paired mapping and jumps to
+`boot_os_entry` at `3F:412C`: [confirmed]
 
 ```z80
 3F:4000  ld a,0x07
@@ -39,7 +39,7 @@ page `3F`: [confirmed]
 3F:400C  jp 0x812C
 ```
 
-The continuation spends 518 outer iterations in a nested delay: [confirmed]
+`boot_os_entry` spends 518 outer iterations in a nested delay: [confirmed]
 
 ```z80
 3F:412C  im 1
@@ -141,14 +141,14 @@ than reading the write back. [confirmed]
 ## Ordered hardware programming
 
 The first guarded enable is followed by the complete initialization sequence
-below. The order includes the call from `3F:41BA` into the link reset helper at
-`3F:6278`. [confirmed]
+below. The order includes the call from `3F:41BA` into
+`boot_link_assist_init` at `3F:6278`. [confirmed]
 
 | Stage | Writes in execution order | ROM evidence |
 |-------|---------------------------|--------------|
-| Link and low-power setup | `0x2D = 0x02`; `0x00 = 0x00`; `0x09 = 0x97`; `0x0A = 0xB4`; `0x0B = 0xB4`; `0x0C = 0xB4`; `0x08 = 0x80`; `0x08 = 0x00` | `3F:41B6`–`41BA`, `3F:6278`–`6290` |
-| Bus timing | `0x29 = 0x17`; `0x2A = 0x27`; `0x2B = 0x2F`; `0x2C = 0x3B`; `0x2E = 0x45`; `0x2F = 0x4B` | `3F:41BD`–`41D3` |
-| Execution controls | `0x21 = 0x00`; `0x22 = 0x08`; `0x23 = 0x29`; `0x25 = 0x10`; `0x26 = 0x20` | `3F:41D5`–`4206` |
+| Link and low-power setup | `0x2D = 0x02`; `0x00 = 0x00`; `0x09 = 0x97`; `0x0A = 0xB4`; `0x0B = 0xB4`; `0x0C = 0xB4`; `0x08 = 0x80`; `0x08 = 0x00` | `3F:41B6`–`41BA`; `boot_link_assist_init` |
+| Bus timing | `0x29 = 0x17`; `0x2A = 0x27`; `0x2B = 0x2F`; `0x2C = 0x3B`; `0x2E = 0x45`; `0x2F = 0x4B` | `boot_bus_timing_init` at `3F:41BD`–`41D3` |
+| Execution controls | `0x21 = 0x00`; `0x22 = 0x08`; `0x23 = 0x29`; `0x25 = 0x10`; `0x26 = 0x20` | `boot_execution_protection_init` at `3F:41D5`–`4206` |
 | Runtime mapping | `0x0E = 0`; `0x0F = 0`; `0x05 = 0`; `0x06 = 0x3F` | `3F:4207`–`4210` |
 | GPIO and USB control | `0x39 = 0xF0`; `0x4A = 0x20` | `3F:4212`–`4218` |
 | Gate and final RAM window | protected `0x14 = 0`; `0x07 = 0x80` | `3F:421A`–`422B` |
@@ -196,9 +196,9 @@ remain subject to the evidence limits on
 ## Destructive RAM diagnostic
 
 The **MODE** path at `3F:427E` jumps to `3F:4504`. Its later RAM-test path calls
-the worker at `3F:461A` to test main RAM and banked RAM. [confirmed]
+`boot_ram_test` at `3F:461A` to test main RAM and banked RAM. [confirmed]
 
-The worker at `3F:461A` takes the start address in `DE`, computes length
+`boot_ram_test` takes the start address in `DE`, computes length
 `0x10000 - DE`, writes a repeating byte pattern, rewinds, and verifies the same
 pattern. The pattern is `0x00`, `0x01`, …, `0xFA`, then repeats at `0x00`.
 [confirmed]
@@ -216,10 +216,10 @@ that contains live state. [confirmed]
 
 ## Dormant LCD and keypad diagnostic
 
-The retail ROM contains a complete LCD pattern, contrast, and keypad test at
-`3F:4658`, but the branch into it is constant-false. Ghidra finds one
-cross-reference to `3F:4658`, from `3F:4615`. The complete predecessor is:
-[confirmed]
+The retail ROM contains `boot_lcd_keypad_diagnostic` at `3F:4658`, a complete
+LCD pattern, contrast, and keypad test. Its only incoming branch,
+`boot_diagnostic_gate` at `3F:4615`, is constant-false. The complete predecessor
+is: [confirmed]
 
 ```z80
 3F:4610  xor a
@@ -240,20 +240,20 @@ explicit RAM-harness entry and do not represent ordinary boot behavior.
 
 ### LCD pattern helpers
 
-The helper at `3F:46EF` takes alternating row bytes in `D` and `E`. It selects
-row command `0x80` and each visible byte-column command from `0x20` through
-`0x2B`, then writes 64 data bytes per column. One call emits 24 command writes
-and 768 data writes. [confirmed]
+`boot_lcd_fill_pattern` at `3F:46EF` takes alternating row bytes in `D` and `E`.
+It selects row command `0x80` and each visible byte-column command from `0x20`
+through `0x2B`, then writes 64 data bytes per column. One call emits 24 command
+writes and 768 data writes. [confirmed]
 
-The helper at `3F:472E` takes a row command in `B` and a data byte in `D`. It
-writes the value once in each of the 12 visible byte columns. One call emits
-24 command writes and 12 data writes. [confirmed]
+`boot_lcd_write_row` at `3F:472E` takes a row command in `B` and a data byte in
+`D`. It writes the value once in each of the 12 visible byte columns. One call
+emits 24 command writes and 12 data writes. [confirmed]
 
 The diagnostic presents these six screens: [confirmed]
 
 | Order | Visible screen | Construction |
 |------:|----------------|--------------|
-| 1 | `0x81` in every visible byte, with rows 0 and 63 set to `0xFF` | one `3F:46EF` fill plus two `3F:472E` rows |
+| 1 | `0x81` in every visible byte, with rows 0 and 63 set to `0xFF` | one `boot_lcd_fill_pattern` call plus two `boot_lcd_write_row` calls |
 | 2 | all `0xFF` | equal-byte fill |
 | 3 | all `0x00` | equal-byte fill |
 | 4 | alternating `0x55` and `0xAA` rows | alternating-byte fill |
@@ -268,16 +268,17 @@ keypad test. Other nonzero scan codes advance one stage. [confirmed]
 
 ### Contrast sweep
 
-The contrast loop passes values `0x27` down through `0x01` to `3F:74F8`.
-That helper adds `0x18`, forces bits 7–6, waits for the LCD, and writes the
-result to port `0x10`. The emitted commands descend from `0xFF` through
+The contrast loop passes values `0x27` down through `0x01` to
+`boot_lcd_write_contrast` at `3F:74F8`. The helper adds `0x18`, forces bits 7–6,
+waits for the LCD, and writes the result to port `0x10`. The emitted commands
+descend from `0xFF` through
 `0xD9`, covering controller contrast arguments 63 through 25 in 39
 key-advanced steps. [confirmed]
 
 Toshiba defines the larger T6K04 argument as darker. This direction comes from
 the controller data sheet, not from the ROM arithmetic. [standard] The routine
-clears the LCD after the sweep and calls `3F:74F5` to restore the contrast
-stored at `0x8447`. [confirmed]
+clears the LCD after the sweep and calls `boot_lcd_restore_contrast` at
+`3F:74F5` to restore the contrast stored at `0x8447`. [confirmed]
 
 ### Keypad sequence
 
@@ -297,7 +298,8 @@ LCD, displays `OK` from `3F:4807`, waits for a non-**MODE** key, then jumps to
 
 The guarded Wabbitemu probe boots until the retail protection bounds are
 established, maps page `3F`, and injects a 30-byte RAM harness. The harness
-calls the actual ROM helpers at `3F:74C6`, `3F:46EF`, `3F:472E`, and `3F:74F8`.
+calls `boot_lcd_initialize` (`3F:74C6`), `boot_lcd_fill_pattern` (`3F:46EF`),
+`boot_lcd_write_row` (`3F:472E`), and `boot_lcd_write_contrast` (`3F:74F8`).
 It does not patch the constant-false branch. [confirmed] for the harness and
 pinned emulator run.
 
@@ -306,10 +308,14 @@ counters, transfer counts, two visible-screen hashes, boundary cells, and the
 final contrast field. It observes: [confirmed] for pinned Wabbitemu commit
 `48c2dc0`.
 
-- `3F:74C6` emits seven commands and falls through `3F:74F5` into `3F:74F8`;
-- `3F:46EF` emits 24 command and 768 data writes for alternating `0x55`/`0xAA` rows;
-- `3F:472E` emits 24 command and 12 data writes, changing all 12 bytes of row 63 to `0xFF`;
-- an explicit `A = 0x27` call to `3F:74F8` emits `0xFF`, which Wabbitemu stores as its adjusted contrast level 39.
+- `boot_lcd_initialize` emits seven commands and falls through
+  `boot_lcd_restore_contrast` into `boot_lcd_write_contrast`;
+- `boot_lcd_fill_pattern` emits 24 command and 768 data writes for alternating
+  `0x55`/`0xAA` rows;
+- `boot_lcd_write_row` emits 24 command and 12 data writes, changing all 12
+  bytes of row 63 to `0xFF`;
+- an explicit `A = 0x27` call to `boot_lcd_write_contrast` emits `0xFF`, which
+  Wabbitemu stores as its adjusted contrast level 39.
 
 These observations validate retail-ROM execution against Wabbitemu's
 controller model. They do not establish normal boot execution, analog
@@ -337,7 +343,8 @@ boot write at `3F:422B`. It does not construct a text line or retain a register
 snapshot for every executed instruction. [confirmed]
 
 The saved full-reset TilEm trace matches all 35 ordered output events from
-`3F:4002` through `3F:422B`, including the call to `3F:6278`. The trace starts
+`retail_boot_reset_stub + 0x02` through `3F:422B`, including the call to
+`boot_link_assist_init`. The trace starts
 at logical `0x8000` under the TI-84 Plus reset mapping and resolves every
 banked instruction in this interval. [confirmed] for the pinned emulator run.
 
