@@ -216,17 +216,16 @@ the cache until something marks it dirty again. [confirmed]
 
 ### 3.1 Seeding the running independent value [confirmed]
 
-`05:774B` initialises the per-table running `X`. It first clears a working float
-(`05:774B LD DE,0x8622 ; CALL 0x1920`), then at `05:7751` copies TblMin into the
-running-X slot:
+`05:774B` initialises the two-float `table_x_work` array. It first clears
+`table_x_work[0]` (`0x8622`), then at `05:7751` copies `TblMin` into
+`table_x_work[1]`, the running-X slot:
 
 ```z80
 05:7751  LD HL,0x92B3 (TblMin) ; LD DE,0x862B ; JP 0x1A92   ; running-X (0x862B) ← TblMin
 ```
 
-i.e. the first row's independent value is `TblStart`. A working float at
-`0x8622`/`0x862B` holds the current row's X. The row index is bounds-checked at
-`05:65DC` (`LD A,(0x91E0); LD HL,0x91DC; CP (HL); RET` — current row vs the last
+i.e. the first row's independent value is `TblStart`. The row index is bounds-checked at
+`05:65DC` (`LD A,(0x91E0); LD HL,CurTableRow; CP (HL); RET` — current row vs the last
 row), and the per-row X is computed as `TblStart + k·TblStep` rather than by an
 incremental add:
 
@@ -250,8 +249,9 @@ For each row the recompute fills the cache by, per selected equation:
    `sub-graphing.md §6`),
 3. format OP1 and stash the result string/value into the row's cache slot.
 
-The fill loop is `05:5EE1`: it strides the cell buffer at `0x91E2` in 9-byte
-(`TIFloat`) steps for up to 7 visible columns (`LD C,0x07`), keyed off the
+The fill loop is `05:5EE1`: it strides `table_value_cache.band[0]` at
+`0x91E2` in 9-byte (`TIFloat`) steps for up to 7 visible columns
+(`LD C,0x07`), keyed off the
 top-row index `0x91E0`. The `X` column itself is written from the running-X; the
 `Y` columns from the evaluated OP1. [confirmed]
 
@@ -266,12 +266,32 @@ scrolling is instant (no recompute):
 | `0x9190` `YOutSym` / `0x9192` `YOutDat` | active Y column: symbol + data pointer |
 | `0x9194` `inputSym` / `0x9196` `inputDat` | the "Ask"/input column descriptor |
 | `0x9198` `prevData` | previous-column data pointer |
-| `0x91DB` / `0x91DC` / `0x91E0` | row indices / top-row index / column count |
-| `0x91E2 … 0x9221 …` | the per-cell computed-value buffers (9-byte floats) |
+| `0x91DB` | unnamed Ask-mode row state |
+| `0x91DC` / `0x91DD` | `CurTableRow` / `CurTableCol` |
+| `0x91E0` | table-top state; exact role remains open |
+| `0x91E2` | `table_value_cache`, the per-cell computed-value bands |
 
-`05:6014` performs the scroll: `LD HL,0x9221 ; LD DE,0x9260 ; LDIR` (copy a
-0x3F-byte block) and an `LDDR` shift of a 0xB4-byte region — i.e. when you press
-↑/↓ past the cached window it slides the cache and only computes the one new row
+The three contiguous 63-byte regions at `0x91E2`, `0x9221`, and `0x9260`
+form one typed cache:
+
+```c
+typedef struct {
+    TIFloat value[7];
+} TableCacheBand;             /* 0x3F bytes */
+
+typedef struct {
+    TableCacheBand band[3];
+} TableValueCache;            /* 0xBD bytes at table_value_cache */
+```
+
+Thus `0x9221` is `table_value_cache.band[1]`, and `0x9260` is
+`table_value_cache.band[2]`. This notation captures both the 9-byte element
+stride and the 63-byte scroll-copy stride. [confirmed]
+
+`05:6014` performs the scroll: `LD HL,0x9221 ; LD DE,0x9260 ; LDIR` copies
+`table_value_cache.band[1]` to `band[2]` (a `0x3F`-byte block) and performs an
+`LDDR` shift of a `0xB4`-byte region. When the cursor moves above or below the
+cached window, it slides the cache and computes only the one new row
 (or recomputes if `reTable`). [confirmed]
 
 ### 3.4 Indpnt = Auto vs Ask, Depend = Auto vs Ask [confirmed]
@@ -310,7 +330,8 @@ columns, drawn with the large font through the home-screen text primitives
            INC row ; … ; LD (0x91DC),A
 ```
 
-`05:7E7C` chooses the destination text buffer (`0x9221` vs `0x91E2`) based on the
+`05:7E7C` chooses the destination cache band (`table_value_cache.band[1]` at
+`0x9221` versus `band[0]` at `0x91E2`) based on the
 column index, and writes `0xFF`/blank sentinels for empty (Ask) cells. The bottom
 status line and the highlighted-cell full-precision readout reuse the same value
 cache. [confirmed]
@@ -358,7 +379,7 @@ Conversely only the recompute driver clears it (`05:5DD7`, `05:62FD`,
      equation list at `iMathPtr4` (0x84D9) — here only `Y1`,
    - per row: `_StoX` the running-X, evaluate `Y1`'s tokens via the page-38
      evaluator (`_Find_Parse_Formula` / `_ParseInp`) → OP1 = `X²+1`, format and
-     stash into the cell cache (`0x91E2`/`0x9221`),
+     stash into `table_value_cache.band[0]`/`band[1]`,
    - advance to the next row (bound-checked at `05:65DC`; X = `TblStart + k·TblStep`) and repeat,
    - clear `reTable`.
 4. The grid paints (`05:7E45`) the cached `X` and `Y1` columns as large-font text;
@@ -387,11 +408,11 @@ IY+19 b6    tblFlags.reTable  = table-dirty
 05:774b  table_seed_runX_from_TblMin      ; runningX(0x862B) ← TblMin
 05:773f  table_seed_runX_from_TblMin2     ; same, split-graph path
 05:65dc  table_row_bound                   ; row-index bound check (91E0 vs (91DC))
-05:5ee1  table_fill_cache_loop            ; per-row value-cache fill (0x91E2)
+05:5ee1  table_fill_cache_loop            ; fill table_value_cache.band[0]
 05:6014  table_scroll_cache               ; slide cell cache on scroll (LDIR/LDDR)
 05:6d40  table_mode_test                  ; BIT autoFill/autoCalc (Auto vs Ask)
 05:7e45  table_paint_grid_loop            ; render cached cells as text columns
-05:7e7c  table_cell_select_buffer         ; pick cell text buffer 0x9221/0x91E2
+05:7e7c  table_cell_select_buffer         ; pick cache band 1/0
 05:7712  screen_split                     ; Graph-Table split-screen setup
 05:62fd  table_recompute_clear_reTable    ; another RES6 recompute exit
 
@@ -400,9 +421,10 @@ RAM  918C/918E  XOutSym / XOutDat              ; X-column symbol + data ptr
 RAM  9190/9192  YOutSym / YOutDat              ; Y-column symbol + data ptr
 RAM  9194/9196  inputSym / inputDat            ; Ask-input column descriptor
 RAM  9198       prevData                       ; previous-column data ptr
-RAM  91DB/91DC/91E0  row idx / row idx / top-row & col count
-RAM  91E2 / 9221     per-cell computed-value buffers (9-byte floats)
-RAM  8622 / 862B     running independent value (current row's X)
+RAM  91DC/91DD        CurTableRow / CurTableCol
+RAM  91E0             table-top state; exact role remains open
+RAM  91E2             table_value_cache (three bands × seven TIFloats)
+RAM  8622             table_x_work[2]; running independent-value scratch
 
 ; --- Y= equations, selected list, evaluation ---
 EquObj = 3 (VAT type)                          ; Y1..Y0 stored as tokenized formulas

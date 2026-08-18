@@ -36,7 +36,7 @@ The OS passes variable identity through `OP1` as a "name string": `OP1[0]` = typ
 | `_DelVar`/`_DelVarArc` | `00:1308`/`00:12D9` | delete (and handle archived copies) |
 | `_InsertMem`/`_DelMem` | `00:0F81`/`00:1368` | public low-level grow/shrink of a RAM region (the create path instead uses the internal gap routine at `ram:0F0C`) |
 
-`_CreateReal` (recovered): sets the type byte and a fixed size of 9, then jumps to the common create core at `00:1011`. That core stores the type, type-checks the object (`chk_type_not_str` at `ram:2045`), handles the complex-list special case (`OP1.exp == 0x5D`), applies the 6-character name limit (`00:1023 CP 0x7`; `00:1025 JP NC,00:2700 → LD A,0x88`, `E_Syntax`), and carves the gap via the internal routine at `ram:0F0C` (`00:1034`). Aggregate creators (lists/matrices) instead enter through the size prelude `var_alloc` (`00:1005`), which computes count×element-size + the 2-byte header and raises `E_Memory` on overflow (`JP C,00:2721` at `00:1008` → `LD A,0x8E`) before falling into the same `00:1011` core.
+`_CreateReal` (recovered): sets the type byte and a fixed size of 9, then jumps to the common create core at `00:1011`. That core stores the type, type-checks the object (`chk_type_not_str` at `ram:2045`), handles the complex-list special case (`OP1.value.exp == 0x5D`), applies the 6-character name limit (`00:1023 CP 0x7`; `00:1025 JP NC,00:2700 → LD A,0x88`, `E_Syntax`), and carves the gap via the internal routine at `ram:0F0C` (`00:1034`). Aggregate creators (lists/matrices) instead enter through the size prelude `var_alloc` (`00:1005`), which computes count×element-size + the 2-byte header and raises `E_Memory` on overflow (`JP C,00:2721` at `00:1008` → `LD A,0x8E`) before falling into the same `00:1011` core.
 
 ## Variable data formats — rendered as C [confirmed]
 
@@ -76,7 +76,7 @@ Per object type:
 
 `WindowObj`/`ZStoObj` (`0x0F`/`0x10`) hold the graph **Window** settings, `TblRngObj` (`0x11`) the table range, `BackupObj` (`0x13`) a full RAM image — all system, fixed-shape blobs.
 
-Aggregate creators size their data region (= count × element-size + 2-byte header) in the `var_alloc` prelude (`ram:1005`), then fall into the common create core (`ram:1011`), which carves the gap via the internal routine at `ram:0F0C` (the create path's own block-move, not the public `_InsertMem`; see [Memory management](memory-management.md)). The specific `_Create*` routine then writes the data header after the core returns — e.g. `_CreateRList` writes the list count, `_CreateStrng` the 2-byte size word. All key off the name in `OP1` (`OP1.exp` is the name's token class — `_CreateRList` validates a list-name token `0x5D/0x24/0x3A/0x72`).
+Aggregate creators size their data region (= count × element-size + 2-byte header) in the `var_alloc` prelude (`ram:1005`), then fall into the common create core (`ram:1011`), which carves the gap via the internal routine at `ram:0F0C` (the create path's own block-move, not the public `_InsertMem`; see [Memory management](memory-management.md)). The specific `_Create*` routine then writes the data header after the core returns — e.g. `_CreateRList` writes the list count, `_CreateStrng` the 2-byte size word. All key off the name in `OP1` (`OP1.value.exp` is the name's token class — `_CreateRList` validates a list-name token `0x5D/0x24/0x3A/0x72`).
 
 ## The VAT entry [confirmed]
 
@@ -90,6 +90,26 @@ The VAT grows downward from `symTable` (`0xFE66`); `_FindSym` (`00:0E65` → `fi
 | `N+4` | version metadata |
 | `N+5` | T2 metadata |
 | `N+6` | type — low 5 bits = `TIVarType` class, high bits flag archive state; copied to `OP1` at `0x8478` |
+
+The fixed-token form has a forward C view when its base is the lowest name
+byte, `N-2`:
+
+```c
+typedef struct {
+    uint8_t name[3];
+    uint8_t dataPage;
+    uint8_t dataAddrHi;
+    uint8_t dataAddrLo;
+    uint8_t version;
+    uint8_t t2;
+    uint8_t typeID;
+} VATEntry; /* 9 bytes */
+```
+
+Thus `((VATEntry *)(N-2))->dataPage` is the byte at `N+1`, and `typeID` is
+the byte at `N+6`. Named program, appvar, and group records have a
+variable-length name and therefore cannot use this fixed three-byte prefix;
+their six metadata bytes retain the same order relative to `N`. [confirmed]
 
 Because the VAT grows downward, the type byte sits at the higher address and the name at the lower, so the scanner reads metadata *upward* from the matched name (this is the reverse of a forward C-struct order). `_FindSym`/`_ChkFindSym` return the page in `B` (`0` ⇒ data in RAM). For an archived var the data address points into Flash and the page byte selects the page; the VAT entry itself always stays in RAM (only the data moves to Flash).
 

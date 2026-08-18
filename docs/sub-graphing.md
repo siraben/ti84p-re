@@ -37,7 +37,26 @@ There is a second "u" copy block at `0x8E7E` (`uXmin`…`uXres` at `0x8F3B`) —
 uVar window set used in the alternate (split/table) graph context, and a working/temp
 float pair around `0x8E6A`/`0x8E73` used by the transform code. [confirmed]
 
-`deltaX`/`deltaY` are derived from the window when the graph is set up and feed both the
+Both contiguous 23-float blocks share one structural layout. The active copy is
+`activeWindow` at `0x8F50`; the alternate copy is `userWindow` at `0x8E7E`:
+
+```c
+typedef struct {
+    TIFloat x_min, x_max, x_scale, y_min, y_max, y_scale;
+    TIFloat theta_min, theta_max, theta_step;
+    TIFloat t_min, t_max, t_step, plot_start;
+    TIFloat n_max, u0, v0, n_min, u02, v02, w0;
+    TIFloat plot_step, x_resolution, w02;
+} GraphWindowValues;
+```
+
+For example, `activeWindow.x_min` is the established `Xmin` address
+`0x8F50`, while `userWindow.x_min` is `uXmin` at `0x8E7E`. This member
+notation distinguishes which window copy a routine uses without dropping the
+official RAM labels. [confirmed]
+
+`deltaX`/`deltaY` are derived from `activeWindow.x_min` through
+`activeWindow.y_scale` when the graph is set up and feed both the
 forward (real→pixel) and the circle/draw routines. The LCD is `96×64`, but the graph area
 is 95 columns wide (0..94) and 63 tall (0..62), hence the /94 and /62. [standard]
 
@@ -61,7 +80,7 @@ Shared engine `37:41F2` computes $\mathrm{pixel}=\dfrac{\mathrm{value}-\mathrm{m
 - `CALL 2385` divides by the per-pixel delta (`shortX`/`shortY`),
 - the X path additionally adds the `0x8E73` X-origin term, the Y path negates so that
   larger Y maps to a *smaller* row (screen Y grows downward),
-- `CALL 4229` clamps/handles the float→integer exponent (reads `OP1.exp` at `0x8479`,
+- `CALL 4229` clamps/handles the float→integer exponent (reads `OP1.value.exp` at `0x8479`,
   bias `0x7F`) and rounds to an integer pixel; out-of-range loads ±large sentinel.
 `_YftoI` returns pixel row +1 (`INC A`) so callers get a 1-based / inverted row. [confirmed]
 
@@ -165,7 +184,7 @@ Each DRAW menu command has a page-04 bcall handler that draws into `plotSScreen`
 | `_VertCmd` | `04:7955` | `Vertical x` — draws a full-height vertical line at real X. See note below. |
 | `_LineCmd` | `04:796A` | `Line(x1,y1,x2,y2)` — `_PDspGrph`, optionally draws via page 33, then `JP 0x152A` = `_DeallocFPS1(0x24)` frees the coord frame (the alloc happens upstream). |
 | `_UnLineCmd` | `04:797C` | `Line(…,0)` — erase variant (same path, clear mode). |
-| `_PointCmd` | `04:79B2` | `Pt-On/Pt-Off/Pt-Change(` — reads style from `OP1.mantissa[0] & 0x20`, dispatches set/clear/toggle. |
+| `_PointCmd` | `04:79B2` | `Pt-On/Pt-Off/Pt-Change(` — reads style from `OP1.value.mantissa[0] & 0x20`, dispatches set/clear/toggle. |
 | `_DrawCmd` | `04:7B8B` | top-level `DRAW` dispatch — grabs the pending count and cross-jumps to the per-command handler. |
 | `draw_zero_op1` | `04:620B` | seeds OP3=0 then draws (used for axis / `DrawF` zero baseline). |
 

@@ -306,22 +306,26 @@ The resolved trace shows the first band as row command `0xB8`, column commands `
 
 ## Dormant boot-page display test
 
-Retail page `3F` contains a display and keypad diagnostic beginning at
-`3F:4658`. The only branch into that address follows `XOR A`, `OUT (0x05),A`,
-and `CP 0x09`, so it is constant-false. The **MODE** boot path can execute the
-RAM test at `3F:461A`, but it cannot continue into this LCD routine under Z80
-semantics. [confirmed]
+Retail page `3F` contains `boot_lcd_keypad_diagnostic` at `3F:4658`. Its only
+incoming branch, `boot_diagnostic_gate` at `3F:4615`, follows `XOR A`,
+`OUT (0x05),A`, and `CP 0x09`, so it is constant-false. The **MODE** boot path
+can execute `boot_ram_test` at `3F:461A`, but it cannot continue into this LCD
+routine under Z80 semantics. [confirmed]
 
-The dormant code fills all 768 visible bytes through `3F:46EF`, overwrites
-individual full rows through `3F:472E`, and presents six patterns. The sequence
-includes solid `0xFF` and `0x00`, alternating `0x55`/`0xAA` and `0x00`/`0xFF`
-rows, a solid `0xAA` pattern, and a bordered `0x81` pattern. It then sweeps raw
-contrast commands `0xFF` through `0xD9` and restores the OS contrast byte
-through `3F:74F5`. [confirmed]
+The dormant code fills all 768 visible bytes through `boot_lcd_fill_pattern` at
+`3F:46EF` and overwrites individual full rows through `boot_lcd_write_row` at
+`3F:472E`. It presents six patterns. The sequence includes solid `0xFF` and
+`0x00`, alternating `0x55`/`0xAA` and `0x00`/`0xFF` rows, a solid `0xAA`
+pattern, and a bordered `0x81` pattern. It then sweeps raw contrast commands
+`0xFF` through `0xD9` and
+restores the OS contrast byte through `boot_lcd_restore_contrast` at
+`3F:74F5`. [confirmed]
 
 An explicit direct-entry Wabbitemu harness validates the actual retail helpers,
-including 768 data writes from `3F:46EF`, 12 data writes from `3F:472E`, and
-the `0xFF` output from `3F:74F8`. This is emulator agreement with executed ROM,
+including 768 data writes from `boot_lcd_fill_pattern` (`3F:46EF`), 12 data
+writes from `boot_lcd_write_row` (`3F:472E`), and the `0xFF` output from
+`boot_lcd_write_contrast` (`3F:74F8`).
+This is emulator agreement with executed ROM,
 not evidence that retail boot reaches the code or that a physical panel
 produces the modeled image. [confirmed] for pinned Wabbitemu commit `48c2dc0`;
 [hypothesis] for unmeasured physical output. See
@@ -583,8 +587,9 @@ checks every field through `tools/wabbitemu_lcd_probe.py`. The ROM is only an
 initialized-core fixture in this mode; no TI-OS instruction executes.
 
 `tools/run_wabbitemu_lcd_diagnostic_probe.py` is a separate direct-entry mode.
-It boots the exact ROM to its protection baseline, then executes retail helpers
-at `3F:74C6`, `3F:46EF`, `3F:472E`, and `3F:74F8` from an injected RAM harness.
+It boots the exact ROM to its protection baseline, then executes
+`boot_lcd_initialize`, `boot_lcd_fill_pattern`, `boot_lcd_write_row`, and
+`boot_lcd_write_contrast` from an injected RAM harness.
 Its manifest labels the run as direct entry and retains compact counters and
 screen hashes rather than an instruction log.
 
@@ -606,7 +611,7 @@ nix shell nixpkgs#mame --command python tools/run_mame_lcd_probe.py \
 - [confirmed] `01:5A59` and `01:5A60` write and read pixel data; they are not contrast helpers.
 - [confirmed] `_LCD_DRIVERON` emits `0x40`, `0x05`, `0x01`, `0x03`, hardware-dependent power commands, and a RAM-derived contrast command.
 - [confirmed] `_ClrLCDFull` covers all 768 visible bytes with eight vertical bands.
-- [confirmed] The dormant `3F:4658` diagnostic covers all 12 visible columns, but its sole incoming branch at `3F:4615` is constant-false.
+- [confirmed] `boot_lcd_keypad_diagnostic` covers all 12 visible columns, but `boot_diagnostic_gate` is constant-false.
 - [confirmed] `_GrBufClr` changes only RAM, while `_GrBufCpy` performs the controller transfer.
 - [confirmed] `_PowerOff` disables display output before the ASIC enters low power.
 - [standard] Datamath attributes the photographed March 2004 module to Toshiba `T6K04`, whose primary data sheet specifies 128×64 RAM. The die is hidden under epoxy, so the photograph does not independently expose its marking.

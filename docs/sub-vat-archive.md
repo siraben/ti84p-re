@@ -11,23 +11,46 @@ the cross-page `CALL 0x2b09`-style trampolines. Page numbers are the masked flas
 
 ---
 
-## 1. The arcInfo workspace and key RAM pointers [confirmed]
+## 1. The `arcInfo` workspace and key RAM pointers [confirmed]
 
-The archive engine keeps a 12-byte scratch block, labelled `arcInfo` (`83EEh`) in `ti83plus.inc`,
-plus a saved copy `savedArcInfo` (`8406h`). `_Arc_Unarc`'s reentrant inner mover at `07:61DC`
-copies the 12 bytes starting at `83F1` (the `vatPtr` field onward, not the whole `83EE` block)
-into `8406` (`LD HL,83F1 / LD DE,8406 / LD BC,0C / LDIR`); the matching `07:61E8` restore candidate is an inferred label, not byte-confirmed in the disassembly.
+The archive engine keeps a confirmed 15-byte workspace prefix at `arcInfo`
+(`0x83EE`). The prefix contains seven named fields followed by two bytes whose
+meaning remains open:
 
-| Addr | Field (this doc's name) | Meaning |
+```c
+#pragma pack(push, 1)
+typedef struct {
+    uint8_t  page;              /* +0x00, 0x83EE */
+    uint16_t data_ptr;          /* +0x01, 0x83EF */
+    uint16_t vat_ptr;           /* +0x03, 0x83F1 */
+    uint16_t dest_ptr;          /* +0x05, 0x83F3 */
+    uint16_t data_size;         /* +0x07, 0x83F5 */
+    uint16_t size;              /* +0x09, 0x83F7 */
+    uint16_t size_full;         /* +0x0B, 0x83F9 */
+    uint8_t  unknown_tail[2];   /* +0x0D, 0x83FB */
+} ArchiveWorkspacePrefix;       /* 15 bytes */
+#pragma pack(pop)
+```
+
+`savedArcInfo` at `0x8406` is not a copy of that whole prefix. `_Arc_Unarc`'s
+reentrant mover at `07:61DC` copies the distinct 12-byte tail beginning at
+`arcInfo.vat_ptr`: `LD HL,83F1 / LD DE,8406 / LD BC,0C / LDIR`. The slice runs
+through `arcInfo.unknown_tail[1]`. [confirmed]
+
+The matching `07:61E8` restore candidate is an inferred label, not
+byte-confirmed in the disassembly. [hypothesis]
+
+| Addr | Field | Meaning |
 |------|-------------------------|---------|
 | `83EE` | `arcInfo.page`  | page byte of the data (Flash page if archived; RAM marker otherwise) |
-| `83EF` | `arcInfo.dataPtr` | 2-byte data address (in Flash window 0x4000–0x7FFF, or RAM) |
-| `83F1` | `arcInfo.vatPtr` | pointer to the VAT entry's type byte (the symbol record) |
-| `83F3` | `arcInfo.destPtr` | destination data pointer (RAM target on unarchive) |
-| `83F5` | `arcInfo.dataSize` | a header/record-size component (loaded from `BC` after `CALL 0FDE`) |
+| `83EF` | `arcInfo.data_ptr` | 2-byte data address (in Flash window 0x4000–`0x7FFF`, or RAM) |
+| `83F1` | `arcInfo.vat_ptr` | pointer to the VAT entry's type byte (the symbol record) |
+| `83F3` | `arcInfo.dest_ptr` | destination data pointer (RAM target on unarchive) |
+| `83F5` | `arcInfo.data_size` | a header/record-size component (loaded from `BC` after `CALL 0FDE`) |
 | `83F7` | `arcInfo.size` | the variable's data byte count (from `_DataSize`; `614B` does `CALL 1485` → `LD (83F7),DE`) |
-| `83F9` | `arcInfo.sizeFull` | size + header overhead |
-| `8406` | `savedArcInfo` | 12-byte save slot for nested calls |
+| `83F9` | `arcInfo.size_full` | size + header overhead |
+| `83FB` | `arcInfo.unknown_tail` | two bytes included in the saved tail; semantics unresolved |
+| `8406` | `savedArcInfo` | 12-byte save slot for `arcInfo.vat_ptr` through `unknown_tail[1]` |
 
 RAM-heap pointers used by the mem checks (cluster at `0x9820`–`0x983A`, confirmed in `.inc`):
 `FPS=9824`, `OPBase=9826`, `OPS=9828` (top of the upward data heap), `pTemp=982E`,
@@ -44,7 +67,7 @@ read/write routines are copied to run (you cannot execute from a Flash page whil
 `findsym_scan` @ `07:565F`. `_ChkFindSym` (`00:0E60`) first type-checks OP1 (`_CkOP1Real`)
 then falls into FindSym.
 
-The scanner keys off `OP1` at `8478`: `OP1.type`/`varType` and the name token at `8479` (=OP1+1),
+The scanner keys off `OP1` at `8478`: `OP1.value.type`/`varType` and the name token at `8479` (=OP1+1),
 with the 2 name bytes at `847A`/`847B`:
 
 ```z80
@@ -134,14 +157,14 @@ RAM copy; `61F4` is the one that carves RAM and copies the data back out of Flas
 
 ```z80
 6107:  CALL 7866 ; DI
-       CALL 614B                       ; size/accounting: (83F1)=vatPtr, _DataSize→83F7;
+       CALL 614B                       ; arcInfo.vat_ptr and arcInfo.size
                                        ;   616C reserves the archive-Flash slot
        CALL 2FF1 (cross_page 3D:64AA)  ; *** program the data into the archive Flash ***  (see §6)
        LD HL,(83F3) ; LD DE,(83F7) ; CALL _DelMem (1368)  ; release the old RAM copy
        RET
 616C:  reads vatPtr type, AND 0x1F (clean type for the record header),
        LD HL,(83F7)+(83F5) ; ADC ; JP C,2729 (E_Invalid, 0x8F)  ; size overflow?
-       reserves a Flash slot via 2FDF(3D:61AF) / 2FF7(3D:62C2)
+       reserves a Flash slot via archive_prepare_scan / archive_find_free_span
 ```
 The data is appended to the archive Flash (Flash cannot be overwritten in place). The VAT entry's
 type byte gets its archive flag set and its data ptr/page rewritten to point into Flash; the old RAM
@@ -150,20 +173,21 @@ copy is then released (the upward data heap shrinks). `archive_write_record` at 
 ### 4b. Flash → RAM (unarchive), `61F4` [confirmed]
 
 ```z80
-61F4:  LD (83EF),DE ; LD (83EE),A      ; arcInfo.dataPtr/page = source (Flash page+addr from FindSym)
-       CALL 6335                       ; 6331/6335: stash vatPtr (83F1), compute dataSize (83F5) via _DataSize
+61F4:  LD (83EF),DE ; LD (83EE),A      ; arcInfo.data_ptr/page = source
+       CALL 6335                       ; set arcInfo.vat_ptr and arcInfo.data_size
        CALL 32D3                       ; size accounting
-       LD A,(HL) ; CALL 146C           ; add header overhead → 83F9 (sizeFull)
+       LD A,(HL) ; CALL 146C           ; add header overhead → arcInfo.size_full
        EX DE,HL ; CALL _EnoughMem(0FA6); ensure there is RAM room for the unarchived copy
                 JP C,_ErrMemory(2721)
        OR 1 ; CALL 0F0C                ; carve the RAM gap (internal create-gap routine)
-       LD (83F3),DE                    ; destPtr = new RAM address
-       CALL 3003 (cross_page 3D:6440)  ; *** page-3D unarchive worker: copy Flash→RAM, retire the old record ***
+       LD (83F3),DE                    ; arcInfo.dest_ptr = new RAM address
+       CALL 3003 (unarchive_record_to_ram) ; copy Flash→RAM, retire old record
        RET
 ```
 The data is copied from Flash into the freshly-carved RAM gap. The VAT entry's archive flag is
 cleared and its data ptr/page rewritten back to the new RAM address; the old Flash record is left
-marked dead (`0xF0`, reclaimed at the next GC). `3D:6440` shares the page-3D flash-control prologue
+marked dead (`0xF0`, reclaimed at the next GC). `unarchive_record_to_ram`
+at `3D:6440` shares the page-3D flash-control prologue
 (`OUT (0x14)`) and is an inferred label, not byte-confirmed in the disassembly.
 
 ### 4c. Errors raised on the path [confirmed]
@@ -200,10 +224,10 @@ The archive manager chooses a free record and then calls the boot-page Flash API
 
 | Trampoline | Target | Role |
 |------------|--------|------|
-| `ram:2FDF` | `3D:61AF` | prepare archive accounting and scan state |
+| `ram:2FDF` | `3D:61AF` `archive_prepare_scan` | prepare archive accounting and scan state |
 | `ram:2FF7` | `3D:62C2` `archive_find_free_span` | scan records for a span large enough for the new object |
 | `ram:2FF1` | `3D:64AA` `archive_write_record` | write the record marker, header, name, data, and final status |
-| `ram:3003` | `3D:6440` | copy an archived record to RAM and retire its Flash record |
+| `ram:3003` | `3D:6440` `unarchive_record_to_ram` | copy an archived record to RAM and retire its Flash record |
 
 `archive_write_record` unlocks Flash with the protected port-`0x14` sequence. It writes an initial `0xF0` marker when the selected position requires one, starts the record with `0xFE`, writes the size and variable metadata, copies the data, and finalizes the status as `0xFC`. It uses `_WriteAByte` (`8021`, body `3F:4C9F`) for marker bytes and `_WriteFlashUnsafe` (`8087`, body `3F:4CA6`) for blocks. [confirmed]
 
@@ -639,7 +663,11 @@ archive operation at `3C:7F1C`. [confirmed]
   the `_Create*` routines and by the unarchive RAM-fit check (`61F4` calls it before allocating).
 - `_InsertMem` (`00:0F81`) / `_DelMem` (`00:1368`) — open / close a gap at HL by block-moving
   everything above; `_InsertMem` fails `E_Memory` if it would collide with the VAT.
-- Free archive is computed inside the page-3D archive layer. `3D:61AF` prepares its accounting state, `archive_find_free_span` at `3D:62C2` searches for placement, and `archive_app_boundary` at `3D:6413` supplies the dynamic exclusive upper page. The catalog **MEM** path runs through `3C:7121`. [confirmed]
+- Free archive is computed inside the page-3D archive layer.
+  `archive_prepare_scan` at `3D:61AF` prepares its accounting state,
+  `archive_find_free_span` at `3D:62C2` searches for placement, and
+  `archive_app_boundary` at `3D:6413` supplies the dynamic exclusive upper
+  page. The catalog **MEM** path runs through `3C:7121`. [confirmed]
 
 ---
 
@@ -652,7 +680,7 @@ archive operation at `3C:7F1C`. [confirmed]
 | `07:6107` | `arc_ram_to_flash` | RAM→Flash archive worker (programs Flash, frees old RAM) |
 | `07:61F4` | `arc_flash_to_ram` | Flash→RAM unarchive worker (carves RAM, copies from Flash) |
 | `07:6331` | `arc_size_setup` | stash vatPtr, compute dataSize into arcInfo |
-| `07:61DC` | `arc_save_info` | save 12-byte arcInfo into savedArcInfo; `07:61E8` (restore candidate) is an inferred label, not byte-confirmed in the disassembly |
+| `07:61DC` | `arc_save_info` | save the 12-byte tail from `arcInfo.vat_ptr` into `savedArcInfo`; `07:61E8` is an inferred restore candidate |
 | `07:565F` | `findsym_scan` | the real `_FindSym` VAT scanner |
 | `00:0E65` | `_FindSym` | RST10 trampoline → findsym_scan |
 | `00:0E60` | `_ChkFindSym` | type-check OP1 then FindSym |
@@ -662,7 +690,9 @@ archive operation at `3C:7F1C`. [confirmed]
 | `3A:5D07` | `rcl_var_push` | recall var, push to FPS |
 | `3D:6745` | `_FlashToRam` | copy archived data Flash→RAM (page-aware); `ti83plus.inc` sibling `_FlashToRam2` (id 8054) is named but its body is unmapped in the disassembly |
 | `3D:678C` | `ram_worker_launcher` | copy a length-prefixed worker to `0x8100` and execute it; used by `_FlashToRam` and certificate-page programming |
+| `3D:61AF` | `archive_prepare_scan` | prepare archive accounting and scan state |
 | `3D:64AA` | `archive_write_record` | program a complete archive record; executed in the archive trace |
+| `3D:6440` | `unarchive_record_to_ram` | copy an archived record to RAM and retire its Flash record |
 | `3D:62C2` | `archive_find_free_span` | scan from page `08` to the dynamic App boundary for space |
 | `3D:6413` | `archive_app_boundary` | return the first page below the installed App run in `B` |
 | `3D:726E` | `model_app_top_page` | model-specific App scan start (`0x15`/`0x29`/`0x69`) |

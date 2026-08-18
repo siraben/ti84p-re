@@ -32,7 +32,10 @@ Boundary/work pointers (clustered at `0x9820-0x983A`) [confirmed]:
 | `progPtr` | `0x9830` | currently-executing program pointer |
 | `pagedBuf` | `0x983A` | paged scratch buffer |
 
-`_MemChk` reports free RAM as `(OPS) − (FPS)` (the pointers at `0x9828`/`0x9824`) `+ 1`, i.e. the span between the floating-point stack and the operand/symbol stack in the middle of the region (the conceptual picture above: user data grows up, the VAT grows down, free RAM in the middle). When a variable grows/shrinks, everything above it shifts.
+`_MemChk` reports free RAM as `OPS - FPS + 1`: the inclusive span between the
+floating-point stack and the operand/symbol stack in the middle of the region.
+User data grows upward, the VAT grows downward, and a variable resize shifts
+everything above the resized object. [confirmed]
 
 ## Core allocation primitives [confirmed]
 
@@ -41,7 +44,13 @@ Boundary/work pointers (clustered at `0x9820-0x983A`) [confirmed]:
 - `_EnoughMem` (`ram:0FA6`) — ensure N free bytes; if short, it walks the temp/scratch entries (9-byte stride from `pTemp` down to `OPBase`) and `_DelVar`s reclaimable temporaries to make room. [confirmed]
 - `_MemChk` (`ram:0E20`) — compute current free RAM.
 
-Variable-creation bcalls — `_CreateReal`, `_CreateStrng`, `_CreateAppVar`, `_CreateRList`, etc. (see [Variables & the VAT](variables-vat.md)) — share a create body (`_CreateReal` at `ram:10B8` jumps into `ram:1011`) that carves space via an internal gap routine at `ram:0F0C` — which does its own block move and updates the temp/FP-stack pointers, not the public `_InsertMem` — then registers the variable in the VAT.
+Variable-creation bcalls — `_CreateReal`, `_CreateStrng`, `_CreateAppVar`,
+`_CreateRList`, and others — share `var_create_core` at `ram:1011`.
+`_CreateReal` at `ram:10B8` jumps into that core. The core calls
+`var_create_gap` at `ram:0F0C`, which moves the block and updates the temporary
+and FP-stack pointers before registering the variable in the VAT. This path is
+distinct from the public `_InsertMem`. See [Variables & the VAT](variables-vat.md).
+[confirmed]
 
 ## Flash archive [confirmed]
 

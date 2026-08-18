@@ -196,6 +196,20 @@ The API uses fixed system RAM rather than a caller-owned context structure. Two 
 
 The official equates call these regions `MD5Temp`, `MD5Length`, `MD5Hash`, and `MD5Buffer`. `_TransformHash` later reuses `MD5Buffer` for a different compact-big-integer value. [confirmed]
 
+The final length prefix and digest form one typed result at
+`compactHashLength` (`0x8291`):
+
+```c
+typedef struct {
+    uint8_t length;
+    uint8_t bytes[16];
+} CompactHashResult;
+```
+
+`compactHashLength.length` aliases the one-byte prefix, and
+`compactHashLength.bytes` aliases `MD5Hash` at `0x8292`. `_MD5Final` may trim
+the prefix, but it leaves all 16 bytes in the array. [confirmed]
+
 ### Initialization
 
 `_MD5Init` copies 16 bytes from `3F:6615` to `MD5Hash`: [confirmed]
@@ -302,9 +316,13 @@ The routine then copies the original eight-byte `MD5Length` to `MD5Buffer+56` at
 
 WikiTI warns that early boot versions mishandle messages whose byte length is 55 modulo 64. The local boot 1.03 body does not have that bug: `3F:6968` takes the short branch for index 55 and computes one padding byte. The warning remains relevant to the named older boot versions, not to this ROM. [confirmed] for the local branch; [standard] for the historical report.
 
-### Digest bytes and the prefix at `0x8291`
+### Digest bytes and the compact result prefix
 
-After compression, `_MD5Final` writes `16` to `0x8291` and jumps to the compact-integer trimming helper at `3F:7014`. That helper decreases the prefix while the highest-address digest bytes are zero. It does not move or rewrite the 16 digest bytes at `0x8292`. [confirmed]
+After compression, `_MD5Final` writes `16` to
+`compactHashLength.length` (`0x8291`) and jumps to the compact-integer trimming
+helper at `3F:7014`. That helper decreases the prefix while the
+highest-address digest bytes are zero. It does not move or rewrite
+`compactHashLength.bytes` at `0x8292`. [confirmed]
 
 Consumers needing the MD5 byte string should always read all 16 bytes from `MD5Hash`. The byte order in RAM is the conventional digest byte order. For `"abc"` it is: [confirmed]
 
@@ -355,7 +373,9 @@ The resolved port instructions execute at the named helpers on page `3F`. The fi
 
 ### Compact integer representation
 
-The routine reads a one-byte length at `0x8291` followed by little-endian digest bytes at `0x8292`. It constructs this value at `MD5Buffer`: [confirmed]
+The routine reads `compactHashLength.length` followed by the little-endian
+digest bytes in `compactHashLength.bytes`. It constructs this value at
+`MD5Buffer`: [confirmed]
 
 $$
 m = 256 \times \operatorname{integer}(\text{digest bytes}) + 1

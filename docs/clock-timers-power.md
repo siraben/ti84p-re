@@ -30,7 +30,7 @@ flowchart LR
     XTAL["32.768 kHz quartz"] --> ST["standard timers 1 and 2"]
     XTAL --> PTX["programmable timers<br/>crystal modes"]
     XTAL --> RTC["32-bit RTC seconds counter"]
-    ST --> ISR["IM1 ISR · ram:0038"]
+    ST --> ISR["im1_vector · ram:0038"]
     PTCPU --> ISR
     PTX --> ISR
     ISR --> APD["keypad · cursor · APD"]
@@ -63,17 +63,21 @@ The standard timers and RTC remain tied to the quartz domain when the CPU speed 
 
 ## Interrupt-source routing
 
-TI-OS uses IM1. `ram:0038` jumps to `ram:006D`, swaps in the alternate general registers, polls the active-low USB summary at port `0x55`, and falls through to the separate legacy status port `0x04` when the USB block reports no source. [confirmed]
+TI-OS uses IM1. `im1_vector` at `ram:0038` jumps to
+`int_entry_save_alt_regs` at `ram:006D`. That entry swaps in the alternate
+general registers, polls the active-low USB summary at port `0x55`, and falls
+through to the separate legacy status port `0x04` when the USB block reports no
+source. [confirmed]
 
 Reading port `0x04` reports legacy pending state, live ON level, and programmable-timer completion: [standard]
 
 | Bit | Source | OS branch from the dispatcher |
 |----:|--------|-------------------------------|
-| 0 | ON key | `ram:015B` |
-| 1 | standard hardware timer 1 | `ram:0167` |
+| 0 | ON key | `on_irq` at `ram:015B` |
+| 1 | standard hardware timer 1 | `standard_timer1_irq` at `ram:0167` |
 | 2 | standard hardware timer 2 | `ram:01F1` |
 | 3 | ON key level, active low | tested as state rather than a source |
-| 4 | link activity | `ram:01E0` path |
+| 4 | link activity | `legacy_link_irq` at `ram:01E0` |
 | 5 | programmable timer 1 complete | status check at `ram:013A`; handler `33:5EB4` |
 | 6 | programmable timer 2 complete | `ram:0154` path |
 | 7 | programmable timer 3 complete | status check at `ram:012C`; handler `35:4792` |
@@ -82,7 +86,7 @@ The two status handlers visible in this dispatch are unrelated to the kernel's A
 
 - `33:5EB4` continues the OS timer API's programmable-timer-1 countdown.
 - `35:4792` stops programmable timer 3 and services a USB timeout/event structure through ports `0x8E`, `0x91`, and `0x92`.
-- `ram:0167` handles the standard timer-1 tick that reaches keypad scanning, cursor blink, the run indicator, and APD.
+- `standard_timer1_irq` handles the tick that reaches keypad scanning, cursor blink, the run indicator, and APD.
 
 The status-test order is programmable timer 3, timer 1, timer 2, standard timer 2, link, ON, then standard timer 1. Programmable completion bits remain visible when their timer mode does not request an interrupt, so timers 1 and 3 receive an additional mode-bit check before their handlers run. [confirmed] for the test order and mode checks; [standard] for completion visibility.
 
@@ -116,7 +120,11 @@ through the registered port handler. These values describe Wabbitemu only.
 
 ### Dynamic cadence
 
-A resolved TilEm trace enters `ram:0167` at steady intervals of 139,153–139,157 emulated CPU cycles after the OS reaches its 15 MHz state. TilEm schedules this timer at 9,277 µs, so its nominal interval is 139,155 cycles. Instruction-boundary acceptance accounts for the small spread. [confirmed]
+A resolved TilEm trace enters `standard_timer1_irq` at steady intervals of
+139,153–139,157 emulated CPU cycles after the OS reaches its 15 MHz state.
+TilEm schedules this timer at 9,277 µs, so its nominal interval is 139,155
+cycles. Instruction-boundary acceptance accounts for the small spread.
+[confirmed]
 
 The hardware formula gives 9,277.34375 µs, or 139,160.15625 nominal 15 MHz cycles. TilEm rounds each rate to whole microseconds with the table `{1953, 4395, 6836, 9277}`. The five-cycle difference at the slow setting is emulator quantization, not evidence that the quartz formula differs. [standard]
 
@@ -136,7 +144,7 @@ not physical phase or frequency measurements. [standard]
 |----------|-----------------|------|
 | Run indicator | `indicCounter` at `0x8476` | `run_indicator_tick` at `ram:027B` |
 | Keypad scan and repeat | state at `0x8440`–`0x8443` | `kbd_tick_debounce_repeat` at `ram:03B4` → `kbd_scan_matrix` at `ram:0406` |
-| Cursor blink | `curTime` at `0x844A` | `06:7C45` through the `ram:3FCF` bjump |
+| Cursor blink | `curTime` at `0x844A` | `cursor_blink_tick` at `06:7C45` through the `ram:3FCF` bjump |
 | General countdown | word at `0x9C24` | `apd_timer_tick` at `ram:0355` |
 | APD | `apdSubTimer`/`apdTimer` at `0x8448`/`0x8449` | `ram:036C`–`ram:0382` |
 
@@ -179,11 +187,15 @@ standard timer-1 ticks. The exact range is: [confirmed] for the counter arithmet
 
 The low byte's free-running phase explains the roughly 2.37-second spread after a reload. The high-byte constant alone therefore does not encode one exact number of minutes. [confirmed]
 
-On expiry, `ram:0374` performs display/context cleanup, clears `apdRunning`, sets `apdWarmStart`, and jumps to the shared shutdown body at `ram:0A24`. [confirmed]
+On expiry, `ram:0374` performs display/context cleanup, clears `apdRunning`,
+sets `apdWarmStart`, and jumps to `poweroff_shared_tail` at `ram:0A24`.
+[confirmed]
 
 ### Cursor blink cadence
 
-`_CursorOn` and `_CursorOff` reload `curTime` with `0x32` (50). The handler at `06:7C45` decrements it, toggles `curOn` on expiry, and reloads the same value. [confirmed]
+`_CursorOn` and `_CursorOff` reload `curTime` with `0x32` (50).
+`cursor_blink_tick` decrements it, toggles `curOn` on expiry, and reloads the
+same value. [confirmed]
 
 At the OS standard-timer setting, one visible-state interval is [confirmed] for the tick count; [standard] for wall time.
 
@@ -435,17 +447,19 @@ WikiTI documents `_getDate` as returning day, month, and year through `OP1` and 
 
 ## Power-off and wake flow
 
-`_PowerOff = 5008` resolves to `ram:09E6`. It performs context and display cleanup before joining a shared shutdown tail. APD performs its own cleanup at `ram:0374` and joins later at `ram:0A24`. [confirmed]
+`_PowerOff = 5008` resolves to `ram:09E6`. It performs context and display
+cleanup before joining `poweroff_shared_tail` at `ram:0A24`. APD performs its
+own cleanup at `ram:0374` and joins the same tail. [confirmed]
 
 ```mermaid
 flowchart TD
     EX["_PowerOff · ram:09E6"] --> CLEAN["put-away and display cleanup"]
     APD["APD expiry · ram:0374"] --> APDF["clear apdRunning<br/>set apdWarmStart"]
-    CLEAN --> JOIN["shared body · ram:0A24"]
+    CLEAN --> JOIN["poweroff_shared_tail · ram:0A24"]
     APDF --> JOIN
     JOIN --> P4["port 04 = 06"]
     P4 --> P3["port 03 = 11"]
-    P3 --> H["EI; HALT loop · ram:0A5C"]
+    P3 --> H["poweroff_halt_loop · ram:0A5C"]
     H --> WAKE["ON/link interrupt and wake path"]
 ```
 
@@ -458,13 +472,23 @@ The final writes are: [confirmed]
 | `ram:0A51` | clear `shift2nd` | remove the **[2nd]** modifier |
 | `ram:0A55` | clear `onRunning` | mark the OS as powered down |
 | `ram:0A5B` | `EI` | allow the selected wake interrupt |
-| `ram:0A5C` | `HALT; JR ram:0A5C` | remain in the ASIC low-power loop |
+| `poweroff_halt_loop` | `HALT; JR ram:0A5C` | remain in the ASIC low-power loop |
 
-The low-power request is port-`0x03` bit 3 clear combined with Z80 `HALT`; writing `0x11` by itself does not finish the transition. ON and link activity remain enabled as wake sources. The wake interrupt follows `ram:0038` → `ram:006D` → `ram:015B` → `ram:0964`. After debouncing the active-low ON level, the power-on branch at `ram:09AC` restores the CPU-speed setting and writes `0x06` to port `0x04` at `ram:09B7`. It does not return to the suspended `_PowerOff` caller. [confirmed]
+The low-power request is port-`0x03` bit 3 clear combined with Z80 `HALT`;
+writing `0x11` by itself does not finish the transition. ON and link activity
+remain enabled as wake sources. The wake interrupt follows `im1_vector` →
+`int_entry_save_alt_regs` → `on_irq` → `on_key_debounce_power`. After
+debouncing the active-low ON level, the power-on branch at `ram:09AC` restores
+the CPU-speed setting and writes `0x06` to port `0x04` at `ram:09B7`. It does
+not return to the suspended `_PowerOff` caller. [confirmed]
 
 ### Dynamic power-cycle trace
 
-`tools/macros/power-cycle.macro` cold-boots the OS, presses **[2nd]**+**ON**, waits in low power, then presses **ON**. The resolved trace enters `_PowerOff` once, reaches `ram:0A24`, executes both port writes, and repeats `HALT` at `ram:0A5C` until the wake event. It then records the wake route through `ram:0964`, `ram:09AC`, and `ram:09B5`. [confirmed]
+`tools/macros/power-cycle.macro` cold-boots the OS, presses **[2nd]**+**ON**,
+waits in low power, then presses **ON**. The resolved trace enters `_PowerOff`
+once, reaches `poweroff_shared_tail`, executes both port writes, and repeats
+`HALT` in `poweroff_halt_loop` until the wake event. It then records the wake
+route through `on_key_debounce_power`, `ram:09AC`, and `ram:09B5`. [confirmed]
 
 ```sh
 TILEM=~/Git/tilem-headless/result/bin/tilem2
@@ -656,13 +680,13 @@ nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
 
 ## Resolved findings and open hardware questions
 
-- [confirmed] Standard hardware timer 1 drives APD, keypad scanning, cursor blink, and the run indicator through `ram:0167`.
+- [confirmed] `standard_timer1_irq` drives APD, keypad scanning, cursor blink, and the run indicator.
 - [confirmed] `33:5EB4` is the programmable-timer API interrupt handler; `35:4792` is a USB timer-3 handler.
 - [confirmed] APD expires 29,441–29,696 kernel ticks after `_ApdSetup`, depending on the untouched low-byte phase.
 - [confirmed] The cursor toggles every 50 kernel ticks.
 - [confirmed] The timer bcall API exposes only ID `0x70`, uses radix-255 duration chunking, and keeps a saturating expiry count.
 - [confirmed] The Bad Apple application writes timer-1 tuple `0x82`/`0x03`/`120`; the documented CPU-clock decode gives 31.25 kHz at nominal 15 MHz, while its companion encoder assumes 33,333.3 Hz.
-- [confirmed] Explicit power-off and APD share the low-power tail at `ram:0A24`.
+- [confirmed] Explicit power-off and APD share `poweroff_shared_tail`.
 - [standard] TilEm matches the published `33`/`328`/`3277` crystal divisors; pinned Wabbitemu and MAME sources use `32`/`327`/`3276`.
 - [standard] TilEm, Wabbitemu, MAME, and jsTIfied all omit the published port-`0x2F` prescaler from their `0xC0`-family timer models.
 - [standard] A guarded TilEm run verifies its four whole-microsecond standard-timer periods, unchanged current intervals on rate writes, two timer-2 callbacks sharing one pending bit, and the three programmable-timer HALT-gate cases.

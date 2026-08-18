@@ -13,7 +13,7 @@ detailed timing contract; MAME provides an explicit omission comparison.
 
 | Evidence | What it establishes | Confidence |
 |----------|---------------------|------------|
-| `3F:41BD`–`41D3` | exact OS values for ports `0x29`–`0x2C`, `0x2E`, and `0x2F` | [confirmed] |
+| `boot_bus_timing_init` at `3F:41BD`–`41D3` | exact OS values for ports `0x29`–`0x2C`, `0x2E`, and `0x2F` | [confirmed] |
 | Resolved cold-boot trace | all six writes execute in order before normal CPU speed is selected | [confirmed] |
 | Whole-ROM immediate-port scan | no second control-flow-verified write to these registers in the analyzed ROM | [confirmed] |
 | TilEm and Wabbitemu source | independent decode of speed selection, LCD instruction delays, and memory wait bits | [standard] |
@@ -94,8 +94,8 @@ reset claim. [standard]
 
 ## Boot configuration
 
-The retail boot continuation writes the complete block after its RAM probes
-and link-assist initialization: [confirmed]
+`boot_bus_timing_init` at `3F:41BD` writes the complete block after the retail
+boot RAM probes and link-assist initialization: [confirmed]
 
 ```z80
 3F:41BD  LD A,0x17
@@ -436,7 +436,7 @@ and emulator run; [hypothesis] for pending measurements.
 
 | Source | Use |
 |--------|-----|
-| OS 2.55MP `3F:41BD`–`41D3` and resolved boot trace | boot register values, write order, and later CPU-speed transitions |
+| OS 2.55MP `boot_bus_timing_init` and resolved boot trace | boot register values, write order, and later CPU-speed transitions |
 | [WikiTI ports `0x29`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:29), [`0x2A`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2A), [`0x2B`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2B), and [`0x2C`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2C) | speed selection, gate bits, LCD instruction delay, and published failure thresholds |
 | [WikiTI port `0x2E`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2E) | six memory-access classes and prefix observation |
 | [WikiTI port `0x2F`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2F) | LCD-ready intervals and mode-3 timer prescaler |
