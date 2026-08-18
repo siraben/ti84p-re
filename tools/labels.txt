@@ -1,0 +1,65 @@
+# Reviewed non-function symbols. Function entries belong in names.txt.
+# Format: <space>:<addr_hex> <TAB> <name> [<TAB> primary|alias]
+
+# Token and parser dispatch tables.
+ram:1ff6	two_byte_token_lead_table
+page_38:4000	grammar_handler_table
+page_38:7175	leaf_production_handler_table
+page_38:5992	parse_inp_current_state
+page_33:4381	ctrlflow_handler_table
+page_38:5836	for_first_update
+page_38:587d	for_steady_update
+
+# MathPrint construction, layout, and glyph tables.
+page_33:4f82	eqdisp_allocation_geometry_table
+page_34:594d	eqdisp_source_type_table
+page_34:59ac	eqdisp_child_scan_table
+page_34:6119	eqdisp_render_handler_table
+page_34:739f	eqdisp_metric_handler_table
+page_34:7611	eqdisp_geometry_handler_table
+page_39:5e45	eqdisp_handler_table
+page_07:45ff	large_font_glyph_table
+
+# MathPrint internal entries whose overlapping flow prevents separate functions.
+page_34:4900	eqdisp_allocate_record
+page_34:4a83	eqdisp_find_leaf_record
+page_34:4aaf	eqdisp_substitute_active_leaf
+page_34:6ccd	eqdisp_resolve_child
+page_34:58a0	eqdisp_insert_structural_marker
+page_34:5da6	eqdisp_draw_hline_clipped
+page_34:6143	eqdisp_draw_marker_primitive
+page_34:62d0	eqdisp_draw_radical_hook
+page_34:636c	eqdisp_render_child1
+page_34:660a	eqdisp_render_leaf_program
+
+# Floating-point and solver constants.
+page_02:7181	logexp_digit_table
+page_02:7201	trig_recurrence_table_a
+page_02:7281	trig_recurrence_table_b
+page_02:7d42	fp_constant_table
+page_33:4e92	const_ln10x100
+page_39:46e1	const_solver_floor_1e99
+page_39:46ea	const_solver_tol_1e13
+page_07:6b81	error_name_table
+
+# Structural aliases preserve the official first-field RAM names from ram.txt.
+ram:8e7e	userWindow	alias
+ram:8f50	activeWindow	alias
+
+# Boot and Flash data/code boundaries that are entered or copied indirectly.
+ram:003a	interrupt_legacy_status
+ram:015b	on_irq
+ram:01e0	legacy_link_irq
+ram:0a24	poweroff_shared_tail
+ram:0a5c	poweroff_halt_loop
+page_3F:412c	boot_os_entry
+page_3F:41bd	boot_bus_timing_init
+page_3F:41d5	boot_execution_protection_init
+page_3F:4615	boot_diagnostic_gate
+page_3F:4658	boot_lcd_keypad_diagnostic
+page_3F:4c3b	boot_flash_erase_worker_descriptor
+page_3F:4cc8	flash_program_worker_descriptor
+page_3F:4cca	flash_program_worker_code
+page_3D:6761	flash_to_ram_worker_descriptor
+page_3D:7308	certificate_worker_descriptor
+page_3C:7d30	gc_phase_finalize

@@ -33,13 +33,22 @@ Every non-obvious claim is tagged:
 - `_CamelCase` — an official TI bcall/equate name (from `ti83plus.inc`, the full 2007 TI-83 Plus SDK equates file, or the TI SDK), e.g. `_FindSym`, `_FPAdd`. High confidence.
 - `snake_case` — a name *inferred during this RE* from a routine's behavior (which named routines it calls, which RAM/ports it touches), e.g. `findsym_scan`, `fp_normalize`. Accurate in aggregate; any single low-level helper name is a best-effort guess.
 
+The rebuilt Ghidra project keeps each kind of name in a separate checked registry:
+
+- `tools/names.txt` contains function entries. Its importer disassembles the entry and creates a function.
+- `tools/labels.txt` contains ROM data and internal code-entry labels. Its importer never creates a function.
+- `tools/ram.txt` contains RAM and port symbols, including official SDK equates and carefully named inferred state.
+- `tools/poffsets.txt` contains reviewed base-plus-offset references. These make an operand such as `mathprintArenaState + 0x0D` render as a structure member without inventing a second global name for the field address.
+
+`tools/ty_regions.txt` applies the C layouts built by `BuildTypes.java`. The prose can therefore use expressions such as `table_value_cache.band[1].value[row]` once it introduces the typed base and its concrete address. A physical boundary, trace target, or byte-level proof still keeps its concrete address. [confirmed]
+
 ## Math notation
 
 Formulas are written in LaTeX and rendered by KaTeX (offline, client-side): `$…$` for inline math and `$$…$$` for display. Algorithms render as pseudocode blocks and data/control-flow diagrams as Mermaid.
 
 ## How this RE was produced
 
-- The Ghidra database is rebuilt from the ROM by `tools/build.sh` (a 10-stage headless pipeline). It loads all 64 flash pages (page 0 + overlays at `4000`), then resolves and names routines from the main OS bcall table.
+- The Ghidra database is rebuilt from the ROM by `tools/build.sh` (a 13-stage reproducible pipeline around Ghidra's headless analyzer). It loads all 64 flash pages (page 0 + overlays at `4000`), then resolves routines, applies function and data symbols, and installs the checked C layouts and offset references.
 - **Local ROM trust boundary.** `tools/assemble_local_rom.py --check` validates the exact ignored base-ROM and AppVar hashes without writing output. Its reusable `tools/rom_assembly.py` library decodes each TI variable container, verifies its checksum, type, name, flags, duplicate length fields, internal 16 KiB size, and payload hash, then requires the assembled-ROM hash. This proves which bytes the analysis uses; it does not prove that the files were captured from a physical calculator. The pinned base already contains the `D84PBE1.8Xv` page-`3F` payload byte for byte. Only `D84PBE2.8Xv`, installed at page `2F`, changes the base image (8,615 bytes). [confirmed]
 - **bcall table resolution.** The main jump table page was found by *scoring* all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid `(addr, page)` entry. Page 0x3B scored highest for the `0x4xxx` table — more known bcall IDs resolve to a valid `(addr, page)` entry there than on any other page — and is confirmed by the documented RST shortcuts (all six matched) and by every entry resolving and live-confirming once 0x3B is applied. `0x8xxx` bcall IDs index the retail boot table on page `3F`; several USB entries target page `2F`. The local `rom.bin` is assembled from the patched base plus the retail `D84PBE1.8Xv` and `D84PBE2.8Xv` payloads, so `tools/bcalls8x_targets.txt` contains 83 byte-resolved body rows. The resolver rejects these targets when page `3F` has a BootFree prefix.
 - **Decompiler caveats.** Ghidra's Z80 decompiler mis-renders some idioms — `SET b,(IY+d)` flag ops, the `CALL cross_page_jump` (`ram:2B09`) trampolines, and register-passed arguments on banked pages. Where the decompiler is unreliable the notes are grounded in the raw disassembly (and several deep-dives used a small custom Z80 decoder over the ROM to verify addresses byte-exactly).

@@ -42,11 +42,14 @@ rm -rf "$PROJ/$NAME.gpr" "$PROJ/$NAME.rep"
   -postScript ParserTable.java "$T" \
   -postScript RenameFns.java "$T" \
   -postScript BuildTypes.java "$T" \
+  -postScript ApplyLabels.java "$T" \
+  -postScript ApplyOffsetRefs.java "$T" \
   -postScript RenameVars.java "$T"
 echo "Build complete: $PROJ/$NAME.gpr"
 # Pipeline: 64-page load + symbols/floats/bcall-fixup (BuildTI84Full)
 #  -> name 621 bcall routines at real (page,addr) (ApplyBcalls)
 #  -> follow flow + name new bcall sites (DeepenPass)
-#  -> apply accumulated manual names (RenameFns)
+#  -> apply accumulated manual function names (RenameFns)
 #  -> TI-OS enums/structs/typed regions (BuildTypes)
+#  -> apply non-function symbols and reviewed base+offset references
 #  -> apply decompiler variable names from varnames.txt (RenameVars)

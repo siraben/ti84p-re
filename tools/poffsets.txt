@@ -1,0 +1,19 @@
+# Reviewed Ghidra base-plus-offset references.
+# Format: <from-space>:<addr> <TAB> <operand> <TAB> <base-space>:<addr> <TAB> <offset-hex>
+
+# MathPrint arena pointers: MathPrintArenaState at 0x8DAF.
+page_34:4a83	1	ram:8daf	000d
+page_34:4a86	1	ram:8daf	000f
+page_34:4a90	1	ram:8daf	0002
+page_34:4ab6	1	ram:8daf	0013
+page_34:4ad1	1	ram:8daf	000d
+page_34:4b86	1	ram:8daf	0002
+
+# OP-register guard bytes: TIOpRegister.value + guard[0..1].
+ram:2628	0	ram:8478	0009
+ram:262e	0	ram:8478	000a
+ram:262b	0	ram:8483	0009
+ram:2631	0	ram:8483	000a
+
+# The directly loaded two-pi image is fp_constant_table[7].
+page_02:7372	1	page_02:7d42	003f
