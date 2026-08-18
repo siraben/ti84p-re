@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -251,7 +251,8 @@ in the diagram describe what each probe layer contributes after the preceding
 layer. No successor at a declared branch is unclassified. [confirmed]</p>
 <p>That 52-outcome matrix is a regression test for eight local models. It is not
 the interpreter denominator. The broader CFG audit seeds all valid destinations
-from the parser table at <code>38:4000</code> and the 13-entry page-33 table at <code>33:4381</code>,
+from <code>grammar_handler_table</code> (<code>38:4000</code>) and the 13-entry
+<code>ctrlflow_handler_table</code> (<code>33:4381</code>),
 then follows direct control flow through five bounded components. [confirmed]</p>
 <h2 id="expanded-cfg-saturation"><a class="header" href="#expanded-cfg-saturation">Expanded CFG saturation</a></h2>
 <p>The expanded graph contains 8,490 reachable instructions and 1,351 conditional
@@ -271,10 +272,11 @@ branches. Its 2,702 possible outcomes produce this trace breakdown:</p>
 </tbody>
 </table>
 </div>
-<p>Natural <code>factorial</code> and <code>dfs</code> traces now identify the actual page-38 loop path:
-<code>For(</code> reaches <code>38:41E5</code>, <code>End</code> reaches <code>38:4200</code>, and the loop continuations
-are <code>38:5836</code> and <code>38:587D</code>. They still do not enter the page-33 probe
-dispatcher. [confirmed]</p>
+<p>Natural <code>factorial</code> and <code>dfs</code> traces identify the page-38 loop path:
+<code>For(</code> reaches <code>parse_for_production</code> (<code>38:41E5</code>), <code>End</code> reaches
+<code>parse_end_ops_record</code> (<code>38:4200</code>), and the loop continuations are
+<code>for_first_update</code> (<code>38:5836</code>) and <code>for_steady_update</code> (<code>38:587D</code>). They do not
+enter the page-33 probe dispatcher. [confirmed]</p>
 <pre class="mermaid">flowchart LR
     T["81 parser handlers&lt;br/&gt;plus subsystem entries"] --&gt; G["8,490-instruction&lt;br/&gt;direct CFG"]
     G --&gt; B["2,702 outcomes"]

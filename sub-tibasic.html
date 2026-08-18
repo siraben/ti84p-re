@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -212,20 +212,20 @@ cross to page 02, control-flow bodies to page 33, display code to pages 01/03/37
 and variable lookup to the VAT routines. Those page changes are continuations
 of one interpreter, not separate parsers. [confirmed]</p>
 <h2 id="the-token-cursor"><a class="header" href="#the-token-cursor">The token cursor</a></h2>
-<p>The cursor is an interval in RAM:</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>State</th><th>Address</th><th>Meaning</th></tr>
-</thead>
-<tbody>
-<tr><td><code>nextParseByte</code></td><td><code>965Dh</code></td><td>Current token position</td></tr>
-<tr><td><code>basic_end</code></td><td><code>965Fh</code></td><td>Inclusive parser bound/refill boundary</td></tr>
-<tr><td><code>basic_start</code></td><td><code>965Bh</code></td><td>Start of the current body</td></tr>
-<tr><td><code>basic_prog</code></td><td><code>9652h</code></td><td>Current program/object identity</td></tr>
-</tbody>
-</table>
-</div>
+<p><code>TIBasicParserState</code> (<code>0x9652</code>) keeps the program identity and cursor interval
+contiguous in RAM: [confirmed]</p>
+<pre><code class="language-c">#pragma pack(push, 1)
+typedef struct {
+    uint8_t basic_prog[9];
+    uint16_t basic_start;
+    uint16_t next_parse_byte;
+    uint16_t basic_end;
+    uint8_t num_arguments;
+} TIBasicParserState;
+#pragma pack(pop)
+</code></pre>
+<p><code>next_parse_byte</code> is the current token position. <code>basic_start</code> begins the
+current body, and <code>basic_end</code> is its inclusive parser/refill boundary.</p>
 <p>The small page-38 helpers are the useful way to reason about cursor movement:</p>
 <div class="table-wrapper">
 <table>
@@ -242,7 +242,8 @@ of one interpreter, not separate parsers. [confirmed]</p>
 </table>
 </div>
 <p>Encoded width matters whenever the interpreter skips rather than evaluates.
-<code>_IsA2ByteTok</code> (<code>00:1FE8</code>) searches the 11-byte table at <code>00:1FF6</code>; a match
+<code>_IsA2ByteTok</code> (<code>00:1FE8</code>) searches the 11-byte
+<code>two_byte_token_lead_table</code> (<code>00:1FF6</code>); a match
 means the lead and following byte must move together. The scanner also treats a
 quoted string as one region, so <code>Then</code>, <code>Else</code>, or <code>End</code> bytes inside a string
 cannot terminate an outer scan. [confirmed]</p>
@@ -276,25 +277,24 @@ handler recursively consume tighter-binding operands. The selector at
 <tr><th>Selector <code>C</code></th><th>Handler family</th><th>Role</th></tr>
 </thead>
 <tbody>
-<tr><td>Other than <code>02h</code> or <code>03h</code></td><td>pointer table at <code>38:4000</code></td><td>Main grammar productions</td></tr>
+<tr><td>Other than <code>02h</code> or <code>03h</code></td><td><code>grammar_handler_table</code> (<code>38:4000</code>)</td><td>Main grammar productions</td></tr>
 <tr><td><code>02h</code></td><td>code at <code>38:478C</code></td><td>Postfix/power production</td></tr>
-<tr><td><code>03h</code></td><td>code at <code>38:7175</code></td><td>Leaf production</td></tr>
+<tr><td><code>03h</code></td><td><code>leaf_production_handler_table</code> (<code>38:7175</code>)</td><td>Six leaf-production offsets</td></tr>
 </tbody>
 </table>
 </div>
-<p>For the main family, the grammar class in <code>A</code> indexes a table of little-endian
-handler pointers at <code>38:4000</code>. Its 87 slots contain 84 valid pointers and 81
-distinct handler destinations. The bytes there are data—beginning <code>9F 41 F0 45 1C 42 ...</code>—not executable Z80. The selector doubles the class, reads the
+<p>For the main family, the grammar class in <code>A</code> indexes
+<code>grammar_handler_table</code>. Its 87 page-local offsets contain 84 valid pointers and 81
+distinct handler destinations. The bytes there are data — beginning <code>9F 41 F0 45 1C 42 ...</code>—not executable Z80. The selector doubles the class, reads the
 pointer, and calls the chosen production. [confirmed]</p>
 <pre><code class="language-pseudocode">evaluate_production(class, level):
   if level == 2:
-    base = 478Ch
+    return postfix_production_478C(class)
   else if level == 3:
-    base = 7175h
+    handler = leaf_production_handler_table[class]
   else:
-    base = word_table_at_4000h
+    handler = grammar_handler_table[class]
 
-  handler = base[class]       // table family; raw-code families interpret class locally
   return handler(parse_cursor, OP1)
 </code></pre>
 <p>This nesting is what gives <code>^</code>, multiplication, and addition their precedence.
@@ -395,28 +395,37 @@ returns to zero. The comparisons and counter changes are visible at
 accepts 13 indices, and jumps through the table at <code>33:4381</code>. Three ABI probes
 confirm both bounds outcomes at <code>33:436D</code> and <code>33:4372</code>, but natural stored
 programs do not enter it. It is not the <code>For(</code>/<code>End</code> transition. [confirmed]</p>
-<p>Natural <code>For(</code> execution reaches grammar-table destination <code>38:41E5</code>. Natural
-<code>End</code> execution reaches <code>38:4200</code>, which consumes a five-byte record from the
-operator stack at <code>OPS + 1</code>. The observed bytes use this order: [confirmed]</p>
+<p>Natural <code>For(</code> execution reaches <code>parse_for_production</code> (<code>38:41E5</code>). Natural
+<code>End</code> execution reaches <code>parse_end_ops_record</code> (<code>38:4200</code>), which consumes a
+<code>TIForOpsRecord</code> from the operator stack at <code>OPS + 1</code>: [confirmed]</p>
+<pre><code class="language-c">#pragma pack(push, 1)
+typedef struct {
+    uint8_t sentinel;       /* 00h */
+    uint16_t continuation;  /* for_first_update or for_steady_update */
+    uint16_t state;         /* 0012h in both observed forms */
+} TIForOpsRecord;
+#pragma pack(pop)
+</code></pre>
+<p>The observed bytes use this order:</p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>Offset</th><th>First <code>End</code></th><th>Later <code>End</code> visits</th><th>Role</th></tr>
 </thead>
 <tbody>
-<tr><td><code>+0</code></td><td><code>00h</code></td><td><code>00h</code></td><td>Sentinel consumed by <code>38:4200</code></td></tr>
-<tr><td><code>+1..+2</code></td><td><code>36 58</code></td><td><code>7D 58</code></td><td>Little-endian continuation <code>38:5836</code> or <code>38:587D</code></td></tr>
+<tr><td><code>+0</code></td><td><code>00h</code></td><td><code>00h</code></td><td><code>sentinel</code> consumed by <code>parse_end_ops_record</code></td></tr>
+<tr><td><code>+1..+2</code></td><td><code>36 58</code></td><td><code>7D 58</code></td><td><code>continuation</code>: <code>for_first_update</code> (<code>38:5836</code>) or <code>for_steady_update</code> (<code>38:587D</code>)</td></tr>
 <tr><td><code>+3..+4</code></td><td><code>12 00</code></td><td><code>12 00</code></td><td>Stable state word <code>0012h</code></td></tr>
 </tbody>
 </table>
 </div>
 <pre class="mermaid">flowchart LR
-    F["For( token"] --&gt; P["38:41E5&lt;br/&gt;create production state"]
+    F["For( token"] --&gt; P["parse_for_production&lt;br/&gt;create production state"]
     P --&gt; B["execute loop body"]
-    B --&gt; E["End token&lt;br/&gt;38:4200"]
+    B --&gt; E["End token&lt;br/&gt;parse_end_ops_record"]
     E --&gt; O["pop sentinel + continuation + state word"]
-    O --&gt; I["38:5836&lt;br/&gt;first update"]
-    O --&gt; S["38:587D&lt;br/&gt;steady update"]
+    O --&gt; I["for_first_update"]
+    O --&gt; S["for_steady_update"]
     I --&gt; B
     S --&gt; B
 </pre>

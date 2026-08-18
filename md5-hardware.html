@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -374,6 +374,16 @@ IN  1C, 1D, 1E, 1F            R, little-endian
 </table>
 </div>
 <p>The official equates call these regions <code>MD5Temp</code>, <code>MD5Length</code>, <code>MD5Hash</code>, and <code>MD5Buffer</code>. <code>_TransformHash</code> later reuses <code>MD5Buffer</code> for a different compact-big-integer value. [confirmed]</p>
+<p>The final length prefix and digest form one typed result at
+<code>compactHashLength</code> (<code>0x8291</code>):</p>
+<pre><code class="language-c">typedef struct {
+    uint8_t length;
+    uint8_t bytes[16];
+} CompactHashResult;
+</code></pre>
+<p><code>compactHashLength.length</code> aliases the one-byte prefix, and
+<code>compactHashLength.bytes</code> aliases <code>MD5Hash</code> at <code>0x8292</code>. <code>_MD5Final</code> may trim
+the prefix, but it leaves all 16 bytes in the array. [confirmed]</p>
 <h3 id="initialization"><a class="header" href="#initialization">Initialization</a></h3>
 <p><code>_MD5Init</code> copies 16 bytes from <code>3F:6615</code> to <code>MD5Hash</code>: [confirmed]</p>
 <pre><code class="language-text">01 23 45 67  89 AB CD EF  FE DC BA 98  76 54 32 10
@@ -462,8 +472,12 @@ $$</p>
 <p>The padding source at <code>3F:68AD</code> begins with <code>0x80</code> and continues with zeros. Finalization enters the copy loop at <code>3F:692B</code> rather than calling the public <code>_MD5Update</code> entry. Padding therefore does not change the saved message length. If the current index is 56 or greater, this copy compresses one block and continues padding into a second. [confirmed]</p>
 <p>The routine then copies the original eight-byte <code>MD5Length</code> to <code>MD5Buffer+56</code> at <code>0x83DD</code> and compresses the final block. The high four length bytes are normally zero because of the 32-bit accounting quirk. [confirmed]</p>
 <p>WikiTI warns that early boot versions mishandle messages whose byte length is 55 modulo 64. The local boot 1.03 body does not have that bug: <code>3F:6968</code> takes the short branch for index 55 and computes one padding byte. The warning remains relevant to the named older boot versions, not to this ROM. [confirmed] for the local branch; [standard] for the historical report.</p>
-<h3 id="digest-bytes-and-the-prefix-at-0x8291"><a class="header" href="#digest-bytes-and-the-prefix-at-0x8291">Digest bytes and the prefix at <code>0x8291</code></a></h3>
-<p>After compression, <code>_MD5Final</code> writes <code>16</code> to <code>0x8291</code> and jumps to the compact-integer trimming helper at <code>3F:7014</code>. That helper decreases the prefix while the highest-address digest bytes are zero. It does not move or rewrite the 16 digest bytes at <code>0x8292</code>. [confirmed]</p>
+<h3 id="digest-bytes-and-the-compact-result-prefix"><a class="header" href="#digest-bytes-and-the-compact-result-prefix">Digest bytes and the compact result prefix</a></h3>
+<p>After compression, <code>_MD5Final</code> writes <code>16</code> to
+<code>compactHashLength.length</code> (<code>0x8291</code>) and jumps to the compact-integer trimming
+helper at <code>3F:7014</code>. That helper decreases the prefix while the
+highest-address digest bytes are zero. It does not move or rewrite
+<code>compactHashLength.bytes</code> at <code>0x8292</code>. [confirmed]</p>
 <p>Consumers needing the MD5 byte string should always read all 16 bytes from <code>MD5Hash</code>. The byte order in RAM is the conventional digest byte order. For <code>"abc"</code> it is: [confirmed]</p>
 <pre><code class="language-text">90 01 50 98 3C D2 4F B0 D6 96 3F 7D 28 E1 7F 72
 </code></pre>
@@ -504,7 +518,9 @@ nix develop -c python tools/inspect_ram_dump.py \
 <h2 id="_transformhash-is-a-separate-operation"><a class="header" href="#_transformhash-is-a-separate-operation"><code>_TransformHash</code> is a separate operation</a></h2>
 <p><code>_TransformHash = 80A5</code> has body <code>3F:723F</code>. It performs compact-big-integer preparation for Rabin application-signature verification. It does not call <code>_MD5Init</code>, <code>_MD5Update</code>, <code>_MD5Final</code>, <code>md5_compress_block</code>, or any MD5-assist port helper. [confirmed]</p>
 <h3 id="compact-integer-representation"><a class="header" href="#compact-integer-representation">Compact integer representation</a></h3>
-<p>The routine reads a one-byte length at <code>0x8291</code> followed by little-endian digest bytes at <code>0x8292</code>. It constructs this value at <code>MD5Buffer</code>: [confirmed]</p>
+<p>The routine reads <code>compactHashLength.length</code> followed by the little-endian
+digest bytes in <code>compactHashLength.bytes</code>. It constructs this value at
+<code>MD5Buffer</code>: [confirmed]</p>
 <p>$$
 m = 256 \times \operatorname{integer}(\text{digest bytes}) + 1
 $$</p>

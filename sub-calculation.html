@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -230,7 +230,7 @@ operands, then do BCD mantissa work and renormalize. Result in <code>OP1</code>.
 </thead>
 <tbody>
 <tr><td><code>+</code></td><td><code>_FPAdd</code></td><td><code>ram:229E</code> (= <code>RST 30h</code>)</td><td>sign-magnitude BCD add; see <a href="floating-point.html">floating-point.md</a>.</td></tr>
-<tr><td><code>−</code></td><td><code>_FPSub</code></td><td><code>ram:2297</code></td><td>flips <code>OP2.type</code> bit7 then falls into the add path.</td></tr>
+<tr><td><code>−</code></td><td><code>_FPSub</code></td><td><code>ram:2297</code></td><td>flips <code>OP2.value.type</code> bit 7, then falls into the add path.</td></tr>
 <tr><td><code>×</code></td><td><code>_FPMult</code></td><td><code>ram:238B</code></td><td><code>ram:250F</code> adds exponents (→ <code>_ErrOverflow</code> on carry past 0x7F), then digit-by-digit BCD multiply accumulating into OP3.</td></tr>
 <tr><td><code>÷</code></td><td><code>_FPDiv</code></td><td><code>ram:2541</code></td><td><code>_CkOP2FP0</code> first → <code>_JError(0x82)</code> DIVIDE BY 0 if divisor 0; else restoring BCD long division.</td></tr>
 <tr><td><code>1/x</code></td><td><code>_FPRecip</code></td><td><code>ram:253D</code></td><td>sets <code>OP1=1</code> then enters the divide loop (same body as <code>_FPDiv</code>).</td></tr>
@@ -243,7 +243,7 @@ operands, then do BCD mantissa work and renormalize. Result in <code>OP1</code>.
 <li><code>_Cube</code> <code>ram:237D</code> = <code>_FPSquare</code> then <code>_FPMult</code>. [confirmed]</li>
 <li><code>_Times2</code> <code>ram:2282</code> = <code>OP1+OP1</code>; <code>_TimesPt5</code> <code>ram:2382</code> loads the constant <code>0.5</code> (9-byte BCD @ <code>ram:2635</code>) into OP2 then <code>_FPMult</code>. [confirmed]</li>
 <li><code>_InvSub</code> <code>ram:227D</code> = <code>_InvOP1S</code> then <code>_FPAdd</code> ⇒ <code>OP2 − OP1</code> (reversed subtract). [confirmed]</li>
-<li><strong>Negation</strong>: <code>_InvOP1S</code> <code>ram:24BD</code> (XOR OP1.type with 0x80, guarding against −0), <code>_InvOP2S</code> <code>ram:24CD</code>, <code>_InvOP1SC</code> <code>ram:24BA</code> (both). <code>_CkOP1Pos</code> <code>ram:1E5D</code> ANDs OP1.type with 0x80. [confirmed]</li>
+<li><strong>Negation</strong>: <code>_InvOP1S</code> <code>ram:24BD</code> (XOR <code>OP1.value.type</code> with <code>0x80</code>, guarding against −0), <code>_InvOP2S</code> <code>ram:24CD</code>, <code>_InvOP1SC</code> <code>ram:24BA</code> (both). <code>_CkOP1Pos</code> <code>ram:1E5D</code> ANDs <code>OP1.value.type</code> with <code>0x80</code>. [confirmed]</li>
 </ul>
 <h3 id="roots--integer-parts-confirmed"><a class="header" href="#roots--integer-parts-confirmed">Roots &amp; integer parts [confirmed]</a></h3>
 <ul>
@@ -271,12 +271,13 @@ These constants are the BCD floats <code>π/180 = 1.745…e-2</code> and <code>1
 <li>reads a 3-byte <code>{lo, hi, page}</code> descriptor (page masked with <code>0x1F</code>/<code>0x3F</code> for 83+/84+ via ports 2/0x21),</li>
 <li><code>OUT (6),A</code> to bank the target page in at <code>4000</code>, then jumps to it.</li>
 </ol>
-<p>The ln/e^x sites that look similar are local calls, not cross-page dispatches. <code>ram:2362</code> calls the bcall
-entry at <code>ram:3DD1</code>, whose inline descriptor is <code>1E 7D 02</code>, so it invokes the page-0x02
-coefficient fetcher at <code>02:7D1E</code>. In <code>LD A,3; CALL 0x2362</code> / <code>LD A,6; CALL 0x2362</code>, the
-<code>3</code> and <code>6</code> are coefficient-table indexes, not target pages. <code>_EToX</code> falls through locally into
-the <code>_TenX</code> body at <code>02:7069</code>; the ln/e^x/sin-cos coefficient tables are on page 0x02
-(<code>7181</code>, <code>7201</code>, <code>7281</code>, and the constant block near <code>7D42</code>), not page 0x03/0x06/0x07.</p>
+<p>The ln/e^x sites that look similar are local calls, not cross-page dispatches.
+<code>fp_mul_indexed_constant</code> (<code>ram:2362</code>) reaches <code>coeff_fetch</code> (<code>02:7D1E</code>)
+through the inline descriptor at <code>ram:3DD1</code>. The preceding <code>LD A,3</code> or
+<code>LD A,6</code> selects a coefficient, not a page. <code>_EToX</code> falls through locally into
+the <code>_TenX</code> body at <code>02:7069</code>. <code>logexp_digit_table</code> (<code>02:7181</code>),
+<code>trig_recurrence_table_a</code> (<code>02:7201</code>), <code>trig_recurrence_table_b</code> (<code>02:7281</code>),
+and <code>fp_constant_table</code> (<code>02:7D42</code>) all reside on page <code>02</code>. [confirmed]</p>
 <hr>
 <h2 id="5-transcendentals"><a class="header" href="#5-transcendentals">5. Transcendentals</a></h2>
 <h3 id="logarithms-confirmed"><a class="header" href="#logarithms-confirmed">Logarithms [confirmed]</a></h3>
@@ -287,10 +288,10 @@ the <code>_TenX</code> body at <code>02:7069</code>; the ln/e^x/sin-cos coeffici
 </ul>
 <h3 id="exponentials-confirmed"><a class="header" href="#exponentials-confirmed">Exponentials [confirmed]</a></h3>
 <ul>
-<li><code>_EToX</code> <code>02:705C</code> (e^x): loads the <code>log10(e)</code> constant through <code>ram:2362</code>/<code>02:7D1E</code>,
+<li><code>_EToX</code> <code>02:705C</code> (e^x): loads the <code>log10(e)</code> constant through <code>fp_mul_indexed_constant</code>,
 then falls through into the local <code>_TenX</code> body.</li>
 <li><code>_TenX</code> <code>02:7066</code> (10^x): splits exponent into integer (digit shift) + fractional
-(16-slot table-driven evaluation through <code>02:7181</code>). Argument too large → <code>_ErrOverflow</code>.</li>
+(16-slot table-driven evaluation through <code>logexp_digit_table</code>). Argument too large → <code>_ErrOverflow</code>.</li>
 </ul>
 <h3 id="trig--sincostan-confirmed"><a class="header" href="#trig--sincostan-confirmed">Trig — sin/cos/tan [confirmed]</a></h3>
 <ul>
@@ -300,8 +301,8 @@ the rad-special mode tested by <code>BIT 2,(IY+0)</code> is off; <code>_SinCosRa
 <li>Range reduction: reads OP1 exponent; exponent ≥ 0x0C (|x| ≳ 10^12·) → <code>_ErrDomain</code>
 (“argument out of range”). It then reduces the angle modulo a quarter-period using the
 BCD constant table near <code>02:7D81</code> and runs the same table-driven digit recurrence
-as ln/eˣ over the signed near-unity tables at <code>02:7201</code> and <code>02:7281</code> (one row
-per digit step, sign-variant picked by <code>0x84A4</code> bit 7) — the per-step <code>bcd_sub_op1_op2</code>
+as ln/eˣ over the two trig recurrence tables (one row per digit step,
+sign-variant picked by <code>OP5.value.type</code> bit 7) — the per-step <code>bcd_sub_op1_op2</code>
 (<code>ram:1D8A</code>) / <code>bcd_add_8496_8480</code> (<code>ram:1D26</code>) are the shift-and-add BCD steps of that
 recurrence, not a fixed polynomial and not CORDIC for the forward trig. The per-row
 decoding of <code>02:7201</code>/<code>02:7281</code> is detailed in <a href="floating-point.html">floating-point.md</a>.</li>
@@ -336,7 +337,7 @@ digit string honoring the <strong>MODE</strong> screen (Normal/Sci/Eng, Float/Fi
 <li><code>fp_clear_guard</code>; zero → <code>_OP1Set0</code>; copies arg to OP5.</li>
 <li>Reads the digit-count/mode flags from <code>(IY+0xc)</code> and the byte at <code>0x89FA</code> (active
 fixed/decimal-places setting; <code>(IX-1)</code> local holds the effective format byte).</li>
-<li>Exponent thresholds drive Normal↔Sci switchover: it compares <code>OP1.exp</code> against <code>0x7D</code>/<code>0x7F</code>
+<li>Exponent thresholds drive Normal↔Sci switchover: it compares <code>OP1.value.exp</code> against <code>0x7D</code>/<code>0x7F</code>
 (≈ the ±-exponent window) and renormalizes (<code>ram:1BE7</code>) to bring the value into the
 displayable mantissa range, bumping a digit counter. Negative sign decrements the leading
 column count (<code>DEC (IX-3)</code>).</li>

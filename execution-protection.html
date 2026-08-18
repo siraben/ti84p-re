@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -223,7 +223,8 @@ unmeasured ASIC behavior to [confirmed].</p>
 </tbody>
 </table>
 </div>
-<p>The five writes occupy <code>3F:41D5</code>–<code>4206</code>: [confirmed]</p>
+<p><code>boot_execution_protection_init</code> at <code>3F:41D5</code> performs the five writes through
+<code>3F:4206</code>: [confirmed]</p>
 <pre><code class="language-z80">3F:41D5  ld a,0x00
 3F:41D7  nop
 3F:41D8  nop
@@ -900,7 +901,7 @@ emulator agreement is only a test oracle for emulator behavior.</p>
 <tr><th>Source</th><th>Use</th></tr>
 </thead>
 <tbody>
-<tr><td>OS 2.55MP and boot 1.03 ROM, especially <code>3F:41D5</code>–<code>4206</code> and <code>3F:4784</code>–<code>478C</code></td><td>protected writes and bcall body</td></tr>
+<tr><td>OS 2.55MP and boot 1.03 ROM, especially <code>boot_execution_protection_init</code> and <code>_SetFlashLowerBound</code></td><td>protected writes and bcall body</td></tr>
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/calcs.c">TilEm <code>calcs.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/z80.c"><code>z80.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c"><code>x4_init.c</code></a>, and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c"><code>x4_memory.c</code></a></td><td>full reset sequence, TI-84 Plus reset fields, Flash and RAM fetch predicates, and post-opcode exception handling</td></tr>
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm x4 I/O model at <code>f56ad63</code></a></td><td>protected register writes and mask updates</td></tr>
 <tr><td>Headless TilEm fork at <code>8da54573ac49fe271fa22c60924b4c6a7cb9639f</code></td><td>boundary execution traces; binary SHA-256 <code>1c1f7dbe04fe074c2b9aca1657d0eb5ac5cfd1f7cbd480725eb7fb39b8126f33</code>, <code>x4_memory.c</code> SHA-256 <code>ddaa1e45330e3e4ad49486bd5c3675a0a0dff01bfda4d01817ba3387e309ac89</code></td></tr>

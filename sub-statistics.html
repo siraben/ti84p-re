@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -237,6 +237,17 @@ system variables recalled by name (<code>[2nd][STAT] ▸ VARS</code>):</p>
 </tbody>
 </table>
 </div>
+<p>These 31 consecutive values form the typed prefix used by the Ghidra database:</p>
+<pre><code class="language-c">typedef struct {
+    TIFloat StatN, XMean, SumX, SumXSqr, StdX, StdPX, MinX, MaxX;
+    TIFloat MinY, MaxY, YMean, SumY, SumYSqr, StdY, StdPY, SumXY;
+    TIFloat Corr, MedX, Q1, Q3, QuadA, QuadB, QuadC, CubeD, QuartE;
+    TIFloat MedX1, MedX2, MedX3, MedY1, MedY2, MedY3;
+} TIStatResultsPrefix; /* 31 × 9 bytes at statVars */
+</code></pre>
+<p>This makes, for example, <code>statVars.XMean</code> and <code>statVars.Corr</code> distinct fields
+rather than unrelated constants <code>0x8A43</code> and <code>0x8ACA</code>. The address table remains
+the byte-level evidence for the layout. [confirmed]</p>
 <p>Continuing past the table (also <code>.inc</code>): <code>PStat</code>/<code>ZStat</code>/<code>TStat</code>/<code>ChiStat</code>/
 <code>FStat</code>/<code>DF</code>/<code>Phat…</code>/<code>MeanX1</code>/<code>StdX1</code>/<code>StatN1</code>/<code>MeanX2</code>/<code>StdX2</code>/<code>StatN2</code>/<code>StdXP2</code>/
 <code>SLower</code>/<code>SUpper</code>/<code>SStat</code> — these hold the inferential-stats outputs (the STAT-TESTS
@@ -251,7 +262,7 @@ the <code>_OneVar</code> accumulate/variance/median/regression engine), confirmi
 own command handlers reached from the parser’s command dispatch, separate from the STAT-CALC
 engine documented here. The exact per-test handler addresses are not exposed as named routines
 in this DB; those per-test handler addresses are [hypothesis]. [confirmed]</p>
-<p>A scratch byte <code>0x8A36</code> (immediately below <code>statVars</code>) holds the stat-command
+<p>A scratch byte <code>stat_calc_command</code> (<code>0x8A36</code>, immediately below <code>statVars</code>) holds the stat-command
 discriminator (the model index, set from the command token — see §3) for the
 duration of the computation. Working list/element pointers used by the loop live
 in the OP-scratch RAM <code>0x84AF…0x84DB</code> (<code>84D3</code>=median data ptr, <code>84D5/84D7</code>=current
@@ -296,7 +307,7 @@ list arguments; the command token (<code>F2</code>–<code>FF</code>, see §3) s
 </code></pre>
 <p>Key facts read from the disassembly:</p>
 <ul>
-<li>The command byte is saved at <code>(0x8A36)</code> and steers everything afterward.</li>
+<li>The command byte is saved in <code>stat_calc_command</code> and steers everything afterward.</li>
 <li><code>LD HL,0x8AEE</code> (= <code>QuadA</code>) is the regression coefficient destination; the
 solver writes <code>a,b,c,d,e</code> there in descending order of power.</li>
 <li><code>_ErrStat</code> (<code>00:2741</code>, id <code>0x44C2</code>, code <code>0x15</code> “STAT”) and <code>_ErrStatPlot</code>
@@ -307,8 +318,9 @@ body jumps to <code>0x2741</code> on e.g. fewer than the required data points.
 </ul>
 <hr>
 <h2 id="3-stat-command-token-map-statcmd--0xf2-confirmed"><a class="header" href="#3-stat-command-token-map-statcmd--0xf2-confirmed">3. STAT command token map (<code>STATCMD = 0xF2</code>) [confirmed]</a></h2>
-<p>The parser passes the command token; <code>_OneVar</code> stores it at <code>0x8A36</code> and treats it
-as a model index. From <code>ti83plus.inc</code>:</p>
+<p>The parser passes the command token; <code>_OneVar</code> stores it in
+<code>stat_calc_command</code> (<code>0x8A36</code>) and treats it as a model index. From
+<code>ti83plus.inc</code>:</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -377,7 +389,8 @@ power-sums <code>Σxⁱ</code> (i = 0 … 2d) and the right-hand side <code>Σx�
 <code>658a</code>+ checks the command code and, for <code>ExpReg</code>/<code>PwrReg</code> (<code>ln y</code>),
 <code>LnReg</code>/<code>PwrReg</code> (<code>ln x</code>), pre-applies the logarithm to each element before
 accumulating, then exponentiates the resulting linear coefficients off page 0x3A. The
-per-element <code>ln</code> is in the element fetch <code>stat_next_elem</code> (<code>3A:6F6A</code>): <code>LD A,(8A36); CP 4; RET NC</code> then <code>bcall _LnX</code> at <code>3A:6F72</code> for model codes <code>&lt; 4</code> (<code>ExpReg</code>/<code>LnReg</code>/<code>PwrReg</code>); the
+per-element <code>ln</code> is in the element fetch <code>stat_next_elem</code> (<code>3A:6F6A</code>):
+<code>LD A,(8A36); CP 4; RET NC</code> then <code>bcall _LnX</code> at <code>3A:6F72</code> for model codes <code>&lt; 4</code> (<code>ExpReg</code>/<code>LnReg</code>/<code>PwrReg</code>); the
 back-transform <code>_EToX</code>/<code>_TenX</code> lives on page 0x02 (see <code>sub-calculation.md §5</code>). This is the standard
 “linearize, fit a line, transform back” method; <code>r</code> is the correlation of the
 <em>transformed</em> data.</p>
@@ -479,7 +492,7 @@ stat plot reads back out of <code>statVars</code>.</p>
 <ol>
 <li>Parser pushes the list args, sets <code>A = command token</code>, <code>bcall(_OneVar)</code>.</li>
 <li><code>_OneVar</code> parses args → x-list ptr <code>(84D3)</code>, y-list <code>(84D5)</code>, freq <code>(84DB)</code>;
-saves the model code to <code>(8A36)</code>.</li>
+saves the model code to <code>stat_calc_command</code>.</li>
 <li><strong>Accumulation pass</strong> (§4): one walk of L1/L2 building <code>n, Σx, Σx², Σy, Σy², Σxy</code> and <code>minX/maxX/minY/maxY</code> into <code>statVars</code>, plus the 2×2 moment matrix.</li>
 <li><strong>Moments</strong> (§4a): $\bar x=\tfrac{\sum x}{n}$, $\bar y=\tfrac{\sum y}{n}$; the sample/population
 spreads $S_x,\sigma_x,S_y,\sigma_y$ via the variance helper (divide by $n-1$ vs $n$).</li>
@@ -527,7 +540,7 @@ named routine in this DB. [hypothesis]</p>
         │ (element fetch 3A:6F6A)               ▲
         ▼                                       │ (_Rcl_StatVar 00:2149)
    _OneVar (3A:6420, id 0x4BA3)  ──►  per-element accumulation pass (3A:6572)
-        │  cmd code → 0x8A36                     │  uses FP engine:
+        │  cmd code → stat_calc_command          │  uses FP engine:
         │                                        │   RST30 _FPAdd, 238B _FPMult,
         ├─ moments / Sx,σx (3A:6984..)           │   238A _FPSquare, 2541 _FPDiv,
         ├─ Gauss-Jordan solve (3A:67C6..) ───►   │   3939 _SqRoot, 2294 _Minus1
@@ -573,7 +586,7 @@ equations, depositing every output as a named <code>TIFloat</code> in the <code>
 </tbody>
 </table>
 </div>
-<p><strong>RAM:</strong> <code>statVars=0x8A3A</code>, model-discriminator <code>0x8A36</code>, work ptrs <code>0x84AF-0x84DB</code>
+<p><strong>RAM:</strong> <code>statVars=0x8A3A</code>, <code>stat_calc_command=0x8A36</code>, work ptrs <code>0x84AF-0x84DB</code>
 (<code>84D3</code> x/median ptr, <code>84D5/84D7</code> element ptrs, <code>84D9</code> sums-matrix base,
 <code>84DB</code> freq ptr, <code>84B1/84B2</code> loop counters, <code>84B3</code> element count).
 <strong>FP engine reused:</strong> <code>RST 30h</code>=<code>_FPAdd</code>, <code>RST 08h</code>=OP1→OP2, <code>00:238B</code>=<code>_FPMult</code>,

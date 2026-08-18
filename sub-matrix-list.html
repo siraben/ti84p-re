@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -589,15 +589,17 @@ square-only, partial-pivoting driver. [confirmed]</p>
 <p><code>rref(</code> (<code>BBh,A6h</code>) and <code>ref(</code> (<code>BBh,A5h</code>) are 2-byte <code>0xBB</code>-lead function tokens. On the
 page-38 statement/expression evaluator (<code>eval_expr_inner</code> <code>38:59A4</code>), token <code>0xBB</code> is detected
 and <code>parse_advance</code> consumes the prefix; the second byte is then dispatched through the
-evaluator’s class-3 (function-token) handler-pointer table at <code>38:7175</code> (<code>701A/7021/7026</code>
-select the <code>0x4000</code>/<code>0x478C</code>/<code>0x7175</code> tables by class; <code>703A: CALL 0x0033</code> = <code>_LdHLind</code> jumps
-the resolved handler). Their reduced-row-echelon elimination is therefore a distinct,
+evaluator’s six-entry <code>leaf_production_handler_table</code> at <code>38:7175</code>.
+The selector at <code>38:701A</code>–<code>7026</code> chooses <code>grammar_handler_table</code>, the
+<code>38:478C</code> code family, or this leaf table; <code>703A: CALL 0x0033</code> = <code>_LdHLind</code>
+jumps to the resolved handler. Their reduced-row-echelon elimination is therefore a distinct,
 non-square-tolerant driver reached through that table — a separate routine from <code>42A6</code>, using
 the same per-element FP primitives (<code>_FPDiv</code>/<code>_FPMult</code>/<code>_FPSub</code>) but with its own pivot loop
 that tolerates rectangular matrices and rank deficiency (zero rows left in place, no
-<code>SINGULAR MAT</code>). The concrete rref/ref body sits behind the <code>38:7175</code> 2-byte
-handler table and has not been byte-isolated because the table remains
-unanalyzed data in the DB. The two-caller xref establishes that it is a
+<code>SINGULAR MAT</code>). The concrete rref/ref body sits behind the two-byte entries in
+<code>leaf_production_handler_table</code>; the table is now named and typed in the rebuilt
+database, but the two tokens’ exact handler selection has not yet been isolated.
+The two-caller xref establishes that it is a
 separate driver from <code>02:42A6</code> [confirmed]. Its exact body address remains
 [standard].</p>
 <hr>
@@ -705,8 +707,9 @@ and the routine and condition that triggers it.</p>
 <ul>
 <li><code>rref(</code>/<code>ref(</code> use a separate driver, not <code>42A6</code>. Xref proves <code>42A6</code> has
 exactly two callers (inverse <code>5F80</code>, det <code>5FC0</code>); rref/ref are 2-byte <code>0xBB</code>-lead function
-tokens dispatched via the page-38 evaluator’s class-3 handler table at <code>38:7175</code> (§5). The
-<em>exact rref/ref body</em> sits behind that (unanalyzed-data) table and is the only residual: its
+tokens dispatched via the page-38 evaluator’s
+<code>leaf_production_handler_table</code> (<code>38:7175</code>; §5). The <em>exact rref/ref body</em>
+sits behind that table and is the only residual: its
 start address was not byte-isolated, but it is confirmed not to be <code>42A6</code>.</li>
 <li>det sign / pivot-product (<code>42A6</code> tail <code>43D8-4470</code>) and dim labelling. The det
 sign = LSB of the permutation-swap count applied via <code>_InvOP1S</code> (<code>24BD</code>) at <code>43FB</code>/<code>442B</code>;

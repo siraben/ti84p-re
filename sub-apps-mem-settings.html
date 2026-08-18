@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -200,7 +200,8 @@ run of 16 KiB flash pages whose first page begins with a TLV app header.</p>
 <p>An app header is a sequence of type-length-value fields starting at offset 0 of the
 app’s first page. Each field begins with two bytes in WikiTI’s <code>TT TS</code> notation: the high
 12 bits are the field number, and the low nibble of the second byte encodes the payload
-length. The decoder bytes are around <code>3D:7285</code>, but the disassembly does not expose a live function there:</p>
+length. The decoder bytes are at <code>init_flash_page_counter+0x08</code>
+(<code>3D:7285</code>), but the disassembly does not expose a separate function there:</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -416,9 +417,13 @@ re-init lands in page-0 boot code.</p>
 </code></pre>
 <p>So a RAM reset clears two blocks to 0:</p>
 <ol>
-<li><strong>System RAM</strong> <code>0x8000-0x9BC3</code> (~7 KiB: OS scratch, the Context block, system buffers).</li>
-<li><strong>User RAM</strong> <code>0x9BD0-0xFFFF</code> (<code>0x6430</code> = 25648 bytes, ~25 KiB: the VAT and all user variables/programs).</li>
+<li><strong>System RAM:</strong> the half-open interval <code>[appData, 0x9BC4)</code>, corresponding
+to <code>0x8000</code>–<code>0x9BC3</code>.</li>
+<li><strong>User RAM:</strong> <code>[restartClr, 0x10000)</code>, corresponding to
+<code>0x9BD0</code>–<code>0xFFFF</code> (<code>0x6430</code> bytes).</li>
 </ol>
+<p>The first interval contains OS scratch, the context block, and system buffers.
+The second contains the VAT and user variables and programs. [confirmed]</p>
 <p>A handful of flag bits are explicitly preserved across the wipe (<code>IY+0x3F</code> bit7,
 <code>IY+0x34</code> bit6, <code>IY+0x35</code> bits0/1, and the word at <code>0x9B73</code>) so the calculator knows it is
 mid-reset. It then <code>JP 0x0BD9</code>, the RAM-init entry (<code>OUT (0)</code> page select, <code>LD SP,0xFFF7</code>,
@@ -519,7 +524,7 @@ line-by-line, but every target bit/byte is confirmed from the setters and inc eq
 3D:5DE7   app_5de7
 3D:5FB1   app_find_next_page
 3D:727D   init_flash_page_counter
-3D:7285   TLV-length candidate (inferred label); no defined function in live DB
+3D:7285   init_flash_page_counter+0x08   ; TLV-length decode block, not a function
 3D:4AA3   _FindAppNumPages bcall target; no live function in current DB
 ram:0936       _AppInit
 ram:08AF       _PutAway
@@ -527,7 +532,7 @@ ram:08AF       _PutAway
 3B:7571   default app vectors data block (12 bytes + appFlags), not a function
 3B:7412   app-quit restore candidate (inferred label); no defined function in live DB
 35:7180   mem_reset_dispatch
-35:719F   ram_reset_wipe         (zeroes 0x8000-0x9BC3 and 0x9BD0-0xFFFF)
+35:719F   ram_reset_wipe         (zeroes [appData,9BC4) and [restartClr,10000))
 ram:0BD9       ram_init_after_reset
 ram:0B27       full_reset_wipe        (zeroes all 0x8000-0xFFFF)
 3C:71F8   gc_command

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -272,7 +272,7 @@ Port <code>0x05</code> does not select a visible window in this mode. [standard]
 </div>
 <p>For example, the TI-84 Plus reset selector <code>0x3F</code> produces Flash page <code>3E</code> in
 window A and page <code>3F</code> in window B. The boot trace begins at logical <code>0x8000</code>,
-which therefore executes <code>3F:4000</code>. [confirmed]</p>
+which therefore executes <code>retail_boot_reset_stub</code> at <code>3F:4000</code>. [confirmed]</p>
 <p>Changing bit 0 reinterprets all three banked windows at once. Code that changes
 the mode must execute from fixed page 0 or from a physical page visible at the
 next logical PC under both mappings. The boot transition uses the latter
@@ -412,8 +412,8 @@ actual machine configuration and <code>m_model</code> branch. MAME registers the
 Plus driver with <code>MACHINE_NOT_WORKING</code>; this comparison treats its source as an
 implementation oracle, not a fidelity endorsement. [standard]</p>
 <h2 id="boot-mapping-transition"><a class="header" href="#boot-mapping-transition">Boot mapping transition</a></h2>
-<p>The retail boot page contains a reset stub at <code>3F:4000</code>. Under TilEm’s reset
-mapping it executes at logical <code>0x8000</code>: [confirmed]</p>
+<p>The retail boot page contains <code>retail_boot_reset_stub</code> at <code>3F:4000</code>. Under
+TilEm’s reset mapping it executes at logical <code>0x8000</code>: [confirmed]</p>
 <pre><code class="language-z80">3F:4000  LD A,0x07
 3F:4002  OUT (0x04),A     ; paired mode
 3F:4004  LD A,0x7F
@@ -426,8 +426,8 @@ mapping it executes at logical <code>0x8000</code>: [confirmed]</p>
 <code>0x02</code> bit 7, writes either <code>0x1F</code> or <code>0x03</code> to port <code>0x0E</code>, writes <code>0x7F</code> to
 port <code>0x06</code>, selects paired mode, and jumps to the same logical <code>0x812C</code>.
 Both values written to <code>0x0E</code> have low two bits equal to three. [confirmed]</p>
-<p>The continuation changes to independent mode without paging out its next
-instruction: [confirmed]</p>
+<p><code>boot_os_entry</code> at <code>3F:412C</code> changes to independent mode without paging out its
+next instruction: [confirmed]</p>
 <pre><code class="language-z80">3F:412C  IM 1
           ; stack/RAM probe omitted
 3F:4142  LD A,0x03

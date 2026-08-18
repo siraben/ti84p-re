@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -204,14 +204,14 @@
 <pre class="mermaid">flowchart LR
     K["matrix key"] --&gt; M["diode-less 8×8 matrix"]
     M --&gt; P1["port 01&lt;br/&gt;group select and columns"]
-    P1 --&gt; SCAN["timer-1 scanner&lt;br/&gt;ram:03B4"]
+    P1 --&gt; SCAN["kbd_tick_debounce_repeat&lt;br/&gt;ram:03B4"]
     SCAN --&gt; CSC["kbdScanCode&lt;br/&gt;_GetCSC"]
     CSC --&gt; GK["_GetKey&lt;br/&gt;modifiers and cooked code"]
 
     ON["ON key"] --&gt; P4["port 04 bit 3&lt;br/&gt;active-low level"]
     ON --&gt; IRQ["port 04 bit 0&lt;br/&gt;pending interrupt"]
-    IRQ --&gt; ISR["IM1 · ram:015B"]
-    ISR --&gt; DB["ON debounce&lt;br/&gt;ram:0964"]
+    IRQ --&gt; ISR["on_irq · ram:015B"]
+    ISR --&gt; DB["on_key_debounce_power&lt;br/&gt;ram:0964"]
     DB --&gt; RUN["break, power-off, or wake flow"]
 </pre>
 
@@ -482,7 +482,10 @@ ram:04BE  ret
 </table>
 </div>
 <p>From idle, scan code <code>0x36</code> sets <code>shift2nd</code> at <code>06:4AD5</code> and loops without returning. A second <strong>2nd</strong> cancels it at <code>06:4B8E</code>; another key clears the flag at <code>06:4B87</code> before translation. Scan code <code>0x30</code> sets uppercase alpha at <code>06:4AE8</code>. <strong>[2nd]</strong> then <strong>ALPHA</strong> sets both <code>shiftALock</code> and <code>shiftAlpha</code> at <code>06:4B96</code>–<code>06:4B9A</code>. In a lowercase-capable context, another <strong>ALPHA</strong> sets <code>shiftLwrAlph</code> at <code>06:4C0D</code>; the next cycle cancels alpha. [confirmed]</p>
-<p><code>key_clear_alpha_if_unlocked</code> at <code>ram:04BF</code> preserves alpha when <code>shiftALock</code> or <code>shiftKeepAlph</code> is set and otherwise clears <code>shiftAlpha</code>. The timer ISR can also clear a pending <strong>2nd</strong> at <code>ram:01E0</code>, preventing an abandoned modifier from persisting indefinitely. [confirmed]</p>
+<p><code>key_clear_alpha_if_unlocked</code> at <code>ram:04BF</code> preserves alpha when <code>shiftALock</code> or
+<code>shiftKeepAlph</code> is set and otherwise clears <code>shiftAlpha</code>. <code>legacy_link_irq</code> at
+<code>ram:01E0</code> can also clear a pending <strong>2nd</strong>, preventing an abandoned modifier
+from persisting indefinitely. [confirmed]</p>
 <p><code>_KeyToString</code> at <code>01:6D10</code> performs the next layer: cooked key code to editor token or string. The complete input path is matrix → scanner → <code>_GetCSC</code> → <code>_GetKey</code> → <code>_KeyToString</code> → tokenizer. See <a href="tokenizer-basic.html">Tokenizer &amp; TI-BASIC</a>. [confirmed]</p>
 <h2 id="on-interrupt-and-level"><a class="header" href="#on-interrupt-and-level">ON interrupt and level</a></h2>
 <p>The <strong>ON</strong> circuit uses two ports. [standard]</p>
@@ -499,7 +502,9 @@ ram:04BE  ret
 </tbody>
 </table>
 </div>
-<p>The IM1 dispatcher reads port <code>0x04</code> and enters <code>ram:015B</code> when bit 0 is set. That branch calls <code>on_key_debounce_power</code> at <code>ram:0964</code>, clears a link/interrupt sub-flag, and acknowledges through the common port-<code>0x03</code> path. [confirmed]</p>
+<p>The IM1 dispatcher reads port <code>0x04</code> and enters <code>on_irq</code> at <code>ram:015B</code> when bit
+0 is set. That branch calls <code>on_key_debounce_power</code>, clears a link/interrupt
+sub-flag, and acknowledges through the common port-<code>0x03</code> path. [confirmed]</p>
 <p>Port <code>0x04</code> bit 0 says that the source is pending; bit 3 says whether the button is currently held. Software must not substitute one for the other. The handler uses bit 3 to decide whether the stable state is press or release. [confirmed]</p>
 <p>The port-<code>0x03</code> clear-on-zero sequence, source priority, and the differing TilEm and Wabbitemu ON-edge policies are detailed in <a href="interrupts.html#on-request-versus-on-level">Interrupts (IM1)</a>.</p>
 <h2 id="on-debounce"><a class="header" href="#on-debounce">ON debounce</a></h2>
@@ -526,7 +531,9 @@ ram:0980  jr nz,ram:0975
 <p>This debounce is independent of the matrix’s five-sample release filter. It polls <strong>ON</strong> rapidly at forced 6 MHz instead of waiting for timer-1 scans. [confirmed]</p>
 <h2 id="2ndon-apd-and-wake"><a class="header" href="#2ndon-apd-and-wake">2nd+ON, APD, and wake</a></h2>
 <p><code>_GetKey</code> recognizes the ON request as an internal <code>0xFF</code> event at <code>06:4A93</code>. It clears <code>shift2nd</code>. If <code>appRetKeyOff</code> is set, it returns the context key <code>0x3F</code>; otherwise it jumps to <code>_PowerOff</code>, body <code>ram:09E6</code>. [confirmed]</p>
-<p>Explicit power-off and Auto Power Down (APD) perform different cleanup, then join the shared shutdown path at <code>ram:0A24</code>. The final hardware operations are: [confirmed]</p>
+<p>Explicit power-off and Auto Power Down (APD) perform different cleanup, then
+join <code>poweroff_shared_tail</code> at <code>ram:0A24</code>. The final hardware operations are:
+[confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -539,12 +546,17 @@ ram:0980  jr nz,ram:0975
 <tr><td><code>ram:0A51</code></td><td>clear <code>shift2nd</code></td><td>discard the power-off modifier</td></tr>
 <tr><td><code>ram:0A55</code></td><td>clear <code>onRunning</code></td><td>mark the OS powered down</td></tr>
 <tr><td><code>ram:0A5B</code></td><td><code>EI</code></td><td>accept a selected wake interrupt</td></tr>
-<tr><td><code>ram:0A5C</code></td><td><code>HALT; JR ram:0A5C</code></td><td>remain in the low-power loop</td></tr>
+<tr><td><code>poweroff_halt_loop</code> at <code>ram:0A5C</code></td><td><code>HALT; JR ram:0A5C</code></td><td>remain in the low-power loop</td></tr>
 </tbody>
 </table>
 </div>
 <p>Port-<code>0x03</code> bit 3 being clear selects low power only when the Z80 executes <code>HALT</code>. The <code>0x11</code> write alone does not complete shutdown. ON and link activity remain wake sources. [standard]</p>
-<p>The trace confirms the complete sequence. The shutdown side restores CPU speed, writes <code>0x06</code> to port <code>0x04</code>, acknowledges with <code>0x08</code>, disables the LCD with command <code>0x02</code>, writes <code>0x11</code>, and reaches the <code>ram:0A5C</code> loop. A later <strong>ON</strong> event enters the same 4,118-iteration debounce. The wake side then writes normal interrupt mask <code>0x0B</code> at <code>ram:0C9E</code> and sends LCD commands <code>0x40,0x05,0x01,0x03,0x17,0x0B,0xEF</code> through <code>06:4D38</code>. [confirmed]</p>
+<p>The trace confirms the complete sequence. The shutdown side restores CPU
+speed, writes <code>0x06</code> to port <code>0x04</code>, acknowledges with <code>0x08</code>, disables the LCD
+with command <code>0x02</code>, writes <code>0x11</code>, and reaches <code>poweroff_halt_loop</code>. A later
+<strong>ON</strong> event enters the same 4,118-iteration debounce. The wake side then writes
+normal interrupt mask <code>0x0B</code> at <code>ram:0C9E</code> and sends LCD commands
+<code>0x40,0x05,0x01,0x03,0x17,0x0B,0xEF</code> through <code>06:4D38</code>. [confirmed]</p>
 <h2 id="dynamic-reproduction"><a class="header" href="#dynamic-reproduction">Dynamic reproduction</a></h2>
 <p>The resolver can print injected key events and restrict both key and I/O output to an inclusive trace-clock window.</p>
 <pre><code class="language-sh">nix develop -c python tools/tilem_trace_resolve.py \
@@ -705,7 +717,7 @@ above additionally require disassembly of their surrounding routines.</p>
 <li>[confirmed] Initial and subsequent repeat delays are 50 and 10 timer-1 ticks, and only arrows, diagonals, and <strong>DEL</strong> repeat at this layer.</li>
 <li>[confirmed] <code>_GetCSC</code> is a destructive one-byte mailbox read, so it can lose overwritten events.</li>
 <li>[confirmed] ON debounce forces nominal 6 MHz and requires 4,118 stable reads, about 46.7 ms in the trace.</li>
-<li>[confirmed] Explicit power-off and APD share the <code>ram:0A24</code> low-power tail; <strong>ON</strong> wake restores the interrupt mask and reinitializes the LCD.</li>
+<li>[confirmed] Explicit power-off and APD share <code>poweroff_shared_tail</code>; <strong>ON</strong> wake restores the interrupt mask and reinitializes the LCD.</li>
 <li>[standard] TilEm iterates matrix closure, Wabbitemu performs only pairwise closure, and MAME XORs selected positions.</li>
 <li>[standard] TilEm requests ON interrupts on press and release; Wabbitemu and MAME request only on press.</li>
 <li>[standard] A guarded direct-core TilEm run reproduces its transitive closure, eight stored rows, exact group byte, scancode bounds, separate ON path, both-edge latch, and reset state.</li>

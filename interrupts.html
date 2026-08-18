@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -189,7 +189,7 @@
 <tr><th>Evidence</th><th>Scope</th><th>Confidence</th></tr>
 </thead>
 <tbody>
-<tr><td>Page-0 bytes at <code>ram:0038</code>–<code>ram:0244</code></td><td>IM1 entry, USB and legacy gates, source-test order, handlers, acknowledgement, and exit</td><td>[confirmed]</td></tr>
+<tr><td>Page-0 bytes from <code>im1_vector</code> at <code>ram:0038</code> through <code>ram:0244</code></td><td>IM1 entry, USB and legacy gates, source-test order, handlers, acknowledgement, and exit</td><td>[confirmed]</td></tr>
 <tr><td>Power-cycle trace from <code>tools/macros/power-cycle.macro</code></td><td>OS mask writes, low-power <code>HALT</code>, ON wake, status read, debounce, and restoration</td><td>[confirmed]</td></tr>
 <tr><td>WikiTI ports <code>0x03</code> and <code>0x04</code></td><td>Bit-level enable, status, clear-on-zero, timer-rate, mapping, battery-selector, and low-power contract</td><td>[standard]</td></tr>
 <tr><td>TilEm commit <code>f56ad63</code> and Wabbitemu commit <code>48c2dc0</code></td><td>Two executable interpretations of the registers and their fidelity gaps</td><td>[standard]</td></tr>
@@ -203,7 +203,10 @@
 </div>
 <p>The ROM proves how OS 2.55MP uses the registers. Public notes and emulators describe behavior inside the ASIC that the ROM cannot prove by itself. Emulator agreement is supporting evidence, not physical confirmation.</p>
 <h2 id="im1-entry-and-context"><a class="header" href="#im1-entry-and-context">IM1 entry and context</a></h2>
-<p>IM1 accepts a maskable interrupt at fixed address <code>ram:0038</code>. The OS vector jumps to <code>ram:006D</code>, where it swaps <code>AF</code>, <code>BC</code>, <code>DE</code>, and <code>HL</code> with the alternate register set. The normal exit swaps them back, executes <code>EI</code>, and returns with <code>RETI</code>. [confirmed]</p>
+<p>IM1 accepts a maskable interrupt at <code>im1_vector</code>, the fixed address <code>ram:0038</code>.
+The vector jumps to <code>int_entry_save_alt_regs</code> at <code>ram:006D</code>, which swaps <code>AF</code>,
+<code>BC</code>, <code>DE</code>, and <code>HL</code> with the alternate register set. The normal exit swaps
+them back, executes <code>EI</code>, and returns with <code>RETI</code>. [confirmed]</p>
 <pre><code class="language-z80">ram:0038  jr ram:006D
 ram:006D  ex af,af'
 ram:006E  exx
@@ -225,9 +228,16 @@ ram:00F2  ei
 ram:00F3  reti
 </code></pre>
 <h2 id="usb-gate-and-legacy-controller"><a class="header" href="#usb-gate-and-legacy-controller">USB gate and legacy controller</a></h2>
-<p>Port <code>0x55</code> is the active-low USB interrupt summary. The three instructions at <code>ram:006F</code> invert and mask its low five bits. A result of zero jumps directly to the legacy status read at <code>ram:003A</code>. A nonzero result enters the USB activity-hook and port-<code>0x56</code> event paths before the handler considers the legacy controller. [confirmed]</p>
+<p>Port <code>0x55</code> is the active-low USB interrupt summary. The three instructions at
+<code>int_entry_save_alt_regs + 0x02</code> invert and mask its low five bits. A result of
+zero jumps directly to <code>interrupt_legacy_status</code> at <code>ram:003A</code>. A nonzero
+result enters the USB activity-hook and port-<code>0x56</code> event paths before the
+handler considers the legacy controller. [confirmed]</p>
 <p>This ordering does not make port <code>0x55</code> a summary of ON, standard-timer, or legacy link requests. Those sources appear at port <code>0x04</code>. Port <code>0x56</code> is a USB line-event bitmap, not the mask for port <code>0x04</code>. [confirmed] for the separate ROM paths; [standard] for the register roles.</p>
-<p>The disconnected TilEm x4 model returns <code>0x1F</code> from port <code>0x55</code> and zero from port <code>0x56</code>. Its ordinary trace therefore takes <code>ram:006F</code> → <code>ram:003A</code> without USB event work. [standard]</p>
+<p>The disconnected TilEm x4 model returns <code>0x1F</code> from port <code>0x55</code> and zero from
+port <code>0x56</code>. Its ordinary trace therefore takes
+<code>int_entry_save_alt_regs + 0x02</code> → <code>interrupt_legacy_status</code> without USB event
+work. [standard]</p>
 <p>See <a href="sub-usb-asic.html#interrupt-integration-confirmed">USB ASIC and link assist</a> for the port-<code>0x56</code> event-bit branches and page-35 handlers.</p>
 <h2 id="port-0x03-mask-acknowledgement-and-power-mode"><a class="header" href="#port-0x03-mask-acknowledgement-and-power-mode">Port <code>0x03</code>: mask, acknowledgement, and power mode</a></h2>
 <p>Port <code>0x03</code> controls the four legacy interrupt sources and the ASIC’s behavior when the Z80 executes <code>HALT</code>. Public notes document readback for enable bits 0, 1, 2, and 4. TilEm and Wabbitemu return the complete stored byte, but physical readback of bit 3 is not documented. [standard] for the public fields and emulator behavior; [hypothesis] for physical bit-3 readback.</p>
@@ -271,11 +281,11 @@ ram:00F3  reti
 <tr><th style="text-align: right">Bit</th><th>Read meaning</th><th>OS use</th><th>Evidence</th></tr>
 </thead>
 <tbody>
-<tr><td style="text-align: right">0</td><td>ON request pending</td><td>branch to <code>ram:015B</code></td><td>ROM test at <code>ram:00D2</code>–<code>ram:00D5</code> [confirmed]; latch role [standard]</td></tr>
-<tr><td style="text-align: right">1</td><td>standard timer 1 pending</td><td>branch to <code>ram:0167</code></td><td>ROM test at <code>ram:00D6</code>–<code>ram:00D9</code> [confirmed]; pending role [standard]</td></tr>
+<tr><td style="text-align: right">0</td><td>ON request pending</td><td>branch to <code>on_irq</code> at <code>ram:015B</code></td><td>ROM test at <code>ram:00D2</code>–<code>ram:00D5</code> [confirmed]; latch role [standard]</td></tr>
+<tr><td style="text-align: right">1</td><td>standard timer 1 pending</td><td>branch to <code>standard_timer1_irq</code> at <code>ram:0167</code></td><td>ROM test at <code>ram:00D6</code>–<code>ram:00D9</code> [confirmed]; pending role [standard]</td></tr>
 <tr><td style="text-align: right">2</td><td>standard timer 2 pending</td><td>branch to <code>ram:01F1</code></td><td>ROM test at <code>ram:00C8</code>–<code>ram:00CB</code> [confirmed]; pending role [standard]</td></tr>
 <tr><td style="text-align: right">3</td><td>one when ON is released, zero while pressed</td><td>debounce reads at <code>ram:0975</code></td><td>ROM interpretation [confirmed]; electrical level [standard]</td></tr>
-<tr><td style="text-align: right">4</td><td>legacy link activity pending</td><td>branch to <code>ram:01E0</code></td><td>ROM test at <code>ram:00CD</code>–<code>ram:00D0</code> [confirmed]; pending role [standard]</td></tr>
+<tr><td style="text-align: right">4</td><td>legacy link activity pending</td><td>branch to <code>legacy_link_irq</code> at <code>ram:01E0</code></td><td>ROM test at <code>ram:00CD</code>–<code>ram:00D0</code> [confirmed]; pending role [standard]</td></tr>
 <tr><td style="text-align: right">5</td><td>programmable timer 1 finished</td><td>test timer-1 mode at port <code>0x31</code></td><td>ROM tests at <code>ram:0041</code> and <code>ram:013A</code> [confirmed]; completion role [standard]</td></tr>
 <tr><td style="text-align: right">6</td><td>programmable timer 2 finished</td><td>page-35 handler with <code>A = 0x0B</code></td><td>ROM tests at <code>ram:0046</code> and <code>ram:0154</code> [confirmed]; completion role [standard]</td></tr>
 <tr><td style="text-align: right">7</td><td>programmable timer 3 finished</td><td>test timer-3 mode at port <code>0x37</code></td><td>ROM tests at <code>ram:003C</code> and <code>ram:012C</code> [confirmed]; completion role [standard]</td></tr>
@@ -348,7 +358,9 @@ ram:00E2  out (0x03),a
 <h2 id="standard-and-programmable-timer-distinction"><a class="header" href="#standard-and-programmable-timer-distinction">Standard and programmable timer distinction</a></h2>
 <p>The standard timers belong to the legacy mask block. Port-<code>0x03</code> bits 1 and 2 enable their interrupt requests, and clearing those bits acknowledges them. Their rate comes from port-<code>0x04</code> bits 2–1. [standard]</p>
 <p>The three programmable timers have source, mode/status, and counter triplets at ports <code>0x30</code>–<code>0x38</code>. Their port-<code>0x04</code> bits are completion observations, not enable bits. Timer mode bit 1 selects whether completion requests a maskable interrupt. [standard]</p>
-<p>OS 2.55MP uses programmable timer 1 for its timer bcall state machine and programmable timer 3 for a USB timeout path. Standard timer 1 drives keypad scanning, cursor blink, the run indicator, and Auto Power Down (APD) through <code>ram:0167</code>. [confirmed]</p>
+<p>OS 2.55MP uses programmable timer 1 for its timer bcall state machine and
+programmable timer 3 for a USB timeout path. <code>standard_timer1_irq</code> drives keypad
+scanning, cursor blink, the run indicator, and Auto Power Down (APD). [confirmed]</p>
 <p>See <a href="clock-timers-power.html">Clock, timers, and power</a> for programmable-timer modes, the bcall ABI, and kernel-tick consumers.</p>
 <h2 id="on-request-versus-on-level"><a class="header" href="#on-request-versus-on-level">ON request versus ON level</a></h2>
 <p>Port-<code>0x04</code> bit 0 is the ON interrupt latch. Bit 3 is the button’s current active-low level. The dispatcher selects the ON handler from bit 0, while <code>on_key_debounce_power</code> at <code>ram:0964</code> repeatedly samples bit 3 to classify a stable press or release. [confirmed]</p>
@@ -356,11 +368,16 @@ ram:00E2  out (0x03),a
 <p>TilEm requests an ON interrupt on both press and release transitions when enabled. Wabbitemu latches only a transition into its pressed state. The ROM handles either stable level, but it cannot determine the physical ASIC’s edge policy. [standard] for emulator behavior; [hypothesis] for the unmeasured physical policy.</p>
 <p>See <a href="keypad-on-hardware.html#on-interrupt-and-level">Keypad and ON-key hardware</a> for debounce timing and the OS ON state machine.</p>
 <h2 id="link-interrupt-versus-periodic-link-polling"><a class="header" href="#link-interrupt-versus-periodic-link-polling">Link interrupt versus periodic link polling</a></h2>
-<p>Port-<code>0x03</code> bit 4 controls the legacy link-activity interrupt. The shutdown mask <code>0x11</code> uses it as a wake source. The port-<code>0x04</code> bit-4 dispatcher branch enters the power restoration path at <code>ram:01E0</code>. [confirmed] for OS use; [standard] for the interrupt source.</p>
+<p>Port-<code>0x03</code> bit 4 controls the legacy link-activity interrupt. The shutdown
+mask <code>0x11</code> uses it as a wake source. The port-<code>0x04</code> bit-4 dispatcher branch
+enters <code>legacy_link_irq</code>, the power-restoration path. [confirmed] for OS use;
+[standard] for the interrupt source.</p>
 <p>Normal operation uses mask <code>0x0B</code>, so legacy link interrupts are disabled. Standard timer 1 still performs a periodic silent-link check at <code>ram:01B1</code>: the raw path reads port <code>0x00</code>, and the assist path reads port <code>0x09</code>. This polling is separate from a direct port-<code>0x04</code> bit-4 request. [confirmed]</p>
 <p>See <a href="link-port-hardware.html#background-link-detection-and-interrupts">Two-wire link port hardware</a> for both detection paths.</p>
 <h2 id="low-power-entry-and-wake"><a class="header" href="#low-power-entry-and-wake">Low-power entry and wake</a></h2>
-<p>The shared power-off tail first acknowledges legacy sources with <code>0x08</code>. It then writes <code>0x06</code> to port <code>0x04</code>, writes <code>0x11</code> to port <code>0x03</code>, enables interrupts, and loops on <code>HALT</code>. [confirmed]</p>
+<p><code>poweroff_shared_tail</code> at <code>ram:0A24</code> first acknowledges legacy sources with
+<code>0x08</code>. It then writes <code>0x06</code> to port <code>0x04</code>, writes <code>0x11</code> to port <code>0x03</code>,
+enables interrupts, and reaches <code>poweroff_halt_loop</code> at <code>ram:0A5C</code>. [confirmed]</p>
 <pre><code class="language-z80">ram:0A4B  out (0x04),a        ; A = 0x06
 ram:0A4F  out (0x03),a        ; A = 0x11
 ram:0A5B  ei

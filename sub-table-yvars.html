@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -375,14 +375,13 @@ recompute driver, otherwise it repaints from the cached values. [confirmed]</p>
 <p>After a successful recompute it clears <code>reTable</code>, so subsequent scrolls reuse
 the cache until something marks it dirty again. [confirmed]</p>
 <h3 id="31-seeding-the-running-independent-value-confirmed"><a class="header" href="#31-seeding-the-running-independent-value-confirmed">3.1 Seeding the running independent value [confirmed]</a></h3>
-<p><code>05:774B</code> initialises the per-table running <code>X</code>. It first clears a working float
-(<code>05:774B LD DE,0x8622 ; CALL 0x1920</code>), then at <code>05:7751</code> copies TblMin into the
-running-X slot:</p>
+<p><code>05:774B</code> initialises the two-float <code>table_x_work</code> array. It first clears
+<code>table_x_work[0]</code> (<code>0x8622</code>), then at <code>05:7751</code> copies <code>TblMin</code> into
+<code>table_x_work[1]</code>, the running-X slot:</p>
 <pre><code class="language-z80">05:7751  LD HL,0x92B3 (TblMin) ; LD DE,0x862B ; JP 0x1A92   ; running-X (0x862B) ← TblMin
 </code></pre>
-<p>i.e. the first row’s independent value is <code>TblStart</code>. A working float at
-<code>0x8622</code>/<code>0x862B</code> holds the current row’s X. The row index is bounds-checked at
-<code>05:65DC</code> (<code>LD A,(0x91E0); LD HL,0x91DC; CP (HL); RET</code> — current row vs the last
+<p>i.e. the first row’s independent value is <code>TblStart</code>. The row index is bounds-checked at
+<code>05:65DC</code> (<code>LD A,(0x91E0); LD HL,CurTableRow; CP (HL); RET</code> — current row vs the last
 row), and the per-row X is computed as <code>TblStart + k·TblStep</code> rather than by an
 incremental add:</p>
 <pre><code class="language-z80">05:65DC  LD A,(0x91E0) ; LD HL,0x91DC ; CP (HL) ; RET   ; row-index bound check
@@ -402,8 +401,9 @@ leaving <code>Y</code> in <code>OP1</code> (exactly the grapher’s per-column e
 <code>sub-graphing.md §6</code>),</li>
 <li>format OP1 and stash the result string/value into the row’s cache slot.</li>
 </ol>
-<p>The fill loop is <code>05:5EE1</code>: it strides the cell buffer at <code>0x91E2</code> in 9-byte
-(<code>TIFloat</code>) steps for up to 7 visible columns (<code>LD C,0x07</code>), keyed off the
+<p>The fill loop is <code>05:5EE1</code>: it strides <code>table_value_cache.band[0]</code> at
+<code>0x91E2</code> in 9-byte (<code>TIFloat</code>) steps for up to 7 visible columns
+(<code>LD C,0x07</code>), keyed off the
 top-row index <code>0x91E0</code>. The <code>X</code> column itself is written from the running-X; the
 <code>Y</code> columns from the evaluated OP1. [confirmed]</p>
 <h3 id="33-the-value-cache--scrolling-confirmed"><a class="header" href="#33-the-value-cache--scrolling-confirmed">3.3 The value cache &amp; scrolling [confirmed]</a></h3>
@@ -419,14 +419,30 @@ scrolling is instant (no recompute):</p>
 <tr><td><code>0x9190</code> <code>YOutSym</code> / <code>0x9192</code> <code>YOutDat</code></td><td>active Y column: symbol + data pointer</td></tr>
 <tr><td><code>0x9194</code> <code>inputSym</code> / <code>0x9196</code> <code>inputDat</code></td><td>the “Ask”/input column descriptor</td></tr>
 <tr><td><code>0x9198</code> <code>prevData</code></td><td>previous-column data pointer</td></tr>
-<tr><td><code>0x91DB</code> / <code>0x91DC</code> / <code>0x91E0</code></td><td>row indices / top-row index / column count</td></tr>
-<tr><td><code>0x91E2 … 0x9221 …</code></td><td>the per-cell computed-value buffers (9-byte floats)</td></tr>
+<tr><td><code>0x91DB</code></td><td>unnamed Ask-mode row state</td></tr>
+<tr><td><code>0x91DC</code> / <code>0x91DD</code></td><td><code>CurTableRow</code> / <code>CurTableCol</code></td></tr>
+<tr><td><code>0x91E0</code></td><td>table-top state; exact role remains open</td></tr>
+<tr><td><code>0x91E2</code></td><td><code>table_value_cache</code>, the per-cell computed-value bands</td></tr>
 </tbody>
 </table>
 </div>
-<p><code>05:6014</code> performs the scroll: <code>LD HL,0x9221 ; LD DE,0x9260 ; LDIR</code> (copy a
-0x3F-byte block) and an <code>LDDR</code> shift of a 0xB4-byte region — i.e. when you press
-↑/↓ past the cached window it slides the cache and only computes the one new row
+<p>The three contiguous 63-byte regions at <code>0x91E2</code>, <code>0x9221</code>, and <code>0x9260</code>
+form one typed cache:</p>
+<pre><code class="language-c">typedef struct {
+    TIFloat value[7];
+} TableCacheBand;             /* 0x3F bytes */
+
+typedef struct {
+    TableCacheBand band[3];
+} TableValueCache;            /* 0xBD bytes at table_value_cache */
+</code></pre>
+<p>Thus <code>0x9221</code> is <code>table_value_cache.band[1]</code>, and <code>0x9260</code> is
+<code>table_value_cache.band[2]</code>. This notation captures both the 9-byte element
+stride and the 63-byte scroll-copy stride. [confirmed]</p>
+<p><code>05:6014</code> performs the scroll: <code>LD HL,0x9221 ; LD DE,0x9260 ; LDIR</code> copies
+<code>table_value_cache.band[1]</code> to <code>band[2]</code> (a <code>0x3F</code>-byte block) and performs an
+<code>LDDR</code> shift of a <code>0xB4</code>-byte region. When the cursor moves above or below the
+cached window, it slides the cache and computes only the one new row
 (or recomputes if <code>reTable</code>). [confirmed]</p>
 <h3 id="34-indpnt--auto-vs-ask-depend--auto-vs-ask-confirmed"><a class="header" href="#34-indpnt--auto-vs-ask-depend--auto-vs-ask-confirmed">3.4 Indpnt = Auto vs Ask, Depend = Auto vs Ask [confirmed]</a></h3>
 <p><code>05:6D40</code>/<code>05:6D51</code> read the mode bits to branch:</p>
@@ -457,7 +473,8 @@ columns, drawn with the large font through the home-screen text primitives
            CALL 0x65DC            ; row-index bound check (current row vs last)
            INC row ; … ; LD (0x91DC),A
 </code></pre>
-<p><code>05:7E7C</code> chooses the destination text buffer (<code>0x9221</code> vs <code>0x91E2</code>) based on the
+<p><code>05:7E7C</code> chooses the destination cache band (<code>table_value_cache.band[1]</code> at
+<code>0x9221</code> versus <code>band[0]</code> at <code>0x91E2</code>) based on the
 column index, and writes <code>0xFF</code>/blank sentinels for empty (Ask) cells. The bottom
 status line and the highlighted-cell full-precision readout reuse the same value
 cache. [confirmed]</p>
@@ -504,7 +521,7 @@ bit set (the <code>=</code> is highlighted). The parser store path sets <code>re
 equation list at <code>iMathPtr4</code> (0x84D9) — here only <code>Y1</code>,</li>
 <li>per row: <code>_StoX</code> the running-X, evaluate <code>Y1</code>’s tokens via the page-38
 evaluator (<code>_Find_Parse_Formula</code> / <code>_ParseInp</code>) → OP1 = <code>X²+1</code>, format and
-stash into the cell cache (<code>0x91E2</code>/<code>0x9221</code>),</li>
+stash into <code>table_value_cache.band[0]</code>/<code>band[1]</code>,</li>
 <li>advance to the next row (bound-checked at <code>05:65DC</code>; X = <code>TblStart + k·TblStep</code>) and repeat,</li>
 <li>clear <code>reTable</code>.</li>
 </ul>
@@ -532,11 +549,11 @@ IY+19 b6    tblFlags.reTable  = table-dirty
 05:774b  table_seed_runX_from_TblMin      ; runningX(0x862B) ← TblMin
 05:773f  table_seed_runX_from_TblMin2     ; same, split-graph path
 05:65dc  table_row_bound                   ; row-index bound check (91E0 vs (91DC))
-05:5ee1  table_fill_cache_loop            ; per-row value-cache fill (0x91E2)
+05:5ee1  table_fill_cache_loop            ; fill table_value_cache.band[0]
 05:6014  table_scroll_cache               ; slide cell cache on scroll (LDIR/LDDR)
 05:6d40  table_mode_test                  ; BIT autoFill/autoCalc (Auto vs Ask)
 05:7e45  table_paint_grid_loop            ; render cached cells as text columns
-05:7e7c  table_cell_select_buffer         ; pick cell text buffer 0x9221/0x91E2
+05:7e7c  table_cell_select_buffer         ; pick cache band 1/0
 05:7712  screen_split                     ; Graph-Table split-screen setup
 05:62fd  table_recompute_clear_reTable    ; another RES6 recompute exit
 
@@ -545,9 +562,10 @@ RAM  918C/918E  XOutSym / XOutDat              ; X-column symbol + data ptr
 RAM  9190/9192  YOutSym / YOutDat              ; Y-column symbol + data ptr
 RAM  9194/9196  inputSym / inputDat            ; Ask-input column descriptor
 RAM  9198       prevData                       ; previous-column data ptr
-RAM  91DB/91DC/91E0  row idx / row idx / top-row &amp; col count
-RAM  91E2 / 9221     per-cell computed-value buffers (9-byte floats)
-RAM  8622 / 862B     running independent value (current row's X)
+RAM  91DC/91DD        CurTableRow / CurTableCol
+RAM  91E0             table-top state; exact role remains open
+RAM  91E2             table_value_cache (three bands × seven TIFloats)
+RAM  8622             table_x_work[2]; running independent-value scratch
 
 ; --- Y= equations, selected list, evaluation ---
 EquObj = 3 (VAT type)                          ; Y1..Y0 stored as tokenized formulas

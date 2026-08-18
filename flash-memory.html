@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -826,7 +826,18 @@ for the fixture and TilEm execution.</p>
 comparison, not whether <code>_WriteAByte</code> changed its scratch registers or launched
 a worker. [confirmed]</p>
 <h2 id="ram-worker-launcher"><a class="header" href="#ram-worker-launcher">RAM-worker launcher</a></h2>
-<p><code>3F:48C5</code> launches length-prefixed boot workers. <code>IX</code> points at a little-endian length word followed by worker bytes. The launcher copies that many bytes to <code>ramCode</code> at <code>0x8100</code>, restores the caller’s <code>HL</code>, <code>DE</code>, and <code>BC</code>, and calls the copied code. [confirmed]</p>
+<p><code>boot_ram_worker_launcher</code> at <code>3F:48C5</code> launches length-prefixed boot workers.
+<code>IX</code> points at this packed descriptor: [confirmed]</p>
+<pre><code class="language-c">typedef struct {
+    uint16_t length;
+    uint8_t code[];
+} RamWorkerDescriptor;
+</code></pre>
+<p>The flexible <code>code[]</code> member describes the serialized ROM object. Ghidra applies
+the reusable type to the two-byte header only because each payload has a
+different length; the payload begins at <code>descriptor + 2</code>. The launcher copies
+<code>descriptor-&gt;length</code> bytes from there to <code>ramCode</code> at <code>0x8100</code>. It then restores
+the caller’s <code>HL</code>, <code>DE</code>, and <code>BC</code> and calls the copied code. [confirmed]</p>
 <p>The interrupt wrapper at <code>3F:48EE</code> records IFF2 from <code>LD A,I</code> in <code>0x82A2</code>, disables interrupts, and returns to the launcher. After the worker returns, <code>3F:48E1</code> executes <code>EI</code> only if interrupts were enabled before entry. The worker therefore runs atomically while preserving the caller’s prior interrupt-enabled state. [confirmed]</p>
 <div class="table-wrapper">
 <table>
@@ -834,14 +845,14 @@ a worker. [confirmed]</p>
 <tr><th>Worker</th><th style="text-align: right">Prefix</th><th>Source bytes</th><th>RAM destination</th></tr>
 </thead>
 <tbody>
-<tr><td>sector erase</td><td style="text-align: right"><code>0x0052</code> at <code>3F:4C3B</code></td><td><code>3F:4C3D</code>–<code>3F:4C8E</code></td><td><code>0x8100</code>–<code>0x8151</code></td></tr>
-<tr><td>block program</td><td style="text-align: right"><code>0x007C</code> at <code>3F:4CC8</code></td><td><code>3F:4CCA</code>–<code>3F:4D45</code></td><td><code>0x8100</code>–<code>0x817B</code></td></tr>
+<tr><td>sector erase</td><td style="text-align: right"><code>boot_flash_erase_worker_descriptor</code> at <code>3F:4C3B</code>, <code>0x0052</code></td><td>descriptor <code>+ 2</code>, at <code>3F:4C3D</code>–<code>3F:4C8E</code></td><td><code>ramCode</code>–<code>ramCode + 0x51</code></td></tr>
+<tr><td>block program</td><td style="text-align: right"><code>flash_program_worker_descriptor</code> at <code>3F:4CC8</code>, <code>0x007C</code></td><td><code>flash_program_worker_code</code> at <code>3F:4CCA</code>–<code>3F:4D45</code></td><td><code>ramCode</code>–<code>ramCode + 0x7B</code></td></tr>
 </tbody>
 </table>
 </div>
-<p>Page <code>3D</code> contains a relocated copy of the same launcher structure at
-<code>3D:678C</code>. It runs the <code>_FlashToRam</code> descriptor at <code>3D:6761</code> and the internal
-certificate-program descriptor at <code>3D:7308</code>. Its interrupt wrapper at
+<p>Page <code>3D</code> contains a relocated copy of the launcher at <code>3D:678C</code>. It runs
+<code>flash_to_ram_worker_descriptor</code> at <code>3D:6761</code> and
+<code>certificate_worker_descriptor</code> at <code>3D:7308</code>. Its interrupt wrapper at
 <code>3D:67B5</code> has the same IFF2-save, <code>DI</code>, conditional-<code>EI</code> behavior as the boot
 launcher. The inferred name <code>ram_worker_launcher</code> therefore describes both
 call paths. [confirmed]</p>
@@ -891,9 +902,10 @@ target bytes, while <code>BC</code> retains the decrement performed by <code>LDI
 <h3 id="internal-certificate-page-programmer"><a class="header" href="#internal-certificate-page-programmer">Internal certificate-page programmer</a></h3>
 <p><code>certificate_write_byte</code> at <code>3D:72E5</code> launches a second byte-program worker.
 It sets <code>BC=1</code>, clears <code>(IY+0x25).1</code>, normalizes the target page for the current
-calculator model, and passes descriptor <code>3D:7308</code> to <code>ram_worker_launcher</code>.
-The descriptor contains 129 bytes at <code>3D:730A</code>–<code>3D:738A</code>. The boot block worker
-contains 124 bytes at <code>3F:4CCA</code>–<code>3F:4D45</code>. [confirmed]</p>
+calculator model, and passes <code>certificate_worker_descriptor</code> to
+<code>ram_worker_launcher</code>. Its code begins at descriptor <code>+ 2</code> and contains 129
+bytes at <code>3D:730A</code>–<code>3D:738A</code>. <code>flash_program_worker_code</code> contains 124 bytes at
+<code>3F:4CCA</code>–<code>3F:4D45</code>. [confirmed]</p>
 <p>The only direct call to <code>certificate_write_byte</code> is <code>3D:4332</code>, inside
 <code>certificate_copy_from_flash</code> at <code>3D:431A</code>. The loop obtains an ordinary Flash
 page from <code>3D:5258</code>, stages one byte in OP1 with <code>_FlashToRam</code>, selects the
@@ -928,6 +940,25 @@ blocks: [confirmed]</p>
 </tbody>
 </table>
 </div>
+<p>The adjacent App-restriction bytes make the complete decoded tail easier to
+address as a partial structure based at half offset <code>0x1DD2</code>: [confirmed]</p>
+<pre><code class="language-c">typedef struct {
+    uint8_t restriction_control;        // +0x000, half offset 0x1DD2
+    uint8_t restriction_record[13];     // +0x001, half offset 0x1DD3
+    uint8_t unresolved_1de0_1de9[10];   // +0x00E
+    uint8_t gc_recovery[0x66];          // +0x018, half offset 0x1DEA
+    uint8_t ti84_app_trials[0xC8];      // +0x07E, half offset 0x1E50
+    uint8_t alternate_model_span[0xC8]; // +0x146, half offset 0x1F18
+    uint8_t validity[0x20];             // +0x20E, half offset 0x1FE0
+} CertificateMetadataTail;
+</code></pre>
+<p>The <code>unresolved_1de0_1de9</code> name deliberately records only its bounds. The ROM
+evidence does not identify an owner for those ten bytes. The notation below
+uses <code>certificate_tail</code> for a <code>CertificateMetadataTail</code> view of the selected
+certificate half. <code>BuildTypes.java</code> registers this reusable type but does not
+apply it at one fixed address: the ROM selects the certificate half at runtime,
+so <code>certificate_tail</code> means a conceptual pointer to <code>selected_half + 0x1DD2</code>,
+not a global Ghidra symbol. [confirmed]</p>
 <p>Six helpers at <code>3D:5227</code>–<code>3D:5256</code> add fixed or model-selected offsets to
 <code>_GetCertificateStart</code>’s result. Raw <code>CALL</code> scanning finds the complete direct
 caller sets without relying on disassembler labels: [confirmed]</p>
@@ -956,9 +987,11 @@ through to <code>0x1E50</code> when it is set. The resolved TI-84 Plus traces re
 above its <code>TI_84P</code> enum and clear for its TI-83 Plus family. This supports the
 family split implemented by the ROM but remains evidence about the emulator,
 not a physical measurement. [standard]</p>
-<p>Consequently <code>0x1E50</code>–<code>0x1F17</code> is the active App-trial table on TI-84 Plus.
+<p>Consequently <code>certificate_tail.ti84_app_trials</code>, at
+<code>0x1E50</code>–<code>0x1F17</code>, is the active App-trial table on TI-84 Plus.
 When port-<code>0x02</code> bit 7 is clear, the same clear, write, query, and display paths
-select the alternate table at <code>0x1F18</code>–<code>0x1FDF</code>. TI-84 Plus rebuild modes <code>0</code>
+select <code>certificate_tail.alternate_model_span</code> at
+<code>0x1F18</code>–<code>0x1FDF</code>. TI-84 Plus rebuild modes <code>0</code>
 and <code>2</code> still stage or replace that alternate-model span together with validity
 metadata, but no TI-84 Plus per-entry semantic accessor to that span has been
 identified. Giving it another TI-84 Plus field name would exceed the evidence.
@@ -1064,9 +1097,9 @@ journal fields at <code>3C:7568</code> and <code>3C:7576</code>, then persists t
 </tbody>
 </table>
 </div>
-<p>The restriction storage occupies certificate offsets <code>0x1DD2</code>–<code>0x1DDF</code>.
-Offset <code>0x1DD2</code> is a control byte. The 13 bytes at <code>0x1DD3</code>–<code>0x1DDF</code> act as a
-record or as an App-restriction bitmap, depending on the API operation. For an
+<p><code>certificate_tail.restriction_control</code> occupies certificate offset
+<code>0x1DD2</code>. The 13-byte <code>restriction_record</code> field at <code>0x1DD3</code>–<code>0x1DDF</code> acts as
+a record or as an App-restriction bitmap, depending on the API operation. For an
 App on Flash page $p$, the bitmap index is $p - 8$. <code>3D:7D69</code> divides that
 index by eight, and the mask helper at <code>3D:785D</code> uses least-significant-bit-first
 ordering. A clear bitmap bit means that the App is restricted. [confirmed]</p>
@@ -1121,7 +1154,7 @@ bit from zero to one requires the erase-and-rebuild path. The inverse routine,
 <code>_WriteAByte = 8021h</code> through <code>3D:7CB3</code>; programming one to zero does not
 require an erase. [confirmed]</p>
 <p>The boot bcall table and page-<code>3F</code> bodies independently confirm the OS-validity
-bit at offset <code>0x1FE0</code>: [confirmed]</p>
+bit in <code>certificate_tail.validity[0]</code>, at offset <code>0x1FE0</code>: [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -1136,7 +1169,8 @@ bit at offset <code>0x1FE0</code>: [confirmed]</p>
 </div>
 <p>Bit <code>0</code> clear means that the OS is valid; bit <code>0</code> set means that it is invalid.
 WikiTI gives the same field label, but the conclusion above comes from the boot
-ROM paths. WikiTI also labels <code>0x1DEA</code> as garbage-collection information. The
+ROM paths. WikiTI also labels <code>certificate_tail.gc_recovery</code> at
+<code>0x1DEA</code> as garbage-collection information. The
 mode-<code>3</code> and mode-<code>4</code> call chains independently confirm that the
 <code>0x1DEA</code>–<code>0x1E4F</code> block stores garbage-collection recovery metadata. The exact
 meaning of every byte is not established: the first six fields and the live
@@ -1278,9 +1312,9 @@ ld de,0x4000
 <p>An emulator-only TilEm fixture exercises the page-<code>3D</code> boundary with <code>A=0x3D</code>,
 <code>DE=0x7FFF</code>, <code>BC=2</code>, and RAM source bytes <code>0x40,0xE0</code>. It patches only the tail
 of a protected page-<code>3C</code> unlock wrapper in a copy of the exact OS image. The
-worker copied from <code>3F:4CCA</code> remains unchanged. The generated assembly program
-checks all eight patched bytes and exits on an unmodified ROM before it can
-unlock Flash. [confirmed] for the fixture construction.</p>
+copied <code>flash_program_worker_code</code> remains unchanged. The generated
+assembly program checks all eight patched bytes and exits on an unmodified ROM
+before it can unlock Flash. [confirmed] for the fixture construction.</p>
 <p>The trace decodes two byte-program commands followed by one array reset:
 [confirmed] for TilEm behavior.</p>
 <div class="table-wrapper">
@@ -1374,7 +1408,7 @@ direct store at <code>3C:42D4</code>. The second mode-<code>3</code> owner is th
 receive-to-memory loop at <code>36:40E7</code>. It fills <code>0x983A</code> through the page-35
 endpoint helper at <code>35:4FA1</code>, which reads port <code>0xA1</code> at <code>35:500E</code>, then calls
 the page-<code>3C</code> dispatcher at <code>36:415C</code>. [confirmed]</p>
-<p>At <code>3D:65BA</code>, the source is <code>arcInfo.destPtr</code>. Setup at <code>07:6331</code> saves the
+<p>At <code>3D:65BA</code>, the source is <code>arcInfo.dest_ptr</code>. Setup at <code>07:6331</code> saves the
 incoming data pointer from the variable lookup in that field. It is a RAM data
 pointer on the RAM-to-Flash path; the Flash-to-RAM path later replaces it at
 <code>07:622E</code> with the newly allocated RAM destination. The GC trace reaches this
@@ -1969,8 +2003,8 @@ consequences of the pinned source model, not an exhaustive Wabbitemu run or
 hardware observation. [standard]</p>
 <p>A second guarded mode boots the exact retail ROM, injects a four-byte
 <code>rst 28h</code>/<code>8087h</code> harness into RAM page 1, and sets the documented
-<code>_WriteFlashUnsafe</code> ABI registers. The bcall copies the original 124-byte
-worker from <code>3F:4CCA</code> to <code>0x8100</code> and executes it. The harness directly opens
+<code>_WriteFlashUnsafe</code> ABI registers. The bcall copies the 124 bytes beginning at
+<code>flash_program_worker_code</code> to <code>ramCode</code> and executes them. The harness directly opens
 Wabbitemu’s in-memory ASIC gate, so it does not test the protected port-<code>0x14</code>
 unlock sequence or an OS/UI caller. [confirmed] for the pinned native run.</p>
 <div class="table-wrapper">
@@ -2004,13 +2038,14 @@ true. The static gate scanner classifies both sequences and finds no
 unclassified port-<code>0x14</code> candidate on page <code>3D</code>. [confirmed]</p>
 <p>All six reconstructed recovery images take that protected unlock → recovery →
 relock path. The observer identifies the public block-program worker by
-comparing all 124 RAM bytes at <code>0x8100</code> with <code>3F:4CCA</code>–<code>3F:4D45</code>. Each
+comparing all 124 bytes at <code>ramCode</code> with
+<code>flash_program_worker_code</code>. Each
 <code>_WriteFlashUnsafe</code> visit reaches one matching worker entry and one success
 tail at <code>ram:816B</code>; no run reaches the failure tail at <code>ram:8175</code>. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th style="text-align: right">Input phase</th><th style="text-align: right"><code>_WriteFlashUnsafe</code> / worker entries</th><th style="text-align: right">Data writes at <code>ram:8149</code></th><th style="text-align: right"><code>_EraseFlash</code> entries</th></tr>
+<tr><th style="text-align: right">Input phase</th><th style="text-align: right"><code>_WriteFlashUnsafe</code> / worker entries</th><th style="text-align: right">Data writes at <code>ramCode + 0x49</code> (<code>ram:8149</code>)</th><th style="text-align: right"><code>_EraseFlash</code> entries</th></tr>
 </thead>
 <tbody>
 <tr><td style="text-align: right"><code>0xFF</code></td><td style="text-align: right">33</td><td style="text-align: right">48</td><td style="text-align: right">3</td></tr>

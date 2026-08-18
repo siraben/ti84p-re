@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -217,7 +217,22 @@ These are the values the WINDOW editor writes and the grapher reads.</p>
 <p>There is a second “u” copy block at <code>0x8E7E</code> (<code>uXmin</code>…<code>uXres</code> at <code>0x8F3B</code>) — the
 uVar window set used in the alternate (split/table) graph context, and a working/temp
 float pair around <code>0x8E6A</code>/<code>0x8E73</code> used by the transform code. [confirmed]</p>
-<p><code>deltaX</code>/<code>deltaY</code> are derived from the window when the graph is set up and feed both the
+<p>Both contiguous 23-float blocks share one structural layout. The active copy is
+<code>activeWindow</code> at <code>0x8F50</code>; the alternate copy is <code>userWindow</code> at <code>0x8E7E</code>:</p>
+<pre><code class="language-c">typedef struct {
+    TIFloat x_min, x_max, x_scale, y_min, y_max, y_scale;
+    TIFloat theta_min, theta_max, theta_step;
+    TIFloat t_min, t_max, t_step, plot_start;
+    TIFloat n_max, u0, v0, n_min, u02, v02, w0;
+    TIFloat plot_step, x_resolution, w02;
+} GraphWindowValues;
+</code></pre>
+<p>For example, <code>activeWindow.x_min</code> is the established <code>Xmin</code> address
+<code>0x8F50</code>, while <code>userWindow.x_min</code> is <code>uXmin</code> at <code>0x8E7E</code>. This member
+notation distinguishes which window copy a routine uses without dropping the
+official RAM labels. [confirmed]</p>
+<p><code>deltaX</code>/<code>deltaY</code> are derived from <code>activeWindow.x_min</code> through
+<code>activeWindow.y_scale</code> when the graph is set up and feed both the
 forward (real→pixel) and the circle/draw routines. The LCD is <code>96×64</code>, but the graph area
 is 95 columns wide (0..94) and 63 tall (0..62), hence the /94 and /62. [standard]</p>
 <hr>
@@ -235,7 +250,7 @@ _YftoI (37:41DF):  BC = Ymin   (0x8F6B),            HL = shortY (0x916D),  OR A 
 <li><code>CALL 2385</code> divides by the per-pixel delta (<code>shortX</code>/<code>shortY</code>),</li>
 <li>the X path additionally adds the <code>0x8E73</code> X-origin term, the Y path negates so that
 larger Y maps to a <em>smaller</em> row (screen Y grows downward),</li>
-<li><code>CALL 4229</code> clamps/handles the float→integer exponent (reads <code>OP1.exp</code> at <code>0x8479</code>,
+<li><code>CALL 4229</code> clamps/handles the float→integer exponent (reads <code>OP1.value.exp</code> at <code>0x8479</code>,
 bias <code>0x7F</code>) and rounds to an integer pixel; out-of-range loads ±large sentinel.
 <code>_YftoI</code> returns pixel row +1 (<code>INC A</code>) so callers get a 1-based / inverted row. [confirmed]</li>
 </ul>
@@ -325,7 +340,7 @@ into the argument grabber). [confirmed]</p>
 <tr><td><code>_VertCmd</code></td><td><code>04:7955</code></td><td><code>Vertical x</code> — draws a full-height vertical line at real X. See note below.</td></tr>
 <tr><td><code>_LineCmd</code></td><td><code>04:796A</code></td><td><code>Line(x1,y1,x2,y2)</code> — <code>_PDspGrph</code>, optionally draws via page 33, then <code>JP 0x152A</code> = <code>_DeallocFPS1(0x24)</code> frees the coord frame (the alloc happens upstream).</td></tr>
 <tr><td><code>_UnLineCmd</code></td><td><code>04:797C</code></td><td><code>Line(…,0)</code> — erase variant (same path, clear mode).</td></tr>
-<tr><td><code>_PointCmd</code></td><td><code>04:79B2</code></td><td><code>Pt-On/Pt-Off/Pt-Change(</code> — reads style from <code>OP1.mantissa[0] &amp; 0x20</code>, dispatches set/clear/toggle.</td></tr>
+<tr><td><code>_PointCmd</code></td><td><code>04:79B2</code></td><td><code>Pt-On/Pt-Off/Pt-Change(</code> — reads style from <code>OP1.value.mantissa[0] &amp; 0x20</code>, dispatches set/clear/toggle.</td></tr>
 <tr><td><code>_DrawCmd</code></td><td><code>04:7B8B</code></td><td>top-level <code>DRAW</code> dispatch — grabs the pending count and cross-jumps to the per-command handler.</td></tr>
 <tr><td><code>draw_zero_op1</code></td><td><code>04:620B</code></td><td>seeds OP3=0 then draws (used for axis / <code>DrawF</code> zero baseline).</td></tr>
 </tbody>

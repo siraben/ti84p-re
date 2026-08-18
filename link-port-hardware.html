@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -434,7 +434,11 @@ list, which does not fully characterize the <code>0xFC</code> and <code>0xFD</co
 <p>The standard-timer handler contains a raw-line activity check. After its surrounding link-service gates pass, <code>ram:01B1</code> calls the hardware-model probe. The legacy branch reads <code>port 0x00 &amp; 3</code>; a value other than <code>3</code> calls the common link-activity bjump at <code>ram:3FD5</code>. The assist branch instead checks <code>port 0x09 &amp; 0x18</code>, pulses port <code>0x08</code>, and calls the same bjump. [confirmed]</p>
 <p>This explains why OS input and timer activity can react to a peer that pulls one raw line low. It does not mean every port transition immediately vectors the Z80. Port <code>0x03</code> controls the legacy link-interrupt enable, while this specific silent-link check occurs inside <code>standard_timer1_irq</code> at <code>ram:0167</code>. [confirmed]</p>
 <p>Port-<code>0x03</code> bit 4 also keeps link activity available as a wake source in the standard hardware interrupt block. The power-off path writes <code>0x11</code> before <code>HALT</code>, enabling ON and link wake while disabling the standard timers. [confirmed] for the ROM write; [standard] for the port-bit role.</p>
-<p>Port-<code>0x04</code> bit 4 has lower OS dispatch priority than the three programmable timers and standard timer 2, but higher priority than ON and standard timer 1. The branch enters the power-restoration path at <code>ram:01E0</code>. See <a href="interrupts.html#dispatch-order-and-simultaneous-sources">Interrupts (IM1)</a> for acknowledgement and simultaneous-source behavior. [confirmed]</p>
+<p>Port-<code>0x04</code> bit 4 has lower OS dispatch priority than the three programmable
+timers and standard timer 2, but higher priority than ON and standard timer 1.
+The branch enters <code>legacy_link_irq</code> at <code>ram:01E0</code>. See
+<a href="interrupts.html#dispatch-order-and-simultaneous-sources">Interrupts (IM1)</a> for
+acknowledgement and simultaneous-source behavior. [confirmed]</p>
 <h2 id="error-cleanup-and-the-both-low-abort-pulse"><a class="header" href="#error-cleanup-and-the-both-low-abort-pulse">Error cleanup and the both-low abort pulse</a></h2>
 <h3 id="callback-provenance"><a class="header" href="#callback-provenance">Callback provenance</a></h3>
 <p><code>3C:618D</code> has one genuine direct caller, at <code>3C:614E</code>. Raw searches also find six <code>CALL 0x618D</code> instructions on page <code>05</code>, but those resolve to unrelated page-<code>05</code> code because both the call sites and destination occupy the same banked window. They are not callers of <code>3C:618D</code>. <code>analyze_rom_calls.py</code> now reports this inferred physical destination as <code>resolved_target</code>, which keeps same-address routines on different pages distinct. [confirmed]</p>

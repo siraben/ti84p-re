@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -208,7 +208,7 @@ Asm(prgmZPASS)
 <pre><code class="language-ti-basic">AsmPrgm
 C9
 </code></pre>
-<p><code>C9</code> is <code>RET</code>. Both traces execute it twice at <code>ram:9D95</code>. The analyzer counts
+<p><code>C9</code> is <code>RET</code>. Both traces execute it twice at <code>userMem</code> (<code>0x9D95</code>). The analyzer counts
 instructions and clocks from the first marker to the second. After the second
 marker, each program calls <code>ZPASS</code> only when <code>I=26</code>; <code>ZPASS</code> writes <code>A5h</code> to
 <code>plotSScreen</code> at <code>0x9340</code>. The smoke runner asserts that RAM byte directly.
@@ -262,14 +262,15 @@ parse space differently. [confirmed]</p>
 keeps one <code>FPS</code> value after the first body setup. This matches the temporary
 cursor/end stride without using an LCD image as an oracle. [confirmed]</p>
 <h2 id="the-natural-loop-record"><a class="header" href="#the-natural-loop-record">The natural loop record</a></h2>
-<p>Both forms reach <code>For(</code> production entry <code>38:41E5</code> and <code>End</code> production entry
-<code>38:4200</code>. At each <code>End</code>, <code>38:4200</code> consumes five bytes beginning at <code>OPS + 1</code>:</p>
+<p>Both forms reach <code>parse_for_production</code> (<code>38:41E5</code>) and
+<code>parse_end_ops_record</code> (<code>38:4200</code>). At each <code>End</code>, <code>parse_end_ops_record</code>
+consumes one five-byte <code>TIForOpsRecord</code> beginning at <code>OPS + 1</code>:</p>
 <pre class="mermaid">flowchart LR
     R["OPS + 1 … OPS + 5"] --&gt; Z["00h&lt;br/&gt;sentinel"]
     R --&gt; C["36 58 or 7D 58&lt;br/&gt;continuation"]
     R --&gt; S["12 00&lt;br/&gt;state word"]
-    C --&gt; I["38:5836 first update"]
-    C --&gt; T["38:587D steady update"]
+    C --&gt; I["for_first_update"]
+    C --&gt; T["for_steady_update"]
 </pre>
 
 <p>The first continuation prepares the loop update. The steady continuation

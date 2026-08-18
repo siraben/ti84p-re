@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -229,7 +229,15 @@
 </tbody>
 </table>
 </div>
-<p>Controller video RAM is a third image store outside Z80 RAM. Direct text output can change it without changing <code>plotSScreen</code>, while graph drawing can change <code>plotSScreen</code> without changing the panel until <code>_GrBufCpy</code> runs. [confirmed]</p>
+<p>Both 768-byte buffers use the <code>MonoFramebuffer</code> layout: [confirmed]</p>
+<pre><code class="language-c">typedef struct {
+    uint8_t rows[64][12];
+} MonoFramebuffer;
+</code></pre>
+<p>Each <code>rows[y][byte_column]</code> byte holds eight pixels, most-significant bit first.
+Controller video RAM is a third image store outside Z80 RAM. Direct text output
+can change it without changing <code>plotSScreen</code>, while graph drawing can change
+<code>plotSScreen</code> without changing the panel until <code>_GrBufCpy</code> runs. [confirmed]</p>
 <h2 id="large-font-text"><a class="header" href="#large-font-text">Large-font text</a></h2>
 <p><code>_PutMap</code> clamps character code zero and codes at or above <code>0xF8</code> to replacement code <code>0xD0</code>. It computes <code>character × 8</code> and bjumps to <code>put_glyph_large</code> at <code>07:4588</code>. [confirmed]</p>
 <p>The page-7 blitter adjusts that offset to a seven-byte packed stride:</p>
@@ -240,7 +248,10 @@ $$</p>
 <p>Two flags at <code>IY+0x35</code> select alternate font-hook sources before the page-7 table read. Bit 5 calls <code>3B:7BFB</code> with selector <code>A=0x01</code>; bit 1 calls <code>3B:7B9C</code> with selector <code>A=0x76</code>. With neither flag set, <code>_PutMap</code> reads the built-in table. [confirmed]</p>
 <p>The renderer positions the controller from <code>curRow</code> and <code>curCol</code>. Glyph edges use controller read-modify-write with the required dummy data read before the real byte. The complete bus sequence is in <a href="lcd-hardware.html#text-drawing-and-read-modify-write">LCD controller and display bus</a>.</p>
 <h2 id="cursor-and-indicators"><a class="header" href="#cursor-and-indicators">Cursor and indicators</a></h2>
-<p><code>_CursorOn</code> and <code>_CursorOff</code> reload <code>curTime</code> with 50. Standard hardware timer 1 reaches the cursor handler at <code>06:7C45</code>, which toggles the cursor every 50 ticks. See <a href="clock-timers-power.html#cursor-blink-cadence">Clock, timers, and power</a>. [confirmed]</p>
+<p><code>_CursorOn</code> and <code>_CursorOff</code> reload <code>curTime</code> with 50. Standard hardware timer
+1 reaches <code>cursor_blink_tick</code> at <code>06:7C45</code>, which toggles the cursor every 50
+ticks. See <a href="clock-timers-power.html#cursor-blink-cadence">Clock, timers, and power</a>.
+[confirmed]</p>
 <p>The run indicator uses <code>indicCounter</code> and <code>indicBusy</code> at <code>0x8476</code>/<code>0x8477</code>. <code>_RunIndicOn</code> seeds it, and <code>run_indicator_tick</code> at <code>ram:027B</code> advances it from the same standard-timer interrupt. <code>_ClrLCDFull</code> temporarily clears and then restores the indicator-enable bit around the physical clear. [confirmed]</p>
 <h2 id="numeric-and-string-output"><a class="header" href="#numeric-and-string-output">Numeric and string output</a></h2>
 <p><code>_DispHL</code> at <code>01:5BF6</code> converts <code>HL</code> to five decimal positions with repeated <code>_DivHLBy10</code>, stores digits backward in scratch RAM, replaces leading zeroes with spaces, and prints through <code>_PutC</code>. [confirmed]</p>

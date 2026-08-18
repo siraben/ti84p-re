@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -210,7 +210,7 @@ cheap relative jump.</p>
 </tbody>
 </table>
 </div>
-<p>The error message-name table is on page 0x07 starting at <code>07:6B81</code>. It is indexed by
+<p><code>error_name_table</code> (<code>07:6B81</code>) is indexed by
 <code>(code − 0x88)</code>, so codes <code>0x88…0x9C</code> map to consecutive strings:</p>
 <pre><code class="language-text">07:6B81 SYNTAX(88) DATA TYPE(89) ARGUMENT(8A) DIM MISMATCH(8B) INVALID DIM(8C)
         UNDEFINED(8D) MEMORY(8E) INVALID(8F) ILLEGAL NEST(90) BOUND(91)
@@ -232,19 +232,21 @@ of the equation. Located around <code>39:468F</code>:</p>
 <li><code>_CkValidNum</code> (<code>ram:1E9B</code>), then <code>_MovFrOP1</code> (<code>ram:1B0C</code>) stores the current guess into
 the solve variable (its data pointer is loaded from <code>(9306)</code>, in the expression-stack
 region — the bytes are <code>ED 5B 06 93</code> = <code>LD DE,(9306)</code>).</li>
-<li>It installs an error trap (<code>39:46D9 CALL 327F</code>; <code>RES/SET 2,(IY+7)</code>) and re-parses /
-re-evaluates the stored equation formula (page-0x39 hosts a parse/token walker at
-<code>39:327F</code> using <code>parse_advance 7248</code> / <code>parse_cur_tok 72DA</code>-style cursors, mirroring the
-page-0x38 parser — the equation is re-tokenised and evaluated every iteration).</li>
-<li>The post-eval filter at <code>39:46C7</code> inspects the error code in <code>A</code>: codes below <code>0x86</code>
+<li>It installs the error handler at <code>39:46C7</code>, then re-evaluates the stored
+equation through <code>parse_inp_current_state_bjump</code> (<code>ram:391B</code>). The stub’s
+inline descriptor targets <code>parse_inp_current_state</code> (<code>38:5992</code>), an interior
+entry in <code>_ParseInp</code> that preserves the already selected parser state.</li>
+<li>The error filter at <code>39:46C7</code> inspects the error code in <code>A</code>: codes below <code>0x86</code>
 (<code>OVERFLOW</code>/<code>DIV BY 0</code>/<code>SINGULAR MAT</code>/<code>DOMAIN</code>) and <code>0x87</code> (<code>NONREAL ANS</code>) are
 swallowed (<code>CP 0x87; JR Z</code> then <code>CP 0x86; JP NC,0x2799</code> — this <code>x</code> is treated as a
 point where <code>f</code> is undefined, so the solver can step past it) while <code>0x86</code> (<code>BREAK</code>) and
 codes <code>≥ 0x88</code> are
-re-raised via <code>_JErrorNo</code> (<code>JP 2799</code>). This is why <code>solve(</code> can skip singularities
-inside the bracket without aborting. [confirmed]</li>
+re-raised via <code>_JErrorNo</code> (<code>JP 2799</code>). Before returning a swallowed error,
+<code>fix_temp_count_bjump</code> (<code>ram:327F</code>) dispatches to <code>_FixTempCnt</code> (<code>07:4FEC</code>)
+to repair temporary-object accounting. This is why <code>solve(</code> can skip
+singularities inside the bracket without aborting. [confirmed]</li>
 </ol>
-<p>The sign test <code>39:463A</code> reads <code>OP1.type</code> (<code>8478</code>) and <code>OP2.type</code> (<code>8483</code>), masks <code>0x80</code>
+<p>The sign test <code>39:463A</code> reads <code>OP1.value.type</code> (<code>8478</code>) and <code>OP2.value.type</code> (<code>8483</code>), masks <code>0x80</code>
 and XORs them: Z = same sign, NZ = opposite sign — the bracket sign-change predicate. [confirmed]</p>
 <h3 id="12-the-iteration-loop-confirmed"><a class="header" href="#12-the-iteration-loop-confirmed">1.2 The iteration loop [confirmed]</a></h3>
 <p>Setup (<code>39:43AD…4410</code>) evaluates <code>f</code> at the two user bounds, records their signs, and
@@ -273,8 +275,8 @@ bracketed a sign change, the path at <code>39:45CD…45DA JP 2749</code> raises 
 [confirmed]</li>
 <li><strong>Convergence / tolerance test:</strong> <code>_AbsO1O2Cp</code> (<code>ram:1987</code>, compares |OP1| vs |OP2|) is
 used repeatedly (<code>39:446F</code>, <code>44D7</code>, <code>44F8</code>, <code>45C7</code>) to test the bracket width / residual
-against tolerance. The tolerance floor is the TIFloat constant <code>1.0e-13</code> at
-<code>39:46EA</code> (<code>00 73 10 …</code>); the residual-zero floor is <code>1.0e-99</code> at <code>39:46E1</code>
+against tolerance. <code>const_solver_tol_1e13</code> (<code>39:46EA</code>) stores the
+<code>1.0e-13</code> tolerance; <code>const_solver_floor_1e99</code> (<code>39:46E1</code>) stores the <code>1.0e-99</code>
 (<code>00 1D 10 …</code>). On reaching tolerance the solver exits through the <code>39:4540 → 4553</code>
 branch (dynamically traced on an <code>X²−2 = 0</code> solve that converged to √2 ≈ 1.41421356);
 <code>39:4547</code> is a <code>CALL</code>, not the converged return, and the observed path bypassed it.
@@ -402,7 +404,7 @@ and converges when the change in the estimate has exponent <code>≤ CP 0x74</co
 ITERATIONS (0x99). [confirmed]</li>
 </ul>
 <p><strong>Quadrature rule.</strong> A full byte scan of <code>33:4D00…4F00</code> finds exactly one
-floating-point constant in the body: the TIFloat at <code>33:4E92</code>
+floating-point constant in the body: <code>const_ln10x100</code> (<code>33:4E92</code>)
 (<code>00 82 23 02 58 50 92 99 40</code> = 2.30258509…×10², i.e. <code>ln(10)·100</code>). It is referenced at
 <code>33:4E5D</code> (<code>LD HL,0x4E92; CALL 0x1982</code>), immediately after the only transcendental bcall in
 the body, <code>33:4E56 EF AB 40</code> = bcall <code>_LnX</code> (0x40AB). So <code>ln(10)·100</code> is used purely to
@@ -428,11 +430,12 @@ integration/derivative variable and re-running the parser, exactly like the Solv
 (the solve var, the <code>nDeriv</code>/<code>fnInt</code> integration var, or the TVM var).</li>
 <li>Re-evaluate the expression through the TI-BASIC parser (<code>_ParseInp 38:5987</code> /
 <code>parse_eval_expr 38:5AB3</code> / <code>_Find_Parse_Formula 38:758A</code>; the Solver uses its own
-page-0x39 token walker). The parser walks the <em>same stored token stream</em> each pass.</li>
+<code>parse_inp_current_state</code> entry at <code>38:5992</code>). The parser walks the <em>same
+stored token stream</em> each pass.</li>
 <li>Read the numeric result back from <code>OP1</code>, form the residual / difference, decide the next
-step. An error trap (<code>39:327F</code> / <code>RES 2,(IY+7)</code>) lets a DOMAIN/NONREAL error at one
-sample be caught and treated as “undefined here” instead of aborting the whole solve
-(§1.1).</li>
+step. The error handler at <code>39:46C7</code>, its <code>(IY+7).2</code> state bit, and the
+<code>_FixTempCnt</code> cleanup catch a DOMAIN/NONREAL error at one sample. The solver
+treats that point as undefined instead of aborting (§1.1).</li>
 </ol>
 <p>Because the expression is re-tokenised and re-evaluated on <em>every</em> iteration, a <code>solve(</code>
 with a 499-iteration cap can parse the equation up to ~499 times, and a <code>fnInt</code> over a fine
@@ -466,9 +469,11 @@ in the Ghidra database — the mark of a generic paged call rather than an inlin
 39:463A  solver_sign_test           (OP1/OP2 sign-change predicate; Z=same sign)
 39:468F  solver_eval_fx             (store guess -&gt; reparse equation -&gt; f=left-right)
 39:46C7  solver_eval_errfilter      (swallow &lt;0x86 and 0x87/NONREAL; re-raise 0x86/BREAK and &gt;=0x88 via _JErrorNo)
-39:327F  solver_parse_formula       (page-39 token walker used by the evaluator)
-39:46EA  const_tol_1e-13            (convergence tolerance, TIFloat 00 73 10..)
-39:46E1  const_floor_1e-99          (residual-zero floor, TIFloat 00 1D 10..)
+ram:391B parse_inp_current_state_bjump (cross-page stub to 38:5992)
+38:5992  parse_inp_current_state    (interior _ParseInp entry used with selected state)
+ram:327F fix_temp_count_bjump       (cross-page stub to _FixTempCnt at 07:4FEC)
+39:46EA  const_solver_tol_1e13      (convergence tolerance, TIFloat 00 73 10..)
+39:46E1  const_solver_floor_1e99    (residual-zero floor, TIFloat 00 1D 10..)
 39:45A0  -&gt;ITERATIONS(0x99)  39:45AD -&gt;BAD GUESS(0x9A)  39:45DA -&gt;NO SIGN CHNG(0x98)
 </code></pre>
 <p>TVM / finance solver (page 0x3A):</p>
@@ -485,7 +490,7 @@ in the Ghidra database — the mark of a generic paged call rather than an inlin
                                      ONLY FP constant in fnint_body -- no node/weight table)
 33:504E  bb_token_scanner           (CP 0xBB then class-index 0x68/0xCF/0xDB/0xF6 -&gt; CALL 50AC)
 33:4381  ctrlflow_handler_table     (13-entry jump table for For/While/Repeat/End/Return, etc.)
-33:435F  ctrlflow_dispatch          (entry from bcall 0x5140/0x513D; SUB 0x20; index 4381)
+33:435F  ctrlflow_dispatch          (entry from bcall 0x5140/0x513D; SUB 0x20; index the table)
 </code></pre>
 <p>Page-0 FPS register save/restore + active-frame bookkeeping cluster (the “solver helper
 cluster” — these are generic FPS slot accessors used by the solver, fnInt/nDeriv and other
@@ -514,7 +519,7 @@ Parser entries (page 0x38): <code>_ParseInp 5987</code>, <code>parse_eval_expr 5
 <p>Summary of the four sub-results:</p>
 <ul>
 <li><strong>fnInt( quadrature rule (§3.2).</strong> Not Gauss–Kronrod. The body has no node or
-weight table; its sole FP constant is <code>ln(10)·100</code> at <code>33:4E92</code>, used (with bcall <code>_LnX</code>)
+weight table; its sole FP constant is <code>const_ln10x100</code>, used with bcall <code>_LnX</code>
 to convert digit-tolerance to a decimal error bound. With explicit ×0.5 interval bisection
 and a coarse-vs-fine estimate comparison, it is an adaptive Newton–Cotes / Simpson-class
 bisection integrator. <code>33:4D1B</code> is executable code (<code>LD A,0x60; CALL fp_set_digit</code>).</li>
@@ -532,7 +537,7 @@ TIFloat slots at <code>-(9*slot)</code> from frame base <code>(9302)</code>) plu
 <p>Residual (genuinely unverified, would need deeper paged tracing):</p>
 <ul>
 <li>The exact byte layout of the For/While/Repeat loop-control record pushed by the
-page-0x33 control-flow handlers (<code>33:4381</code> jump table) is not yet field-mapped; only the
+page-33 control-flow handlers (<code>ctrlflow_handler_table</code>) is not yet field-mapped; only the
 dispatch path is confirmed. (See <a href="sub-tibasic.html">sub-tibasic.md</a> §4.)</li>
 <li>bcall <code>0x462A</code> in the TVM body is unmapped (adjacent to <code>_AdrLEle</code>; likely a finance-sysvar
 list/element accessor).</li>

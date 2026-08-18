@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -194,7 +194,7 @@ detailed timing contract; MAME provides an explicit omission comparison.</p>
 <tr><th>Evidence</th><th>What it establishes</th><th>Confidence</th></tr>
 </thead>
 <tbody>
-<tr><td><code>3F:41BD</code>–<code>41D3</code></td><td>exact OS values for ports <code>0x29</code>–<code>0x2C</code>, <code>0x2E</code>, and <code>0x2F</code></td><td>[confirmed]</td></tr>
+<tr><td><code>boot_bus_timing_init</code> at <code>3F:41BD</code>–<code>41D3</code></td><td>exact OS values for ports <code>0x29</code>–<code>0x2C</code>, <code>0x2E</code>, and <code>0x2F</code></td><td>[confirmed]</td></tr>
 <tr><td>Resolved cold-boot trace</td><td>all six writes execute in order before normal CPU speed is selected</td><td>[confirmed]</td></tr>
 <tr><td>Whole-ROM immediate-port scan</td><td>no second control-flow-verified write to these registers in the analyzed ROM</td><td>[confirmed]</td></tr>
 <tr><td>TilEm and Wabbitemu source</td><td>independent decode of speed selection, LCD instruction delays, and memory wait bits</td><td>[standard]</td></tr>
@@ -270,8 +270,8 @@ one. The exact 2.5 ratio dynamically distinguishes 6 MHz from 15 MHz. A MAME
 soft reset retains raw speed <code>0x03</code>; this is driver behavior, not a calculator
 reset claim. [standard]</p>
 <h2 id="boot-configuration"><a class="header" href="#boot-configuration">Boot configuration</a></h2>
-<p>The retail boot continuation writes the complete block after its RAM probes
-and link-assist initialization: [confirmed]</p>
+<p><code>boot_bus_timing_init</code> at <code>3F:41BD</code> writes the complete block after the retail
+boot RAM probes and link-assist initialization: [confirmed]</p>
 <pre><code class="language-z80">3F:41BD  LD A,0x17
 3F:41BF  OUT (0x29),A
 3F:41C1  LD A,0x27
@@ -589,7 +589,7 @@ revisions.</li>
 <tr><th>Source</th><th>Use</th></tr>
 </thead>
 <tbody>
-<tr><td>OS 2.55MP <code>3F:41BD</code>–<code>41D3</code> and resolved boot trace</td><td>boot register values, write order, and later CPU-speed transitions</td></tr>
+<tr><td>OS 2.55MP <code>boot_bus_timing_init</code> and resolved boot trace</td><td>boot register values, write order, and later CPU-speed transitions</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:29">WikiTI ports <code>0x29</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2A"><code>0x2A</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2B"><code>0x2B</code></a>, and <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2C"><code>0x2C</code></a></td><td>speed selection, gate bits, LCD instruction delay, and published failure thresholds</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2E">WikiTI port <code>0x2E</code></a></td><td>six memory-access classes and prefix observation</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2F">WikiTI port <code>0x2F</code></a></td><td>LCD-ready intervals and mode-3 timer prescaler</td></tr>

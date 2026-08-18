@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -188,11 +188,13 @@
              JP 0x812C                         ; page 3F in the 8000 window
 </code></pre>
 <p>The emulator reset trace begins at logical <code>0x8000</code>, where paired mode exposes
-<code>3F:4000</code>. The stub keeps page <code>3F</code> in the B window and jumps to logical
-<code>0x812C</code>, corresponding to <code>3F:412C</code>. Page 0 also has a restart vector at
+<code>retail_boot_reset_stub</code> at <code>3F:4000</code>. The stub keeps page <code>3F</code> in the B window
+and jumps to logical <code>0x812C</code>, corresponding to <code>boot_os_entry</code> at <code>3F:412C</code>.
+Page 0 also has a restart vector at
 <code>00:0000</code> → <code>00:028C</code> that establishes the same paired mapping and reaches the
-same continuation. At <code>3F:414C</code>, the continuation changes to independent mode
-while page <code>3F</code> remains visible for the next instruction. See
+same continuation. At <code>boot_os_entry + 0x20</code> (<code>3F:414C</code>), the continuation
+changes to independent mode while page <code>3F</code> remains visible for the next
+instruction. See
 <a href="paging.html#boot-mapping-transition">Paging</a> for the complete window-by-window
 transition. [confirmed]</p>
 <p><a href="boot-hardware.html">Retail boot hardware initialization</a> follows the
@@ -220,7 +222,7 @@ ram_init_after_reset (ram:0BD9):
   LD SP,0xFFF7                 ; reset stack to top of RAM
   CALL 0x3EC1                  ; continue init (page-0 kernel): VAT, sysflags, LCD …
 </code></pre>
-<p>So RAM is wiped in two LDIR runs (<code>0x8000</code>–<code>0x9BC3</code>, then <code>0x9BD0</code>–<code>0xFFFF</code>, leaving the <code>0x9BC4</code>–<code>0x9BCF</code> window and the explicitly-saved flag bytes intact), then <code>ram:0BD9</code> resets the memory map (port 0) and the stack and hands off through <code>ram:3EC1</code>. This <code>ram:0BD9</code> entry is the same RAM re-init point cross-referenced from <a href="memory-management.html">Memory management</a>. The <code>ram:3EC1</code> continuation (VAT/sysflag/LCD bring-up) is page-0 kernel code and is statically present (<code>ram:3EC1</code> = <code>CALL 0x2B09; …</code>). The reset jump to <code>3F:412C</code> is also present in the assembled database, so the page-0 and retail boot portions can be followed in one project.</p>
+<p>So RAM is wiped in two LDIR runs (<code>0x8000</code>–<code>0x9BC3</code>, then <code>0x9BD0</code>–<code>0xFFFF</code>, leaving the <code>0x9BC4</code>–<code>0x9BCF</code> window and the explicitly-saved flag bytes intact), then <code>ram:0BD9</code> resets the memory map (port 0) and the stack and hands off through <code>ram:3EC1</code>. This <code>ram:0BD9</code> entry is the same RAM re-init point cross-referenced from <a href="memory-management.html">Memory management</a>. The <code>ram:3EC1</code> continuation (VAT/sysflag/LCD bring-up) is page-0 kernel code and is statically present (<code>ram:3EC1</code> = <code>CALL 0x2B09; …</code>). The reset jump to <code>boot_os_entry</code> is also present in the assembled database, so the page-0 and retail boot portions can be followed in one project.</p>
 <h3 id="the-main-event-loop-confirmed"><a class="header" href="#the-main-event-loop-confirmed">The main event loop [confirmed]</a></h3>
 <p><code>main_event_loop</code> @ <code>ram:05e6</code> (page 0) is the OS root dispatcher. Structure:</p>
 <pre><code class="language-z80">05e6: LD B,8;  LD HL,0x84BE        ; iterate an 8-entry event/context stack
@@ -246,7 +248,7 @@ ram_init_after_reset (ram:0BD9):
 <li><code>_AppInit</code> (<code>ram:0936</code>) installs a context: copies 12 bytes of handler vectors → <code>cxMain</code>, sets <code>flags.appFlags</code>, and saves <code>cxPage = port_mapBankA</code> (the page the app runs from). [confirmed]</li>
 <li>The dispatched handlers include things like a key handler, (re)display/paint handler, and a PutAway (suspend) handler — the OS calls them through the <code>cx*</code> vectors, paging in <code>cxPage</code> first.</li>
 <li><code>_PutAway</code> (<code>ram:08AF</code>) calls the current context’s PutAway handler (<code>cxPPutAway</code>) to suspend/clean up — used on APD, when switching apps, or on <code>2nd+QUIT</code>. [confirmed]</li>
-<li><code>_PowerOff</code> (<code>5008</code>, body <code>ram:09E6</code>) performs context/display cleanup and joins the APD shutdown path at <code>ram:0A24</code>. The shared tail disables the standard timers, enables ON/link wake, and enters the low-power <code>HALT</code> loop at <code>ram:0A5C</code>. See <a href="clock-timers-power.html">Clock, timers, and power</a>. [confirmed]</li>
+<li><code>_PowerOff</code> (<code>5008</code>, body <code>ram:09E6</code>) performs context/display cleanup and joins <code>poweroff_shared_tail</code> at <code>ram:0A24</code>. The shared tail disables the standard timers, enables ON/link wake, and enters <code>poweroff_halt_loop</code> at <code>ram:0A5C</code>. See <a href="clock-timers-power.html">Clock, timers, and power</a>. [confirmed]</li>
 </ul>
 <p>The UI runs on this mechanism: the main event loop reads a key (<code>_GetKey</code>), then calls the active context’s key handler; switching screens swaps the <code>cx*</code> vectors.</p>
 <h3 id="context-block-layout-confirmed"><a class="header" href="#context-block-layout-confirmed">Context block layout [confirmed]</a></h3>
@@ -325,15 +327,15 @@ call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; res
 <h2 id="confirmed-details"><a class="header" href="#confirmed-details">Confirmed details</a></h2>
 <ul>
 <li><strong><code>cx*</code> vector layout — confirmed.</strong> The six 2-byte handler slots and <code>cxPage</code> offsets are pinned by tracing <code>_AppInit</code> (<code>ram:0936</code>): <code>LD DE,0x858D / LD BC,0x000C / LDIR</code> then <code>IN A,(6) / LD (0x8599),A</code>. See <a href="#context-block-layout-confirmed">Context block layout</a> above for the full offset table and <code>_AppInit</code> body. <code>_AppInit</code> installs the block; it is not the sole writer — <code>_POPCX</code> (bcall <code>0x49E1</code> → <code>07:6D1C</code>) restores a saved context into <code>cxMain</code>, and a save path at <code>07:5A8C</code> copies <code>cxMain</code> into the <code>cxPrev</code> shadow.</li>
-<li><strong>Boot RAM-init trace — raw-disassembly trace.</strong> Emulator reset starts at logical <code>0x8000</code> on page <code>3F</code> and reaches <code>3F:412C</code>; the page-0 restart vector at <code>ram:0000</code> → <code>ram:028C</code> reaches the same continuation. The RAM clear/re-init is <code>ram_reset_wipe</code> (<code>35:719f</code>): two <code>LDIR</code> zero-fills (<code>0x8000</code>–<code>0x9BC3</code>, <code>0x9BD0</code>–<code>0xFFFF</code>) preserving a few flag bytes, then <code>JP 0x0BD9</code> (<code>ram_init_after_reset</code>: port 0 = <code>0xC0</code>, stack reset in the raw trace, <code>CALL 0x3EC1</code>). The <code>ram:0BD9</code> entry matches the re-init point cross-referenced in <a href="memory-management.html">Memory management</a>. See <a href="#ram-clear--re-init-ram_reset_wipe--ram0bd9-confirmed">RAM clear / re-init</a>.</li>
+<li><strong>Boot RAM-init trace — raw-disassembly trace.</strong> Emulator reset starts at logical <code>0x8000</code> on page <code>3F</code> and reaches <code>boot_os_entry</code>; the page-0 restart vector at <code>ram:0000</code> → <code>ram:028C</code> reaches the same continuation. The RAM clear/re-init is <code>ram_reset_wipe</code> (<code>35:719f</code>): two <code>LDIR</code> zero-fills (<code>0x8000</code>–<code>0x9BC3</code>, <code>0x9BD0</code>–<code>0xFFFF</code>) preserving a few flag bytes, then <code>JP 0x0BD9</code> (<code>ram_init_after_reset</code>: port 0 = <code>0xC0</code>, stack reset in the raw trace, <code>CALL 0x3EC1</code>). The <code>ram:0BD9</code> entry matches the re-init point cross-referenced in <a href="memory-management.html">Memory management</a>. See <a href="#ram-clear--re-init-ram_reset_wipe--ram0bd9-confirmed">RAM clear / re-init</a>.</li>
 <li><strong>Flash write and erase.</strong> The retail boot table maps <code>_WriteFlash</code> (<code>80C9</code>) to <code>3F:4C8F</code>, <code>_WriteFlashUnsafe</code> (<code>8087</code>) to <code>3F:4CA6</code>, <code>_WriteAByte</code> (<code>8021</code>) to <code>3F:4C9F</code>, and <code>_EraseFlash</code> (<code>8024</code>) to <code>3F:4C2A</code>. Their program and erase loops are copied to <code>ramCode</code> at <code>0x8100</code>. A successful archive trace executes <code>archive_write_record</code> at <code>3D:64AA</code>, three <code>_WriteAByte</code> calls, and six entries through <code>_WriteFlashUnsafe</code>. See <a href="flash-memory.html">Flash memory</a>. [confirmed]</li>
 </ul>
 <p>The <code>JP 0x812C</code> target and the <code>ram:3EC1</code> init continuation are both present in
 the assembled database. The retail hardware work before the first keypad scan,
-the <strong>MODE</strong> RAM diagnostic, and the dormant LCD/keypad diagnostic at <code>3F:4658</code>
+the <strong>MODE</strong> RAM diagnostic, and <code>boot_lcd_keypad_diagnostic</code> at <code>3F:4658</code>
 are decoded in
 <a href="boot-hardware.html#dormant-lcd-and-keypad-diagnostic">Retail boot hardware initialization</a>.
-The sole branch to <code>3F:4658</code> is constant-false; later recovery/UI paths remain
+The sole branch to <code>boot_lcd_keypad_diagnostic</code> is constant-false; later recovery/UI paths remain
 open. [confirmed]</p>
 
                     </main>

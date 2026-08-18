@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -314,12 +314,14 @@ of an incoming packet (peer may be idle for a long time).</p>
 </code></pre>
 <p>As a C struct:</p>
 <pre><code class="language-c">typedef struct {
-    uint8_t machineID;   /* 0x8674: machine-ID (peer/local device class) */
-    uint8_t commandID;   /* 0x8675: command-ID                           */
-    uint8_t lenLo;       /* 0x8676: data length, low byte                */
-    uint8_t lenHi;       /* 0x8677: data length, high byte               */
-} LinkPacketHeader;                                  /* 4 bytes (0x8674..0x8677) */
+    uint8_t  machine_id;   /* +0: peer/local device class */
+    uint8_t  command_id;   /* +1: command byte            */
+    uint16_t data_length;  /* +2: little-endian length    */
+} LinkPacketHeader;      /* 4 bytes at header = 0x8674 */
 </code></pre>
+<p>The typed RAM view therefore exposes <code>header.machine_id</code>, <code>header.command_id</code>,
+and <code>header.data_length</code>; the disassembly below retains the concrete addresses
+that establish those fields. [confirmed]</p>
 <h3 id="3a-send-a-header--41c3-confirmed"><a class="header" href="#3a-send-a-header--41c3-confirmed">3a. Send a header — <code>41C3</code> [confirmed]</a></h3>
 <pre><code class="language-z80">41C3: 6D4B (drive line) ; short delay ; CALL probe_hw_model_keep_a (model probe)
       … (HW handshake on 84+, or bit-bang line-idle wait; failure → _ErrLinkXmit) …
@@ -445,7 +447,8 @@ gate. The routine classifies the page through <code>3C:6B79</code>, calls <code>
 0–1 clear. A page below <code>0x08</code> or at or above the selected upper bound skips
 the bcall. [confirmed]</p>
 <p>After the bcall or page rejection, <code>3C:6B06</code> saves the resulting <code>DE</code> in
-<code>0x84DB</code>. The comparison at <code>3C:6B0A</code> increments the stored page at <code>0x83EE</code>
+<code>iMathPtr5</code> (<code>0x84DB</code>). The comparison at <code>3C:6B0A</code> increments <code>arcInfo.page</code>
+at <code>0x83EE</code>
 when the starting <code>DE</code> is greater than or equal to the final <code>DE</code>. Normal
 receive callers pass 1–16 bytes on an eligible page. A dispatcher call with
 zero count or an invalid page leaves <code>DE</code> unchanged, so the equality case
@@ -498,11 +501,12 @@ OP1 = the variable name. It negotiates, sends the VAR header, waits for CTS, the
   RES 1,(IY+0x24) ; FUN_ram_2800 (restore) ; JP 4F3E (cleanup)
 </code></pre>
 <h3 id="5a-resolve-the-variable-for-sending--4763-confirmed"><a class="header" href="#5a-resolve-the-variable-for-sending--4763-confirmed">5a. Resolve the variable for sending — <code>4763</code> [confirmed]</a></h3>
-<p><code>4763</code> reads the var-header type byte at <code>867F</code> and branches by class. For graph/equation types
-(<code>0x0F‥0x14</code>) it uses a cross-page helper; otherwise <code>47AB</code>: <code>_CkOP1Real</code>, checks size, then
-<code>_ChkFindSym</code> (<code>0E60</code>) to locate the VAT entry, and for an archived var it routes through the
-flash path (<code>_Chk_Batt_Low</code>, <code>83F7</code> size save). The actual data ptr/page/length come from
-<code>_SetupPagedPtr</code> inside the DATA sender.</p>
+<p><code>4763</code> reads the var-header type byte at <code>867F</code> and branches by class. For
+graph/equation types (<code>0x0F‥0x14</code>) it uses a cross-page helper. Otherwise
+<code>47AB</code> calls <code>_CkOP1Real</code>, checks the size, then calls <code>_ChkFindSym</code> (<code>0E60</code>)
+to locate the VAT entry. An archived variable routes through the Flash path,
+where <code>_Chk_Batt_Low</code> saves <code>arcInfo.size</code> at <code>0x83F7</code>. <code>_SetupPagedPtr</code>
+supplies the data pointer, page, and length inside the DATA sender.</p>
 <h3 id="5b-send-the-data-payload--40da-confirmed"><a class="header" href="#5b-send-the-data-payload--40da-confirmed">5b. Send the DATA payload — <code>40DA</code> [confirmed]</a></h3>
 <pre><code class="language-z80">40DA: CALL _SetupPagedPtr (17AC)            ; initialize the paged source from HL, DE, and B
       (84DB)=ptr ; (8676)=len               ; iMathPtr5, packet length

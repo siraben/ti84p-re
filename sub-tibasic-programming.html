@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -383,18 +383,19 @@ entry/refill paths, the program-body evaluator call at <code>38:6914</code> into
 homescreen evaluates the initial <code>prgmCALLSUB</code> command selected by the macro.
 That launch parse is not the same as the callee transition. The repeated
 subprogram body path is the private <code>38:6910</code> → <code>38:6914</code> → <code>38:778F</code>
-sequence, reached after parser RAM has already been populated:</p>
+sequence, reached after <code>TIBasicParserState</code> (<code>0x9652</code>) and the adjacent stack
+pointers have been populated:</p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>RAM state</th><th>Address</th><th>Role in the private parser frame</th></tr>
 </thead>
 <tbody>
-<tr><td><code>basic_prog</code></td><td><code>9652</code></td><td>current OP1-style program/object name</td></tr>
-<tr><td><code>basic_start</code></td><td><code>965B</code></td><td>first token byte after the stored program size word</td></tr>
-<tr><td><code>nextParseByte</code></td><td><code>965D</code></td><td>current parser cursor</td></tr>
-<tr><td><code>basic_end</code></td><td><code>965F</code></td><td>parser end pointer</td></tr>
-<tr><td><code>numArguments</code></td><td><code>9661</code></td><td>argument count/state byte used by parser helpers</td></tr>
+<tr><td><code>TIBasicParserState.basic_prog</code></td><td><code>9652</code></td><td>current OP1-style program/object name</td></tr>
+<tr><td><code>TIBasicParserState.basic_start</code></td><td><code>965B</code></td><td>first token byte after the stored program size word</td></tr>
+<tr><td><code>TIBasicParserState.next_parse_byte</code></td><td><code>965D</code></td><td>current parser cursor</td></tr>
+<tr><td><code>TIBasicParserState.basic_end</code></td><td><code>965F</code></td><td>parser end pointer</td></tr>
+<tr><td><code>TIBasicParserState.num_arguments</code></td><td><code>9661</code></td><td>argument count/state byte used by parser helpers</td></tr>
 <tr><td><code>chkDelPtr3</code> / <code>chkDelPtr4</code></td><td><code>981C</code> / <code>981E</code></td><td>temporary VAT/data pointers used during name and object setup</td></tr>
 <tr><td><code>FPS</code> / <code>OPS</code> / <code>pTemp</code> / <code>progPtr</code></td><td><code>9824</code> / <code>9828</code> / <code>982E</code> / <code>9830</code></td><td>live FP/temp/program storage bounds</td></tr>
 </tbody>
@@ -593,7 +594,8 @@ C9
 <code>Asm(</code> command handler parses the following <code>prgmNAME</code> token stream, then
 bcalls <code>_ExecutePrgm</code> (<code>4E7C</code>, target <code>07:5758</code>). The trace shows that path
 compile/copy the <code>AsmPrgm</code> body and hand off through <code>07:57B4</code>, execute the
-payload byte at <code>ram:9D95 op=0xC9</code>, and return to BASIC. [confirmed]</p>
+payload byte at <code>userMem</code> (<code>0x9D95</code>) with opcode <code>C9h</code>, and return to BASIC.
+[confirmed]</p>
 <p>Practical convention: pass data through OS variables or known RAM locations,
 validate inputs on the BASIC side, and make the ASM payload return normally with
 <code>RET</code> unless it intentionally transfers control elsewhere.</p>
@@ -619,7 +621,7 @@ Disp "AFTER"
 </code></pre>
 <p>Observed run: <code>ASMBRIDG.8xp</code>, <code>ASMSIG.8xp</code>, and <code>ZZBASIC.8xp</code> display
 <code>BEFORE</code>, <code>CALLED</code>, <code>AFTER</code>, then <code>Done</code>. The trace hits the <code>AsmPrgm</code> payload
-at <code>ram:9D95</code>, <code>_OP1Set1</code> (<code>00:1B38</code>), <code>_StoAns</code> (<code>38:6251</code>), <code>_AnsName</code>
+at <code>userMem</code>, <code>_OP1Set1</code> (<code>00:1B38</code>), <code>_StoAns</code> (<code>38:6251</code>), <code>_AnsName</code>
 (<code>38:74B7</code>) while evaluating <code>If Ans</code>, and then the normal BASIC program-body
 path for <code>prgmZZBASIC</code> (<code>38:6910</code> → <code>38:6914</code> → <code>38:778F</code>). [confirmed]</p>
 <p>This is a callback convention, not a direct jump from ASM into a BASIC body.
@@ -639,7 +641,7 @@ Ans+3-&gt;A
 Disp A
 </code></pre>
 <p>Observed run: <code>ASMRTN.8xp</code> and <code>ASMVAL.8xp</code> display <code>5</code>, then <code>Done</code>. The trace
-hits <code>ram:9D95</code>, <code>_OP1Set2</code> (<code>00:1B50</code>), <code>_StoAns</code> (<code>38:6251</code>), <code>_AnsName</code>,
+hits <code>userMem</code>, <code>_OP1Set2</code> (<code>00:1B50</code>), <code>_StoAns</code> (<code>38:6251</code>), <code>_AnsName</code>,
 <code>_FPAdd</code>, and <code>_Disp</code>; the smoke runner also checks the final-frame result and
 <code>Done</code> regions. [confirmed]</p>
 <div class="table-wrapper">
@@ -648,7 +650,7 @@ hits <code>ram:9D95</code>, <code>_OP1Set2</code> (<code>00:1B50</code>), <code>
 <tr><th>Direction</th><th>Confirmed mechanism</th><th>Caveat</th></tr>
 </thead>
 <tbody>
-<tr><td>BASIC → ASM</td><td><code>Asm(prgmNAME)</code> parses <code>prgmNAME</code>, bcalls <code>_ExecutePrgm</code>, copies the <code>AsmPrgm</code> payload, then jumps through <code>ram:9D95</code>.</td><td>The payload runs in the calculator OS process; a bad payload can corrupt interpreter state.</td></tr>
+<tr><td>BASIC → ASM</td><td><code>Asm(prgmNAME)</code> parses <code>prgmNAME</code>, bcalls <code>_ExecutePrgm</code>, copies the <code>AsmPrgm</code> payload, then jumps through <code>userMem</code>.</td><td>The payload runs in the calculator OS process; a bad payload can corrupt interpreter state.</td></tr>
 <tr><td>BASIC → BASIC</td><td><code>prgmNAME</code> enters the page-38 parser/VAT/body evaluator path and <code>Return</code> resumes the caller.</td><td>There is no local frame; variables, lists, and <code>Ans</code> are shared.</td></tr>
 <tr><td>ASM → BASIC callback</td><td>ASM stores a signal/result such as <code>Ans=1</code>, returns, and the BASIC wrapper conditionally runs <code>prgmNAME</code>.</td><td>BASIC must own the actual <code>prgm</code> call; this is cooperative, not an arbitrary ASM bcall into BASIC.</td></tr>
 <tr><td>ASM → BASIC value return</td><td>ASM stores a numeric result in <code>Ans</code> with <code>_StoAns</code>; BASIC resumes and evaluates <code>Ans</code>.</td><td>This returns data to BASIC, not control into a BASIC program body.</td></tr>
@@ -691,14 +693,14 @@ name: .db 05h,"ZZBASIC",00h
 </code></pre>
 <p>Observed run: <code>ASMFIND.8xp</code>, <code>ZZFIND.8xp</code>, and <code>ZZBASIC.8xp</code> display <code>BEFORE</code>,
 <code>AFTER</code>, and <code>Done</code>; <code>ZZBASIC</code>’s <code>CALLED</code> text does not display. The trace hits
-<code>ram:9D95</code> and <code>findsym_scan</code>, and the smoke runner checks the wrapper output
+<code>userMem</code> and <code>findsym_scan</code>, and the smoke runner checks the wrapper output
 and a low-pixel region where an unexpected third line would appear. This proves
 ASM-side VAT lookup from an <code>AsmPrgm</code> context, not BASIC program execution. [confirmed]</p>
 <p>Generated negative fixtures make the execution boundary sharper.</p>
 <p><code>ASMFORM.8xp</code> and <code>ZZFORM.8xp</code> make the <code>_Find_Parse_Formula</code> negative probe
 reproducible. The payload is the same OP1-name setup as <code>ZZFIND</code>, but it bcalls
 <code>_Find_Parse_Formula</code> (<code>4AF2</code>, target <code>38:758A</code>) instead of <code>_ChkFindSym</code>.
-Observed run: the trace reaches <code>ram:9D95</code>, <code>_Find_Parse_Formula</code>,
+Observed run: the trace reaches <code>userMem</code>, <code>_Find_Parse_Formula</code>,
 <code>parse_init_findsym</code>, <code>findsym_scan</code>, and <code>eval_stmt_entry</code>; the final screen is
 <code>ERR:UNDEFINED</code> with <code>1:Quit</code> and <code>2:Goto</code>. <code>ZZBASIC</code> never displays <code>CALLED</code>.
 That failed run confirms <code>_Find_Parse_Formula</code> is not a drop-in BASIC program
@@ -722,7 +724,7 @@ RET
 </code></pre>
 <p>entered <code>_JForceCmd</code> (<code>00:0747</code>) but never returned to the BASIC wrapper’s
 <code>Disp "AFTER"</code> statement. The final screen showed repeated <code>BEFORE</code>/<code>Done</code>
-lines, and the trace hit <code>ram:0747</code> and <code>ram:9D95</code> repeatedly. The disassembly
+lines, and the trace hit <code>ram:0747</code> and <code>userMem</code> repeatedly. The disassembly
 explains why: <code>_JForceCmd</code> reloads <code>SP</code> from <code>85BC</code> before dispatching the
 forced key, discarding the <code>AsmPrgm</code> caller’s stack. [confirmed]</p>
 <p>Two edit-buffer variants narrow that path further. A payload that bcalls
@@ -748,7 +750,7 @@ ABI for <code>AsmPrgm</code> payloads. [confirmed]</p>
 <p>The current open item is therefore precise: trace a small ASM payload that
 successfully invokes a BASIC program, identify the required parser/VAT/error
 state, and compare it to the rejected public routes above plus both confirmed
-paths: <code>Asm(</code> → <code>_ExecutePrgm</code> → <code>ram:9D95</code>, and BASIC <code>prgmNAME</code> →
+paths: <code>Asm(</code> → <code>_ExecutePrgm</code> → <code>userMem</code>, and BASIC <code>prgmNAME</code> →
 <code>38:6914</code>/<code>38:778F</code> program-body evaluation.</p>
 
                     </main>

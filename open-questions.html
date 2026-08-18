@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -212,7 +212,7 @@ overlaps, eight data pairs, and the two RTC instructions at <code>37:58A9</code>
 <code>37:5944</code>. No unresolved immediate or computed-<code>C</code> candidate remains. The
 physical tests above remain open. [confirmed]</p>
 <h2 id="how-to-continue"><a class="header" href="#how-to-continue">How to continue</a></h2>
-<p>Reopen <code>ti84.gpr</code> (the GhidraMCP plugin reconnects for interactive work), or extend the headless pipeline in <code>tools/</code> and rebuild with <code>tools/build.sh</code>. The remaining static items mostly need raw-byte decoding of regions the live decompiler leaves as unanalyzed data, including the page-<code>0x38</code> <code>0xBB</code>/class-3 dispatch tables. Hardware-only timer and RTC quirks need measurements on physical calculators.</p>
+<p>Reopen <code>ti84.gpr</code> (the GhidraMCP plugin reconnects for interactive work), or extend the headless pipeline in <code>tools/</code> and rebuild with <code>tools/build.sh</code>. The remaining static items mostly need raw-byte decoding of regions the live decompiler leaves unanalyzed, including mapping the <code>0xBB</code> tokens through the now-typed page-<code>0x38</code> leaf-handler table to their exact destinations. Hardware-only timer and RTC quirks need measurements on physical calculators.</p>
 
                     </main>
 

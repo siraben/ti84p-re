@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -183,10 +183,10 @@
 <p><em>TI-84 Plus OS 2.55MP — reset delay, hardware writes, safety checks, and boot diagnostics.</em></p>
 <p>The retail boot page changes the reset memory map into the OS runtime map,
 checks that both RAM windows are writable, programs the ASIC registers, and
-selects an OS or recovery path. This page follows the executed sequence from
-<code>3F:4000</code> through the first keypad scan at <code>3F:422D</code> and decodes the destructive
-RAM diagnostic at <code>3F:461A</code>. It also documents dormant LCD and keypad test code
-at <code>3F:4658</code>.</p>
+selects an OS or recovery path. This page follows <code>retail_boot_reset_stub</code> at
+<code>3F:4000</code> through the first keypad scan at <code>3F:422D</code> and decodes
+<code>boot_ram_test</code> at <code>3F:461A</code>. It also documents
+<code>boot_lcd_keypad_diagnostic</code> at <code>3F:4658</code>.</p>
 <h2 id="evidence-boundaries"><a class="header" href="#evidence-boundaries">Evidence boundaries</a></h2>
 <div class="table-wrapper">
 <table>
@@ -207,8 +207,8 @@ at <code>3F:4658</code>.</p>
 <p>The ROM confirms what software executes. The trace confirms that TilEm follows
 one path through those bytes. Neither source measures a physical ASIC reset.</p>
 <h2 id="reset-entry-and-delay"><a class="header" href="#reset-entry-and-delay">Reset entry and delay</a></h2>
-<p>The reset stub establishes a paired mapping and jumps to the continuation on
-page <code>3F</code>: [confirmed]</p>
+<p><code>retail_boot_reset_stub</code> at <code>3F:4000</code> establishes a paired mapping and jumps to
+<code>boot_os_entry</code> at <code>3F:412C</code>: [confirmed]</p>
 <pre><code class="language-z80">3F:4000  ld a,0x07
 3F:4002  out (0x04),a
 3F:4004  ld a,0x7F
@@ -217,7 +217,7 @@ page <code>3F</code>: [confirmed]</p>
 3F:400A  out (0x0E),a
 3F:400C  jp 0x812C
 </code></pre>
-<p>The continuation spends 518 outer iterations in a nested delay: [confirmed]</p>
+<p><code>boot_os_entry</code> spends 518 outer iterations in a nested delay: [confirmed]</p>
 <pre><code class="language-z80">3F:412C  im 1
 3F:412E  ld b,0
 3F:4130  ld sp,0xFDFA
@@ -300,17 +300,17 @@ reaches it. It detects a control-flow or instruction-corruption error rather
 than reading the write back. [confirmed]</p>
 <h2 id="ordered-hardware-programming"><a class="header" href="#ordered-hardware-programming">Ordered hardware programming</a></h2>
 <p>The first guarded enable is followed by the complete initialization sequence
-below. The order includes the call from <code>3F:41BA</code> into the link reset helper at
-<code>3F:6278</code>. [confirmed]</p>
+below. The order includes the call from <code>3F:41BA</code> into
+<code>boot_link_assist_init</code> at <code>3F:6278</code>. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>Stage</th><th>Writes in execution order</th><th>ROM evidence</th></tr>
 </thead>
 <tbody>
-<tr><td>Link and low-power setup</td><td><code>0x2D = 0x02</code>; <code>0x00 = 0x00</code>; <code>0x09 = 0x97</code>; <code>0x0A = 0xB4</code>; <code>0x0B = 0xB4</code>; <code>0x0C = 0xB4</code>; <code>0x08 = 0x80</code>; <code>0x08 = 0x00</code></td><td><code>3F:41B6</code>–<code>41BA</code>, <code>3F:6278</code>–<code>6290</code></td></tr>
-<tr><td>Bus timing</td><td><code>0x29 = 0x17</code>; <code>0x2A = 0x27</code>; <code>0x2B = 0x2F</code>; <code>0x2C = 0x3B</code>; <code>0x2E = 0x45</code>; <code>0x2F = 0x4B</code></td><td><code>3F:41BD</code>–<code>41D3</code></td></tr>
-<tr><td>Execution controls</td><td><code>0x21 = 0x00</code>; <code>0x22 = 0x08</code>; <code>0x23 = 0x29</code>; <code>0x25 = 0x10</code>; <code>0x26 = 0x20</code></td><td><code>3F:41D5</code>–<code>4206</code></td></tr>
+<tr><td>Link and low-power setup</td><td><code>0x2D = 0x02</code>; <code>0x00 = 0x00</code>; <code>0x09 = 0x97</code>; <code>0x0A = 0xB4</code>; <code>0x0B = 0xB4</code>; <code>0x0C = 0xB4</code>; <code>0x08 = 0x80</code>; <code>0x08 = 0x00</code></td><td><code>3F:41B6</code>–<code>41BA</code>; <code>boot_link_assist_init</code></td></tr>
+<tr><td>Bus timing</td><td><code>0x29 = 0x17</code>; <code>0x2A = 0x27</code>; <code>0x2B = 0x2F</code>; <code>0x2C = 0x3B</code>; <code>0x2E = 0x45</code>; <code>0x2F = 0x4B</code></td><td><code>boot_bus_timing_init</code> at <code>3F:41BD</code>–<code>41D3</code></td></tr>
+<tr><td>Execution controls</td><td><code>0x21 = 0x00</code>; <code>0x22 = 0x08</code>; <code>0x23 = 0x29</code>; <code>0x25 = 0x10</code>; <code>0x26 = 0x20</code></td><td><code>boot_execution_protection_init</code> at <code>3F:41D5</code>–<code>4206</code></td></tr>
 <tr><td>Runtime mapping</td><td><code>0x0E = 0</code>; <code>0x0F = 0</code>; <code>0x05 = 0</code>; <code>0x06 = 0x3F</code></td><td><code>3F:4207</code>–<code>4210</code></td></tr>
 <tr><td>GPIO and USB control</td><td><code>0x39 = 0xF0</code>; <code>0x4A = 0x20</code></td><td><code>3F:4212</code>–<code>4218</code></td></tr>
 <tr><td>Gate and final RAM window</td><td>protected <code>0x14 = 0</code>; <code>0x07 = 0x80</code></td><td><code>3F:421A</code>–<code>422B</code></td></tr>
@@ -353,8 +353,8 @@ remain subject to the evidence limits on
 <a href="clock-timers-power.html">Clock, timers, and power</a>.</p>
 <h2 id="destructive-ram-diagnostic"><a class="header" href="#destructive-ram-diagnostic">Destructive RAM diagnostic</a></h2>
 <p>The <strong>MODE</strong> path at <code>3F:427E</code> jumps to <code>3F:4504</code>. Its later RAM-test path calls
-the worker at <code>3F:461A</code> to test main RAM and banked RAM. [confirmed]</p>
-<p>The worker at <code>3F:461A</code> takes the start address in <code>DE</code>, computes length
+<code>boot_ram_test</code> at <code>3F:461A</code> to test main RAM and banked RAM. [confirmed]</p>
+<p><code>boot_ram_test</code> takes the start address in <code>DE</code>, computes length
 <code>0x10000 - DE</code>, writes a repeating byte pattern, rewinds, and verifies the same
 pattern. The pattern is <code>0x00</code>, <code>0x01</code>, …, <code>0xFA</code>, then repeats at <code>0x00</code>.
 [confirmed]</p>
@@ -368,10 +368,10 @@ the RAM-page loop. A nonzero scan aborts it through <code>3F:460F</code>. [confi
 place. It is suitable only for the boot diagnostic path, not for checking RAM
 that contains live state. [confirmed]</p>
 <h2 id="dormant-lcd-and-keypad-diagnostic"><a class="header" href="#dormant-lcd-and-keypad-diagnostic">Dormant LCD and keypad diagnostic</a></h2>
-<p>The retail ROM contains a complete LCD pattern, contrast, and keypad test at
-<code>3F:4658</code>, but the branch into it is constant-false. Ghidra finds one
-cross-reference to <code>3F:4658</code>, from <code>3F:4615</code>. The complete predecessor is:
-[confirmed]</p>
+<p>The retail ROM contains <code>boot_lcd_keypad_diagnostic</code> at <code>3F:4658</code>, a complete
+LCD pattern, contrast, and keypad test. Its only incoming branch,
+<code>boot_diagnostic_gate</code> at <code>3F:4615</code>, is constant-false. The complete predecessor
+is: [confirmed]</p>
 <pre><code class="language-z80">3F:4610  xor a
 3F:4611  out (0x05),a
 3F:4613  cp 0x09
@@ -386,13 +386,13 @@ the LCD/keypad diagnostic reachable. [confirmed]</p>
 <p>The remaining subsections describe the dormant bytes. Dynamic results use an
 explicit RAM-harness entry and do not represent ordinary boot behavior.</p>
 <h3 id="lcd-pattern-helpers"><a class="header" href="#lcd-pattern-helpers">LCD pattern helpers</a></h3>
-<p>The helper at <code>3F:46EF</code> takes alternating row bytes in <code>D</code> and <code>E</code>. It selects
-row command <code>0x80</code> and each visible byte-column command from <code>0x20</code> through
-<code>0x2B</code>, then writes 64 data bytes per column. One call emits 24 command writes
-and 768 data writes. [confirmed]</p>
-<p>The helper at <code>3F:472E</code> takes a row command in <code>B</code> and a data byte in <code>D</code>. It
-writes the value once in each of the 12 visible byte columns. One call emits
-24 command writes and 12 data writes. [confirmed]</p>
+<p><code>boot_lcd_fill_pattern</code> at <code>3F:46EF</code> takes alternating row bytes in <code>D</code> and <code>E</code>.
+It selects row command <code>0x80</code> and each visible byte-column command from <code>0x20</code>
+through <code>0x2B</code>, then writes 64 data bytes per column. One call emits 24 command
+writes and 768 data writes. [confirmed]</p>
+<p><code>boot_lcd_write_row</code> at <code>3F:472E</code> takes a row command in <code>B</code> and a data byte in
+<code>D</code>. It writes the value once in each of the 12 visible byte columns. One call
+emits 24 command writes and 12 data writes. [confirmed]</p>
 <p>The diagnostic presents these six screens: [confirmed]</p>
 <div class="table-wrapper">
 <table>
@@ -400,7 +400,7 @@ writes the value once in each of the 12 visible byte columns. One call emits
 <tr><th style="text-align: right">Order</th><th>Visible screen</th><th>Construction</th></tr>
 </thead>
 <tbody>
-<tr><td style="text-align: right">1</td><td><code>0x81</code> in every visible byte, with rows 0 and 63 set to <code>0xFF</code></td><td>one <code>3F:46EF</code> fill plus two <code>3F:472E</code> rows</td></tr>
+<tr><td style="text-align: right">1</td><td><code>0x81</code> in every visible byte, with rows 0 and 63 set to <code>0xFF</code></td><td>one <code>boot_lcd_fill_pattern</code> call plus two <code>boot_lcd_write_row</code> calls</td></tr>
 <tr><td style="text-align: right">2</td><td>all <code>0xFF</code></td><td>equal-byte fill</td></tr>
 <tr><td style="text-align: right">3</td><td>all <code>0x00</code></td><td>equal-byte fill</td></tr>
 <tr><td style="text-align: right">4</td><td>alternating <code>0x55</code> and <code>0xAA</code> rows</td><td>alternating-byte fill</td></tr>
@@ -415,15 +415,16 @@ restores CPU-speed value <code>1</code>, and returns Z for scan code <code>0x09<
 <strong>ENTER</strong> skips the remaining screen or contrast stages and advances to the
 keypad test. Other nonzero scan codes advance one stage. [confirmed]</p>
 <h3 id="contrast-sweep"><a class="header" href="#contrast-sweep">Contrast sweep</a></h3>
-<p>The contrast loop passes values <code>0x27</code> down through <code>0x01</code> to <code>3F:74F8</code>.
-That helper adds <code>0x18</code>, forces bits 7–6, waits for the LCD, and writes the
-result to port <code>0x10</code>. The emitted commands descend from <code>0xFF</code> through
+<p>The contrast loop passes values <code>0x27</code> down through <code>0x01</code> to
+<code>boot_lcd_write_contrast</code> at <code>3F:74F8</code>. The helper adds <code>0x18</code>, forces bits 7–6,
+waits for the LCD, and writes the result to port <code>0x10</code>. The emitted commands
+descend from <code>0xFF</code> through
 <code>0xD9</code>, covering controller contrast arguments 63 through 25 in 39
 key-advanced steps. [confirmed]</p>
 <p>Toshiba defines the larger T6K04 argument as darker. This direction comes from
 the controller data sheet, not from the ROM arithmetic. [standard] The routine
-clears the LCD after the sweep and calls <code>3F:74F5</code> to restore the contrast
-stored at <code>0x8447</code>. [confirmed]</p>
+clears the LCD after the sweep and calls <code>boot_lcd_restore_contrast</code> at
+<code>3F:74F5</code> to restore the contrast stored at <code>0x8447</code>. [confirmed]</p>
 <h3 id="keypad-sequence"><a class="header" href="#keypad-sequence">Keypad sequence</a></h3>
 <p>The table at <code>3F:478D</code> contains 49 two-byte entries. Each pair holds an expected
 scan code and a decimal position label. <code>3F:73A2</code> converts the label for
@@ -438,7 +439,8 @@ LCD, displays <code>OK</code> from <code>3F:4807</code>, waits for a non-<strong
 <h3 id="direct-entry-emulator-validation"><a class="header" href="#direct-entry-emulator-validation">Direct-entry emulator validation</a></h3>
 <p>The guarded Wabbitemu probe boots until the retail protection bounds are
 established, maps page <code>3F</code>, and injects a 30-byte RAM harness. The harness
-calls the actual ROM helpers at <code>3F:74C6</code>, <code>3F:46EF</code>, <code>3F:472E</code>, and <code>3F:74F8</code>.
+calls <code>boot_lcd_initialize</code> (<code>3F:74C6</code>), <code>boot_lcd_fill_pattern</code> (<code>3F:46EF</code>),
+<code>boot_lcd_write_row</code> (<code>3F:472E</code>), and <code>boot_lcd_write_contrast</code> (<code>3F:74F8</code>).
 It does not patch the constant-false branch. [confirmed] for the harness and
 pinned emulator run.</p>
 <p>The native run executes 8,040 probe instructions and retains only helper-visit
@@ -446,10 +448,14 @@ counters, transfer counts, two visible-screen hashes, boundary cells, and the
 final contrast field. It observes: [confirmed] for pinned Wabbitemu commit
 <code>48c2dc0</code>.</p>
 <ul>
-<li><code>3F:74C6</code> emits seven commands and falls through <code>3F:74F5</code> into <code>3F:74F8</code>;</li>
-<li><code>3F:46EF</code> emits 24 command and 768 data writes for alternating <code>0x55</code>/<code>0xAA</code> rows;</li>
-<li><code>3F:472E</code> emits 24 command and 12 data writes, changing all 12 bytes of row 63 to <code>0xFF</code>;</li>
-<li>an explicit <code>A = 0x27</code> call to <code>3F:74F8</code> emits <code>0xFF</code>, which Wabbitemu stores as its adjusted contrast level 39.</li>
+<li><code>boot_lcd_initialize</code> emits seven commands and falls through
+<code>boot_lcd_restore_contrast</code> into <code>boot_lcd_write_contrast</code>;</li>
+<li><code>boot_lcd_fill_pattern</code> emits 24 command and 768 data writes for alternating
+<code>0x55</code>/<code>0xAA</code> rows;</li>
+<li><code>boot_lcd_write_row</code> emits 24 command and 12 data writes, changing all 12
+bytes of row 63 to <code>0xFF</code>;</li>
+<li>an explicit <code>A = 0x27</code> call to <code>boot_lcd_write_contrast</code> emits <code>0xFF</code>, which
+Wabbitemu stores as its adjusted contrast level 39.</li>
 </ul>
 <p>These observations validate retail-ROM execution against Wabbitemu’s
 controller model. They do not establish normal boot execution, analog
@@ -471,7 +477,8 @@ only counters and the 35 selected output events, and stops after the final
 boot write at <code>3F:422B</code>. It does not construct a text line or retain a register
 snapshot for every executed instruction. [confirmed]</p>
 <p>The saved full-reset TilEm trace matches all 35 ordered output events from
-<code>3F:4002</code> through <code>3F:422B</code>, including the call to <code>3F:6278</code>. The trace starts
+<code>retail_boot_reset_stub + 0x02</code> through <code>3F:422B</code>, including the call to
+<code>boot_link_assist_init</code>. The trace starts
 at logical <code>0x8000</code> under the TI-84 Plus reset mapping and resolves every
 banked instruction in this interval. [confirmed] for the pinned emulator run.</p>
 <p><code>tools/run_wabbitemu_lcd_diagnostic_probe.py</code> builds a hash-bearing evidence

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
+            window.path_to_searchindex_js = "searchindex-6157e050.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -185,7 +185,8 @@ characters shown in the editor. Tokenization chooses that encoding; execution
 walks it; detokenization turns it back into display text.</p>
 <h2 id="encoded-width"><a class="header" href="#encoded-width">Encoded width</a></h2>
 <p>Most tokens occupy one byte. <code>_IsA2ByteTok</code> (<code>00:1FE8</code>) decides whether a byte
-introduces a two-byte token by searching the 11-byte table at <code>00:1FF6</code>:</p>
+introduces a two-byte token by searching <code>two_byte_token_lead_table</code>
+(<code>00:1FF6</code>), an 11-byte list of lead bytes:</p>
 <div class="table-wrapper">
 <table>
 <thead>
