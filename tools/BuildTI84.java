@@ -37,11 +37,11 @@ public class BuildTI84 extends GhidraScript {
         analyzeChanges(currentProgram);
 
         rename(ram, 0x2a2f, "bcall_dispatcher");
-        rename(ram, 0x006d, "isr_im1");
+        rename(ram, 0x006d, "int_entry_save_alt_regs");
         rename(ram, 0x0000, "reset");
         comment(ram, 0x0000, "RST 00h / CPU reset. IN port2 bit7 (batt/link), JP boot @0x028c.");
         comment(ram, 0x0028, "RST 28h = bcall(): 2-byte ID follows opcode; dispatched @bcall_dispatcher.");
-        comment(ram, 0x0038, "RST 38h = IM1 interrupt vector -> isr_im1 @0x006d.");
+        comment(ram, 0x0038, "RST 38h = IM1 interrupt vector -> int_entry_save_alt_regs @0x006d.");
 
         // --- 3. RAM variable labels from ti83plus.inc ---
         int rc = applyLabels("/tmp/ti84_build/ram.txt", ram);

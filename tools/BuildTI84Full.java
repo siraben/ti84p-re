@@ -57,10 +57,10 @@ public class BuildTI84Full extends GhidraScript {
         analyzeChanges(currentProgram);
 
         // 7. Names / comments on page 0
-        setName(0x2a2f, "bcall_dispatcher"); setName(0x006d, "isr_im1"); setName(0x0000, "reset");
+        setName(0x2a2f, "bcall_dispatcher"); setName(0x006d, "int_entry_save_alt_regs"); setName(0x0000, "reset");
         eol(0x0000, "RST 00h / CPU reset.");
         eol(0x0028, "RST 28h = bcall(): 2-byte ID follows; dispatched @bcall_dispatcher.");
-        eol(0x0038, "RST 38h = IM1 interrupt vector -> isr_im1.");
+        eol(0x0038, "RST 38h = IM1 interrupt vector -> int_entry_save_alt_regs.");
 
         // 8. RAM + port labels
         println("RAM labels: " + applyLabels(dir + "/ram.txt", ram));

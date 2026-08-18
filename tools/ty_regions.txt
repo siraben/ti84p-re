@@ -1,18 +1,48 @@
 8000	byte	256	appData
+8291	CompactHashResult		compactHashLength
+83EE	ArchiveWorkspacePrefix		arcInfo
 8447	byte		contrast
 844B	byte		curRow
 844C	byte		curCol
 8450	TIVarType		curType
-8478	TIFloat		OP1
-8483	TIFloat		OP2
-848E	TIFloat		OP3
-8499	TIFloat		OP4
-84A4	TIFloat		OP5
-84AF	TIFloat		OP6
+8478	TIOpRegister		OP1
+8483	TIOpRegister		OP2
+848E	TIOpRegister		OP3
+8499	TIOpRegister		OP4
+84A4	TIOpRegister		OP5
+84AF	TIOpRegister		OP6
 8508	byte	128	textShadow
+858D	Context		cxMain
 85D0	TIVarType		varType
-86EC	byte	768	saveSScreen
+8622	TIFloat	2	table_x_work
+8674	LinkPacketHeader		header
+86EC	MonoFramebuffer		saveSScreen
 89F0	SystemFlags		flags
-8A3A	byte	66	statVars
-9340	byte	768	plotSScreen
+8A3A	TIStatResultsPrefix		statVars
+8DAF	MathPrintArenaState		mathprintArenaState
+8DFA	EqDispViewportState		eqdispViewport
+8E7E	GraphWindowValues		userWindow
+8F50	GraphWindowValues		activeWindow
+91E2	TableValueCache		table_value_cache
+9340	MonoFramebuffer		plotSScreen
+9652	TIBasicParserState		basic_prog
 966E	byte	128	cmdShadow
+
+# Typed ROM data tables. Overlay names match Ghidra's page spaces.
+page_38:7175	word	6	leaf_production_handler_table
+page_33:4381	word	13	ctrlflow_handler_table
+page_33:4F82	EqDispAllocationGeometryRow	13	eqdisp_allocation_geometry_table
+page_34:594D	EqDispSourceTypeRow	16	eqdisp_source_type_table
+page_34:59AC	EqDispChildScanRow	13	eqdisp_child_scan_table
+page_34:6119	word	13	eqdisp_render_handler_table
+page_34:739F	word	13	eqdisp_metric_handler_table
+page_34:7611	word	13	eqdisp_geometry_handler_table
+page_39:5E45	word	68	eqdisp_handler_table
+page_02:7D42	TIFloat	9	fp_constant_table
+page_33:4E92	TIFloat		const_ln10x100
+page_39:46E1	TIFloat		const_solver_floor_1e99
+page_39:46EA	TIFloat		const_solver_tol_1e13
+page_3F:4C3B	RamWorkerDescriptor		boot_flash_erase_worker_descriptor
+page_3F:4CC8	RamWorkerDescriptor		flash_program_worker_descriptor
+page_3D:6761	RamWorkerDescriptor		flash_to_ram_worker_descriptor
+page_3D:7308	RamWorkerDescriptor		certificate_worker_descriptor

@@ -46,8 +46,11 @@ The pipeline (`build.sh`):
 6. `ApplyBjumpTargets.java` — disassemble the hot routines those trampolines point to
 7. `FixInlineBjumps.java` — fix all 355 inline `CALL cross_page_jump` tail-jumps
 8. `ParserTable.java` — the page-0x38 parser handler dispatch
-9. `RenameFns.java` — apply ~1600 accumulated names (`names.txt`) — gets to 100%
-10. `BuildTypes.java` — TI-OS enums/structs/typed regions
+9. `RenameFns.java` — apply the accumulated function names in `names.txt`
+10. `BuildTypes.java` — TI-OS enums, structures, and typed regions
+11. `ApplyLabels.java` — apply reviewed ROM-data and internal-entry labels from `labels.txt`
+12. `ApplyOffsetRefs.java` — render reviewed structure-field references from `poffsets.txt`
+13. `RenameVars.java` — apply reviewed local-variable names from `varnames.txt`
 
 Then open `ti84.gpr` in Ghidra (the GhidraMCP plugin exposes it to Claude over `:8080`).
 
