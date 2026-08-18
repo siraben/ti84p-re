@@ -40,14 +40,23 @@ of one interpreter, not separate parsers. [confirmed]
 
 ## The token cursor
 
-The cursor is an interval in RAM:
+`TIBasicParserState` (`0x9652`) keeps the program identity and cursor interval
+contiguous in RAM: [confirmed]
 
-| State | Address | Meaning |
-|-------|---------|---------|
-| `nextParseByte` | `965Dh` | Current token position |
-| `basic_end` | `965Fh` | Inclusive parser bound/refill boundary |
-| `basic_start` | `965Bh` | Start of the current body |
-| `basic_prog` | `9652h` | Current program/object identity |
+```c
+#pragma pack(push, 1)
+typedef struct {
+    uint8_t basic_prog[9];
+    uint16_t basic_start;
+    uint16_t next_parse_byte;
+    uint16_t basic_end;
+    uint8_t num_arguments;
+} TIBasicParserState;
+#pragma pack(pop)
+```
+
+`next_parse_byte` is the current token position. `basic_start` begins the
+current body, and `basic_end` is its inclusive parser/refill boundary.
 
 The small page-38 helpers are the useful way to reason about cursor movement:
 
@@ -60,7 +69,8 @@ The small page-38 helpers are the useful way to reason about cursor movement:
 | `parse_init` | `38:5B7B` | Reset parser-position bytes and parser flags |
 
 Encoded width matters whenever the interpreter skips rather than evaluates.
-`_IsA2ByteTok` (`00:1FE8`) searches the 11-byte table at `00:1FF6`; a match
+`_IsA2ByteTok` (`00:1FE8`) searches the 11-byte
+`two_byte_token_lead_table` (`00:1FF6`); a match
 means the lead and following byte must move together. The scanner also treats a
 quoted string as one region, so `Then`, `Else`, or `End` bytes inside a string
 cannot terminate an outer scan. [confirmed]
@@ -97,26 +107,25 @@ handler recursively consume tighter-binding operands. The selector at
 
 | Selector `C` | Handler family | Role |
 |--------------|----------------|------|
-| Other than `02h` or `03h` | pointer table at `38:4000` | Main grammar productions |
+| Other than `02h` or `03h` | `grammar_handler_table` (`38:4000`) | Main grammar productions |
 | `02h` | code at `38:478C` | Postfix/power production |
-| `03h` | code at `38:7175` | Leaf production |
+| `03h` | `leaf_production_handler_table` (`38:7175`) | Six leaf-production offsets |
 
-For the main family, the grammar class in `A` indexes a table of little-endian
-handler pointers at `38:4000`. Its 87 slots contain 84 valid pointers and 81
-distinct handler destinations. The bytes there are data—beginning `9F 41 F0 45
+For the main family, the grammar class in `A` indexes
+`grammar_handler_table`. Its 87 page-local offsets contain 84 valid pointers and 81
+distinct handler destinations. The bytes there are data — beginning `9F 41 F0 45
 1C 42 ...`—not executable Z80. The selector doubles the class, reads the
 pointer, and calls the chosen production. [confirmed]
 
 ```pseudocode
 evaluate_production(class, level):
   if level == 2:
-    base = 478Ch
+    return postfix_production_478C(class)
   else if level == 3:
-    base = 7175h
+    handler = leaf_production_handler_table[class]
   else:
-    base = word_table_at_4000h
+    handler = grammar_handler_table[class]
 
-  handler = base[class]       // table family; raw-code families interpret class locally
   return handler(parse_cursor, OP1)
 ```
 
@@ -221,24 +230,36 @@ accepts 13 indices, and jumps through the table at `33:4381`. Three ABI probes
 confirm both bounds outcomes at `33:436D` and `33:4372`, but natural stored
 programs do not enter it. It is not the `For(`/`End` transition. [confirmed]
 
-Natural `For(` execution reaches grammar-table destination `38:41E5`. Natural
-`End` execution reaches `38:4200`, which consumes a five-byte record from the
-operator stack at `OPS + 1`. The observed bytes use this order: [confirmed]
+Natural `For(` execution reaches `parse_for_production` (`38:41E5`). Natural
+`End` execution reaches `parse_end_ops_record` (`38:4200`), which consumes a
+`TIForOpsRecord` from the operator stack at `OPS + 1`: [confirmed]
+
+```c
+#pragma pack(push, 1)
+typedef struct {
+    uint8_t sentinel;       /* 00h */
+    uint16_t continuation;  /* for_first_update or for_steady_update */
+    uint16_t state;         /* 0012h in both observed forms */
+} TIForOpsRecord;
+#pragma pack(pop)
+```
+
+The observed bytes use this order:
 
 | Offset | First `End` | Later `End` visits | Role |
 |--------|-------------|--------------------|------|
-| `+0` | `00h` | `00h` | Sentinel consumed by `38:4200` |
-| `+1..+2` | `36 58` | `7D 58` | Little-endian continuation `38:5836` or `38:587D` |
+| `+0` | `00h` | `00h` | `sentinel` consumed by `parse_end_ops_record` |
+| `+1..+2` | `36 58` | `7D 58` | `continuation`: `for_first_update` (`38:5836`) or `for_steady_update` (`38:587D`) |
 | `+3..+4` | `12 00` | `12 00` | Stable state word `0012h` |
 
 ```mermaid
 flowchart LR
-    F["For( token"] --> P["38:41E5<br/>create production state"]
+    F["For( token"] --> P["parse_for_production<br/>create production state"]
     P --> B["execute loop body"]
-    B --> E["End token<br/>38:4200"]
+    B --> E["End token<br/>parse_end_ops_record"]
     E --> O["pop sentinel + continuation + state word"]
-    O --> I["38:5836<br/>first update"]
-    O --> S["38:587D<br/>steady update"]
+    O --> I["for_first_update"]
+    O --> S["for_steady_update"]
     I --> B
     S --> B
 ```

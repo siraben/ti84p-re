@@ -229,15 +229,16 @@ The full smoke trace also hits `_ParseInpLastEnt`/`_ParseInp` once while the
 homescreen evaluates the initial `prgmCALLSUB` command selected by the macro.
 That launch parse is not the same as the callee transition. The repeated
 subprogram body path is the private `38:6910` → `38:6914` → `38:778F`
-sequence, reached after parser RAM has already been populated:
+sequence, reached after `TIBasicParserState` (`0x9652`) and the adjacent stack
+pointers have been populated:
 
 | RAM state | Address | Role in the private parser frame |
 |-----------|---------|----------------------------------|
-| `basic_prog` | `9652` | current OP1-style program/object name |
-| `basic_start` | `965B` | first token byte after the stored program size word |
-| `nextParseByte` | `965D` | current parser cursor |
-| `basic_end` | `965F` | parser end pointer |
-| `numArguments` | `9661` | argument count/state byte used by parser helpers |
+| `TIBasicParserState.basic_prog` | `9652` | current OP1-style program/object name |
+| `TIBasicParserState.basic_start` | `965B` | first token byte after the stored program size word |
+| `TIBasicParserState.next_parse_byte` | `965D` | current parser cursor |
+| `TIBasicParserState.basic_end` | `965F` | parser end pointer |
+| `TIBasicParserState.num_arguments` | `9661` | argument count/state byte used by parser helpers |
 | `chkDelPtr3` / `chkDelPtr4` | `981C` / `981E` | temporary VAT/data pointers used during name and object setup |
 | `FPS` / `OPS` / `pTemp` / `progPtr` | `9824` / `9828` / `982E` / `9830` | live FP/temp/program storage bounds |
 
@@ -476,7 +477,8 @@ C9
 `Asm(` command handler parses the following `prgmNAME` token stream, then
 bcalls `_ExecutePrgm` (`4E7C`, target `07:5758`). The trace shows that path
 compile/copy the `AsmPrgm` body and hand off through `07:57B4`, execute the
-payload byte at `ram:9D95 op=0xC9`, and return to BASIC. [confirmed]
+payload byte at `userMem` (`0x9D95`) with opcode `C9h`, and return to BASIC.
+[confirmed]
 
 Practical convention: pass data through OS variables or known RAM locations,
 validate inputs on the BASIC side, and make the ASM payload return normally with
@@ -514,7 +516,7 @@ Disp "CALLED"
 
 Observed run: `ASMBRIDG.8xp`, `ASMSIG.8xp`, and `ZZBASIC.8xp` display
 `BEFORE`, `CALLED`, `AFTER`, then `Done`. The trace hits the `AsmPrgm` payload
-at `ram:9D95`, `_OP1Set1` (`00:1B38`), `_StoAns` (`38:6251`), `_AnsName`
+at `userMem`, `_OP1Set1` (`00:1B38`), `_StoAns` (`38:6251`), `_AnsName`
 (`38:74B7`) while evaluating `If Ans`, and then the normal BASIC program-body
 path for `prgmZZBASIC` (`38:6910` → `38:6914` → `38:778F`). [confirmed]
 
@@ -542,13 +544,13 @@ Disp A
 ```
 
 Observed run: `ASMRTN.8xp` and `ASMVAL.8xp` display `5`, then `Done`. The trace
-hits `ram:9D95`, `_OP1Set2` (`00:1B50`), `_StoAns` (`38:6251`), `_AnsName`,
+hits `userMem`, `_OP1Set2` (`00:1B50`), `_StoAns` (`38:6251`), `_AnsName`,
 `_FPAdd`, and `_Disp`; the smoke runner also checks the final-frame result and
 `Done` regions. [confirmed]
 
 | Direction | Confirmed mechanism | Caveat |
 |-----------|---------------------|--------|
-| BASIC → ASM | `Asm(prgmNAME)` parses `prgmNAME`, bcalls `_ExecutePrgm`, copies the `AsmPrgm` payload, then jumps through `ram:9D95`. | The payload runs in the calculator OS process; a bad payload can corrupt interpreter state. |
+| BASIC → ASM | `Asm(prgmNAME)` parses `prgmNAME`, bcalls `_ExecutePrgm`, copies the `AsmPrgm` payload, then jumps through `userMem`. | The payload runs in the calculator OS process; a bad payload can corrupt interpreter state. |
 | BASIC → BASIC | `prgmNAME` enters the page-38 parser/VAT/body evaluator path and `Return` resumes the caller. | There is no local frame; variables, lists, and `Ans` are shared. |
 | ASM → BASIC callback | ASM stores a signal/result such as `Ans=1`, returns, and the BASIC wrapper conditionally runs `prgmNAME`. | BASIC must own the actual `prgm` call; this is cooperative, not an arbitrary ASM bcall into BASIC. |
 | ASM → BASIC value return | ASM stores a numeric result in `Ans` with `_StoAns`; BASIC resumes and evaluates `Ans`. | This returns data to BASIC, not control into a BASIC program body. |
@@ -594,7 +596,7 @@ name: .db 05h,"ZZBASIC",00h
 
 Observed run: `ASMFIND.8xp`, `ZZFIND.8xp`, and `ZZBASIC.8xp` display `BEFORE`,
 `AFTER`, and `Done`; `ZZBASIC`'s `CALLED` text does not display. The trace hits
-`ram:9D95` and `findsym_scan`, and the smoke runner checks the wrapper output
+`userMem` and `findsym_scan`, and the smoke runner checks the wrapper output
 and a low-pixel region where an unexpected third line would appear. This proves
 ASM-side VAT lookup from an `AsmPrgm` context, not BASIC program execution. [confirmed]
 
@@ -603,7 +605,7 @@ Generated negative fixtures make the execution boundary sharper.
 `ASMFORM.8xp` and `ZZFORM.8xp` make the `_Find_Parse_Formula` negative probe
 reproducible. The payload is the same OP1-name setup as `ZZFIND`, but it bcalls
 `_Find_Parse_Formula` (`4AF2`, target `38:758A`) instead of `_ChkFindSym`.
-Observed run: the trace reaches `ram:9D95`, `_Find_Parse_Formula`,
+Observed run: the trace reaches `userMem`, `_Find_Parse_Formula`,
 `parse_init_findsym`, `findsym_scan`, and `eval_stmt_entry`; the final screen is
 `ERR:UNDEFINED` with `1:Quit` and `2:Goto`. `ZZBASIC` never displays `CALLED`.
 That failed run confirms `_Find_Parse_Formula` is not a drop-in BASIC program
@@ -632,7 +634,7 @@ RET
 
 entered `_JForceCmd` (`00:0747`) but never returned to the BASIC wrapper's
 `Disp "AFTER"` statement. The final screen showed repeated `BEFORE`/`Done`
-lines, and the trace hit `ram:0747` and `ram:9D95` repeatedly. The disassembly
+lines, and the trace hit `ram:0747` and `userMem` repeatedly. The disassembly
 explains why: `_JForceCmd` reloads `SP` from `85BC` before dispatching the
 forced key, discarding the `AsmPrgm` caller's stack. [confirmed]
 
@@ -661,5 +663,5 @@ ABI for `AsmPrgm` payloads. [confirmed]
 The current open item is therefore precise: trace a small ASM payload that
 successfully invokes a BASIC program, identify the required parser/VAT/error
 state, and compare it to the rejected public routes above plus both confirmed
-paths: `Asm(` → `_ExecutePrgm` → `ram:9D95`, and BASIC `prgmNAME` →
+paths: `Asm(` → `_ExecutePrgm` → `userMem`, and BASIC `prgmNAME` →
 `38:6914`/`38:778F` program-body evaluation.

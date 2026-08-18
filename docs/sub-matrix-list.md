@@ -440,15 +440,17 @@ square-only, partial-pivoting driver. [confirmed]
 `rref(` (`BBh,A6h`) and `ref(` (`BBh,A5h`) are 2-byte `0xBB`-lead function tokens. On the
 page-38 statement/expression evaluator (`eval_expr_inner` `38:59A4`), token `0xBB` is detected
 and `parse_advance` consumes the prefix; the second byte is then dispatched through the
-evaluator's class-3 (function-token) handler-pointer table at `38:7175` (`701A/7021/7026`
-select the `0x4000`/`0x478C`/`0x7175` tables by class; `703A: CALL 0x0033` = `_LdHLind` jumps
-the resolved handler). Their reduced-row-echelon elimination is therefore a distinct,
+evaluator's six-entry `leaf_production_handler_table` at `38:7175`.
+The selector at `38:701A`–`7026` chooses `grammar_handler_table`, the
+`38:478C` code family, or this leaf table; `703A: CALL 0x0033` = `_LdHLind`
+jumps to the resolved handler. Their reduced-row-echelon elimination is therefore a distinct,
 non-square-tolerant driver reached through that table — a separate routine from `42A6`, using
 the same per-element FP primitives (`_FPDiv`/`_FPMult`/`_FPSub`) but with its own pivot loop
 that tolerates rectangular matrices and rank deficiency (zero rows left in place, no
-`SINGULAR MAT`). The concrete rref/ref body sits behind the `38:7175` 2-byte
-handler table and has not been byte-isolated because the table remains
-unanalyzed data in the DB. The two-caller xref establishes that it is a
+`SINGULAR MAT`). The concrete rref/ref body sits behind the two-byte entries in
+`leaf_production_handler_table`; the table is now named and typed in the rebuilt
+database, but the two tokens' exact handler selection has not yet been isolated.
+The two-caller xref establishes that it is a
 separate driver from `02:42A6` [confirmed]. Its exact body address remains
 [standard].
 
@@ -552,8 +554,9 @@ and the routine and condition that triggers it.
 
 - `rref(`/`ref(` use a separate driver, not `42A6`. Xref proves `42A6` has
   exactly two callers (inverse `5F80`, det `5FC0`); rref/ref are 2-byte `0xBB`-lead function
-  tokens dispatched via the page-38 evaluator's class-3 handler table at `38:7175` (§5). The
-  *exact rref/ref body* sits behind that (unanalyzed-data) table and is the only residual: its
+  tokens dispatched via the page-38 evaluator's
+  `leaf_production_handler_table` (`38:7175`; §5). The *exact rref/ref body*
+  sits behind that table and is the only residual: its
   start address was not byte-isolated, but it is confirmed not to be `42A6`.
 - det sign / pivot-product (`42A6` tail `43D8-4470`) and dim labelling. The det
   sign = LSB of the permutation-swap count applied via `_InvOP1S` (`24BD`) at `43FB`/`442B`;

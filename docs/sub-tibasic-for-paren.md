@@ -38,7 +38,7 @@ AsmPrgm
 C9
 ```
 
-`C9` is `RET`. Both traces execute it twice at `ram:9D95`. The analyzer counts
+`C9` is `RET`. Both traces execute it twice at `userMem` (`0x9D95`). The analyzer counts
 instructions and clocks from the first marker to the second. After the second
 marker, each program calls `ZPASS` only when `I=26`; `ZPASS` writes `A5h` to
 `plotSScreen` at `0x9340`. The smoke runner asserts that RAM byte directly.
@@ -93,16 +93,17 @@ cursor/end stride without using an LCD image as an oracle. [confirmed]
 
 ## The natural loop record
 
-Both forms reach `For(` production entry `38:41E5` and `End` production entry
-`38:4200`. At each `End`, `38:4200` consumes five bytes beginning at `OPS + 1`:
+Both forms reach `parse_for_production` (`38:41E5`) and
+`parse_end_ops_record` (`38:4200`). At each `End`, `parse_end_ops_record`
+consumes one five-byte `TIForOpsRecord` beginning at `OPS + 1`:
 
 ```mermaid
 flowchart LR
     R["OPS + 1 … OPS + 5"] --> Z["00h<br/>sentinel"]
     R --> C["36 58 or 7D 58<br/>continuation"]
     R --> S["12 00<br/>state word"]
-    C --> I["38:5836 first update"]
-    C --> T["38:587D steady update"]
+    C --> I["for_first_update"]
+    C --> T["for_steady_update"]
 ```
 
 The first continuation prepares the loop update. The steady continuation
