@@ -35,4 +35,4 @@ physical tests above remain open. [confirmed]
 
 ## How to continue
 
-Reopen `ti84.gpr` (the GhidraMCP plugin reconnects for interactive work), or extend the headless pipeline in `tools/` and rebuild with `tools/build.sh`. The remaining static items mostly need raw-byte decoding of regions the live decompiler leaves as unanalyzed data, including the page-`0x38` `0xBB`/class-3 dispatch tables. Hardware-only timer and RTC quirks need measurements on physical calculators.
+Reopen `ti84.gpr` (the GhidraMCP plugin reconnects for interactive work), or extend the headless pipeline in `tools/` and rebuild with `tools/build.sh`. The remaining static items mostly need raw-byte decoding of regions the live decompiler leaves unanalyzed, including mapping the `0xBB` tokens through the now-typed page-`0x38` leaf-handler table to their exact destinations. Hardware-only timer and RTC quirks need measurements on physical calculators.

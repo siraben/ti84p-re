@@ -70,7 +70,8 @@ layer. No successor at a declared branch is unclassified. [confirmed]
 
 That 52-outcome matrix is a regression test for eight local models. It is not
 the interpreter denominator. The broader CFG audit seeds all valid destinations
-from the parser table at `38:4000` and the 13-entry page-33 table at `33:4381`,
+from `grammar_handler_table` (`38:4000`) and the 13-entry
+`ctrlflow_handler_table` (`33:4381`),
 then follows direct control flow through five bounded components. [confirmed]
 
 ## Expanded CFG saturation
@@ -87,10 +88,11 @@ branches. Its 2,702 possible outcomes produce this trace breakdown:
 | Numeric and error checks | 256 | 120 | 119 |
 | **Total** | **2,702** | **924** | **898** |
 
-Natural `factorial` and `dfs` traces now identify the actual page-38 loop path:
-`For(` reaches `38:41E5`, `End` reaches `38:4200`, and the loop continuations
-are `38:5836` and `38:587D`. They still do not enter the page-33 probe
-dispatcher. [confirmed]
+Natural `factorial` and `dfs` traces identify the page-38 loop path:
+`For(` reaches `parse_for_production` (`38:41E5`), `End` reaches
+`parse_end_ops_record` (`38:4200`), and the loop continuations are
+`for_first_update` (`38:5836`) and `for_steady_update` (`38:587D`). They do not
+enter the page-33 probe dispatcher. [confirmed]
 
 ```mermaid
 flowchart LR

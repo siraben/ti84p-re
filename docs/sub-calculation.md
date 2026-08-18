@@ -50,7 +50,7 @@ operands, then do BCD mantissa work and renormalize. Result in `OP1`.
 | Op | Routine | Addr | Notes |
 |----|---------|------|-------|
 | `+` | `_FPAdd` | `ram:229E` (= `RST 30h`) | sign-magnitude BCD add; see [floating-point.md](floating-point.md). |
-| `−` | `_FPSub` | `ram:2297` | flips `OP2.type` bit7 then falls into the add path. |
+| `−` | `_FPSub` | `ram:2297` | flips `OP2.value.type` bit 7, then falls into the add path. |
 | `×` | `_FPMult` | `ram:238B` | `ram:250F` adds exponents (→ `_ErrOverflow` on carry past 0x7F), then digit-by-digit BCD multiply accumulating into OP3. |
 | `÷` | `_FPDiv` | `ram:2541` | `_CkOP2FP0` first → `_JError(0x82)` DIVIDE BY 0 if divisor 0; else restoring BCD long division. |
 | `1/x` | `_FPRecip` | `ram:253D` | sets `OP1=1` then enters the divide loop (same body as `_FPDiv`). |
@@ -60,7 +60,7 @@ Convenience / derived ops:
 - `_Cube` `ram:237D` = `_FPSquare` then `_FPMult`. [confirmed]
 - `_Times2` `ram:2282` = `OP1+OP1`; `_TimesPt5` `ram:2382` loads the constant `0.5` (9-byte BCD @ `ram:2635`) into OP2 then `_FPMult`. [confirmed]
 - `_InvSub` `ram:227D` = `_InvOP1S` then `_FPAdd` ⇒ `OP2 − OP1` (reversed subtract). [confirmed]
-- **Negation**: `_InvOP1S` `ram:24BD` (XOR OP1.type with 0x80, guarding against −0), `_InvOP2S` `ram:24CD`, `_InvOP1SC` `ram:24BA` (both). `_CkOP1Pos` `ram:1E5D` ANDs OP1.type with 0x80. [confirmed]
+- **Negation**: `_InvOP1S` `ram:24BD` (XOR `OP1.value.type` with `0x80`, guarding against −0), `_InvOP2S` `ram:24CD`, `_InvOP1SC` `ram:24BA` (both). `_CkOP1Pos` `ram:1E5D` ANDs `OP1.value.type` with `0x80`. [confirmed]
 
 ### Roots & integer parts [confirmed]
 
@@ -90,12 +90,13 @@ Banked ROM calls use a bcall-style trampoline.
 3. reads a 3-byte `{lo, hi, page}` descriptor (page masked with `0x1F`/`0x3F` for 83+/84+ via ports 2/0x21),
 4. `OUT (6),A` to bank the target page in at `4000`, then jumps to it.
 
-The ln/e^x sites that look similar are local calls, not cross-page dispatches. `ram:2362` calls the bcall
-entry at `ram:3DD1`, whose inline descriptor is `1E 7D 02`, so it invokes the page-0x02
-coefficient fetcher at `02:7D1E`. In `LD A,3; CALL 0x2362` / `LD A,6; CALL 0x2362`, the
-`3` and `6` are coefficient-table indexes, not target pages. `_EToX` falls through locally into
-the `_TenX` body at `02:7069`; the ln/e^x/sin-cos coefficient tables are on page 0x02
-(`7181`, `7201`, `7281`, and the constant block near `7D42`), not page 0x03/0x06/0x07.
+The ln/e^x sites that look similar are local calls, not cross-page dispatches.
+`fp_mul_indexed_constant` (`ram:2362`) reaches `coeff_fetch` (`02:7D1E`)
+through the inline descriptor at `ram:3DD1`. The preceding `LD A,3` or
+`LD A,6` selects a coefficient, not a page. `_EToX` falls through locally into
+the `_TenX` body at `02:7069`. `logexp_digit_table` (`02:7181`),
+`trig_recurrence_table_a` (`02:7201`), `trig_recurrence_table_b` (`02:7281`),
+and `fp_constant_table` (`02:7D42`) all reside on page `02`. [confirmed]
 
 ---
 
@@ -109,10 +110,10 @@ the `_TenX` body at `02:7069`; the ln/e^x/sin-cos coefficient tables are on page
 
 ### Exponentials [confirmed]
 
-- `_EToX` `02:705C` (e^x): loads the `log10(e)` constant through `ram:2362`/`02:7D1E`,
+- `_EToX` `02:705C` (e^x): loads the `log10(e)` constant through `fp_mul_indexed_constant`,
   then falls through into the local `_TenX` body.
 - `_TenX` `02:7066` (10^x): splits exponent into integer (digit shift) + fractional
-  (16-slot table-driven evaluation through `02:7181`). Argument too large → `_ErrOverflow`.
+  (16-slot table-driven evaluation through `logexp_digit_table`). Argument too large → `_ErrOverflow`.
 
 ### Trig — sin/cos/tan [confirmed]
 
@@ -122,8 +123,8 @@ the `_TenX` body at `02:7069`; the ln/e^x/sin-cos coefficient tables are on page
 - Range reduction: reads OP1 exponent; exponent ≥ 0x0C (|x| ≳ 10^12·) → `_ErrDomain`
   ("argument out of range"). It then reduces the angle modulo a quarter-period using the
   BCD constant table near `02:7D81` and runs the same table-driven digit recurrence
-  as ln/eˣ over the signed near-unity tables at `02:7201` and `02:7281` (one row
-  per digit step, sign-variant picked by `0x84A4` bit 7) — the per-step `bcd_sub_op1_op2`
+  as ln/eˣ over the two trig recurrence tables (one row per digit step,
+  sign-variant picked by `OP5.value.type` bit 7) — the per-step `bcd_sub_op1_op2`
   (`ram:1D8A`) / `bcd_add_8496_8480` (`ram:1D26`) are the shift-and-add BCD steps of that
   recurrence, not a fixed polynomial and not CORDIC for the forward trig. The per-row
   decoding of `02:7201`/`02:7281` is detailed in [floating-point.md](floating-point.md).
@@ -161,7 +162,7 @@ digit string honoring the **MODE** screen (Normal/Sci/Eng, Float/Fix 0–9).
   - `fp_clear_guard`; zero → `_OP1Set0`; copies arg to OP5.
   - Reads the digit-count/mode flags from `(IY+0xc)` and the byte at `0x89FA` (active
     fixed/decimal-places setting; `(IX-1)` local holds the effective format byte).
-  - Exponent thresholds drive Normal↔Sci switchover: it compares `OP1.exp` against `0x7D`/`0x7F`
+  - Exponent thresholds drive Normal↔Sci switchover: it compares `OP1.value.exp` against `0x7D`/`0x7F`
     (≈ the ±-exponent window) and renormalizes (`ram:1BE7`) to bring the value into the
     displayable mantissa range, bumping a digit counter. Negative sign decrements the leading
     column count (`DEC (IX-3)`).

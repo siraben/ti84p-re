@@ -7,7 +7,8 @@ walks it; detokenization turns it back into display text.
 ## Encoded width
 
 Most tokens occupy one byte. `_IsA2ByteTok` (`00:1FE8`) decides whether a byte
-introduces a two-byte token by searching the 11-byte table at `00:1FF6`:
+introduces a two-byte token by searching `two_byte_token_lead_table`
+(`00:1FF6`), an 11-byte list of lead bytes:
 
 | Lead | Group |
 |------|-------|

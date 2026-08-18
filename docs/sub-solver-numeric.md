@@ -29,7 +29,7 @@ cheap relative jump.
 | `_ErrBadGuess`   | `0x44CB` | `ram:2751` → `_JError(0x9A)` | `0x9A` | BAD GUESS |
 | `_ErrTolTooSmall`| `0x44CE` | `ram:2755` → `_JError(0x9C)` | `0x9C` | TOL NOT MET |
 
-The error message-name table is on page 0x07 starting at `07:6B81`. It is indexed by
+`error_name_table` (`07:6B81`) is indexed by
 `(code − 0x88)`, so codes `0x88…0x9C` map to consecutive strings:
 
 ```text
@@ -59,19 +59,21 @@ of the equation. Located around `39:468F`:
 1. `_CkValidNum` (`ram:1E9B`), then `_MovFrOP1` (`ram:1B0C`) stores the current guess into
    the solve variable (its data pointer is loaded from `(9306)`, in the expression-stack
    region — the bytes are `ED 5B 06 93` = `LD DE,(9306)`).
-2. It installs an error trap (`39:46D9 CALL 327F`; `RES/SET 2,(IY+7)`) and re-parses /
-   re-evaluates the stored equation formula (page-0x39 hosts a parse/token walker at
-   `39:327F` using `parse_advance 7248` / `parse_cur_tok 72DA`-style cursors, mirroring the
-   page-0x38 parser — the equation is re-tokenised and evaluated every iteration).
-3. The post-eval filter at `39:46C7` inspects the error code in `A`: codes below `0x86`
+2. It installs the error handler at `39:46C7`, then re-evaluates the stored
+   equation through `parse_inp_current_state_bjump` (`ram:391B`). The stub's
+   inline descriptor targets `parse_inp_current_state` (`38:5992`), an interior
+   entry in `_ParseInp` that preserves the already selected parser state.
+3. The error filter at `39:46C7` inspects the error code in `A`: codes below `0x86`
    (`OVERFLOW`/`DIV BY 0`/`SINGULAR MAT`/`DOMAIN`) and `0x87` (`NONREAL ANS`) are
    swallowed (`CP 0x87; JR Z` then `CP 0x86; JP NC,0x2799` — this `x` is treated as a
    point where `f` is undefined, so the solver can step past it) while `0x86` (`BREAK`) and
    codes `≥ 0x88` are
-   re-raised via `_JErrorNo` (`JP 2799`). This is why `solve(` can skip singularities
-   inside the bracket without aborting. [confirmed]
+   re-raised via `_JErrorNo` (`JP 2799`). Before returning a swallowed error,
+   `fix_temp_count_bjump` (`ram:327F`) dispatches to `_FixTempCnt` (`07:4FEC`)
+   to repair temporary-object accounting. This is why `solve(` can skip
+   singularities inside the bracket without aborting. [confirmed]
 
-The sign test `39:463A` reads `OP1.type` (`8478`) and `OP2.type` (`8483`), masks `0x80`
+The sign test `39:463A` reads `OP1.value.type` (`8478`) and `OP2.value.type` (`8483`), masks `0x80`
 and XORs them: Z = same sign, NZ = opposite sign — the bracket sign-change predicate. [confirmed]
 
 ### 1.2 The iteration loop [confirmed]
@@ -99,8 +101,8 @@ seeds the bracket. The main loop runs from `39:4413`:
   [confirmed]
 - **Convergence / tolerance test:** `_AbsO1O2Cp` (`ram:1987`, compares |OP1| vs |OP2|) is
   used repeatedly (`39:446F`, `44D7`, `44F8`, `45C7`) to test the bracket width / residual
-  against tolerance. The tolerance floor is the TIFloat constant `1.0e-13` at
-  `39:46EA` (`00 73 10 …`); the residual-zero floor is `1.0e-99` at `39:46E1`
+  against tolerance. `const_solver_tol_1e13` (`39:46EA`) stores the
+  `1.0e-13` tolerance; `const_solver_floor_1e99` (`39:46E1`) stores the `1.0e-99`
   (`00 1D 10 …`). On reaching tolerance the solver exits through the `39:4540 → 4553`
   branch (dynamically traced on an `X²−2 = 0` solve that converged to √2 ≈ 1.41421356);
   `39:4547` is a `CALL`, not the converged return, and the observed path bypassed it.
@@ -244,7 +246,7 @@ Ghidra function `fnint_body` at `33:4D00` (extent `33:4D00…4E91`):
   ITERATIONS (0x99). [confirmed]
 
 **Quadrature rule.** A full byte scan of `33:4D00…4F00` finds exactly one
-floating-point constant in the body: the TIFloat at `33:4E92`
+floating-point constant in the body: `const_ln10x100` (`33:4E92`)
 (`00 82 23 02 58 50 92 99 40` = 2.30258509…×10², i.e. `ln(10)·100`). It is referenced at
 `33:4E5D` (`LD HL,0x4E92; CALL 0x1982`), immediately after the only transcendental bcall in
 the body, `33:4E56 EF AB 40` = bcall `_LnX` (0x40AB). So `ln(10)·100` is used purely to
@@ -274,11 +276,12 @@ Every routine above shares this inner cycle, which is the whole reason they are 
    (the solve var, the `nDeriv`/`fnInt` integration var, or the TVM var).
 3. Re-evaluate the expression through the TI-BASIC parser (`_ParseInp 38:5987` /
    `parse_eval_expr 38:5AB3` / `_Find_Parse_Formula 38:758A`; the Solver uses its own
-   page-0x39 token walker). The parser walks the *same stored token stream* each pass.
+   `parse_inp_current_state` entry at `38:5992`). The parser walks the *same
+   stored token stream* each pass.
 4. Read the numeric result back from `OP1`, form the residual / difference, decide the next
-   step. An error trap (`39:327F` / `RES 2,(IY+7)`) lets a DOMAIN/NONREAL error at one
-   sample be caught and treated as "undefined here" instead of aborting the whole solve
-   (§1.1).
+   step. The error handler at `39:46C7`, its `(IY+7).2` state bit, and the
+   `_FixTempCnt` cleanup catch a DOMAIN/NONREAL error at one sample. The solver
+   treats that point as undefined instead of aborting (§1.1).
 
 Because the expression is re-tokenised and re-evaluated on *every* iteration, a `solve(`
 with a 499-iteration cap can parse the equation up to ~499 times, and a `fnInt` over a fine
@@ -317,9 +320,11 @@ Equation Solver / `solve(` (page 0x39):
 39:463A  solver_sign_test           (OP1/OP2 sign-change predicate; Z=same sign)
 39:468F  solver_eval_fx             (store guess -> reparse equation -> f=left-right)
 39:46C7  solver_eval_errfilter      (swallow <0x86 and 0x87/NONREAL; re-raise 0x86/BREAK and >=0x88 via _JErrorNo)
-39:327F  solver_parse_formula       (page-39 token walker used by the evaluator)
-39:46EA  const_tol_1e-13            (convergence tolerance, TIFloat 00 73 10..)
-39:46E1  const_floor_1e-99          (residual-zero floor, TIFloat 00 1D 10..)
+ram:391B parse_inp_current_state_bjump (cross-page stub to 38:5992)
+38:5992  parse_inp_current_state    (interior _ParseInp entry used with selected state)
+ram:327F fix_temp_count_bjump       (cross-page stub to _FixTempCnt at 07:4FEC)
+39:46EA  const_solver_tol_1e13      (convergence tolerance, TIFloat 00 73 10..)
+39:46E1  const_solver_floor_1e99    (residual-zero floor, TIFloat 00 1D 10..)
 39:45A0  ->ITERATIONS(0x99)  39:45AD ->BAD GUESS(0x9A)  39:45DA ->NO SIGN CHNG(0x98)
 ```
 
@@ -340,7 +345,7 @@ Numeric calculus (page 0x33):
                                      ONLY FP constant in fnint_body -- no node/weight table)
 33:504E  bb_token_scanner           (CP 0xBB then class-index 0x68/0xCF/0xDB/0xF6 -> CALL 50AC)
 33:4381  ctrlflow_handler_table     (13-entry jump table for For/While/Repeat/End/Return, etc.)
-33:435F  ctrlflow_dispatch          (entry from bcall 0x5140/0x513D; SUB 0x20; index 4381)
+33:435F  ctrlflow_dispatch          (entry from bcall 0x5140/0x513D; SUB 0x20; index the table)
 ```
 
 Page-0 FPS register save/restore + active-frame bookkeeping cluster (the "solver helper
@@ -377,7 +382,7 @@ Parser entries (page 0x38): `_ParseInp 5987`, `parse_eval_expr 5AB3`,
 Summary of the four sub-results:
 
 - **fnInt( quadrature rule (§3.2).** Not Gauss–Kronrod. The body has no node or
-  weight table; its sole FP constant is `ln(10)·100` at `33:4E92`, used (with bcall `_LnX`)
+  weight table; its sole FP constant is `const_ln10x100`, used with bcall `_LnX`
   to convert digit-tolerance to a decimal error bound. With explicit ×0.5 interval bisection
   and a coarse-vs-fine estimate comparison, it is an adaptive Newton–Cotes / Simpson-class
   bisection integrator. `33:4D1B` is executable code (`LD A,0x60; CALL fp_set_digit`).
@@ -395,7 +400,7 @@ Summary of the four sub-results:
 
 Residual (genuinely unverified, would need deeper paged tracing):
 - The exact byte layout of the For/While/Repeat loop-control record pushed by the
-  page-0x33 control-flow handlers (`33:4381` jump table) is not yet field-mapped; only the
+  page-33 control-flow handlers (`ctrlflow_handler_table`) is not yet field-mapped; only the
   dispatch path is confirmed. (See [sub-tibasic.md](sub-tibasic.md) §4.)
 - bcall `0x462A` in the TVM body is unmapped (adjacent to `_AdrLEle`; likely a finance-sysvar
   list/element accessor).
