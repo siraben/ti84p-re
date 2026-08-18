@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ce2a6f3e.js";
+            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-a4cbc596.js"></script>
+        <script src="toc-e4551b79.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,101 +180,306 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="ti-basic-dynamic-tracing"><a class="header" href="#ti-basic-dynamic-tracing">TI-BASIC dynamic tracing</a></h1>
-<p>TI-BASIC behavior in these notes is grounded by generated programs, headless
-TilEm runs, resolved instruction coverage, and screen captures. This page is
-the book-facing recipe for reproducing those traces; the lower-level tooling
-details live in <code>tools/dynamic-tracing.md</code>.</p>
-<h2 id="fixture-suite"><a class="header" href="#fixture-suite">Fixture suite</a></h2>
-<p>The fixture generator emits readable source, token bytes, and <code>.8xp</code> link files:</p>
-<pre><code class="language-sh">tools/tibasic_samples.py --write-dir tools/tibasic-samples
-</code></pre>
-<p>The smoke runner executes the exported programs, records a GIF, extracts the
-final frame, resolves trace coverage through <code>tools/tilem_trace_resolve.py</code>, and
-checks each case’s expected anchors:</p>
-<pre><code class="language-sh">TILEM=~/Git/tilem-headless/result/bin/tilem2
-tools/tibasic_smoke.py --tilem "$TILEM" --rom tools/rom.bin \
-  --out-dir /tmp/tibasic-smoke-full
-</code></pre>
-<p>Use <code>--case NAME</code> to run a subset, and <code>--keep-trace</code> when the raw binary trace
-is needed for instruction-level inspection. The runner deletes trace files by
-default because several cases produce hundreds of MiB per run.</p>
-<p>The full suite passed on 2026-06-07 with the command above against OS 2.55MP and
-the local patched TilEm runner. The output directory kept final PNGs, GIFs, and
-coverage text for all cases; raw trace files were deleted by default.</p>
-<p>The current headless workflow relies on a local TilEm patch that loads command
-line <code>.8xp</code> files before the macro starts. Without that patch, load the target
-programs into calculator RAM first, then run the same macro and resolver steps.</p>
-<h2 id="operation-coverage"><a class="header" href="#operation-coverage">Operation coverage</a></h2>
+<p>TI-BASIC coverage combines exhaustive local models, natural calculator traces,
+and provenance-labeled probes. The models classify bounded decisions. Natural
+traces establish program reachability. Probes distinguish remaining outcomes
+without presenting prepared state as a natural language path. None of these
+layers is whole-interpreter coverage.</p>
+<h2 id="evidence-layers"><a class="header" href="#evidence-layers">Evidence layers</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Case</th><th>Program(s)</th><th>Operations exercised</th><th>Anchor examples</th></tr>
+<tr><th>Layer</th><th>Establishes</th><th>Does not establish</th></tr>
 </thead>
 <tbody>
-<tr><td><code>hello</code></td><td><code>HELLO.8xp</code></td><td><code>ClrHome</code>, <code>Disp</code>, string scan, <code>Done</code></td><td><code>eval_stmt_entry</code>, <code>_Disp</code></td></tr>
-<tr><td><code>factorial</code></td><td><code>FACTOR.8xp</code></td><td><code>Prompt</code>, scalar stores, <code>For(</code>/<code>End</code>, FP multiply</td><td><code>_FPMult</code>, <code>_Disp</code></td></tr>
-<tr><td><code>data</code></td><td><code>DATA.8xp</code></td><td>list literal, <code>SortA(</code>, <code>cumSum(</code>, <code>sum(</code></td><td><code>store_list_elem</code>, <code>list_fold_dispatch</code></td></tr>
-<tr><td><code>asmcall</code></td><td><code>ASMCALL.8xp</code> + <code>ASMRET.8xp</code></td><td>BASIC <code>Asm(prgmNAME)</code> into <code>AsmPrgm</code> payload</td><td><code>_ExecutePrgm</code>, <code>ram:9D95</code></td></tr>
-<tr><td><code>asmbridge</code></td><td><code>ASMBRIDG.8xp</code> + <code>ASMSIG.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM return code through <code>Ans</code>, BASIC callback</td><td><code>_OP1Set1</code>, <code>_StoAns</code>, <code>_AnsName</code>, <code>eval_eqn_recursive</code></td></tr>
-<tr><td><code>asmreturn</code></td><td><code>ASMRTN.8xp</code> + <code>ASMVAL.8xp</code></td><td>ASM return value through <code>Ans</code>, then BASIC arithmetic</td><td><code>_OP1Set2</code>, <code>_StoAns</code>, <code>_AnsName</code>, <code>_FPAdd</code></td></tr>
-<tr><td><code>asmfind</code></td><td><code>ASMFIND.8xp</code> + <code>ZZFIND.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM-side VAT lookup of a BASIC program without executing it</td><td><code>ram:9D95</code>, <code>findsym_scan</code>, <code>_Disp</code></td></tr>
-<tr><td><code>asmparse</code></td><td><code>ASMPARSE.8xp</code> + <code>ZZPARSE.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM parser-entry negative probe ending at <code>ERR:INVALID</code></td><td><code>_ParseInpLastEnt</code>, <code>_ParseInp</code>, <code>parseinp_find_setup</code></td></tr>
-<tr><td><code>asmformula</code></td><td><code>ASMFORM.8xp</code> + <code>ZZFORM.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM formula-parser negative probe ending at <code>ERR:UNDEFINED</code></td><td><code>_Find_Parse_Formula</code>, <code>parse_init_findsym</code>, <code>findsym_scan</code></td></tr>
-<tr><td><code>animtext</code></td><td><code>ANIMTXT.8xp</code></td><td>text placement animation with <code>Output(</code></td><td><code>_OutputExpr</code>, <code>_Disp</code></td></tr>
-<tr><td><code>graphviz</code></td><td><code>GRAPHV.8xp</code></td><td>graph-buffer primitives and <code>DispGraph</code></td><td><code>_GrBufClr</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_PDspGrph</code></td></tr>
-<tr><td><code>graphdfs</code></td><td><code>GRAPHDFS.8xp</code></td><td>graph visualization from DFS topology</td><td><code>_StoSysTok</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_PDspGrph</code></td></tr>
-<tr><td><code>graphlist</code></td><td><code>GRAPHLST.8xp</code></td><td>list-driven graph visualization from edge/node coordinate lists</td><td><code>list_var_index</code>, <code>_GetLToOP1</code>, <code>_ILine</code>, <code>_IPoint</code></td></tr>
-<tr><td><code>callsub</code></td><td><code>CALLSUB.8xp</code> + <code>SUBRT.8xp</code></td><td>BASIC <code>prgmNAME</code>, shared globals, <code>Return</code></td><td><code>stmt_eval_body_entry</code>, <code>call_eval_eqn_recursive</code></td></tr>
-<tr><td><code>callabi</code></td><td><code>ABICALL.8xp</code> + <code>ABISUB.8xp</code></td><td>BASIC subprogram ABI through <code>Ans</code>, scalar <code>A</code>, and list <code>L1</code></td><td><code>_AnsName</code>, <code>store_list_elem</code>, <code>eval_eqn_recursive</code></td></tr>
-<tr><td><code>callstop</code></td><td><code>CALLSTOP.8xp</code> + <code>STOPSUB.8xp</code></td><td>BASIC subprogram <code>Stop</code> terminates the caller chain</td><td><code>stmt_eval_body_entry</code>, <code>call_eval_eqn_recursive</code>, <code>_Disp</code></td></tr>
-<tr><td><code>bigadd</code></td><td><code>BIGADD.8xp</code></td><td>list-digit arithmetic and carry propagation</td><td><code>list_var_index</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>, <code>_FPMult</code></td></tr>
-<tr><td><code>bigmul</code></td><td><code>BIGMUL.8xp</code></td><td>list-digit multiplication, nested loops, carry normalization</td><td><code>list_var_index</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>, <code>_FPMult</code></td></tr>
-<tr><td><code>dfs</code></td><td><code>DFS.8xp</code></td><td>list-backed stack, nested <code>While</code>/<code>If</code>/<code>For</code></td><td><code>blockmatch_end_else</code>, <code>parse_scan_tokens</code>, <code>eval_stmt_entry</code></td></tr>
+<tr><td>ROM signature</td><td>The modeled instructions are the expected OS 2.55MP bytes</td><td>Meaning of every surrounding routine</td></tr>
+<tr><td>Finite model</td><td>Every state in one declared finite domain has an outcome</td><td>Arbitrary streams or caller-owned RAM and stack state</td></tr>
+<tr><td>Natural trace</td><td>A stored TI-BASIC program reaches an outcome with ordinary parser state</td><td>Feasibility of an unobserved outcome</td></tr>
+<tr><td>Public-bcall probe</td><td>Exact ROM execution reaches a public ABI boundary</td><td>Natural TI-BASIC reachability of the supplied register value</td></tr>
+<tr><td>Internal-entry probe</td><td>Exact ROM execution distinguishes a selected internal state</td><td>A supported ABI or natural caller for that state</td></tr>
+<tr><td>RAM or LCD assertion</td><td>The fixture produces its expected machine or visible result</td><td>Which internal path is uniquely responsible</td></tr>
 </tbody>
 </table>
 </div>
-<p>The visualization cases also enforce visible output by thresholding the final
-frame and comparing it with the first recorded frame. <code>ANIMTXT</code>, <code>GRAPHV</code>,
-<code>GRAPHDFS</code>, and <code>GRAPHLST</code> must contain at least 100, 100, 200, and 200 dark
-pixels respectively, and must change by at least the same number of pixels from
-first to final frame. <code>ANIMTXT</code> must also produce at least five distinct
-captured frames. The smoke runner also checks named crop regions. Visual cases
-check home-screen text, graph labels, axes, circle arcs, and node/edge regions.
-Text/list cases check important final-screen lines such as <code>HELLO, WORLD</code>,
-factorial <code>120</code>, <code>DATA</code> list outputs, <code>BEFORE</code>/<code>CALLED</code>/<code>AFTER</code>, <code>SUB</code>,
-big-integer digit lists, and the DFS traversal/visited-list output. <code>ASMRTN</code>
-checks the displayed <code>5</code>, <code>ABICALL</code> checks the scalar line, mutated list line,
-returned <code>Ans</code> line, and <code>Done</code>, and <code>CALLSTOP</code> checks <code>BEFORE</code>, <code>STOP</code>,
-<code>Done</code>, and a bounded low-pixel region where caller text <code>AFTER</code> would appear.
-<code>ASMFIND</code> checks the wrapper’s <code>BEFORE</code>, <code>AFTER</code>, and <code>Done</code> output plus a
-bounded low-pixel region where an unexpected third line would appear.
-<code>ASMPARSE</code> checks the <code>ERR:INVALID</code>, <code>1:Quit</code>, and <code>2:Goto</code> error-screen
-regions. <code>ASMFORM</code> checks the corresponding <code>ERR:UNDEFINED</code> error-screen
-regions.</p>
-<p>For the visual graph cases, the 2026-06-07 run measured 212, 619, 466, and 466
-dark pixels, with matching first-to-final pixel changes.</p>
-<h2 id="reading-the-evidence"><a class="header" href="#reading-the-evidence">Reading the evidence</a></h2>
-<p>Trace anchors prove control reached the relevant ROM path; they do not by
-themselves prove the final screen looked right. Use both the coverage file and
-the final PNG/GIF for display or graph claims. This distinction matters for
-<code>GRAPHDFS</code>, where <code>_ILine</code> and <code>_IPoint</code> coverage only proves drawing routines
-ran, while the final frame proves the graph-screen topology is visible.</p>
-<p>For parser and calling-convention claims, prefer resolved coverage plus a narrow
-routine trace. For example, the BASIC subprogram case uses the private
-<code>38:6910</code> → <code>38:6914</code> → <code>38:778F</code> body-evaluator path after the top-level
-homescreen parse has already seeded parser RAM. That is why the negative
-ASM-to-BASIC probes in <a href="sub-tibasic-programming.html">TI-BASIC programming patterns</a>
-are negative fixtures or probes: they reach useful ROM paths, but they
-do not display the target BASIC program.</p>
-<h2 id="related-pages"><a class="header" href="#related-pages">Related pages</a></h2>
-<ul>
-<li><a href="sub-tibasic.html">TI-BASIC programs</a> explains the parser, statement evaluator,
-control flow, display commands, <code>Asm(</code>, and <code>prgmNAME</code>.</li>
-<li><a href="sub-tibasic-programming.html">TI-BASIC programming patterns</a> turns the traces
-into performance and calling-convention guidance.</li>
-<li><a href="sub-tibasic-for-paren.html">TI-BASIC <code>For(</code> optional paren trap</a> is a focused
-trace study of one parser-performance edge case.</li>
-</ul>
+<p><code>tools/analyze_tibasic_coverage.py</code> refuses a ROM whose SHA-256 differs from
+the pinned OS 2.55MP image, then verifies short byte signatures at every modeled
+decision family. [confirmed]</p>
+<h2 id="exhaustive-finite-models"><a class="header" href="#exhaustive-finite-models">Exhaustive finite models</a></h2>
+<p>The checked report exhausts 591,360 states and 45 semantic outcomes:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Model</th><th style="text-align: right">Exhausted states</th><th style="text-align: right">Outcomes</th><th>Boundary</th></tr>
+</thead>
+<tbody>
+<tr><td>Encoded token width</td><td style="text-align: right">256</td><td style="text-align: right">2</td><td>Lead-byte membership, not second-byte validity</td></tr>
+<tr><td>Statement delimiter</td><td style="text-align: right">256</td><td style="text-align: right">4</td><td>Byte classification, not refill faults</td></tr>
+<tr><td>Token scan step</td><td style="text-align: right">256</td><td style="text-align: right">4</td><td>One step, not arbitrary stream length</td></tr>
+<tr><td>Block matcher transition</td><td style="text-align: right">524,288</td><td style="text-align: right">10</td><td>Every 16-bit depth over eight decision-equivalent token classes</td></tr>
+<tr><td>Extended grammar fold</td><td style="text-align: right">256</td><td style="text-align: right">2</td><td><code>CP F2h</code>/<code>ADD 12h</code>, not later handlers</td></tr>
+<tr><td>Precedence handler family</td><td style="text-align: right">65,536</td><td style="text-align: right">3</td><td>Grammar class × selector byte, not recursive handler state</td></tr>
+<tr><td>Command finalization gate</td><td style="text-align: right">256</td><td style="text-align: right">5</td><td>First page-02 gate only</td></tr>
+<tr><td>Control-flow table bounds</td><td style="text-align: right">256</td><td style="text-align: right">15</td><td>Index validation, not the 13 handler bodies</td></tr>
+</tbody>
+</table>
+</div>
+<p>The block model uses token equivalence classes because the ROM performs the
+same comparisons for every non-control byte. It still enumerates all 65,536
+values of the 16-bit <code>DE</code> depth, including the zero and increment-wrap boundaries. This
+is exhaustive over the stated local transition, not a depth limit of 255.</p>
+<p>Z3 minimizes one representative per semantic outcome after exhaustive
+enumeration establishes the partition. Z3 is not being presented as a proof of
+the entire Z80 routine or of arbitrary token streams.</p>
+<h2 id="coverage-by-provenance"><a class="header" href="#coverage-by-provenance">Coverage by provenance</a></h2>
+<p>The report declares 26 branch sites and both outcomes at each site. Natural
+programs reach 38 of those 52 outcomes. Public-bcall probes add the four
+page-33 bounds outcomes. Internal-entry probes add the remaining 10 outcomes.
+The union reaches 52 of 52, but only the first number describes natural
+TI-BASIC reachability. [confirmed]</p>
+<pre class="mermaid">flowchart LR
+    N["Natural TI-BASIC&lt;br/&gt;38 / 52 outcomes"] --&gt; U["Declared outcome union&lt;br/&gt;52 / 52"]
+    B["Public bcall probes&lt;br/&gt;4 additional outcomes"] --&gt; U
+    I["Internal-entry probes&lt;br/&gt;10 additional outcomes"] --&gt; U
+    F["Eight finite models&lt;br/&gt;591,360 states"] --&gt; R["Compact report"]
+    U --&gt; R
+    R --&gt; Z["Exact Z3 set cover&lt;br/&gt;15 outcome traces"]
+</pre>
+
+<p>The per-provenance counts in the JSON are 38, 8, and 18 because wrappers share
+ordinary grammar outcomes. Those counts overlap. The additional-outcome counts
+in the diagram describe what each probe layer contributes after the preceding
+layer. No successor at a declared branch is unclassified. [confirmed]</p>
+<p>That 52-outcome matrix is a regression test for eight local models. It is not
+the interpreter denominator. The broader CFG audit seeds all valid destinations
+from the parser table at <code>38:4000</code> and the 13-entry page-33 table at <code>33:4381</code>,
+then follows direct control flow through five bounded components. [confirmed]</p>
+<h2 id="expanded-cfg-saturation"><a class="header" href="#expanded-cfg-saturation">Expanded CFG saturation</a></h2>
+<p>The expanded graph contains 8,490 reachable instructions and 1,351 conditional
+branches. Its 2,702 possible outcomes produce this trace breakdown:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Component</th><th style="text-align: right">Possible</th><th style="text-align: right">All evidence</th><th style="text-align: right">Natural programs</th></tr>
+</thead>
+<tbody>
+<tr><td>Parser core</td><td style="text-align: right">1,956</td><td style="text-align: right">625</td><td style="text-align: right">619</td></tr>
+<tr><td>Command arguments</td><td style="text-align: right">162</td><td style="text-align: right">54</td><td style="text-align: right">48</td></tr>
+<tr><td>Page-33 control flow</td><td style="text-align: right">174</td><td style="text-align: right">13</td><td style="text-align: right">0</td></tr>
+<tr><td>Value storage</td><td style="text-align: right">154</td><td style="text-align: right">112</td><td style="text-align: right">112</td></tr>
+<tr><td>Numeric and error checks</td><td style="text-align: right">256</td><td style="text-align: right">120</td><td style="text-align: right">119</td></tr>
+<tr><td><strong>Total</strong></td><td style="text-align: right"><strong>2,702</strong></td><td style="text-align: right"><strong>924</strong></td><td style="text-align: right"><strong>898</strong></td></tr>
+</tbody>
+</table>
+</div>
+<p>Natural <code>factorial</code> and <code>dfs</code> traces now identify the actual page-38 loop path:
+<code>For(</code> reaches <code>38:41E5</code>, <code>End</code> reaches <code>38:4200</code>, and the loop continuations
+are <code>38:5836</code> and <code>38:587D</code>. They still do not enter the page-33 probe
+dispatcher. [confirmed]</p>
+<pre class="mermaid">flowchart LR
+    T["81 parser handlers&lt;br/&gt;plus subsystem entries"] --&gt; G["8,490-instruction&lt;br/&gt;direct CFG"]
+    G --&gt; B["2,702 outcomes"]
+    N["Natural programs"] --&gt; O["898 observed"]
+    P["ABI and entry probes"] --&gt; A["924 observed total"]
+    O --&gt; A
+    B --&gt; A
+    B --&gt; U["1,778 unobserved"]
+</pre>
+
+<p>The exact outcome cover retains 30 of 33 traces. <code>hello</code>, <code>callstop</code>, and the
+natural syntax-error trace remain useful semantic examples, but they do not add
+a branch outcome to the larger graph. The report therefore separates the
+minimum outcome corpus from the selective documentation corpus. [confirmed]</p>
+<h3 id="natural-programs"><a class="header" href="#natural-programs">Natural programs</a></h3>
+<p>Seven successful fixtures cover distinct interpreter behaviors:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Case</th><th>Distinct behavior</th><th>Oracle</th></tr>
+</thead>
+<tbody>
+<tr><td><code>hello</code></td><td>straight-line statement, quoted string, <code>Disp</code></td><td>LCD text</td></tr>
+<tr><td><code>factorial</code></td><td><code>Prompt</code>, scalar stores, <code>For(</code>/<code>End</code>, FP multiplication</td><td>LCD result <code>120</code></td></tr>
+<tr><td><code>data</code></td><td>two-byte list tokens, literal/store, built-in list fold</td><td>lists and sum on the LCD</td></tr>
+<tr><td><code>dfs</code></td><td>nested <code>While</code>, <code>If ... Then</code>, <code>For</code>, and list-backed stack</td><td>traversal and visited list</td></tr>
+<tr><td><code>callabi</code></td><td>nested BASIC call, shared scalar/list/<code>Ans</code>, <code>Return</code></td><td>returned scalar and list state</td></tr>
+<tr><td><code>callstop</code></td><td>nested BASIC call and nonlocal <code>Stop</code></td><td>absence of the post-call line</td></tr>
+<tr><td><code>branchmatrix</code></td><td><code>Else</code>, <code>Repeat</code>, nested blocks, and an omitted string quote</td><td><code>A5h</code> at <code>plotSScreen</code> (<code>0x9340</code>)</td></tr>
+</tbody>
+</table>
+</div>
+<p><code>missingend</code> and <code>terminalif</code> add natural end-of-input structural boundaries.
+They exercise carry returns that closed blocks do not reach, then finish through
+page-38 cleanup and display <code>Done</code>; they do not raise an OS error. The report
+marks both traces with <code>termination: completed</code>. [confirmed]</p>
+<p>The syntax and divide-by-zero fixtures provide baseline unwind witnesses.
+<code>syntaxerr</code> executes <code>Disp 1+</code> and reaches the syntax entry at <code>00:2700</code>.
+<code>divzero</code> executes <code>Disp 1/0</code> and reaches <code>_ErrDivBy0</code> at <code>00:26EC</code>. The expanded numeric corpus
+raises the natural local-matrix result from 34 to 38 outcomes. The 15-trace
+outcome minimum omits the error fixtures because other traces cover those local
+branches; the semantic corpus retains their distinct causes. [confirmed]</p>
+<p>Twelve selected numeric-error fixtures also retain the path before the shared
+error shim. The reducer restarts a candidate slice whenever it sees the guard’s
+first instruction. It accepts the slice only when the remaining guard and shim
+addresses occur in order and the shim leaves the expected error code in <code>A</code>.
+This prevents an unrelated earlier call to <code>_FPDiv</code>, <code>_FPMult</code>, or the zero
+checker from being attached to a later error. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Case</th><th>Ordered causal boundary</th><th>Result</th></tr>
+</thead>
+<tbody>
+<tr><td><code>divzero</code></td><td><code>00:2548 → 00:254B → 00:26EC</code></td><td>divisor-zero guard, code <code>82h</code></td></tr>
+<tr><td><code>overflow</code></td><td><code>02:7076 → 02:7078 → 02:7053 → 02:7056 → 02:7059 → 00:26E8</code></td><td><code>10^x</code> range guard, code <code>81h</code></td></tr>
+<tr><td><code>muloverflow</code></td><td><code>00:2513 → 00:2516 → 00:2517 → 00:2519 → 00:251B → 00:251D → 00:26E8</code></td><td>exponent-add overflow, code <code>81h</code></td></tr>
+<tr><td><code>lndomain</code></td><td><code>02:6F1E → 00:212D → 00:1DE9 → 00:2130 → 00:2131 → 00:211D → 00:26F4</code></td><td>logarithm zero guard, code <code>84h</code></td></tr>
+<tr><td><code>increment</code></td><td><code>37:4268 → 00:1DE9 → 37:426B → 00:26F8</code></td><td>zero loop step, code <code>85h</code></td></tr>
+<tr><td><code>asindomain</code></td><td><code>02:76F1 → 02:76F4 → 02:76F5 → 00:26F4</code></td><td>inverse-sine range guard, code <code>84h</code></td></tr>
+<tr><td><code>acosdomain</code></td><td><code>02:76DF → 02:76E2 → 00:26F4</code></td><td>inverse-cosine range guard, code <code>84h</code></td></tr>
+<tr><td><code>sqrtnonreal</code></td><td><code>00:1B8F → 00:1B93 → 00:26FC</code></td><td>real-mode result guard, code <code>87h</code></td></tr>
+<tr><td><code>singular</code></td><td><code>02:439C → 02:439F → 02:43A1 → 02:43A2 → 02:43A3 → 02:43A5 → 00:26F0</code></td><td>matrix-pivot guard, code <code>83h</code></td></tr>
+<tr><td><code>lateincrement</code></td><td><code>38:586D → 38:5870 → 38:5873 → 38:5876 → 00:26F8</code></td><td>loop no-progress guard, code <code>85h</code></td></tr>
+<tr><td><code>negfactdomain</code></td><td><code>35:79CF → 35:79D2 → 00:26F4</code></td><td>factorial sign/integer guard, code <code>84h</code></td></tr>
+<tr><td><code>ncrdomain</code></td><td><code>02:4FC8 → 02:4FA1 → 00:2125 → 00:1DFD → 00:1E00 → 00:1E02 → 00:2128 → 00:211C → 00:211D → 00:26F4</code></td><td>combination left-operand guard, code <code>84h</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>All 12 paths come from stored TI-BASIC programs. They cover all six numeric
+error codes, 12 causes, and 11 distinct direct caller sites. [confirmed]</p>
+<p>The report separately inventories 114 whole-ROM direct-reference candidates:
+9 overflow, 2 divide-by-zero, 3 singular-matrix, 91 domain, 6 increment, and 3
+non-real. Linear disassembly can decode data as instructions, so each candidate
+still needs CFG or dynamic reachability evidence. Indirect transfers and helpers
+that load <code>A</code> before entering <code>00:270A</code> remain outside that inventory.
+[confirmed]</p>
+<h3 id="probe-outcomes"><a class="header" href="#probe-outcomes">Probe outcomes</a></h3>
+<p>Three public-bcall probes call <code>grf_435f = 5140h</code> with an input below the table,
+inside the table, and at its upper boundary. They cover both outcomes at
+<code>33:436D</code> and <code>33:4372</code>. These are public ABI executions, not stored-program
+loop transitions. [confirmed]</p>
+<p>Eight internal-entry probes cover four command-finalization classes and four
+grammar states. They map the required ROM page, enter the selected routine from
+RAM, and let the exact ROM execute the branch. <code>cmdbad</code> combines the safe
+implicit-end case with the invalid class, which removes one redundant trace.
+These probes establish branch behavior only; they do not establish a natural
+caller or a supported interface. [confirmed]</p>
+<p>Across all 33 traces, the saturation report records 132,634,495 instructions.
+The raw files total about 6.08 GiB. Only SHA-256 digests, counts, outcomes,
+provenance, and the 47 KB report are checked in. Exact outcome-only set cover
+retains 30 traces. The three omitted traces remain useful semantic examples.
+[confirmed]</p>
+<h2 id="reproduce-the-report"><a class="header" href="#reproduce-the-report">Reproduce the report</a></h2>
+<p>Generate the source/token/link fixtures first:</p>
+<pre><code class="language-sh">tools/tibasic_samples.py --write-dir tools/tibasic-samples
+</code></pre>
+<p>The TilEm binary must support loading command-line <code>.8xp</code> files before the
+macro starts. Run the natural cases while retaining their temporary traces:</p>
+<pre><code class="language-sh">TILEM=/path/to/patched/tilem2
+python3 tools/tibasic_smoke.py \
+  --tilem "$TILEM" --rom tools/rom.bin \
+  --out-dir /tmp/tibasic-coverage --keep-trace \
+  --case hello --case factorial --case data \
+  --case dfs --case callabi --case callstop \
+  --case branchmatrix --case missingend --case terminalif \
+  --case syntaxerr --case divzero \
+  --case overflow --case muloverflow --case lndomain --case increment \
+  --case asindomain --case acosdomain --case sqrtnonreal --case singular \
+  --case lateincrement --case negfactdomain --case ncrdomain
+</code></pre>
+<p>Run the probe cases in the same output directory:</p>
+<pre><code class="language-sh">python3 tools/tibasic_smoke.py \
+  --tilem "$TILEM" --rom tools/rom.bin \
+  --out-dir /tmp/tibasic-coverage --keep-trace \
+  --case cflowlow --case cflowhigh --case cflowvalid \
+  --case cmdclose --case cmdopen --case cmdunit --case cmdbad \
+  --case gramlow --case gramhigh --case gramflag --case gramnonzero
+</code></pre>
+<p>The natural branch matrix uses a RAM marker instead of an image crop. The
+probe cases use resolved trace anchors. Existing user-facing samples retain LCD
+oracles where the displayed result is part of the behavior.</p>
+<p>Build the compact report through the Nix shell so <code>z80dasm</code> and Z3 are pinned.
+The checked command passes all 33 <code>LABEL=PATH</code> pairs; the complete ordered label
+list is the <code>dynamic.traces</code> array in <code>tools/tibasic-coverage.json</code>.</p>
+<pre><code class="language-sh">set --
+for label in \
+  hello factorial data dfs callabi callstop \
+  branchmatrix missingend terminalif syntaxerr divzero \
+  overflow muloverflow lndomain increment \
+  asindomain acosdomain sqrtnonreal singular \
+  lateincrement negfactdomain ncrdomain \
+  cflowlow cflowhigh cflowvalid \
+  cmdclose cmdopen cmdunit cmdbad \
+  gramlow gramhigh gramflag gramnonzero
+do
+  set -- "$@" --trace "$label=/tmp/tibasic-coverage/$label.trace"
+done
+nix develop -c python3 tools/analyze_tibasic_coverage.py "$@" \
+  --output tools/tibasic-coverage.json
+</code></pre>
+<p>Export exact instruction boundaries from the rebuilt Ghidra database, then
+reuse the same trace arguments for the expanded report:</p>
+<pre><code class="language-sh">ghidra-analyzeHeadless "$PWD" ti84 \
+  -process ti84_page00.bin -noanalysis -readOnly \
+  -scriptPath "$PWD/tools" \
+  -postScript ExportTiBasicInstructionStarts.java \
+  /tmp/tibasic-instruction-starts.tsv
+
+nix develop -c python3 tools/analyze_tibasic_saturation.py \
+  --instruction-list /tmp/tibasic-instruction-starts.tsv \
+  "$@" --output tools/tibasic-saturation.json
+</code></pre>
+<p>Capture and reduce the selected numeric-error paths separately. This keeps
+their semantic provenance without adding redundant traces to the branch-only
+minimum corpus:</p>
+<pre><code class="language-sh">python3 tools/tibasic_smoke.py \
+  --tilem "$TILEM" --rom tools/rom.bin \
+  --out-dir /tmp/tibasic-numeric-errors --keep-trace \
+  --case divzero --case overflow --case muloverflow \
+  --case lndomain --case increment --case asindomain \
+  --case acosdomain --case sqrtnonreal --case singular \
+  --case lateincrement --case negfactdomain --case ncrdomain
+
+nix develop -c env PYTHONPATH=tools \
+  python3 tools/analyze_tibasic_numeric_errors.py \
+  --trace divzero=/tmp/tibasic-numeric-errors/divzero.trace \
+  --trace overflow=/tmp/tibasic-numeric-errors/overflow.trace \
+  --trace muloverflow=/tmp/tibasic-numeric-errors/muloverflow.trace \
+  --trace lndomain=/tmp/tibasic-numeric-errors/lndomain.trace \
+  --trace increment=/tmp/tibasic-numeric-errors/increment.trace \
+  --trace asindomain=/tmp/tibasic-numeric-errors/asindomain.trace \
+  --trace acosdomain=/tmp/tibasic-numeric-errors/acosdomain.trace \
+  --trace sqrtnonreal=/tmp/tibasic-numeric-errors/sqrtnonreal.trace \
+  --trace singular=/tmp/tibasic-numeric-errors/singular.trace \
+  --trace lateincrement=/tmp/tibasic-numeric-errors/lateincrement.trace \
+  --trace negfactdomain=/tmp/tibasic-numeric-errors/negfactdomain.trace \
+  --trace ncrdomain=/tmp/tibasic-numeric-errors/ncrdomain.trace \
+  --output tools/tibasic-numeric-errors.json
+</code></pre>
+<p>Delete the temporary traces after regeneration. They are reproducible evidence,
+not source assets.</p>
+<h2 id="reading-gaps-honestly"><a class="header" href="#reading-gaps-honestly">Reading gaps honestly</a></h2>
+<p>Full coverage of the small matrix means both outcomes at 26 selected sites. The
+expanded report gives the more useful denominator: 924 of 2,702 outcomes across
+five declared components, with 898 reached naturally. Neither number means
+whole-interpreter coverage.</p>
+<p>The graph expands all four declared computed jumps over their valid domains:
+14 literal parser continuations at <code>38:4390</code>, 27 nonzero destinations from the
+49-class table used by <code>38:7244</code>, five literal command targets at <code>02:5675</code>,
+and 13 bounds-checked rows at <code>33:4380</code>. This does not establish behavior for a
+corrupted class, stack, or pointer outside those domains. Other open dimensions
+include arbitrary token-stream length, every nested error context, full OPS/FPS
+record layout, arbitrary VAT and list shapes, floating-point path classes, and
+display or graph subsystem continuations.</p>
+<p>The next useful coverage expansion starts with the unresolved caller census:</p>
+<ol>
+<li>reject linear-disassembly candidates that are data or unreachable code;</li>
+<li>backward-slice one remaining executable caller to its input predicate;</li>
+<li>construct the smallest natural program and a RAM or value oracle;</li>
+<li>retain its trace only when it adds a guard path or CFG outcome; and</li>
+<li>update the relevant interpreter model with the established transition.</li>
+</ol>
+<p>Lower-level trace formats and memory-write decoding are documented in
+<code>tools/dynamic-tracing.md</code>.</p>
 
                     </main>
 

@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ce2a6f3e.js";
+            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-a4cbc596.js"></script>
+        <script src="toc-e4551b79.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,23 +180,20 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="ti-basic-programming-patterns"><a class="header" href="#ti-basic-programming-patterns">TI-BASIC programming patterns</a></h1>
-<p>This page turns the interpreter traces into practical programming rules. It is
-a map from common TI-BASIC patterns to the OS paths they exercise.</p>
-<p>Confidence follows <a href="conventions.html">Conventions</a>: [confirmed] = observed in
-the disassembly or the headless TilEm traces; [standard] = matches TI-BASIC
-semantics and the traced interpreter shape; [hypothesis] = useful pattern
-not yet traced end to end in this repo.</p>
-<hr>
-<h2 id="performance-rules-from-traces"><a class="header" href="#performance-rules-from-traces">Performance rules from traces</a></h2>
+<p>This page turns the recovered interpreter model into practical source-level
+choices. The central cost is not only arithmetic: every loop iteration also
+walks tokens, resolves variables, moves values through OP registers, and may
+scan ahead for a structural boundary.</p>
+<h2 id="a-source-level-cost-model"><a class="header" href="#a-source-level-cost-model">A source-level cost model</a></h2>
 <ol>
 <li><strong>Keep parser work out of hot loops.</strong> Every statement re-enters the page-38
 evaluator (<code>eval_stmt_entry</code>, <code>parse_refill</code>, <code>parse_advance</code>,
 <code>chk_tok_end</code>). Tiny loop bodies can still spend most of their time walking
 tokens and rebuilding temporary parse state. The
-<a href="sub-tibasic-for-paren.html"><code>For(</code> optional-paren trap</a> is the sharpest
-example: with a first-line false <code>If</code>, dropping the closing <code>)</code> made an
-<code>N=100</code> benchmark grow from 521,723 to 885,912 marker-to-marker instructions.
-[confirmed]</li>
+<a href="sub-tibasic-for-paren.html"><code>For(</code> parenthesis trap</a> is the sharpest
+example: with a first-line false <code>If</code>, dropping the closing <code>)</code> makes the
+reproduced <code>N=25</code> pair grow from 145,748 to 157,052 marker-to-marker
+instructions. [confirmed]</li>
 <li><strong>Prefer built-ins for list-wide work.</strong> <code>SortA(</code>, <code>cumSum(</code>, and <code>sum(</code>
 cross into OS routines that run one parser setup and then loop internally.
 The <code>DATA.8xp</code> trace hits <code>list_fold_dispatch</code> (<code>02:6104</code>) for <code>sum(</code> rather
@@ -211,16 +208,30 @@ the value is reused. [standard]</li>
 scanning the program token stream, and escaping structured loops through
 <code>Goto</code> can leave loop bookkeeping behind. Use <code>For(</code>/<code>While</code>/<code>Repeat</code> plus
 <code>End</code> unless the jump is truly cold. [standard] The token-stream scanner is
-[confirmed] in <a href="sub-tibasic.html">TI-BASIC programs</a>.</li>
+[confirmed] in <a href="sub-tibasic.html">TI-BASIC execution</a>.</li>
 <li><strong>Batch display and graph output.</strong> <code>Disp</code> and <code>Output(</code> reach display
 primitives and LCD update paths; graph drawing reaches graph-buffer and pixel
 routines before display copy. Draw into the graph buffer and call
 <code>DispGraph</code> once when possible. [confirmed]</li>
-<li><strong>Write the optional syntax in loops.</strong> Closing <code>For(</code> with <code>)</code> costs at most
-a small command-finalization path, but it avoids the pathological
-implicit-close/false-<code>If</code> interaction. [confirmed]</li>
+<li><strong>Write the optional syntax in loops.</strong> Closing <code>For(</code> with <code>)</code> avoids the
+advancing temporary parser and <code>FPS</code> range measured in the false-<code>If</code> pair.
+Both forms use the same page-38 <code>For(</code>/<code>End</code> entries and OPS record; the
+branch that selects temporary-state reuse remains open. [confirmed] for the
+RAM and OPS state; [hypothesis] for that unresolved selection predicate.</li>
 </ol>
-<h3 id="trace-backed-cost-map"><a class="header" href="#trace-backed-cost-map">Trace-backed cost map</a></h3>
+<p>The rules follow one compact model:</p>
+<p>$$
+\begin{aligned}
+W \approx{}&amp; N_{\text{statements}} \\
+&amp;{}+ N_{\text{variable/list lookups}} \\
+&amp;{}+ N_{\text{floating-point operations}} \\
+&amp;{}+ N_{\text{structural rescans}} \\
+&amp;{}+ N_{\text{display or graph writes}}.
+\end{aligned}
+$$</p>
+<p>The terms are not equal-cost cycles, but they identify which part grows when a
+program is changed. [confirmed]</p>
+<h3 id="trace-backed-examples"><a class="header" href="#trace-backed-examples">Trace-backed examples</a></h3>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -238,42 +249,10 @@ implicit-close/false-<code>If</code> interaction. [confirmed]</li>
 </tbody>
 </table>
 </div>
-<h3 id="evidence-manifest"><a class="header" href="#evidence-manifest">Evidence manifest</a></h3>
-<p>This branch keeps each claimed behavior tied to a runnable fixture or a
-negative probe trace. The visualization fixtures render visible output and pass
-first-to-final changed-pixel checks plus named crop-region checks for text,
-axes, circle arcs, nodes, and edges. <code>ANIMTXT</code> also has a distinct-frame threshold, so the animation fixture
-must show multiple captured LCD states rather than only a final still. The
-smoke runner also checks final-screen regions for the main text, list, ASM
-interop, arbitrary-precision, and DFS outputs. The full
-<code>tools/tibasic_smoke.py</code> suite also passed on 2026-06-07 against the current
-branch state.</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Goal area</th><th>Fixture or probe</th><th>Evidence</th></tr>
-</thead>
-<tbody>
-<tr><td>Hello world</td><td><code>HELLO.8xp</code></td><td>Displays <code>HELLO, WORLD</code>, then <code>Done</code>; reaches page-38 statement parsing and <code>_Disp</code>.</td></tr>
-<tr><td>Factorial</td><td><code>FACTOR.8xp</code></td><td>Prompt input <code>5</code> displays <code>120</code>; reaches loop parsing and <code>_FPMult</code>.</td></tr>
-<tr><td>Data manipulation</td><td><code>DATA.8xp</code></td><td>Sorts, cumulatively sums, and displays list data; reaches list element stores and <code>sum(</code>’s list fold path.</td></tr>
-<tr><td>Text animation</td><td><code>ANIMTXT.8xp</code></td><td>Moves/writes <code>X</code> characters with <code>Output(</code>, then displays <code>DONE</code>; reaches LCD text routines each loop.</td></tr>
-<tr><td>Graph drawing</td><td><code>GRAPHV.8xp</code></td><td>Renders <code>DFS</code>, axes, a circle, and diagonal line on the graph screen; reaches <code>_ILine</code>, <code>_IPoint</code>, and <code>_PDspGrph</code>.</td></tr>
-<tr><td>Graph visualization</td><td><code>GRAPHDFS.8xp</code>, <code>GRAPHLST.8xp</code></td><td>Renders the four-node DFS topology with labels and edges; the list-driven fixture stores edge/node coordinates in lists and loops over them before <code>DispGraph</code>.</td></tr>
-<tr><td>Arbitrary precision arithmetic</td><td><code>BIGADD.8xp</code>, <code>BIGMUL.8xp</code></td><td>Adds and multiplies digit lists with carry propagation; reaches list indexing and FP helper paths.</td></tr>
-<tr><td>DFS / stack-style list algorithm</td><td><code>DFS.8xp</code></td><td>Displays traversal <code>1, 3, 2, 4</code> and visited list <code>{1 1 1 1}</code>; reaches nested scanner/control-flow paths.</td></tr>
-<tr><td>BASIC subprogram calling convention</td><td><code>CALLSUB.8xp</code> + <code>SUBRT.8xp</code>; <code>ABICALL.8xp</code> + <code>ABISUB.8xp</code>; <code>CALLSTOP.8xp</code> + <code>STOPSUB.8xp</code></td><td>Caller and callee share scalar/list/<code>Ans</code> state; <code>Return</code> resumes the caller, while <code>Stop</code> terminates the caller chain.</td></tr>
-<tr><td>BASIC to ASM</td><td><code>ASMCALL.8xp</code> + <code>ASMRET.8xp</code></td><td><code>Asm(</code> runs an <code>AsmPrgm</code> payload (<code>C9</code>) and returns to BASIC, displaying <code>BEFORE</code> then <code>AFTER</code>.</td></tr>
-<tr><td>ASM-directed BASIC callback</td><td><code>ASMBRIDG.8xp</code> + <code>ASMSIG.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM sets <code>Ans=1</code> with <code>_OP1Set1</code>/<code>_StoAns</code>, returns, and BASIC calls <code>prgmZZBASIC</code> through <code>If Ans</code>.</td></tr>
-<tr><td>ASM return value</td><td><code>ASMRTN.8xp</code> + <code>ASMVAL.8xp</code></td><td>ASM sets <code>Ans=2</code> with <code>_OP1Set2</code>/<code>_StoAns</code>; BASIC reads <code>Ans</code>, computes <code>Ans+3</code>, and displays <code>5</code>.</td></tr>
-<tr><td>ASM-side BASIC lookup</td><td><code>ASMFIND.8xp</code> + <code>ZZFIND.8xp</code> + <code>ZZBASIC.8xp</code></td><td><code>AsmPrgm</code> can build <code>OP1={ProgObj,"ZZBASIC"}</code> and reach <code>findsym_scan</code>, then return to BASIC without running <code>ZZBASIC</code>.</td></tr>
-<tr><td>Direct ASM to BASIC execution</td><td><code>ASMPARSE.8xp</code> + <code>ZZPARSE.8xp</code> + <code>ZZBASIC.8xp</code>; <code>ASMFORM.8xp</code> + <code>ZZFORM.8xp</code> + <code>ZZBASIC.8xp</code>; probes</td><td><code>_ParseInpLastEnt</code> reaches parser setup but ends at <code>ERR:INVALID</code>; <code>_Find_Parse_Formula</code> reaches parser/find setup but ends at <code>ERR:UNDEFINED</code>; <code>_ExecuteNewPrgm</code>, <code>_JForceCmd</code>, <code>_PutTokString</code>, and <code>_rclToQueue</code> do not prove a standalone callable BASIC-program ABI.</td></tr>
-</tbody>
-</table>
-</div>
-<h2 id="run-confirmed-fixtures"><a class="header" href="#run-confirmed-fixtures">Run-confirmed fixtures</a></h2>
-<p>The generator <code>tools/tibasic_samples.py</code> now emits these additional trace-ready
-fixtures.</p>
+<p>The table is intentionally selective. The complete fixture and evidence list
+lives on <a href="sub-tibasic-tracing.html">the dynamic tracing page</a>, where it can be
+audited without interrupting the programming guidance.</p>
+<h2 id="patterns-tied-to-interpreter-cost"><a class="header" href="#patterns-tied-to-interpreter-cost">Patterns tied to interpreter cost</a></h2>
 <h3 id="text-animation-with-output"><a class="header" href="#text-animation-with-output">Text animation with <code>Output(</code></a></h3>
 <pre><code class="language-ti-basic">ClrHome
 For(I,1,8)
@@ -381,7 +360,7 @@ End
 The trace additionally hits <code>list_var_index</code> and <code>_GetLToOP1</code>, proving that the
 draw arguments came through list element recall rather than hard-coded
 coordinates. [confirmed]</p>
-<h3 id="basic-subprogram-calling-convention"><a class="header" href="#basic-subprogram-calling-convention">BASIC subprogram calling convention</a></h3>
+<h3 id="subprogram-interfaces"><a class="header" href="#subprogram-interfaces">Subprogram interfaces</a></h3>
 <p>Caller:</p>
 <pre><code class="language-ti-basic">0-&gt;A
 prgmSUBRT

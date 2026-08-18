@@ -38,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ce2a6f3e.js";
+            window.path_to_searchindex_js = "searchindex-1cd6636c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-a4cbc596.js"></script>
+        <script src="toc-e4551b79.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -200,7 +200,7 @@ system state. See <a href="#ram-pages">RAM pages</a> for the revision evidence.<
 <li><strong>Paging + bcalls</strong> — how code and data beyond 64 KiB are reached. (see <a href="#paging">paging.md</a>, <a href="#the-bcall-mechanism">bcall-mechanism.md</a>)</li>
 <li><strong>The floating-point engine</strong> — 9-byte BCD reals/complex in the OP1–OP6 registers; all math flows through these. (<a href="#floating-point-engine">floating-point.md</a>)</li>
 <li><strong>The variable system (VAT)</strong> — named objects (reals, lists, matrices, strings, programs, appvars…) catalogued in the Variable Allocation Table. (<a href="#variables--the-vat-variable-allocation-table">variables-vat.md</a>)</li>
-<li><strong>The tokenizer/parser</strong> — TI-BASIC is stored as 1- and 2-byte tokens; the parser executes them. (<a href="#tokenizer--ti-basic">tokenizer-basic.md</a>)</li>
+<li><strong>The tokenizer/parser</strong> — TI-BASIC is stored as 1- and 2-byte tokens; the parser executes them. (<a href="#tokenizer-and-ti-basic-tokens">tokenizer-basic.md</a>)</li>
 </ol>
 <p>Around those sit the I/O subsystems: the <a href="#flash-memory">Flash command path and boot write APIs</a>; the IM1 interrupt dispatcher (<a href="#interrupts-im1">interrupts.md</a>); the standard timers, RTC, and low-power state machine (<a href="#clock-timers-and-power">clock-timers-power.md</a>); the <a href="#md5-accelerator-and-boot-api">MD5 round accelerator</a>; the LCD driver; the keypad scanner; and the link port.</p>
 <h2 id="subsystem-index"><a class="header" href="#subsystem-index">Subsystem index</a></h2>
@@ -222,7 +222,7 @@ system state. See <a href="#ram-pages">RAM pages</a> for the revision evidence.<
 <tr><td><a href="#md5-accelerator-and-boot-api">md5-hardware.md</a></td><td>MD5-assist ports, boot digest API, round descriptors, and Rabin hash transformation</td></tr>
 <tr><td><a href="#variables--the-vat-variable-allocation-table">variables-vat.md</a></td><td>Variable Allocation Table, object types</td></tr>
 <tr><td><a href="#floating-point-engine">floating-point.md</a></td><td>BCD float format, OP registers</td></tr>
-<tr><td><a href="#tokenizer--ti-basic">tokenizer-basic.md</a></td><td>Token tables, parser/interpreter</td></tr>
+<tr><td><a href="#tokenizer-and-ti-basic-tokens">tokenizer-basic.md</a></td><td>Token tables, parser/interpreter</td></tr>
 <tr><td><a href="#display-and-lcd">display-lcd.md</a></td><td>LCD ports, screen buffers</td></tr>
 <tr><td><a href="#keyboard-and-link-port">keyboard-link.md</a></td><td>Keyboard and link overview</td></tr>
 <tr><td><a href="#keypad-and-on-key-hardware">keypad-on-hardware.md</a></td><td>Matrix electrical behavior, scan timing, debounce, repeat, ON interrupts, and wake</td></tr>
@@ -234,7 +234,7 @@ system state. See <a href="#ram-pages">RAM pages</a> for the revision evidence.<
 <tr><td><a href="#open-questions--roadmap">open-questions.md</a></td><td>Prioritized future-work roadmap</td></tr>
 <tr><td><a href="#calculation-engine">sub-calculation.md</a></td><td>Calculation engine: FP ops, transcendentals, formatting, errors</td></tr>
 <tr><td><a href="#graphing">sub-graphing.md</a></td><td>Graphing: window vars, coord↔pixel, draw primitives, Y= eval</td></tr>
-<tr><td><a href="#ti-basic-programs">sub-tibasic.md</a></td><td>TI-BASIC: program execution, control flow, I/O commands</td></tr>
+<tr><td><a href="#ti-basic-execution">sub-tibasic.md</a></td><td>TI-BASIC: program execution, control flow, I/O commands</td></tr>
 <tr><td><a href="#ti-basic-dynamic-tracing">sub-tibasic-tracing.md</a></td><td>TI-BASIC fixture traces, smoke runner, coverage anchors</td></tr>
 <tr><td><a href="#variables-archive--unarchive">sub-vat-archive.md</a></td><td>Variables, Sto/Rcl, Archive/Unarchive, Flash GC</td></tr>
 <tr><td><a href="#apps-memory-reset--settings">sub-apps-mem-settings.md</a></td><td>Apps find/launch, RAM-reset, MODE/format flags</td></tr>
@@ -306,7 +306,7 @@ system state. See <a href="#ram-pages">RAM pages</a> for the revision evidence.<
 <li><a href="#system-overview">Overview</a> — the four pillars and the system through-line.</li>
 <li><a href="#subsystem-map-bcall-api-surface">Subsystem map</a> — see the whole API surface at once.</li>
 <li>Substrate: <a href="#memory-map">Memory map</a> → <a href="#paging">Paging</a> → <a href="#the-bcall-mechanism">The bcall mechanism</a> → <a href="#interrupts-im1">Interrupts</a>.</li>
-<li>Pick a core subsystem (<a href="#floating-point-engine">Floating-point</a>, <a href="#variables--the-vat-variable-allocation-table">VAT</a>, <a href="#tokenizer--ti-basic">Tokenizer/TI-BASIC</a>, <a href="#display-and-lcd">Display</a>…), then its <em>feature deep-dive</em> (<code>sub-*</code>).</li>
+<li>Pick a core subsystem (<a href="#floating-point-engine">Floating-point</a>, <a href="#variables--the-vat-variable-allocation-table">VAT</a>, <a href="#tokenizer-and-ti-basic-tokens">Tokenizer/TI-BASIC</a>, <a href="#display-and-lcd">Display</a>…), then its <em>feature deep-dive</em> (<code>sub-*</code>).</li>
 <li><a href="#glossary">Glossary</a> for any unfamiliar term.</li>
 </ol>
 <h2 id="address-notation"><a class="header" href="#address-notation">Address notation</a></h2>
@@ -11107,7 +11107,7 @@ unanalyzed page-02 sort body’s element-load is still not byte-traced.)</li>
 <code>nDeriv(</code>, <code>fnInt(</code>, or the <strong>TVM finance solver</strong>. All of these are <em>iterative</em>
 routines that repeatedly evaluate the user’s expression through the BCD floating-point
 engine (see <a href="#calculation-engine">sub-calculation.md</a>, <a href="#floating-point-engine">floating-point.md</a>) and the TI-BASIC parser
-(<a href="#ti-basic-programs">sub-tibasic.md</a>).</p>
+(<a href="#ti-basic-execution">sub-tibasic.md</a>).</p>
 <p>Address form is <code>page:addr</code> (flash page banked at <code>0x4000</code>) or <code>ram:addr</code> for the fixed
 page-0 core at <code>0x0000</code>. Confidence: [confirmed] = read from disassembly,
 [standard] = matches documented TI behavior, [hypothesis] = inferred from
@@ -11456,902 +11456,572 @@ TIFloat slots at <code>-(9*slot)</code> from frame base <code>(9302)</code>) plu
 <ul>
 <li>The exact byte layout of the For/While/Repeat loop-control record pushed by the
 page-0x33 control-flow handlers (<code>33:4381</code> jump table) is not yet field-mapped; only the
-dispatch path is confirmed. (See <a href="#ti-basic-programs">sub-tibasic.md</a> §4.)</li>
+dispatch path is confirmed. (See <a href="#ti-basic-execution">sub-tibasic.md</a> §4.)</li>
 <li>bcall <code>0x462A</code> in the TVM body is unmapped (adjacent to <code>_AdrLEle</code>; likely a finance-sysvar
 list/element accessor).</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
-<h1 id="tokenizer--ti-basic"><a class="header" href="#tokenizer--ti-basic">Tokenizer &amp; TI-BASIC</a></h1>
-<p>TI-BASIC programs are stored as tokens, not text: every command, function, and variable is a token of 1 or 2 bytes. The OS detokenizes (token→display string) to show a program and tokenizes (keypress/text→token) on entry; the parser walks tokens to execute.</p>
-<h2 id="token-encoding-confirmed"><a class="header" href="#token-encoding-confirmed">Token encoding [confirmed]</a></h2>
-<ul>
-<li>Most tokens are one byte (<code>tStore</code>=0x04, <code>tBoxPlot</code>=0x05, operators, digits, letters, common commands). The Ghidra database models the byte values as the <code>TIToken</code> enum, built from the <code>t</code>-prefixed equates in <code>ti83plus.inc</code>.</li>
-<li>Some bytes are lead bytes of a two-byte token: the first byte selects a table, the second byte the entry.</li>
-</ul>
-<h3 id="the-2-byte-lead-byte-set-confirmed"><a class="header" href="#the-2-byte-lead-byte-set-confirmed">The 2-byte lead-byte set [confirmed]</a></h3>
-<p><code>_IsA2ByteTok</code> (<code>ram:1FE8</code>) scans an 11-byte table at <code>ram:1FF6</code> to decide if a byte starts a 2-byte token. The bytes are:</p>
+<h1 id="tokenizer-and-ti-basic-tokens"><a class="header" href="#tokenizer-and-ti-basic-tokens">Tokenizer and TI-BASIC tokens</a></h1>
+<p>TI-BASIC source is stored as a sequence of one- and two-byte tokens, not as the
+characters shown in the editor. Tokenization chooses that encoding; execution
+walks it; detokenization turns it back into display text.</p>
+<h2 id="encoded-width"><a class="header" href="#encoded-width">Encoded width</a></h2>
+<p>Most tokens occupy one byte. <code>_IsA2ByteTok</code> (<code>00:1FE8</code>) decides whether a byte
+introduces a two-byte token by searching the 11-byte table at <code>00:1FF6</code>:</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Byte</th><th>Meaning (.inc)</th></tr>
+<tr><th>Lead</th><th>Group</th></tr>
 </thead>
 <tbody>
-<tr><td><code>5C</code></td><td><code>tVarMat</code> — matrix name (<code>[A]</code>…)</td></tr>
-<tr><td><code>5D</code></td><td><code>tVarLst</code> — list name (<code>L1</code>…)</td></tr>
-<tr><td><code>5E</code></td><td><code>tVarEqu</code> — equation variable (<code>Y1</code>, <code>r1</code>, …)</td></tr>
-<tr><td><code>60</code></td><td><code>tVarPict</code> — picture</td></tr>
-<tr><td><code>61</code></td><td><code>tVarGDB</code> — graph database</td></tr>
-<tr><td><code>62</code></td><td><code>tVarOut</code> — Y-vars / output</td></tr>
-<tr><td><code>63</code></td><td><code>tVarSys</code> — system var group (Xmin, …)</td></tr>
-<tr><td><code>7E</code></td><td>graph-format token group</td></tr>
-<tr><td><code>BB</code></td><td><code>t2ByteTok</code> — the general “extended commands” page (2.x additions)</td></tr>
-<tr><td><code>AA</code></td><td><code>tVarStrng</code> — string variable (<code>Str1</code>…)</td></tr>
-<tr><td><code>EF</code></td><td>TI-84+-era extended token page</td></tr>
+<tr><td><code>5Ch</code></td><td>Matrices</td></tr>
+<tr><td><code>5Dh</code></td><td>Lists</td></tr>
+<tr><td><code>5Eh</code></td><td>Equation variables</td></tr>
+<tr><td><code>60h</code></td><td>Pictures</td></tr>
+<tr><td><code>61h</code></td><td>Graph databases</td></tr>
+<tr><td><code>62h</code></td><td>Output/Y-variable group</td></tr>
+<tr><td><code>63h</code></td><td>System variables</td></tr>
+<tr><td><code>7Eh</code></td><td>Graph-format group</td></tr>
+<tr><td><code>BBh</code></td><td>General extended commands</td></tr>
+<tr><td><code>AAh</code></td><td>String variables</td></tr>
+<tr><td><code>EFh</code></td><td>TI-84 Plus extensions</td></tr>
 </tbody>
 </table>
 </div>
-<p>So e.g. <code>5D 00</code> = list <code>L1</code>; <code>BB xx</code> = an extended command. The second byte indexes that group’s name/handler table. (String variables <code>Str1</code>–<code>Str0</code> use lead <code>AA</code>; they are a distinct VAT object type holding tokenized text — see <a href="#strings-str1str0--a-distinct-object-type-confirmed">Strings</a>.)</p>
-<h2 id="detokenize--token-length-confirmed"><a class="header" href="#detokenize--token-length-confirmed">Detokenize / token length [confirmed]</a></h2>
+<p>The first byte selects a group and the second selects an entry in that group.
+For example, <code>5D 00</code> is <code>L1</code>, while <code>BB 6A</code> is <code>Asm(</code>. The complete second-byte
+maps are in <a href="#2-byte-token-tables">the token tables</a>. [confirmed]</p>
+<p>Encoded width and displayed width are different questions:</p>
 <ul>
-<li><code>_GetTokLen</code> (<code>01:66E5</code>) accepts the packed one- or two-byte token in <code>DE</code>
-and returns the length of its detokenized display string in <code>A</code>. It calls
-<code>smallfont_glyph_ptr</code> (<code>01:6702</code>) to resolve the string pointer, then reads the
-leading length byte (<code>LD A,(HL)</code>). <code>_IsA2ByteTok</code>, not <code>_GetTokLen</code>, tests the
-encoded width.</li>
-<li><code>_Get_Tok_Strng</code> (<code>01:66EA</code>) returns the display string for a token (used by the program editor and <code>Disp</code>).</li>
+<li><code>_IsA2ByteTok</code> answers whether the stored token uses one or two bytes.</li>
+<li><code>_GetTokLen</code> (<code>01:66E5</code>) returns the length of the token’s displayed name.</li>
+<li><code>_Get_Tok_Strng</code> (<code>01:66EA</code>) returns that display string.</li>
 </ul>
-<h2 id="parser--interpreter-confirmed"><a class="header" href="#parser--interpreter-confirmed">Parser / interpreter [confirmed]</a></h2>
-<p>The expression parser/evaluator lives on flash page 0x38. Entry points:</p>
+<p>The editor uses the latter two operations to paint source. Parser scanners use
+the first operation so they never mistake the second byte for a command or
+delimiter. [confirmed]</p>
+<h2 id="one-source-line-three-representations"><a class="header" href="#one-source-line-three-representations">One source line, three representations</a></h2>
+<p>The statement</p>
+<pre><code class="language-ti-basic">cumSum(L1)-&gt;L2
+</code></pre>
+<p>is stored as:</p>
+<pre><code class="language-text">BB 29  5D 00  11  04  5D 01  3F
+└───┘  └───┘   │   │   └───┘   └─ EOL
+cumSum(  L1    )   →     L2
+</code></pre>
+<p>No source spaces or character count are preserved. The editor reconstructs
+the spelling from token tables. The interpreter sees typed operations and
+names immediately, without reparsing the visible word <code>cumSum</code>. [confirmed]</p>
+<h2 id="token-streams-and-execution"><a class="header" href="#token-streams-and-execution">Token streams and execution</a></h2>
+<p>The tokenizer and interpreter meet at the parse cursor. The current byte is
+fetched at <code>38:72DA</code>; <code>38:4180</code> skips logical tokens while respecting two-byte
+leads and quoted strings. The expression evaluator then maps the token to a
+grammar class and selects a recursive production. [confirmed]</p>
+<p>This division explains several behaviors:</p>
 <ul>
-<li><code>_ParseInp</code> (<code>38:5987</code>) — parse/evaluate the input (homescreen/entry line). It calls <code>parse_init</code> (<code>38:5b7b</code>) to reset parser state, clears editing flags, then resolves via <code>_ChkFindSym</code>. [confirmed]</li>
-<li><code>_ParseInpLastEnt</code> (<code>38:5984</code>) — public parser variant immediately before
-<code>_ParseInp</code>; the generated <code>ASMPARSE.8xp</code>/<code>ZZPARSE.8xp</code> fixture reaches it
-but fails with <code>ERR:INVALID</code> without running the named BASIC target.
-[confirmed]</li>
-<li><code>_Find_Parse_Formula</code> (<code>38:758A</code>) — <code>_FindSym</code> a variable then parse its stored
-formula (Y-vars, equations). The generated <code>ASMFORM.8xp</code>/<code>ZZFORM.8xp</code> fixture
-reaches it from an <code>AsmPrgm</code> payload but fails with <code>ERR:UNDEFINED</code> without
-running the named BASIC target. [confirmed]</li>
-<li><code>parse_init</code> (<code>38:5b7b</code>) — zeroes the parse-position/state bytes and clears a batch of parser flag bits (in the IY flag area). [confirmed]</li>
+<li><code>3Fh</code> ends a stored line even though no newline character is displayed in
+the token stream.</li>
+<li>bytes resembling <code>Then</code> or <code>End</code> inside a quoted string are data because the
+quoted-string scanner consumes the whole region.</li>
+<li>a second byte following <code>5Dh</code>, <code>BBh</code>, or another lead cannot be interpreted
+independently.</li>
+<li>display names can change in width without changing encoded width.</li>
 </ul>
-<p>The engine reads the token stream and dispatches each token to a handler; arithmetic tokens flow into the <a href="#floating-point-engine">floating-point engine</a>, variable tokens resolve via <a href="#variables--the-vat-variable-allocation-table">the VAT</a>, and the busy indicator is driven by <code>_RunIndicOn</code> / <code>_RunIndicOff</code>. <code>_BinOPExec</code> applies a binary operator via OP1/OP2.</p>
-<h3 id="the-handler-dispatch-table-confirmed"><a class="header" href="#the-handler-dispatch-table-confirmed">The handler dispatch table [confirmed]</a></h3>
-<p>Page 0x38 begins with the parser’s handler dispatch at <code>38:4000</code> — a flat array of 2-byte little-endian handler pointers. Raw bytes are <code>9F 41 F0 45 1C 42 …</code> = entries <code>0x419F, 0x45F0, 0x421C, …</code> (all in-window <code>0x4xxx</code>/<code>0x47xx</code> code addresses), indexed by token class and dereferenced; the selector at <code>38:7010</code> loads <code>LD HL,0x4000</code> and adds <code>2×index</code> (see <a href="#ti-basic-programs">TI-BASIC Programs</a>).</p>
-<p>These handlers implement TI-BASIC statements/commands and operators. Sampling them by the routine they call:</p>
-<ul>
-<li>indices 8–10, 17–19, 38 → <code>bcall(_Regraph)</code> — graph commands (<code>DrawF</code>, <code>ZoomFit</code>, etc.).</li>
-<li>indices 14–16, 21–22 → <code>bcall(_Disp)</code> — display/output commands (<code>Disp</code>, <code>Output</code>).</li>
-<li>the “no-bcall” handlers are the arithmetic/operator productions — they drive OP1/OP2 through the FP engine via the RST shortcuts (RST 30h <code>_FPAdd</code>, etc.), which is why a bcall scan doesn’t flag them; variable handlers go through <code>_FindSym</code> (<a href="#variables--the-vat-variable-allocation-table">Variables &amp; the VAT</a>).</li>
-</ul>
-<p>The first handlers: <code>38:419F, 45F0, 421C, …</code>.</p>
-<h3 id="parse-stream-cursor-confirmed"><a class="header" href="#parse-stream-cursor-confirmed">Parse-stream cursor [confirmed]</a></h3>
-<p>The evaluator walks the token stream via a cursor in RAM: <code>parsePtr</code> (<code>0x965D</code> = official <code>nextParseByte</code>, current position) and <code>parseEnd</code> (<code>0x965F</code> = <code>basic_end</code>, end). Named helpers on page 0x38:</p>
-<ul>
-<li><code>parse_cur_tok</code> (<code>38:72DA</code>) — fetch the token at the cursor.</li>
-<li><code>parse_advance</code> (<code>38:7248</code>) — <code>parsePtr++</code> (advances the cursor and reloads <code>BC</code> from it). The bounds/refill check is the adjacent entry <code>38:7245</code>, which calls <code>0x1FD6</code> before falling into the increment.</li>
-<li><code>parse_expect_or_err</code> (<code>38:5CD8</code>) — fetch a token and raise <code>_ErrSyntax</code> (recording the position in <code>parsePtr</code>) if it isn’t the expected one.</li>
-</ul>
-<p>So the dispatch loop is: <code>parse_cur_tok</code> → index the pointer table at <code>38:4000</code> and call the selected handler (which may consume args via <code>parse_advance</code>) → repeat.</p>
-<p><strong>Main evaluator:</strong> <code>parse_eval_expr</code> (<code>38:5AB3</code>) is the big recursive-descent expression evaluator — it dispatches through handler function-pointers (<code>code *</code>) with operator precedence, reading via the cursor helpers and leaving the result in <code>OP1</code>. <code>_ParseInp</code> → <code>parse_init</code> → <code>parse_eval_expr</code>. <code>parse_scan_tokens</code> (<code>38:4180</code>) is a token-scan helper (skips to a delimiter, honoring 2-byte tokens via <code>_IsA2ByteTok</code>).</p>
-<p>The region at <code>38:4000</code> is a flat array of 2-byte handler pointers (entries <code>0x419F, 0x45F0, 0x421C, …</code>), not executable code — <code>CALL 0x33AB</code> (<code>CD AB 33</code>) appears nowhere on page 0x38. Each handler is itself recursive-descent code; the table selects which one to enter. See <a href="#ti-basic-programs">sub-tibasic.md</a> for the execution model (<code>eval_stmt_entry</code>@<code>38:59C5</code>, the <code>blockmatch_end_else</code>@<code>38:4130</code> End/Else matcher, <code>goto_lbl_name_scanner</code>@<code>38:4870</code>).</p>
-<p>The handlers are recursive-descent grammar productions (not flat per-operator routines): each reads via <code>parse_cur_tok</code>, conditionally recurses, and some load sub-dispatch tables (e.g. <code>38:5110</code>, <code>5127</code>) for finer token classes — implementing operator precedence by nesting. So “the + operator” isn’t one table entry; it’s handled within the term/factor production that drives <code>_FPAdd</code> (RST 30h).</p>
-<p>The precedence levels (term/factor/unary productions) and sub-dispatch tables are mapped in <a href="#ti-basic-programs">TI-BASIC Programs</a> §3/§6.</p>
-<h2 id="tokenized-sample-programs"><a class="header" href="#tokenized-sample-programs">Tokenized sample programs</a></h2>
-<p>The raw bodies below are the bytes stored after a <code>ProgObj</code> size word. They can
-be regenerated, along with loadable <code>.8xp</code> files, with
-<code>tools/tibasic_samples.py --write-dir tools/tibasic-samples</code> and traced with
-the workflow in <code>tools/dynamic-tracing.md</code>. The generated samples were run under
-headless TilEm on OS 2.55MP; see
-<a href="#8-dynamic-confirmation-and-traceable-examples">TI-BASIC programs</a>
-for observed outputs and trace anchors.</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Program</th><th>Source</th><th>Body bytes</th></tr>
-</thead>
-<tbody>
-<tr><td>Hello</td><td><code>ClrHome</code> / <code>Disp "HELLO, WORLD"</code></td><td><code>E1 3F DE 2A 48 45 4C 4C 4F 2B 29 57 4F 52 4C 44 2A 3F</code></td></tr>
-<tr><td>Factorial</td><td><code>Prompt N</code> / <code>1-&gt;F</code> / <code>For(I,1,N)</code> / <code>F*I-&gt;F</code> / <code>End</code> / <code>Disp F</code></td><td><code>DD 4E 3F 31 04 46 3F D3 49 2B 31 2B 4E 11 3F 46 82 49 04 46 3F D4 3F DE 46 3F</code></td></tr>
-<tr><td>Data</td><td><code>{3,1,4,1,5}-&gt;L1</code> / <code>SortA(L1)</code> / <code>cumSum(L1)-&gt;L2</code> / <code>sum(L1)-&gt;S</code> / display results</td><td><code>08 33 2B 31 2B 34 2B 31 2B 35 09 04 5D 00 3F E3 5D 00 11 3F BB 29 5D 00 11 04 5D 01 3F B6 5D 00 11 04 53 3F DE 5D 00 3F DE 5D 01 3F DE 53 3F</code></td></tr>
-<tr><td><code>Asm(</code> wrapper</td><td><code>Disp "BEFORE"</code> / <code>Asm(prgmASMRET)</code> / <code>Disp "AFTER"</code></td><td><code>DE 2A 42 45 46 4F 52 45 2A 3F BB 6A 5F 41 53 4D 52 45 54 11 3F DE 2A 41 46 54 45 52 2A 3F</code></td></tr>
-<tr><td>ASM callback handoff</td><td><code>Asm(prgmASMSIG)</code> / <code>If Ans</code> / <code>prgmZZBASIC</code></td><td><code>DE 2A 42 45 ... 72 3F 5F 5A 5A ...</code> (full body in <code>tools/tibasic-samples/asmbridge.tok</code>)</td></tr>
-<tr><td>ASM return value</td><td><code>Asm(prgmASMVAL)</code> / <code>Ans+3-&gt;A</code> / <code>Disp A</code></td><td><code>BB 6A 5F 41 53 4D 56 41 4C 11 3F 72 70 33 04 41 3F DE 41 3F</code></td></tr>
-<tr><td>Animation</td><td><code>ClrHome</code> / <code>For(I,1,8)</code> / <code>Output(1,I,"X")</code> / <code>End</code> / <code>Disp "DONE"</code></td><td><code>E1 3F D3 49 2B 31 2B 38 11 3F E0 31 2B 49 2B 2A 58 2A 11 3F D4 3F DE 2A 44 4F 4E 45 2A 3F</code></td></tr>
-<tr><td>Graph drawing</td><td><code>ClrDraw</code>, window stores, visible axes/diagonal, <code>Circle(47,31,10)</code>, <code>Text(0,0,"DFS")</code>, <code>DispGraph</code></td><td><code>85 3F 30 04 63 0A ... DF 3F</code> (full body in <code>tools/tibasic-samples/graphviz.tok</code>)</td></tr>
-<tr><td>Graph visualization</td><td><code>ClrDraw</code>, window stores, then <code>Line(</code>/<code>Circle(</code>/<code>Text(</code> drawing the DFS topology</td><td><code>85 3F 30 04 63 0A ... DF 3F</code> (full body in <code>tools/tibasic-samples/graphdfs.tok</code>)</td></tr>
-<tr><td>List-driven graph visualization</td><td>edge endpoint lists <code>L1</code>–<code>L4</code>, node lists <code>L5</code>/<code>L6</code>, looped <code>Line(L1(I),...)</code> and <code>Circle(L5(I),...)</code></td><td><code>85 3F 30 04 63 0A ... DF 3F</code> (full body in <code>tools/tibasic-samples/graphlist.tok</code>)</td></tr>
-<tr><td>BASIC subprogram</td><td><code>0-&gt;A</code> / <code>prgmSUBRT</code> / <code>Disp A</code>; callee <code>Disp "SUB"</code> / <code>A+1-&gt;A</code> / <code>Return</code></td><td>caller <code>30 04 41 3F 5F 53 55 42 52 54 3F DE 41 3F</code>; callee <code>DE 2A 53 55 42 2A 3F 41 70 31 04 41 3F D5 3F</code></td></tr>
-<tr><td>BASIC ABI fixture</td><td>caller initializes <code>L1</code> and <code>Ans</code>, calls <code>prgmABISUB</code>, then displays <code>A</code>, <code>L1</code>, and <code>Ans</code></td><td>caller <code>08 32 2B 34 ... DE 72 3F</code>; callee <code>72 70 5D 00 ... D5 3F</code> (full bodies in <code>tools/tibasic-samples/callabi.tok</code> and <code>abisub.tok</code>)</td></tr>
-<tr><td>Big integer add</td><td>list digits in <code>L1</code>/<code>L2</code>, carry <code>C</code>, indexed stores into <code>L3</code></td><td><code>08 35 2B 34 ... DE 5D 02 10 36 11 3F</code> (full body in <code>tools/tibasic-samples/bigadd.tok</code>)</td></tr>
-<tr><td>Big integer multiply</td><td>nested <code>For(</code> loops over digit lists, <code>L3(I+J-1)</code> accumulation, carry into <code>L3(I+J)</code></td><td><code>08 33 2B 32 ... DE 5D 02 10 34 11 3F</code> (full body in <code>tools/tibasic-samples/bigmul.tok</code>)</td></tr>
-<tr><td>DFS</td><td>edge lists <code>L1</code>/<code>L2</code>, visited <code>L3</code>, stack <code>L4</code>, <code>While</code>/<code>If Then</code>/nested <code>For</code></td><td><code>08 31 2B 31 ... D4 3F DE 5D 02 3F</code> (full body in <code>tools/tibasic-samples/dfs.tok</code>)</td></tr>
-</tbody>
-</table>
-</div>
-<p>These examples show the main token categories the parser must walk:
-statement separators (<code>3F</code>), string delimiters (<code>2A</code>), store (<code>04</code>), list names
-(<code>5D 00</code>/<code>5D 01</code>), extended <code>BB</code> tokens (<code>cumSum(</code> = <code>BB 29</code>, <code>Asm(</code> = <code>BB 6A</code>,
-<code>AsmPrgm</code> = <code>BB 6C</code>), and command tokens such as <code>Prompt</code> (<code>DD</code>), <code>Disp</code> (<code>DE</code>),
-<code>For(</code> (<code>D3</code>), <code>End</code> (<code>D4</code>), <code>ClrHome</code> (<code>E1</code>), and <code>SortA(</code> (<code>E3</code>). The
-newer samples add <code>Output(</code> (<code>E0</code>), graph commands (<code>85</code>, <code>93</code>, <code>9C</code>, <code>A5</code>,
-<code>DF</code>), system/window variables (<code>63 0A</code> through <code>63 0D</code> for
-<code>Xmin</code>/<code>Xmax</code>/<code>Ymin</code>/<code>Ymax</code>), <code>Ans</code> (<code>72</code>), <code>Return</code> (<code>D5</code>), list indexing with
-<code>(</code> (<code>10</code>) / <code>)</code> (<code>11</code>), <code>int(</code> (<code>B1</code>), arithmetic operators (<code>70</code>, <code>71</code>, <code>82</code>,
-<code>83</code>), and the program-name token (<code>5F</code>) before the name characters. <code>BIGMUL</code>
-adds the loop variable <code>J</code> (<code>4A</code>) and indexed expressions such as <code>I+J-1</code>.
-<code>DFS</code> adds
-structured-control tokens <code>While</code> (<code>D1</code>), <code>If</code> (<code>CE</code>), <code>Then</code> (<code>CF</code>), and
-equality (<code>6A</code>). The token bytes are [confirmed] by <code>ti83plus.inc</code> and
-<a href="#2-byte-token-tables">2-byte token tables</a>.</p>
-<h2 id="second-byte-tables"><a class="header" href="#second-byte-tables">Second-byte tables</a></h2>
-<p>Every 2-byte token group’s second-byte → token mapping (matrices, lists, Y-vars, system/window vars, the <code>BB</code> extended-command page, the <code>EF</code> 84+ page, etc.) is tabulated in <a href="#2-byte-token-tables">2-byte token tables</a> — 492 tokens, sourced from <a href="https://github.com/TI-Toolkit/tokens">TI-Toolkit/tokens</a> and filtered to the 84+ 2.55MP.</p>
-<p>(The main parser loop, handler dispatch, and <code>OP1</code>-as-name handoff are covered in <a href="#ti-basic-programs">TI-BASIC Programs</a>.)</p>
+<p>The pointer table at <code>38:4000</code> belongs to expression dispatch, not tokenization.
+It contains little-endian handler addresses selected after token classification.
+See <a href="#expressions-are-nested-productions">TI-BASIC execution</a> for
+the evaluator and <a href="#ti-basic-dynamic-tracing">TI-BASIC dynamic tracing</a> for the
+bounded token-width and scan models.</p>
+<h2 id="reproducible-samples"><a class="header" href="#reproducible-samples">Reproducible samples</a></h2>
+<p><code>tools/tibasic_samples.py</code> generates readable <code>.bas</code>, raw <code>.tok</code>, and loadable
+<code>.8xp</code> forms from one definition. Treat <code>.bas</code> as the review form, <code>.tok</code> as
+the exact interpreter input, and <code>.8xp</code> as the calculator fixture. A compact,
+diverse subset is used for dynamic coverage; the generator retains the broader
+fixture library for targeted subsystem investigations.</p>
+<pre><code class="language-sh">tools/tibasic_samples.py --write-dir tools/tibasic-samples
+</code></pre>
+<p>The generator’s byte assertions catch accidental changes between the readable
+source and the token body. Calculator execution is still required to establish
+runtime behavior.</p>
 <div style="break-before: page; page-break-before: always;"></div>
-<h1 id="ti-basic-programs"><a class="header" href="#ti-basic-programs">TI-BASIC programs</a></h1>
-<p>How a TI-BASIC program is stored, parsed, and executed on OS
-2.55MP. Builds on <a href="#tokenizer--ti-basic">tokenizer-basic.md</a> (tokens, cursor helpers, the page-0x38
-evaluator), <a href="#variables--the-vat-variable-allocation-table">variables-vat.md</a> (OP1 naming, <code>_FindSym</code>), and
-<a href="#boot-contexts--errors">boot-contexts-errors.md</a> (contexts, <code>onSP</code>/<code>_JError</code>).</p>
-<p>Confidence: [confirmed] = decompiled/byte-verified here, or multiple consistent
-signals (token compares, call shape) pin it even where the dense Z80 handler
-bodies don’t fully reduce in the decompiler; [standard] = documented TI-83+/84+
-behavior consistent with what was seen; [hypothesis] = inferred, not yet verified.</p>
-<hr>
-<h2 id="1-how-a-program-is-stored-confirmed"><a class="header" href="#1-how-a-program-is-stored-confirmed">1. How a program is stored [confirmed]</a></h2>
-<p>A program is a VAT object of type <code>ProgObj</code> (5) / <code>ProtProgObj</code> (6) (see <a href="#variables--the-vat-variable-allocation-table">Variables &amp; the VAT</a>).
-Its data is <code>word size</code> followed by <code>size</code> bytes of tokenized body — the
-exact byte stream the parser walks. No line numbers; lines are separated by the
-EOL/newline token <code>0x3F</code> (<code>tEnter</code>, shown as <code>cVar=='?'</code> = 0x3F in the
-decompiled cursor code). Most tokens are 1 byte; the 11 lead bytes
-(<code>5C 5D 5E 60 61 62 63 7E BB AA EF</code>, the order of the <code>ram:1FF6</code> table) introduce 2-byte tokens (<a href="#tokenizer--ti-basic">Tokenizer &amp; TI-BASIC</a>).</p>
-<p>Editing/detokenizing for the program editor uses the page-01 token helpers
-(<a href="#tokenizer--ti-basic">Tokenizer &amp; TI-BASIC</a>, re-confirmed here):</p>
-<ul>
-<li><code>_GetTokLen</code> (<code>01:66E5</code>) — accepts the packed token in <code>DE</code>, calls
-<code>smallfont_glyph_ptr</code> (<code>01:6702</code>) to resolve its display string, then returns
-the leading display-length byte in <code>A</code>.
-<code>_IsA2ByteTok</code> tests whether the encoded token occupies one or two bytes.</li>
-<li><code>_Get_Tok_Strng</code> (<code>01:66EA</code>) — returns the display string for a token
-(cross-page jump to the name table). The editor calls this per token to paint
-a line; <code>Disp</code> of a list/string also routes display text through related
-formatters.</li>
-</ul>
-<hr>
-<h2 id="2-the-parse-stream-cursor-confirmed"><a class="header" href="#2-the-parse-stream-cursor-confirmed">2. The parse-stream cursor [confirmed]</a></h2>
-<p>The interpreter walks the token body through a RAM cursor (<a href="#tokenizer--ti-basic">Tokenizer &amp; TI-BASIC</a>, all
-re-verified by decompilation):</p>
+<h1 id="ti-basic-execution"><a class="header" href="#ti-basic-execution">TI-BASIC execution</a></h1>
+<p>TI-BASIC is a token-stream interpreter built around three kinds of state: a
+cursor over program bytes, a recursive expression evaluator whose result lives
+in <code>OP1</code>, and control records that remember where loops and subprograms resume.
+This page follows one statement through those layers before describing the
+special cases.</p>
+<p>The addresses and byte-level decisions below refer to TI-84 Plus OS 2.55MP.
+Claims marked [confirmed] are tied to ROM bytes or calculator traces. A
+[hypothesis] marks the remaining interpretation of an incompletely decoded
+structure.</p>
+<h2 id="the-execution-pipeline"><a class="header" href="#the-execution-pipeline">The execution pipeline</a></h2>
+<p>A stored program is a VAT object of type <code>ProgObj</code> (<code>05h</code>) or <code>ProtProgObj</code>
+(<code>06h</code>). Its data begins with a little-endian size word followed by exactly that
+many token bytes. There are no stored line numbers: <code>3Fh</code> separates lines, and
+<code>3Eh</code> separates colon-delimited statements. [confirmed]</p>
+<p>Execution can be read as a pipeline:</p>
+<pre class="mermaid">flowchart LR
+    V["VAT program object"] --&gt;|"size selects token body"| C["parse cursor&lt;br/&gt;nextParseByte … basic_end"]
+    C --&gt;|"fetch and classify"| H["statement or expression handler"]
+    H --&gt; E["recursive expression"]
+    H --&gt; M["variable or list access"]
+    H --&gt; D["command or control transfer"]
+    E --&gt; R["OP1 result"]
+    M --&gt; R
+    D --&gt; R
+    R --&gt;|"advance or replace cursor"| C
+</pre>
+
+<p>The page-38 evaluator owns the cursor and grammar. Statement commands can
+cross to page 02, control-flow bodies to page 33, display code to pages 01/03/37,
+and variable lookup to the VAT routines. Those page changes are continuations
+of one interpreter, not separate parsers. [confirmed]</p>
+<h2 id="the-token-cursor"><a class="header" href="#the-token-cursor">The token cursor</a></h2>
+<p>The cursor is an interval in RAM:</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Helper</th><th>Addr</th><th>Behavior</th></tr>
+<tr><th>State</th><th>Address</th><th>Meaning</th></tr>
 </thead>
 <tbody>
-<tr><td><code>parse_cur_tok</code></td><td><code>38:72DA</code></td><td>fetch token at cursor (<code>parsePtr</code>); special-cases <code>:</code> token <code>0x3E</code> (<code>tColon</code>)/end <code>0x00</code></td></tr>
-<tr><td><code>parse_advance</code></td><td><code>38:7248</code></td><td><code>parsePtr</code> (<code>965D</code> = <code>nextParseByte</code>) ++, bounds-check vs <code>parseEnd</code> (<code>965F</code> = <code>basic_end</code>); refill via <code>deref_byte</code> (<code>38:5B79</code>)</td></tr>
-<tr><td><code>parse_expect_or_err</code></td><td><code>38:5CD8</code></td><td>fetch a token; if not the expected one, set <code>parsePtr</code> to the fault position and <code>_ErrSyntax</code></td></tr>
-<tr><td><code>parse_scan_tokens</code></td><td><code>38:4180</code></td><td>skip forward to a delimiter, treating quoted strings as indivisible and honoring 2-byte tokens via <code>_IsA2ByteTok</code>; used by every block scanner</td></tr>
-<tr><td><code>parse_init</code></td><td><code>38:5B7B</code></td><td>zero parse position bytes (+6/+7), clear a batch of parser flag bits in the IY flag area</td></tr>
+<tr><td><code>nextParseByte</code></td><td><code>965Dh</code></td><td>Current token position</td></tr>
+<tr><td><code>basic_end</code></td><td><code>965Fh</code></td><td>Inclusive parser bound/refill boundary</td></tr>
+<tr><td><code>basic_start</code></td><td><code>965Bh</code></td><td>Start of the current body</td></tr>
+<tr><td><code>basic_prog</code></td><td><code>9652h</code></td><td>Current program/object identity</td></tr>
 </tbody>
 </table>
 </div>
-<p><code>parsePtr</code> is the OS RAM byte <code>965D</code> (official equate <code>nextParseByte</code>); <code>parseEnd</code>
-is <code>965F</code> (<code>basic_end</code>). <code>parse_scan_tokens</code> calls the quoted-string scanner at
-<code>38:544D</code> when it sees <code>tString</code> (<code>0x2A</code>); that helper advances to the closing
-quote or EOL (<code>0x3F</code>), so delimiters inside the string do not end the outer
-scan. The caller then checks the statement delimiter and advances ordinary
-tokens, using <code>_IsA2ByteTok</code> to consume both bytes where required. This is the
-primitive every control-flow scanner is built on.</p>
-<hr>
-<h2 id="3-top-level-execution-model-confirmed"><a class="header" href="#3-top-level-execution-model-confirmed">3. Top-level execution model [confirmed]</a></h2>
-<ul>
-<li><code>_ParseInp</code> (<code>38:5987</code>) is the entry that parses/evaluates the entry line or a
-formula: it clears RAM <code>9305</code> (official equate <code>EST</code>, edit-screen height), calls <code>parse_init</code>, clears an editing flag
-(<code>*(IY+0x1F) &amp;= 0xF7</code>), then tail-calls <code>_ChkFindSym</code> to resolve OP1.
-[confirmed]</li>
-<li><code>_Find_Parse_Formula</code> (<code>38:758A</code>) <code>_FindSym</code>s a named var then parses its
-stored formula; its body switches on var type (<code>0x0F</code> Window / <code>0x10</code> ZSto /
-<code>0x11</code> TblRng special-cased) before the cross-page parse. Used for Y-vars /
-equations and for running a program (resolve ProgObj, point the cursor at
-its body, run the statement loop). [confirmed]</li>
-<li>The statement/expression evaluator is the big recursive-descent core
-<code>parse_eval_expr</code> (<code>38:5AB3</code>). The interpreter has several entry variants
-that all converge on the same shared inner loop (the code label at <code>38:59C8</code>,
-inside <code>parse_eval_expr</code>) and the same precedence selector (the label at
-<code>38:7010</code>): <code>38:59C5</code>, <code>38:5826</code>, <code>38:5CA7</code>,
-<code>38:6963</code>, <code>38:6F63</code>. Each variant does statement-type-specific setup/teardown
-(FPS push, flag bits) and then runs the common token loop. [confirmed]</li>
-</ul>
-<h3 id="the-shared-inner-loop-3859c8-confirmed"><a class="header" href="#the-shared-inner-loop-3859c8-confirmed">The shared inner loop (<code>38:59C8</code>) [confirmed]</a></h3>
-<pre><code class="language-pseudocode">loop:
-  parse_advance_refill / err_if_not_real_86   ; refresh cursor / housekeeping
-  class = chk_tok_end()          ; classify current token
-  if (IY+9 &amp; 0x80) class = set_split_rows()  ; alt classify for flagged tokens
-  IY+9 &amp;= 0x7F
-  if class == 4: parse_pos=fault; _ErrSyntax     ; class 4 = syntax error
-  if class &lt;= 3:                 ; an operand/sub-expression
-       cls = parse_cur_err_illegal()  ; map token -&gt; grammar class (&gt;0xF1 =&gt; +0x12)
-       precLevel = 3
-  38:7010:                       ; dispatch by precedence level
-       if precLevel==2: handler = 0x478c        ; postfix/factorial+power production
-       if precLevel==3: handler = 0x7175        ; (nop / leaf)
-       else:            handler = 0x4000        ; the base dispatch block
-       ... call handler, fold result via FP RSTs into OP1 ...
-</code></pre>
-<p>The <code>param_2</code>/handler pointer is one of <code>0x4000</code> (base/term), <code>0x478c</code>
-(the postfix <code>^</code>/<code>!</code> production — it reads <code>+</code>/<code>^</code> (0x11),
-range-checks an exponent as a positive int, <code>_JError(0x84)</code> Domain otherwise; it is a
-raw code target within <code>parse_eval_expr</code>, not a defined function in the live DB),
-or <code>0x7175</code> (a leaf no-op). Selecting among these by <code>precLevel</code> (1/2/3) is how
-operator precedence is realized — nesting of productions, not a flat table
-(confirms <a href="#tokenizer--ti-basic">Tokenizer &amp; TI-BASIC</a>’s “recursive-descent” claim). Results land in <code>OP1</code>; binary
-operators are applied via the FP RST shortcuts (RST 30h <code>_FPAdd</code>, …) and
-<code>_BinOPExec</code>.</p>
-<h3 id="parser-dispatch-page-0x38-begins-with-a-handler-pointer-table-confirmed"><a class="header" href="#parser-dispatch-page-0x38-begins-with-a-handler-pointer-table-confirmed">Parser dispatch: page 0x38 begins with a handler-pointer table [confirmed]</a></h3>
-<p>Raw bytes at <code>38:4000</code> are <code>9F 41 F0 45 1C 42 CC 41 D9 41 …</code> = a flat array of
-2-byte little-endian handler pointers (entries <code>0x419F, 0x45F0, 0x421C, 0x41CC, 0x41D9, …</code>), not executable code: <code>CALL 0x33AB</code> (<code>CD AB 33</code>) appears
-nowhere on page 0x38. The <code>38:7010</code> precedence
-selector indexes this table (<code>LD HL,0x4000</code>; add <code>2×class</code>; deref), with raw-code
-alternates at <code>0x478C</code> and <code>0x7175</code> for the postfix/leaf classes. Classification
-is done by <code>chk_tok_end</code> (<code>38:72E0</code>) / <code>parse_cur_err_illegal</code> (<code>38:70F8</code>).</p>
-<h3 id="results--ans-confirmed"><a class="header" href="#results--ans-confirmed">Results / Ans [confirmed]</a></h3>
-<ul>
-<li><code>_StoAns</code> (<code>38:6251</code>) stores OP1 into <code>Ans</code> (<code>_CkOP1Real</code> path; the bytes that
-follow are the Ans-var token table). <code>_RclAns</code> (<code>38:679F</code>) = <code>_AnsName</code> then
-<code>_RclVarSym</code>.</li>
-<li><code>_AnsName</code> (<code>38:74B7</code>): <code>_ZeroOP1; (OP1+1)=0x72</code> (OP1 holds a name here, so the byte at <code>0x8479</code> is the name’s type/class tag rather than an exponent) — builds the OP1 name for
-the <code>Ans</code> variable (token class <code>0x72</code>).</li>
-<li><code>_StoSysTok</code>/<code>_RclSysTok</code> (<code>38:623B</code>/<code>683E</code>) store/recall a system token
-variable (Xmin etc.) into/from OP1.</li>
-</ul>
-<hr>
-<h2 id="4-control-flow-confirmed"><a class="header" href="#4-control-flow-confirmed">4. Control flow [confirmed]</a></h2>
-<p>Control-flow tokens (<code>ti83plus.inc</code>): <code>tIf=CE tThen=CF tElse=D0 tWhile=D1 tRepeat=D2 tFor=D3 tEnd=D4 tReturn=D5 tLbl=D6 tGoto=D7 tPause=D8 tStop=D9</code>.</p>
-<h3 id="block-matcher--end-else-scanner-blockmatch_end_else-384130-confirmed"><a class="header" href="#block-matcher--end-else-scanner-blockmatch_end_else-384130-confirmed">Block matcher / End-Else scanner: <code>blockmatch_end_else</code> (<code>38:4130</code>) [confirmed]</a></h3>
-<p>This is the routine that skips a block to its matching <code>End</code>/<code>Else</code> (used to
-skip the not-taken branch of <code>If</code> / <code>If…Then</code>, and to bound <code>For</code>/<code>While</code>/
-<code>Repeat</code> bodies). It keeps a nest-depth counter and walks via
-<code>parse_scan_tokens</code>:</p>
-<pre><code class="language-pseudocode">depth = 0
-loop:
-  t = cur_token
-  case t == tElse(D0):  if depth==0 -&gt; stop, return 0xD0 (Else)   ; else skip
-  case t == tEnd (D4):  if depth==0 -&gt; stop, return 0xD4 (End)
-                        else depth--                              ; close a nest
-  case t in {tFor(D3), tWhile(D1), tRepeat(D2)}: depth++          ; open a nest
-  case t == tIf (CE):   scan; if next == tThen(CF) depth++        ; If…Then opens
-  default: parse_scan_tokens (skip token, honoring 2-byte)
-</code></pre>
-<p>Token compares verified at <code>38:4137 (CP D0)</code>, <code>414B (CP D4)</code>, <code>415D (CP D3)</code>,
-<code>4164 (CP D1)</code>, <code>4168 (CP D2)</code>, <code>416C (CP CE)</code>, <code>4179/41B3 (CP CF)</code>. Return
-value 0xD0 vs 0xD4 tells the caller whether it landed on <code>Else</code> or <code>End</code>.</p>
-<h3 id="if--then--else-execution-confirmed"><a class="header" href="#if--then--else-execution-confirmed">If / Then / Else execution [confirmed]</a></h3>
-<ul>
-<li>The <code>If</code> statement handler evaluates the condition into OP1 (real). If the
-next token is not <code>tThen</code>, it’s a single-statement <code>If</code> (execute the one
-statement when true, skip it when false). If <code>tThen</code>, it’s a block.</li>
-<li>The Else path is <code>if_else_skip_handler</code> (<code>38:5826</code>): on seeing <code>tElse(D0)</code> it repeatedly calls
-the block matcher <code>blockmatch_end_else</code> (<code>38:4130</code>) to skip the Else block to its matching End
-(the “condition was true, ran Then, now jump over Else” case), then rejoins the
-shared loop at <code>38:59C8</code>. Other <code>tElse</code> compares at <code>38:57B3/58A6/58C6</code>
-handle the symmetric “skip Then, run Else” and nested cases.</li>
-<li><code>if_isg_stmt_handler</code> (<code>38:6F63</code>) is the per-statement entry that special-cases <code>tIf</code> (<code>0xCE</code>)
-and <code>tISG</code> (<code>0xDA</code>, <code>IS&gt;(</code>): the second compare is <code>38:6F6C: CP 0xDA</code> (<code>tISG</code>, the
-adjacent token to <code>tStop</code> <code>0xD9</code>). For <code>tIf</code> it sets grammar class <code>0x5F</code> and falls into the
-shared precedence loop to evaluate the condition; unknown leading tokens here
-raise <code>_JError(0x88)</code> (<code>E_Syntax</code>) for ordinary unknown tokens, or <code>_JError(0x30)</code>
-(<code>E_Version</code>, “ERR:VERSION”) for tokens above <code>0xF5</code> (the reserved/newer-token range —
-<code>0x30</code> is the message-table index, one below <code>0x31</code> ARCHIVE FULL). [confirmed]</li>
-</ul>
-<h3 id="for--while--repeat--end-confirmed"><a class="header" href="#for--while--repeat--end-confirmed">For( / While / Repeat / End [confirmed]</a></h3>
-<ul>
-<li><code>For(</code>/<code>While</code>/<code>Repeat</code> push a loop-control record onto the FPS/loop stack
-recording the loop variable, limit, step, and the <code>parsePtr</code> of the loop top
-(so <code>End</code> can jump back). <code>End</code> pops/updates: increments the <code>For</code> variable,
-re-tests the limit, and either re-seeds <code>parsePtr</code> to the loop top or falls
-through. The block matcher <code>blockmatch_end_else</code> (<code>38:4130</code>) is what bounds these bodies during
-skips (e.g. <code>While 0</code> skips straight to <code>End</code>).</li>
-<li><strong>Dispatch path (byte-traced).</strong> The For/While/Repeat/End/Return <em>execution</em> handlers live
-off page 0x38 — page 0x38 only has the <code>tFor/tWhile/tRepeat/tEnd</code> compares inside
-the <code>blockmatch_end_else</code> skip scanner (<code>38:4130…4180</code>). The live handlers are reached via
-the page-0x02 command dispatcher: <code>02:54BD</code> loads a per-token handler pointer
-(<code>LD HL,0x6A30</code> for <code>tFor</code>=<code>CP 0xD3</code>, <code>0x6A34</code> for <code>tEnd</code>=<code>CP 0xD4</code>, <code>0x6A2A</code> for
-<code>tReturn</code>=<code>CP 0xD5</code>), and <code>tWhile</code>/<code>tRepeat</code> load a loop-type code (<code>LD A,0x26</code>/<code>0x27</code>)
-and <code>JP 0x6400</code>. <code>02:6400</code> and the <code>6A2A/6A30/6A34</code> stubs set a command index
-(<code>0x28/0x29/0x2A</code>) and invoke bcall <code>0x5140</code>/<code>0x513D</code>, which both resolve to page
-0x33 (<code>grf_435f</code>, target <code>33:435F</code>). <code>33:435F</code> does <code>SUB 0x20</code>, bounds-checks, and
-indexes a 13-entry jump table at <code>33:4381</code> (<code>0x47BB, 0x4A71, 0x4817, 0x4759, 0x47F5, 0x4AAA, 0x4B36, 0x4B4B, 0x45DE, 0x45D1, 0x459B, 0x4C93, 0x4CE8</code>) — the actual
-For/While/Repeat/End/Return bodies. The default <code>For</code> step uses <code>_OP2Set1</code> and the loop
-variable is stored via <code>_MovFrOP1</code>; <code>End</code> re-seeds the parse cursor from the loop-record’s
-saved position. The dispatch chain into page <code>33</code> is [confirmed]. The exact
-FPS record byte layout remains [hypothesis].</li>
-<li><code>if_else_skip_handler</code> (<code>38:5826</code>)’s prologue calls <code>_DeallocFPS1</code> then
-<code>restore_982c_ctx</code> (<code>38:58DF</code>, which sets <code>pTempCnt</code>/<code>cleanTmp</code>) — FPS bookkeeping
-consistent with pushing/popping a loop frame. [hypothesis]</li>
-<li>A trace-backed performance trap exists when <code>For(</code> omits its optional closing
-<code>)</code> and the first loop-body statement is a single-line false <code>If</code>: the
-implicit-close path at <code>02:5676</code> interacts with the false-<code>If</code> skip path and
-repeatedly advances temporary parser storage. See
-<a href="#ti-basic-for-paren-trap">TI-BASIC <code>For(</code> optional paren trap</a>.</li>
-</ul>
-<h3 id="goto--lbl-goto_lbl_name_scanner-384870--scanner-at-387600-confirmed"><a class="header" href="#goto--lbl-goto_lbl_name_scanner-384870--scanner-at-387600-confirmed">Goto / Lbl: <code>goto_lbl_name_scanner</code> (<code>38:4870</code>) + scanner at <code>38:7600</code> [confirmed]</a></h3>
-<ul>
-<li><code>Lbl</code>/<code>Goto</code> use a name scanner. <code>goto_lbl_name_scanner</code> (<code>38:4870</code>) reads the label name after
-<code>tGoto(D7)</code>/<code>tLbl(D6)</code>: it advances over the (possibly 2-byte) label token(s)
-until EOL (<code>'?'</code>=0x3F) / end, records the position in <code>parsePtr</code>, then does a
-<code>cross_page_jump(0x14)</code> to the search routine. Token compares for <code>tLbl(D6)</code> at
-<code>38:4870</code> and <code>38:7626</code>; <code>tGoto(D7)</code> at <code>38:762A</code>. [confirmed]</li>
-<li><code>Goto</code> resolves by rescanning the program body from the top for a matching
-<code>Lbl name</code>, then setting <code>parsePtr</code> there — the classic TI-BASIC behavior that
-makes <code>Goto</code> O(program size) and makes <code>Goto</code> out of a loop leak the loop’s
-stack frame. [standard]</li>
-<li><code>Return</code>/<code>Stop</code> (<code>tReturn=D5</code>/<code>tStop=D9</code>) terminate execution at different
-scopes: <code>Return</code> exits the current BASIC program and resumes the caller, while
-<code>Stop</code> exits the whole BASIC program chain back to the homescreen context.
-<code>CALLSUB</code>/<code>SUBRT</code> and <code>CALLSTOP</code>/<code>STOPSUB</code> are run-confirmed fixtures for
-those two cases. [confirmed]</li>
-</ul>
-<hr>
-<h2 id="5-io-commands"><a class="header" href="#5-io-commands">5. I/O commands</a></h2>
-<p>The display primitives live on pages 01/04/37; the command (token)
-handlers that parse arguments live mostly on page 0x02 (the TI-BASIC
-command-execution page) and page 0x39, reached from the page-38 evaluator via
-cross-page jump (<code>RST2</code>/bjump). Token-compare sites located by ROM scan:</p>
+<p>The small page-38 helpers are the useful way to reason about cursor movement:</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Command</th><th>Token</th><th>Handler site(s)</th><th>Display primitive used</th></tr>
+<tr><th>Routine</th><th>Address</th><th>Operation</th></tr>
 </thead>
 <tbody>
-<tr><td><code>Disp</code></td><td><code>tDisp=DE</code></td><td>dispatch → <code>_Disp</code> (<code>37:51D3</code>), bcall site <code>38:45A4</code></td><td><code>_Disp</code>, <code>_NewLine</code>, <code>_DispDone</code></td></tr>
-<tr><td><code>Output(</code></td><td><code>tOutput=E0</code></td><td><code>38:6AE6</code> (CP E0), <code>02:673E</code>, <code>01:7D3D</code></td><td><code>_OutputExpr</code> (<code>03:4AF2</code>) at row,col</td></tr>
-<tr><td><code>Input</code></td><td><code>tInput=DC</code></td><td><code>02:54EF</code>, <code>02:56AB</code>, <code>02:5917</code>, <code>01:7DEF</code></td><td>prompt + entry-line editor + <code>_ParseInp</code> of typed text</td></tr>
-<tr><td><code>Prompt</code></td><td><code>tPrompt=DD</code></td><td><code>02:562F</code>, <code>02:5786</code>, <code>02:590E</code>, <code>00:4C5C</code></td><td>like <code>Input</code> but auto-labels <code>NAME=?</code></td></tr>
-<tr><td><code>Menu(</code></td><td><code>tMenu=E6</code></td><td><code>38:5A8A</code> (CP E6), <code>02:555D</code>, <code>06:4A17</code></td><td><code>_DispMenuTitle</code> (<code>39:4D21</code>) + branch on choice</td></tr>
-<tr><td><code>Pause</code></td><td><code>tPause=D8</code></td><td><code>02:55E7</code>, <code>02:6684</code>, <code>39:6B8E</code>, <code>3A:7E7C</code></td><td>display then wait for <code>[ENTER]</code> via key loop</td></tr>
-<tr><td><code>getKey</code></td><td><code>tGetKey=AD</code></td><td><code>37:6700</code> (a token-attribute table, not a keymap), <code>3A:7E8A</code></td><td>non-blocking <code>_GetKey</code> (bcall <code>0x4972</code>, page 06); returns keycode→OP1</td></tr>
-<tr><td><code>ClrHome</code></td><td>(cmd token)</td><td>clears text shadow + home cursor</td><td><code>_ClrLCDFull</code> / home-cursor reset</td></tr>
+<tr><td><code>parse_cur_tok</code></td><td><code>38:72DA</code></td><td>Fetch the current byte and classify <code>00h</code>, <code>3Eh</code>, and <code>3Fh</code></td></tr>
+<tr><td><code>parse_advance</code></td><td><code>38:7248</code></td><td>Increment <code>nextParseByte</code>, compare it with <code>basic_end</code>, and refill when needed</td></tr>
+<tr><td><code>parse_expect_or_err</code></td><td><code>38:5CD8</code></td><td>Require one token or restore the fault position and raise syntax error</td></tr>
+<tr><td><code>parse_scan_tokens</code></td><td><code>38:4180</code></td><td>Scan to a statement delimiter without splitting a two-byte token or quoted string</td></tr>
+<tr><td><code>parse_init</code></td><td><code>38:5B7B</code></td><td>Reset parser-position bytes and parser flags</td></tr>
 </tbody>
 </table>
 </div>
-<p>Details:</p>
+<p>Encoded width matters whenever the interpreter skips rather than evaluates.
+<code>_IsA2ByteTok</code> (<code>00:1FE8</code>) searches the 11-byte table at <code>00:1FF6</code>; a match
+means the lead and following byte must move together. The scanner also treats a
+quoted string as one region, so <code>Then</code>, <code>Else</code>, or <code>End</code> bytes inside a string
+cannot terminate an outer scan. [confirmed]</p>
+<pre><code class="language-pseudocode">scan_to_delimiter():
+  loop:
+    token = current_token()
+    if token is end, colon, or EOL:
+      return
+    if token is quote:
+      advance through the closing quote or EOL
+    else if token is a two-byte lead:
+      advance once for the second byte
+    advance to the next token
+</code></pre>
+<p>This routine does not know the grammar of an expression. Its job is narrower:
+preserve token boundaries while another routine searches for a statement or
+block delimiter.</p>
+<h2 id="expressions-are-nested-productions"><a class="header" href="#expressions-are-nested-productions">Expressions are nested productions</a></h2>
+<p><code>_ParseInp</code> (<code>38:5987</code>) initializes parser state for a homescreen expression or
+formula and enters the shared evaluator. Stored-program execution arrives with
+the program body and parser frame already selected. Both converge on the
+recursive expression machinery around <code>parse_eval_expr</code> (<code>38:5AB3</code>) and the
+statement loop at <code>38:59C5</code>. [confirmed]</p>
+<p>The evaluator is not a flat “token to function” switch. It first maps the
+current token to a grammar class, selects a production family, and lets that
+handler recursively consume tighter-binding operands. The selector at
+<code>38:7010</code> chooses among three bases:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Selector <code>C</code></th><th>Handler family</th><th>Role</th></tr>
+</thead>
+<tbody>
+<tr><td>Other than <code>02h</code> or <code>03h</code></td><td>pointer table at <code>38:4000</code></td><td>Main grammar productions</td></tr>
+<tr><td><code>02h</code></td><td>code at <code>38:478C</code></td><td>Postfix/power production</td></tr>
+<tr><td><code>03h</code></td><td>code at <code>38:7175</code></td><td>Leaf production</td></tr>
+</tbody>
+</table>
+</div>
+<p>For the main family, the grammar class in <code>A</code> indexes a table of little-endian
+handler pointers at <code>38:4000</code>. Its 87 slots contain 84 valid pointers and 81
+distinct handler destinations. The bytes there are data—beginning <code>9F 41 F0 45 1C 42 ...</code>—not executable Z80. The selector doubles the class, reads the
+pointer, and calls the chosen production. [confirmed]</p>
+<pre><code class="language-pseudocode">evaluate_production(class, level):
+  if level == 2:
+    base = 478Ch
+  else if level == 3:
+    base = 7175h
+  else:
+    base = word_table_at_4000h
+
+  handler = base[class]       // table family; raw-code families interpret class locally
+  return handler(parse_cursor, OP1)
+</code></pre>
+<p>This nesting is what gives <code>^</code>, multiplication, and addition their precedence.
+Binary productions move operands through the OS floating-point stack and apply
+operations such as <code>_FPAdd</code>, <code>_FPMult</code>, or <code>_BinOPExec</code>; the completed value is
+left in <code>OP1</code>. <code>38:6FB7–6FC2</code> also folds token classes <code>F2h</code> and above by adding
+<code>12h</code> before dispatch. [confirmed]</p>
+<p>The other indirect jumps in the declared interpreter graph also have bounded
+ROM-owned destinations:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Jump</th><th>Selector source</th><th style="text-align: right">Valid destinations</th></tr>
+</thead>
+<tbody>
+<tr><td><code>38:4390</code></td><td>14 entry wrappers load literal continuations</td><td style="text-align: right">14</td></tr>
+<tr><td><code>38:7244</code></td><td>49-class table at <code>38:4FDB</code>; five rows are zero/invalid</td><td style="text-align: right">27 distinct</td></tr>
+<tr><td><code>02:5675</code></td><td>Five preceding token comparisons load literal targets</td><td style="text-align: right">5</td></tr>
+<tr><td><code>33:4380</code></td><td>Bounds-checked 13-row table at <code>33:4381</code></td><td style="text-align: right">13</td></tr>
+</tbody>
+</table>
+</div>
+<p>The CFG follows those destinations without treating adjacent table bytes as
+instructions. The bounds describe valid interpreter state, not arbitrary
+register or stack corruption. [confirmed]</p>
+<p>The shared statement loop can then do one of three things with the result:</p>
 <ul>
-<li>
-<p><code>Disp</code> / <code>Disp expr</code> — <code>_Disp</code> (<code>37:51D3</code>): sets a “text in display” flag
-(<code>IY+0x0D |= 4</code>), and when the active context is the home/run context
-(<code>cxCurApp == 'D'</code>) it clears graph-style state and cross-page-jumps into the
-paint routine; otherwise <code>RST5</code> (bjump) to the generic display path. Numeric
-results format via <code>_DispOP1A</code> (<code>04:7844</code>) → <code>_CkOP1Real</code>; strings/lists route
-through their formatters. Each <code>Disp</code> item ends with <code>_NewLine</code> (<code>01:5F4A</code>):
-<code>curCol=0</code>, and if <code>curRow+1 &gt;= winBtm</code> it triggers scroll, else <code>curRow++</code>.
-<code>_DispDone</code> (<code>01:69B0</code>) finishes. [confirmed]</p>
-</li>
-<li>
-<p><code>Output(row,col,value</code> — <code>_OutputExpr</code> (<code>03:4AF2</code>, cross-page) writes at an
-absolute (row,col) without scrolling. Handler parses three comma-separated
-args, range-checks row/col, then calls it. [confirmed]</p>
-</li>
-<li>
-<p><code>Input</code> / <code>Prompt</code> — these handlers (page 02) drop into the entry-line
-editor: show the prompt (<code>?</code> for <code>Input</code>, <code>VAR=</code> for <code>Prompt</code>), let the user
-type, tokenize the input, and feed it back through the parser (<code>_ParseInp</code>) to
-store into the target variable. The exact argument-parsing order (byte-traced):</p>
-<ul>
-<li><code>Input</code> dispatch is <code>02:54EF</code> (<code>CP 0xDC</code>) and the body entry <code>02:54F6</code> reached via
-<code>02:641F</code> (<code>CP 0xDC → POP AF; CALL 0x649E; EX DE,HL; JP 0x54F6</code>). Order: (1) check
-for an optional leading argument — a string/<code>Str</code>/<code>"…"</code> prompt <em>or</em> a <code>(row,col)</code>
-pair, comma-terminated; (2) parse the single store target variable; (3) print the
-prompt (<code>?</code> if no custom prompt was given); (4) run the entry-line editor; (5) tokenize +
-<code>_ParseInp</code> the typed text; (6) <code>_MovFrOP1</code>/store into the target. With no args at
-all, <code>Input</code> pauses on the graph screen with a free-moving cursor.</li>
-<li><code>Prompt</code> dispatch is <code>02:562F</code> (<code>CP 0xDD</code>) → <code>02:6699</code>. It is a loop over a
-comma-separated variable list (<code>02:6699 LD DE,1; … ; 02:66BF CALL 0x1942; CP 0x04; JR NZ,error</code> — each list item must classify as a storable real/var, type 4). For
-each variable: resolve its name (<code>02:66AC CALL 0x1DF3</code> then cross-page <code>CALL 0x3A89</code>),
-auto-print “<code>NAME=</code>”, run the editor, parse the typed value, store it, then advance to
-the next comma item. The token sites and loop/validation bytes are [confirmed];
-the entry-line editor internals remain unmapped.</li>
+<li>store it through a parsed variable name;</li>
+<li>write it to <code>Ans</code> through <code>_StoAns</code> (<code>38:6251</code>); or</li>
+<li>pass it to a command or control-flow continuation.</li>
 </ul>
-</li>
-<li>
-<p><code>Menu(</code> — dispatched on page 02 at <code>02:555D</code> (<code>CP 0xE6</code>, → handler pointer
-<code>LD HL,0x6A16; JP 0x5676</code>). Argument order: (1) parse the title string argument;
-(2) then parse (option-string, Lbl-name) pairs, up to 7. <code>_DispMenuTitle</code> (<code>39:4D21</code>)
-draws the title; the handler stores each branch-target <code>Lbl</code>, draws the option rows,
-blocks for a key, and on selection performs a <code>Goto</code>-style jump to the chosen <code>Lbl</code>.
-Token site also <code>38:5A8A</code>. [confirmed]</p>
-</li>
-<li>
-<p><code>Pause</code> — displays (optionally an expression), then spins in a key-read
-loop until <code>[ENTER]</code>; <code>Pause expr,N</code> (2.55MP) scrolls a list/matrix. Sites at
-<code>02:55E7</code>, <code>39:6B8E</code>. [confirmed]</p>
-</li>
-<li>
-<p><code>getKey</code> — non-blocking: reads the current key and returns its code in OP1
-(0 if none). Used as a value inside expressions, so it’s wired as an operand
-token (<code>tGetKey=AD</code>) in the evaluator, not a statement. The keycode read itself is
-the OS system call <code>_GetKey</code> (bcall <code>0x4972</code> → page 06 <code>06:491E</code>); the per-key
-numeric codes returned are the standard TI <code>kXxx</code> constants (e.g. <code>kRight=1</code>,
-<code>kLeft=2</code>, <code>kUp=3</code>, <code>kDown=4</code>, <code>kEnter=5</code>, <code>kClear=9</code>, <code>k0..k9 = 0x8E…</code>).
-<code>37:6700</code> is a fixed-width token-attribute / opcode-template table keyed by token, which
-Ghidra renders as code. Byte-decoding it (<code>FE AD 1C 1B 18 EC 31 00 84 …</code>) shows it begins <code>CP 0xAD</code> (tGetKey) / <code>CP 0x55</code> / <code>CP 0x54</code> and continues as
-records keyed by token (<code>FE xx</code> 1-byte, <code>FB xx</code>/<code>FC xx</code>/<code>F4 89</code> 2-byte tokens — getKey,
-stat/distribution and finance tokens), used by a (de)tokenizer/compiler rather than as a
-key→code map. The keycodes a <code>getKey</code> returns come from <code>_GetKey</code> on page 06, not this table.
-The token-descriptor table at <code>37:6700</code> and the page-06 keycode source are
-[confirmed].</p>
-</li>
-<li>
-<p><code>ClrHome</code> — clears the home-screen text shadow and resets the cursor to
-(0,0). [standard]</p>
-</li>
-</ul>
-<p>The <code>_RunIndicOn</code>/<code>Off</code> (<code>01:6518</code>/<code>6531</code>) busy indicator runs during
-execution: <code>_RunIndicOn</code> sets <code>indicBusy=0xF0</code>, <code>indicCounter=1</code>, enables
-interrupts, sets <code>IY+0x12 |= 1</code>. The interpreter turns it on while a program
-runs and off at <code>Done</code>. [confirmed]</p>
-<hr>
-<h2 id="6-token-dispatch--precedence--summary-confirmed"><a class="header" href="#6-token-dispatch--precedence--summary-confirmed">6. Token dispatch &amp; precedence — summary [confirmed]</a></h2>
-<ol>
-<li><code>parse_cur_tok</code> fetches a token at <code>parsePtr</code>.</li>
-<li><code>chk_tok_end</code> (<code>38:72E0</code>) classifies it into a small class number (<code>&lt;=3</code> operand/expr,
-<code>4</code> = syntax error, others = operator/command). Flagged tokens reclassify via
-<code>set_split_rows</code> (<code>ram:20A0</code>) when <code>IY+9 &amp; 0x80</code>.</li>
-<li><code>parse_cur_err_illegal</code> (<code>38:70F8</code>) validates the current token; its caller (at <code>38:6FBE</code>) then
-maps the token byte to a grammar/precedence class — tokens <code>≥0xF2</code> get <code>+0x12</code> (<code>38:6FBE: ADD A,0x12</code>),
-folding the high token page into the class space.</li>
-<li>The precedence level (<code>cVar4</code> = 1/2/3) selects the production handler base:
-<code>0x4000</code> (base term — the flat handler-pointer table, indexed by token class),
-<code>0x478C</code> (postfix <code>^</code>/<code>!</code>), or <code>0x7175</code> (leaf) — <code>0x478C</code> and <code>0x7175</code> are raw code
-targets inside <code>parse_eval_expr</code> (not defined functions in the live DB), whereas
-<code>0x4000</code> is the pointer table itself. Nesting these realizes precedence.</li>
-<li>Binary ops fold operands via FP RSTs (RST 30h <code>_FPAdd</code>; <code>_FPMult</code>=<code>00:238B</code>, …)
-/ <code>_BinOPExec</code>, leaving the result in <code>OP1</code>.</li>
-<li>Variable tokens become an OP1 name (type byte + name) and resolve via
-<code>_FindSym</code>/<code>_RclVarSym</code> (<a href="#variables--the-vat-variable-allocation-table">Variables &amp; the VAT</a>); store targets (<code>→VAR</code>) resolve through the
-<code>38:7600</code> name scanner (handles <code>[A]</code>/<code>L1</code>/<code>Str1</code>/Y-var/<code>Ans</code> classes,
-<code>_JError(0x8F)</code> on an attempt to store into <code>Ans</code>).</li>
-<li>Statement separators (<code>:</code> and EOL <code>0x3F</code>) end a statement; the loop re-enters
-for the next.</li>
-</ol>
-<p>The sub-tables <code>38:5110</code>/<code>38:5127</code> (<a href="#tokenizer--ti-basic">Tokenizer &amp; TI-BASIC</a>) are small token-class lookups
-(<code>38:5110</code> keys off <code>tDisp(DE)</code>/<code>tOutput(E0)</code> region; <code>38:5127</code> is a paired
-classifier) that the dispatch consults; both tail into <code>RST5</code> (bjump) handlers.</p>
-<hr>
-<h2 id="7-confident-addresses-spaceaddr--name"><a class="header" href="#7-confident-addresses-spaceaddr--name">7. Confident addresses (space:addr → name)</a></h2>
-<pre><code class="language-text">38:5987   _ParseInp                  ; parse/eval entry line or formula
-38:5ab3   parse_eval_expr            ; recursive-descent statement/expr core
-38:59c5   eval_stmt_entry            ; statement-loop variant (shared loop label 38:59C8)
-38:5826   if_else_skip_handler       ; Else-branch skip via block matcher
-38:6f63   if_isg_stmt_handler        ; per-statement If/IS&gt;( dispatch
-38:4130   blockmatch_end_else        ; nest-counting End/Else scanner
-38:4180   parse_scan_tokens          ; skip-to-delimiter (2-byte aware)
-38:4870   goto_lbl_name_scanner      ; scan label name, jump to search
-38:7600   store_target_name_scanner  ; →VAR store-target name scanner (inferred; live DB auto-name is set_tblgraph_draw_xpage)
-38:72da   parse_cur_tok
-38:7248   parse_advance
-38:5cd8   parse_expect_or_err
-38:5b7b   parse_init
-38:758a   _Find_Parse_Formula        ; FindSym + parse stored formula / run prog
-38:6251   _StoAns
-38:679f   _RclAns
-38:74b7   _AnsName                   ; OP1 = Ans name (class 0x72)
-38:623b   _StoSysTok
-38:683e   _RclSysTok
-37:51d3   _Disp                      ; home-screen text display
-03:4af2   _OutputExpr                ; Output( absolute row,col
-04:7844   _DispOP1A                  ; format+display OP1 (real)
-39:4d21   _DispMenuTitle             ; Menu( title bar
-01:5f4a   _NewLine                   ; cursor newline + scroll
-01:69b0   _DispDone                  ; finish a Disp
-01:6518   _RunIndicOn
-01:6531   _RunIndicOff
-01:66e5   _GetTokLen                 ; detokenized display-string length
-01:66ea   _Get_Tok_Strng             ; token -&gt; display string (editor)
+<p><code>_AnsName</code> (<code>38:74B7</code>) constructs the internal name with class byte <code>72h</code>;
+<code>_RclAns</code> (<code>38:679F</code>) recalls it through the ordinary variable machinery.
+[confirmed]</p>
+<h2 id="variable-identity-and-value-payload-are-separate"><a class="header" href="#variable-identity-and-value-payload-are-separate">Variable identity and value payload are separate</a></h2>
+<p>The parser first builds a variable-name descriptor in <code>OP1</code>. The descriptor’s
+type byte selects a VAT object class and the following bytes encode the token or
+name. <code>findsym_scan</code> (<code>07:565F</code>) resolves that identity to a VAT entry and data
+pointer; only then does the recall path copy or address the value payload.
+[confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Object class</th><th>Type</th><th>Payload used by BASIC</th></tr>
+</thead>
+<tbody>
+<tr><td>Real</td><td><code>00h</code></td><td>One 9-byte <code>TIFloat</code></td></tr>
+<tr><td>Real list</td><td><code>01h</code></td><td>2-byte length, then 9-byte elements</td></tr>
+<tr><td>Matrix</td><td><code>02h</code></td><td>Two dimensions, then 9-byte elements</td></tr>
+<tr><td>String</td><td><code>04h</code></td><td>2-byte length, then token/character bytes</td></tr>
+<tr><td>Program</td><td><code>05h</code></td><td>2-byte length, then token bytes</td></tr>
+<tr><td>Protected program</td><td><code>06h</code></td><td>Program payload with protected edit semantics</td></tr>
+<tr><td>Complex list</td><td><code>0Dh</code></td><td>2-byte length, then complex elements</td></tr>
+</tbody>
+</table>
+</div>
+<pre class="mermaid">flowchart LR
+    T["name token"] --&gt; N["OP1 name descriptor"]
+    N --&gt; V["07:565F&lt;br/&gt;VAT scan"]
+    V --&gt;|"recall"| P["typed payload"]
+    P --&gt; R["OP1 value or element address"]
+    R --&gt; A["FP/list/matrix operation"]
+    A --&gt;|"store"| S["create, resize, or replace VAT payload"]
+</pre>
+
+<p>Scalar arithmetic copies a 9-byte value into the OP registers. List and matrix
+access instead checks the container type and dimensions, computes one element
+address, and moves that element through <code>OP1</code>. Stores can therefore fail before
+arithmetic runs: name lookup, type compatibility, dimensions, and allocation
+are distinct boundaries. [confirmed]</p>
+<h2 id="statements-end-locally-blocks-scan-structurally"><a class="header" href="#statements-end-locally-blocks-scan-structurally">Statements end locally; blocks scan structurally</a></h2>
+<p>A false single-line <code>If</code> only has to skip one statement. A false <code>If ... Then</code>,
+<code>While</code>, <code>Repeat</code>, or <code>For(</code> must find a matching structural boundary without
+executing the intervening tokens. That is the purpose of
+<code>blockmatch_end_else</code> (<code>38:4130</code>). [confirmed]</p>
+<pre><code class="language-pseudocode">find_matching_boundary():
+  depth = 0
+  loop:
+    token = current_token()
+
+    if token == Else and depth == 0: return Else
+    if token == End  and depth == 0: return End
+    if token == End:                    depth -= 1
+    if token in {For, While, Repeat}:   depth += 1
+
+    if token == If:
+      scan_to_delimiter()
+      if current_token() == Then:       depth += 1
+
+    scan_to_delimiter()
 </code></pre>
-<p>I/O command token-handler sites (page 02 = the command-exec page; dispatched
-from the page-38 evaluator via cross-page jump):</p>
-<pre><code class="language-text">02:54ef   input_cmd_handler  (tInput DC)
-02:562f   prompt_cmd_handler (tPrompt DD)
-02:555d   menu_cmd_handler   (tMenu E6)
-02:55e7   pause_cmd_handler  (tPause D8)
-02:673e   output_cmd_handler (tOutput E0)
-38:6ae6   output_dispatch    (CP E0 in evaluator)
+<p>The distinction between <code>If condition</code> and <code>If condition:Then</code> is structural:
+only the latter opens a block. Nested <code>Else</code> tokens are ignored until the depth
+returns to zero. The comparisons and counter changes are visible at
+<code>38:4137–417E</code>; the counter is the 16-bit <code>DE</code> register. [confirmed]</p>
+<h3 id="natural-loops-use-a-page-38-ops-record"><a class="header" href="#natural-loops-use-a-page-38-ops-record">Natural loops use a page-38 OPS record</a></h3>
+<p>The public page-33 routine behind bcall <code>grf_435f = 5140h</code> subtracts <code>20h</code>,
+accepts 13 indices, and jumps through the table at <code>33:4381</code>. Three ABI probes
+confirm both bounds outcomes at <code>33:436D</code> and <code>33:4372</code>, but natural stored
+programs do not enter it. It is not the <code>For(</code>/<code>End</code> transition. [confirmed]</p>
+<p>Natural <code>For(</code> execution reaches grammar-table destination <code>38:41E5</code>. Natural
+<code>End</code> execution reaches <code>38:4200</code>, which consumes a five-byte record from the
+operator stack at <code>OPS + 1</code>. The observed bytes use this order: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Offset</th><th>First <code>End</code></th><th>Later <code>End</code> visits</th><th>Role</th></tr>
+</thead>
+<tbody>
+<tr><td><code>+0</code></td><td><code>00h</code></td><td><code>00h</code></td><td>Sentinel consumed by <code>38:4200</code></td></tr>
+<tr><td><code>+1..+2</code></td><td><code>36 58</code></td><td><code>7D 58</code></td><td>Little-endian continuation <code>38:5836</code> or <code>38:587D</code></td></tr>
+<tr><td><code>+3..+4</code></td><td><code>12 00</code></td><td><code>12 00</code></td><td>Stable state word <code>0012h</code></td></tr>
+</tbody>
+</table>
+</div>
+<pre class="mermaid">flowchart LR
+    F["For( token"] --&gt; P["38:41E5&lt;br/&gt;create production state"]
+    P --&gt; B["execute loop body"]
+    B --&gt; E["End token&lt;br/&gt;38:4200"]
+    E --&gt; O["pop sentinel + continuation + state word"]
+    O --&gt; I["38:5836&lt;br/&gt;first update"]
+    O --&gt; S["38:587D&lt;br/&gt;steady update"]
+    I --&gt; B
+    S --&gt; B
+</pre>
+
+<p>The continuation path resolves the loop variable through the VAT, applies the
+floating-point increment, compares the updated value, and either revisits the
+body or removes the record. The paired trace confirms the record bytes and the
+two continuations. The complete layout of the associated limit, step, and
+temporary floating-point values is not yet decoded. [confirmed]</p>
+<p>The optional closing <code>)</code> in <code>For(</code> changes marker-to-marker work and parser
+buffer state. Neither spelling reaches the page-02 finalization gate in the
+paired trace, so the exact causal transition remains open. The measured effect
+is covered in <a href="#ti-basic-for-parenthesis-trap">the <code>For(</code> parenthesis trap</a>.</p>
+<h3 id="labels-rescan-instead-of-indexing"><a class="header" href="#labels-rescan-instead-of-indexing">Labels rescan instead of indexing</a></h3>
+<p><code>goto_lbl_name_scanner</code> (<code>38:4870</code>) reads the label name after <code>Goto</code> or <code>Lbl</code>.
+The search path at <code>38:7600</code> rescans the program body for a matching <code>Lbl</code>, then
+moves <code>nextParseByte</code> to it. This explains both the linear cost of <code>Goto</code> and
+why jumping out of structured loops can bypass normal loop cleanup. The token
+and name-scanning path is [confirmed]; the complexity and stack consequence are
+standard TI-BASIC behavior.</p>
+<h2 id="program-calls-share-data-but-preserve-parser-control"><a class="header" href="#program-calls-share-data-but-preserve-parser-control">Program calls share data but preserve parser control</a></h2>
+<p><code>prgmNAME</code> resolves another <code>ProgObj</code>, saves the caller’s interpreter state,
+and evaluates the callee body. It does not create a local variable frame.
+Scalars, lists, strings, and <code>Ans</code> remain global, so they form the practical
+calling convention. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Event</th><th>Effect</th></tr>
+</thead>
+<tbody>
+<tr><td><code>prgmNAME</code></td><td>Enter the callee with a nested parser/control frame</td></tr>
+<tr><td><code>Return</code></td><td>Unwind one BASIC program frame and resume the caller</td></tr>
+<tr><td>End of body</td><td>Return through the same program-frame machinery</td></tr>
+<tr><td><code>Stop</code></td><td>Terminate the whole BASIC program chain</td></tr>
+</tbody>
+</table>
+</div>
+<p>The run-confirmed callee transition passes through <code>38:6910</code>, calls at
+<code>38:6914</code>, and enters the body evaluator at <code>38:778F</code>. The public parser bcalls
+are not substitutes for that prepared state: calling <code>_ParseInpLastEnt</code> or
+<code>_Find_Parse_Formula</code> from an arbitrary <code>AsmPrgm</code> reaches parser setup but not a
+working BASIC call frame. The negative fixtures end at <code>ERR:INVALID</code> and
+<code>ERR:UNDEFINED</code>, respectively. [confirmed]</p>
+<p>For source-level conventions and the <code>Ans</code>/scalar/list calling fixture, see
+<a href="#subprogram-interfaces">TI-BASIC programming patterns</a>.</p>
+<h2 id="commands-parse-arguments-then-hand-off"><a class="header" href="#commands-parse-arguments-then-hand-off">Commands parse arguments, then hand off</a></h2>
+<p>Commands use the same expression evaluator for arguments and then cross to a
+specialized subsystem. The important boundary is between argument parsing and
+the operation itself:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Command</th><th>Parse/dispatch evidence</th><th>Downstream operation</th></tr>
+</thead>
+<tbody>
+<tr><td><code>Disp</code></td><td>page-38 statement handler</td><td><code>_Disp</code> at <code>37:51D3</code>, then <code>_NewLine</code></td></tr>
+<tr><td><code>Output(</code></td><td><code>38:6AE6</code>, page-02 handler</td><td><code>_OutputExpr</code> at <code>03:4AF2</code></td></tr>
+<tr><td><code>Input</code></td><td><code>02:54EF</code></td><td>entry editor, <code>_ParseInp</code>, variable store</td></tr>
+<tr><td><code>Prompt</code></td><td><code>02:562F</code></td><td>repeated named-variable entry and store</td></tr>
+<tr><td><code>Menu(</code></td><td><code>02:555D</code></td><td><code>_DispMenuTitle</code> at <code>39:4D21</code>, then label transfer</td></tr>
+<tr><td><code>Pause</code></td><td><code>02:55E7</code></td><td>display and key-wait loop</td></tr>
+<tr><td><code>getKey</code></td><td>expression token <code>ADh</code></td><td>non-blocking <code>_GetKey</code> bcall <code>4972h</code></td></tr>
+</tbody>
+</table>
+</div>
+<p><code>Input</code> accepts either an optional prompt string or a row/column prefix before
+one store target. <code>Prompt</code> loops over comma-separated variables and generates
+the <code>NAME=</code> labels itself. <code>Menu(</code> parses a title followed by option-string and
+label pairs. These argument-order boundaries are [confirmed]; the entry
+editor’s internal cursor and redraw state are not yet mapped.</p>
+<p><code>getKey</code> is an expression value, not a statement. The table at <code>37:6700</code> is a
+token-attribute table; returned key codes come from <code>_GetKey</code> on page 06. This
+distinction prevents a common false inference from the nearby <code>CP ADh</code> bytes.
+[confirmed]</p>
+<h2 id="errors-unwind-saved-relative-stack-state"><a class="header" href="#errors-unwind-saved-relative-stack-state">Errors unwind saved relative stack state</a></h2>
+<p>The error entries first select an error code, then join the common path at
+<code>00:270A</code>. For example, <code>_ErrDivBy0</code> at <code>00:26EC</code> selects <code>82h</code>, while the
+syntax entry at <code>00:2700</code> selects <code>88h</code>. Natural <code>Disp 1/0</code> and <code>Disp 1+</code>
+traces reach those entries, respectively. [confirmed]</p>
+<p>The entry identifies the error message, but its incoming guard identifies the
+cause. Twelve natural programs separate all six numeric error entries into 12
+guard paths. This table groups related paths so the mechanism stays visible:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Program</th><th>Originating guard</th><th>Predicate</th><th>Error shim</th></tr>
+</thead>
+<tbody>
+<tr><td><code>Disp 1/0</code></td><td><code>00:2548–254B</code></td><td>divisor in OP1 is zero</td><td><code>_ErrDivBy0</code> at <code>00:26EC</code></td></tr>
+<tr><td><code>Disp 10^100</code></td><td><code>02:7076–7078</code>, then <code>02:7053–7059</code></td><td>positive exponent argument is at least 100</td><td><code>_ErrOverflow</code> at <code>00:26E8</code></td></tr>
+<tr><td><code>Disp 1E99*1E99</code></td><td><code>00:2513–251D</code></td><td>adjusted sum of biased decimal exponents overflows</td><td><code>_ErrOverflow</code> at <code>00:26E8</code></td></tr>
+<tr><td><code>Disp ln(0)</code></td><td><code>02:6F1E</code>, then <code>00:212D–2131</code></td><td>logarithm operand in OP1 is zero</td><td><code>_ErrDomain</code> at <code>00:26F4</code></td></tr>
+<tr><td><code>Disp sin⁻¹(2)</code> / <code>cos⁻¹(2)</code></td><td><code>02:76F1–76F5</code> / <code>02:76DF–76E2</code></td><td>operand lies outside $[-1,1]$</td><td><code>_ErrDomain</code> at <code>00:26F4</code></td></tr>
+<tr><td><code>Disp (-1)!</code> / <code>(-1) nCr 1</code></td><td><code>35:79CF–79D2</code> / <code>02:4FC8</code>, then <code>00:2125–211D</code></td><td>operand fails the operation’s sign or integer check</td><td><code>_ErrDomain</code> at <code>00:26F4</code></td></tr>
+<tr><td><code>Disp sqrt(-1)</code></td><td><code>00:1B8F–1B93</code></td><td>a complex result reaches the real-mode guard</td><td><code>_ErrNon_Real</code> at <code>00:26FC</code></td></tr>
+<tr><td><code>Disp [[1,2][2,4]]⁻¹</code></td><td><code>02:439C–43A5</code></td><td>the pivot helper rejects the rank-deficient matrix</td><td><code>_ErrSingularMat</code> at <code>00:26F0</code></td></tr>
+<tr><td><code>For(I,1,3,0)</code> / <code>For(I,1E99,1E99)</code></td><td><code>37:4268–426B</code> / <code>38:586D–5876</code></td><td>the step is zero / adding it makes no progress</td><td><code>_ErrIncrement</code> at <code>00:26F8</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The two OVERFLOW rows reach the same shim through different predicates. A trace
+that records only <code>00:26E8</code> therefore merges distinct numeric behavior. The
+compact numeric-error report retains the ordered guard path, the register state
+after each guard instruction, and the final error code in <code>A</code>. [confirmed]</p>
+<p>A whole-ROM direct-reference scan finds 114 candidate <code>CALL</code> or <code>JP</code> operands
+to the six shims. The natural corpus reaches 11 distinct direct callers:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Error entry</th><th style="text-align: right">Direct-reference candidates</th><th style="text-align: right">Witnessed callers</th></tr>
+</thead>
+<tbody>
+<tr><td><code>_ErrOverflow</code> at <code>00:26E8</code></td><td style="text-align: right">9</td><td style="text-align: right">2</td></tr>
+<tr><td><code>_ErrDivBy0</code> at <code>00:26EC</code></td><td style="text-align: right">2</td><td style="text-align: right">1</td></tr>
+<tr><td><code>_ErrSingularMat</code> at <code>00:26F0</code></td><td style="text-align: right">3</td><td style="text-align: right">1</td></tr>
+<tr><td><code>_ErrDomain</code> at <code>00:26F4</code></td><td style="text-align: right">91</td><td style="text-align: right">4</td></tr>
+<tr><td><code>_ErrIncrement</code> at <code>00:26F8</code></td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
+<tr><td><code>_ErrNon_Real</code> at <code>00:26FC</code></td><td style="text-align: right">3</td><td style="text-align: right">1</td></tr>
+</tbody>
+</table>
+</div>
+<p>These 114 sites are linear-disassembly candidates, not 114 established
+predicates. The scan can decode data as instructions. It also omits indirect
+transfers and helpers that load an error code before entering the common path.
+The report preserves that distinction. [confirmed]</p>
+<pre class="mermaid">flowchart LR
+    S["TI-BASIC expression"] --&gt; E["operator evaluator"]
+    E --&gt; G["numeric guard&lt;br/&gt;zero, range, or exponent"]
+    G --&gt; R["shared error shim&lt;br/&gt;00:26E8–2708"]
+    R --&gt; C["00:270A&lt;br/&gt;common error path"]
+    C --&gt; U["restore OPS, FPS,&lt;br/&gt;error SP, and page"]
+</pre>
+
+<p>The shared context wrapper at <code>00:27DA</code> does not save absolute <code>FPS</code> and <code>OPS</code>
+pointers. It saves each pointer as a delta from the corresponding base at
+<code>0x9822</code> or <code>0x9826</code>, together with the previous error stack and mapped page.
+The unwind path at <code>00:27BB–27D9</code> restores them in reverse order. [confirmed]</p>
+<pre><code class="language-pseudocode">save_error_context(target):
+  push current_flash_page
+  push previous_error_stack
+  push FPS - word_at(0x9822)
+  push OPS - word_at(0x9826)
+  error_stack = SP
+  jump target
+
+unwind_error(error_code):
+  SP = error_stack
+  OPS = word_at(0x9826) + pop_word()
+  FPS = word_at(0x9822) + pop_word()
+  error_stack = pop_word()
+  restore_flash_page(pop_word())
+  return error_code
 </code></pre>
-<hr>
-<h2 id="8-dynamic-confirmation-and-traceable-examples"><a class="header" href="#8-dynamic-confirmation-and-traceable-examples">8. Dynamic confirmation and traceable examples</a></h2>
-<p>The current headless trace workflow confirms the parser/evaluator path with both
-homescreen input and stored programs. A full-range TilEm trace of <code>2+3</code> on the
-homescreen reaches page-38 parser functions including <code>eval_stmt_entry</code>
-(<code>38:59C5</code>), <code>parse_eval_expr</code> (<code>38:5AB3</code>), <code>parse_init</code> (<code>38:5B7B</code>),
-<code>parse_advance</code> (<code>38:7248</code>), <code>chk_tok_end</code> (<code>38:72E0</code>), and <code>_StoAns</code>
-(<code>38:6251</code>).</p>
-<p>The stored-program samples in <code>tools/tibasic-samples/</code> are generated with
-<code>tools/tibasic_samples.py --write-dir tools/tibasic-samples</code>. Each sample has
-readable <code>.bas</code>, hex-text <code>.tok</code>, and loadable <code>.8xp</code> forms. The <code>.8xp</code>
-validation traces below were run on 2026-06-06/07 against OS 2.55MP in
-<code>tools/rom.bin</code> with a local headless TilEm patch that loads command-line <code>.8xp</code>
-files before running the macro; the traces therefore include startup
-link-transfer code as well as interpreter execution.</p>
-<h3 id="hello-world"><a class="header" href="#hello-world">Hello world</a></h3>
-<pre><code class="language-ti-basic">ClrHome
-Disp "HELLO, WORLD"
-</code></pre>
-<p>Body bytes:</p>
-<pre><code class="language-text">E1 3F DE 2A 48 45 4C 4C 4F 2B 29 57 4F 52 4C 44 2A 3F
-</code></pre>
-<p>Observed run: <code>HELLO.8xp</code> displays <code>HELLO, WORLD</code> and then <code>Done</code>. The trace hits
-<code>eval_stmt_entry</code>, <code>parse_refill</code>, <code>parse_advance</code>, and <code>_Disp</code> (<code>37:51D3</code>).</p>
-<h3 id="factorial-loop"><a class="header" href="#factorial-loop">Factorial loop</a></h3>
-<pre><code class="language-ti-basic">Prompt N
-1-&gt;F
-For(I,1,N)
-F*I-&gt;F
-End
-Disp F
-</code></pre>
-<p>Body bytes:</p>
-<pre><code class="language-text">DD 4E 3F 31 04 46 3F D3 49 2B 31 2B 4E 11 3F 46 82 49 04 46 3F D4 3F DE 46 3F
-</code></pre>
-<p>Observed run: <code>FACTOR.8xp</code> with prompt input <code>5</code> displays <code>N=5</code>, result <code>120</code>,
-and then <code>Done</code>. The trace hits <code>eval_stmt_entry</code>, page-38 parser/refill paths,
-<code>_FPMult</code> (<code>ram:238B</code>), and <code>_Disp</code> (<code>37:51D3</code>).</p>
-<h3 id="listdata-manipulation"><a class="header" href="#listdata-manipulation">List/data manipulation</a></h3>
-<pre><code class="language-ti-basic">{3,1,4,1,5}-&gt;L1
-SortA(L1)
-cumSum(L1)-&gt;L2
-sum(L1)-&gt;S
-Disp L1
-Disp L2
-Disp S
-</code></pre>
-<p>Body bytes:</p>
-<pre><code class="language-text">08 33 2B 31 2B 34 2B 31 2B 35 09 04 5D 00 3F E3 5D 00 11 3F BB 29 5D 00 11 04 5D 01 3F B6 5D 00 11 04 53 3F DE 5D 00 3F DE 5D 01 3F DE 53 3F
-</code></pre>
-<p>Observed run: <code>DATA.8xp</code> displays sorted <code>L1</code> as <code>{1 1 3 4 5}</code>, cumulative <code>L2</code>
-as <code>{1 2 5 9 14}</code>, sum <code>14</code>, and then <code>Done</code>. The trace hits 2-byte/list paths
-including <code>resolve_2byte_var2</code>, <code>chk_list_type</code>, <code>store_list_elem*</code>,
-<code>list_var_index</code>, and <code>list_fold_dispatch</code> (<code>02:6104</code>).</p>
-<h3 id="asm-smoke-test"><a class="header" href="#asm-smoke-test"><code>Asm(</code> smoke test</a></h3>
-<p>Safe <code>Asm(</code> tracing uses a program that returns immediately:</p>
-<pre><code class="language-ti-basic">AsmPrgm
-C9
-</code></pre>
-<p><code>C9</code> is Z80 <code>RET</code>. A BASIC wrapper can show that control returns to TI-BASIC:</p>
-<pre><code class="language-ti-basic">Disp "BEFORE"
-Asm(prgmASMRET)
-Disp "AFTER"
-</code></pre>
-<p>Raw bodies:</p>
-<pre><code class="language-text">ASMRET:  BB 6C 3F 43 39 3F
-ASMCALL: DE 2A 42 45 46 4F 52 45 2A 3F BB 6A 5F 41 53 4D 52 45 54 11 3F DE 2A 41 46 54 45 52 2A 3F
-</code></pre>
-<p><code>Asm(</code> is the 2-byte token <code>BB 6A</code>; <code>AsmPrgm</code> is <code>BB 6C</code>; the displayed <code>prgm</code>
-prefix in <code>Asm(prgmASMRET)</code> is the program-name token <code>0x5F</code>, followed by the
-name characters and the closing <code>)</code> token. Observed run: loading <code>ASMCALL.8xp</code>
-and <code>ASMRET.8xp</code> displays <code>BEFORE</code>, executes <code>Asm(prgmASMRET)</code>, displays
-<code>AFTER</code>, and then <code>Done</code>. The trace shows the <code>Asm(</code> handler parse the
-<code>prgmASMRET</code> token stream, bcall <code>_ExecutePrgm</code> (<code>4E7C</code>, target <code>07:5758</code>),
-compile/copy the <code>AsmPrgm</code> body, hand off through <code>07:57B4</code>, and execute the
-payload byte itself at <code>ram:9D95 op=0x000000C9</code>, returning to BASIC immediately
-after. This <code>_ExecutePrgm</code> route is the ASM executor; it is not the ordinary
-BASIC <code>prgmNAME</code> subprogram path.</p>
-<p><code>ASMBRIDG.8xp</code> demonstrates a cooperative ASM-directed BASIC callback that
-routes through a BASIC variable. The wrapper runs:</p>
-<pre><code class="language-ti-basic">Disp "BEFORE"
-Asm(prgmASMSIG)
-If Ans
-prgmZZBASIC
-Disp "AFTER"
-</code></pre>
-<p>with <code>ASMSIG.8xp</code>:</p>
-<pre><code class="language-ti-basic">AsmPrgm
-EF9B41EFBF4AC9
-</code></pre>
-<p>and target:</p>
-<pre><code class="language-ti-basic">Disp "CALLED"
-</code></pre>
-<p>The payload bytes are <code>rst 28h; .dw 419B</code> (<code>_OP1Set1</code>), <code>rst 28h; .dw 4ABF</code>
-(<code>_StoAns</code>), <code>ret</code>. Observed run: loading <code>ASMBRIDG.8xp</code>, <code>ASMSIG.8xp</code>, and
-<code>ZZBASIC.8xp</code> displays <code>BEFORE</code>, <code>CALLED</code>, <code>AFTER</code>, then <code>Done</code>. The trace
-hits the <code>AsmPrgm</code> payload at <code>ram:9D95</code>, <code>_OP1Set1</code> (<code>00:1B38</code>), <code>_StoAns</code>
-(<code>38:6251</code>), <code>_AnsName</code> (<code>38:74B7</code>) during <code>If Ans</code>, and the ordinary
-<code>prgmZZBASIC</code> body evaluator path (<code>38:6910</code> → <code>38:6914</code> → <code>38:778F</code>).
-This is the practical callback convention: ASM returns a value through a BASIC
-variable, and BASIC performs the actual program call.</p>
-<p><code>ASMRTN.8xp</code> demonstrates the same <code>Ans</code> convention as a numeric return value:</p>
-<pre><code class="language-ti-basic">Asm(prgmASMVAL)
-Ans+3-&gt;A
-Disp A
-</code></pre>
-<p>with <code>ASMVAL.8xp</code>:</p>
-<pre><code class="language-ti-basic">AsmPrgm
-EFA741EFBF4AC9
-</code></pre>
-<p>The payload bytes are <code>rst 28h; .dw 41A7</code> (<code>_OP1Set2</code>), <code>rst 28h; .dw 4ABF</code>
-(<code>_StoAns</code>), <code>ret</code>. Observed run: loading <code>ASMRTN.8xp</code> and <code>ASMVAL.8xp</code>
-displays <code>5</code>, then <code>Done</code>. The trace hits <code>ram:9D95</code>, <code>_OP1Set2</code> (<code>00:1B50</code>),
-<code>_StoAns</code> (<code>38:6251</code>), <code>_AnsName</code> while evaluating <code>Ans+3</code>, <code>_FPAdd</code>, and
-<code>_Disp</code>. This confirms that <code>Ans</code> is a practical scalar return channel from an
-<code>AsmPrgm</code> back into BASIC.</p>
-<h3 id="animation-graphing-and-basic-subprogram-calls"><a class="header" href="#animation-graphing-and-basic-subprogram-calls">Animation, graphing, and BASIC subprogram calls</a></h3>
-<p>Additional generated fixtures extend coverage beyond arithmetic/list samples:</p>
-<pre><code class="language-ti-basic">ClrHome
-For(I,1,8)
-Output(1,I,"X")
-End
-Disp "DONE"
-</code></pre>
-<p>Observed run: <code>ANIMTXT.8xp</code> displays a row of <code>X</code> characters, <code>DONE</code>, and then
-<code>Done</code>. The trace hits <code>_OutputExpr</code> (<code>03:4AF2</code>), page-38 parser/loop paths,
-<code>_Disp</code>, and LCD text routines.</p>
-<pre><code class="language-ti-basic">ClrDraw
-0-&gt;Xmin
-94-&gt;Xmax
-0-&gt;Ymin
-62-&gt;Ymax
-Line(0,0,94,62)
-Line(0,31,94,31)
-Line(47,0,47,62)
-Circle(47,31,10)
-Text(0,0,"DFS")
-DispGraph
-</code></pre>
-<p>Observed run: <code>GRAPHV.8xp</code> ends on the graph screen with <code>DFS</code>, axes, a circle,
-and a diagonal line visible. The trace hits <code>_GrBufClr</code>, <code>_StoSysTok</code>, <code>_ILine</code>
-(<code>04:4029</code>), <code>graph_pixel_op</code>, <code>_IPoint</code>, and <code>_PDspGrph</code> (<code>04:7904</code>).</p>
-<pre><code class="language-ti-basic">ClrDraw
-0-&gt;Xmin
-94-&gt;Xmax
-0-&gt;Ymin
-62-&gt;Ymax
-Line(10,44,35,54)
-Line(10,44,35,14)
-Line(35,54,55,29)
-Circle(10,44,3)
-Circle(35,54,3)
-Circle(35,14,3)
-Circle(55,29,3)
-Text(16,8,"1")
-Text(6,33,"2")
-Text(46,33,"3")
-Text(31,53,"4")
-DispGraph
-</code></pre>
-<p>Observed run: <code>GRAPHDFS.8xp</code> draws the DFS sample’s four-node topology on the
-graph screen: nodes <code>1</code>, <code>2</code>, <code>3</code>, and <code>4</code> with edges <code>1-2</code>, <code>1-3</code>, and <code>2-4</code>.
-The trace hits <code>_ILine</code> (<code>04:4029</code>), <code>graph_pixel_op</code>, <code>_IPoint</code>, small-font
-glyph rendering, <code>_PDspGrph</code> (<code>04:7904</code>), <code>_StoSysTok</code> window stores,
-<code>_RestoreDisp</code>, and page-38 statement evaluation.</p>
-<p><code>GRAPHLST.8xp</code> draws the same topology from list data. It stores edge endpoint
-coordinates in <code>L1</code>–<code>L4</code>, stores node centers in <code>L5</code> and <code>L6</code>, then loops over
-those lists:</p>
-<pre><code class="language-ti-basic">For(I,1,3)
-Line(L1(I),L2(I),L3(I),L4(I))
-End
-For(I,1,4)
-Circle(L5(I),L6(I),3)
-End
-</code></pre>
-<p>Observed run: the final frame matches the <code>GRAPHDFS</code> topology and passes the
-same node/edge crop-region checks. The trace hits <code>list_var_index</code>,
-<code>_GetLToOP1</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_PDspGrph</code>, and <code>_StoSysTok</code>, confirming a
-list-driven graph visualization path rather than only hard-coded draw
-coordinates.</p>
-<pre><code class="language-ti-basic">0-&gt;A
-prgmSUBRT
-Disp A
-</code></pre>
-<p>with callee:</p>
-<pre><code class="language-ti-basic">Disp "SUB"
-A+1-&gt;A
-Return
-</code></pre>
-<p>Observed run: loading <code>CALLSUB.8xp</code> and <code>SUBRT.8xp</code> displays <code>SUB</code>, then <code>1</code>,
-then <code>Done</code>. This confirms the practical BASIC calling convention: caller and
-callee share variables, and <code>Return</code> resumes the caller. The trace hits VAT/name
-lookup, parser entry/refill paths, the program-body evaluator call at <code>38:6914</code>
-into <code>eval_eqn_recursive</code> (<code>38:778F</code>), shared <code>A</code> store/recall, and <code>_Disp</code>.</p>
-<p><code>ABICALL.8xp</code> and <code>ABISUB.8xp</code> exercise more of that convention:</p>
-<pre><code class="language-ti-basic">{2,4,6}-&gt;L1
-7
-prgmABISUB
-Disp A
-Disp L1
-Disp Ans
-</code></pre>
-<p>with callee:</p>
-<pre><code class="language-ti-basic">Ans+L1(2)-&gt;A
-9-&gt;L1(3)
-A
-Return
-</code></pre>
-<p>Observed run: the caller displays <code>11</code>, <code>{2 4 9}</code>, <code>11</code>, then <code>Done</code>. The callee
-reads the caller’s <code>Ans</code> and <code>L1</code>, writes shared scalar <code>A</code>, mutates shared
-<code>L1</code>, leaves <code>Ans</code> as <code>11</code> by evaluating <code>A</code>, and returns. The trace hits the
-BASIC subprogram body path plus <code>_AnsName</code> and list store paths, so this is a
-confirmed scalar/list/<code>Ans</code> ABI fixture.</p>
-<p><code>CALLSTOP.8xp</code> and <code>STOPSUB.8xp</code> cover the non-returning subprogram case:</p>
-<pre><code class="language-ti-basic">Disp "BEFORE"
-prgmSTOPSUB
-Disp "AFTER"
-</code></pre>
-<p>with callee:</p>
-<pre><code class="language-ti-basic">Disp "STOP"
-Stop
-</code></pre>
-<p>Observed run: the caller displays <code>BEFORE</code>, the callee displays <code>STOP</code>, and the
-homescreen displays <code>Done</code>; caller text <code>AFTER</code> does not appear. The smoke
-runner checks the <code>BEFORE</code>, <code>STOP</code>, and <code>Done</code> regions, plus a bounded low-pixel
-region where <code>AFTER</code> would appear if execution resumed. The trace reaches the
-BASIC subprogram body path and <code>_Disp</code>, so this confirms that <code>Stop</code> terminates
-the whole BASIC program chain instead of returning to the caller.</p>
-<p>The ordinary BASIC subprogram path is separate from <code>Asm(</code>. In the validated
-trace it does not hit <code>_ParsePrgmName</code>, <code>_ExecutePrgm</code>, <code>_Find_Parse_Formula</code>,
-or <code>_SetParseVarProg</code>; it uses the page-38 parser/VAT/body evaluator path and
-then either resumes the caller through BASIC’s own <code>Return</code> handling or exits
-the caller chain through <code>Stop</code>.</p>
-<p><code>ASMFIND.8xp</code> and <code>ZZFIND.8xp</code> prove the narrower ASM-side lookup case. The
-payload builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym</code>; the trace
-hits <code>ram:9D95</code> and <code>findsym_scan</code>, then the BASIC wrapper displays <code>AFTER</code> and
-<code>Done</code>. <code>ZZBASIC</code>’s <code>CALLED</code> line does not display, so lookup is confirmed but
-execution is not.</p>
-<p><code>ASMPARSE.8xp</code> and <code>ZZPARSE.8xp</code> turn that boundary into a negative fixture.
-The payload uses the same <code>OP1={ProgObj,"ZZBASIC"}</code> setup as <code>ZZFIND</code>, but
-bcalls <code>_ParseInpLastEnt</code> instead. The trace reaches <code>_ParseInpLastEnt</code>,
-<code>_ParseInp</code>, <code>parseinp_find_setup</code>, <code>findsym_scan</code>, <code>parse_init</code>, and
-<code>eval_stmt_entry</code>; the final screen is <code>ERR:INVALID</code> / <code>1:Quit</code> / <code>2:Goto</code>, and
-<code>ZZBASIC</code>’s <code>CALLED</code> line does not display.</p>
-<p><code>ASMFORM.8xp</code> and <code>ZZFORM.8xp</code> turn the <code>_Find_Parse_Formula</code> boundary into the
-same kind of generated negative fixture. The payload again builds
-<code>OP1={ProgObj,"ZZBASIC"}</code>, but bcalls <code>_Find_Parse_Formula</code> (<code>4AF2</code>, target
-<code>38:758A</code>). The trace reaches <code>ram:9D95</code>, <code>_Find_Parse_Formula</code>,
-<code>parse_init_findsym</code>, <code>findsym_scan</code>, and <code>eval_stmt_entry</code>; the final screen is
-<code>ERR:UNDEFINED</code> / <code>1:Quit</code> / <code>2:Goto</code>, and <code>ZZBASIC</code>’s <code>CALLED</code> line does not
-display.</p>
-<p>The full <code>CALLSUB</code> smoke trace does hit <code>_ParseInpLastEnt</code>/<code>_ParseInp</code> once,
-because the macro starts the program by submitting <code>prgmCALLSUB</code> from the
-homescreen. That launch parse resolves the top-level program and seeds the
-private parser RAM. It does not make <code>_ParseInpLastEnt</code> a reusable
-ASM-to-BASIC ABI: <code>ASMPARSE</code> shows that calling <code>_ParseInpLastEnt</code> with only
-<code>OP1={ProgObj,"ZZBASIC"}</code> reaches <code>ERR:INVALID</code> instead of the target program.</p>
-<p>The relevant page-38 evaluator transition is private state, not a bcall ABI:
-<code>stmt_eval_body_entry</code> (<code>38:6910</code>) calls the token scanner, then
-<code>call_eval_eqn_recursive</code> (<code>38:6914</code>) directly calls <code>eval_eqn_recursive</code>
-(<code>38:778F</code>). At the first observed hit in the <code>CALLSUB</code> trace, the parser
-cursor/end, OPS/temp-stack pointers, OP1, stack depth, and IY parser flags are
-already live. This is why <code>ASMFIND</code> can successfully <code>_ChkFindSym</code> a BASIC
-program name, but <code>ASMFORM</code> still reaches <code>ERR:UNDEFINED</code> instead of running
-that program through <code>_Find_Parse_Formula</code>.</p>
-<p>The <code>_ParseInpLastEnt</code> fixture narrows the parser-entry boundary further:
-<code>_ParseInp</code> variants are not byte-stream program-call ABIs; they expect
-parser/FPS stack state that a live BASIC caller has already established.</p>
-<p>The forced-command/edit-buffer path is another boundary, not an ABI. A temporary
-<code>AsmPrgm</code> that calls <code>_JForceCmd(kEnter)</code> reaches <code>_JForceCmd</code> (<code>00:0747</code>) but
-does not return to the BASIC wrapper; the final screen repeats the wrapper’s
-first line and <code>Done</code> instead of reaching the wrapper’s following statement.
-The reason is visible in page-0 disassembly: <code>_JForceCmd</code> reloads <code>SP</code> from the
-OS command-loop state at <code>85BC</code>. A second payload that calls <code>_PutTokString</code>
-(<code>06:46FD</code>) for the bytes of <code>prgmZZBASIC</code> returns to BASIC, but only
-renders/inserts token text; combining <code>_PutTokString</code> with <code>_JForceCmd</code> still
-never displays the target program’s <code>CALLED</code> line. <code>_rclToQueue</code> (<code>06:5F29</code>) is
-an edit-buffer queue helper guarded by <code>rclFlag.enableQueue</code>, not a standalone
-program executor.</p>
-<p><code>_ExecuteNewPrgm</code> (<code>00:265F</code>) is also stateful. An <code>AsmPrgm</code> probe with
-<code>OP1=ProgObj</code> and <code>HL → "ZZBASIC",0</code> enters <code>_ExecuteNewPrgm</code> and
-<code>findsym_scan</code>, then reaches <code>ERR:SYNTAX</code>. The same probe with <code>ZZBASIC</code> loaded
-as <code>ProtProgObj</code> and <code>OP1=06</code> gets through the copy/jump tail at <code>00:268A</code> and
-<code>00:268F</code>, but still stops at <code>ERR:SYNTAX</code> without displaying the target
-program’s <code>CALLED</code> line.</p>
-<pre><code class="language-ti-basic">{5,4,3,2,1}-&gt;L1
-{5,6,7,8,9}-&gt;L2
-{0,0,0,0,0,0}-&gt;L3
-0-&gt;C
-For(I,1,5)
-L1(I)+L2(I)+C-&gt;S
-int(S/10)-&gt;C
-S-10*C-&gt;L3(I)
-End
-C-&gt;L3(6)
-Disp L3
-Disp L3(6)
-</code></pre>
-<p>Observed run: <code>BIGADD.8xp</code> displays the low-end digits of <code>L3</code> as
-<code>{0 1 1 1 1 ...}</code>, then an explicit carry line <code>1</code>, then <code>Done</code>, representing
-<code>12345 + 98765 = 111110</code> in little-endian decimal digits. The trace hits
-<code>list_var_index</code>, <code>_AdrLEle</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>, <code>store_list_elem*</code>,
-<code>fnint_body</code>, <code>_FPDiv</code>, <code>_FPAdd</code>, <code>_FPSub</code>, and <code>_FPMult</code>.</p>
-<pre><code class="language-ti-basic">{3,2,1}-&gt;L1
-{5,4}-&gt;L2
-{0,0,0,0,0}-&gt;L3
-For(I,1,3)
-For(J,1,2)
-L3(I+J-1)+L1(I)*L2(J)-&gt;S
-int(S/10)-&gt;C
-S-10*C-&gt;L3(I+J-1)
-L3(I+J)+C-&gt;L3(I+J)
-End
-End
-Disp L3
-Disp L3(4)
-</code></pre>
-<p>Observed run: <code>BIGMUL.8xp</code> displays <code>{5 3 5 5 0}</code>, then <code>5</code>, then <code>Done</code>,
-representing <code>123 * 45 = 5535</code> in little-endian decimal digits. The trace hits
-nested <code>For(</code> loop parsing, list element reads/stores, <code>_FPMult</code>, <code>_FPAdd</code>,
-<code>_FPSub</code>, <code>_GetLToOP1</code>, and <code>_PutToL</code>.</p>
-<pre><code class="language-ti-basic">{1,1,2}-&gt;L1
-{2,3,4}-&gt;L2
-{0,0,0,0}-&gt;L3
-{1,0,0,0}-&gt;L4
-1-&gt;P
-While P
-L4(P)-&gt;V
-P-1-&gt;P
-If L3(V)=0
-Then
-1-&gt;L3(V)
-Disp V
-For(E,1,3)
-If L1(E)=V
-Then
-P+1-&gt;P
-L2(E)-&gt;L4(P)
-End
-End
-End
-End
-Disp L3
-</code></pre>
-<p>Observed run: <code>DFS.8xp</code> displays traversal <code>1</code>, <code>3</code>, <code>2</code>, <code>4</code>, then visited
-flags <code>{1 1 1 1}</code>, then <code>Done</code>. The trace hits nested control-flow scanners
-(<code>blockmatch_end_else</code>, <code>parse_scan_tokens</code>), <code>eval_stmt_entry</code>, parser
-refill/advance, and list stack read/write paths (<code>list_var_index</code>, <code>_AdrLEle</code>,
-<code>_GetLToOP1</code>, <code>_PutToL</code>, <code>store_list_elem*</code>).</p>
-<p>See <a href="#ti-basic-programming-patterns">TI-BASIC programming patterns</a> for performance
-rules and larger source-level examples.</p>
-<hr>
-<h2 id="9-argument-handling-loop-dispatch-and-getkey"><a class="header" href="#9-argument-handling-loop-dispatch-and-getkey">9. Argument handling, loop dispatch, and getKey</a></h2>
-<p>Three argument-handling and dispatch details, grounded in the bytes (see §5 / §4):</p>
-<ul>
-<li><code>Input</code>/<code>Prompt</code>/<code>Menu</code> argument order (§5). <code>Input</code> (<code>02:54EF</code>→<code>54F6</code>):
-optional leading prompt-string <em>or</em> <code>(row,col)</code> → single store var → editor → parse →
-store. <code>Prompt</code> (<code>02:562F</code>→<code>6699</code>): loop over comma-separated type-4 storable vars,
-each “<code>NAME=</code>” → editor → parse → store. <code>Menu(</code> (<code>02:555D</code>): title string, then up to 7
-(option-string, <code>Lbl</code>) pairs, then key-select → <code>Goto</code>-style jump.</li>
-<li><code>For</code>/<code>While</code>/<code>Repeat</code>/<code>End</code> dispatch (§4). Execution handlers live on
-page 0x33 (jump table <code>33:4381</code>, entered via bcall <code>0x5140</code>/<code>0x513D</code> = <code>33:435F</code> from
-the page-0x02 dispatcher at <code>02:54BD</code>/<code>02:6400</code>), not page 0x38. <code>End</code> re-seeds the parse
-cursor from the loop record’s saved top position.</li>
-<li><code>getKey</code> <code>37:6700</code> (§5). A fixed-width
-token-attribute / opcode-template table keyed by token (<code>FE/FB/FC/F4</code>-prefixed). The
-keycodes a <code>getKey</code> returns come from the OS <code>_GetKey</code> system call (bcall <code>0x4972</code>, page 06),
-which returns the standard <code>kXxx</code> constants.</li>
-</ul>
-<p>Residual (genuinely unverified — would need deeper page-0x33 paged tracing):</p>
-<ul>
-<li>The exact byte layout of the For/While/Repeat loop-control record on the FPS (field
-order/sizes for loop var, limit, step, and saved <code>parsePtr</code>) is not yet field-mapped; only
-the dispatch chain into the <code>33:4381</code> handlers is confirmed.</li>
-<li>The page-0x02 <code>Input</code>/<code>Prompt</code> entry-line editor internals (cursor/redraw, 2.55MP
-multi-line) remain dense and are only confirmed at the argument-parse boundary.</li>
-</ul>
+<pre class="mermaid">flowchart LR
+    E["error entry&lt;br/&gt;82h or 88h"] --&gt; C["00:270A&lt;br/&gt;common error path"]
+    C --&gt; U["00:27BB&lt;br/&gt;load saved error SP"]
+    U --&gt; O["restore OPS delta"]
+    O --&gt; F["restore FPS delta"]
+    F --&gt; P["restore previous error SP and page"]
+    P --&gt; H["error UI / caller continuation"]
+</pre>
+
+<p>The traces confirm the entry, common unwind, and pointer restoration. The
+error-screen <code>Goto</code> editor and every nested-error caller remain outside the
+current interpreter model.</p>
+<h2 id="what-the-coverage-model-establishes"><a class="header" href="#what-the-coverage-model-establishes">What the coverage model establishes</a></h2>
+<p><code>tools/analyze_tibasic_coverage.py</code> ties eight finite models to byte signatures
+in the pinned ROM. It exhausts 591,360 states across token width, delimiters,
+one scan step, one block-depth transition, the extended-class fold, precedence
+family selection, command finalization, and page-33 table bounds. Z3 proves a
+minimum representative set for the semantic outcomes. [confirmed]</p>
+<p>Dynamic evidence is a separate layer. Natural programs reach 38 of 52 outcomes
+at 26 selected branch sites. Public-bcall and internal-entry probes bring the
+declared outcome set to 52 of 52 while preserving provenance. The report records
+only trace hashes and compact counts; raw traces remain outside the repository.
+See <a href="#ti-basic-dynamic-tracing">TI-BASIC dynamic tracing</a> for commands and exact
+boundaries. [confirmed]</p>
+<p>The broader saturation audit starts at all 81 grammar-handler destinations and
+selected command, control-flow, value-storage, and numeric-error entries. It
+reaches 8,490 ROM instructions and 1,351 conditional branches, or 2,702
+possible branch outcomes. The retained traces observe 924 outcomes; natural
+TI-BASIC programs account for 898. [confirmed]</p>
+<p>This is deliberately not a claim of complete interpreter coverage. The four
+declared computed jumps are expanded over their ROM-defined valid domains, but
+corrupted or otherwise out-of-domain dispatch state is not modeled. Calls into
+display, graphing, and other ROM pages leave the declared regions, and arbitrary
+token streams, recursion depths, VAT layouts, and floating-point values remain
+open. The compact <code>tools/tibasic-saturation.json</code> report records those
+boundaries explicitly.</p>
+<h2 id="address-map"><a class="header" href="#address-map">Address map</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Address</th><th>Role</th></tr>
+</thead>
+<tbody>
+<tr><td><code>00:1FE8</code></td><td><code>_IsA2ByteTok</code></td></tr>
+<tr><td><code>38:4000</code></td><td>Grammar-handler pointer table</td></tr>
+<tr><td><code>38:4130</code></td><td>Matching <code>End</code>/<code>Else</code> scanner</td></tr>
+<tr><td><code>38:4180</code></td><td>Token-aware skip scanner</td></tr>
+<tr><td><code>38:41E5</code></td><td>Natural <code>For(</code> production entry</td></tr>
+<tr><td><code>38:4200</code></td><td>Natural <code>End</code> record consumer</td></tr>
+<tr><td><code>38:4870</code></td><td><code>Goto</code>/<code>Lbl</code> name scanner</td></tr>
+<tr><td><code>38:5987</code></td><td><code>_ParseInp</code></td></tr>
+<tr><td><code>38:5AB3</code></td><td>Recursive expression evaluator</td></tr>
+<tr><td><code>38:6251</code></td><td><code>_StoAns</code></td></tr>
+<tr><td><code>38:6910</code></td><td>Stored-program statement-body entry</td></tr>
+<tr><td><code>38:6FB7</code></td><td>Grammar-class validation and high-token fold</td></tr>
+<tr><td><code>38:7010</code></td><td>Production-family selector</td></tr>
+<tr><td><code>38:7248</code></td><td>Cursor advance/refill</td></tr>
+<tr><td><code>38:72DA</code></td><td>Current-token fetch and delimiter classification</td></tr>
+<tr><td><code>38:758A</code></td><td><code>_Find_Parse_Formula</code></td></tr>
+<tr><td><code>38:7600</code></td><td>Store/label name scanning region</td></tr>
+<tr><td><code>38:778F</code></td><td>Nested stored-program body evaluator</td></tr>
+<tr><td><code>02:5676</code></td><td>Command finalization gate</td></tr>
+<tr><td><code>33:435F</code></td><td>Bounded control-flow command dispatcher</td></tr>
+</tbody>
+</table>
+</div>
+<p>The local finite-model evidence is <code>tools/tibasic-coverage.json</code>. The broader
+direct-CFG evidence is <code>tools/tibasic-saturation.json</code>. The selected backward
+error slices are in <code>tools/tibasic-numeric-errors.json</code>. All three generators
+verify the pinned ROM before producing a report.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="ti-basic-programming-patterns"><a class="header" href="#ti-basic-programming-patterns">TI-BASIC programming patterns</a></h1>
-<p>This page turns the interpreter traces into practical programming rules. It is
-a map from common TI-BASIC patterns to the OS paths they exercise.</p>
-<p>Confidence follows <a href="#conventions--methodology">Conventions</a>: [confirmed] = observed in
-the disassembly or the headless TilEm traces; [standard] = matches TI-BASIC
-semantics and the traced interpreter shape; [hypothesis] = useful pattern
-not yet traced end to end in this repo.</p>
-<hr>
-<h2 id="performance-rules-from-traces"><a class="header" href="#performance-rules-from-traces">Performance rules from traces</a></h2>
+<p>This page turns the recovered interpreter model into practical source-level
+choices. The central cost is not only arithmetic: every loop iteration also
+walks tokens, resolves variables, moves values through OP registers, and may
+scan ahead for a structural boundary.</p>
+<h2 id="a-source-level-cost-model"><a class="header" href="#a-source-level-cost-model">A source-level cost model</a></h2>
 <ol>
 <li><strong>Keep parser work out of hot loops.</strong> Every statement re-enters the page-38
 evaluator (<code>eval_stmt_entry</code>, <code>parse_refill</code>, <code>parse_advance</code>,
 <code>chk_tok_end</code>). Tiny loop bodies can still spend most of their time walking
 tokens and rebuilding temporary parse state. The
-<a href="#ti-basic-for-paren-trap"><code>For(</code> optional-paren trap</a> is the sharpest
-example: with a first-line false <code>If</code>, dropping the closing <code>)</code> made an
-<code>N=100</code> benchmark grow from 521,723 to 885,912 marker-to-marker instructions.
-[confirmed]</li>
+<a href="#ti-basic-for-parenthesis-trap"><code>For(</code> parenthesis trap</a> is the sharpest
+example: with a first-line false <code>If</code>, dropping the closing <code>)</code> makes the
+reproduced <code>N=25</code> pair grow from 145,748 to 157,052 marker-to-marker
+instructions. [confirmed]</li>
 <li><strong>Prefer built-ins for list-wide work.</strong> <code>SortA(</code>, <code>cumSum(</code>, and <code>sum(</code>
 cross into OS routines that run one parser setup and then loop internally.
 The <code>DATA.8xp</code> trace hits <code>list_fold_dispatch</code> (<code>02:6104</code>) for <code>sum(</code> rather
@@ -12366,16 +12036,30 @@ the value is reused. [standard]</li>
 scanning the program token stream, and escaping structured loops through
 <code>Goto</code> can leave loop bookkeeping behind. Use <code>For(</code>/<code>While</code>/<code>Repeat</code> plus
 <code>End</code> unless the jump is truly cold. [standard] The token-stream scanner is
-[confirmed] in <a href="#ti-basic-programs">TI-BASIC programs</a>.</li>
+[confirmed] in <a href="#ti-basic-execution">TI-BASIC execution</a>.</li>
 <li><strong>Batch display and graph output.</strong> <code>Disp</code> and <code>Output(</code> reach display
 primitives and LCD update paths; graph drawing reaches graph-buffer and pixel
 routines before display copy. Draw into the graph buffer and call
 <code>DispGraph</code> once when possible. [confirmed]</li>
-<li><strong>Write the optional syntax in loops.</strong> Closing <code>For(</code> with <code>)</code> costs at most
-a small command-finalization path, but it avoids the pathological
-implicit-close/false-<code>If</code> interaction. [confirmed]</li>
+<li><strong>Write the optional syntax in loops.</strong> Closing <code>For(</code> with <code>)</code> avoids the
+advancing temporary parser and <code>FPS</code> range measured in the false-<code>If</code> pair.
+Both forms use the same page-38 <code>For(</code>/<code>End</code> entries and OPS record; the
+branch that selects temporary-state reuse remains open. [confirmed] for the
+RAM and OPS state; [hypothesis] for that unresolved selection predicate.</li>
 </ol>
-<h3 id="trace-backed-cost-map"><a class="header" href="#trace-backed-cost-map">Trace-backed cost map</a></h3>
+<p>The rules follow one compact model:</p>
+<p>$$
+\begin{aligned}
+W \approx{}&amp; N_{\text{statements}} \\
+&amp;{}+ N_{\text{variable/list lookups}} \\
+&amp;{}+ N_{\text{floating-point operations}} \\
+&amp;{}+ N_{\text{structural rescans}} \\
+&amp;{}+ N_{\text{display or graph writes}}.
+\end{aligned}
+$$</p>
+<p>The terms are not equal-cost cycles, but they identify which part grows when a
+program is changed. [confirmed]</p>
+<h3 id="trace-backed-examples"><a class="header" href="#trace-backed-examples">Trace-backed examples</a></h3>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -12393,42 +12077,10 @@ implicit-close/false-<code>If</code> interaction. [confirmed]</li>
 </tbody>
 </table>
 </div>
-<h3 id="evidence-manifest"><a class="header" href="#evidence-manifest">Evidence manifest</a></h3>
-<p>This branch keeps each claimed behavior tied to a runnable fixture or a
-negative probe trace. The visualization fixtures render visible output and pass
-first-to-final changed-pixel checks plus named crop-region checks for text,
-axes, circle arcs, nodes, and edges. <code>ANIMTXT</code> also has a distinct-frame threshold, so the animation fixture
-must show multiple captured LCD states rather than only a final still. The
-smoke runner also checks final-screen regions for the main text, list, ASM
-interop, arbitrary-precision, and DFS outputs. The full
-<code>tools/tibasic_smoke.py</code> suite also passed on 2026-06-07 against the current
-branch state.</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Goal area</th><th>Fixture or probe</th><th>Evidence</th></tr>
-</thead>
-<tbody>
-<tr><td>Hello world</td><td><code>HELLO.8xp</code></td><td>Displays <code>HELLO, WORLD</code>, then <code>Done</code>; reaches page-38 statement parsing and <code>_Disp</code>.</td></tr>
-<tr><td>Factorial</td><td><code>FACTOR.8xp</code></td><td>Prompt input <code>5</code> displays <code>120</code>; reaches loop parsing and <code>_FPMult</code>.</td></tr>
-<tr><td>Data manipulation</td><td><code>DATA.8xp</code></td><td>Sorts, cumulatively sums, and displays list data; reaches list element stores and <code>sum(</code>’s list fold path.</td></tr>
-<tr><td>Text animation</td><td><code>ANIMTXT.8xp</code></td><td>Moves/writes <code>X</code> characters with <code>Output(</code>, then displays <code>DONE</code>; reaches LCD text routines each loop.</td></tr>
-<tr><td>Graph drawing</td><td><code>GRAPHV.8xp</code></td><td>Renders <code>DFS</code>, axes, a circle, and diagonal line on the graph screen; reaches <code>_ILine</code>, <code>_IPoint</code>, and <code>_PDspGrph</code>.</td></tr>
-<tr><td>Graph visualization</td><td><code>GRAPHDFS.8xp</code>, <code>GRAPHLST.8xp</code></td><td>Renders the four-node DFS topology with labels and edges; the list-driven fixture stores edge/node coordinates in lists and loops over them before <code>DispGraph</code>.</td></tr>
-<tr><td>Arbitrary precision arithmetic</td><td><code>BIGADD.8xp</code>, <code>BIGMUL.8xp</code></td><td>Adds and multiplies digit lists with carry propagation; reaches list indexing and FP helper paths.</td></tr>
-<tr><td>DFS / stack-style list algorithm</td><td><code>DFS.8xp</code></td><td>Displays traversal <code>1, 3, 2, 4</code> and visited list <code>{1 1 1 1}</code>; reaches nested scanner/control-flow paths.</td></tr>
-<tr><td>BASIC subprogram calling convention</td><td><code>CALLSUB.8xp</code> + <code>SUBRT.8xp</code>; <code>ABICALL.8xp</code> + <code>ABISUB.8xp</code>; <code>CALLSTOP.8xp</code> + <code>STOPSUB.8xp</code></td><td>Caller and callee share scalar/list/<code>Ans</code> state; <code>Return</code> resumes the caller, while <code>Stop</code> terminates the caller chain.</td></tr>
-<tr><td>BASIC to ASM</td><td><code>ASMCALL.8xp</code> + <code>ASMRET.8xp</code></td><td><code>Asm(</code> runs an <code>AsmPrgm</code> payload (<code>C9</code>) and returns to BASIC, displaying <code>BEFORE</code> then <code>AFTER</code>.</td></tr>
-<tr><td>ASM-directed BASIC callback</td><td><code>ASMBRIDG.8xp</code> + <code>ASMSIG.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM sets <code>Ans=1</code> with <code>_OP1Set1</code>/<code>_StoAns</code>, returns, and BASIC calls <code>prgmZZBASIC</code> through <code>If Ans</code>.</td></tr>
-<tr><td>ASM return value</td><td><code>ASMRTN.8xp</code> + <code>ASMVAL.8xp</code></td><td>ASM sets <code>Ans=2</code> with <code>_OP1Set2</code>/<code>_StoAns</code>; BASIC reads <code>Ans</code>, computes <code>Ans+3</code>, and displays <code>5</code>.</td></tr>
-<tr><td>ASM-side BASIC lookup</td><td><code>ASMFIND.8xp</code> + <code>ZZFIND.8xp</code> + <code>ZZBASIC.8xp</code></td><td><code>AsmPrgm</code> can build <code>OP1={ProgObj,"ZZBASIC"}</code> and reach <code>findsym_scan</code>, then return to BASIC without running <code>ZZBASIC</code>.</td></tr>
-<tr><td>Direct ASM to BASIC execution</td><td><code>ASMPARSE.8xp</code> + <code>ZZPARSE.8xp</code> + <code>ZZBASIC.8xp</code>; <code>ASMFORM.8xp</code> + <code>ZZFORM.8xp</code> + <code>ZZBASIC.8xp</code>; probes</td><td><code>_ParseInpLastEnt</code> reaches parser setup but ends at <code>ERR:INVALID</code>; <code>_Find_Parse_Formula</code> reaches parser/find setup but ends at <code>ERR:UNDEFINED</code>; <code>_ExecuteNewPrgm</code>, <code>_JForceCmd</code>, <code>_PutTokString</code>, and <code>_rclToQueue</code> do not prove a standalone callable BASIC-program ABI.</td></tr>
-</tbody>
-</table>
-</div>
-<h2 id="run-confirmed-fixtures"><a class="header" href="#run-confirmed-fixtures">Run-confirmed fixtures</a></h2>
-<p>The generator <code>tools/tibasic_samples.py</code> now emits these additional trace-ready
-fixtures.</p>
+<p>The table is intentionally selective. The complete fixture and evidence list
+lives on <a href="#ti-basic-dynamic-tracing">the dynamic tracing page</a>, where it can be
+audited without interrupting the programming guidance.</p>
+<h2 id="patterns-tied-to-interpreter-cost"><a class="header" href="#patterns-tied-to-interpreter-cost">Patterns tied to interpreter cost</a></h2>
 <h3 id="text-animation-with-output"><a class="header" href="#text-animation-with-output">Text animation with <code>Output(</code></a></h3>
 <pre><code class="language-ti-basic">ClrHome
 For(I,1,8)
@@ -12536,7 +12188,7 @@ End
 The trace additionally hits <code>list_var_index</code> and <code>_GetLToOP1</code>, proving that the
 draw arguments came through list element recall rather than hard-coded
 coordinates. [confirmed]</p>
-<h3 id="basic-subprogram-calling-convention"><a class="header" href="#basic-subprogram-calling-convention">BASIC subprogram calling convention</a></h3>
+<h3 id="subprogram-interfaces"><a class="header" href="#subprogram-interfaces">Subprogram interfaces</a></h3>
 <p>Caller:</p>
 <pre><code class="language-ti-basic">0-&gt;A
 prgmSUBRT
@@ -12928,238 +12580,437 @@ paths: <code>Asm(</code> → <code>_ExecutePrgm</code> → <code>ram:9D95</code>
 <code>38:6914</code>/<code>38:778F</code> program-body evaluation.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="ti-basic-dynamic-tracing"><a class="header" href="#ti-basic-dynamic-tracing">TI-BASIC dynamic tracing</a></h1>
-<p>TI-BASIC behavior in these notes is grounded by generated programs, headless
-TilEm runs, resolved instruction coverage, and screen captures. This page is
-the book-facing recipe for reproducing those traces; the lower-level tooling
-details live in <code>tools/dynamic-tracing.md</code>.</p>
-<h2 id="fixture-suite"><a class="header" href="#fixture-suite">Fixture suite</a></h2>
-<p>The fixture generator emits readable source, token bytes, and <code>.8xp</code> link files:</p>
-<pre><code class="language-sh">tools/tibasic_samples.py --write-dir tools/tibasic-samples
-</code></pre>
-<p>The smoke runner executes the exported programs, records a GIF, extracts the
-final frame, resolves trace coverage through <code>tools/tilem_trace_resolve.py</code>, and
-checks each case’s expected anchors:</p>
-<pre><code class="language-sh">TILEM=~/Git/tilem-headless/result/bin/tilem2
-tools/tibasic_smoke.py --tilem "$TILEM" --rom tools/rom.bin \
-  --out-dir /tmp/tibasic-smoke-full
-</code></pre>
-<p>Use <code>--case NAME</code> to run a subset, and <code>--keep-trace</code> when the raw binary trace
-is needed for instruction-level inspection. The runner deletes trace files by
-default because several cases produce hundreds of MiB per run.</p>
-<p>The full suite passed on 2026-06-07 with the command above against OS 2.55MP and
-the local patched TilEm runner. The output directory kept final PNGs, GIFs, and
-coverage text for all cases; raw trace files were deleted by default.</p>
-<p>The current headless workflow relies on a local TilEm patch that loads command
-line <code>.8xp</code> files before the macro starts. Without that patch, load the target
-programs into calculator RAM first, then run the same macro and resolver steps.</p>
-<h2 id="operation-coverage"><a class="header" href="#operation-coverage">Operation coverage</a></h2>
+<p>TI-BASIC coverage combines exhaustive local models, natural calculator traces,
+and provenance-labeled probes. The models classify bounded decisions. Natural
+traces establish program reachability. Probes distinguish remaining outcomes
+without presenting prepared state as a natural language path. None of these
+layers is whole-interpreter coverage.</p>
+<h2 id="evidence-layers-4"><a class="header" href="#evidence-layers-4">Evidence layers</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Case</th><th>Program(s)</th><th>Operations exercised</th><th>Anchor examples</th></tr>
+<tr><th>Layer</th><th>Establishes</th><th>Does not establish</th></tr>
 </thead>
 <tbody>
-<tr><td><code>hello</code></td><td><code>HELLO.8xp</code></td><td><code>ClrHome</code>, <code>Disp</code>, string scan, <code>Done</code></td><td><code>eval_stmt_entry</code>, <code>_Disp</code></td></tr>
-<tr><td><code>factorial</code></td><td><code>FACTOR.8xp</code></td><td><code>Prompt</code>, scalar stores, <code>For(</code>/<code>End</code>, FP multiply</td><td><code>_FPMult</code>, <code>_Disp</code></td></tr>
-<tr><td><code>data</code></td><td><code>DATA.8xp</code></td><td>list literal, <code>SortA(</code>, <code>cumSum(</code>, <code>sum(</code></td><td><code>store_list_elem</code>, <code>list_fold_dispatch</code></td></tr>
-<tr><td><code>asmcall</code></td><td><code>ASMCALL.8xp</code> + <code>ASMRET.8xp</code></td><td>BASIC <code>Asm(prgmNAME)</code> into <code>AsmPrgm</code> payload</td><td><code>_ExecutePrgm</code>, <code>ram:9D95</code></td></tr>
-<tr><td><code>asmbridge</code></td><td><code>ASMBRIDG.8xp</code> + <code>ASMSIG.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM return code through <code>Ans</code>, BASIC callback</td><td><code>_OP1Set1</code>, <code>_StoAns</code>, <code>_AnsName</code>, <code>eval_eqn_recursive</code></td></tr>
-<tr><td><code>asmreturn</code></td><td><code>ASMRTN.8xp</code> + <code>ASMVAL.8xp</code></td><td>ASM return value through <code>Ans</code>, then BASIC arithmetic</td><td><code>_OP1Set2</code>, <code>_StoAns</code>, <code>_AnsName</code>, <code>_FPAdd</code></td></tr>
-<tr><td><code>asmfind</code></td><td><code>ASMFIND.8xp</code> + <code>ZZFIND.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM-side VAT lookup of a BASIC program without executing it</td><td><code>ram:9D95</code>, <code>findsym_scan</code>, <code>_Disp</code></td></tr>
-<tr><td><code>asmparse</code></td><td><code>ASMPARSE.8xp</code> + <code>ZZPARSE.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM parser-entry negative probe ending at <code>ERR:INVALID</code></td><td><code>_ParseInpLastEnt</code>, <code>_ParseInp</code>, <code>parseinp_find_setup</code></td></tr>
-<tr><td><code>asmformula</code></td><td><code>ASMFORM.8xp</code> + <code>ZZFORM.8xp</code> + <code>ZZBASIC.8xp</code></td><td>ASM formula-parser negative probe ending at <code>ERR:UNDEFINED</code></td><td><code>_Find_Parse_Formula</code>, <code>parse_init_findsym</code>, <code>findsym_scan</code></td></tr>
-<tr><td><code>animtext</code></td><td><code>ANIMTXT.8xp</code></td><td>text placement animation with <code>Output(</code></td><td><code>_OutputExpr</code>, <code>_Disp</code></td></tr>
-<tr><td><code>graphviz</code></td><td><code>GRAPHV.8xp</code></td><td>graph-buffer primitives and <code>DispGraph</code></td><td><code>_GrBufClr</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_PDspGrph</code></td></tr>
-<tr><td><code>graphdfs</code></td><td><code>GRAPHDFS.8xp</code></td><td>graph visualization from DFS topology</td><td><code>_StoSysTok</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>_PDspGrph</code></td></tr>
-<tr><td><code>graphlist</code></td><td><code>GRAPHLST.8xp</code></td><td>list-driven graph visualization from edge/node coordinate lists</td><td><code>list_var_index</code>, <code>_GetLToOP1</code>, <code>_ILine</code>, <code>_IPoint</code></td></tr>
-<tr><td><code>callsub</code></td><td><code>CALLSUB.8xp</code> + <code>SUBRT.8xp</code></td><td>BASIC <code>prgmNAME</code>, shared globals, <code>Return</code></td><td><code>stmt_eval_body_entry</code>, <code>call_eval_eqn_recursive</code></td></tr>
-<tr><td><code>callabi</code></td><td><code>ABICALL.8xp</code> + <code>ABISUB.8xp</code></td><td>BASIC subprogram ABI through <code>Ans</code>, scalar <code>A</code>, and list <code>L1</code></td><td><code>_AnsName</code>, <code>store_list_elem</code>, <code>eval_eqn_recursive</code></td></tr>
-<tr><td><code>callstop</code></td><td><code>CALLSTOP.8xp</code> + <code>STOPSUB.8xp</code></td><td>BASIC subprogram <code>Stop</code> terminates the caller chain</td><td><code>stmt_eval_body_entry</code>, <code>call_eval_eqn_recursive</code>, <code>_Disp</code></td></tr>
-<tr><td><code>bigadd</code></td><td><code>BIGADD.8xp</code></td><td>list-digit arithmetic and carry propagation</td><td><code>list_var_index</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>, <code>_FPMult</code></td></tr>
-<tr><td><code>bigmul</code></td><td><code>BIGMUL.8xp</code></td><td>list-digit multiplication, nested loops, carry normalization</td><td><code>list_var_index</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>, <code>_FPMult</code></td></tr>
-<tr><td><code>dfs</code></td><td><code>DFS.8xp</code></td><td>list-backed stack, nested <code>While</code>/<code>If</code>/<code>For</code></td><td><code>blockmatch_end_else</code>, <code>parse_scan_tokens</code>, <code>eval_stmt_entry</code></td></tr>
+<tr><td>ROM signature</td><td>The modeled instructions are the expected OS 2.55MP bytes</td><td>Meaning of every surrounding routine</td></tr>
+<tr><td>Finite model</td><td>Every state in one declared finite domain has an outcome</td><td>Arbitrary streams or caller-owned RAM and stack state</td></tr>
+<tr><td>Natural trace</td><td>A stored TI-BASIC program reaches an outcome with ordinary parser state</td><td>Feasibility of an unobserved outcome</td></tr>
+<tr><td>Public-bcall probe</td><td>Exact ROM execution reaches a public ABI boundary</td><td>Natural TI-BASIC reachability of the supplied register value</td></tr>
+<tr><td>Internal-entry probe</td><td>Exact ROM execution distinguishes a selected internal state</td><td>A supported ABI or natural caller for that state</td></tr>
+<tr><td>RAM or LCD assertion</td><td>The fixture produces its expected machine or visible result</td><td>Which internal path is uniquely responsible</td></tr>
 </tbody>
 </table>
 </div>
-<p>The visualization cases also enforce visible output by thresholding the final
-frame and comparing it with the first recorded frame. <code>ANIMTXT</code>, <code>GRAPHV</code>,
-<code>GRAPHDFS</code>, and <code>GRAPHLST</code> must contain at least 100, 100, 200, and 200 dark
-pixels respectively, and must change by at least the same number of pixels from
-first to final frame. <code>ANIMTXT</code> must also produce at least five distinct
-captured frames. The smoke runner also checks named crop regions. Visual cases
-check home-screen text, graph labels, axes, circle arcs, and node/edge regions.
-Text/list cases check important final-screen lines such as <code>HELLO, WORLD</code>,
-factorial <code>120</code>, <code>DATA</code> list outputs, <code>BEFORE</code>/<code>CALLED</code>/<code>AFTER</code>, <code>SUB</code>,
-big-integer digit lists, and the DFS traversal/visited-list output. <code>ASMRTN</code>
-checks the displayed <code>5</code>, <code>ABICALL</code> checks the scalar line, mutated list line,
-returned <code>Ans</code> line, and <code>Done</code>, and <code>CALLSTOP</code> checks <code>BEFORE</code>, <code>STOP</code>,
-<code>Done</code>, and a bounded low-pixel region where caller text <code>AFTER</code> would appear.
-<code>ASMFIND</code> checks the wrapper’s <code>BEFORE</code>, <code>AFTER</code>, and <code>Done</code> output plus a
-bounded low-pixel region where an unexpected third line would appear.
-<code>ASMPARSE</code> checks the <code>ERR:INVALID</code>, <code>1:Quit</code>, and <code>2:Goto</code> error-screen
-regions. <code>ASMFORM</code> checks the corresponding <code>ERR:UNDEFINED</code> error-screen
-regions.</p>
-<p>For the visual graph cases, the 2026-06-07 run measured 212, 619, 466, and 466
-dark pixels, with matching first-to-final pixel changes.</p>
-<h2 id="reading-the-evidence"><a class="header" href="#reading-the-evidence">Reading the evidence</a></h2>
-<p>Trace anchors prove control reached the relevant ROM path; they do not by
-themselves prove the final screen looked right. Use both the coverage file and
-the final PNG/GIF for display or graph claims. This distinction matters for
-<code>GRAPHDFS</code>, where <code>_ILine</code> and <code>_IPoint</code> coverage only proves drawing routines
-ran, while the final frame proves the graph-screen topology is visible.</p>
-<p>For parser and calling-convention claims, prefer resolved coverage plus a narrow
-routine trace. For example, the BASIC subprogram case uses the private
-<code>38:6910</code> → <code>38:6914</code> → <code>38:778F</code> body-evaluator path after the top-level
-homescreen parse has already seeded parser RAM. That is why the negative
-ASM-to-BASIC probes in <a href="#ti-basic-programming-patterns">TI-BASIC programming patterns</a>
-are negative fixtures or probes: they reach useful ROM paths, but they
-do not display the target BASIC program.</p>
-<h2 id="related-pages"><a class="header" href="#related-pages">Related pages</a></h2>
-<ul>
-<li><a href="#ti-basic-programs">TI-BASIC programs</a> explains the parser, statement evaluator,
-control flow, display commands, <code>Asm(</code>, and <code>prgmNAME</code>.</li>
-<li><a href="#ti-basic-programming-patterns">TI-BASIC programming patterns</a> turns the traces
-into performance and calling-convention guidance.</li>
-<li><a href="#ti-basic-for-paren-trap">TI-BASIC <code>For(</code> optional paren trap</a> is a focused
-trace study of one parser-performance edge case.</li>
-</ul>
+<p><code>tools/analyze_tibasic_coverage.py</code> refuses a ROM whose SHA-256 differs from
+the pinned OS 2.55MP image, then verifies short byte signatures at every modeled
+decision family. [confirmed]</p>
+<h2 id="exhaustive-finite-models"><a class="header" href="#exhaustive-finite-models">Exhaustive finite models</a></h2>
+<p>The checked report exhausts 591,360 states and 45 semantic outcomes:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Model</th><th style="text-align: right">Exhausted states</th><th style="text-align: right">Outcomes</th><th>Boundary</th></tr>
+</thead>
+<tbody>
+<tr><td>Encoded token width</td><td style="text-align: right">256</td><td style="text-align: right">2</td><td>Lead-byte membership, not second-byte validity</td></tr>
+<tr><td>Statement delimiter</td><td style="text-align: right">256</td><td style="text-align: right">4</td><td>Byte classification, not refill faults</td></tr>
+<tr><td>Token scan step</td><td style="text-align: right">256</td><td style="text-align: right">4</td><td>One step, not arbitrary stream length</td></tr>
+<tr><td>Block matcher transition</td><td style="text-align: right">524,288</td><td style="text-align: right">10</td><td>Every 16-bit depth over eight decision-equivalent token classes</td></tr>
+<tr><td>Extended grammar fold</td><td style="text-align: right">256</td><td style="text-align: right">2</td><td><code>CP F2h</code>/<code>ADD 12h</code>, not later handlers</td></tr>
+<tr><td>Precedence handler family</td><td style="text-align: right">65,536</td><td style="text-align: right">3</td><td>Grammar class × selector byte, not recursive handler state</td></tr>
+<tr><td>Command finalization gate</td><td style="text-align: right">256</td><td style="text-align: right">5</td><td>First page-02 gate only</td></tr>
+<tr><td>Control-flow table bounds</td><td style="text-align: right">256</td><td style="text-align: right">15</td><td>Index validation, not the 13 handler bodies</td></tr>
+</tbody>
+</table>
+</div>
+<p>The block model uses token equivalence classes because the ROM performs the
+same comparisons for every non-control byte. It still enumerates all 65,536
+values of the 16-bit <code>DE</code> depth, including the zero and increment-wrap boundaries. This
+is exhaustive over the stated local transition, not a depth limit of 255.</p>
+<p>Z3 minimizes one representative per semantic outcome after exhaustive
+enumeration establishes the partition. Z3 is not being presented as a proof of
+the entire Z80 routine or of arbitrary token streams.</p>
+<h2 id="coverage-by-provenance"><a class="header" href="#coverage-by-provenance">Coverage by provenance</a></h2>
+<p>The report declares 26 branch sites and both outcomes at each site. Natural
+programs reach 38 of those 52 outcomes. Public-bcall probes add the four
+page-33 bounds outcomes. Internal-entry probes add the remaining 10 outcomes.
+The union reaches 52 of 52, but only the first number describes natural
+TI-BASIC reachability. [confirmed]</p>
+<pre class="mermaid">flowchart LR
+    N["Natural TI-BASIC&lt;br/&gt;38 / 52 outcomes"] --&gt; U["Declared outcome union&lt;br/&gt;52 / 52"]
+    B["Public bcall probes&lt;br/&gt;4 additional outcomes"] --&gt; U
+    I["Internal-entry probes&lt;br/&gt;10 additional outcomes"] --&gt; U
+    F["Eight finite models&lt;br/&gt;591,360 states"] --&gt; R["Compact report"]
+    U --&gt; R
+    R --&gt; Z["Exact Z3 set cover&lt;br/&gt;15 outcome traces"]
+</pre>
+
+<p>The per-provenance counts in the JSON are 38, 8, and 18 because wrappers share
+ordinary grammar outcomes. Those counts overlap. The additional-outcome counts
+in the diagram describe what each probe layer contributes after the preceding
+layer. No successor at a declared branch is unclassified. [confirmed]</p>
+<p>That 52-outcome matrix is a regression test for eight local models. It is not
+the interpreter denominator. The broader CFG audit seeds all valid destinations
+from the parser table at <code>38:4000</code> and the 13-entry page-33 table at <code>33:4381</code>,
+then follows direct control flow through five bounded components. [confirmed]</p>
+<h2 id="expanded-cfg-saturation"><a class="header" href="#expanded-cfg-saturation">Expanded CFG saturation</a></h2>
+<p>The expanded graph contains 8,490 reachable instructions and 1,351 conditional
+branches. Its 2,702 possible outcomes produce this trace breakdown:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Component</th><th style="text-align: right">Possible</th><th style="text-align: right">All evidence</th><th style="text-align: right">Natural programs</th></tr>
+</thead>
+<tbody>
+<tr><td>Parser core</td><td style="text-align: right">1,956</td><td style="text-align: right">625</td><td style="text-align: right">619</td></tr>
+<tr><td>Command arguments</td><td style="text-align: right">162</td><td style="text-align: right">54</td><td style="text-align: right">48</td></tr>
+<tr><td>Page-33 control flow</td><td style="text-align: right">174</td><td style="text-align: right">13</td><td style="text-align: right">0</td></tr>
+<tr><td>Value storage</td><td style="text-align: right">154</td><td style="text-align: right">112</td><td style="text-align: right">112</td></tr>
+<tr><td>Numeric and error checks</td><td style="text-align: right">256</td><td style="text-align: right">120</td><td style="text-align: right">119</td></tr>
+<tr><td><strong>Total</strong></td><td style="text-align: right"><strong>2,702</strong></td><td style="text-align: right"><strong>924</strong></td><td style="text-align: right"><strong>898</strong></td></tr>
+</tbody>
+</table>
+</div>
+<p>Natural <code>factorial</code> and <code>dfs</code> traces now identify the actual page-38 loop path:
+<code>For(</code> reaches <code>38:41E5</code>, <code>End</code> reaches <code>38:4200</code>, and the loop continuations
+are <code>38:5836</code> and <code>38:587D</code>. They still do not enter the page-33 probe
+dispatcher. [confirmed]</p>
+<pre class="mermaid">flowchart LR
+    T["81 parser handlers&lt;br/&gt;plus subsystem entries"] --&gt; G["8,490-instruction&lt;br/&gt;direct CFG"]
+    G --&gt; B["2,702 outcomes"]
+    N["Natural programs"] --&gt; O["898 observed"]
+    P["ABI and entry probes"] --&gt; A["924 observed total"]
+    O --&gt; A
+    B --&gt; A
+    B --&gt; U["1,778 unobserved"]
+</pre>
+
+<p>The exact outcome cover retains 30 of 33 traces. <code>hello</code>, <code>callstop</code>, and the
+natural syntax-error trace remain useful semantic examples, but they do not add
+a branch outcome to the larger graph. The report therefore separates the
+minimum outcome corpus from the selective documentation corpus. [confirmed]</p>
+<h3 id="natural-programs"><a class="header" href="#natural-programs">Natural programs</a></h3>
+<p>Seven successful fixtures cover distinct interpreter behaviors:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Case</th><th>Distinct behavior</th><th>Oracle</th></tr>
+</thead>
+<tbody>
+<tr><td><code>hello</code></td><td>straight-line statement, quoted string, <code>Disp</code></td><td>LCD text</td></tr>
+<tr><td><code>factorial</code></td><td><code>Prompt</code>, scalar stores, <code>For(</code>/<code>End</code>, FP multiplication</td><td>LCD result <code>120</code></td></tr>
+<tr><td><code>data</code></td><td>two-byte list tokens, literal/store, built-in list fold</td><td>lists and sum on the LCD</td></tr>
+<tr><td><code>dfs</code></td><td>nested <code>While</code>, <code>If ... Then</code>, <code>For</code>, and list-backed stack</td><td>traversal and visited list</td></tr>
+<tr><td><code>callabi</code></td><td>nested BASIC call, shared scalar/list/<code>Ans</code>, <code>Return</code></td><td>returned scalar and list state</td></tr>
+<tr><td><code>callstop</code></td><td>nested BASIC call and nonlocal <code>Stop</code></td><td>absence of the post-call line</td></tr>
+<tr><td><code>branchmatrix</code></td><td><code>Else</code>, <code>Repeat</code>, nested blocks, and an omitted string quote</td><td><code>A5h</code> at <code>plotSScreen</code> (<code>0x9340</code>)</td></tr>
+</tbody>
+</table>
+</div>
+<p><code>missingend</code> and <code>terminalif</code> add natural end-of-input structural boundaries.
+They exercise carry returns that closed blocks do not reach, then finish through
+page-38 cleanup and display <code>Done</code>; they do not raise an OS error. The report
+marks both traces with <code>termination: completed</code>. [confirmed]</p>
+<p>The syntax and divide-by-zero fixtures provide baseline unwind witnesses.
+<code>syntaxerr</code> executes <code>Disp 1+</code> and reaches the syntax entry at <code>00:2700</code>.
+<code>divzero</code> executes <code>Disp 1/0</code> and reaches <code>_ErrDivBy0</code> at <code>00:26EC</code>. The expanded numeric corpus
+raises the natural local-matrix result from 34 to 38 outcomes. The 15-trace
+outcome minimum omits the error fixtures because other traces cover those local
+branches; the semantic corpus retains their distinct causes. [confirmed]</p>
+<p>Twelve selected numeric-error fixtures also retain the path before the shared
+error shim. The reducer restarts a candidate slice whenever it sees the guard’s
+first instruction. It accepts the slice only when the remaining guard and shim
+addresses occur in order and the shim leaves the expected error code in <code>A</code>.
+This prevents an unrelated earlier call to <code>_FPDiv</code>, <code>_FPMult</code>, or the zero
+checker from being attached to a later error. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Case</th><th>Ordered causal boundary</th><th>Result</th></tr>
+</thead>
+<tbody>
+<tr><td><code>divzero</code></td><td><code>00:2548 → 00:254B → 00:26EC</code></td><td>divisor-zero guard, code <code>82h</code></td></tr>
+<tr><td><code>overflow</code></td><td><code>02:7076 → 02:7078 → 02:7053 → 02:7056 → 02:7059 → 00:26E8</code></td><td><code>10^x</code> range guard, code <code>81h</code></td></tr>
+<tr><td><code>muloverflow</code></td><td><code>00:2513 → 00:2516 → 00:2517 → 00:2519 → 00:251B → 00:251D → 00:26E8</code></td><td>exponent-add overflow, code <code>81h</code></td></tr>
+<tr><td><code>lndomain</code></td><td><code>02:6F1E → 00:212D → 00:1DE9 → 00:2130 → 00:2131 → 00:211D → 00:26F4</code></td><td>logarithm zero guard, code <code>84h</code></td></tr>
+<tr><td><code>increment</code></td><td><code>37:4268 → 00:1DE9 → 37:426B → 00:26F8</code></td><td>zero loop step, code <code>85h</code></td></tr>
+<tr><td><code>asindomain</code></td><td><code>02:76F1 → 02:76F4 → 02:76F5 → 00:26F4</code></td><td>inverse-sine range guard, code <code>84h</code></td></tr>
+<tr><td><code>acosdomain</code></td><td><code>02:76DF → 02:76E2 → 00:26F4</code></td><td>inverse-cosine range guard, code <code>84h</code></td></tr>
+<tr><td><code>sqrtnonreal</code></td><td><code>00:1B8F → 00:1B93 → 00:26FC</code></td><td>real-mode result guard, code <code>87h</code></td></tr>
+<tr><td><code>singular</code></td><td><code>02:439C → 02:439F → 02:43A1 → 02:43A2 → 02:43A3 → 02:43A5 → 00:26F0</code></td><td>matrix-pivot guard, code <code>83h</code></td></tr>
+<tr><td><code>lateincrement</code></td><td><code>38:586D → 38:5870 → 38:5873 → 38:5876 → 00:26F8</code></td><td>loop no-progress guard, code <code>85h</code></td></tr>
+<tr><td><code>negfactdomain</code></td><td><code>35:79CF → 35:79D2 → 00:26F4</code></td><td>factorial sign/integer guard, code <code>84h</code></td></tr>
+<tr><td><code>ncrdomain</code></td><td><code>02:4FC8 → 02:4FA1 → 00:2125 → 00:1DFD → 00:1E00 → 00:1E02 → 00:2128 → 00:211C → 00:211D → 00:26F4</code></td><td>combination left-operand guard, code <code>84h</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>All 12 paths come from stored TI-BASIC programs. They cover all six numeric
+error codes, 12 causes, and 11 distinct direct caller sites. [confirmed]</p>
+<p>The report separately inventories 114 whole-ROM direct-reference candidates:
+9 overflow, 2 divide-by-zero, 3 singular-matrix, 91 domain, 6 increment, and 3
+non-real. Linear disassembly can decode data as instructions, so each candidate
+still needs CFG or dynamic reachability evidence. Indirect transfers and helpers
+that load <code>A</code> before entering <code>00:270A</code> remain outside that inventory.
+[confirmed]</p>
+<h3 id="probe-outcomes"><a class="header" href="#probe-outcomes">Probe outcomes</a></h3>
+<p>Three public-bcall probes call <code>grf_435f = 5140h</code> with an input below the table,
+inside the table, and at its upper boundary. They cover both outcomes at
+<code>33:436D</code> and <code>33:4372</code>. These are public ABI executions, not stored-program
+loop transitions. [confirmed]</p>
+<p>Eight internal-entry probes cover four command-finalization classes and four
+grammar states. They map the required ROM page, enter the selected routine from
+RAM, and let the exact ROM execute the branch. <code>cmdbad</code> combines the safe
+implicit-end case with the invalid class, which removes one redundant trace.
+These probes establish branch behavior only; they do not establish a natural
+caller or a supported interface. [confirmed]</p>
+<p>Across all 33 traces, the saturation report records 132,634,495 instructions.
+The raw files total about 6.08 GiB. Only SHA-256 digests, counts, outcomes,
+provenance, and the 47 KB report are checked in. Exact outcome-only set cover
+retains 30 traces. The three omitted traces remain useful semantic examples.
+[confirmed]</p>
+<h2 id="reproduce-the-report"><a class="header" href="#reproduce-the-report">Reproduce the report</a></h2>
+<p>Generate the source/token/link fixtures first:</p>
+<pre><code class="language-sh">tools/tibasic_samples.py --write-dir tools/tibasic-samples
+</code></pre>
+<p>The TilEm binary must support loading command-line <code>.8xp</code> files before the
+macro starts. Run the natural cases while retaining their temporary traces:</p>
+<pre><code class="language-sh">TILEM=/path/to/patched/tilem2
+python3 tools/tibasic_smoke.py \
+  --tilem "$TILEM" --rom tools/rom.bin \
+  --out-dir /tmp/tibasic-coverage --keep-trace \
+  --case hello --case factorial --case data \
+  --case dfs --case callabi --case callstop \
+  --case branchmatrix --case missingend --case terminalif \
+  --case syntaxerr --case divzero \
+  --case overflow --case muloverflow --case lndomain --case increment \
+  --case asindomain --case acosdomain --case sqrtnonreal --case singular \
+  --case lateincrement --case negfactdomain --case ncrdomain
+</code></pre>
+<p>Run the probe cases in the same output directory:</p>
+<pre><code class="language-sh">python3 tools/tibasic_smoke.py \
+  --tilem "$TILEM" --rom tools/rom.bin \
+  --out-dir /tmp/tibasic-coverage --keep-trace \
+  --case cflowlow --case cflowhigh --case cflowvalid \
+  --case cmdclose --case cmdopen --case cmdunit --case cmdbad \
+  --case gramlow --case gramhigh --case gramflag --case gramnonzero
+</code></pre>
+<p>The natural branch matrix uses a RAM marker instead of an image crop. The
+probe cases use resolved trace anchors. Existing user-facing samples retain LCD
+oracles where the displayed result is part of the behavior.</p>
+<p>Build the compact report through the Nix shell so <code>z80dasm</code> and Z3 are pinned.
+The checked command passes all 33 <code>LABEL=PATH</code> pairs; the complete ordered label
+list is the <code>dynamic.traces</code> array in <code>tools/tibasic-coverage.json</code>.</p>
+<pre><code class="language-sh">set --
+for label in \
+  hello factorial data dfs callabi callstop \
+  branchmatrix missingend terminalif syntaxerr divzero \
+  overflow muloverflow lndomain increment \
+  asindomain acosdomain sqrtnonreal singular \
+  lateincrement negfactdomain ncrdomain \
+  cflowlow cflowhigh cflowvalid \
+  cmdclose cmdopen cmdunit cmdbad \
+  gramlow gramhigh gramflag gramnonzero
+do
+  set -- "$@" --trace "$label=/tmp/tibasic-coverage/$label.trace"
+done
+nix develop -c python3 tools/analyze_tibasic_coverage.py "$@" \
+  --output tools/tibasic-coverage.json
+</code></pre>
+<p>Export exact instruction boundaries from the rebuilt Ghidra database, then
+reuse the same trace arguments for the expanded report:</p>
+<pre><code class="language-sh">ghidra-analyzeHeadless "$PWD" ti84 \
+  -process ti84_page00.bin -noanalysis -readOnly \
+  -scriptPath "$PWD/tools" \
+  -postScript ExportTiBasicInstructionStarts.java \
+  /tmp/tibasic-instruction-starts.tsv
+
+nix develop -c python3 tools/analyze_tibasic_saturation.py \
+  --instruction-list /tmp/tibasic-instruction-starts.tsv \
+  "$@" --output tools/tibasic-saturation.json
+</code></pre>
+<p>Capture and reduce the selected numeric-error paths separately. This keeps
+their semantic provenance without adding redundant traces to the branch-only
+minimum corpus:</p>
+<pre><code class="language-sh">python3 tools/tibasic_smoke.py \
+  --tilem "$TILEM" --rom tools/rom.bin \
+  --out-dir /tmp/tibasic-numeric-errors --keep-trace \
+  --case divzero --case overflow --case muloverflow \
+  --case lndomain --case increment --case asindomain \
+  --case acosdomain --case sqrtnonreal --case singular \
+  --case lateincrement --case negfactdomain --case ncrdomain
+
+nix develop -c env PYTHONPATH=tools \
+  python3 tools/analyze_tibasic_numeric_errors.py \
+  --trace divzero=/tmp/tibasic-numeric-errors/divzero.trace \
+  --trace overflow=/tmp/tibasic-numeric-errors/overflow.trace \
+  --trace muloverflow=/tmp/tibasic-numeric-errors/muloverflow.trace \
+  --trace lndomain=/tmp/tibasic-numeric-errors/lndomain.trace \
+  --trace increment=/tmp/tibasic-numeric-errors/increment.trace \
+  --trace asindomain=/tmp/tibasic-numeric-errors/asindomain.trace \
+  --trace acosdomain=/tmp/tibasic-numeric-errors/acosdomain.trace \
+  --trace sqrtnonreal=/tmp/tibasic-numeric-errors/sqrtnonreal.trace \
+  --trace singular=/tmp/tibasic-numeric-errors/singular.trace \
+  --trace lateincrement=/tmp/tibasic-numeric-errors/lateincrement.trace \
+  --trace negfactdomain=/tmp/tibasic-numeric-errors/negfactdomain.trace \
+  --trace ncrdomain=/tmp/tibasic-numeric-errors/ncrdomain.trace \
+  --output tools/tibasic-numeric-errors.json
+</code></pre>
+<p>Delete the temporary traces after regeneration. They are reproducible evidence,
+not source assets.</p>
+<h2 id="reading-gaps-honestly"><a class="header" href="#reading-gaps-honestly">Reading gaps honestly</a></h2>
+<p>Full coverage of the small matrix means both outcomes at 26 selected sites. The
+expanded report gives the more useful denominator: 924 of 2,702 outcomes across
+five declared components, with 898 reached naturally. Neither number means
+whole-interpreter coverage.</p>
+<p>The graph expands all four declared computed jumps over their valid domains:
+14 literal parser continuations at <code>38:4390</code>, 27 nonzero destinations from the
+49-class table used by <code>38:7244</code>, five literal command targets at <code>02:5675</code>,
+and 13 bounds-checked rows at <code>33:4380</code>. This does not establish behavior for a
+corrupted class, stack, or pointer outside those domains. Other open dimensions
+include arbitrary token-stream length, every nested error context, full OPS/FPS
+record layout, arbitrary VAT and list shapes, floating-point path classes, and
+display or graph subsystem continuations.</p>
+<p>The next useful coverage expansion starts with the unresolved caller census:</p>
+<ol>
+<li>reject linear-disassembly candidates that are data or unreachable code;</li>
+<li>backward-slice one remaining executable caller to its input predicate;</li>
+<li>construct the smallest natural program and a RAM or value oracle;</li>
+<li>retain its trace only when it adds a guard path or CFG outcome; and</li>
+<li>update the relevant interpreter model with the established transition.</li>
+</ol>
+<p>Lower-level trace formats and memory-write decoding are documented in
+<code>tools/dynamic-tracing.md</code>.</p>
 <div style="break-before: page; page-break-before: always;"></div>
-<h1 id="ti-basic-for-paren-trap"><a class="header" href="#ti-basic-for-paren-trap">TI-BASIC <code>For(</code> paren trap</a></h1>
-<p>This note explains a TI-BASIC performance trap:</p>
-<pre><code class="language-ti-basic">For(I,1,N
-If 0
-1
-End
-</code></pre>
-<p>is much slower than the visually similar:</p>
-<pre><code class="language-ti-basic">For(I,1,N)
-If 0
-1
-End
-</code></pre>
-<p>The closing <code>)</code> is syntactically optional, but it is not performance-neutral
-when the first loop-body statement is a single-line false <code>If</code>.</p>
-<p>Confidence: [confirmed] = measured in TilEm instruction traces or read from
-ROM bytes; [standard] = consistent with the interpreter structure but not
-field-mapped down to every loop-frame byte.</p>
-<hr>
-<h2 id="benchmark-shape"><a class="header" href="#benchmark-shape">Benchmark shape</a></h2>
-<p>The test program brackets only the loop with an <code>AsmPrgm</code> marker:</p>
+<h1 id="ti-basic-for-parenthesis-trap"><a class="header" href="#ti-basic-for-parenthesis-trap">TI-BASIC <code>For(</code> parenthesis trap</a></h1>
+<p>The closing <code>)</code> in <code>For(</code> is optional syntax, but the two spellings can produce
+different parser-buffer behavior. A paired OS 2.55MP trace with a false
+single-line <code>If</code> as the first body statement measures the difference without
+including boot, link transfer, menu navigation, or final display work.</p>
+<h2 id="reproduced-pair"><a class="header" href="#reproduced-pair">Reproduced pair</a></h2>
+<p>The fixtures differ by one token byte:</p>
 <pre><code class="language-ti-basic">Asm(prgmZMARK)
-For(I,1,100)
+For(I,1,25)
 If 0
 1
 End
 Asm(prgmZMARK)
-Disp I
+If I=26
+Asm(prgmZPASS)
 </code></pre>
-<p><code>ZMARK</code> is:</p>
+<pre><code class="language-ti-basic">Asm(prgmZMARK)
+For(I,1,25
+If 0
+1
+End
+Asm(prgmZMARK)
+If I=26
+Asm(prgmZPASS)
+</code></pre>
+<p><code>ZMARK</code> contains one Z80 instruction:</p>
 <pre><code class="language-ti-basic">AsmPrgm
 C9
 </code></pre>
-<p><code>C9</code> is Z80 <code>RET</code>. In both traces the marker payload executes at
-<code>ram:9D95 op=0xC9</code>, so the interval from the first marker <code>RET</code> to the second
-marker <code>RET</code> excludes boot, link transfer, menu navigation, and the final
-display.</p>
-<p>The compared token streams differ by exactly one byte in the <code>For(</code> header:</p>
-<pre><code class="language-text">For(I,1,25) / If 0:  D3 49 2B 31 2B 32 35 11 3F CE 30 ...
-For(I,1,25  / If 0:  D3 49 2B 31 2B 32 35    3F CE 30 ...
+<p><code>C9</code> is <code>RET</code>. Both traces execute it twice at <code>ram:9D95</code>. The analyzer counts
+instructions and clocks from the first marker to the second. After the second
+marker, each program calls <code>ZPASS</code> only when <code>I=26</code>; <code>ZPASS</code> writes <code>A5h</code> to
+<code>plotSScreen</code> at <code>0x9340</code>. The smoke runner asserts that RAM byte directly.
+[confirmed]</p>
+<p>The headers differ only by <code>tRParen = 11h</code>:</p>
+<pre><code class="language-text">explicit: D3 49 2B 31 2B 32 35 11 3F CE 30 ...
+implicit: D3 49 2B 31 2B 32 35    3F CE 30 ...
 </code></pre>
-<p><code>D3</code> is <code>tFor</code>, <code>11</code> is <code>tRParen</code>, <code>3F</code> is EOL, and <code>CE</code> is <code>tIf</code>.</p>
-<h2 id="trace-results"><a class="header" href="#trace-results">Trace results</a></h2>
-<p>All runs completed and displayed the expected final loop variable (<code>26</code> for
-<code>N=25</code>, <code>101</code> for <code>N=100</code>). Counts are marker-to-marker instruction records and
-Z80 clock deltas from the TilEm trace.</p>
+<h2 id="measured-work"><a class="header" href="#measured-work">Measured work</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Loop body</th><th>N</th><th><code>For(... )</code></th><th><code>For(...</code></th><th>Delta</th></tr>
+<tr><th>Form</th><th style="text-align: right">Instructions</th><th style="text-align: right">Clocks</th><th>Trace ID</th></tr>
 </thead>
 <tbody>
-<tr><td><code>If 0</code> / <code>1</code></td><td>25</td><td>144,805 instr / 1,519,710 clocks</td><td>156,292 instr / 1,604,282 clocks</td><td>+7.9% instr / +5.6% clocks</td></tr>
-<tr><td><code>If 0</code> / <code>1</code></td><td>100</td><td>521,723 instr / 5,498,347 clocks</td><td>885,912 instr / 8,862,729 clocks</td><td>+69.8% instr / +61.2% clocks</td></tr>
-<tr><td><code>If 1</code> / <code>1</code></td><td>25</td><td>185,032 instr / 1,920,085 clocks</td><td>179,874 instr / 1,859,796 clocks</td><td>-2.8% instr / -3.1% clocks</td></tr>
+<tr><td>Explicit <code>)</code></td><td style="text-align: right">145,748</td><td style="text-align: right">1,698,162</td><td><code>d8348851f6ba…</code></td></tr>
+<tr><td>Implicit close</td><td style="text-align: right">157,052</td><td style="text-align: right">1,790,338</td><td><code>eef08147e170…</code></td></tr>
 </tbody>
 </table>
 </div>
-<p>The true-condition control matters: omitting <code>)</code> is not inherently slower. The
-large slowdown appears when the omitted close is followed immediately by a
-single-line false <code>If</code>.</p>
-<h2 id="dispatch-difference"><a class="header" href="#dispatch-difference">Dispatch difference</a></h2>
-<p>The optional close is handled by the page-2 command-finalization gate
-<code>02:5676</code> [confirmed]:</p>
-<pre><code class="language-z80">02:5676  LD A,C
-02:5677  CP 11h          ; explicit ")"
-02:5679  JR Z,56C3h
-02:5683  OR A            ; implicit close / statement end
-02:5684  JP NZ,2708h     ; syntax/type error for other cases
-02:5687  CALL 5675h      ; direct command handler path
+<p>The implicit form adds 11,304 instructions, or 7.76%, and 92,176 clocks, or
+5.43%. These values describe this <code>N=25</code>, false-<code>If</code> pair. They do not imply the
+same ratio for other bodies or trip counts. [confirmed]
+The compact JSON report retains each complete SHA-256 digest.</p>
+<h2 id="parser-buffer-state"><a class="header" href="#parser-buffer-state">Parser-buffer state</a></h2>
+<p>The trace records writes to <code>nextParseByte</code> (<code>0x965D</code>) and <code>basic_end</code>
+(<code>0x965F</code>). The analyzer selects temporary states where the two pointers are
+equal and at or above <code>0x9E80</code>.</p>
+<pre class="mermaid">flowchart LR
+    E["Explicit close"] --&gt; ES["one equal high state&lt;br/&gt;0x9ECB"]
+    I["Implicit close"] --&gt; IS["25 equal high states&lt;br/&gt;0x9EC8–0xA018&lt;br/&gt;stride 0x0E"]
+</pre>
+
+<p>The explicit trace reuses one equal-pointer high state. The implicit trace
+advances through 25 states from <code>0x9EC8</code> to <code>0xA018</code> in <code>0x0E</code>-byte steps.
+This is direct RAM-state evidence that the two token streams manage temporary
+parse space differently. [confirmed]</p>
+<p>The <code>FPS</code> pointer distinguishes the forms at every <code>End</code> visit:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Form</th><th>First <code>FPS</code></th><th>Last <code>FPS</code></th><th style="text-align: right">Distinct values</th></tr>
+</thead>
+<tbody>
+<tr><td>Explicit <code>)</code></td><td><code>0x9F02</code></td><td><code>0x9F02</code></td><td style="text-align: right">1</td></tr>
+<tr><td>Implicit close</td><td><code>0x9EFF</code></td><td><code>0xA04F</code></td><td style="text-align: right">25</td></tr>
+</tbody>
+</table>
+</div>
+<p>The implicit sequence advances by <code>0x0E</code> per iteration. The explicit sequence
+keeps one <code>FPS</code> value after the first body setup. This matches the temporary
+cursor/end stride without using an LCD image as an oracle. [confirmed]</p>
+<h2 id="the-natural-loop-record"><a class="header" href="#the-natural-loop-record">The natural loop record</a></h2>
+<p>Both forms reach <code>For(</code> production entry <code>38:41E5</code> and <code>End</code> production entry
+<code>38:4200</code>. At each <code>End</code>, <code>38:4200</code> consumes five bytes beginning at <code>OPS + 1</code>:</p>
+<pre class="mermaid">flowchart LR
+    R["OPS + 1 … OPS + 5"] --&gt; Z["00h&lt;br/&gt;sentinel"]
+    R --&gt; C["36 58 or 7D 58&lt;br/&gt;continuation"]
+    R --&gt; S["12 00&lt;br/&gt;state word"]
+    C --&gt; I["38:5836 first update"]
+    C --&gt; T["38:587D steady update"]
+</pre>
+
+<p>The first continuation prepares the loop update. The steady continuation
+re-enters the update path on later iterations. The trace observes 25 <code>End</code>
+visits and the same two record variants in both spellings. [confirmed]</p>
+<p>The pair does not enter the command-finalization gate at <code>02:5676</code> or the
+page-33 dispatcher at <code>33:435F</code>; those routines do not explain the difference.
+The exact branch between <code>For(</code> argument parsing and temporary <code>FPS</code> allocation
+that selects reuse versus <code>0x0E</code>-byte growth remains [hypothesis].</p>
+<h2 id="reproduce-the-evidence"><a class="header" href="#reproduce-the-evidence">Reproduce the evidence</a></h2>
+<p>Generate the programs, run both cases, and retain their traces:</p>
+<pre><code class="language-sh">tools/tibasic_samples.py --write-dir tools/tibasic-samples
+
+TILEM=/path/to/patched/tilem2
+python3 tools/tibasic_smoke.py \
+  --tilem "$TILEM" --rom tools/rom.bin \
+  --out-dir /tmp/tibasic-for-paren --keep-trace \
+  --case forparen --case forimplicit
 </code></pre>
-<p>The explicit <code>)</code> path (<code>02:56C3...</code>) calls through the command cleanup path
-before returning to statement execution. The implicit-close path (<code>C=0</code>) calls
-the command handler directly. For <code>For(</code>, that handler is the page-2 stub
-<code>02:6A30</code>, which calls bcall <code>grf_435f</code> (<code>33:435F</code>) and indexes the control-flow
-jump table at <code>33:4381</code>; the <code>For</code> entry is table index <code>0x29 - 0x20 = 9</code>, and
-<code>End</code> is index <code>0x2A - 0x20 = 10</code> [confirmed].</p>
-<p>That one-byte syntax difference therefore changes the parser state at exactly
-the point where the <code>For</code> loop frame records the body cursor.</p>
-<h2 id="what-the-slow-case-does"><a class="header" href="#what-the-slow-case-does">What the slow case does</a></h2>
-<p>The marker interval profiler shows that the no-paren/false-<code>If</code> case spends its
-extra time in name/VAT scanning and pointer walking, not arithmetic:</p>
-<pre><code class="language-text">false N=25, no paren minus explicit paren:
-  +18,900 instr  07:565F  findsym_scan
-   +3,600 instr  ram:1787      dec_hl_tail_1787
-   +1,800 instr  ram:1785      dec_hl_tail_1785
-     +900 instr  ram:1784      dec_hl_tail_1784
+<p>Reduce the traces to the checked compact report:</p>
+<pre><code class="language-sh">PYTHONPATH=tools python3 tools/analyze_tibasic_for_paren.py \
+  --explicit /tmp/tibasic-for-paren/forparen.trace \
+  --implicit /tmp/tibasic-for-paren/forimplicit.trace \
+  --output tools/tibasic-for-paren.json
 </code></pre>
-<p>The parser-cursor writes explain why. In the explicit-paren trace, the
-single-line false <code>If</code> path repeatedly uses the same temporary parser buffer:</p>
-<pre><code class="language-text">... write nextParseByte=9EA8, parseEnd=9EA8
-... restore nextParseByte=9E3B, parseEnd=9E4C
-... write nextParseByte=9EA8, parseEnd=9EA8
-... restore nextParseByte=9E3B, parseEnd=9E4C
-</code></pre>
-<p>In the omitted-paren trace, the equivalent temporary buffer advances on each
-iteration:</p>
-<pre><code class="language-text">iteration 1: nextParseByte=9EA7, parseEnd=9EA7
-iteration 2: nextParseByte=9EB4, parseEnd=9EB4
-iteration 3: nextParseByte=9EC1, parseEnd=9EC1
-iteration 4: nextParseByte=9ECE, parseEnd=9ECE
-iteration 5: nextParseByte=9EDB, parseEnd=9EDB
-</code></pre>
-<p>Those addresses come from writes to <code>nextParseByte</code> (<code>0x965D</code>) and <code>basic_end</code>
-(<code>0x965F</code>) inside the marker interval. The advancing high-water mark matches
-the growing <code>findsym_scan</code> cost: the interpreter keeps allocating/walking
-temporary expression storage instead of reusing one stable temporary range.</p>
-<h2 id="mechanism"><a class="header" href="#mechanism">Mechanism</a></h2>
-<p>The false single-line <code>If</code> path is the amplifier [standard]:</p>
-<ol>
-<li><code>For(</code> with explicit <code>)</code> enters the <code>02:56C3</code> close/cleanup path before the
-control-flow handler records the loop continuation.</li>
-<li><code>For(</code> without <code>)</code> takes the <code>C=0</code> direct path at <code>02:5687</code>.</li>
-<li>With a first body line of <code>If 0</code>, the loop immediately enters the
-single-statement false-<code>If</code> skip path (<code>if_isg_stmt_handler</code> at <code>38:6F63</code>,
-with skip/temporary-parser work through the page-38 statement evaluator).</li>
-<li>In the direct-path case, that skip work is performed with a temporary parse
-range that advances every iteration. More iterations mean longer VAT/name
-and pointer scans, so the cost grows much faster than the explicit-paren
-version.</li>
-</ol>
-<p>This is why <code>N=25</code> shows only a modest penalty while <code>N=100</code> shows a large one.
-The omitted <code>)</code> saves a little cleanup work in the <code>If 1</code> control, but with
-<code>If 0</code> first it changes the loop/skip interaction and leaks work into temporary
-parser storage.</p>
+<p><code>tools/tibasic-for-paren.json</code> stores the hashes, marker intervals, pointer-write
+counts, high-state sequence, <code>FPS</code> summary, and decoded OPS record variants.
+The smoke check reads the completion marker from a logical-RAM dump. Raw traces
+remain outside the repository.</p>
 <h2 id="practical-rule"><a class="header" href="#practical-rule">Practical rule</a></h2>
-<p>When a <code>For(</code> loop body starts with a guard like <code>If not(condition)</code> or <code>If 0</code>,
-write the closing <code>)</code>:</p>
+<p>Write the closing <code>)</code> when a <code>For(</code> body begins with a single-line guard:</p>
 <pre><code class="language-ti-basic">For(I,1,N)
-If A
-...
+If condition
+statement
 End
 </code></pre>
-<p>Better still, avoid single-line false guards as the first statement of a hot
-loop. Use <code>If ... Then</code> blocks when the body is structured, or invert the loop
-so the common path does not repeatedly exercise the false-<code>If</code> skip scanner.</p>
+<p>The explicit form avoids the measured advancing temporary-buffer sequence in
+this pattern. Use the trace pair as evidence for this case, not as a general
+claim that every implicit <code>For(</code> close is slower.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="display-and-lcd"><a class="header" href="#display-and-lcd">Display and LCD</a></h1>
 <p>The display subsystem turns text, graph buffers, menus, and equation layouts into the 96×64 monochrome image scanned from LCD-controller video RAM. This page maps the OS-facing render paths and software buffers; <a href="#lcd-controller-and-display-bus">LCD controller and display bus</a> reconstructs commands, addressing, timing, initialization, reads, power, and controller-revision behavior.</p>
@@ -13242,7 +13093,7 @@ $$</p>
 <h1 id="lcd-controller-and-display-bus"><a class="header" href="#lcd-controller-and-display-bus">LCD controller and display bus</a></h1>
 <p><em>TI-84 Plus OS 2.55MP — Controller commands, video RAM, bus timing, initialization, blits, reads, contrast, and emulator fidelity.</em></p>
 <p>The TI-84 Plus drives a 96×64 monochrome panel through an external LCD controller on ports <code>0x10</code> and <code>0x11</code>. This page separates the visible panel from controller video RAM, reconstructs the OS command and transfer paths, traces initialization and clearing, and identifies behavior that varies across Toshiba and Novatek controller revisions.</p>
-<h2 id="evidence-layers-4"><a class="header" href="#evidence-layers-4">Evidence layers</a></h2>
+<h2 id="evidence-layers-5"><a class="header" href="#evidence-layers-5">Evidence layers</a></h2>
 <p>The local ROM establishes what OS 2.55MP sends to the controller. Public hardware tests establish controller behavior that the ROM does not expose. TilEm, Wabbitemu, MAME, and jsTIfied supply executable models whose choices are identified separately.</p>
 <div class="table-wrapper">
 <table>
@@ -14082,7 +13933,7 @@ function through the parser into OP1, formats the result, and lays the values ou
 as a text grid → how Y= equations are stored, selected, and styled → and the
 Table ↔ Y= ↔ parser ↔ display interaction.</p>
 <p>Builds on <a href="#graphing">sub-graphing.md</a> (Y= storage, the regraph/eval path, <code>plotSScreen</code>),
-<a href="#ti-basic-programs">sub-tibasic.md</a> (the page-38 parser, <code>_Find_Parse_Formula</code>, <code>_ParseInp</code>),
+<a href="#ti-basic-execution">sub-tibasic.md</a> (the page-38 parser, <code>_Find_Parse_Formula</code>, <code>_ParseInp</code>),
 <a href="#variables--the-vat-variable-allocation-table">variables-vat.md</a> (<code>EquObj</code>, <code>_FindSym</code>), <a href="#display-and-lcd">display-lcd.md</a> (text grid via
 <code>_PutMap</code>/<code>_PutC</code>), and <a href="#boot-contexts--errors">boot-contexts-errors.md</a> (the context/<code>cxMain</code>
 mechanism that selects the TABLE editor vs TABLE-setup screens).</p>
@@ -14178,7 +14029,7 @@ row index <code>0x91E0</code> when Indpnt flips to Ask. Companion sites: <code>3
 <p><code>Y1…Y9, Y0</code> are system equation variables, VAT objects of type <code>EquObj</code> = 3
 (<code>ti83plus.inc</code>: <code>EquObj EQU 3</code>; <code>NewEquObj</code>=0x0B, <code>UnknownEquObj</code>=0x0A). Each holds
 <code>word size</code> + <code>size</code> bytes of the tokenized formula you typed after <code>Y1=</code> — the
-<em>same</em> token encoding the homescreen and program editor use (see <a href="#ti-basic-programs">sub-tibasic.md</a>).
+<em>same</em> token encoding the homescreen and program editor use (see <a href="#ti-basic-execution">sub-tibasic.md</a>).
 The equation name in OP1 is the 2-byte token sequence <code>tVarEqu (0x5E)</code> + the
 Y-token:</p>
 <div class="table-wrapper">
@@ -14490,7 +14341,7 @@ the header switch but its full body (cross-page) was not traced here.</li>
 <p>MathPrint is the OS subsystem that turns a tokenized expression into a
 two-dimensional screen layout. It serves the home-screen entry line, the
 <strong>Y=</strong> editor, the Solver equation line, and the template menus. It consumes
-the token stream described in <a href="#tokenizer--ti-basic">Tokenizer &amp; TI-BASIC</a> and
+the token stream described in <a href="#tokenizer-and-ti-basic-tokens">Tokenizer &amp; TI-BASIC</a> and
 preserves the OP registers described in
 <a href="#floating-point-engine">Floating-point engine</a>.</p>
 <p>The token stream, record graph, and editor state coexist while an expression
@@ -17631,7 +17482,7 @@ the retained trace does not expose the final source buffer. [hypothesis]</p>
 <li>per-mode lookup tables on another page, reached via <code>cross_page_jump</code> (the 2nd/ALPHA-mode and function-key token tables);</li>
 <li>special key codes <code>0xFB/0xFC/0xFE/0xFF</code> are not tokens — they’re the menu / context-switch return codes the main event loop branches on (see <a href="#boot-contexts--errors">Boot, contexts &amp; errors</a>), so <code>_KeyToString</code> routes them out via <code>cross_page_jump</code> rather than translating.</li>
 </ul>
-<p>So the input path is: keypad → ISR → <code>kbdScanCode</code> → <code>_GetKey</code> (cooked <code>kXxx</code> + modifiers) → <code>_KeyToString</code> → token → parser (<a href="#tokenizer--ti-basic">Tokenizer &amp; TI-BASIC</a>).</p>
+<p>So the input path is: keypad → ISR → <code>kbdScanCode</code> → <code>_GetKey</code> (cooked <code>kXxx</code> + modifiers) → <code>_KeyToString</code> → token → parser (<a href="#tokenizer-and-ti-basic-tokens">Tokenizer &amp; TI-BASIC</a>).</p>
 <h2 id="link-port"><a class="header" href="#link-port">Link port</a></h2>
 <p>The 2.5 mm I/O link uses two open-collector lines. Port <code>0x00</code> drives and samples them directly; ports <code>0x08</code>–<code>0x0D</code> provide the TI-84 Plus hardware-assisted byte path. [standard] for the electrical interface; [confirmed] for the ROM port use.</p>
 <p><code>_SendAByte = 4EE5</code>, body <code>3C:420D</code>, sends legacy bits least-significant first. It writes <code>1</code> for bit 0 and <code>2</code> for bit 1, waits for a both-low acknowledgement, releases its line, and waits for idle. <code>_RecAByteIO = 4F03</code>, body <code>3C:443F</code>, performs the inverse handshake. Both paths use bounded waits that enter the link-error machinery on timeout. [confirmed]</p>
@@ -17643,7 +17494,7 @@ the retained trace does not expose the final source buffer. [hypothesis]</p>
 <h1 id="keypad-and-on-key-hardware"><a class="header" href="#keypad-and-on-key-hardware">Keypad and ON-key hardware</a></h1>
 <p><em>TI-84 Plus OS 2.55MP — Matrix scanning, debounce, repeat, ON interrupts, and wake behavior.</em></p>
 <p>The TI-84 Plus reads most keys through an active-low 8×8 matrix on port <code>0x01</code>. The <strong>ON</strong> key uses a separate level and interrupt circuit. This page follows both paths from the electrical interface through the OS scanner, <code>_GetCSC</code>, <code>_GetKey</code>, shutdown, and wake.</p>
-<h2 id="evidence-layers-5"><a class="header" href="#evidence-layers-5">Evidence layers</a></h2>
+<h2 id="evidence-layers-6"><a class="header" href="#evidence-layers-6">Evidence layers</a></h2>
 <p>The matrix’s electrical behavior, the ROM’s filtering policy, and emulator input models are separate evidence layers.</p>
 <div class="table-wrapper">
 <table>
@@ -17944,7 +17795,7 @@ ram:04BE  ret
 </div>
 <p>From idle, scan code <code>0x36</code> sets <code>shift2nd</code> at <code>06:4AD5</code> and loops without returning. A second <strong>2nd</strong> cancels it at <code>06:4B8E</code>; another key clears the flag at <code>06:4B87</code> before translation. Scan code <code>0x30</code> sets uppercase alpha at <code>06:4AE8</code>. <strong>[2nd]</strong> then <strong>ALPHA</strong> sets both <code>shiftALock</code> and <code>shiftAlpha</code> at <code>06:4B96</code>–<code>06:4B9A</code>. In a lowercase-capable context, another <strong>ALPHA</strong> sets <code>shiftLwrAlph</code> at <code>06:4C0D</code>; the next cycle cancels alpha. [confirmed]</p>
 <p><code>key_clear_alpha_if_unlocked</code> at <code>ram:04BF</code> preserves alpha when <code>shiftALock</code> or <code>shiftKeepAlph</code> is set and otherwise clears <code>shiftAlpha</code>. The timer ISR can also clear a pending <strong>2nd</strong> at <code>ram:01E0</code>, preventing an abandoned modifier from persisting indefinitely. [confirmed]</p>
-<p><code>_KeyToString</code> at <code>01:6D10</code> performs the next layer: cooked key code to editor token or string. The complete input path is matrix → scanner → <code>_GetCSC</code> → <code>_GetKey</code> → <code>_KeyToString</code> → tokenizer. See <a href="#tokenizer--ti-basic">Tokenizer &amp; TI-BASIC</a>. [confirmed]</p>
+<p><code>_KeyToString</code> at <code>01:6D10</code> performs the next layer: cooked key code to editor token or string. The complete input path is matrix → scanner → <code>_GetCSC</code> → <code>_GetKey</code> → <code>_KeyToString</code> → tokenizer. See <a href="#tokenizer-and-ti-basic-tokens">Tokenizer &amp; TI-BASIC</a>. [confirmed]</p>
 <h2 id="on-interrupt-and-level"><a class="header" href="#on-interrupt-and-level">ON interrupt and level</a></h2>
 <p>The <strong>ON</strong> circuit uses two ports. [standard]</p>
 <div class="table-wrapper">
@@ -20873,9 +20724,9 @@ levels, or reset retention.</li>
 </div>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="2-byte-token-tables"><a class="header" href="#2-byte-token-tables">2-byte token tables</a></h1>
-<p>The second-byte tables for every 2-byte token on the TI-84 Plus (OS 2.55MP). The tokenizer detects a 2-byte lead via <code>_IsA2ByteTok</code> (<code>00:1FE8</code>) — see <a href="#tokenizer--ti-basic">Tokenizer &amp; TI-BASIC</a> — then the second byte indexes the group below.</p>
+<p>The second-byte tables for every 2-byte token on the TI-84 Plus (OS 2.55MP). The tokenizer detects a 2-byte lead via <code>_IsA2ByteTok</code> (<code>00:1FE8</code>) — see <a href="#tokenizer-and-ti-basic-tokens">Tokenizer &amp; TI-BASIC</a> — then the second byte indexes the group below.</p>
 <p>Names are sourced from the <a href="https://github.com/TI-Toolkit/tokens">TI-Toolkit/tokens</a> sheet (<code>8X.xml</code>) and filtered to tokens that exist on the monochrome 84+ (≤ 2.55MP): the <code>TI-84+CSE</code>/<code>TI-84+CE</code> color/Python-era 2-byte tokens are excluded. The <code>Since</code> column is the model that introduced each token. Token text is the English <em>display</em> form (the source also carries an ASCII-<code>accessible</code> spelling, e.g. <code>&gt;DMS</code> for <code>►DMS</code>).</p>
-<p>492 two-byte tokens across 11 lead bytes. (Single-byte tokens are modeled by the <code>TIToken</code> enum — see <a href="#tokenizer--ti-basic">Tokenizer &amp; TI-BASIC</a>.)</p>
+<p>492 two-byte tokens across 11 lead bytes. (Single-byte tokens are modeled by the <code>TIToken</code> enum — see <a href="#tokenizer-and-ti-basic-tokens">Tokenizer &amp; TI-BASIC</a>.)</p>
 <p>This file is generated by <code>tools/gen-token-tables.py</code>; edit that, not this.</p>
 <hr>
 <h2 id="5c--matrix-names--aj"><a class="header" href="#5c--matrix-names--aj"><code>5C</code> — Matrix names  (<code>[A]</code>–<code>[J]</code>)</a></h2>
