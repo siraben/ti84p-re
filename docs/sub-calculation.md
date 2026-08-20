@@ -55,7 +55,7 @@ Convenience / derived ops:
 - `_InvSub` `ram:227D` = `_InvOP1S` then `_FPAdd` ⇒ `OP2 − OP1` (reversed subtract). [confirmed]
 - **Negation**: `_InvOP1S` `ram:24BD` (XOR `OP1.value.type` with `0x80`, guarding against −0), `_InvOP2S` `ram:24CD`, `_InvOP1SC` `ram:24BA` (both). `_CkOP1Pos` `ram:1E5D` ANDs `OP1.value.type` with `0x80`. [confirmed]
 
-### Roots & integer parts [confirmed]
+### Roots and integer parts [confirmed]
 
 - `_SqRoot` `02:6E38`: `_ErrD_OP1NotPos` (→ DOMAIN if negative/complex-real), `fp_clear_guard`, `_ZeroOP3`, then a digit-by-digit BCD square-root extraction loop (`ram:1C9C` trial-subtract + `ram:1D4A` compare, halving the exponent up front). A classic long-hand sqrt, not Newton's method.
 - `_Int`/`_Intgr` `ram:2621`/`2263`: floor. `_Trunc` `ram:2279` drops the fractional part (toward zero); `_Intgr` truncates then subtracts 1 (`_Minus1` `ram:2294`) when the original was negative, giving true floor.
@@ -108,7 +108,7 @@ and `fp_constant_table` (`02:7D42`) all reside on page `02`. [confirmed]
 - `_TenX` `02:7066` (10^x): splits exponent into integer (digit shift) + fractional
   (16-slot table-driven evaluation through `logexp_digit_table`). Argument too large → `_ErrOverflow`.
 
-### Trig — sin/cos/tan [confirmed]
+### Trigonometric functions [confirmed]
 
 - `_SinCosRad` `02:733E`, `_Sin` `7342`, `_Cos` `7346`, `_Tan` `734A`. Each loads a
   function selector byte into `0x8499` (`1`=sin, `2`=cos, `4`=tan; `0x80` bit set when

@@ -20,7 +20,7 @@ The exact rotation identity represented by each row at `02:7201` and `02:7281`
 is still unknown. [confirmed]
 
 Reduce the rows to their mathematical identities and reconcile them with the
-recurrence in [Floating point](floating-point.md#_sincosrad--sincos-in-radians-02733e-confirmed).
+recurrence in [Floating point](floating-point.md#_sincosrad-sine-and-cosine-in-radians-02733e-confirmed).
 
 ### Graph raster details
 

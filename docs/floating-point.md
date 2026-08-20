@@ -131,7 +131,7 @@ Multiply/divide/transcendentals (on page 0x02) reuse the same align/normalize pr
 
 `FPS` (`0x9824`) is a software stack for temporaries; `_PushRealO1` (= `RST 18h`, `ram:155C`), `_PushReal`, `_PopRealO1` through `_PopRealO6`, `_PopReal`, `_AllocFPS`, and `_DeallocFPS` manage it. Used to spill OP registers during nested expression evaluation.
 
-## Multiply / divide / transcendentals [confirmed]
+## Multiplication, division, and transcendentals [confirmed]
 
 The rest of the FP op set lives alongside add on page 0, with the transcendentals banked to page 0x02:
 
@@ -243,7 +243,7 @@ sign and reciprocal cases, then evaluates the fractional part through
 `logexp_digit_table`. The `CP 0x0F` bound at `02:7109` establishes 16 selector
 slots. [confirmed]
 
-### `_SinCosRad` — sin/cos in radians (`02:733E`) [confirmed]
+### `_SinCosRad` sine and cosine in radians (`02:733E`) [confirmed]
 
 This one keeps its range reduction on page 0x02 and is the most fully recovered:
 

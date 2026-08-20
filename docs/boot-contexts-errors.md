@@ -37,7 +37,7 @@ VAT, system flags, the LCD, and enters the main context (the homescreen).
 
 The boot page (`3F`) and its version queries are exposed to the OS through `ti83plus.inc` bcalls: `_getBootVer` (bcall `0x80B7` → `3F:477C`) and `_getHardwareVersion` (bcall `0x80BA` → `3F:4781`). The USB boot support entry points route through the same table but land on page `2F`, for example `_AttemptUSBOSReceive` (`0x80E4` → `2F:4145`) and `_InitUSB` (`0x8108` → `2F:52A4`).
 
-### RAM clear / re-init (`ram_reset_wipe` → `ram:0BD9`) [confirmed]
+### RAM clearing and reinitialization (`ram_reset_wipe` at `ram:0BD9`) [confirmed]
 
 The RAM-init proper is `ram_reset_wipe` (`35:719F`, reached on a full reset; the same routine backs the `[2nd]+[+] · 7 · 1 · 2` RAM-reset and the post-boot RAM clear). It zero-fills RAM in two blocks, preserving a handful of flag bits and `0x9B73` across the wipe:
 
@@ -79,7 +79,7 @@ The `ram:3F3F` router is a bjump trampoline → `event_key_router` (`07:4539`): 
 
 So the router classifies a mode key before the active context sees it and returns a context-switch code (`0xFB`/`0xFC`); the caller then swaps the `cx*` vectors. The router itself only writes `keyExtend` (`0x8446`, the extended-key state) — its body holds no store to the `cx*` block. [confirmed]
 
-## Contexts — how the OS implements "modes"/apps [confirmed]
+## Contexts and OS modes [confirmed]
 
 The OS is single-tasking but multi-context. A *context* is the set of handler routines for whatever is currently in front of the user (homescreen, an editor, the graph screen, a Flash App). The active context's vectors live in RAM at `cxMain` (and friends), with `cxPage` holding which flash page their code is on.
 
@@ -168,7 +168,7 @@ The `Code` column is each error's low 7 bits. Re-editable errors set the `E_EDIT
 ## Confirmed details
 
 - **`cx*` vector layout — confirmed.** The six 2-byte handler slots and `cxPage` offsets are pinned by tracing `_AppInit` (`ram:0936`): `LD DE,0x858D / LD BC,0x000C / LDIR` then `IN A,(6) / LD (0x8599),A`. See [Context block layout](#context-block-layout-confirmed) above for the full offset table and `_AppInit` body. `_AppInit` installs the block; it is not the sole writer — `_POPCX` (bcall `0x49E1` → `07:6D1C`) restores a saved context into `cxMain`, and a save path at `07:5A8C` copies `cxMain` into the `cxPrev` shadow.
-- **Boot RAM-init trace — raw-disassembly trace.** Emulator reset starts at logical `0x8000` on page `3F` and reaches `boot_os_entry`; the page-0 restart vector at `ram:0000` → `ram:028C` reaches the same continuation. The RAM clear/re-init is `ram_reset_wipe` (`35:719f`): two `LDIR` zero-fills (`0x8000`–`0x9BC3`, `0x9BD0`–`0xFFFF`) preserving a few flag bytes, then `JP 0x0BD9` (`ram_init_after_reset`: port 0 = `0xC0`, stack reset in the raw trace, `CALL 0x3EC1`). The `ram:0BD9` entry matches the re-init point cross-referenced in [Memory management](memory-management.md). See [RAM clear / re-init](#ram-clear--re-init-ram_reset_wipe--ram0bd9-confirmed).
+- **Boot RAM-init trace — raw-disassembly trace.** Emulator reset starts at logical `0x8000` on page `3F` and reaches `boot_os_entry`; the page-0 restart vector at `ram:0000` → `ram:028C` reaches the same continuation. The RAM clear/re-init is `ram_reset_wipe` (`35:719F`): two `LDIR` zero-fills (`0x8000`–`0x9BC3`, `0x9BD0`–`0xFFFF`) preserving a few flag bytes, then `JP 0x0BD9` (`ram_init_after_reset`: port 0 = `0xC0`, stack reset in the raw trace, `CALL 0x3EC1`). The `ram:0BD9` entry matches the re-init point cross-referenced in [Memory management](memory-management.md). See [RAM clearing and reinitialization](#ram-clearing-and-reinitialization-ram_reset_wipe-at-ram0bd9-confirmed).
 - **Flash write and erase.** The retail boot table maps `_WriteFlash` (`80C9`) to `3F:4C8F`, `_WriteFlashUnsafe` (`8087`) to `3F:4CA6`, `_WriteAByte` (`8021`) to `3F:4C9F`, and `_EraseFlash` (`8024`) to `3F:4C2A`. Their program and erase loops are copied to `ramCode` at `0x8100`. A successful archive trace executes `archive_write_record` at `3D:64AA`, three `_WriteAByte` calls, and six entries through `_WriteFlashUnsafe`. See [Flash memory](flash-memory.md). [confirmed]
 
 The `JP 0x812C` target and the `ram:3EC1` init continuation are both present in

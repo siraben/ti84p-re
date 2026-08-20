@@ -233,7 +233,7 @@ the selection bit is bit 5 (`0x20`). The per-equation style byte holds the line 
 selection/style byte values also match the
 [TI link-protocol guide](https://merthsoft.com/linkguide/ti83+/vars.html#style).
 
-### Parsing / pre-scan
+### Parsing and pre-scan
 
 `graph_parse_tok` (`33:5023`) walks an equation's token stream to classify it before
 plotting: it reads tokens via the paged-pointer reader (`_SetupPagedPtr`/`_PagedGet`),
