@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-38eea4f6.js";
+            window.path_to_searchindex_js = "searchindex-fdb79b39.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-c9603d63.js"></script>
+        <script src="toc-b88a411b.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -812,7 +812,13 @@
 </table>
 </div>
 <h2 id="retail-boot-0x8xxx-bcalls"><a class="header" href="#retail-boot-0x8xxx-bcalls">Retail boot (<code>0x8xxx</code>) bcalls</a></h2>
-<p>These <code>0x8xxx</code> IDs are defined in the full 2007 <code>ti83plus.inc</code> and resolved from the retail boot table. <code>tools/resolve_bcalls.py</code> emits this table only when page <code>3F</code> has the retail boot prefix, not when it sees BootFree.</p>
+<p>The retail table has 87 populated entries across IDs <code>0x8018</code>–<code>0x80D2</code> and
+<code>0x80E4</code>–<code>0x8129</code>. The full 2007 <code>ti83plus.inc</code> defines 83 of them; the four
+snake-case rows below are project-inferred names for otherwise unnamed slots.
+<code>tools/resolve_bcalls.py</code> emits the public-name target file only when page <code>3F</code>
+has the retail boot prefix, not when it sees BootFree. See
+<a href="retail-boot.html#physical-layout">Retail boot page</a> for the intervening dispatch
+stub and evidence behind the inferred rows. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -837,6 +843,7 @@
 <tr><td><code>_Mult16By8</code></td><td><code>8045</code></td><td><code>3F:705B</code></td></tr>
 <tr><td><code>_Div16By8</code></td><td><code>8048</code></td><td><code>3F:7146</code></td></tr>
 <tr><td><code>_Div16By16</code></td><td><code>804B</code></td><td><code>3F:7148</code></td></tr>
+<tr><td><code>certificate_reconcile_id_fields</code></td><td><code>804E</code></td><td><code>3F:4924</code></td></tr>
 <tr><td><code>_LoadAIndPaged</code></td><td><code>8051</code></td><td><code>3F:486E</code></td></tr>
 <tr><td><code>_FlashToRam2</code></td><td><code>8054</code></td><td><code>3F:4888</code></td></tr>
 <tr><td><code>_GetCertificateStart</code></td><td><code>8057</code></td><td><code>3F:4D46</code></td></tr>
@@ -844,6 +851,8 @@
 <tr><td><code>_FindSubField</code></td><td><code>805D</code></td><td><code>3F:4DFB</code></td></tr>
 <tr><td><code>_EraseCertificateSector</code></td><td><code>8060</code></td><td><code>3F:4E3F</code></td></tr>
 <tr><td><code>_CheckHeaderKey</code></td><td><code>8063</code></td><td><code>3F:4B4A</code></td></tr>
+<tr><td><code>certificate_find_matching_field_data</code></td><td><code>8066</code></td><td><code>3F:4F91</code></td></tr>
+<tr><td><code>certificate_count_matching_fields</code></td><td><code>8069</code></td><td><code>3F:4EFF</code></td></tr>
 <tr><td><code>_Load_LFontV2</code></td><td><code>806C</code></td><td><code>3F:7C8A</code></td></tr>
 <tr><td><code>_Load_LFontV</code></td><td><code>806F</code></td><td><code>3F:7C8A</code></td></tr>
 <tr><td><code>_ReceiveOS</code></td><td><code>8072</code></td><td><code>3F:5DCE</code></td></tr>
@@ -892,6 +901,7 @@
 <tr><td><code>_CheckHeaderKeyHL</code></td><td><code>8102</code></td><td><code>3F:4B4D</code></td></tr>
 <tr><td><code>_USBErrorCleanup</code></td><td><code>8105</code></td><td><code>2F:5958</code></td></tr>
 <tr><td><code>_InitUSB</code></td><td><code>8108</code></td><td><code>2F:52A4</code></td></tr>
+<tr><td><code>usb_set_port81_bit0_delay</code></td><td><code>810B</code></td><td><code>2F:62C5</code></td></tr>
 <tr><td><code>_KillUSB</code></td><td><code>810E</code></td><td><code>2F:5961</code></td></tr>
 <tr><td><code>_DisplayBootError1</code></td><td><code>8111</code></td><td><code>3F:63DB</code></td></tr>
 <tr><td><code>_DisplayBootError2</code></td><td><code>8114</code></td><td><code>3F:5789</code></td></tr>

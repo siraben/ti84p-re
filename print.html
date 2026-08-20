@@ -38,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-38eea4f6.js";
+            window.path_to_searchindex_js = "searchindex-fdb79b39.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-c9603d63.js"></script>
+        <script src="toc-b88a411b.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -350,7 +350,7 @@ throughout the wiki.</p>
 <ul>
 <li>The Ghidra database is rebuilt from the ROM by <code>tools/build.sh</code> (a 15-stage reproducible pipeline around Ghidra’s headless analyzer). It loads all 64 flash pages (page 0 + overlays at <code>4000</code>), then resolves routines, applies function and data symbols, and installs the checked C layouts and offset references.</li>
 <li><strong>Local ROM trust boundary.</strong> <code>tools/assemble_local_rom.py --check</code> validates the exact ignored base-ROM and AppVar hashes without writing output. Its reusable <code>tools/rom_assembly.py</code> library decodes each TI variable container, verifies its checksum, type, name, flags, duplicate length fields, internal 16 KiB size, and payload hash, then requires the assembled-ROM hash. This proves which bytes the analysis uses; it does not prove that the files were captured from a physical calculator. The pinned base already contains the <code>D84PBE1.8Xv</code> page-<code>3F</code> payload byte for byte. Only <code>D84PBE2.8Xv</code>, installed at page <code>2F</code>, changes the base image (8,615 bytes). [confirmed]</li>
-<li><strong>bcall table resolution.</strong> The main jump table page was found by <em>scoring</em> all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid <code>(addr, page)</code> entry. Page 0x3B scored highest for the <code>0x4xxx</code> table — more known bcall IDs resolve to a valid <code>(addr, page)</code> entry there than on any other page — and is confirmed by the documented RST shortcuts (all six matched) and by every entry resolving and live-confirming once 0x3B is applied. <code>0x8xxx</code> bcall IDs index the retail boot table on page <code>3F</code>; several USB entries target page <code>2F</code>. The local <code>rom.bin</code> is assembled from the patched base plus the retail <code>D84PBE1.8Xv</code> and <code>D84PBE2.8Xv</code> payloads, so <code>tools/bcalls8x_targets.txt</code> contains 83 byte-resolved body rows. The resolver rejects these targets when page <code>3F</code> has a BootFree prefix.</li>
+<li><strong>bcall table resolution.</strong> The main jump table page was found by <em>scoring</em> all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid <code>(addr, page)</code> entry. Page 0x3B scored highest for the <code>0x4xxx</code> table — more known bcall IDs resolve to a valid <code>(addr, page)</code> entry there than on any other page — and is confirmed by the documented RST shortcuts (all six matched) and by every entry resolving and live-confirming once 0x3B is applied. <code>0x8xxx</code> bcall IDs index 87 populated retail boot-table entries on page <code>3F</code>; several USB entries target page <code>2F</code>. The local <code>rom.bin</code> is assembled from the patched base plus the retail <code>D84PBE1.8Xv</code> and <code>D84PBE2.8Xv</code> payloads. <code>tools/bcalls8x_targets.txt</code> contains the 83 byte-resolved bodies with public SDK names; the remaining four entries have project-inferred names. The resolver rejects these targets when page <code>3F</code> has a BootFree prefix.</li>
 <li><strong>Decompiler caveats.</strong> Ghidra’s Z80 decompiler can mis-render <code>SET b,(IY+d)</code> flag operations, <code>CALL cross_page_jump</code> (<code>ram:2B09</code>) trampolines, and register-passed arguments on banked pages. Raw disassembly and ROM bytes are authoritative for these cases.</li>
 </ul>
 <p>See the repository <code>README.md</code> for the exact build pipeline and tooling.</p>
@@ -2900,16 +2900,18 @@ emulator agreement is only a test oracle for emulator behavior.</p>
 <li>Validation: known bcalls land exactly where expected — <code>_PutS</code>→<code>01:5C39</code>, <code>_GetKey</code>→<code>06:491E</code>, <code>_ClrLCDFull</code>→<code>01:60E4</code>, <code>_GetCSC</code>→<code>00:04B2</code>, <code>_CreateReal</code>→<code>00:10B8</code>.</li>
 </ul>
 <p><code>tools/bcall_targets.txt</code> holds 621 resolved main-table bcall rows.
-<code>tools/bcalls8x_targets.txt</code> holds 83 retail boot-table (<code>0x8xxx</code>) rows resolved
-from the assembled local ROM. <code>tools/resolve_bcalls.py</code> emits those rows only
-when page <code>3F</code> has the retail prefix and page <code>2F</code> contains the companion USB
-payload; its BootFree guard otherwise leaves only diagnostic comments.
+The retail boot table has 87 populated entries. <code>tools/bcalls8x_targets.txt</code>
+holds the 83 rows with official SDK names; four populated slots have only
+project-inferred names in the <a href="#retail-boot-0x8xxx-bcalls">bcall index</a>.
+<code>tools/resolve_bcalls.py</code> emits the official-name rows only when page <code>3F</code> has
+the retail prefix and page <code>2F</code> contains the companion USB payload; its
+BootFree guard otherwise leaves only diagnostic comments.
 <code>tools/ApplyBcalls.java</code> disassembles and names the confirmed bodies.</p>
 <h2 id="jump-table-id-ranges"><a class="header" href="#jump-table-id-ranges">Jump-table ID ranges</a></h2>
 <p>The dispatcher (<code>bcall_dispatcher</code>) decodes the ID’s top two bits to pick the table page: bit 15 set → page-byte <code>0x7F</code> (masked <code>&amp; 0x3F</code> → page <code>0x3F</code>); bit 14 set → <code>0x7B</code> (→ page <code>0x3B</code>); with <em>neither</em> bit set it falls through to <code>lookup_bcall_table_page</code> (<code>ram:2ADA</code>). The two tables real bcall IDs use:</p>
 <ul>
 <li><code>0x4xxx</code>–<code>0x7FFF</code> (bit 14 set): the main table on flash page <code>0x3B</code>, entry at offset <code>ID − 0x4000</code> (621 live-confirmed bcalls: 599 IDs also present in the included SDK equates and 22 project-inferred additions).</li>
-<li><code>0x8xxx</code> (bit 15 set): the retail boot table is on physical page <code>3F</code>, indexed by <code>ID &amp; 0x7FFF</code>. <code>D84PBE1.8Xv</code> supplies the retail page <code>3F</code>; <code>D84PBE2.8Xv</code> supplies the companion USB boot support page <code>2F</code>. Most entries resolve to <code>3F:addr</code>; USB entries such as <code>_AttemptUSBOSReceive</code> (<code>80E4</code>) and <code>_InitUSB</code> (<code>8108</code>) resolve to <code>2F:addr</code>. <code>tools/resolve_bcalls.py</code> refuses to emit these targets from a BootFree-substituted page. [confirmed]</li>
+<li><code>0x8xxx</code> (bit 15 set): the retail boot table is on physical page <code>3F</code>, indexed by <code>ID &amp; 0x7FFF</code>. Its real entries occupy IDs <code>0x8018</code>–<code>0x80D2</code> and <code>0x80E4</code>–<code>0x8129</code>; bytes <code>3F:40D5</code>–<code>3F:40E3</code> between those ranges are executable dispatch-stub bytes, not five table entries. <code>D84PBE1.8Xv</code> supplies the retail page <code>3F</code>; <code>D84PBE2.8Xv</code> supplies the companion USB boot support page <code>2F</code>. Most entries resolve to <code>3F:addr</code>; USB entries such as <code>_AttemptUSBOSReceive</code> (<code>80E4</code>) and <code>_InitUSB</code> (<code>8108</code>) resolve to <code>2F:addr</code>. <code>tools/resolve_bcalls.py</code> refuses to emit these targets from a BootFree-substituted page. [confirmed]</li>
 </ul>
 <p>Both resolved table formats are 3-byte entries: target address (little endian) plus page byte masked with <code>&amp; 0x3F</code>.</p>
 <h2 id="rst-shortcuts-fast-inlined-bcalls-confirmed"><a class="header" href="#rst-shortcuts-fast-inlined-bcalls-confirmed">RST shortcuts (fast inlined bcalls) [confirmed]</a></h2>
@@ -4260,15 +4262,209 @@ are decoded in
 The sole branch to <code>boot_lcd_keypad_diagnostic</code> is constant-false; later recovery/UI paths remain
 open. [confirmed]</p>
 <div style="break-before: page; page-break-before: always;"></div>
+<h1 id="retail-boot-page"><a class="header" href="#retail-boot-page">Retail boot page</a></h1>
+<p><em>TI-84 Plus OS 2.55MP — page layout, startup dispatch, recovery, and validation.</em></p>
+<p>Flash page <code>3F</code> is the calculator’s retail boot block. It owns the reset stub,
+the <code>0x8xxx</code> bcall table, OS-validation and certificate services, the serial
+recovery receiver, and the hardware setup that hands control to either the
+installed OS or an installer. [confirmed]</p>
+<p>This page maps that control plane. See
+<a href="#retail-boot-hardware-initialization">Retail boot hardware initialization</a> for the register-level
+reset sequence and the destructive hardware diagnostics.</p>
+<h2 id="evidence-boundaries-2"><a class="header" href="#evidence-boundaries-2">Evidence boundaries</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Evidence</th><th>What it establishes</th><th>Confidence</th></tr>
+</thead>
+<tbody>
+<tr><td>OS 2.55MP page <code>3F</code> bytes</td><td>page layout, instructions, direct branch targets, table entries, and validation checks</td><td>[confirmed]</td></tr>
+<tr><td>Rebuilt Ghidra database</td><td>function boundaries and cross-references within page <code>3F</code> and the USB payload on page <code>2F</code></td><td>[confirmed]</td></tr>
+<tr><td>Four reset-origin TilEm traces</td><td>ordinary, DEL-held, STAT-held, and MODE-held startup behavior in the pinned emulator</td><td>[confirmed] for those runs</td></tr>
+<tr><td>Full 2007 <code>ti83plus.inc</code></td><td>official names for 83 of the 87 callable table entries</td><td>[confirmed]</td></tr>
+<tr><td>Physical calculator with a sending peer</td><td>electrical link/USB behavior and a complete installer transaction</td><td>[hypothesis] until measured</td></tr>
+</tbody>
+</table>
+</div>
+<p>The checked trace reduction is <code>tools/retail-boot-traces.json</code>. Its ROM hash,
+emulator source commit, emulator-binary hash, trace hashes, visit counts, and
+first-visit clocks keep each dynamic claim tied to a specific run. The raw
+TLMT traces are too large for the repository and remain external.</p>
+<h2 id="physical-layout"><a class="header" href="#physical-layout">Physical layout</a></h2>
+<p>Boot version <code>1.03</code> partitions page <code>3F</code> as follows: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Page-<code>3F</code> range</th><th>Contents</th></tr>
+</thead>
+<tbody>
+<tr><td><code>3F:4000</code>–<code>3F:400E</code></td><td>reset stub</td></tr>
+<tr><td><code>3F:400F</code>–<code>3F:4017</code></td><td>NUL-terminated version string and header data</td></tr>
+<tr><td><code>3F:4018</code>–<code>3F:40D4</code></td><td>63 bcall entries, IDs <code>0x8018</code>–<code>0x80D2</code></td></tr>
+<tr><td><code>3F:40D5</code>–<code>3F:40E3</code></td><td>bank/return dispatch stub, not bcall entries</td></tr>
+<tr><td><code>3F:40E4</code>–<code>3F:412B</code></td><td>24 bcall entries, IDs <code>0x80E4</code>–<code>0x8129</code></td></tr>
+<tr><td><code>3F:412C</code>–<code>3F:7E4D</code></td><td>executable code and data</td></tr>
+<tr><td><code>3F:7E4E</code>–<code>3F:7FFF</code></td><td>434 erased bytes (<code>0xFF</code>)</td></tr>
+</tbody>
+</table>
+</div>
+<p>The table therefore has 87 populated three-byte entries in two ranges, not
+one continuous range. Treating <code>3F:40D5</code>–<code>3F:40E3</code> as five more entries
+decodes executable stub bytes as bogus targets. <code>tools/bcall_tables.py</code> rejects
+those reserved IDs. [confirmed]</p>
+<p>Each real entry stores a little-endian target address followed by a page byte.
+Eighty-one targets stay on page <code>3F</code>; six enter the companion USB boot payload
+on page <code>2F</code>. The public include file names 83 entries. These four populated
+slots lack public equates: [confirmed] for addresses and bytes; routine names
+and summaries are inferred.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>ID</th><th>Body</th><th>Inferred role</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x804E</code></td><td><code>certificate_reconcile_id_fields</code> at <code>3F:4924</code></td><td>reconcile calculator-ID certificate fields and rewrite the certificate/validation data</td></tr>
+<tr><td><code>0x8066</code></td><td><code>certificate_find_matching_field_data</code> at <code>3F:4F91</code></td><td>find matching data under certificate field <code>0x0310</code> and subfield <code>0x0610</code></td></tr>
+<tr><td><code>0x8069</code></td><td><code>certificate_count_matching_fields</code> at <code>3F:4EFF</code></td><td>count or match certificate fields beginning with field <code>0x0300</code></td></tr>
+<tr><td><code>0x810B</code></td><td><code>usb_set_port81_bit0_delay</code> at <code>2F:62C5</code></td><td>set bit 0 of USB port <code>0x81</code>, then delay</td></tr>
+</tbody>
+</table>
+</div>
+<p>The three certificate summaries agree with the comments beside their unnamed
+slots in <code>ti83plus.inc</code>. The <code>0x804E</code> body also calls certificate erase/write,
+RSA-validation, and <code>_WriteValidationNumber</code> services. These semantic names
+remain [hypothesis] pending complete caller and data-format reconstruction.</p>
+<h2 id="reset-dispatch"><a class="header" href="#reset-dispatch">Reset dispatch</a></h2>
+<p>After the delay, memory-map transition, and ASIC initialization, the reset path
+calls the raw keypad scanner and reaches <code>boot_startup_dispatch</code> at <code>3F:422D</code>.
+Only two scan codes have first-scan boot meanings: [confirmed]</p>
+<pre><code class="language-z80">3F:422D  call raw_key_scan
+3F:4230  cp 0x38             ; DEL
+3F:4232  jp z,3F:4279
+3F:4235  cp 0x20             ; STAT
+3F:4237  jr z,3F:4270
+</code></pre>
+<p>All other keys, including MODE (<code>0x37</code>), take the fast installed-OS check:
+[confirmed]</p>
+<pre><code class="language-z80">3F:4238  ld a,(0x0038)
+3F:423B  cp 0xFF
+3F:423F  ld hl,(0x0056)
+3F:4242  ld bc,0xA55A
+3F:4246  sbc hl,bc
+3F:4248  jp z,0x0053
+</code></pre>
+<p>The jump requires byte <code>0x0038 != 0xFF</code> and word <code>0x0056 = 0xA55A</code>.
+<code>ram:0053</code> jumps to <code>ram:0C4F</code>, the installed-OS handoff body. A failed check
+enters recovery initialization at <code>3F:42B3</code>. [confirmed]</p>
+<pre class="mermaid">flowchart TD
+    reset[Reset at 3F:4000] --&gt; init[Delay, mapping, and ASIC setup]
+    init --&gt; scan[First raw key scan]
+    scan --&gt;|DEL 0x38| del[Initialize recovery]
+    scan --&gt;|STAT 0x20| stat[Set USB-first flag and initialize recovery]
+    scan --&gt;|Any other code| marker{RAM sentinels valid?}
+    marker --&gt;|Yes| os[ram:0053 to installed OS]
+    marker --&gt;|No| del
+    del --&gt; receive[boot_receive_dispatch]
+    stat --&gt; receive
+    receive --&gt;|USB-first flag clear| serial[Serial link receive wait]
+    receive --&gt;|USB-first flag set| usb[Attempt USB OS receive]
+</pre>
+
+<p>The following trace outcomes distinguish those branches: [confirmed] for the
+pinned emulator runs.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Held key</th><th>First scan</th><th>Observed endpoint within the trace</th></tr>
+</thead>
+<tbody>
+<tr><td>none</td><td><code>0x00</code></td><td><code>ram:0053</code>, then <code>ram:0C4F</code></td></tr>
+<tr><td>DEL</td><td><code>0x38</code></td><td><code>boot_link_receive_wait</code> at <code>3F:63B2</code></td></tr>
+<tr><td>STAT</td><td><code>0x20</code></td><td><code>_AttemptUSBOSReceive</code> at <code>2F:4145</code></td></tr>
+<tr><td>MODE</td><td><code>0x37</code></td><td><code>ram:0053</code>, then <code>ram:0C4F</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The DEL and STAT runs both display <code>Waiting...</code>, <code>Please install</code>, <code>operating</code>,
+and <code>system now</code>. DEL enters the page-<code>3F</code> serial-link wait without visiting
+the page-<code>2F</code> USB attempt. STAT sets bit 5 at <code>IY + 0x1B</code>, reaches the USB
+attempt, and does not return to the serial wait during the three-second run.
+[confirmed]</p>
+<h2 id="the-orphan-mode-dispatcher"><a class="header" href="#the-orphan-mode-dispatcher">The orphan MODE dispatcher</a></h2>
+<p><code>boot_mode_diagnostic_dispatch</code> at <code>3F:427E</code> contains another raw key scan,
+compares its result with MODE (<code>0x37</code>), and can jump to
+<code>boot_flash_ram_diagnostic</code> at <code>3F:4504</code>. It is not part of the reset dispatch
+described above. [confirmed]</p>
+<p>No direct page-<code>3F</code> branch or call targets <code>3F:427E</code>, and none of the four
+reset-origin traces visits it. In particular, holding MODE at reset produces
+scan code <code>0x37</code> at <code>3F:4230</code> and hands off to the installed OS; it visits
+neither <code>3F:427E</code> nor <code>3F:4504</code>. [confirmed]</p>
+<p>An undiscovered computed entry remains possible, so the stronger claim that
+the block is unreachable under every boot-page state is [hypothesis]. Directly
+entering <code>3F:427E</code> with a MODE result does select the destructive Flash/RAM
+diagnostic documented on the hardware page. [confirmed]</p>
+<h2 id="recovery-initialization-and-transport"><a class="header" href="#recovery-initialization-and-transport">Recovery initialization and transport</a></h2>
+<p><code>boot_recovery_init</code> at <code>3F:42B3</code> selects CPU speed 1, restores the runtime
+mapping with RAM page <code>0x81</code> in window B, initializes the link port and LCD,
+and clears RAM from <code>0x8000</code> through <code>0xFE70</code>. It then displays the installer
+prompt and enters <code>boot_receive_dispatch</code> at <code>3F:5C7E</code>. [confirmed]</p>
+<p>The first-scan key determines the initial transport:</p>
+<ul>
+<li>DEL enters the ordinary recovery initializer and reaches
+<code>boot_link_receive_wait</code> at <code>3F:63B2</code>. [confirmed]</li>
+<li>STAT first sets bit 5 of the boot flag byte at <code>IY + 0x1B</code>. The receive
+dispatcher observes that flag and calls <code>_AttemptUSBOSReceive</code> at
+<code>2F:4145</code>. [confirmed]</li>
+</ul>
+<p>The traces stop while each path waits for a peer. They prove transport
+selection, not receipt, signature validation, Flash programming, fallback
+after a USB error, or a successful reboot. Those end-to-end behaviors require
+a controlled sending peer. [hypothesis]</p>
+<h2 id="os-validation-and-invalid-image-handling"><a class="header" href="#os-validation-and-invalid-image-handling">OS validation and invalid-image handling</a></h2>
+<p>The fast reset path deliberately uses only the RAM sentinel at <code>0x0038</code> and
+handoff marker <code>0xA55A</code> at <code>0x0056</code>. It does not call <code>_CheckOSValidated</code>.
+[confirmed]</p>
+<p>Recovery and diagnostic paths can instead call <code>boot_check_os_validated</code> at
+<code>3F:43A9</code>. That predicate rejects <code>ram:0026 = 0xFF</code>, opens the protected Flash
+gate, invokes <code>_CheckOSValidated</code> (<code>0x809C</code>, body <code>3F:52C6</code>), closes the gate,
+and, on its zero-result path, tail-checks the same <code>0xA55A</code> marker in
+<code>boot_check_os_handoff_marker</code> at <code>3F:4425</code>. [confirmed]</p>
+<p>Error handling at <code>3F:57E2</code> can transfer to <code>boot_erase_invalid_os</code> at
+<code>3F:4308</code> after that full validation fails. The routine reinitializes recovery
+state, validates again, erases Flash page 0 if the image remains invalid,
+closes the protected gate, and enters a power/HALT loop. [confirmed]</p>
+<p>This split matters when interpreting a normal trace: reaching the installed
+OS proves that the two RAM markers passed on that boot, not that the trace
+executed a fresh certificate or cryptographic validation. [confirmed]</p>
+<h2 id="reproduction"><a class="header" href="#reproduction">Reproduction</a></h2>
+<p>Capture each macro from reset with the pinned TilEm build, <code>--normal-speed</code>,
+and <code>--trace-range all</code>, as described in <code>tools/dynamic-tracing.md</code>. Reduce the
+four TLMT files with: [confirmed]</p>
+<pre><code class="language-sh">PYTHONPATH=tools python tools/analyze_retail_boot.py \
+  --rom tools/rom.bin \
+  --trace normal=/tmp/retail-boot-normal.trace \
+  --trace del=/tmp/retail-boot-del.trace \
+  --trace stat=/tmp/retail-boot-stat.trace \
+  --trace mode_ignored=/tmp/retail-boot-mode-ignored.trace \
+  --output tools/retail-boot-traces.json
+</code></pre>
+<p>The corresponding macros are <code>tools/macros/boot-idle.macro</code>,
+<code>tools/macros/boot-del-recovery.macro</code>,
+<code>tools/macros/boot-stat-recovery.macro</code>, and
+<code>tools/macros/boot-mode-ignored.macro</code>. The reducer validates the ROM and
+emulator hashes before replacing the checked report.</p>
+<div style="break-before: page; page-break-before: always;"></div>
 <h1 id="retail-boot-hardware-initialization"><a class="header" href="#retail-boot-hardware-initialization">Retail boot hardware initialization</a></h1>
 <p><em>TI-84 Plus OS 2.55MP — reset delay, hardware writes, safety checks, and boot diagnostics.</em></p>
 <p>The retail boot page changes the reset memory map into the OS runtime map,
 checks that both RAM windows are writable, programs the ASIC registers, and
-selects an OS or recovery path. This page follows <code>retail_boot_reset_stub</code> at
+selects an OS or recovery path. <a href="#retail-boot-page">Retail boot page</a> maps the
+page-level control flow, bcall table, recovery transports, and validation
+logic. This page follows <code>retail_boot_reset_stub</code> at
 <code>3F:4000</code> through the first keypad scan at <code>3F:422D</code> and decodes
 <code>boot_ram_test</code> at <code>3F:461A</code>. It also documents
 <code>boot_lcd_keypad_diagnostic</code> at <code>3F:4658</code>.</p>
-<h2 id="evidence-boundaries-2"><a class="header" href="#evidence-boundaries-2">Evidence boundaries</a></h2>
+<h2 id="evidence-boundaries-3"><a class="header" href="#evidence-boundaries-3">Evidence boundaries</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -4413,9 +4609,10 @@ emulator interpretations.</li>
 </ul>
 <h2 id="first-boot-decision"><a class="header" href="#first-boot-decision">First boot decision</a></h2>
 <p>The raw keypad scanner at <code>3F:6503</code> returns a scan code to <code>3F:422D</code>.
-The first two comparisons select <strong>DEL</strong> (<code>0x38</code>) and <strong>STAT</strong> (<code>0x20</code>) boot
-paths. The later scan at <code>3F:427E</code> recognizes <strong>MODE</strong> (<code>0x37</code>) and jumps to
-<code>3F:4504</code>. [confirmed]</p>
+The reset dispatcher assigns boot actions only to <strong>DEL</strong> (<code>0x38</code>) and
+<strong>STAT</strong> (<code>0x20</code>). Every other result, including <strong>MODE</strong> (<code>0x37</code>), takes the
+installed-OS check below. A reset-origin MODE trace confirms that behavior.
+[confirmed]</p>
 <p>Without those keys, the normal path checks two page-0 values: [confirmed]</p>
 <pre><code class="language-z80">3F:4238  ld a,(0x0038)
 3F:423B  cp 0xFF
@@ -4431,10 +4628,17 @@ speed zero, polls the ON-key state, restores speed one, and enters the receive
 flow. [confirmed] The electrical ON-key polarity and oscillator frequencies
 remain subject to the evidence limits on
 <a href="#keypad-and-on-key-hardware">Keypad and ON-key hardware</a> and
-<a href="#clock-timers-and-power">Clock, timers, and power</a>.</p>
+<a href="#clock-timers-and-power">Clock, timers, and power</a>. The DEL/STAT transport split
+and trace results are detailed on <a href="#reset-dispatch">Retail boot page</a>.</p>
 <h2 id="destructive-ram-diagnostic"><a class="header" href="#destructive-ram-diagnostic">Destructive RAM diagnostic</a></h2>
-<p>The <strong>MODE</strong> path at <code>3F:427E</code> jumps to <code>3F:4504</code>. Its later RAM-test path calls
-<code>boot_ram_test</code> at <code>3F:461A</code> to test main RAM and banked RAM. [confirmed]</p>
+<p>The unreferenced dispatcher at <code>3F:427E</code> contains a second raw key scan. If
+entered directly with <strong>MODE</strong> (<code>0x37</code>), it jumps to
+<code>boot_flash_ram_diagnostic</code> at <code>3F:4504</code>. No direct page-<code>3F</code> caller or
+reset-origin trace reaches <code>3F:427E</code>; MODE at the first reset scan instead
+takes the installed-OS check. [confirmed] An undiscovered computed entry is
+[hypothesis].</p>
+<p>The diagnostic’s later RAM-test path calls <code>boot_ram_test</code> at <code>3F:461A</code> to
+test main RAM and banked RAM. [confirmed]</p>
 <p><code>boot_ram_test</code> takes the start address in <code>DE</code>, computes length
 <code>0x10000 - DE</code>, writes a repeating byte pattern, rewinds, and verifies the same
 pattern. The pattern is <code>0x00</code>, <code>0x01</code>, …, <code>0xFA</code>, then repeats at <code>0x00</code>.
@@ -18398,7 +18602,7 @@ physical AppVar has been recorded.</li>
 <p><em>TI-84 Plus OS 2.55MP — port <code>0x00</code>, raw bytes, and line handshakes.</em></p>
 <p>The 2.5 mm link port carries each byte over two bidirectional lines. This page reconstructs the port encoding, the four-transition bit handshake, timeout behavior, and background link detection.</p>
 <p>The packet layer above these byte routines is covered in <a href="#link-and-data-transfer">Link / data transfer</a>. The hardware-assisted byte path is covered in <a href="#usb-asic-and-link-assist">USB ASIC and link assist</a>.</p>
-<h2 id="evidence-boundaries-3"><a class="header" href="#evidence-boundaries-3">Evidence boundaries</a></h2>
+<h2 id="evidence-boundaries-4"><a class="header" href="#evidence-boundaries-4">Evidence boundaries</a></h2>
 <p>The sources answer different questions:</p>
 <div class="table-wrapper">
 <table>
@@ -20978,7 +21182,13 @@ levels, or reset retention.</li>
 </table>
 </div>
 <h2 id="retail-boot-0x8xxx-bcalls"><a class="header" href="#retail-boot-0x8xxx-bcalls">Retail boot (<code>0x8xxx</code>) bcalls</a></h2>
-<p>These <code>0x8xxx</code> IDs are defined in the full 2007 <code>ti83plus.inc</code> and resolved from the retail boot table. <code>tools/resolve_bcalls.py</code> emits this table only when page <code>3F</code> has the retail boot prefix, not when it sees BootFree.</p>
+<p>The retail table has 87 populated entries across IDs <code>0x8018</code>–<code>0x80D2</code> and
+<code>0x80E4</code>–<code>0x8129</code>. The full 2007 <code>ti83plus.inc</code> defines 83 of them; the four
+snake-case rows below are project-inferred names for otherwise unnamed slots.
+<code>tools/resolve_bcalls.py</code> emits the public-name target file only when page <code>3F</code>
+has the retail boot prefix, not when it sees BootFree. See
+<a href="#physical-layout">Retail boot page</a> for the intervening dispatch
+stub and evidence behind the inferred rows. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -21003,6 +21213,7 @@ levels, or reset retention.</li>
 <tr><td><code>_Mult16By8</code></td><td><code>8045</code></td><td><code>3F:705B</code></td></tr>
 <tr><td><code>_Div16By8</code></td><td><code>8048</code></td><td><code>3F:7146</code></td></tr>
 <tr><td><code>_Div16By16</code></td><td><code>804B</code></td><td><code>3F:7148</code></td></tr>
+<tr><td><code>certificate_reconcile_id_fields</code></td><td><code>804E</code></td><td><code>3F:4924</code></td></tr>
 <tr><td><code>_LoadAIndPaged</code></td><td><code>8051</code></td><td><code>3F:486E</code></td></tr>
 <tr><td><code>_FlashToRam2</code></td><td><code>8054</code></td><td><code>3F:4888</code></td></tr>
 <tr><td><code>_GetCertificateStart</code></td><td><code>8057</code></td><td><code>3F:4D46</code></td></tr>
@@ -21010,6 +21221,8 @@ levels, or reset retention.</li>
 <tr><td><code>_FindSubField</code></td><td><code>805D</code></td><td><code>3F:4DFB</code></td></tr>
 <tr><td><code>_EraseCertificateSector</code></td><td><code>8060</code></td><td><code>3F:4E3F</code></td></tr>
 <tr><td><code>_CheckHeaderKey</code></td><td><code>8063</code></td><td><code>3F:4B4A</code></td></tr>
+<tr><td><code>certificate_find_matching_field_data</code></td><td><code>8066</code></td><td><code>3F:4F91</code></td></tr>
+<tr><td><code>certificate_count_matching_fields</code></td><td><code>8069</code></td><td><code>3F:4EFF</code></td></tr>
 <tr><td><code>_Load_LFontV2</code></td><td><code>806C</code></td><td><code>3F:7C8A</code></td></tr>
 <tr><td><code>_Load_LFontV</code></td><td><code>806F</code></td><td><code>3F:7C8A</code></td></tr>
 <tr><td><code>_ReceiveOS</code></td><td><code>8072</code></td><td><code>3F:5DCE</code></td></tr>
@@ -21058,6 +21271,7 @@ levels, or reset retention.</li>
 <tr><td><code>_CheckHeaderKeyHL</code></td><td><code>8102</code></td><td><code>3F:4B4D</code></td></tr>
 <tr><td><code>_USBErrorCleanup</code></td><td><code>8105</code></td><td><code>2F:5958</code></td></tr>
 <tr><td><code>_InitUSB</code></td><td><code>8108</code></td><td><code>2F:52A4</code></td></tr>
+<tr><td><code>usb_set_port81_bit0_delay</code></td><td><code>810B</code></td><td><code>2F:62C5</code></td></tr>
 <tr><td><code>_KillUSB</code></td><td><code>810E</code></td><td><code>2F:5961</code></td></tr>
 <tr><td><code>_DisplayBootError1</code></td><td><code>8111</code></td><td><code>3F:63DB</code></td></tr>
 <tr><td><code>_DisplayBootError2</code></td><td><code>8114</code></td><td><code>3F:5789</code></td></tr>

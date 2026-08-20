@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-38eea4f6.js";
+            window.path_to_searchindex_js = "searchindex-fdb79b39.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-c9603d63.js"></script>
+        <script src="toc-b88a411b.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -232,7 +232,7 @@ throughout the wiki.</p>
 <ul>
 <li>The Ghidra database is rebuilt from the ROM by <code>tools/build.sh</code> (a 15-stage reproducible pipeline around Ghidra’s headless analyzer). It loads all 64 flash pages (page 0 + overlays at <code>4000</code>), then resolves routines, applies function and data symbols, and installs the checked C layouts and offset references.</li>
 <li><strong>Local ROM trust boundary.</strong> <code>tools/assemble_local_rom.py --check</code> validates the exact ignored base-ROM and AppVar hashes without writing output. Its reusable <code>tools/rom_assembly.py</code> library decodes each TI variable container, verifies its checksum, type, name, flags, duplicate length fields, internal 16 KiB size, and payload hash, then requires the assembled-ROM hash. This proves which bytes the analysis uses; it does not prove that the files were captured from a physical calculator. The pinned base already contains the <code>D84PBE1.8Xv</code> page-<code>3F</code> payload byte for byte. Only <code>D84PBE2.8Xv</code>, installed at page <code>2F</code>, changes the base image (8,615 bytes). [confirmed]</li>
-<li><strong>bcall table resolution.</strong> The main jump table page was found by <em>scoring</em> all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid <code>(addr, page)</code> entry. Page 0x3B scored highest for the <code>0x4xxx</code> table — more known bcall IDs resolve to a valid <code>(addr, page)</code> entry there than on any other page — and is confirmed by the documented RST shortcuts (all six matched) and by every entry resolving and live-confirming once 0x3B is applied. <code>0x8xxx</code> bcall IDs index the retail boot table on page <code>3F</code>; several USB entries target page <code>2F</code>. The local <code>rom.bin</code> is assembled from the patched base plus the retail <code>D84PBE1.8Xv</code> and <code>D84PBE2.8Xv</code> payloads, so <code>tools/bcalls8x_targets.txt</code> contains 83 byte-resolved body rows. The resolver rejects these targets when page <code>3F</code> has a BootFree prefix.</li>
+<li><strong>bcall table resolution.</strong> The main jump table page was found by <em>scoring</em> all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid <code>(addr, page)</code> entry. Page 0x3B scored highest for the <code>0x4xxx</code> table — more known bcall IDs resolve to a valid <code>(addr, page)</code> entry there than on any other page — and is confirmed by the documented RST shortcuts (all six matched) and by every entry resolving and live-confirming once 0x3B is applied. <code>0x8xxx</code> bcall IDs index 87 populated retail boot-table entries on page <code>3F</code>; several USB entries target page <code>2F</code>. The local <code>rom.bin</code> is assembled from the patched base plus the retail <code>D84PBE1.8Xv</code> and <code>D84PBE2.8Xv</code> payloads. <code>tools/bcalls8x_targets.txt</code> contains the 83 byte-resolved bodies with public SDK names; the remaining four entries have project-inferred names. The resolver rejects these targets when page <code>3F</code> has a BootFree prefix.</li>
 <li><strong>Decompiler caveats.</strong> Ghidra’s Z80 decompiler can mis-render <code>SET b,(IY+d)</code> flag operations, <code>CALL cross_page_jump</code> (<code>ram:2B09</code>) trampolines, and register-passed arguments on banked pages. Raw disassembly and ROM bytes are authoritative for these cases.</li>
 </ul>
 <p>See the repository <code>README.md</code> for the exact build pipeline and tooling.</p>
