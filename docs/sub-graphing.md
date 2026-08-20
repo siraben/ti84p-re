@@ -5,6 +5,11 @@ The graphing subsystem maps real coordinates to pixels, draws into
 **Y=**, **WINDOW**, **GRAPH**, **TRACE**, and **DRAW** paths to their window
 state, equation storage, and drawing primitives.
 
+The [interactive graphing pipeline demo](graphing/) steps through the verified
+sample columns, coordinate mapping, discontinuity break, and Circle segment
+schedule on a 96×64 pixel grid. It uses browser arithmetic for the floating-point
+values and labels that boundary on the page.
+
 ## Window variables [confirmed]
 
 All graph window state lives in a contiguous block of 9-byte `TIFloat`s starting at `0x8F50`.
