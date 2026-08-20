@@ -181,14 +181,40 @@ DRAW command at the math layer. [confirmed]
 
 ### Circle
 
-`_GrphCirc` (`33:758D`) — draws a circle in real coordinates. [confirmed]
-Allocates a 0x5A-byte FPS scratch frame (`EQS`), snapshots the working float and the window
-(`Xmin`, `Ymin`, `deltaX`), zeroes accumulators, seeds the X/Y center and the radius-stepped
-parametric state, then iterates plotting points via the integer line/point primitives
-(cross-page into the page-3B `_DrawCirc2` plotter at `3B:7171`). It accounts for the X/Y
-pixel-aspect via `deltaX`/`deltaY` so a `Circle(` looks round only after a ZSquare. [confirmed]
-`_CircCmd` (`33:74CE`) is the parser-facing `Circle(` command wrapper (cross-page jump
-into the argument grabber). [confirmed]
+`_CircCmd` (`33:74CE`) is the parser-facing `Circle(` command wrapper. Its
+dispatch at `33:74DF` tests `(IY+0x3C).4` and selects one of two segment
+generators. [confirmed]
+
+A reset-origin TilEm trace of `Circle(0,0,5)` observed the flag clear at
+`0x8A2C`. That state selected the page-33 generator at `33:74E9`; its loop at
+`33:7506` ran 61 times and its emit point at `33:7561` called `_CLine` exactly
+60 times. All 59 adjacent endpoint pairs matched byte for byte. The first
+segment went from $(5,0)$ to approximately
+$(4.9726094768414,0.52264231633825)$, a six-degree step. The final
+`plotSScreen` contained 306 set pixels. [confirmed]
+
+That natural trace did not enter `_GrphCirc` (`33:758D`), `_DrawCirc2`
+(`3B:7171`), or the coefficient lookup at `35:79E9`. It therefore establishes
+the default page-33 path only. [confirmed]
+
+Statically, `_GrphCirc` allocates a `0x5A`-byte floating-point frame, preserves
+the working coordinate and window values, prepares the circle state, and then
+calls the same dispatch at `33:74DF`. Which user-visible state sets the tested
+flag and selects `_DrawCirc2` remains open. [confirmed]
+
+The separate `_DrawCirc2` body allocates `0xA2` bytes, or 18 `TIFloat`s. Its
+seven-iteration loop makes eight calls per iteration to the point-pair helper
+at `3B:72F3`, followed by four closing calls at `3B:730E`: 60 `_CLine` calls
+in total. The helper preserves the old point in OP3/OP4, stores the new OP1/OP2
+point into the frame, calls `_CLine` at `33:6028`, and advances the frame
+pointer by 18 bytes. [confirmed]
+
+The loop consumes seven consecutive constants at `35:79F5`, alternating sine
+and cosine values for 6°, 12°, 18°, and finally sine 24°. The adjacent
+cosine 24° constant is present but is not consumed by this loop. The static
+schedule and helper ABI are checked in `tools/graph_circle.py`; the latter is
+compared with the pinned helper bytes for all 65,536 16-bit test seeds.
+[confirmed]
 
 ### DRAW menu commands (page 0x04 handlers)
 
@@ -219,6 +245,7 @@ so the line just spans the current window edges. [confirmed]
 
 `_PDspGrph` (`04:7904`, "possibly-display graph") decides whether to copy the buffer to the
 screen and whether a full re-plot is needed first. [confirmed]
+
 - Clears the "need redraw" flag at `(IY+2)`,
 - if the graph-dirty bit `(IY+3)&1` is set (`graphFlags.graphDraw`, inc `graphFlags=3`/`graphDraw=0`; `1`=redraw needed — this is the `graphFlags` bit at `IY+3`, distinct from `grfDBFlags` at `IY+4` and SmartGraph at `IY+0x17`), calls
   `_Regraph` to recompute the whole plot,
@@ -234,10 +261,36 @@ issues the row and byte-column LCD commands, then streams pixel bytes to `port_l
 through `lcd_wait`, and pokes `port_lcdCmd` (0x10). This is where the buffer physically
 reaches the panel. [confirmed]
 
-`_Regraph` (`04:6764`) re-evaluates and re-plots every selected Y= equation from scratch
-(cross-page jump into the plot driver). This is what runs when you change a window var or
-turn SmartGraph off; SmartGraph (`grfModeFlags` bit `smartGraph`) lets the OS skip the
-re-plot and `_GrBufCpy` the existing buffer when nothing changed. [confirmed]
+`_Regraph` (`04:6764`) begins by enabling interrupts and calling the relocated
+bjump thunk at `ram:3F27`. Its live bytes, `CD 09 2B 18 65 01`, target
+`_RunIndicOn` at `01:6518`. Regraph then prepares the window state, clears
+`plotSScreen`, dispatches the active graph mode, and finishes at `04:6985`.
+SmartGraph (`grfModeFlags.smartGraph`) can bypass this work and copy the
+existing buffer when the graph state is still valid. [confirmed]
+
+The function-mode path has this observed shape:
+
+```mermaid
+flowchart LR
+    A[Regraph setup] --> B[Clear plotSScreen]
+    B --> C[Select equation]
+    C --> D[Prepare sample X]
+    D --> E[Parse and evaluate Y]
+    E --> F{Point is drawable?}
+    F -->|yes| G[X/Y transforms]
+    G --> H[ILine or IPoint]
+    F -->|no| I[Break the segment]
+    H --> J[Advance curInc by Xres]
+    I --> J
+    J -->|more columns| D
+    J -->|done| K[Next selected equation]
+    K -->|done| L[Return with plotSScreen]
+```
+
+`graph_advance_sample_column` (`04:69CF`) compares `curInc` (`0x8E67`) with
+`pixWide_m_2` (`0x8DA6`). It returns without carry at the edge; otherwise it
+adds `Xres_int` (`0x9151`), stores the next column, and returns with carry.
+[confirmed]
 
 ---
 
@@ -265,17 +318,39 @@ graphability pre-scan. [confirmed]
 
 ### Evaluation → points
 
-Plotting (driven by `_Regraph` → the page-04/38 plot loop) walks pixel columns left→right:
-1. compute the real `X` for the column from `Xmin + col*deltaX` (the inverse of `_XftoI`),
-2. store it into the `X` system variable,
-3. `_ParseInp` (`38:5987`) parses+evaluates the selected equation's tokens against the
-   current `X` (it resets the parser state, clears a status bit at `(IY+0x1F)`, and runs
-   the formula evaluator `_ChkFindSym`/`Find_Parse_Formula`), leaving the result `Y` in OP1,
-4. `_YftoI` maps that `Y` to a pixel row,
-5. `_ILine` connects this point to the previous column's point (or `_IPoint` for dotted
-   style), drawing into `plotSScreen`.
-`Xres` (`XresO`/`Xres_int`) controls the column step: Xres=1 evaluates every pixel column,
-higher Xres skips columns (faster, coarser). [confirmed]
+The function-mode loop prepares each sample at `04:710F`. Its traced parser
+entry is `parse_init_findsym` (`38:5975`), which initializes parser state and
+joins the shared evaluator tail at `38:59A4`. Evaluation passes through
+`eval_eqn_recursive` (`38:778F`) and `eval_eqn_finish_typecheck` (`38:77C2`).
+Official `_ParseInp` at `38:5987` is a sibling entry with additional state
+cleanup; neither natural graph trace executed it. [confirmed]
+
+The checked report in `tools/graph-regraph.json` records pinned ROM and TilEm
+provenance, raw-trace hashes, and final-buffer hashes for two reset-origin
+TilEm traces: [confirmed]
+
+| Function-mode observation | `Y1=X²` | `Y1=X⁻¹` |
+|---------------------------|---------:|----------:|
+| `_Regraph` instructions | 3,951,185 | 4,316,730 |
+| sample advances, `curInc=0`–`94` | 95 | 95 |
+| `parse_init_findsym` entries | 190 | 190 |
+| completed recursive evaluations | 190 | 188 |
+| divide-by-zero entries at `ram:26EC` | 0 | 2 |
+| post-dispatch `_ILine` calls | 30 | 94 |
+| pixel-byte writes after the 768-byte clear | 296 | 402 |
+| set pixels in final `plotSScreen` | 261 | 266 |
+
+The reciprocal trace reaches the divide-by-zero entry with `curInc=46` and
+again with `curInc=47`. The left segment ends at column 46; drawing restarts
+with a zero-length seed at column 48, and no `_ILine` call bridges column 47.
+The two missing evaluator completions therefore correspond to a visible break,
+not a line across the asymptote. [confirmed]
+
+These traces cover line style 0, `Xres=1`, and one selected equation. They do
+not establish the thick, shade, trace, animate, or dotted paths; `Xres>1`;
+multiple selected equations; or other graph modes. `tools/analyze_graph_regraph.py`
+regenerates the compact report from raw TLMT traces, which remain outside the
+repository.
 
 ### Graph databases (GDB) [confirmed]
 
@@ -299,9 +374,10 @@ list or show that Regraph and TABLE share one iterator.
   the routines above; small-font labels (coords, TRACE readout) go through
   `_VPutMap`/`penCol`(0x86D7)/`penRow`(0x86D8). [confirmed]
 - **TRACE** moves a cursor along a selected function: it steps the column, evaluates the
-  function (`_ParseInp`) for that X, maps the point with `_XftoI`/`_YftoI`, draws the
+  function for that X, maps the point with `_XftoI`/`_YftoI`, draws the
   cross-cursor, and uses `_SetXXOP1`/`_SetXXOP2` to convert the cursor pixel back to the real
-  X/Y it prints at the bottom. [confirmed]
+  X/Y it prints at the bottom. The exact TRACE-side evaluator entry has not yet
+  been traced. [confirmed]
 - A `DRAW` command (`_DrawCmd`) or `Line(`/`Circle(`/`Pt-On(` draws straight into
   `plotSScreen` over the current plot and persists across a SmartGraph redraw (it is not
   re-evaluated) until `ClrDraw` is issued. [confirmed]
@@ -310,13 +386,19 @@ list or show that Regraph and TABLE share one iterator.
 
 ## Evidence summary and open items
 
-- Forward transform `(value−min)/pixelDelta`: structure [confirmed] from the
-  `37:41F2` disassembly (subtract `228F`, divide `2385`); the exact rounding in `4229` is
-  read but the ±sentinel constants are summarized, not exhaustively byte-traced.
-- `_HorizCmd`/`_VertCmd` endpoint build: `7933` allocates a 0x24-byte FPS frame, and
-  the commands `_Mov9B` the window edges (`Xmin`/`Xmax` or `Ymin`/`Ymax`) plus `_MovFrOP1` the line's
-  coordinate (`OP1`) into that frame, reading the live window variables only.
-- Circle parametric stepping in `3B:7171` (`_DrawCirc2`) not decompiled here (lives on
-  page 3B); the `_GrphCirc` setup is confirmed.
-- Y= selection bit (`0x20`; flags byte `0x23` selected / `0x03` deselected) and the style byte
-  values (`0`–`6`) are [confirmed] against the [TI link-protocol var guide](https://merthsoft.com/linkguide/ti83+/vars.html#style).
+- The forward transforms, coordinate rounding, and `_ConvOP1` boundary are
+  byte-pinned and differentially tested. Natural X and Y witnesses confirm the
+  pointer ABI and returned indices. [confirmed]
+- Natural function-mode traces cover `Y1=X²` and `Y1=X⁻¹` with line style 0,
+  `Xres=1`, and one selected equation. They do not cover the other styles,
+  `Xres>1`, multiple selected equations, or alternate graph modes. [confirmed]
+- The page-33 Circle generator is dynamically observed. `_DrawCirc2` has a
+  byte-pinned static schedule, but the flag state that selects it has not been
+  produced naturally. [confirmed]
+- `_HorizCmd` and `_VertCmd` build their endpoints from the live window edges
+  and the command coordinate; they do not modify the window variables.
+  [confirmed]
+- The Y= selection bit (`0x20`; flags byte `0x23` selected / `0x03` deselected)
+  and style values `0`–`6` agree with the
+  [TI link-protocol variable guide](https://merthsoft.com/linkguide/ti83+/vars.html#style).
+  [confirmed]
