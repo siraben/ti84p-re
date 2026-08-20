@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6157e050.js";
+            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -500,10 +500,11 @@ OP1 = the variable name. It negotiates, sends the VAR header, waits for CTS, the
   else: send the symbol-table/listing payload (4261)
   RES 1,(IY+0x24) ; FUN_ram_2800 (restore) ; JP 4F3E (cleanup)
 </code></pre>
-<h3 id="5a-resolve-the-variable-for-sending--4763-confirmed"><a class="header" href="#5a-resolve-the-variable-for-sending--4763-confirmed">5a. Resolve the variable for sending — <code>4763</code> [confirmed]</a></h3>
-<p><code>4763</code> reads the var-header type byte at <code>867F</code> and branches by class. For
-graph/equation types (<code>0x0F‥0x14</code>) it uses a cross-page helper. Otherwise
-<code>47AB</code> calls <code>_CkOP1Real</code>, checks the size, then calls <code>_ChkFindSym</code> (<code>0E60</code>)
+<h3 id="5a-resolve-the-variable-for-sending--lnk_resolve_var-confirmed"><a class="header" href="#5a-resolve-the-variable-for-sending--lnk_resolve_var-confirmed">5a. Resolve the variable for sending — <code>lnk_resolve_var</code> [confirmed]</a></h3>
+<p><code>lnk_resolve_var</code> (<code>3C:4763</code>) reads the var-header type byte at <code>0x867F</code> and
+branches by class. For graph/equation types (<code>0x0F</code>–<code>0x14</code>) it uses a
+cross-page helper. Otherwise <code>3C:47AB</code> calls <code>_CkOP1Real</code>, checks the size,
+then calls <code>_ChkFindSym</code> (<code>ram:0E60</code>)
 to locate the VAT entry. An archived variable routes through the Flash path,
 where <code>_Chk_Batt_Low</code> saves <code>arcInfo.size</code> at <code>0x83F7</code>. <code>_SetupPagedPtr</code>
 supplies the data pointer, page, and length inside the DATA sender.</p>

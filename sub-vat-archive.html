@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6157e050.js";
+            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -217,15 +217,15 @@ byte-confirmed in the disassembly. [hypothesis]</p>
 <tr><th>Addr</th><th>Field</th><th>Meaning</th></tr>
 </thead>
 <tbody>
-<tr><td><code>83EE</code></td><td><code>arcInfo.page</code></td><td>page byte of the data (Flash page if archived; RAM marker otherwise)</td></tr>
-<tr><td><code>83EF</code></td><td><code>arcInfo.data_ptr</code></td><td>2-byte data address (in Flash window 0x4000–<code>0x7FFF</code>, or RAM)</td></tr>
-<tr><td><code>83F1</code></td><td><code>arcInfo.vat_ptr</code></td><td>pointer to the VAT entry’s type byte (the symbol record)</td></tr>
-<tr><td><code>83F3</code></td><td><code>arcInfo.dest_ptr</code></td><td>destination data pointer (RAM target on unarchive)</td></tr>
-<tr><td><code>83F5</code></td><td><code>arcInfo.data_size</code></td><td>a header/record-size component (loaded from <code>BC</code> after <code>CALL 0FDE</code>)</td></tr>
-<tr><td><code>83F7</code></td><td><code>arcInfo.size</code></td><td>the variable’s data byte count (from <code>_DataSize</code>; <code>614B</code> does <code>CALL 1485</code> → <code>LD (83F7),DE</code>)</td></tr>
-<tr><td><code>83F9</code></td><td><code>arcInfo.size_full</code></td><td>size + header overhead</td></tr>
-<tr><td><code>83FB</code></td><td><code>arcInfo.unknown_tail</code></td><td>two bytes included in the saved tail; semantics unresolved</td></tr>
-<tr><td><code>8406</code></td><td><code>savedArcInfo</code></td><td>12-byte save slot for <code>arcInfo.vat_ptr</code> through <code>unknown_tail[1]</code></td></tr>
+<tr><td><code>0x83EE</code></td><td><code>arcInfo.page</code></td><td>page byte of the data (Flash page if archived; RAM marker otherwise)</td></tr>
+<tr><td><code>0x83EF</code></td><td><code>arcInfo.data_ptr</code></td><td>2-byte data address (in Flash window <code>0x4000</code>–<code>0x7FFF</code>, or RAM)</td></tr>
+<tr><td><code>0x83F1</code></td><td><code>arcInfo.vat_ptr</code></td><td>pointer to the VAT entry’s type byte (the symbol record)</td></tr>
+<tr><td><code>0x83F3</code></td><td><code>arcInfo.dest_ptr</code></td><td>destination data pointer (RAM target on unarchive)</td></tr>
+<tr><td><code>0x83F5</code></td><td><code>arcInfo.data_size</code></td><td>a header/record-size component (loaded from <code>BC</code> after <code>CALL ram:0FDE</code>)</td></tr>
+<tr><td><code>0x83F7</code></td><td><code>arcInfo.size</code></td><td>the variable’s data byte count (from <code>_DataSize</code>; <code>07:614B</code> does <code>CALL ram:1485</code> → <code>LD (83F7),DE</code>)</td></tr>
+<tr><td><code>0x83F9</code></td><td><code>arcInfo.size_full</code></td><td>size + header overhead</td></tr>
+<tr><td><code>0x83FB</code></td><td><code>arcInfo.unknown_tail</code></td><td>two bytes included in the saved tail; semantics unresolved</td></tr>
+<tr><td><code>0x8406</code></td><td><code>savedArcInfo</code></td><td>12-byte save slot for <code>arcInfo.vat_ptr</code> through <code>unknown_tail[1]</code></td></tr>
 </tbody>
 </table>
 </div>

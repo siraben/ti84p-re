@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6157e050.js";
+            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -325,7 +325,7 @@ system state. See <a href="#ram-pages">RAM pages</a> for the revision evidence.<
 <tr><th>Flag</th><th>Meaning</th></tr>
 </thead>
 <tbody>
-<tr><td>[confirmed]</td><td>Directly observed in the disassembly/decompiler of this ROM.</td></tr>
+<tr><td>[confirmed]</td><td>Directly observed in this ROM’s disassembly, decompiler, raw bytes, generated database, or a labeled execution trace.</td></tr>
 <tr><td>[standard]</td><td>Matches the publicly-documented TI-83+/84+ architecture and is consistent with the disassembly, but not every byte was traced.</td></tr>
 <tr><td>[hypothesis]</td><td>Inferred / not yet verified — treat with caution.</td></tr>
 </tbody>
@@ -339,8 +339,9 @@ system state. See <a href="#ram-pages">RAM pages</a> for the revision evidence.<
 <p>The rebuilt Ghidra project keeps each kind of name in a separate checked registry:</p>
 <ul>
 <li><code>tools/names.txt</code> contains function entries. Its importer disassembles the entry and creates a function.</li>
-<li><code>tools/labels.txt</code> contains ROM data and internal code-entry labels. Its importer never creates a function.</li>
-<li><code>tools/ram.txt</code> contains RAM and port symbols, including official SDK equates and carefully named inferred state.</li>
+<li><code>tools/labels.txt</code> contains ROM data and internal code-entry labels. Rows marked <code>entry</code> seed and preserve disassembly without creating an overlapping function.</li>
+<li><code>tools/ram.txt</code> contains RAM symbols, including official SDK equates and carefully named inferred state.</li>
+<li><code>tools/ports.txt</code> contains I/O-port symbols.</li>
 <li><code>tools/poffsets.txt</code> contains reviewed base-plus-offset references. These make an operand such as <code>mathprintArenaState + 0x0D</code> render as a structure member without inventing a second global name for the field address.</li>
 </ul>
 <p><code>tools/ty_regions.txt</code> applies the C layouts built by <code>BuildTypes.java</code>. The prose can therefore use expressions such as <code>table_value_cache.band[1].value[row]</code> once it introduces the typed base and its concrete address. A physical boundary, trace target, or byte-level proof still keeps its concrete address. [confirmed]</p>
@@ -348,7 +349,7 @@ system state. See <a href="#ram-pages">RAM pages</a> for the revision evidence.<
 <p>Formulas are written in LaTeX and rendered by KaTeX (offline, client-side): <code>$…$</code> for inline math and <code>$$…$$</code> for display. Algorithms render as pseudocode blocks and data/control-flow diagrams as Mermaid.</p>
 <h2 id="how-this-re-was-produced"><a class="header" href="#how-this-re-was-produced">How this RE was produced</a></h2>
 <ul>
-<li>The Ghidra database is rebuilt from the ROM by <code>tools/build.sh</code> (a 13-stage reproducible pipeline around Ghidra’s headless analyzer). It loads all 64 flash pages (page 0 + overlays at <code>4000</code>), then resolves routines, applies function and data symbols, and installs the checked C layouts and offset references.</li>
+<li>The Ghidra database is rebuilt from the ROM by <code>tools/build.sh</code> (a 15-stage reproducible pipeline around Ghidra’s headless analyzer). It loads all 64 flash pages (page 0 + overlays at <code>4000</code>), then resolves routines, applies function and data symbols, and installs the checked C layouts and offset references.</li>
 <li><strong>Local ROM trust boundary.</strong> <code>tools/assemble_local_rom.py --check</code> validates the exact ignored base-ROM and AppVar hashes without writing output. Its reusable <code>tools/rom_assembly.py</code> library decodes each TI variable container, verifies its checksum, type, name, flags, duplicate length fields, internal 16 KiB size, and payload hash, then requires the assembled-ROM hash. This proves which bytes the analysis uses; it does not prove that the files were captured from a physical calculator. The pinned base already contains the <code>D84PBE1.8Xv</code> page-<code>3F</code> payload byte for byte. Only <code>D84PBE2.8Xv</code>, installed at page <code>2F</code>, changes the base image (8,615 bytes). [confirmed]</li>
 <li><strong>bcall table resolution.</strong> The main jump table page was found by <em>scoring</em> all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid <code>(addr, page)</code> entry. Page 0x3B scored highest for the <code>0x4xxx</code> table — more known bcall IDs resolve to a valid <code>(addr, page)</code> entry there than on any other page — and is confirmed by the documented RST shortcuts (all six matched) and by every entry resolving and live-confirming once 0x3B is applied. <code>0x8xxx</code> bcall IDs index the retail boot table on page <code>3F</code>; several USB entries target page <code>2F</code>. The local <code>rom.bin</code> is assembled from the patched base plus the retail <code>D84PBE1.8Xv</code> and <code>D84PBE2.8Xv</code> payloads, so <code>tools/bcalls8x_targets.txt</code> contains 83 byte-resolved body rows. The resolver rejects these targets when page <code>3F</code> has a BootFree prefix.</li>
 <li><strong>Decompiler caveats.</strong> Ghidra’s Z80 decompiler mis-renders some idioms — <code>SET b,(IY+d)</code> flag ops, the <code>CALL cross_page_jump</code> (<code>ram:2B09</code>) trampolines, and register-passed arguments on banked pages. Where the decompiler is unreliable the notes are grounded in the raw disassembly (and several deep-dives used a small custom Z80 decoder over the ROM to verify addresses byte-exactly).</li>
@@ -2932,9 +2933,14 @@ payload; its BootFree guard otherwise leaves only diagnostic comments.
 <p>All six match the documented TI-83+/84+ RST assignments — strong cross-confirmation of the table resolution.</p>
 <h2 id="bjump--the-sibling-mechanism-os-internal-cross-page-calls"><a class="header" href="#bjump--the-sibling-mechanism-os-internal-cross-page-calls">bjump — the sibling mechanism (OS-internal cross-page calls)</a></h2>
 <p>Besides bcalls, the OS calls <em>its own</em> cross-page routines via <code>bjump</code>: <code>CALL cross_page_jump</code> (<code>= CALL ram:2B09</code>) followed inline by <code>.dw addr; .db page</code>. <code>cross_page_jump</code> reads the stacked return address (its caller’s, via an <code>SP</code>-relative load — it does not <code>POP</code> it), fetches the 2-byte target + 1-byte page from the inline descriptor there, rewrites the return frame past those 3 bytes, banks the page (<code>&amp; 0x3F</code>), and returns into the target. The target’s <code>RET</code> then returns to <em>the bjump’s caller</em>, so it behaves like a call that consumes the 3 inline bytes.</p>
-<p>There is a trampoline table in the page-0 address range <code>ram:3B01-ram:3D0A</code>: 87 packed 6-byte entries, each a bjump to a hot OS routine on another page (<code>ram:3D0B</code> already begins a separate <code>CALL ram:2B49</code> table). The static Ghidra DB models it in the page-0/ROM address space; whether the table is copied to RAM at runtime is a hypothesis, not MCP-confirmed. Code invokes a routine by <code>CALL ram:3Bxx</code> into the table. <code>tools/bjumps.txt</code> lists every entry’s <code>(offset → page:addr)</code>; <code>tools/RamRoutines.java</code> marks the inline <code>.dw/.db</code> as data and comments each target.</p>
+<p>There is a trampoline table in the page-0 address range <code>ram:3B01</code>–<code>ram:3D0A</code>: 87 packed 6-byte entries, each a bjump to a hot OS routine on another page (<code>ram:3D0B</code> already begins a separate <code>CALL ram:2B49</code> table). The static Ghidra DB models it in the page-0/ROM address space; whether the table is copied to RAM at runtime is a hypothesis, not MCP-confirmed. Code invokes a routine by <code>CALL ram:3Bxx</code> into the table. <code>tools/bjumps.txt</code> lists every entry’s <code>(offset → page:addr)</code>; <code>tools/RamRoutines.java</code> marks the inline <code>.dw/.db</code> as data and comments each target.</p>
 <p>Example: <code>_PutMap</code>’s glyph blitter is reached via the trampoline at <code>ram:3B3D → 07:4588</code>.</p>
-<p><strong>Inline bjumps:</strong> besides this trampoline table, <code>CALL cross_page_jump; .dw; .db</code> appears in other packed dispatch tables (e.g. a page-<code>3D</code> dispatch table near <code>ram:2B6B</code>) and inline within OS routines. Because <code>cross_page_jump</code> consumes the 3 inline bytes and tail-jumps (the target returns to the bjump’s caller), the bytes after must be data and the call is non-returning. <code>tools/FixInlineBjumps.java</code> marks all 355 such sites in the complete local ROM, which substantially improved OS-wide disassembly coverage.</p>
+<p><strong>Inline bjumps.</strong> Besides this trampoline table, <code>CALL cross_page_jump; .dw; .db</code> appears in packed dispatch tables and inside OS routines. The target returns
+to the bjump caller, so <code>cross_page_jump</code> consumes the three inline descriptor
+bytes as a non-returning tail-jump. <code>tools/FixInlineBjumps.java</code> runs before and
+after the scripts that seed parser handlers and reviewed function entries. Each
+pass marks every disassembled inline site, including the 87 trampoline-table
+entries. Raw byte matches outside disassembled code are not counted. [confirmed]</p>
 <h2 id="limitations"><a class="header" href="#limitations">Limitations</a></h2>
 <ul>
 <li>Keep the BootFree guard in place when regenerating from emulator-derived ROM images.</li>
@@ -4686,15 +4692,15 @@ byte-confirmed in the disassembly. [hypothesis]</p>
 <tr><th>Addr</th><th>Field</th><th>Meaning</th></tr>
 </thead>
 <tbody>
-<tr><td><code>83EE</code></td><td><code>arcInfo.page</code></td><td>page byte of the data (Flash page if archived; RAM marker otherwise)</td></tr>
-<tr><td><code>83EF</code></td><td><code>arcInfo.data_ptr</code></td><td>2-byte data address (in Flash window 0x4000–<code>0x7FFF</code>, or RAM)</td></tr>
-<tr><td><code>83F1</code></td><td><code>arcInfo.vat_ptr</code></td><td>pointer to the VAT entry’s type byte (the symbol record)</td></tr>
-<tr><td><code>83F3</code></td><td><code>arcInfo.dest_ptr</code></td><td>destination data pointer (RAM target on unarchive)</td></tr>
-<tr><td><code>83F5</code></td><td><code>arcInfo.data_size</code></td><td>a header/record-size component (loaded from <code>BC</code> after <code>CALL 0FDE</code>)</td></tr>
-<tr><td><code>83F7</code></td><td><code>arcInfo.size</code></td><td>the variable’s data byte count (from <code>_DataSize</code>; <code>614B</code> does <code>CALL 1485</code> → <code>LD (83F7),DE</code>)</td></tr>
-<tr><td><code>83F9</code></td><td><code>arcInfo.size_full</code></td><td>size + header overhead</td></tr>
-<tr><td><code>83FB</code></td><td><code>arcInfo.unknown_tail</code></td><td>two bytes included in the saved tail; semantics unresolved</td></tr>
-<tr><td><code>8406</code></td><td><code>savedArcInfo</code></td><td>12-byte save slot for <code>arcInfo.vat_ptr</code> through <code>unknown_tail[1]</code></td></tr>
+<tr><td><code>0x83EE</code></td><td><code>arcInfo.page</code></td><td>page byte of the data (Flash page if archived; RAM marker otherwise)</td></tr>
+<tr><td><code>0x83EF</code></td><td><code>arcInfo.data_ptr</code></td><td>2-byte data address (in Flash window <code>0x4000</code>–<code>0x7FFF</code>, or RAM)</td></tr>
+<tr><td><code>0x83F1</code></td><td><code>arcInfo.vat_ptr</code></td><td>pointer to the VAT entry’s type byte (the symbol record)</td></tr>
+<tr><td><code>0x83F3</code></td><td><code>arcInfo.dest_ptr</code></td><td>destination data pointer (RAM target on unarchive)</td></tr>
+<tr><td><code>0x83F5</code></td><td><code>arcInfo.data_size</code></td><td>a header/record-size component (loaded from <code>BC</code> after <code>CALL ram:0FDE</code>)</td></tr>
+<tr><td><code>0x83F7</code></td><td><code>arcInfo.size</code></td><td>the variable’s data byte count (from <code>_DataSize</code>; <code>07:614B</code> does <code>CALL ram:1485</code> → <code>LD (83F7),DE</code>)</td></tr>
+<tr><td><code>0x83F9</code></td><td><code>arcInfo.size_full</code></td><td>size + header overhead</td></tr>
+<tr><td><code>0x83FB</code></td><td><code>arcInfo.unknown_tail</code></td><td>two bytes included in the saved tail; semantics unresolved</td></tr>
+<tr><td><code>0x8406</code></td><td><code>savedArcInfo</code></td><td>12-byte save slot for <code>arcInfo.vat_ptr</code> through <code>unknown_tail[1]</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -9990,8 +9996,8 @@ the same table in reverse (the inner step is <code>fp_sub_mantissa</code> <code>
 accumulator add <code>fp_add_mantissa</code> <code>1cb9</code>), selector sweeping <code>00…0F</code> under the
 <code>710A CP 0x0F</code> bound. On-screen results: <code>.6931471806</code> and <code>2.718281828</code>.</p>
 </blockquote>
-<p><strong>Sin/cos</strong> (<code>_SinCosRad</code>) uses the same recurrence shape on the range-reduced
-angle. <code>trig_recurrence_table_a</code> (<code>02:7201</code>) and
+<p><code>_SinCosRad</code> uses the same recurrence shape on the range-reduced angle.
+<code>trig_recurrence_table_a</code> (<code>02:7201</code>) and
 <code>trig_recurrence_table_b</code> (<code>02:7281</code>) each contain eight rows with two
 sign/phase variants selected by <code>OP5.value.type</code> bit 7. The exact rotation
 identity encoded by each row remains open. [confirmed]</p>
@@ -10409,8 +10415,8 @@ only <code>F2</code>–<code>FF</code>, §3). They fill the <code>PStat…SStat<
 <code>PStat</code>/<code>ZStat</code>-writing routine appears among the page-0x3A <code>stat_*</code> symbols (all of which are
 the <code>_OneVar</code> accumulate/variance/median/regression engine), confirming the tests live in their
 own command handlers reached from the parser’s command dispatch, separate from the STAT-CALC
-engine documented here. The exact per-test handler addresses are not exposed as named routines
-in this DB; those per-test handler addresses are [hypothesis]. [confirmed]</p>
+engine documented here. The exact per-test handler addresses are not exposed as
+named routines in this database and remain [hypothesis].</p>
 <p>A scratch byte <code>stat_calc_command</code> (<code>0x8A36</code>, immediately below <code>statVars</code>) holds the stat-command
 discriminator (the model index, set from the command token — see §3) for the
 duration of the computation. Working list/element pointers used by the loop live
@@ -12463,13 +12469,13 @@ pointers have been populated:</p>
 <tr><th>RAM state</th><th>Address</th><th>Role in the private parser frame</th></tr>
 </thead>
 <tbody>
-<tr><td><code>TIBasicParserState.basic_prog</code></td><td><code>9652</code></td><td>current OP1-style program/object name</td></tr>
-<tr><td><code>TIBasicParserState.basic_start</code></td><td><code>965B</code></td><td>first token byte after the stored program size word</td></tr>
-<tr><td><code>TIBasicParserState.next_parse_byte</code></td><td><code>965D</code></td><td>current parser cursor</td></tr>
-<tr><td><code>TIBasicParserState.basic_end</code></td><td><code>965F</code></td><td>parser end pointer</td></tr>
-<tr><td><code>TIBasicParserState.num_arguments</code></td><td><code>9661</code></td><td>argument count/state byte used by parser helpers</td></tr>
-<tr><td><code>chkDelPtr3</code> / <code>chkDelPtr4</code></td><td><code>981C</code> / <code>981E</code></td><td>temporary VAT/data pointers used during name and object setup</td></tr>
-<tr><td><code>FPS</code> / <code>OPS</code> / <code>pTemp</code> / <code>progPtr</code></td><td><code>9824</code> / <code>9828</code> / <code>982E</code> / <code>9830</code></td><td>live FP/temp/program storage bounds</td></tr>
+<tr><td><code>TIBasicParserState.basic_prog</code></td><td><code>0x9652</code></td><td>current OP1-style program/object name</td></tr>
+<tr><td><code>TIBasicParserState.basic_start</code></td><td><code>0x965B</code></td><td>first token byte after the stored program size word</td></tr>
+<tr><td><code>TIBasicParserState.next_parse_byte</code></td><td><code>0x965D</code></td><td>current parser cursor</td></tr>
+<tr><td><code>TIBasicParserState.basic_end</code></td><td><code>0x965F</code></td><td>parser end pointer</td></tr>
+<tr><td><code>TIBasicParserState.num_arguments</code></td><td><code>0x9661</code></td><td>argument count/state byte used by parser helpers</td></tr>
+<tr><td><code>chkDelPtr3</code> / <code>chkDelPtr4</code></td><td><code>0x981C</code> / <code>0x981E</code></td><td>temporary VAT/data pointers used during name and object setup</td></tr>
+<tr><td><code>FPS</code> / <code>OPS</code> / <code>pTemp</code> / <code>progPtr</code></td><td><code>0x9824</code> / <code>0x9828</code> / <code>0x982E</code> / <code>0x9830</code></td><td>live FP/temp/program storage bounds</td></tr>
 </tbody>
 </table>
 </div>
@@ -14694,7 +14700,8 @@ by child record IDs. <code>eqdisp_find_structural_record</code> (<code>34:4ACE</
 structural region, and <code>eqdisp_find_leaf_record</code> (<code>34:4A83</code>) walks the leaf
 region. <code>eqdisp_substitute_active_leaf</code> (<code>34:4AAF</code>) substitutes the active
 gap-buffer payload when the leaf pointer equals
-<code>mathprintArenaState.active_leaf</code>. The record graph therefore preserves
+<code>mathprintArenaState.active_leaf</code> at <code>0x8DC2</code> (base <code>mathprintArenaState</code> at
+<code>0x8DAF</code>). The record graph therefore preserves
 the editable equation tree before evaluation; page <code>39</code> row and cell state is
 the transient layout view of that live equation. [confirmed]</p>
 <p><code>eqdisp_allocate_record</code> (<code>34:4900</code>) commits a prepared arena record.
@@ -14854,7 +14861,8 @@ size in <code>HL</code>. For example, the type-<code>0x22</code> integral row re
 bytes, four child slots, and 28 record bytes. Type <code>0x2B</code> derives all three
 values from its matrix element count at <code>33:4F42</code>–<code>33:4F6C</code>. [confirmed]</p>
 <p><code>34:4869</code> passes that workspace request to the capacity gate at
-<code>34:4B7C</code>. <code>34:4B86</code> starts with the word at <code>0x8DB1</code>. When
+<code>34:4B7C</code>. <code>eqdisp_capacity_remaining</code> (<code>34:4B86</code>) starts with the word at
+<code>0x8DB1</code>. When
 <code>(IY+2Dh).0</code> is clear, it subtracts the conditional reserve at <code>0x8DF8</code>; when
 the bit is set, it skips that subtraction. It then subtracts the record tail
 at <code>0x8DBE</code>. Each subtraction follows <code>OR A</code>, so it starts with carry clear and
@@ -19303,10 +19311,11 @@ OP1 = the variable name. It negotiates, sends the VAR header, waits for CTS, the
   else: send the symbol-table/listing payload (4261)
   RES 1,(IY+0x24) ; FUN_ram_2800 (restore) ; JP 4F3E (cleanup)
 </code></pre>
-<h3 id="5a-resolve-the-variable-for-sending--4763-confirmed"><a class="header" href="#5a-resolve-the-variable-for-sending--4763-confirmed">5a. Resolve the variable for sending — <code>4763</code> [confirmed]</a></h3>
-<p><code>4763</code> reads the var-header type byte at <code>867F</code> and branches by class. For
-graph/equation types (<code>0x0F‥0x14</code>) it uses a cross-page helper. Otherwise
-<code>47AB</code> calls <code>_CkOP1Real</code>, checks the size, then calls <code>_ChkFindSym</code> (<code>0E60</code>)
+<h3 id="5a-resolve-the-variable-for-sending--lnk_resolve_var-confirmed"><a class="header" href="#5a-resolve-the-variable-for-sending--lnk_resolve_var-confirmed">5a. Resolve the variable for sending — <code>lnk_resolve_var</code> [confirmed]</a></h3>
+<p><code>lnk_resolve_var</code> (<code>3C:4763</code>) reads the var-header type byte at <code>0x867F</code> and
+branches by class. For graph/equation types (<code>0x0F</code>–<code>0x14</code>) it uses a
+cross-page helper. Otherwise <code>3C:47AB</code> calls <code>_CkOP1Real</code>, checks the size,
+then calls <code>_ChkFindSym</code> (<code>ram:0E60</code>)
 to locate the VAT entry. An archived variable routes through the Flash path,
 where <code>_Chk_Batt_Low</code> saves <code>arcInfo.size</code> at <code>0x83F7</code>. <code>_SetupPagedPtr</code>
 supplies the data pointer, page, and length inside the DATA sender.</p>

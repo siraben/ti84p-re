@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6157e050.js";
+            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -238,7 +238,8 @@ by child record IDs. <code>eqdisp_find_structural_record</code> (<code>34:4ACE</
 structural region, and <code>eqdisp_find_leaf_record</code> (<code>34:4A83</code>) walks the leaf
 region. <code>eqdisp_substitute_active_leaf</code> (<code>34:4AAF</code>) substitutes the active
 gap-buffer payload when the leaf pointer equals
-<code>mathprintArenaState.active_leaf</code>. The record graph therefore preserves
+<code>mathprintArenaState.active_leaf</code> at <code>0x8DC2</code> (base <code>mathprintArenaState</code> at
+<code>0x8DAF</code>). The record graph therefore preserves
 the editable equation tree before evaluation; page <code>39</code> row and cell state is
 the transient layout view of that live equation. [confirmed]</p>
 <p><code>eqdisp_allocate_record</code> (<code>34:4900</code>) commits a prepared arena record.
@@ -398,7 +399,8 @@ size in <code>HL</code>. For example, the type-<code>0x22</code> integral row re
 bytes, four child slots, and 28 record bytes. Type <code>0x2B</code> derives all three
 values from its matrix element count at <code>33:4F42</code>–<code>33:4F6C</code>. [confirmed]</p>
 <p><code>34:4869</code> passes that workspace request to the capacity gate at
-<code>34:4B7C</code>. <code>34:4B86</code> starts with the word at <code>0x8DB1</code>. When
+<code>34:4B7C</code>. <code>eqdisp_capacity_remaining</code> (<code>34:4B86</code>) starts with the word at
+<code>0x8DB1</code>. When
 <code>(IY+2Dh).0</code> is clear, it subtracts the conditional reserve at <code>0x8DF8</code>; when
 the bit is set, it skips that subtraction. It then subtracts the record tail
 at <code>0x8DBE</code>. Each subtraction follows <code>OR A</code>, so it starts with carry clear and

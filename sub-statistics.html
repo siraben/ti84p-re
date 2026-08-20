@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6157e050.js";
+            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -260,8 +260,8 @@ only <code>F2</code>–<code>FF</code>, §3). They fill the <code>PStat…SStat<
 <code>PStat</code>/<code>ZStat</code>-writing routine appears among the page-0x3A <code>stat_*</code> symbols (all of which are
 the <code>_OneVar</code> accumulate/variance/median/regression engine), confirming the tests live in their
 own command handlers reached from the parser’s command dispatch, separate from the STAT-CALC
-engine documented here. The exact per-test handler addresses are not exposed as named routines
-in this DB; those per-test handler addresses are [hypothesis]. [confirmed]</p>
+engine documented here. The exact per-test handler addresses are not exposed as
+named routines in this database and remain [hypothesis].</p>
 <p>A scratch byte <code>stat_calc_command</code> (<code>0x8A36</code>, immediately below <code>statVars</code>) holds the stat-command
 discriminator (the model index, set from the command token — see §3) for the
 duration of the computation. Working list/element pointers used by the loop live

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6157e050.js";
+            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-e4551b79.js"></script>
@@ -374,8 +374,8 @@ the same table in reverse (the inner step is <code>fp_sub_mantissa</code> <code>
 accumulator add <code>fp_add_mantissa</code> <code>1cb9</code>), selector sweeping <code>00…0F</code> under the
 <code>710A CP 0x0F</code> bound. On-screen results: <code>.6931471806</code> and <code>2.718281828</code>.</p>
 </blockquote>
-<p><strong>Sin/cos</strong> (<code>_SinCosRad</code>) uses the same recurrence shape on the range-reduced
-angle. <code>trig_recurrence_table_a</code> (<code>02:7201</code>) and
+<p><code>_SinCosRad</code> uses the same recurrence shape on the range-reduced angle.
+<code>trig_recurrence_table_a</code> (<code>02:7201</code>) and
 <code>trig_recurrence_table_b</code> (<code>02:7281</code>) each contain eight rows with two
 sign/phase variants selected by <code>OP5.value.type</code> bit 7. The exact rotation
 identity encoded by each row remains open. [confirmed]</p>
