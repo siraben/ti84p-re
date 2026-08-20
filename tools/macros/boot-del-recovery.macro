@@ -1,0 +1,7 @@
+# Hold DEL across the first retail-boot key scan and capture the recovery path.
+# Run at --normal-speed --reset with a full-address trace.
+press DEL
+wait 1s
+release DEL
+wait 2s
+screenshot /tmp/boot-del-recovery.png
