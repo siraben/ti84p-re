@@ -385,7 +385,7 @@ ram:0B27       full_reset_wipe        (zeroes all 0x8000-0xFFFF)
 36:7D00   clr_grfmode   (clears grfModeFlags bits 4-7)
 ```
 
-### Key SystemFlags / RAM addresses
+### Key SystemFlags and RAM addresses
 
 ```text
 0x89F0  flags (IY base)

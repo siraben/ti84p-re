@@ -23,7 +23,7 @@ Every named object the user creates — reals, lists, matrices, strings, program
 
 The active object's type byte is held in `varType` (`0x85D0`); the current var being processed in `curType` (`0x8450`). Both are typed `TIVarType` in the DB.
 
-## How a variable is named/found
+## Variable lookup
 
 The OS passes variable identity through `OP1` as a "name string": `OP1[0]` = type byte, `OP1[1..]` = the name (token/bytes). The lookup/create family all key off OP1:
 

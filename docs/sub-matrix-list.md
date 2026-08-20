@@ -143,7 +143,7 @@ Matrix element wrappers: [confirmed]
 
 ## List operations [standard]
 
-### Create / resize / insert / delete
+### Creation, resizing, insertion, and deletion
 
 | Routine | addr | Role |
 |---|---|---|
@@ -180,7 +180,7 @@ The fold seeds the accumulator (0 for sum, 1 for prod), then for each element do
 `acc = combine(acc, L[i])` through OP1/OP2. Works on real and complex lists (`type 1`/`0xD`
 both route to `02:6140`). [confirmed]
 
-### `seq(`, `cumSum(`, `SortA(`/`SortD(`, `mean(`/`median(`/`stdDev(` [hypothesis]
+### Sequence, cumulative, sorting, and statistics operations [hypothesis]
 
 - `seq(expr,var,lo,hi[,step])` evaluates `expr` for `var = lo..hi`, pushing each result
   and finally `_CreateRList`-ing the collected floats (the generic list-builder loop;
@@ -191,7 +191,7 @@ both route to `02:6140`). [confirmed]
   and per-element sort key are detailed in the next subsection. [confirmed]
 - Stats (`mean/median/sum/stdDev/variance`) are list folds layered on `sum(`/sort. [hypothesis]
 
-### `SortA(` / `SortD(` — list sort [confirmed]
+### `SortA(` and `SortD(` list sorting [confirmed]
 
 `SortA(` (`tSortA` `0xE3`) and `SortD(` (`tSortD` `0xE4`) sort a list in place — ascending and
 descending respectively; `SortA(L1,L2,…)` co-sorts the trailing lists by the same permutation. This
@@ -402,7 +402,7 @@ of the pivots (each row swap flips the sign); a zero pivot ⇒ `det = 0` (no err
 `[A]⁻¹` = full Gauss-Jordan (reduce to identity, the augmented identity becomes the
 inverse); a zero pivot ⇒ `ERR:SINGULAR MAT`.
 
-#### Det sign / pivot-product bytes in the tail (`02:43D8-4470`) [confirmed]
+#### Determinant sign and pivot-product bytes (`02:43D8`–`02:4470`) [confirmed]
 
 The determinant sign comes from the permutation parity, not a separate sign cell. Each
 physical row swap (`43B9`) calls `4259` to swap the matching pair in the permutation
@@ -427,7 +427,7 @@ So the sign byte is the LSB of the swap-count applied via `_InvOP1S` (`00:24BD`)
 `43FB`/`442B`; the pivot product is the `238B`/`RST 30h` accumulate over the diagonal in
 `43E3-43F6`. The permutation undo (`420F`/`4259`) restores element order for the inverse. [confirmed]
 
-### `rref(` / `ref(` — separate driver, not `42A6` [standard]
+### Separate `rref(` and `ref(` driver [standard]
 
 `rref(`/`ref(` do not re-enter the `42A6` Gauss-Jordan engine. A function-xref shows
 `matrix_gauss_engine` (`02:42A6`) has exactly two callers — `mat_inverse_entry` (`02:5F80`,

@@ -64,7 +64,7 @@ From `ti83plus.inc` and verified by the bit-ops below:
 | 5 (`0x20`) | `autoCalc` | **Depend**: 0 = `Auto` (compute Y immediately), 1 = `Ask` (compute a cell only on request) |
 | 6 (`0x40`) | `reTable`  | 0 = cached table valid, 1 = must recompute the table |
 
-### TBLSET key/edit handler — `tblsetup_handler` (`02:7B20`) [confirmed]
+### TBLSET key and edit handler [confirmed]
 
 The page-02 command/mode handler that backs the **TBLSET** screen edits the two
 floats and the two mode rows. A retired helper label at `02:7B31` is not a live function in the current DB, but the byte sequence there decodes as:
@@ -82,7 +82,7 @@ floats and the two mode rows. A retired helper label at `02:7B31` is not a live 
 So changing any TBLSET field (TblStart, ΔTbl, Indpnt, or Depend) sets
 `reTable`, forcing a full recompute next time the TABLE is shown. [confirmed]
 
-### TBLSET display/validation context — `tblset_cx_display` (`37:5F10`) [confirmed]
+### TBLSET display and validation context [confirmed]
 
 The TABLE-setup *screen* logic lives on page 37 (the menu/editor display page).
 `37:5F10` reconciles the on-screen Indpnt/Depend selection against the stored
@@ -116,7 +116,7 @@ Y-token:
 (Parametric `X1T/Y1T`=`0x20/0x21`…, polar `r1`…, and `u/v/w` sequences share the
 same `EquObj`/`tVarEqu` machinery.) [confirmed]
 
-### Selection & style flags [confirmed]
+### Selection and style flags [confirmed]
 
 Each equation's flags byte is `0x23` when selected (plotted / tabulated) and
 `0x03` when deselected — i.e. the selection bit is bit 5 (`0x20`). The separate
@@ -145,7 +145,7 @@ decompile — they compute `0x84D9 + 2·n`):
 This is the shared iterator the regraph driver and the table builder both walk
 to visit each selected `Yn`. [confirmed]
 
-### Resolving & evaluating a Y-var — `_Find_Parse_Formula` (`38:758A`) [confirmed]
+### Resolving and evaluating a Y-var [confirmed]
 
 `_Find_Parse_Formula` (bcall id `0x4AF2`) is the universal "find a named var and
 parse/evaluate its stored formula" entry in [TI-BASIC expression evaluation](sub-tibasic.md#expressions-are-nested-productions). For a Y-var it

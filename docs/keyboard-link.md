@@ -34,6 +34,6 @@ Installed error callback `3C:6136` reaches `3C:618D` for applicable transfer sta
 
 [Two-wire link port hardware](link-port-hardware.md) reconstructs the port read/write inversion, four transitions, receiver rotation, errors, and timer-driven activity check. [USB ASIC and link assist](sub-usb-asic.md) covers the assist FIFO selected by the same byte routines.
 
-### Variable-transfer command/packet framing
+### Variable-transfer packet framing
 
 A TI link packet is a 4-byte header (`machine-ID, command-ID, length-lo, length-hi`) optionally followed by `data[len]` and a 16-bit LE checksum; commands include `0x06` VAR, `0x09` CTS, `0x15` DATA, `0x56` ACK, `0x5A` NAK, `0x92` EOT. [Link transfer](sub-link-transfer.md#ti-link-packet-framing-confirmed) covers the framing, silent-link send/receive engine (`link_xfer_op`, `_SendVarCmd`), checksum and acknowledgement handling, and 16-byte Flash-batched receive path. [confirmed]

@@ -45,7 +45,7 @@ physical-capture history. The page-`2F` and page-`3F` bodies above decode
 directly from `rom.bin`. The resolver detects a BootFree input and omits retail
 targets when the retail pages are absent.
 
-## Key RAM regions (named & typed)
+## Key named and typed RAM regions
 
 | Addr | Name | Type | Purpose |
 |------|------|------|---------|
@@ -65,7 +65,7 @@ targets when the retail pages are absent.
 
 `IY` is held at `flags` (`0x89F0`) almost everywhere, so `(IY+off)` accesses index `SystemFlags` fields (`appFlags`, `kbdFlags`, …).
 
-## Principal I/O ports [standard]
+## Principal input/output ports [standard]
 
 A curated selection of the ports most relevant to the memory map and paging; the
 kernel touches many more (timer/crystal, USB-assist, and ASIC-control ports).
