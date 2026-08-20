@@ -1,0 +1,628 @@
+{
+  "schema": 1,
+  "rom": {
+    "path": "tools/rom.bin",
+    "sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d"
+  },
+  "emulator": {
+    "source": "https://github.com/siraben/tilem-headless",
+    "commit": "d1bdc58dd321ae462a701e556fcb62bb925a78b1",
+    "binary_sha256": "cdd257c57b918b8f0b05df6e49f249d4f0461a7c1ed2d9b87fe76fc3d2b0e1ee"
+  },
+  "scope": "natural function-mode GRAPH runs; raw TLMT traces remain outside the repository",
+  "entry_points": {
+    "regraph_entry": "04:6764",
+    "regraph_return": "04:6985",
+    "buffer_clear": "04:6071",
+    "function_mode_loop": "04:68D6",
+    "sample_eval_prepare": "04:710F",
+    "sample_cleanup": "04:7045",
+    "sample_advance": "04:69CF",
+    "next_equation": "04:70AD",
+    "parser_entry": "38:5975",
+    "equation_eval_entry": "38:778F",
+    "equation_eval_finish": "38:77C2",
+    "documented_parseinp": "38:5987",
+    "token_prescan": "33:5023",
+    "selected_table_next": "33:707A",
+    "x_to_pixel": "37:41EB",
+    "y_to_pixel": "37:41DF",
+    "pixel_round": "37:4229",
+    "coordinate_return": "37:420E",
+    "integer_line": "04:4029",
+    "integer_point": "04:4157",
+    "error_divide_by_zero": "ram:26EC",
+    "error_domain": "ram:26F4"
+  },
+  "scenarios": {
+    "reciprocal": {
+      "formula": "Y1=X^-1",
+      "macro": "tools/macros/graph-y1-reciprocal.macro",
+      "expected_style": 0,
+      "sha256": "4880795b03c8a5edb9969de58dbe09f8893e89eda1668ce98c0876133297d552",
+      "bytes": 371284452,
+      "total_trace_instructions": 7501813,
+      "regraph_interval": {
+        "entry_instruction": 3111487,
+        "return_instruction": 7428217,
+        "instructions": 4316730,
+        "clocks": 42432410
+      },
+      "point_visits": {
+        "buffer_clear": 1,
+        "coordinate_return": 420,
+        "equation_eval_entry": 188,
+        "equation_eval_finish": 188,
+        "error_divide_by_zero": 2,
+        "function_mode_loop": 1,
+        "integer_line": 96,
+        "integer_point": 402,
+        "next_equation": 1,
+        "parser_entry": 190,
+        "pixel_round": 420,
+        "regraph_entry": 1,
+        "regraph_return": 1,
+        "sample_advance": 95,
+        "sample_cleanup": 95,
+        "sample_eval_prepare": 95,
+        "x_to_pixel": 210,
+        "y_to_pixel": 210
+      },
+      "not_observed": [
+        "documented_parseinp",
+        "error_domain",
+        "selected_table_next",
+        "token_prescan"
+      ],
+      "post_function_mode_visits": {
+        "coordinate_return": 376,
+        "equation_eval_entry": 188,
+        "equation_eval_finish": 188,
+        "error_divide_by_zero": 2,
+        "function_mode_loop": 1,
+        "integer_line": 94,
+        "integer_point": 202,
+        "next_equation": 1,
+        "parser_entry": 190,
+        "pixel_round": 376,
+        "regraph_return": 1,
+        "sample_advance": 95,
+        "sample_cleanup": 95,
+        "sample_eval_prepare": 95,
+        "x_to_pixel": 188,
+        "y_to_pixel": 188
+      },
+      "sample_columns_before_advance": {
+        "count": 95,
+        "first": 0,
+        "last": 94,
+        "distinct": 95,
+        "stride": 1
+      },
+      "xres_int_at_return": 1,
+      "styles_seen_at_sample_advance": [
+        0
+      ],
+      "iterator_words_at_return": {
+        "ram:9810": 0,
+        "ram:980E": 1
+      },
+      "coordinate_transform_columns": {
+        "visits": 376,
+        "distinct": 94,
+        "first": 0,
+        "last": 94
+      },
+      "coordinate_witnesses": {
+        "x": {
+          "entry": {
+            "instruction_index": 3390129,
+            "clock": 106150338,
+            "column": 0,
+            "registers": {
+              "af": 128,
+              "bc": 36458,
+              "de": 33956,
+              "hl": 33967
+            },
+            "tifloats": {
+              "op1": "008110000000000000",
+              "x_work": "808110000000000000",
+              "x_origin": "008000000000000000",
+              "y_min": "808110000000000000",
+              "short_x": "008047000000000000",
+              "short_y": "008031000000000000"
+            },
+            "input_at_de": {
+              "address": "ram:84A4",
+              "bytes": "808110000000000000"
+            }
+          },
+          "round": {
+            "instruction_index": 3390816,
+            "clock": 106158551,
+            "column": 0,
+            "registers": {
+              "af": 32852,
+              "bc": 65518,
+              "de": 33932,
+              "hl": 33923
+            },
+            "tifloats": {
+              "op1": "008000000000000000",
+              "x_work": "808110000000000000",
+              "x_origin": "008000000000000000",
+              "y_min": "808110000000000000",
+              "short_x": "008047000000000000",
+              "short_y": "008031000000000000"
+            }
+          },
+          "return": {
+            "instruction_index": 3390953,
+            "clock": 106159912,
+            "column": 0,
+            "registers": {
+              "af": 186,
+              "bc": 1000,
+              "de": 0,
+              "hl": 33915
+            },
+            "tifloats": {
+              "op1": "008000000000000000",
+              "x_work": "808110000000000000",
+              "x_origin": "008000000000000000",
+              "y_min": "808110000000000000",
+              "short_x": "008047000000000000",
+              "short_y": "008031000000000000"
+            }
+          }
+        },
+        "y": {
+          "entry": {
+            "instruction_index": 3390957,
+            "clock": 106159968,
+            "column": 0,
+            "registers": {
+              "af": 186,
+              "bc": 36715,
+              "de": 33967,
+              "hl": 33915
+            },
+            "tifloats": {
+              "op1": "008000000000000000",
+              "x_work": "808110000000000000",
+              "x_origin": "008000000000000000",
+              "y_min": "808110000000000000",
+              "short_x": "008047000000000000",
+              "short_y": "008031000000000000"
+            },
+            "input_at_de": {
+              "address": "ram:84AF",
+              "bytes": "807f10000000000000"
+            }
+          },
+          "round": {
+            "instruction_index": 3391614,
+            "clock": 106167020,
+            "column": 0,
+            "registers": {
+              "af": 33092,
+              "bc": 240,
+              "de": 33922,
+              "hl": 33920
+            },
+            "tifloats": {
+              "op1": "008130690000000000",
+              "x_work": "808110000000000000",
+              "x_origin": "008000000000000000",
+              "y_min": "808110000000000000",
+              "short_x": "008047000000000000",
+              "short_y": "008031000000000000"
+            }
+          },
+          "return": {
+            "instruction_index": 3391761,
+            "clock": 106168456,
+            "column": 0,
+            "registers": {
+              "af": 8122,
+              "bc": 1000,
+              "de": 31,
+              "hl": 33915
+            },
+            "tifloats": {
+              "op1": "0081001f0000000000",
+              "x_work": "808110000000000000",
+              "x_origin": "008000000000000000",
+              "y_min": "808110000000000000",
+              "short_x": "008047000000000000",
+              "short_y": "008031000000000000"
+            }
+          }
+        }
+      },
+      "integer_line_entries": {
+        "count": 94,
+        "zero_length": 2,
+        "first": {
+          "mode": 2,
+          "x1": 0,
+          "y1": 32,
+          "x2": 0,
+          "y2": 32
+        },
+        "last": {
+          "mode": 2,
+          "x1": 93,
+          "y1": 32,
+          "x2": 94,
+          "y2": 32
+        },
+        "center_column": 47,
+        "bridges_center": 0,
+        "center_neighborhood": [
+          {
+            "mode": 2,
+            "x1": 44,
+            "y1": 27,
+            "x2": 45,
+            "y2": 25
+          },
+          {
+            "mode": 2,
+            "x1": 45,
+            "y1": 25,
+            "x2": 46,
+            "y2": 17
+          },
+          {
+            "mode": 2,
+            "x1": 48,
+            "y1": 47,
+            "x2": 48,
+            "y2": 47
+          },
+          {
+            "mode": 2,
+            "x1": 48,
+            "y1": 47,
+            "x2": 49,
+            "y2": 39
+          },
+          {
+            "mode": 2,
+            "x1": 49,
+            "y1": 39,
+            "x2": 50,
+            "y2": 37
+          }
+        ]
+      },
+      "error_state_columns": [
+        46,
+        47
+      ],
+      "plot_screen": {
+        "bytes": 768,
+        "writes": 1170,
+        "mutations": 266,
+        "nonzero_bytes": 120,
+        "set_pixels": 266,
+        "sha256": "e459ba442fd0fba2fbd0d5d53121f66db32cc13d38334be6696ffe5a1c1464da",
+        "writers": [
+          {
+            "location": "04:607C",
+            "writes": 767
+          },
+          {
+            "location": "04:4290",
+            "writes": 402
+          },
+          {
+            "location": "04:607A",
+            "writes": 1
+          }
+        ]
+      }
+    },
+    "x_squared": {
+      "formula": "Y1=X^2",
+      "macro": "tools/macros/graph-y1-x2.macro",
+      "expected_style": 0,
+      "sha256": "fcb80d095e30adb050ab2d5ce56e16f56f6d56ecf6ef056355b29776977d0ff5",
+      "bytes": 353198244,
+      "total_trace_instructions": 7137194,
+      "regraph_interval": {
+        "entry_instruction": 3098878,
+        "return_instruction": 7050063,
+        "instructions": 3951185,
+        "clocks": 38916931
+      },
+      "point_visits": {
+        "buffer_clear": 1,
+        "coordinate_return": 164,
+        "equation_eval_entry": 190,
+        "equation_eval_finish": 190,
+        "function_mode_loop": 1,
+        "integer_line": 32,
+        "integer_point": 296,
+        "next_equation": 1,
+        "parser_entry": 190,
+        "pixel_round": 164,
+        "regraph_entry": 1,
+        "regraph_return": 1,
+        "sample_advance": 95,
+        "sample_cleanup": 95,
+        "sample_eval_prepare": 95,
+        "x_to_pixel": 82,
+        "y_to_pixel": 82
+      },
+      "not_observed": [
+        "documented_parseinp",
+        "error_divide_by_zero",
+        "error_domain",
+        "selected_table_next",
+        "token_prescan"
+      ],
+      "post_function_mode_visits": {
+        "coordinate_return": 120,
+        "equation_eval_entry": 190,
+        "equation_eval_finish": 190,
+        "function_mode_loop": 1,
+        "integer_line": 30,
+        "integer_point": 96,
+        "next_equation": 1,
+        "parser_entry": 190,
+        "pixel_round": 120,
+        "regraph_return": 1,
+        "sample_advance": 95,
+        "sample_cleanup": 95,
+        "sample_eval_prepare": 95,
+        "x_to_pixel": 60,
+        "y_to_pixel": 60
+      },
+      "sample_columns_before_advance": {
+        "count": 95,
+        "first": 0,
+        "last": 94,
+        "distinct": 95,
+        "stride": 1
+      },
+      "xres_int_at_return": 1,
+      "styles_seen_at_sample_advance": [
+        0
+      ],
+      "iterator_words_at_return": {
+        "ram:9810": 0,
+        "ram:980E": 1
+      },
+      "coordinate_transform_columns": {
+        "visits": 120,
+        "distinct": 30,
+        "first": 33,
+        "last": 62
+      },
+      "coordinate_witnesses": {
+        "x": {
+          "entry": {
+            "instruction_index": 4671915,
+            "clock": 118791241,
+            "column": 33,
+            "registers": {
+              "af": 128,
+              "bc": 36458,
+              "de": 33956,
+              "hl": 33967
+            },
+            "tifloats": {
+              "op1": "008110000000000000",
+              "x_work": "808110000000000000",
+              "x_origin": "008000000000000000",
+              "y_min": "808110000000000000",
+              "short_x": "008047000000000000",
+              "short_y": "008031000000000000"
+            },
+            "input_at_de": {
+              "address": "ram:84A4",
+              "bytes": "808029787234040000"
+            }
+          },
+          "round": {
+            "instruction_index": 4672919,
+            "clock": 118801182,
+            "column": 33,
+            "registers": {
+              "af": 33108,
+              "bc": 231,
+              "de": 33932,
+              "hl": 33923
+            },
+            "tifloats": {
+              "op1": "008133000000001200",
+              "x_work": "808110000000000000",
+              "x_origin": "008000000000000000",
+              "y_min": "808110000000000000",
+              "short_x": "008047000000000000",
+              "short_y": "008031000000000000"
+            }
+          },
+          "return": {
+            "instruction_index": 4673059,
+            "clock": 118802561,
+            "column": 33,
+            "registers": {
+              "af": 8634,
+              "bc": 1000,
+              "de": 33,
+              "hl": 33915
+            },
+            "tifloats": {
+              "op1": "008100210000001200",
+              "x_work": "808110000000000000",
+              "x_origin": "008000000000000000",
+              "y_min": "808110000000000000",
+              "short_x": "008047000000000000",
+              "short_y": "008031000000000000"
+            }
+          }
+        },
+        "y": {
+          "entry": {
+            "instruction_index": 4673063,
+            "clock": 118802617,
+            "column": 33,
+            "registers": {
+              "af": 8634,
+              "bc": 36715,
+              "de": 33967,
+              "hl": 33915
+            },
+            "tifloats": {
+              "op1": "008100210000001200",
+              "x_work": "808110000000000000",
+              "x_origin": "008000000000000000",
+              "y_min": "808110000000000000",
+              "short_x": "008047000000000000",
+              "short_y": "008031000000000000"
+            },
+            "input_at_de": {
+              "address": "ram:84AF",
+              "bytes": "008088727931180000"
+            }
+          },
+          "round": {
+            "instruction_index": 4673610,
+            "clock": 118808254,
+            "column": 33,
+            "registers": {
+              "af": 33060,
+              "bc": 239,
+              "de": 33922,
+              "hl": 33920
+            },
+            "tifloats": {
+              "op1": "008158505658665800",
+              "x_work": "808110000000000000",
+              "x_origin": "008000000000000000",
+              "y_min": "808110000000000000",
+              "short_x": "008047000000000000",
+              "short_y": "008031000000000000"
+            }
+          },
+          "return": {
+            "instruction_index": 4673765,
+            "clock": 118809762,
+            "column": 33,
+            "registers": {
+              "af": 15290,
+              "bc": 1000,
+              "de": 59,
+              "hl": 33915
+            },
+            "tifloats": {
+              "op1": "0081003b5658665800",
+              "x_work": "808110000000000000",
+              "x_origin": "008000000000000000",
+              "y_min": "808110000000000000",
+              "short_x": "008047000000000000",
+              "short_y": "008031000000000000"
+            }
+          }
+        }
+      },
+      "integer_line_entries": {
+        "count": 30,
+        "zero_length": 0,
+        "first": {
+          "mode": 2,
+          "x1": 32,
+          "y1": 63,
+          "x2": 33,
+          "y2": 60
+        },
+        "last": {
+          "mode": 2,
+          "x1": 61,
+          "y1": 60,
+          "x2": 62,
+          "y2": 63
+        },
+        "center_column": 47,
+        "bridges_center": 0,
+        "center_neighborhood": [
+          {
+            "mode": 2,
+            "x1": 44,
+            "y1": 33,
+            "x2": 45,
+            "y2": 33
+          },
+          {
+            "mode": 2,
+            "x1": 45,
+            "y1": 33,
+            "x2": 46,
+            "y2": 32
+          },
+          {
+            "mode": 2,
+            "x1": 46,
+            "y1": 32,
+            "x2": 47,
+            "y2": 32
+          },
+          {
+            "mode": 2,
+            "x1": 47,
+            "y1": 32,
+            "x2": 48,
+            "y2": 32
+          },
+          {
+            "mode": 2,
+            "x1": 48,
+            "y1": 32,
+            "x2": 49,
+            "y2": 33
+          },
+          {
+            "mode": 2,
+            "x1": 49,
+            "y1": 33,
+            "x2": 50,
+            "y2": 33
+          }
+        ]
+      },
+      "error_state_columns": [],
+      "plot_screen": {
+        "bytes": 768,
+        "writes": 1064,
+        "mutations": 261,
+        "nonzero_bytes": 155,
+        "set_pixels": 261,
+        "sha256": "84f045a265c43ecabd00db5e95187eaa078fd07b8fdb0e9242e1948f24553df7",
+        "writers": [
+          {
+            "location": "04:607C",
+            "writes": 767
+          },
+          {
+            "location": "04:4290",
+            "writes": 296
+          },
+          {
+            "location": "04:607A",
+            "writes": 1
+          }
+        ]
+      }
+    }
+  },
+  "interpretation_limits": [
+    "point counts establish the executed path, not all possible graph modes",
+    "the retained line-style traces do not exercise thick, shade, animate, or dotted styles",
+    "token_prescan and documented_parseinp are retained as negative observations, not dead-code claims"
+  ],
+  "executed_entry_relationship": "The grapher reaches 38:5975 (`parse_init_findsym`), which performs parser initialization and joins the shared evaluator tail at 38:59A4. Official `_ParseInp` at 38:5987 is a sibling entry with additional state clearing and stack cleanup; neither natural graph trace executes 38:5987."
+}

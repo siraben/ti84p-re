@@ -1,0 +1,18 @@
+# Power on, enter Y1=X^-1, and graph across its x=0 discontinuity.
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key Y=
+wait 0.5s
+key CLEAR
+key GRAPHVAR
+key RECIP
+wait 0.5s
+key GRAPH
+wait 4s
+screenshot /tmp/calc-graph-y1-reciprocal.png
