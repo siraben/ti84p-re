@@ -36,7 +36,7 @@ flowchart TD
 
 Cross-cutting services used by all of the above: [the bcall mechanism](bcall-mechanism.md), [interrupt dispatch](interrupts.md), [clock/timers/APD/power](clock-timers-power.md), [MD5 and boot signature arithmetic](md5-hardware.md), error handling (`_JError` + `TIError` codes), and the system flags (`SystemFlags` @ `flags`).
 
-## How the pieces connect (the through-line)
+## Execution through-line
 
 1. **Interrupt** keeps time, scans the keypad into `kbdScanCode`, runs APD.
 2. `_GetKey` turns scan codes into key codes (`TIKeyCode`), driving menus and the homescreen.

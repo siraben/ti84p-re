@@ -5,13 +5,6 @@ The graphing subsystem maps real coordinates to pixels, draws into
 **Y=**, **WINDOW**, **GRAPH**, **TRACE**, and **DRAW** paths to their window
 state, equation storage, and drawing primitives.
 
-Address form is `page:addr` (flash page hex : logical offset, routines run mapped at
-`0x4000`). Confidence: [confirmed] = read the code/data directly, or cross-checked
-against equate/convention; [standard] = matches documented TI behavior but not
-byte-verified here; [hypothesis] = inferred, not yet verified.
-
----
-
 ## 1. Window variables (RAM) [confirmed]
 
 All graph window state lives in a contiguous block of 9-byte `TIFloat`s starting at `0x8F50`.
@@ -292,7 +285,7 @@ during a regraph or TABLE build.
 
 ---
 
-## 8. Confidence summary / open items
+## 8. Evidence summary and open items
 
 - Forward transform `(value−min)/pixelDelta`: structure [confirmed] from the
   `37:41F2` disassembly (subtract `228F`, divide `2385`); the exact rounding in `4229` is

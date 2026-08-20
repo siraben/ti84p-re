@@ -8,8 +8,6 @@ Cross-references: [Boot contexts & errors](boot-contexts-errors.md) (contexts, `
 `_CleanAll`), [Flash page map](flash-page-map.md) (flash page map). Flag bits use the `ti83plus.inc` equates; the
 SystemFlags base is `IY = flags = 0x89F0`, so e.g. `(IY+0x0A)` = `flags + fmtFlags`.
 
----
-
 ## 1. Flash Apps — find & launch
 
 This ROM ships with zero bundled apps in the local ROM-byte scan (zero `80 0F` headers found at page starts) [hypothesis],
@@ -355,7 +353,7 @@ line-by-line, but every target bit/byte is confirmed from the setters and inc eq
 
 ---
 
-## 4. Confident `space:addr` index
+## 4. Routine index
 
 ```text
 3D:5EE3   _FindApp

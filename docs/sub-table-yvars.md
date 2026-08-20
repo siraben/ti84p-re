@@ -5,21 +5,10 @@ The table subsystem stores equations from **Y=**, reads settings from
 paints the **TABLE** grid. This page covers automatic and prompted independent
 and dependent values as well as split graph-table mode.
 
-Builds on [sub-graphing.md](sub-graphing.md) (Y= storage, the regraph/eval path, `plotSScreen`),
-[sub-tibasic.md](sub-tibasic.md) (the page-38 parser, `_Find_Parse_Formula`, `_ParseInp`),
-[variables-vat.md](variables-vat.md) (`EquObj`, `_FindSym`), [display-lcd.md](display-lcd.md) (text grid via
-`_PutMap`/`_PutC`), and [boot-contexts-errors.md](boot-contexts-errors.md) (the context/`cxMain`
-mechanism that selects the TABLE editor vs TABLE-setup screens).
-
-Address form is `page:addr` (flash-page hex : logical offset; flash routines run
-mapped at `0x4000`). RAM addresses are absolute. Confidence:
-[confirmed] = decompiled/byte-verified here, or multiple consistent signals
-(flag/token compares, call shape) pin it even where the dense Z80 handler bodies
-don't fully reduce in the decompiler; [standard] = documented TI-83+/84+ behavior
-consistent with what was seen, not byte-pinned here; [hypothesis] = inferred, not
-yet verified.
-
----
+The subsystem shares equation storage with [Graphing](sub-graphing.md), parser
+entry points with [TI-BASIC execution](sub-tibasic.md), VAT objects with
+[Variables and the VAT](variables-vat.md), and text output with [Display and
+LCD](display-lcd.md).
 
 ## 0. The three pieces and how they connect
 
@@ -386,7 +375,7 @@ Conversely only the recompute driver clears it (`05:5DD7`, `05:62FD`,
 
 ---
 
-## 6. Confident addresses (`space:addr` → name)
+## 6. Routine and state index
 
 ```text
 ; --- TABLE setup settings & flags ---
@@ -443,7 +432,7 @@ RAM  84D9   iMathPtr4                          ; base of selected-equation point
 
 ---
 
-## 7. Confidence summary / open items
+## 7. Evidence summary and open items
 
 - TblMin/TblStep addresses + tokens, the `tblFlags` bit layout, and which sites
   set/clear `reTable`: [confirmed] (equates + byte-verified bit-ops).

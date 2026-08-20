@@ -6,13 +6,6 @@ the `OP1`–`OP6` BCD floating-point registers. The software stack at `FPS`
 defines the `TIFloat` format and `_FPAdd`; this page covers multiplication,
 division, powers, roots, transcendentals, formatting, and errors.
 
-Address form below is `page:addr` (flash page in slot `4000`) or `ram:addr` for the fixed
-page-0 core mapped at `0000`. Page-0 routines are reached by `RST`/direct `CALL`; everything
-else through the bcall dispatcher. Confidence: [confirmed] = read from disassembly,
-[standard] = matches documented TI behavior, [hypothesis] = inferred.
-
----
-
 ## 1. Register & stack model [confirmed]
 
 Every calculation runs through the OP registers and the software FP stack; the table

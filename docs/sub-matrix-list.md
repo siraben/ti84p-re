@@ -8,14 +8,10 @@ VAT](variables-vat.md), [Floating-point engine](floating-point.md), and
 [Variables, archive and unarchive](sub-vat-archive.md) describe the shared
 storage and arithmetic layers.
 
-All `page:addr` are read from the raw Z80 disassembly, not the decompiler alone.
-Page numbers are the masked flash page (`rawpage & 0x3F`). The whole-OS image lives in one
-Ghidra program with address spaces `ram` (the page-0/RAM-resident 0x0000–0x7FFF window) and
-`page_NN` for each flash page mapped into the 0x4000–0x7FFF bank-A window.
+Raw disassembly supplies the banked-page operations that the decompiler does
+not reduce reliably.
 
----
-
-## 0. TL;DR — the mental model
+## 0. Data model
 
 - A list is `word count` (2 bytes) followed by `count` × 9-byte `TIFloat` elements
   (18-byte complex elements if the list is complex, flagged `0x0C`). Element $i$ (1-based)
@@ -346,7 +342,7 @@ inside `augment(` are [standard].
 
 ---
 
-## 5. The heavy ones — `det(`, `[A]⁻¹`, `rref(` / `ref(` [confirmed]
+## 5. Determinant, inverse, and row reduction [confirmed]
 
 `det(` and `[A]⁻¹` share the Gauss-Jordan elimination engine with partial pivoting —
 `matrix_gauss_engine` @ `02:42A6` — the *entry flag in `A`* selecting behaviour; only two
@@ -494,7 +490,7 @@ and the routine and condition that triggers it.
 
 ---
 
-## 8. Confident address index
+## 8. Routine index
 
 | space:addr | name | what |
 |---|---|---|
@@ -552,7 +548,7 @@ and the routine and condition that triggers it.
 
 ---
 
-## 9. Findings
+## 9. Resolved behavior and remaining questions
 
 - `rref(`/`ref(` use a separate driver, not `42A6`. Xref proves `42A6` has
   exactly two callers (inverse `5F80`, det `5FC0`); rref/ref are 2-byte `0xBB`-lead function
