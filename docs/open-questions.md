@@ -26,10 +26,11 @@ recurrence in [Floating point](floating-point.md#_sincosrad-sine-and-cosine-in-r
 
 Find a natural flag state that routes `Circle(` through `_DrawCirc2`, then
 compare its 60 emitted segments with the statically decoded schedule. Separately,
-find and trace a natural caller of `_GrphCirc`. Extend the function-mode traces
-to thick, shade, animate, and dotted styles; `Xres>1`; multiple selected
+find and trace a natural caller of `_GrphCirc`, adding a direct-call interval
+boundary to the current `_CircCmd` trace reducer. Extend the function-mode
+traces to thick, shade, animate, and dotted styles; `Xres>1`; multiple selected
 equations; and polar, parametric, and sequence modes. The coordinate rounding,
-two ordinary function witnesses, and the default page-33 Circle path are pinned in
+two ordinary function witnesses, and the clear-flag page-33 Circle path are pinned in
 [Graphing](sub-graphing.md#evidence-summary-and-open-items).
 
 ### TABLE evaluation

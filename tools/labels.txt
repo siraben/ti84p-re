@@ -13,9 +13,9 @@ page_38:587d	for_steady_update
 # Graph sampling and Circle internal entries.
 page_04:68d6	regraph_function_mode_setup	entry
 page_33:74df	graph_circle_dispatch	entry
-page_33:74e9	graph_circle_default_generator	entry
-page_33:7506	graph_circle_default_loop	entry
-page_33:7561	graph_circle_default_line_emit	entry
+page_33:74e9	graph_circle_clear_flag_generator	entry
+page_33:7506	graph_circle_clear_flag_loop	entry
+page_33:7561	graph_circle_clear_flag_line_emit	entry
 
 # MathPrint construction, layout, and glyph tables.
 page_33:4f82	eqdisp_allocation_geometry_table

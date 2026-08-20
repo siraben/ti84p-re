@@ -43,10 +43,10 @@
     "bytes": 260538396,
     "total_instructions": 5268454,
     "point_visits": {
-      "alternate_generator": 1,
-      "alternate_end": 1,
-      "alternate_line_emit": 60,
-      "alternate_loop": 61,
+      "clear_flag_generator": 1,
+      "clear_flag_end": 1,
+      "clear_flag_line_emit": 60,
+      "clear_flag_loop": 61,
       "circ_cmd": 1,
       "circ_cmd_return": 1,
       "coordinate_line": 60,
@@ -114,6 +114,6 @@
     ],
     "plot_sscreen_sha256": "7c4191a9b28ddd6526b391dec69b34367975a58f39c72daa8eb4fb1afed09868",
     "plot_sscreen_dark_pixels": 306,
-    "caller_state": "page_33_alternate"
+    "caller_state": "page_33_clear_branch"
   }
 }

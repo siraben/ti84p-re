@@ -54,7 +54,7 @@ class GraphRegraphTests(unittest.TestCase):
             trace = Path(directory) / "minimal.trace"
             trace.write_bytes(header + initial + body)
             row = analyze_trace(trace)
-        self.assertEqual(row["regraph_interval"]["instructions"], 5)
+        self.assertEqual(row["regraph_interval"]["post_entry_instruction_span"], 5)
         self.assertEqual(row["sample_columns_before_advance"]["first"], 0)
         self.assertEqual(row["plot_screen"]["writes"], 1)
         self.assertEqual(row["plot_screen"]["set_pixels"], 1)

@@ -195,7 +195,7 @@ $(4.9726094768414,0.52264231633825)$, a six-degree step. The final
 
 That natural trace did not enter `_GrphCirc` (`33:758D`), `_DrawCirc2`
 (`3B:7171`), or the coefficient lookup at `35:79E9`. It therefore establishes
-the default page-33 path only. [confirmed]
+the clear-flag page-33 path only. [confirmed]
 
 Statically, `_GrphCirc` allocates a `0x5A`-byte floating-point frame, preserves
 the working coordinate and window values, prepares the circle state, and then
@@ -331,7 +331,7 @@ TilEm traces: [confirmed]
 
 | Function-mode observation | `Y1=X²` | `Y1=X⁻¹` |
 |---------------------------|---------:|----------:|
-| `_Regraph` instructions | 3,951,185 | 4,316,730 |
+| post-entry `_Regraph` instruction span | 3,951,185 | 4,316,730 |
 | sample advances, `curInc=0`–`94` | 95 | 95 |
 | `parse_init_findsym` entries | 190 | 190 |
 | completed recursive evaluations | 190 | 188 |

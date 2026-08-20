@@ -4,9 +4,9 @@
 The page-3B ``_DrawCirc2`` body is mostly floating-point orchestration.  This
 module translates the byte-copy ABI at 3B:72F3, exposes the finite segment
 schedule around it, and decodes the seven trigonometric coefficients consumed
-by the loop.  The optional trace reducer records ordered ``_CLine`` inputs from
-a natural DRAW-menu invocation without treating that caller as proof that the
-page-3B flag branch ran.
+by the loop.  The optional trace reducer records one ``_CircCmd`` interval and
+its ordered ``_CLine`` inputs.  A direct ``_GrphCirc`` caller needs a separate
+interval boundary and is deliberately rejected by this reducer.
 """
 
 from __future__ import annotations
@@ -68,10 +68,10 @@ CONSUMED_COEFFICIENT_INDICES = tuple(range(7))
 TRACE_POINTS = {
     "circ_cmd": ("page_33", 0x74CE),
     "generator_branch": ("page_33", 0x74DF),
-    "alternate_generator": ("page_33", 0x74E9),
-    "alternate_loop": ("page_33", 0x7506),
-    "alternate_line_emit": ("page_33", 0x7561),
-    "alternate_end": ("page_33", 0x7580),
+    "clear_flag_generator": ("page_33", 0x74E9),
+    "clear_flag_loop": ("page_33", 0x7506),
+    "clear_flag_line_emit": ("page_33", 0x7561),
+    "clear_flag_end": ("page_33", 0x7580),
     "circ_cmd_return": ("page_33", 0x74D9),
     "grph_circ": ("page_33", 0x758D),
     "draw_circ2": ("page_3B", 0x7171),
@@ -280,9 +280,9 @@ def analyze_trace(path: Path) -> dict[str, object]:
         raise ValueError(f"{path}: Circle interval did not reach its 33:74D9 return")
     if counts["circ_cmd"] != 1 or counts["generator_branch"] != 1:
         raise ValueError(f"{path}: expected one Circle command and one generator branch")
-    alternate_selected = counts["alternate_generator"] == 1
+    clear_flag_selected = counts["clear_flag_generator"] == 1
     draw_circ2_selected = counts["draw_circ2"] > 0
-    if alternate_selected == draw_circ2_selected:
+    if clear_flag_selected == draw_circ2_selected:
         raise ValueError(f"{path}: Circle generator selection is ambiguous")
     if len(segments) != counts["coordinate_line"]:
         raise ValueError(f"{path}: coordinate-line snapshots are incomplete")
@@ -290,15 +290,17 @@ def analyze_trace(path: Path) -> dict[str, object]:
         left.raw_new_x == right.raw_old_x and left.raw_new_y == right.raw_old_y
         for left, right in zip(segments, segments[1:])
     )
-    return {
-        "sha256": file_sha256(path),
-        "bytes": path.stat().st_size,
-        "total_instructions": total_instructions,
-        "point_visits": {
-            name: counts[name] for name in sorted(TRACE_POINTS)
-        },
-        "generator_branch_states": branch_states,
-        "generator_selection": {
+    generator_selection: dict[str, object]
+    if draw_circ2_selected:
+        generator_selection = {
+            "branch": "33:74DF",
+            "tested_flag": "(IY+3C).4",
+            "selected_when": "set",
+            "bcall": "4C66",
+            "entry": "3B:7171",
+        }
+    else:
+        generator_selection = {
             "branch": "33:74DF",
             "tested_flag": "(IY+3C).4",
             "selected_when": "clear",
@@ -307,14 +309,23 @@ def analyze_trace(path: Path) -> dict[str, object]:
             "line_emit": "33:7561",
             "end": "33:7580",
             "page_35_79e9_visits": counts["draw_circ2_coefficient_lookup"],
+        }
+    return {
+        "sha256": file_sha256(path),
+        "bytes": path.stat().st_size,
+        "total_instructions": total_instructions,
+        "point_visits": {
+            name: counts[name] for name in sorted(TRACE_POINTS)
         },
+        "generator_branch_states": branch_states,
+        "generator_selection": generator_selection,
         "coordinate_lines": len(segments),
         "continuous_adjacent_lines": continuity,
         "first_segments": [asdict(segment) for segment in segments[:2]],
         "last_segments": [asdict(segment) for segment in segments[-1:]],
         "plot_sscreen_sha256": hashlib.sha256(circle_plot).hexdigest(),
         "plot_sscreen_dark_pixels": sum(value.bit_count() for value in circle_plot),
-        "caller_state": "draw_circ2" if draw_circ2_selected else "page_33_alternate",
+        "caller_state": "draw_circ2" if draw_circ2_selected else "page_33_clear_branch",
     }
 
 

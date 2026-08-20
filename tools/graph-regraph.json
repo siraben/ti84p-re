@@ -45,7 +45,7 @@
       "regraph_interval": {
         "entry_instruction": 3111487,
         "return_instruction": 7428217,
-        "instructions": 4316730,
+        "post_entry_instruction_span": 4316730,
         "clocks": 42432410
       },
       "point_visits": {
@@ -335,7 +335,7 @@
       "regraph_interval": {
         "entry_instruction": 3098878,
         "return_instruction": 7050063,
-        "instructions": 3951185,
+        "post_entry_instruction_span": 3951185,
         "clocks": 38916931
       },
       "point_visits": {

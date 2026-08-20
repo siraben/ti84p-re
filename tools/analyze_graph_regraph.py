@@ -279,7 +279,7 @@ def analyze_trace(path: Path) -> dict[str, object]:
         "regraph_interval": {
             "entry_instruction": entry_index,
             "return_instruction": return_index,
-            "instructions": return_index - entry_index,
+            "post_entry_instruction_span": return_index - entry_index,
             "clocks": (return_clock - entry_clock) & 0xFFFFFFFF,
         },
         "point_visits": dict(sorted(point_counts.items())),
@@ -406,7 +406,7 @@ def main() -> None:
     for label, row in report["scenarios"].items():
         interval = row["regraph_interval"]
         print(
-            f"{label}: {interval['instructions']:,} `_Regraph` instructions, "
+            f"{label}: {interval['post_entry_instruction_span']:,} post-entry instructions, "
             f"{row['sample_columns_before_advance']['count']} samples, "
             f"{row['plot_screen']['set_pixels']} final pixels"
         )

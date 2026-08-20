@@ -200,7 +200,7 @@ class GraphCircleCheckedEvidenceTests(unittest.TestCase):
         self.assertEqual(static["total_coordinate_lines"], 60)
         self.assertEqual(trace["coordinate_lines"], 60)
         self.assertEqual(trace["continuous_adjacent_lines"], 59)
-        self.assertEqual(trace["caller_state"], "page_33_alternate")
+        self.assertEqual(trace["caller_state"], "page_33_clear_branch")
         self.assertEqual(
             trace["sha256"],
             "24195a9630a1f06d1a83f96bc8d1e3cecb51729df97e2a14c1e01bf50096e17d",
@@ -210,10 +210,10 @@ class GraphCircleCheckedEvidenceTests(unittest.TestCase):
         self.assertEqual(trace["point_visits"]["draw_circ2_coefficient_lookup"], 0)
         self.assertEqual(trace["point_visits"]["circ_cmd"], 1)
         self.assertEqual(trace["point_visits"]["circ_cmd_return"], 1)
-        self.assertEqual(trace["point_visits"]["alternate_generator"], 1)
-        self.assertEqual(trace["point_visits"]["alternate_end"], 1)
-        self.assertEqual(trace["point_visits"]["alternate_loop"], 61)
-        self.assertEqual(trace["point_visits"]["alternate_line_emit"], 60)
+        self.assertEqual(trace["point_visits"]["clear_flag_generator"], 1)
+        self.assertEqual(trace["point_visits"]["clear_flag_end"], 1)
+        self.assertEqual(trace["point_visits"]["clear_flag_loop"], 61)
+        self.assertEqual(trace["point_visits"]["clear_flag_line_emit"], 60)
         self.assertEqual(trace["point_visits"]["integer_line"], 62)
         self.assertEqual(trace["point_visits"]["integer_point"], 376)
         self.assertEqual(
