@@ -1,6 +1,7 @@
 # Glossary
 
-Quick definitions for the terms and key RAM symbols used throughout this wiki.
+This glossary defines the TI-specific terms and key RAM symbols used throughout
+the wiki.
 
 ## Core concepts
 

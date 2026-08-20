@@ -1,6 +1,14 @@
 # Flash page map
 
-What lives on each of the 64 physical Flash pages (16 KiB each). OS code occupies pages `00`–`07` and `33`–`3D`; pages `08`–`2E` and `30`–`32` are blank in this image; page `2F` contains retail USB boot support, page `3E` holds two certificate sectors, and page `3F` is the retail boot page. On a retail unit, the blank range stores archived variables and can carry Flash Apps. See [Flash memory](flash-memory.md) for physical erase-sector geometry and the dynamic archive/App boundary. The page roles below are characterized by the named bcall routines that resolve to each page (`tools/bcall_targets.txt`) plus function counts; `tools/bcalls8x_targets.txt` carries the `0x8xxx` certificate, boot, and USB targets resolved from pages `2F` and `3F`.
+This page maps the contents of all 64 physical 16 KiB Flash pages. OS code
+occupies pages `00`–`07` and `33`–`3D`; page `2F` contains retail USB boot
+support, page `3E` holds two certificate sectors, and page `3F` is the retail
+boot page. Pages `08`–`2E` and `30`–`32` are blank in this image. [confirmed]
+
+On a retail unit, the blank range stores archived variables and can carry Flash
+Apps. [Flash memory](flash-memory.md) describes physical erase-sector geometry
+and the dynamic archive/App boundary. The page roles below use resolved bcall
+targets and per-page function counts.
 
 ## OS pages (carry bcall entry points)
 

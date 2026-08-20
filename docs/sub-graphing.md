@@ -1,8 +1,9 @@
 # Graphing
 
-What runs when the user presses **Y=**, **WINDOW**, **GRAPH**, **TRACE**,
-or runs a **DRAW** menu command. This traces the path real-coordinate → screen pixel →
-`plotSScreen` → LCD, plus the window variables, Y= equation storage, and DRAW primitives.
+The graphing subsystem maps real coordinates to pixels, draws into
+`plotSScreen`, and copies that buffer to the LCD. This page connects the
+**Y=**, **WINDOW**, **GRAPH**, **TRACE**, and **DRAW** paths to their window
+state, equation storage, and drawing primitives.
 
 Address form is `page:addr` (flash page hex : logical offset, routines run mapped at
 `0x4000`). Confidence: [confirmed] = read the code/data directly, or cross-checked

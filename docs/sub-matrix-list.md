@@ -1,10 +1,12 @@
 # Matrices & lists
 
-How the TI-84 Plus OS (2.55MP) stores, indexes, and computes on lists and
-matrices — the routines behind linear algebra (`det(`, `[A]⁻¹`,
-`rref(`, `[A]*[B]`, `identity(`, `T`) and data work (`L1+L2`, `dim(`, `sum(`, `seq(`,
-`SortA(`). Companion to [variables-vat.md](variables-vat.md) (where the data lives), [floating-point.md](floating-point.md)
-(how each element is computed), and [sub-vat-archive.md](sub-vat-archive.md) (Store/Recall/Archive).
+TI-84 Plus OS 2.55MP stores lists and matrices as VAT objects and evaluates
+their element, aggregate, and linear-algebra operations through page-`02`
+routines. This page covers layout, indexing, arithmetic, sorting, determinant,
+inverse, multiplication, and row reduction. [Variables and the
+VAT](variables-vat.md), [Floating-point engine](floating-point.md), and
+[Variables, archive and unarchive](sub-vat-archive.md) describe the shared
+storage and arithmetic layers.
 
 All `page:addr` are read from the raw Z80 disassembly, not the decompiler alone.
 Page numbers are the masked flash page (`rawpage & 0x3F`). The whole-OS image lives in one

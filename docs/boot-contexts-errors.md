@@ -1,6 +1,7 @@
 # Boot, contexts & errors
 
-Three cross-cutting mechanisms: how the OS starts, how it switches "modes" (contexts), and how it aborts on error.
+This page connects three cross-cutting mechanisms: OS startup, context
+switching, and error unwinding.
 
 ## Boot [confirmed]
 

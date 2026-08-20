@@ -1,9 +1,10 @@
 # USB ASIC and link assist
 
-This page covers the OS-visible USB/link-assist hardware interface: the Z80 I/O ports the ROM uses,
-the byte FIFO path used by the link layer, and the places where `link_xfer_op` chooses USB before
-falling back to the 2.5 mm link. It complements [Link / data transfer](sub-link-transfer.md), which
-covers the TI link packet protocol and variable-transfer state machine.
+The USB/link-assist interface exposes control, status, interrupt, endpoint, and
+FIFO registers through Z80 I/O ports. This page traces those ports and the
+transport selection that chooses USB or the 2.5 mm link. [Link / data
+transfer](sub-link-transfer.md) covers the packet protocol and variable-transfer
+state machine.
 
 The full USB controller is broader than the variable-transfer path, but OS 2.55MP does expose enough
 of it to map the public USB entry points, the link-assist byte path, and the interrupt/event path.

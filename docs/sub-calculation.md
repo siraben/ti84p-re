@@ -1,10 +1,10 @@
 # Calculation engine
 
-What happens between the user typing `2*sin(π/6)+ln(5)` and seeing a number.
-All arithmetic is BCD floating point in the OP registers (`OP1`–`OP6` @ `0x8478`,
-11-byte spaced) with a software FP stack (`FPS` @ `0x9824`) for nested temporaries.
-See [floating-point.md](floating-point.md) for the `TIFloat` byte format and `_FPAdd` internals; this doc
-covers the rest of the engine: ×, ÷, ^, roots, transcendentals, formatting, and errors.
+The calculation engine evaluates arithmetic and transcendental expressions in
+the `OP1`–`OP6` BCD floating-point registers. The software stack at `FPS`
+(`0x9824`) holds nested temporaries. [Floating-point engine](floating-point.md)
+defines the `TIFloat` format and `_FPAdd`; this page covers multiplication,
+division, powers, roots, transcendentals, formatting, and errors.
 
 Address form below is `page:addr` (flash page in slot `4000`) or `ram:addr` for the fixed
 page-0 core mapped at `0000`. Page-0 routines are reached by `RST`/direct `CALL`; everything

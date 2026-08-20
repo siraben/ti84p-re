@@ -1,9 +1,9 @@
 # Statistics
 
-What happens between entering data into `L1`/`L2`, pressing
-**STAT ▸ CALC ▸ 1-Var Stats** (or `LinReg(ax+b)`, `QuadReg`, …), and seeing
-x̄, Σx, Sx, a, b, r, r² appear — and where every result is stored so it can be
-recalled by name (`x̄`, `Σx`, `RegEQ`, …).
+The statistics subsystem reads list data, accumulates moments, solves
+regressions, and writes named results such as `x̄`, `Σx`, `Sx`, `a`, `b`, `r`,
+and `r²`. This page separates the **CALC**, **STAT-TESTS**, and **DISTR** command
+families.
 
 This doc covers the STAT **CALC** computations. The data source is the L1–L6
 lists (VAT/[variables-vat.md](variables-vat.md), [sub-vat-archive.md](sub-vat-archive.md)); the arithmetic is the

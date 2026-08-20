@@ -1,10 +1,9 @@
 # Solver & numerical methods
 
-What happens when the user invokes the **equation Solver** / `solve(`,
-`nDeriv(`, `fnInt(`, or the **TVM finance solver**. All of these are *iterative*
-routines that repeatedly evaluate the user's expression through the BCD floating-point
-engine (see [sub-calculation.md](sub-calculation.md), [floating-point.md](floating-point.md)) and the TI-BASIC parser
-([sub-tibasic.md](sub-tibasic.md)).
+The numeric solver paths implement root finding, numerical differentiation,
+integration, and time-value-of-money calculations. Each path repeatedly
+evaluates an expression through the [calculation engine](sub-calculation.md) and
+the [TI-BASIC interpreter](sub-tibasic.md).
 
 Address form is `page:addr` (flash page banked at `0x4000`) or `ram:addr` for the fixed
 page-0 core at `0x0000`. Confidence: [confirmed] = read from disassembly,

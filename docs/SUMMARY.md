@@ -37,7 +37,7 @@
     - [Statistics](sub-statistics.md)
     - [Matrices & lists](sub-matrix-list.md)
     - [Solver & numerical methods](sub-solver-numeric.md)
-- [Tokenizer & TI-BASIC](tokenizer-basic.md)
+- [Tokenizer and TI-BASIC tokens](tokenizer-basic.md)
   - [TI-BASIC execution](sub-tibasic.md)
     - [TI-BASIC programming patterns](sub-tibasic-programming.md)
     - [TI-BASIC dynamic tracing](sub-tibasic-tracing.md)
