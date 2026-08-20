@@ -4,7 +4,9 @@
 
 The retail boot page changes the reset memory map into the OS runtime map,
 checks that both RAM windows are writable, programs the ASIC registers, and
-selects an OS or recovery path. This page follows `retail_boot_reset_stub` at
+selects an OS or recovery path. [Retail boot page](retail-boot.md) maps the
+page-level control flow, bcall table, recovery transports, and validation
+logic. This page follows `retail_boot_reset_stub` at
 `3F:4000` through the first keypad scan at `3F:422D` and decodes
 `boot_ram_test` at `3F:461A`. It also documents
 `boot_lcd_keypad_diagnostic` at `3F:4658`.
@@ -169,9 +171,10 @@ have separate evidence limits:
 ## First boot decision
 
 The raw keypad scanner at `3F:6503` returns a scan code to `3F:422D`.
-The first two comparisons select **DEL** (`0x38`) and **STAT** (`0x20`) boot
-paths. The later scan at `3F:427E` recognizes **MODE** (`0x37`) and jumps to
-`3F:4504`. [confirmed]
+The reset dispatcher assigns boot actions only to **DEL** (`0x38`) and
+**STAT** (`0x20`). Every other result, including **MODE** (`0x37`), takes the
+installed-OS check below. A reset-origin MODE trace confirms that behavior.
+[confirmed]
 
 Without those keys, the normal path checks two page-0 values: [confirmed]
 
@@ -191,12 +194,20 @@ speed zero, polls the ON-key state, restores speed one, and enters the receive
 flow. [confirmed] The electrical ON-key polarity and oscillator frequencies
 remain subject to the evidence limits on
 [Keypad and ON-key hardware](keypad-on-hardware.md) and
-[Clock, timers, and power](clock-timers-power.md).
+[Clock, timers, and power](clock-timers-power.md). The DEL/STAT transport split
+and trace results are detailed on [Retail boot page](retail-boot.md#reset-dispatch).
 
 ## Destructive RAM diagnostic
 
-The **MODE** path at `3F:427E` jumps to `3F:4504`. Its later RAM-test path calls
-`boot_ram_test` at `3F:461A` to test main RAM and banked RAM. [confirmed]
+The unreferenced dispatcher at `3F:427E` contains a second raw key scan. If
+entered directly with **MODE** (`0x37`), it jumps to
+`boot_flash_ram_diagnostic` at `3F:4504`. No direct page-`3F` caller or
+reset-origin trace reaches `3F:427E`; MODE at the first reset scan instead
+takes the installed-OS check. [confirmed] An undiscovered computed entry is
+[hypothesis].
+
+The diagnostic's later RAM-test path calls `boot_ram_test` at `3F:461A` to
+test main RAM and banked RAM. [confirmed]
 
 `boot_ram_test` takes the start address in `DE`, computes length
 `0x10000 - DE`, writes a repeating byte pattern, rewinds, and verifies the same

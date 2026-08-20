@@ -628,7 +628,13 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 
 ## Retail boot (`0x8xxx`) bcalls
 
-These `0x8xxx` IDs are defined in the full 2007 `ti83plus.inc` and resolved from the retail boot table. `tools/resolve_bcalls.py` emits this table only when page `3F` has the retail boot prefix, not when it sees BootFree.
+The retail table has 87 populated entries across IDs `0x8018`–`0x80D2` and
+`0x80E4`–`0x8129`. The full 2007 `ti83plus.inc` defines 83 of them; the four
+snake-case rows below are project-inferred names for otherwise unnamed slots.
+`tools/resolve_bcalls.py` emits the public-name target file only when page `3F`
+has the retail boot prefix, not when it sees BootFree. See
+[Retail boot page](retail-boot.md#physical-layout) for the intervening dispatch
+stub and evidence behind the inferred rows. [confirmed]
 
 | bcall | ID | Body (page:addr) |
 |-------|----|------------------|
@@ -650,6 +656,7 @@ These `0x8xxx` IDs are defined in the full 2007 `ti83plus.inc` and resolved from
 | `_Mult16By8` | `8045` | `3F:705B` |
 | `_Div16By8` | `8048` | `3F:7146` |
 | `_Div16By16` | `804B` | `3F:7148` |
+| `certificate_reconcile_id_fields` | `804E` | `3F:4924` |
 | `_LoadAIndPaged` | `8051` | `3F:486E` |
 | `_FlashToRam2` | `8054` | `3F:4888` |
 | `_GetCertificateStart` | `8057` | `3F:4D46` |
@@ -657,6 +664,8 @@ These `0x8xxx` IDs are defined in the full 2007 `ti83plus.inc` and resolved from
 | `_FindSubField` | `805D` | `3F:4DFB` |
 | `_EraseCertificateSector` | `8060` | `3F:4E3F` |
 | `_CheckHeaderKey` | `8063` | `3F:4B4A` |
+| `certificate_find_matching_field_data` | `8066` | `3F:4F91` |
+| `certificate_count_matching_fields` | `8069` | `3F:4EFF` |
 | `_Load_LFontV2` | `806C` | `3F:7C8A` |
 | `_Load_LFontV` | `806F` | `3F:7C8A` |
 | `_ReceiveOS` | `8072` | `3F:5DCE` |
@@ -705,6 +714,7 @@ These `0x8xxx` IDs are defined in the full 2007 `ti83plus.inc` and resolved from
 | `_CheckHeaderKeyHL` | `8102` | `3F:4B4D` |
 | `_USBErrorCleanup` | `8105` | `2F:5958` |
 | `_InitUSB` | `8108` | `2F:52A4` |
+| `usb_set_port81_bit0_delay` | `810B` | `2F:62C5` |
 | `_KillUSB` | `810E` | `2F:5961` |
 | `_DisplayBootError1` | `8111` | `3F:63DB` |
 | `_DisplayBootError2` | `8114` | `3F:5789` |

@@ -59,6 +59,7 @@
             python3 tools/test_analyze_mathprint_records.py
             python3 tools/test_mathprint_saturation.py
             PYTHONPATH=tools python3 tools/test_analyze_retail_boot.py
+            PYTHONPATH=tools python3 tools/test_bcall_tables.py
             python3 tools/test_wiki_style.py
             python3 tools/test_symbol_tables.py
             PYTHONPATH=tools python3 -m unittest \
