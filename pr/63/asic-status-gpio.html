@@ -1,0 +1,887 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>ASIC status, identity, protection, and GPIO - TI-84 Plus OS — Reverse Engineering</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="katex-383e7b8d.min.css">
+        <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-fdb79b39.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-b88a411b.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">TI-84 Plus OS — Reverse Engineering</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/siraben/ti84p-re" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="asic-status-identity-protection-and-gpio"><a class="header" href="#asic-status-identity-protection-and-gpio">ASIC status, identity, protection, and GPIO</a></h1>
+<p><em>TI-84 Plus OS 2.55MP — status, battery comparison, protection mode, and GPIO.</em></p>
+<p>Ports <code>0x02</code>, <code>0x15</code>, <code>0x21</code>, <code>0x39</code>, and <code>0x3A</code> expose several unrelated
+ASIC controls. The ROM establishes how TI-OS uses four of them. Port <code>0x15</code>
+comes only from public tables and emulator configuration because this ROM does
+not read it through an immediate or statically resolved literal-C access.</p>
+<h2 id="evidence-boundaries"><a class="header" href="#evidence-boundaries">Evidence boundaries</a></h2>
+<p>The sources answer different questions. Emulator behavior is useful for
+constructing tests, but it does not establish electrical behavior on a physical
+calculator.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Source</th><th>What it establishes</th></tr>
+</thead>
+<tbody>
+<tr><td>Retail OS 2.55MP and boot 1.03 bytes</td><td>Port operations, masks, branch conditions, bcall targets, and return values [confirmed]</td></tr>
+<tr><td>Resolved TilEm boot and archive traces</td><td>Values observed on port <code>0x02</code>, the boot writes to ports <code>0x21</code> and <code>0x39</code>, and the absence of GPIO-data accesses in those scenarios [confirmed]</td></tr>
+<tr><td>WikiTI port pages</td><td>Public bit names, port-<code>0x15</code> identity values, and port-<code>0x21</code> size tables [standard]</td></tr>
+<tr><td>TilEm commit <code>f56ad63</code></td><td>One executable model for battery comparison, Flash grouping, and RAM execution masks [standard] for the implementation; [hypothesis] for physical equivalence</td></tr>
+<tr><td>Wabbitemu commit <code>48c2dc0</code></td><td>An independent status and protection model, including implementation defects described below [standard] for the implementation; [hypothesis] for physical equivalence</td></tr>
+<tr><td>MAME 0.287</td><td>A third implementation with fixed status and identity values, incompatible port-<code>0x21</code> masking, and no GPIO ports [standard]</td></tr>
+<tr><td>Guarded Wabbitemu <code>--asic-edge-probe</code> run</td><td>Initialized-core status, identity, protected-write, internal-field, readback, and GPIO-map observations [standard]</td></tr>
+<tr><td>Guarded Wabbitemu <code>--protection-port-probe</code> run</td><td>Shared write gate and internal-field behavior for ports <code>0x22</code>–<code>0x26</code> [standard]</td></tr>
+<tr><td>Guarded MAME ASIC-control run</td><td>Raw Flash-gate status, identity, speed, port-<code>0x21</code>, missing protection/GPIO ranges, USB constants, and soft-reset retention [standard]</td></tr>
+</tbody>
+</table>
+</div>
+<p>The static I/O scanner reports candidates from a linear disassembly. Data can
+decode as instructions, so a candidate needs control-flow or trace evidence.
+The credible code for these ports is concentrated in page <code>00</code>, pages <code>2F</code>,
+<code>33</code>, <code>35</code>–<code>37</code>, <code>3C</code>, <code>3D</code>, and the retail boot page <code>3F</code>. [confirmed]</p>
+<h2 id="complete-rom-io-candidate-audit"><a class="header" href="#complete-rom-io-candidate-audit">Complete ROM I/O candidate audit</a></h2>
+<h3 id="unlisted-immediate-ports"><a class="header" href="#unlisted-immediate-ports">Unlisted immediate ports</a></h3>
+<p>A full linear scan of the 1 MiB retail ROM finds 35 aligned immediate-port
+candidates whose 21 apparent port values are absent from the project port map.
+This count removes inline bcall and bjump descriptors. None establishes an I/O
+operation. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Candidate locations</th><th>Apparent ports and directions</th><th>Classification</th></tr>
+</thead>
+<tbody>
+<tr><td><code>01:4304</code>, <code>01:446A</code>, <code>01:446E</code>, <code>01:4C5A</code>, <code>01:556D</code>, <code>01:6E55</code>, <code>01:6E95</code>, <code>01:7CD6</code></td><td><code>0x49</code> OUT; <code>0x4E</code> IN/OUT; <code>0x5E</code> IN ×2; <code>0x6E</code> IN; <code>0x70</code> OUT; <code>0xFF</code> OUT</td><td>table-shaped data ×8</td></tr>
+<tr><td><code>03:630B</code>, <code>03:6323</code>, <code>03:634F</code>, <code>03:6367</code>, <code>03:656F</code></td><td><code>0xFE</code> IN ×2/OUT ×2; <code>0x65</code> IN</td><td>table-shaped data ×5</td></tr>
+<tr><td><code>03:6DE1</code></td><td><code>0x9C</code> IN</td><td>operand overlap in <code>LD HL,0x9CDB</code> at <code>03:6DE0</code></td></tr>
+<tr><td><code>07:4076</code></td><td><code>0xD1</code> OUT</td><td>table-shaped data</td></tr>
+<tr><td><code>33:4010</code></td><td><code>0x6B</code> OUT</td><td>table-shaped data</td></tr>
+<tr><td><code>34:6CF5</code>, <code>34:6CF7</code>, <code>34:73AB</code>, <code>34:73AD</code></td><td><code>0x6D</code> OUT ×2; <code>0x73</code> IN ×2</td><td>table-shaped data ×4</td></tr>
+<tr><td><code>37:6A9C</code>, <code>37:6B14</code></td><td><code>0x6B</code> IN ×2</td><td>table-shaped data ×2</td></tr>
+<tr><td><code>38:6A00</code></td><td><code>0xDC</code> IN</td><td>table-shaped data</td></tr>
+<tr><td><code>3A:7D81</code>, <code>3A:7FED</code></td><td><code>0x5E</code> IN; <code>0xDB</code> IN</td><td>table-shaped data ×2</td></tr>
+<tr><td><code>3B:47B9</code>, <code>3B:4F45</code>, <code>3B:52AE</code>, <code>3B:535C</code>, <code>3B:5467</code></td><td><code>0x6F</code> OUT; <code>0x51</code> OUT; <code>0x6E</code> IN; <code>0x5D</code> IN; <code>0x6D</code> IN</td><td>table-shaped data ×5</td></tr>
+<tr><td><code>3F:40FC</code>, <code>3F:4111</code>, <code>3F:56F7</code>, <code>3F:671B</code>, <code>3F:67F7</code></td><td><code>0x5E</code> OUT; <code>0x63</code> IN; <code>0xD1</code> IN; <code>0xE7</code> OUT; <code>0xE6</code> IN</td><td>table-shaped data ×5</td></tr>
+</tbody>
+</table>
+</div>
+<p>The rebuilt Ghidra database gives the 34 table candidates no containing
+function and no xrefs. A page-local direct <code>CALL</code>/<code>JP</code> scan also finds no
+target to any candidate. Ghidra places <code>03:6DE1</code> inside
+<code>editbuf_clr_hibit</code>, but the owning instruction starts at <code>03:6DE0</code>; bytes
+<code>DB 9C</code> are the little-endian operand of <code>LD HL,0x9CDB</code>. [confirmed]</p>
+<p>A reset/idle TLMT trace executes 1,753,851 instructions and reaches none of the
+35 locations. This trace result covers one emulator scenario. The byte and
+control-flow classifications, rather than trace absence, establish that these
+linear candidates do not add ports to the ROM inventory. [confirmed]</p>
+<h3 id="register-and-block-io"><a class="header" href="#register-and-block-io">Register and block I/O</a></h3>
+<p>A separate raw-byte scan finds every <code>ED</code>-prefixed register and block-I/O
+opcode pair. It does not depend on recovering the value of <code>C</code> across calls or
+control-flow joins. The exact retail ROM contains 37 pairs and no <code>ED</code> prefix
+at a 16 KiB page boundary. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Raw pairs</th><th>Classification</th><th>Evidence</th></tr>
+</thead>
+<tbody>
+<tr><td><code>37:58A9</code> (<code>INI</code>), <code>37:5944</code> (<code>OUTI</code>)</td><td>resolved instructions ×2</td><td>Straight-line loads select RTC ports <code>0x48</code> and <code>0x44</code>; both instructions belong to page-<code>37</code> functions.</td></tr>
+<tr><td><code>04:4178</code>, <code>04:4182</code>, <code>04:6F5B</code>, <code>05:40E7</code>, <code>05:428C</code>, <code>05:46E5</code>, <code>05:7159</code>, <code>05:715F</code>, <code>38:57AC</code>, <code>38:57D7</code>, <code>38:57F5</code>, <code>38:589F</code>, <code>38:75AF</code>, <code>39:73B7</code>, <code>3C:4EFE</code>, <code>3C:53E2</code>, <code>3C:783B</code>, <code>3C:7F99</code>, <code>3F:540E</code>, <code>3F:5C92</code>, <code>3F:63E0</code>, <code>3F:6C1A</code>, <code>3F:6C2A</code>, <code>3F:6C37</code>, <code>3F:6C54</code>, <code>3F:6C70</code>, <code>3F:6C90</code></td><td>operand overlaps ×27</td><td>Each <code>ED xx</code> pair straddles a little-endian operand inside an owning <code>CALL</code>, <code>JP</code>, or <code>LD</code> instruction.</td></tr>
+<tr><td><code>01:428C</code>, <code>07:4465</code>, <code>38:40C4</code>, <code>38:48B4</code>, <code>39:7268</code>, <code>3B:4F15</code>, <code>3F:408D</code>, <code>3F:567B</code></td><td>reviewed data ×8</td><td>Rebuilt Ghidra has no containing function or xref, and the page-local direct-target scan finds no target.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The 27 operand sites include <code>ED 41</code> inside <code>JP Z,0x41ED</code> at <code>04:4177</code>,
+<code>ED 70</code> inside <code>CALL 0x70ED</code> at <code>04:6F5A</code>, and <code>ED 40</code> inside
+<code>LD HL,0x40ED</code> at <code>39:73B6</code>. The scanner resolves the two aligned
+instructions from their preceding literal loads and <code>DEC C</code>. No other raw pair
+is an I/O instruction, so this ROM has no hidden computed-<code>C</code> access to an
+unlisted, status, GPIO, or USB port. [confirmed]</p>
+<p><code>tools/rom_io_coverage.py</code> contains the reusable scanner and review manifest.
+The manifest pins retail ROM SHA-256
+<code>7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d</code>.
+The CLI fails on a different ROM, a missing or duplicate review, a stale
+location, or changed instruction bytes. <code>--trace</code> uses the constant-memory
+point counter instead of constructing an object for every instruction:</p>
+<pre><code class="language-sh">nix develop -c python tools/describe_rom_io_coverage.py
+nix develop -c python tools/describe_rom_io_coverage.py --json
+nix develop -c python tools/describe_rom_io_coverage.py \
+  --trace /tmp/trace-benchmark.tlmt
+</code></pre>
+<p>The complete direct result is 34 <code>reviewed-data</code> entries and one
+<code>operand-overlap</code>. The indirect result is 27 <code>operand-overlap</code>, eight
+<code>reviewed-data</code>, and two <code>resolved-instruction</code> entries. Both manifests have
+zero unresolved candidates. [confirmed]</p>
+<h2 id="port-0x02-status"><a class="header" href="#port-0x02-status">Port <code>0x02</code> status</a></h2>
+<p>Port <code>0x02</code> combines transient hardware state with model-family bits. The boot
+and archive traces return <code>0xE1</code>, <code>0xE3</code>, and <code>0xE7</code>. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Bit</th><th>ROM use or public meaning</th><th>Evidence</th></tr>
+</thead>
+<tbody>
+<tr><td>0</td><td>Battery comparator result. <code>_Chk_Batt_Low</code> tests it at <code>00:0D20</code>; <code>_Chk_Batt_Level</code> tests it at <code>33:4EA3</code> and <code>33:4EE8</code>.</td><td>[confirmed] for the tested bit; [standard] for the electrical “battery good” polarity</td></tr>
+<tr><td>1</td><td>LCD-ready state. LCD wait loops continue while this bit is zero.</td><td>ROM wait helpers and the dynamic <code>0xE1</code> → <code>0xE3</code> transition [confirmed]</td></tr>
+<tr><td>2</td><td>Flash-unlocked state. The archive trace changes <code>0xE3</code> to <code>0xE7</code> after the port-<code>0x14</code> unlock sequence. No direct status consumer in this ROM tests it.</td><td>[confirmed] for the observed state; [hypothesis] for any OS use outside the audited direct reads</td></tr>
+<tr><td>3</td><td>No meaning established. No direct status consumer in this ROM tests it.</td><td>[hypothesis]</td></tr>
+<tr><td>4</td><td>No meaning established. No direct status consumer in this ROM tests it.</td><td>[hypothesis]</td></tr>
+<tr><td>5</td><td>Publicly documented as USB-capable. Both emulators set it for their TI-84 Plus model, but this ROM does not test it directly.</td><td>[standard]</td></tr>
+<tr><td>6</td><td>Publicly documented as link-assist available. Both emulators set it for their TI-84 Plus model, but this ROM selects assist code through bit 7.</td><td>[standard] for the published field; [confirmed] for the ROM gate</td></tr>
+<tr><td>7</td><td>Advanced-family/model gate. <code>ram:1837</code> tests this bit before several TI-84 Plus-only paths. The certificate accessor at <code>3D:5247</code> selects the App-trial table at offset <code>0x1E50</code> when the bit is set and the alternate table at <code>0x1F18</code> when clear.</td><td>[confirmed] for the branches and table use; [standard] for the family label</td></tr>
+</tbody>
+</table>
+</div>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Value</th><th>Bit-level interpretation</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0xE1</code></td><td>Comparator high, LCD wait active, Flash locked, and bits 5–7 set [confirmed]</td></tr>
+<tr><td><code>0xE3</code></td><td>Comparator high, LCD ready, Flash locked, and bits 5–7 set [confirmed]</td></tr>
+<tr><td><code>0xE7</code></td><td>Comparator high, LCD ready, Flash unlocked, and bits 5–7 set [confirmed]</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="complete-direct-consumer-audit"><a class="header" href="#complete-direct-consumer-audit">Complete direct-consumer audit</a></h3>
+<p>The 1 MiB ROM contains exactly 55 raw <code>DB 02</code> byte pairs, the opcode and
+operand for <code>IN A,(0x02)</code>. Every linear-disassembly candidate reaches one of
+three conservative A-register consumers within two following instructions:
+[confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Consumer mask</th><th style="text-align: right">Sites</th><th>ROM role and anchors</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right"><code>0x01</code> — bit 0</td><td style="text-align: right">8</td><td>battery comparisons, including <code>_Chk_Batt_Low</code> at <code>00:0D20</code> and <code>_Chk_Batt_Level</code> at <code>33:4E9F</code> and <code>33:4EE6</code></td></tr>
+<tr><td style="text-align: right"><code>0x02</code> — bit 1</td><td style="text-align: right">3</td><td>LCD-ready waits at <code>00:0CC4</code>, <code>00:0CDC</code>, and <code>3F:744F</code></td></tr>
+<tr><td style="text-align: right"><code>0x80</code> — bit 7</td><td style="text-align: right">44</td><td>family-specific paging, keypad, link-assist, Flash, and boot paths; <code>ram:1839</code> is the shared model probe</td></tr>
+</tbody>
+</table>
+</div>
+<p>The <code>33:4E9F</code> battery path inserts <code>LD C,0</code> before <code>BIT 0,A</code>. Every other
+candidate tests <code>A</code> in the next instruction. The decoder crosses only
+instructions that preserve <code>A</code>; calls, branches, arithmetic, and unknown
+instructions produce an unclassified result. This ROM produces zero
+unclassified candidates. [confirmed]</p>
+<p>No status read selects bits 2–6. The complete raw register/block-I/O census
+finds no port-<code>0x02</code> access beyond these 55 immediate reads. This result does
+not depend on propagating <code>C</code> across a call or control-flow merge. [confirmed]</p>
+<p>The assist routines therefore use bit 7 as their model-family gate. Public
+bit 6 remains a hardware capability field, but OS 2.55MP does not consult it
+before the link-assist port accesses described in
+<a href="sub-usb-asic.html#sending-one-byte-through-the-assist-fifo-confirmed">USB ASIC and link assist</a>.</p>
+<p>TilEm computes bits 0–2 from its battery value, LCD wait timer, and Flash lock.
+Wabbitemu does the same except that its TI-84 Plus battery result is fixed high.
+Their agreement supports the interpretation but does not replace a voltage or
+timing measurement. [standard]</p>
+<p>The certificate-tail use gives bit 7 a concrete persistent-data consequence.
+The model-selected clear, write, and query paths call <code>3D:5247</code>; the helper
+calls <code>ram:1837</code>, selects offset <code>0x1E50</code> for the TI-84 Plus trace values above,
+and selects <code>0x1F18</code> when bit 7 is clear. Wabbitemu independently makes the
+same family split, setting bit 7 for its TI-84 Plus models and clearing it for
+its TI-83 Plus family. [confirmed] for the ROM branch and resolved TI-84 Plus
+values; [standard] for the emulator family mapping.</p>
+<p>MAME returns <code>0xC3 | (m_flash_unlocked &lt;&lt; 2)</code>, truncated to one byte. Its
+comparator and LCD-ready bits are fixed high. The normal gate values zero and
+one therefore return <code>0xC3</code> and <code>0xC7</code>. The handler does not normalize other
+bytes: writes <code>02</code>, <code>3F</code>, <code>40</code>, and <code>FF</code> return <code>CB</code>, <code>FF</code>, <code>C3</code>, and <code>FF</code>.
+Port <code>0x14</code> remains write-only and reads zero. Bit 5 is fixed low for the
+normal locked status, so this TI-84 Plus driver reports link assist but not USB
+capability. These are emulator inconsistencies, not evidence for a different
+ASIC status layout. [standard]</p>
+<h2 id="battery-comparison"><a class="header" href="#battery-comparison">Battery comparison</a></h2>
+<p>Port <code>0x04</code> has two roles on this hardware: its low bits configure mapping and
+standard-timer behavior, while bits 6–7 select a battery-comparison setting.
+The battery routines keep the low configuration at <code>0x06</code> and write <code>0x46</code>,
+<code>0x86</code>, or <code>0xC6</code> to change the upper selector. [confirmed] for the writes;
+[standard] for the selector interpretation.</p>
+<h3 id="_chk_batt_low"><a class="header" href="#_chk_batt_low"><code>_Chk_Batt_Low</code></a></h3>
+<p>The bcall <code>_Chk_Batt_Low = 0x50B3</code> resolves to <code>00:0D07</code>. A larger entry at
+<code>00:0D04</code> first runs a RAM-access delay, then performs this sequence: [confirmed]</p>
+<pre><code class="language-z80">00:0D07  IN A,(0x3A)
+00:0D09  OR 0x80
+00:0D0B  OUT (0x3A),A
+00:0D0D  LD A,0x06
+00:0D0F  OUT (0x04),A
+00:0D11  LD A,0x86
+00:0D13  OUT (0x04),A
+              ; delay
+00:0D20  IN A,(0x02)
+00:0D22  BIT 0,A
+</code></pre>
+<p>The routine sets <code>(IY+0x18)</code> bit 5 before the comparison and clears it when
+port <code>0x02</code> bit 0 is zero. It restores port <code>0x04</code> to <code>0x06</code>, writes <code>0xF0</code> to
+port <code>0x39</code>, pulses port-<code>0x3A</code> bit 4, clears port-<code>0x3A</code> bit 7, then returns
+with Z reflecting <code>(IY+0x18)</code> bit 5. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Bcall</th><th style="text-align: right">ID</th><th>Body</th><th style="text-align: right">Port-<code>0x04</code> comparison value</th></tr>
+</thead>
+<tbody>
+<tr><td><code>_Chk_Batt_Low_B</code></td><td style="text-align: right"><code>80F0</code></td><td><code>3F:6171</code></td><td style="text-align: right"><code>0x86</code></td></tr>
+<tr><td><code>_Chk_Batt_Low_B2</code></td><td style="text-align: right"><code>80F3</code></td><td><code>3F:6163</code></td><td style="text-align: right"><code>0x46</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Both boot entries set port-<code>0x3A</code> bit 7, sample port-<code>0x02</code> bit 0, restore
+port <code>0x04 = 0x06</code>, clear GPIO bit 7, and return Z according to the saved
+comparison flag. The public flag file names <code>(IY+0x18)</code> as <code>traceFlags</code>, so the
+bit’s wider ownership remains unknown. [confirmed]</p>
+<h3 id="_chk_batt_level"><a class="header" href="#_chk_batt_level"><code>_Chk_Batt_Level</code></a></h3>
+<p>The main bcall table resolves <code>_Chk_Batt_Level = 0x5221</code> to <code>33:4E9B</code>.
+The routine returns a value from 0 through 4 in <code>A</code>: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Result</th><th>Path</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right"><code>0</code></td><td>The initial port-<code>0x02</code> bit-0 test is low, so the routine returns before enabling the GPIO sequence.</td></tr>
+<tr><td style="text-align: right"><code>4</code></td><td>The comparison after port <code>0x04 = 0xC6</code> is high.</td></tr>
+<tr><td style="text-align: right"><code>3</code></td><td>The <code>0xC6</code> comparison is low and the <code>0x86</code> comparison is high.</td></tr>
+<tr><td style="text-align: right"><code>2</code></td><td>The first two comparisons are low and the <code>0x46</code> comparison is high.</td></tr>
+<tr><td style="text-align: right"><code>1</code></td><td>All three comparisons are low.</td></tr>
+</tbody>
+</table>
+</div>
+<p>It sets <code>(IY+0x18)</code> bit 5 before the first comparison and clears that bit before
+the final <code>0x46</code> test. Results 1 and 2 therefore leave the bit clear.
+The routine restores <code>0x04 = 0x06</code>, pulses GPIO bit 4, clears GPIO bit 7, and
+returns <code>C</code> in <code>A</code>. [confirmed]</p>
+<p>TilEm maps the two high selector bits to the following thresholds. Its source
+labels the table <code>FIXME: measure actual levels</code>, so these voltages are emulator
+parameters rather than measured ASIC facts. [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Port-<code>0x04</code> value</th><th style="text-align: right">Selector</th><th style="text-align: right">TilEm threshold</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x06</code></td><td style="text-align: right">0</td><td style="text-align: right">3.3 V</td></tr>
+<tr><td><code>0x46</code></td><td style="text-align: right">1</td><td style="text-align: right">3.9 V</td></tr>
+<tr><td><code>0x86</code></td><td style="text-align: right">2</td><td style="text-align: right">3.6 V</td></tr>
+<tr><td><code>0xC6</code></td><td style="text-align: right">3</td><td style="text-align: right">4.3 V</td></tr>
+</tbody>
+</table>
+</div>
+<p>This mapping conflicts with the ROM’s comparison order. Whenever the later
+<code>0x46</code> comparison succeeds at 3.9 V or above, the earlier <code>0x86</code> comparison at
+3.6 V has already returned level 3. Result 2 is therefore unreachable in that
+emulator model. Physical measurements must establish the actual selector
+ordering, thresholds, hysteresis, and load conditions. [confirmed] for the
+code/model comparison; [hypothesis] for the unmeasured electrical behavior.</p>
+<h3 id="pinned-tilem-comparator-sweep"><a class="header" href="#pinned-tilem-comparator-sweep">Pinned TilEm comparator sweep</a></h3>
+<p>A guarded direct-core run sets TilEm’s battery field from 3.0 through 4.5 V in
+0.1 V steps. For each value, it writes all four selectors through port <code>0x04</code>
+and reads port-<code>0x02</code> bit 0. The observed comparator mask uses bit order
+<code>0x06</code>, <code>0x46</code>, <code>0x86</code>, <code>0xC6</code>: [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Modeled voltage</th><th style="text-align: right">Comparator mask</th><th style="text-align: right">ROM bcall result</th></tr>
+</thead>
+<tbody>
+<tr><td>below 3.3 V</td><td style="text-align: right"><code>0x0</code></td><td style="text-align: right">0</td></tr>
+<tr><td>3.3–3.5 V</td><td style="text-align: right"><code>0x1</code></td><td style="text-align: right">1</td></tr>
+<tr><td>3.6–3.8 V</td><td style="text-align: right"><code>0x5</code></td><td style="text-align: right">3</td></tr>
+<tr><td>3.9–4.2 V</td><td style="text-align: right"><code>0x7</code></td><td style="text-align: right">3</td></tr>
+<tr><td>4.3 V and above</td><td style="text-align: right"><code>0xF</code></td><td style="text-align: right">4</td></tr>
+</tbody>
+</table>
+</div>
+<p>The native mask transitions match the four source constants. The reusable
+model then applies the byte-verified decision tree at <code>33:4E9B</code>–<code>4EDA</code>.
+The combination reaches levels 0, 1, 3, and 4, but not level 2. The probe
+binary has SHA-256
+<code>47008d660c7ea3e88c07df3d41d5c3e34c51d49850a806d5d2e37d5ca6214029</code>.
+This run validates TilEm’s implementation; it does not measure a calculator’s
+battery rail. [confirmed] for the ROM tree; [standard] for the emulator run.</p>
+<h2 id="port-0x15-identity"><a class="header" href="#port-0x15-identity">Port <code>0x15</code> identity</a></h2>
+<p>WikiTI publishes the following read values. They are [standard] because this
+OS image does not use the port through an immediate or statically resolved
+literal-C I/O instruction.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Value</th><th>Public ASIC reference</th><th>USB driver family</th><th>Reported RAM</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x33</code></td><td>83PL2M/TA2</td><td>none</td><td>external 128 KiB</td></tr>
+<tr><td><code>0x44</code></td><td>83PLUSB/TA2</td><td>old</td><td>128 KiB</td></tr>
+<tr><td><code>0x45</code></td><td>84PLUSB/TA3</td><td>new</td><td>128 KiB</td></tr>
+<tr><td><code>0x55</code></td><td>84PLC/TA1</td><td>new</td><td>48 KiB</td></tr>
+</tbody>
+</table>
+</div>
+<p>Wabbitemu returns these values according to its selected model and RAM
+revision. TilEm’s TI-84 Plus model returns fixed <code>0x45</code> with a <code>???</code> source
+comment. Neither implementation verifies what a particular physical unit
+returns. [standard]</p>
+<p>MAME’s shared TI-83 Plus Silver Edition/TI-84 Plus I/O map returns fixed
+<code>0x33</code> from port <code>0x15</code> for every machine using that map. The TI-84 Plus
+configuration therefore identifies itself as the public 83PL2M/TA2 row.
+MAME’s <code>MACHINE_NOT_WORKING</code> declaration and shared handler make this a driver
+defect, not an alternate identity claim. [standard]</p>
+<p>The complete-ROM scan finds no immediate <code>IN</code> or <code>OUT</code> instruction for port
+<code>0x15</code>. The conservative C-register resolver also finds no access after a
+straight-line literal load into <code>C</code> or <code>BC</code>. Computed register-C accesses that
+cross calls or control-flow edges remain outside that static proof. [confirmed]</p>
+<h2 id="port-0x21-flash-grouping-and-ram-execution-mode"><a class="header" href="#port-0x21-flash-grouping-and-ram-execution-mode">Port <code>0x21</code> Flash grouping and RAM execution mode</a></h2>
+<p>Port <code>0x21</code> is a writable protected register, not a read-only ASIC identity.
+The retail boot page loads <code>A=0</code>, executes the protected-byte sequence, and
+writes the value at <code>3F:41DC</code>. [confirmed]</p>
+<pre><code class="language-z80">3F:41D5  LD A,0x00
+3F:41D7  NOP
+3F:41D8  NOP
+3F:41D9  IM 1
+3F:41DB  DI
+3F:41DC  OUT (0x21),A
+3F:41DE  DI
+</code></pre>
+<p>TilEm stores writes only while Flash is unlocked and exposes <code>value &amp; 0x33</code>
+on reads. Wabbitemu also marks the port protected and stores the same two
+fields. Its read handler shifts the stored mode right by four a second time,
+so it loses bits 4–5. [standard]</p>
+<p>MAME accepts writes without the protected-byte gate, stores <code>value &amp; 0x0F</code>,
+and returns that nibble. It can therefore expose undocumented bits 2–3 while
+discarding the RAM execution field in bits 4–5. MAME does not implement the
+execution-protection ports controlled by that field. A native locked write of
+<code>0x33</code> reads back <code>0x03</code>; opening the port-<code>0x14</code> gate does not change results
+for writes <code>0x30</code>, <code>0x03</code>, <code>0x33</code>, or <code>0xFF</code>. [standard]</p>
+<h3 id="complete-immediate-io-audit"><a class="header" href="#complete-immediate-io-audit">Complete immediate-I/O audit</a></h3>
+<p>The ROM contains 11 raw <code>DB 21</code> pairs and three raw <code>D3 21</code> pairs. Ten reads
+are instructions, and every one immediately executes <code>AND 0x03</code>. The boot
+write at <code>3F:41DC</code> is the only <code>OUT (0x21),A</code> instruction. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Read sites</th><th>Consumer</th></tr>
+</thead>
+<tbody>
+<tr><td><code>00:02AE</code>, <code>00:1831</code>, <code>00:2B32</code>, <code>00:2B5B</code></td><td><code>AND 0x03</code></td></tr>
+<tr><td><code>2F:4DD5</code>, <code>2F:511D</code>, <code>36:5E90</code></td><td><code>AND 0x03</code></td></tr>
+<tr><td><code>3C:6BA8</code>, <code>3C:7F0C</code>, <code>3D:7392</code></td><td><code>AND 0x03</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The remaining three raw pairs overlap other instructions: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Raw pair</th><th>Owning instruction</th><th>Why it is not I/O</th></tr>
+</thead>
+<tbody>
+<tr><td><code>06:5A10</code> — <code>DB 21</code></td><td><code>06:5A0D: LD (IX-1),0xDB</code></td><td>The <code>DB</code> byte is the stored immediate; <code>21</code> begins the following <code>LD HL</code> instruction.</td></tr>
+<tr><td><code>05:6C96</code> — <code>D3 21</code></td><td><code>05:6C95: JR Z,05:6C6A</code></td><td>The <code>D3</code> byte is the relative displacement; <code>21</code> begins the following <code>LD HL</code> instruction.</td></tr>
+<tr><td><code>3C:5B91</code> — <code>D3 21</code></td><td><code>3C:5B90: JR 3C:5B65</code></td><td>The <code>D3</code> byte is the relative displacement; <code>21</code> begins the following <code>LD HL</code> instruction.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The rebuilt Ghidra database confirms instruction ownership for these
+boundaries. The raw scanner reports zero unclassified pairs and zero decoded
+instructions without a matching opcode pair. The conservative literal-<code>C</code>
+resolver finds no additional port-<code>0x21</code> access. [confirmed]</p>
+<h3 id="bits-01-flash-group"><a class="header" href="#bits-01-flash-group">Bits 0–1: Flash group</a></h3>
+<p>The OS repeatedly reads <code>port 0x21 &amp; 3</code> to distinguish the 1 MiB TI-84 Plus
+configuration from larger family members. The archive App scan at <code>3D:726E</code>
+selects top page <code>0x29</code> when the field is zero and <code>0x69</code> for the remaining
+advanced-family branch. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Field</th><th style="text-align: right">Public size</th><th style="text-align: right">Highest boot page</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right">0</td><td style="text-align: right">1 MiB</td><td style="text-align: right"><code>0x3F</code></td></tr>
+<tr><td style="text-align: right">1</td><td style="text-align: right">2 MiB</td><td style="text-align: right"><code>0x7F</code></td></tr>
+<tr><td style="text-align: right">2</td><td style="text-align: right">4 MiB</td><td style="text-align: right"><code>0xFF</code></td></tr>
+<tr><td style="text-align: right">3</td><td style="text-align: right">8 MiB</td><td style="text-align: right"><code>0x1FF</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>WikiTI supplies these configured sizes. TilEm also uses the field as a
+Flash-sector protection override group. The physical relation between the
+programmed field and chip capacity has not been tested here. [standard] for
+the table and model; [hypothesis] for unmeasured hardware.</p>
+<h3 id="bits-45-ram-execution-mode"><a class="header" href="#bits-45-ram-execution-mode">Bits 4–5: RAM execution mode</a></h3>
+<p>WikiTI describes this field as RAM chip size. The boot writes mode 0 even on a
+128 KiB TI-84 Plus. “RAM execution mode” therefore describes the observed use
+more precisely than treating it as detected capacity. [confirmed] for the boot
+value; [standard] for the public size labels.</p>
+<p>TilEm converts the field to one of four repeating masks. Wabbitemu’s intended
+page shortcut collapses to zero for modes 1–3, so it does not implement the
+same arithmetic. Ports <code>0x25</code> and <code>0x26</code> add inclusive 1 KiB bounds. See
+<a href="execution-protection.html#ram-instruction-fetches">Execution protection</a> for the
+equations, complete page coverage, and physical tests. [standard]</p>
+<h2 id="ports-0x39-and-0x3a-gpio"><a class="header" href="#ports-0x39-and-0x3a-gpio">Ports <code>0x39</code> and <code>0x3A</code> GPIO</a></h2>
+<p>The ROM treats port <code>0x39</code> as GPIO direction or configuration and port <code>0x3A</code>
+as GPIO data. It normally updates <code>0x3A</code> with read-modify-write sequences so
+unrelated bits retain their values. [confirmed]</p>
+<p>The direction polarity is not established by the ROM alone. WikiTI’s port
+<code>0x39</code> page says both that clearing and setting a bit designate output, which
+is self-contradictory. Its port-<code>0x3A</code> page recommends <code>0xE0</code>, but this boot
+writes <code>0xF0</code> at <code>3F:4214</code>, and the archive trace later reads back <code>0xF0</code> from
+port <code>0x39</code>. Those public direction claims remain [hypothesis] pending physical
+tests.</p>
+<h3 id="complete-immediate-io-audit-1"><a class="header" href="#complete-immediate-io-audit-1">Complete immediate-I/O audit</a></h3>
+<p>Raw-byte coverage separates GPIO code from accidental opcode pairs:
+[confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Port and direction</th><th style="text-align: right">Raw pairs</th><th style="text-align: right">Reviewed instructions</th><th>Other raw pairs</th></tr>
+</thead>
+<tbody>
+<tr><td><code>IN (0x39)</code></td><td style="text-align: right">14</td><td style="text-align: right">13</td><td><code>02:5142</code> is table-shaped data with no function or xrefs.</td></tr>
+<tr><td><code>OUT (0x39)</code></td><td style="text-align: right">16</td><td style="text-align: right">16</td><td>none</td></tr>
+<tr><td><code>IN (0x3A)</code></td><td style="text-align: right">21</td><td style="text-align: right">19</td><td><code>06:5A8D</code> and <code>3C:7365</code> overlap operands.</td></tr>
+<tr><td><code>OUT (0x3A)</code></td><td style="text-align: right">17</td><td style="text-align: right">17</td><td>none</td></tr>
+</tbody>
+</table>
+</div>
+<p>The two <code>DB 3A</code> overlaps begin on an <code>0xDB</code> operand byte. At <code>06:5A8C</code>, the
+owner is <code>CP 0xDB</code>; at <code>3C:7364</code>, the owner is a relative <code>JR</code> whose
+displacement is <code>0xDB</code>. In both cases, <code>0x3A</code> begins the following <code>LD A,(nn)</code>
+instruction. [confirmed]</p>
+<p>Of the 13 port-<code>0x39</code> reads, every one begins an adjacent read-modify-write.
+The 16 writes comprise those 13 updates and three direct <code>0xF0</code> writes at
+<code>ram:0D39</code>, <code>37:6D10</code>, and <code>3F:4214</code>. Port <code>0x3A</code> has 17 adjacent
+read-modify-write sequences. Its remaining two reads test bit 3 at <code>2F:521B</code>
+and <code>35:402C</code>. The page-<code>35</code> body duplicates the page-<code>2F</code> USB implementation.
+[confirmed]</p>
+<p>TilEm lacks a meaningful TI-84 Plus port-<code>0x3A</code> model, Wabbitemu lacks port
+<code>0x39</code>, and MAME maps neither port. Emulator execution can check control flow
+around these instructions, but it cannot validate the paired GPIO state or
+electrical effect. The sequences below are byte- and control-flow-validated
+against the ROM; their physical signal interpretation remains unmeasured.
+[confirmed] for the instructions; [hypothesis] for electrical behavior.</p>
+<h3 id="battery-gpio-sequence"><a class="header" href="#battery-gpio-sequence">Battery GPIO sequence</a></h3>
+<p><code>_Chk_Batt_Level</code> provides the clearest GPIO sequence: [confirmed]</p>
+<ol>
+<li>Set port-<code>0x3A</code> bit 7.</li>
+<li>Run the port-<code>0x04</code> comparator tests.</li>
+<li>Set port-<code>0x39</code> bit 4.</li>
+<li>Set port-<code>0x3A</code> bit 4, delay, and clear it.</li>
+<li>Clear port-<code>0x3A</code> bit 7.</li>
+</ol>
+<p>The shorter <code>_Chk_Batt_Low</code> path writes <code>0xF0</code> directly to port <code>0x39</code> before
+the bit-4 pulse. The ROM confirms that bits 7 and 4 participate in battery
+testing. It does not expose the electrical signal names. [confirmed]</p>
+<h3 id="usb-gpio-sequence"><a class="header" href="#usb-gpio-sequence">USB GPIO sequence</a></h3>
+<p>The boot USB code on page <code>2F</code> and the parallel OS code on page <code>35</code> use the
+low GPIO bits: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Location</th><th>Operation</th></tr>
+</thead>
+<tbody>
+<tr><td><code>2F:5330</code></td><td>Clear port-<code>0x3A</code> bit 1, then set port-<code>0x39</code> bit 1.</td></tr>
+<tr><td><code>2F:5353</code></td><td>Clear port-<code>0x39</code> bit 1.</td></tr>
+<tr><td><code>2F:538C</code></td><td>Set the low data bits to binary <code>100</code>, then set port-<code>0x39</code> bits 0–2.</td></tr>
+<tr><td><code>2F:53AB</code></td><td>Clear port-<code>0x3A</code> bits 0–2, then set port-<code>0x39</code> bits 0–2.</td></tr>
+<tr><td><code>2F:53D5</code> and <code>2F:593B</code></td><td>Clear port-<code>0x39</code> bits 0–2 during cleanup.</td></tr>
+<tr><td><code>2F:521B</code></td><td>Test port-<code>0x3A</code> bit 3 while selecting a USB state.</td></tr>
+</tbody>
+</table>
+</div>
+<p>These operations tie GPIO bits 0–3 to USB setup and state selection. The exact
+charge-pump, PHY, or cable signals remain [hypothesis]. See
+<a href="sub-usb-asic.html">USB ASIC and link assist</a> for the controller transaction.</p>
+<h3 id="dynamic-and-emulator-limits"><a class="header" href="#dynamic-and-emulator-limits">Dynamic and emulator limits</a></h3>
+<p>The boot trace writes <code>0xF0</code> to port <code>0x39</code> but does not access port <code>0x3A</code>.
+The archive scenario reads and rewrites <code>0xF0</code> through port <code>0x39</code>; it also does
+not reach port <code>0x3A</code>. Those traces cover startup and archive work, not battery
+level or connected USB workflows. [confirmed]</p>
+<p>TilEm’s TI-84 Plus model returns fixed <code>0xF0</code> from port <code>0x39</code> and has no
+meaningful write or port-<code>0x3A</code> model. Wabbitemu stores port <code>0x3A</code> as a latch
+but does not register port <code>0x39</code>. Both emulators model a color-calculator
+backlight side effect for port-<code>0x3A</code> bit 5; that does not validate TI-84 Plus
+GPIO wiring. [standard]</p>
+<p>MAME maps neither port <code>0x39</code> nor port <code>0x3A</code>. Battery and USB code can execute
+through the driver, but those GPIO reads and writes reach no device handler.
+[standard]</p>
+<p><strong>Native Wabbitemu confirmation.</strong> The guarded initialized-core probe reads port <code>0x02</code> as <code>0xE3</code> while the in-memory Flash gate is locked and as <code>0xE7</code> after directly opening that gate. With Wabbitemu’s TI-84 Plus model, port <code>0x15</code> reads <code>0x44</code> at RAM revision 0 and <code>0x55</code> at RAM revision 2. [standard]</p>
+<p>Port <code>0x21</code> is active and protected. A write of <code>0x33</code> while Flash remains locked is rejected, leaving both internal fields and readback zero. After the probe directly opens the in-memory gate, writing <code>0x30</code> stores internal RAM execution mode 3 but reads back <code>0x00</code>. Writing <code>0x03</code> stores Flash group 3 and reads <code>0x03</code>. Writing <code>0x33</code> stores both internal fields while still reading <code>0x03</code>. This run exercises the protected device handler, not the retail ROM’s port-<code>0x14</code> unlock sequence. [standard]</p>
+<p>A separate initialized-core run verifies the same locked-write rejection for
+every port from <code>0x22</code> through <code>0x26</code>. It also checks the Flash-bound low-byte
+handlers, port-<code>0x24</code> high-field clearing, and the 16-bit RAM-bound wrap. See
+<a href="execution-protection.html#native-protected-register-confirmation">Execution protection</a>
+for the complete value matrix and evidence limits. [standard]</p>
+<p>The same initialized core has no active device at port <code>0x39</code>; a read is rejected and produces the device layer’s <code>0xFF</code> fallback. Port <code>0x3A</code> is active, starts at zero, and reads back complete <code>0xA5</code> and <code>0x5A</code> writes. The run advances zero T-states and does not assign electrical direction or signal meaning to either GPIO port. [standard]</p>
+<p><strong>Native MAME confirmation.</strong> The guarded run reads startup values <code>C3</code>, <code>00</code>,
+<code>33</code>, <code>00</code>, and <code>00</code> from ports <code>0x02</code>, <code>0x14</code>, <code>0x15</code>, <code>0x20</code>, and <code>0x21</code>.
+The raw gate sweep produces <code>C3 C7 CB FF C3 FF</code> for writes
+<code>00 01 02 3F 40 FF</code>. Port <code>0x14</code> reads zero after every write. [standard]</p>
+<p>Ports <code>0x22</code>–<code>0x2F</code> and <code>0x39</code>–<code>0x3A</code> return zero before and after patterned
+writes. A 50-T-state counter continues executing from RAM while port <code>0x21</code>
+reads <code>0x03</code> and ports <code>0x22</code>–<code>0x26</code> retain no written byte. The five-frame
+counter records 12,000 iterations at the zero speed value and 30,000 at the
+nonzero value. This checks one RAM execution path, not the missing physical
+boundary rules. [standard]</p>
+<p>A scheduled MAME soft reset begins at <code>PC = 0x0000</code> but retains a gate value of
+one, raw speed <code>0x03</code>, and the port-<code>0x21</code> nibble from write <code>0xAB</code>. The reads
+are consequently <code>0xC7</code>, <code>0x03</code>, and <code>0x0B</code> after reset. The driver reset
+routine does not restore these fields. This is MAME reset behavior and does
+not establish calculator warm-reset retention. [standard]</p>
+<h2 id="emulator-comparison"><a class="header" href="#emulator-comparison">Emulator comparison</a></h2>
+<p>The four pinned implementations disagree on several control groups not already
+established by ROM use. Their values are test oracles for the software, not
+physical ASIC measurements.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Area</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
+</thead>
+<tbody>
+<tr><td>Port <code>0x02</code></td><td>dynamic comparator, LCD-ready, and Flash lock; family bits 5–7 set</td><td>same layout, with the TI-84 Plus comparator fixed high</td><td>`0xC3</td><td>(raw gate &lt;&lt; 2)`, truncated to a byte</td></tr>
+<tr><td>Port <code>0x15</code></td><td>fixed <code>0x45</code></td><td>model and RAM-revision dependent</td><td>fixed <code>0x33</code></td><td>model-dependent identity value</td></tr>
+<tr><td>Port <code>0x21</code> accepted readback</td><td><code>value &amp; 0x33</code>, subject to Flash unlock</td><td>only bits 0–1 survive its read defect</td><td><code>value &amp; 0x0F</code>, without protected-write gating</td><td>stored while Flash-unlocked and used for page-level execution groups</td></tr>
+<tr><td>GPIO</td><td>port <code>0x39</code> fixed at <code>0xF0</code>; no meaningful TI-84 Plus port <code>0x3A</code></td><td>port <code>0x3A</code> latch; port <code>0x39</code> absent</td><td>both ports absent</td><td>software latches without physical GPIO modeling</td></tr>
+<tr><td>Driver status</td><td>usable model with unmeasured battery thresholds</td><td>usable model with implementation-specific defects</td><td>TI-84 Plus marked <code>MACHINE_NOT_WORKING</code></td><td>browser emulator source model</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="reusable-analysis-tools"><a class="header" href="#reusable-analysis-tools">Reusable analysis tools</a></h2>
+<p><code>tools/asic_control.py</code> decodes port-<code>0x02</code> values, generic immediate-port
+consumers and raw-opcode coverage, the public port-<code>0x15</code> table, port-<code>0x21</code>
+modes, TilEm’s battery selector, and adjacent GPIO read-modify-write sequences.
+Its raw audit distinguishes aligned instructions, operand overlaps, reviewed
+data, and unclassified pairs. <code>tools/describe_asic_control.py</code> exposes those
+operations as text or JSON. <code>tools/wabbitemu_asic_probe.py</code> validates
+native results against the reusable source model.
+<code>tools/rom_io_coverage.py</code> and <code>tools/describe_rom_io_coverage.py</code> separately
+reconcile every direct candidate for ports absent from the project port map.
+<code>tools/run_wabbitemu_asic_edge_probe.py</code>
+guards the exact ROM and native binary identities and writes a JSON manifest.
+<code>tools/wabbitemu_protection_port_probe.py</code> applies the adjacent boundary-port
+model from <code>tools/execution_protection.py</code>; its guarded CLI records the same
+two identities. <code>tools/mame_asic.py</code> combines the ASIC and bus-timing profiles
+with a typed native report. <code>tools/run_mame_asic_probe.py</code> guards the MAME,
+ROM, and Lua identities and retains the soft-reset output.
+<code>tools/battery_hardware.py</code> formalizes the ROM result tree and threshold
+regions. <code>tools/describe_battery_hardware.py</code> exposes voltage and raw-sample
+queries as text or JSON. <code>tools/tilem_battery.py</code> validates a typed native
+comparator sweep against the same model.
+[confirmed] for the ROM-analysis tools; [standard] for the emulator oracle.</p>
+<pre><code class="language-sh">nix develop -c python tools/describe_asic_control.py
+nix develop -c python tools/describe_asic_control.py --status 0xE7 --port21 0x20
+nix develop -c python tools/describe_asic_control.py --implementations --json
+nix develop -c python tools/describe_asic_control.py \
+  --scan-status-consumers --json
+nix develop -c python tools/describe_asic_control.py \
+  --scan-port21-consumers --scan-gpio --json
+nix develop -c python tools/describe_asic_control.py \
+  --audit-port 0x21 --audit-port 0x39 --audit-port 0x3A
+nix develop -c python tools/analyze_rom_io.py \
+  0x02 0x15 0x21 0x39 0x3A --summary
+nix develop -c python tools/disassemble_rom.py 0x33 \
+  --start 0x4E9B --end 0x4F02
+nix develop -c python tools/describe_battery_hardware.py --json
+nix develop -c python tools/describe_battery_hardware.py --voltage 3.6
+nix develop -c python tools/describe_battery_hardware.py --samples 1010
+
+asic_probe_parent=$(mktemp -d /tmp/ti84-asic-probe.XXXXXX)
+nix develop -c python tools/run_wabbitemu_asic_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$asic_probe_parent/run" --json
+
+protected_port_parent=$(mktemp -d /tmp/ti84-protected-port.XXXXXX)
+nix develop -c python tools/run_wabbitemu_protection_port_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$protected_port_parent/run" --json
+
+mame_asic_parent=$(mktemp -d /tmp/ti84-mame-asic.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_asic_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_asic_parent/run" --json
+</code></pre>
+<p>The I/O and GPIO scans generate candidates. A report becomes evidence for code
+only after raw-byte and control-flow review or a resolved execution trace.</p>
+<h2 id="open-physical-tests"><a class="header" href="#open-physical-tests">Open physical tests</a></h2>
+<p>The read-only <a href="hardware-probes.html#asic-register-snapshot">ASIC register snapshot</a>
+captures ports <code>0x15</code>, <code>0x21</code>, <code>0x39</code>, and <code>0x3A</code> without changing GPIO
+configuration or data. It provides a baseline, not an electrical direction
+test. No physical snapshot is recorded. [confirmed] for the probe bytes;
+[hypothesis] for pending readback values.</p>
+<ul>
+<li>Run the restoring <a href="hardware-probes.html#battery-level-probe">battery-level probe</a>
+across an upward and downward controlled-supply sweep. It records 16 retail
+bcall results per point and verifies port/GPIO/flag cleanup. Run the
+higher-risk <a href="hardware-probes.html#raw-battery-selector-probe">raw battery-selector probe</a>
+after it at each voltage point. The second result records all four comparator
+bits so the sweep can assign individual selector thresholds and hysteresis.</li>
+<li>Read port <code>0x15</code> on known TA1, TA2, and TA3 units and compare the result with
+package markings and installed RAM.</li>
+<li>Program each port-<code>0x21</code> field while Flash is unlocked. Test Flash protection
+groups and the execution ranges described in
+<a href="execution-protection.html">Execution protection</a>. Do not rely on emulator
+reset behavior.</li>
+<li>Measure port-<code>0x39</code> direction polarity and port-<code>0x3A</code> electrical state with
+battery and USB paths active. Preserve the OS configuration and avoid driving
+externally forced pins against the ASIC.</li>
+</ul>
+<h2 id="sources"><a class="header" href="#sources">Sources</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Source</th><th>Use</th></tr>
+</thead>
+<tbody>
+<tr><td>Retail OS 2.55MP and boot 1.03 ROM bytes</td><td>Status branches, battery routines, port-<code>0x21</code> boot setup, and GPIO operations</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:02">WikiTI port <code>0x02</code></a></td><td>Public status-bit names</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:15">WikiTI port <code>0x15</code></a></td><td>Public ASIC identity table</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:21">WikiTI port <code>0x21</code></a></td><td>Public Flash/RAM size tables and execution-page description</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:39">WikiTI ports <code>0x39</code></a> and <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:3A"><code>0x3A</code></a></td><td>Historical GPIO interpretation, with the contradictions identified above</td></tr>
+<tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code> at <code>f56ad63</code></a></td><td>Battery table, status read, identity constant, protection mode, and fixed GPIO read</td></tr>
+<tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code> at <code>48c2dc0</code></a></td><td>Independent port models and the port-<code>0x21</code> read defect</td></tr>
+<tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>shared I/O map, fixed status and identity reads, port-<code>0x21</code> mask, missing GPIO, and driver status</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth status, identity, protected-write, execution-group, and software-GPIO model</td></tr>
+</tbody>
+</table>
+</div>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="bus-timing.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="execution-protection.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="bus-timing.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="execution-protection.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-09f2665d.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="hljs-z80-e93ac716.js"></script>
+        <script src="katex-5e4f3b03.min.js"></script>
+        <script src="katex-auto-render-bb53eb95.min.js"></script>
+        <script src="katex-init-5efd21f9.js"></script>
+        <script src="pseudocode-695903c6.min.js"></script>
+        <script src="pseudocode-init-5fa46c0a.js"></script>
+
+
+
+    </div>
+    </body>
+</html>
