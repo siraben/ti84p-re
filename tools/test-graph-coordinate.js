@@ -62,6 +62,7 @@ function oracleRound(source) {
   const exponent = bytes[1];
   if (exponent < 0x7f || (exponent === 0x7f && bytes[2] < 0x50)) {
     bytes.fill(0);
+    bytes[1] = 0x80;
     return bytes;
   }
   if (exponent === 0x7f) {
@@ -89,13 +90,17 @@ if (localRom !== null) {
     '016b8f216d91b7cdf2413cc9016a8e21649137f5e5c5ebe7e1cd8f22e1cd8523f1300621738ecd8f22cd2942cd893ac9');
   check('37:4229–37:4259 rounding body', romBytes(0x37, 0x4229, 0x31),
     '3a7984d67f3827281e0602217b84fe023e5028043e05052bcd911cd0217a843610233600c3931e3a7a84fe5030eec3a41b');
+  check('00:1BA4 `_OP1Set0` entry', romBytes(0, 0x1ba4, 6),
+    '217884af18bb');
+  check('00:1B65 OP-register digit setter', romBytes(0, 0x1b65, 0x1b),
+    '36002336802377af1802af772377237723772377237723772377c9');
   check('38:7433 `_ConvOP1` body', romBytes(0x38, 0x7433, 0x40),
     '3a7a84b7cca41b2179843e839638ee47217b842809af2bed6723ed6710f7eb1ae60f6f26000e0a44cd73741b1a0e64e60fcd777401e803cd7374eb7223737bc9');
 }
 
 check('0.499999 rounds to zero', Array.from(graph.roundCoordinateOp1(
   op1(0x7f, 49, 99),
-)), Array(9).fill(0));
+)), [0, 0x80, 0, 0, 0, 0, 0, 0, 0]);
 check('0.5 rounds upward', Array.from(graph.roundCoordinateOp1(
   op1(0x7f, 50, 0),
 )).slice(0, 4), [0, 0x80, 0x10, 0]);

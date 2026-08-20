@@ -75,6 +75,7 @@ function addPackedBcd(op1, index, addend, byteCount) {
 
 function setOp1Zero(op1) {
   op1.fill(0, 0, Math.min(11, op1.length));
+  op1[1] = 0x80;
 }
 
 // Translate 37:4229–37:4259 byte for byte at the OP1 data boundary. The
