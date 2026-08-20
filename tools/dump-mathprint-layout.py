@@ -3985,9 +3985,9 @@ OFFPAGE_DRAW_SERVICE_PATTERNS = [
     ("RST28 _Regraph", "ef8e48"),
     ("RST28 draw_zero_op1", "ef7348"),
     ("RST28 grf_7066", "efc547"),
-    ("RST28 graph_tbl_next", "efc847"),
-    ("RST28 graph_tbl_find", "efcb47"),
-    ("RST28 graph_parse_tok", "ef0a51"),
+    ("RST28 _GET_INDEX_LST", "efc847"),
+    ("RST28 _HEAP_SORT", "efcb47"),
+    ("RST28 _GetVarVersion", "ef0a51"),
     ("RST28 grf_435f", "ef4051"),
     ("RST28 grf_5e06", "ef7654"),
 ]
