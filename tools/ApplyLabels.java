@@ -4,7 +4,7 @@ import ghidra.program.model.symbol.*;
 import java.nio.file.*;
 
 // Apply non-function ROM and RAM labels from tools/labels.txt.
-// Line format: <space>:<addrhex> <tab> <name> [<tab> primary|alias]
+// Line format: <space>:<addrhex> <tab> <name> [<tab> primary|alias|entry]
 public class ApplyLabels extends GhidraScript {
     private Address parseLocation(AddressFactory factory, String text) {
         String[] fields = text.split(":", 2);
@@ -41,17 +41,28 @@ public class ApplyLabels extends GhidraScript {
             }
             String name = fields[1];
             if (fields.length == 3 &&
-                    !fields[2].equals("primary") && !fields[2].equals("alias")) {
+                    !fields[2].equals("primary") &&
+                    !fields[2].equals("alias") &&
+                    !fields[2].equals("entry")) {
                 throw new IllegalArgumentException("invalid label mode: " + fields[2]);
             }
-            boolean primary = fields.length < 3 || fields[2].equals("primary");
+            boolean entry = fields.length == 3 && fields[2].equals("entry");
+            boolean primary = fields.length < 3 || !fields[2].equals("alias");
             Symbol existing = existingSymbol(symbols, address, name);
             if (existing != null) {
                 if (primary && !existing.isPrimary()) existing.setPrimary();
-                continue;
+            } else {
+                createLabel(address, name, primary);
+                applied++;
             }
-            createLabel(address, name, primary);
-            applied++;
+            if (entry) {
+                if (getInstructionAt(address) == null && !disassemble(address)) {
+                    throw new IllegalArgumentException(
+                        "could not disassemble internal entry: " + fields[0]
+                    );
+                }
+                symbols.addExternalEntryPoint(address);
+            }
         }
         println("Applied non-function labels: " + applied);
     }

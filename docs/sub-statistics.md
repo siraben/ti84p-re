@@ -86,8 +86,8 @@ only `F2`–`FF`, §3). They fill the `PStat…SStat`/`anovaf_vars` block above 
 `PStat`/`ZStat`-writing routine appears among the page-0x3A `stat_*` symbols (all of which are
 the `_OneVar` accumulate/variance/median/regression engine), confirming the tests live in their
 own command handlers reached from the parser's command dispatch, separate from the STAT-CALC
-engine documented here. The exact per-test handler addresses are not exposed as named routines
-in this DB; those per-test handler addresses are [hypothesis]. [confirmed]
+engine documented here. The exact per-test handler addresses are not exposed as
+named routines in this database and remain [hypothesis].
 
 A scratch byte `stat_calc_command` (`0x8A36`, immediately below `statVars`) holds the stat-command
 discriminator (the model index, set from the command token — see §3) for the

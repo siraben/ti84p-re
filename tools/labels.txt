@@ -1,5 +1,5 @@
 # Reviewed non-function symbols. Function entries belong in names.txt.
-# Format: <space>:<addr_hex> <TAB> <name> [<TAB> primary|alias]
+# Format: <space>:<addr_hex> <TAB> <name> [<TAB> primary|alias|entry]
 
 # Token and parser dispatch tables.
 ram:1ff6	two_byte_token_lead_table
@@ -21,16 +21,17 @@ page_39:5e45	eqdisp_handler_table
 page_07:45ff	large_font_glyph_table
 
 # MathPrint internal entries whose overlapping flow prevents separate functions.
-page_34:4900	eqdisp_allocate_record
-page_34:4a83	eqdisp_find_leaf_record
-page_34:4aaf	eqdisp_substitute_active_leaf
-page_34:6ccd	eqdisp_resolve_child
-page_34:58a0	eqdisp_insert_structural_marker
-page_34:5da6	eqdisp_draw_hline_clipped
-page_34:6143	eqdisp_draw_marker_primitive
-page_34:62d0	eqdisp_draw_radical_hook
-page_34:636c	eqdisp_render_child1
-page_34:660a	eqdisp_render_leaf_program
+page_34:4900	eqdisp_allocate_record	entry
+page_34:4a83	eqdisp_find_leaf_record	entry
+page_34:4aaf	eqdisp_substitute_active_leaf	entry
+page_34:4b86	eqdisp_capacity_remaining	entry
+page_34:6ccd	eqdisp_resolve_child	entry
+page_34:58a0	eqdisp_insert_structural_marker	entry
+page_34:5da6	eqdisp_draw_hline_clipped	entry
+page_34:6143	eqdisp_draw_marker_primitive	entry
+page_34:62d0	eqdisp_draw_radical_hook	entry
+page_34:636c	eqdisp_render_child1	entry
+page_34:660a	eqdisp_render_leaf_program	entry
 
 # Floating-point and solver constants.
 page_02:7181	logexp_digit_table

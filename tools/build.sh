@@ -29,6 +29,8 @@ fi
 
 python3 "$T/resolve_bcalls.py"          # regenerate bcall_targets.txt (page&0x3F)
 rm -rf "$PROJ/$NAME.gpr" "$PROJ/$NAME.rep"
+GHIDRA_BUILD_LOG="$(mktemp -t ti84-ghidra-build.XXXXXX)"
+trap 'rm -f "$GHIDRA_BUILD_LOG"' EXIT
 "$ANALYZE_HEADLESS" "$PROJ" "$NAME" \
   -import "$T/ti84_page00.bin" -processor z80:LE:16:default \
   -loader BinaryLoader -loader-baseAddr 0x0000 \
@@ -44,7 +46,13 @@ rm -rf "$PROJ/$NAME.gpr" "$PROJ/$NAME.rep"
   -postScript BuildTypes.java "$T" \
   -postScript ApplyLabels.java "$T" \
   -postScript ApplyOffsetRefs.java "$T" \
-  -postScript RenameVars.java "$T"
+  -postScript FixInlineBjumps.java "$T" \
+  -postScript ApplyOffsetRefs.java "$T" \
+  -postScript RenameVars.java "$T" 2>&1 | tee "$GHIDRA_BUILD_LOG"
+if grep -q "REPORT SCRIPT ERROR" "$GHIDRA_BUILD_LOG"; then
+  echo "Ghidra post-script failure; see output above" >&2
+  exit 1
+fi
 echo "Build complete: $PROJ/$NAME.gpr"
 # Pipeline: 64-page load + symbols/floats/bcall-fixup (BuildTI84Full)
 #  -> name 621 bcall routines at real (page,addr) (ApplyBcalls)
@@ -52,4 +60,6 @@ echo "Build complete: $PROJ/$NAME.gpr"
 #  -> apply accumulated manual function names (RenameFns)
 #  -> TI-OS enums/structs/typed regions (BuildTypes)
 #  -> apply non-function symbols and reviewed base+offset references
+#  -> repeat inline-bjump fix-up after seeded entry points
+#  -> restore or verify the reviewed offset references after final flow analysis
 #  -> apply decompiler variable names from varnames.txt (RenameVars)

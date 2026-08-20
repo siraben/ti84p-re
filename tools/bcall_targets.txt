@@ -608,7 +608,7 @@ _StopTimer	5278	5F42	33
 _WaitTimer	527B	5EA4	33
 _CheckTimer	527E	5F16	33
 _CheckTimerRestart	5281	5F27	33
-grc_4611	52FF	4611	37
+_DispAppRestrictions	52FF	4611	37
 app_5de7	5326	5DE7	3D
 fpx_7dfe	5338	7DFE	02
 fpx_7d9d	533B	7D9D	02

@@ -1,13 +1,14 @@
 ;==============================================================================
-; ti84plus_extra.inc - symbols mapped by reverse-engineering OS 2.55MP,
-; supplementing the 2001-era ti83plus.inc (which predates many 84+ additions).
+; ti84plus_extra.inc - legacy symbols mapped by reverse-engineering OS 2.55MP.
+; Prefer the official names in the checked 2007 ti83plus.inc when an ID appears
+; in both files.  The inferred aliases remain pending narrative reconciliation.
 ; All names below are RE-INFERRED from behavior, not official TI equates.
 ; They use unprefixed snake_case; address placeholders use these subsystem tags:
 ;   fpx=float/math grf/grc=graph drw=draw scr=screen
 ;   lnk=link app=app-mgmt dsp=display arc=archive mde=mode sta=stat edt=editor
 ;==============================================================================
 
-;--- bcalls present in OS 2.55MP but absent from ti83plus.inc (RE-named) ---
+;--- legacy inferred names for OS 2.55MP bcall bodies ---
 rcl_list_elem_to_op1    .equ 4639h    ; -> 02:47FB  (1 call site)
 rcl_list_elem_b        .equ 463Ch    ; -> 02:47FE  (3 call sites)
 cplx_op_arrange       .equ 4648h    ; -> 02:494F  (2 call sites)
@@ -55,7 +56,6 @@ screen_split         .equ 5227h    ; -> 05:7712  (1 call site)
 grc_454b            .equ 5263h    ; -> 37:454B  (1 call site)
 grc_4556            .equ 5266h    ; -> 37:4556  (1 call site)
 grc_4575            .equ 5269h    ; -> 37:4575  (1 call site)
-grc_4611            .equ 52FFh    ; -> 37:4611  (1 call site)
 app_5de7            .equ 5326h    ; -> 3D:5DE7  (2 call sites)
 fpx_7dfe            .equ 5338h    ; -> 02:7DFE  (1 call site)
 fpx_7d9d            .equ 533Bh    ; -> 02:7D9D  (1 call site)

@@ -5,7 +5,7 @@ import ghidra.program.model.scalar.Scalar;
 import ghidra.program.model.symbol.*;
 import java.nio.file.*;
 
-// Apply reviewed base-plus-offset references from tools/poffsets.txt.
+// Apply or verify reviewed base-plus-offset references from tools/poffsets.txt.
 // Line format: <from-space>:<addr> <tab> <operand> <tab>
 //              <base-space>:<addr> <tab> <offset-hex>
 public class ApplyOffsetRefs extends GhidraScript {
@@ -22,6 +22,7 @@ public class ApplyOffsetRefs extends GhidraScript {
         AddressFactory factory = currentProgram.getAddressFactory();
         ReferenceManager references = currentProgram.getReferenceManager();
         int applied = 0;
+        int verified = 0;
         for (String raw : Files.readAllLines(Paths.get(dir + "/poffsets.txt"))) {
             String line = raw.trim();
             if (line.isEmpty() || line.startsWith("#")) continue;
@@ -34,16 +35,42 @@ public class ApplyOffsetRefs extends GhidraScript {
             if (from == null || base == null) {
                 throw new IllegalArgumentException("unknown poffset address: " + raw);
             }
+            if (!fields[1].matches("[0-9]+") ||
+                    !fields[3].matches("[0-9A-Fa-f]{4}")) {
+                throw new IllegalArgumentException("invalid poffset number: " + raw);
+            }
             int operand = Integer.parseInt(fields[1]);
             long offset = Long.parseLong(fields[3], 16);
+            Address expected = base.add(offset);
+            OffsetReference existing = null;
+            int offsetReferences = 0;
+            for (Reference old : references.getReferencesFrom(from)) {
+                if (old.getOperandIndex() != operand || !old.isOffsetReference()) continue;
+                offsetReferences++;
+                OffsetReference candidate = (OffsetReference) old;
+                if (candidate.getBaseAddress().equals(base) &&
+                        candidate.getOffset() == offset &&
+                        candidate.getToAddress().equals(expected)) {
+                    existing = candidate;
+                }
+            }
+            if (offsetReferences > 1) {
+                throw new IllegalArgumentException(
+                    "duplicate poffset references: " + fields[0] + " op " + operand
+                );
+            }
+            if (existing != null) {
+                references.setPrimary(existing, true);
+                verified++;
+                continue;
+            }
+
             Instruction instruction = getInstructionAt(from);
-            if (instruction == null || operand >= instruction.getNumOperands()) {
+            if (instruction == null || operand < 0 || operand >= instruction.getNumOperands()) {
                 throw new IllegalArgumentException(
                     "invalid poffset source operand: " + fields[0] + " op " + operand
                 );
             }
-
-            Address expected = base.add(offset);
             Reference matched = null;
             int memoryReferences = 0;
             for (Reference old : references.getReferencesFrom(from)) {
@@ -87,6 +114,7 @@ public class ApplyOffsetRefs extends GhidraScript {
             references.setPrimary(reference, true);
             applied++;
         }
-        println("Applied offset references: " + applied);
+        println("Applied offset references: " + applied +
+            "; verified existing: " + verified);
     }
 }

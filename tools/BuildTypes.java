@@ -293,7 +293,7 @@ public class BuildTypes extends GhidraScript {
             String line = raw.trim();
             if (line.isEmpty() || line.startsWith("#")) continue;
             String[] p = line.split("\\t");
-            if (p.length < 2)
+            if (p.length < 2 || p.length > 4)
                 throw new IllegalArgumentException(
                     "ty_regions.txt:" + lineNumber + ": malformed row: " + raw
                 );

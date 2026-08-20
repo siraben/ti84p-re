@@ -2548,7 +2548,7 @@ DRAW_PRIMITIVE_BCALLS = [
 ]
 
 DRAW_PRIMITIVE_GHIDRA_RST28_SITES = [
-    (0x4AC9, 0x52FF, "grc_4611", "eqdisp_dispatch_token", "disabled-feature/message helper"),
+    (0x4AC9, 0x52FF, "_DispAppRestrictions", "eqdisp_dispatch_token", "disabled-feature/message helper"),
     (0x4D61, 0x48D9, "unknown_48d9", "_DispMenuTitle", "menu-title display helper"),
     (0x4EE6, 0x450D, "_PutPSB", "eqdisp_emit_glyph", "generic string/cell display"),
     (0x4EEF, 0x51E5, "scr_4619", "eqdisp_emit_glyph", "display/screen helper after cell fallback"),
@@ -9462,13 +9462,13 @@ def dump_square_marker_flow(rom):
         status = "ok" if actual == expected else "MISMATCH"
         print(f"  {page:02X}:{addr:04X}: {status} {actual.hex().upper()}  {note}")
 
-    print("\n_grc_4611 (bcall 52FF) inline call sites")
+    print("\n_DispAppRestrictions (bcall 52FF) inline call sites")
     pattern = bytes.fromhex("efff52")
     hits = find_pattern_locations(rom, pattern)
     for page, addr in hits:
         print(f"  {page:02X}:{addr:04X}")
 
-    print("\npage-37 disabled-feature messages selected by grc_4611")
+    print("\npage-37 disabled-feature messages selected by _DispAppRestrictions")
     for action, addr, selector in (
         (0x05, 0x4B07, 0x9A),
         (0x06, 0x4B23, 0x9C),

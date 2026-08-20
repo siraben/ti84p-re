@@ -219,8 +219,8 @@ supplies the base-conversion and trig-reduction constants. [confirmed]
 > accumulator add `fp_add_mantissa` `1cb9`), selector sweeping `00…0F` under the
 > `710A CP 0x0F` bound. On-screen results: `.6931471806` and `2.718281828`.
 
-**Sin/cos** (`_SinCosRad`) uses the same recurrence shape on the range-reduced
-angle. `trig_recurrence_table_a` (`02:7201`) and
+`_SinCosRad` uses the same recurrence shape on the range-reduced angle.
+`trig_recurrence_table_a` (`02:7201`) and
 `trig_recurrence_table_b` (`02:7281`) each contain eight rows with two
 sign/phase variants selected by `OP5.value.type` bit 7. The exact rotation
 identity encoded by each row remains open. [confirmed]

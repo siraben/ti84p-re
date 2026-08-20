@@ -234,13 +234,13 @@ pointers have been populated:
 
 | RAM state | Address | Role in the private parser frame |
 |-----------|---------|----------------------------------|
-| `TIBasicParserState.basic_prog` | `9652` | current OP1-style program/object name |
-| `TIBasicParserState.basic_start` | `965B` | first token byte after the stored program size word |
-| `TIBasicParserState.next_parse_byte` | `965D` | current parser cursor |
-| `TIBasicParserState.basic_end` | `965F` | parser end pointer |
-| `TIBasicParserState.num_arguments` | `9661` | argument count/state byte used by parser helpers |
-| `chkDelPtr3` / `chkDelPtr4` | `981C` / `981E` | temporary VAT/data pointers used during name and object setup |
-| `FPS` / `OPS` / `pTemp` / `progPtr` | `9824` / `9828` / `982E` / `9830` | live FP/temp/program storage bounds |
+| `TIBasicParserState.basic_prog` | `0x9652` | current OP1-style program/object name |
+| `TIBasicParserState.basic_start` | `0x965B` | first token byte after the stored program size word |
+| `TIBasicParserState.next_parse_byte` | `0x965D` | current parser cursor |
+| `TIBasicParserState.basic_end` | `0x965F` | parser end pointer |
+| `TIBasicParserState.num_arguments` | `0x9661` | argument count/state byte used by parser helpers |
+| `chkDelPtr3` / `chkDelPtr4` | `0x981C` / `0x981E` | temporary VAT/data pointers used during name and object setup |
+| `FPS` / `OPS` / `pTemp` / `progPtr` | `0x9824` / `0x9828` / `0x982E` / `0x9830` | live FP/temp/program storage bounds |
 
 There is no local variable frame for BASIC programs. A subprogram that uses `A`
 modifies the caller's `A`. For reusable routines, document which variables are

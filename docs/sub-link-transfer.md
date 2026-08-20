@@ -359,11 +359,12 @@ link_xfer_op (3C:4DD2):
   RES 1,(IY+0x24) ; FUN_ram_2800 (restore) ; JP 4F3E (cleanup)
 ```
 
-### 5a. Resolve the variable for sending — `4763` [confirmed]
+### 5a. Resolve the variable for sending — `lnk_resolve_var` [confirmed]
 
-`4763` reads the var-header type byte at `867F` and branches by class. For
-graph/equation types (`0x0F‥0x14`) it uses a cross-page helper. Otherwise
-`47AB` calls `_CkOP1Real`, checks the size, then calls `_ChkFindSym` (`0E60`)
+`lnk_resolve_var` (`3C:4763`) reads the var-header type byte at `0x867F` and
+branches by class. For graph/equation types (`0x0F`–`0x14`) it uses a
+cross-page helper. Otherwise `3C:47AB` calls `_CkOP1Real`, checks the size,
+then calls `_ChkFindSym` (`ram:0E60`)
 to locate the VAT entry. An archived variable routes through the Flash path,
 where `_Chk_Batt_Low` saves `arcInfo.size` at `0x83F7`. `_SetupPagedPtr`
 supplies the data pointer, page, and length inside the DATA sender.
