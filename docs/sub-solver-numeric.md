@@ -1,4 +1,4 @@
-# Solver & numerical methods
+# Solver and numerical methods
 
 The numeric solver paths implement root finding, numerical differentiation,
 integration, and time-value-of-money calculations. Each path repeatedly

@@ -5,10 +5,10 @@
 # Orientation
 
 - [Subsystem map](subsystem-map.md)
-- [Conventions & methodology](conventions.md)
+- [Conventions and evidence](conventions.md)
 - [Glossary](glossary.md)
 
-# Architecture & memory
+# Architecture and memory
 
 - [Memory map](memory-map.md)
 - [Paging](paging.md)
@@ -18,11 +18,11 @@
 - [The bcall mechanism](bcall-mechanism.md)
 - [Interrupts (IM1)](interrupts.md)
     - [Clock, timers, and power](clock-timers-power.md)
-- [Boot, contexts & errors](boot-contexts-errors.md)
+- [Boot, contexts, and errors](boot-contexts-errors.md)
     - [Retail boot hardware initialization](boot-hardware.md)
 - [Memory management](memory-management.md)
-    - [Variables, archive & unarchive](sub-vat-archive.md)
-    - [Apps, memory reset & settings](sub-apps-mem-settings.md)
+    - [Variables, archive and unarchive](sub-vat-archive.md)
+    - [Apps, memory reset, and settings](sub-apps-mem-settings.md)
 - [Flash memory](flash-memory.md)
 - [MD5 accelerator and boot API](md5-hardware.md)
 - [Flash page map](flash-page-map.md)
@@ -31,12 +31,12 @@
 
 # Core subsystems
 
-- [Variables & the VAT](variables-vat.md)
+- [Variables and the VAT](variables-vat.md)
 - [Floating-point engine](floating-point.md)
     - [Calculation engine](sub-calculation.md)
     - [Statistics](sub-statistics.md)
-    - [Matrices & lists](sub-matrix-list.md)
-    - [Solver & numerical methods](sub-solver-numeric.md)
+    - [Matrices and lists](sub-matrix-list.md)
+    - [Solver and numerical methods](sub-solver-numeric.md)
 - [Tokenizer and TI-BASIC tokens](tokenizer-basic.md)
   - [TI-BASIC execution](sub-tibasic.md)
     - [TI-BASIC programming patterns](sub-tibasic-programming.md)
@@ -45,12 +45,12 @@
 - [Display and LCD](display-lcd.md)
     - [LCD controller and display bus](lcd-hardware.md)
     - [Graphing](sub-graphing.md)
-    - [Table & Y= variables](sub-table-yvars.md)
+    - [Table and Y= variables](sub-table-yvars.md)
     - [Equation display (MathPrint)](sub-equation-display.md)
 - [Keyboard and link port](keyboard-link.md)
     - [Keypad and ON-key hardware](keypad-on-hardware.md)
     - [Two-wire link port hardware](link-port-hardware.md)
-    - [Link / data transfer](sub-link-transfer.md)
+    - [Link and data transfer](sub-link-transfer.md)
     - [USB ASIC and link assist](sub-usb-asic.md)
 
 # Reference
@@ -60,4 +60,4 @@
 
 # Project
 
-- [Open questions & roadmap](open-questions.md)
+- [Open questions and roadmap](open-questions.md)

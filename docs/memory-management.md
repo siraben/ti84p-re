@@ -1,4 +1,4 @@
-# Memory management (RAM heap & Flash archive)
+# Memory management (RAM heap and Flash archive)
 
 The memory manager divides about 24 KiB of user RAM among variables,
 temporaries, the floating-point stack, and the active program. The archive path

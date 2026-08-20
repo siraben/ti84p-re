@@ -1,4 +1,4 @@
-# Boot, contexts & errors
+# Boot, contexts, and errors
 
 This page connects three cross-cutting mechanisms: OS startup, context
 switching, and error unwinding.

@@ -1,4 +1,4 @@
-# Table & Y= variables
+# Table and Y= variables
 
 The table subsystem stores equations from **Y=**, reads settings from
 **TBLSET**, evaluates selected equations row by row, caches their values, and

@@ -1,4 +1,4 @@
-# Link / data transfer
+# Link and data transfer
 
 The data-transfer subsystem sends variables and system objects through the
 packet layer over either the 2.5 mm link or the TI-84 Plus USB/link-assist path.
