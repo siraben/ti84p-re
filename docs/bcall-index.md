@@ -42,7 +42,6 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `grc_60cb` | `51FA` | `37:60CB` |
 | `grf_435f` | `5140` | `33:435F` |
 | `grf_5e06` | `5476` | `33:5E06` |
-| `grf_7066` | `47C5` | `33:7066` |
 | `lcd_blit_region` | `4D26` | `07:5431` |
 | `link_xfer_op` | `50FB` | `3C:4DD2` |
 | `list_idx_times9` | `53D1` | `35:79E9` |

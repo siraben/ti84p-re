@@ -233,13 +233,13 @@ the selection bit is bit 5 (`0x20`). The per-equation style byte holds the line 
 selection/style byte values also match the
 [TI link-protocol guide](https://merthsoft.com/linkguide/ti83+/vars.html#style).
 
-### Parsing and pre-scan
+### Variable-version scan
 
-`graph_parse_tok` (`33:5023`) walks an equation's token stream to classify it before
-plotting: it reads tokens via the paged-pointer reader (`_SetupPagedPtr`/`_PagedGet`),
-recognizes 2-byte tokens (`_IsA2ByteTok`), and sets feature bits (e.g. token `0xEF…`
-ranges → returns a category in A) used to decide draw mode and whether the equation is
-graphable. [confirmed]
+`_GetVarVersion` (`33:5023`) walks a tokenized variable through
+`_SetupPagedPtr`/`_PagedGet`, recognizes two-byte tokens with `_IsA2ByteTok`,
+and raises the returned compatibility tier for particular `0xBB` and `0xEF`
+token ranges. This compatibility scan is not evidence for a graph-mode
+graphability pre-scan. [confirmed]
 
 ### Evaluation → points
 
@@ -261,11 +261,12 @@ higher Xres skips columns (faster, coarser). [confirmed]
 (`GDBObj`, type/exp marker `0x61`) — the bundle of window vars + mode + selected equations
 that the `StoreGDB`/`RecallGDB` commands save. `_JError(0x89)` on a type mismatch.
 
-### Graph table [confirmed]
+### Indexed pointer helpers [confirmed]
 
-`graph_tbl_find` (`33:7097`) / `graph_tbl_next` (`33:707A`) index the in-RAM table of
-equation pointers (`iMathPtr4`-based, 2 bytes/entry) used to iterate the selected functions
-during a regraph or TABLE build.
+`_PUT_INDEX_LST` (`33:7066`) and `_GET_INDEX_LST` (`33:707A`) store and load
+2-byte slots at `iMathPtr4 + 2n`; `_HEAP_SORT` (`33:7097`) sorts a
+caller-supplied indexed range. Their bodies do not establish a selected-equation
+list or show that Regraph and TABLE share one iterator.
 
 ---
 

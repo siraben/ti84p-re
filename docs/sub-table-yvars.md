@@ -130,20 +130,20 @@ clearing its `=` highlight) removes its column from the table. `curGStyle`
 The values also match the
 [TI link-protocol var guide](https://merthsoft.com/linkguide/ti83+/vars.html#style).
 
-### The selected-equation list — `iMathPtr4` (`0x84D9`) [confirmed]
+### Indexed pointer helpers — `iMathPtr4` (`0x84D9`) [confirmed]
 
-The OS keeps an in-RAM table of 2-byte pointers to the selected equations'
-VAT entries, based at `iMathPtr4 = 0x84D9`. Three bcalls index it (verified by
-decompile — they compute `0x84D9 + 2·n`):
+Two official bcalls address a RAM array of 2-byte values based at `iMathPtr4`
+(`0x84D9`). A third official bcall sorts a caller-supplied range:
 
 | bcall | Addr | Role |
 |-------|------|------|
-| `graph_tbl_find` | `33:7097` | (re)build the list of selected-equation pointers |
-| `graph_tbl_next` | `33:707A` | `_LdHLind(0x84D9 + 2·n)` — fetch the n-th equation pointer |
-| `grf_7066` | `33:7066` | store a pointer into slot n (`0x84D9 + 2·n`) |
+| `_PUT_INDEX_LST` | `33:7066` | store a value in slot `n` at `0x84D9 + 2n` |
+| `_GET_INDEX_LST` | `33:707A` | load the value in slot `n` through `_LdHLind` |
+| `_HEAP_SORT` | `33:7097` | sort an indexed caller-supplied range |
 
-This is the shared iterator the regraph driver and the table builder both walk
-to visit each selected `Yn`. [confirmed]
+These bodies do not identify what every caller stores in the array, and
+`_HEAP_SORT` does not discover selected equations. The exact builder and
+consumer for the TABLE editor's selected-Y set remain open. [confirmed]
 
 ### Resolving and evaluating a Y-var [confirmed]
 
@@ -224,14 +224,14 @@ incremental add:
 So row $k$ uses $X=\mathrm{TblMin}+k\cdot\mathrm{TblStep}$. (In **Indpnt = Ask** mode this driver is
 bypassed and the user types each X; see [Auto and Ask modes](#auto-and-ask-modes-confirmed).) [confirmed]
 
-### Per-row evaluation [confirmed]
+### Per-row evaluation [hypothesis]
 
 For each row the recompute fills the cache by, per selected equation:
+
 1. store the running-X into the `X` system variable (`_StoX`, `38:62A3`),
-2. evaluate that equation's tokens against the current `X` — the table walks the
-   selected list via `graph_tbl_next` (`33:707A`) and runs each formula through the
+2. evaluate that equation's tokens against the current `X` through the
    page-38 evaluator (`_ParseInp` `38:5987` / the `_Find_Parse_Formula` path),
-   leaving `Y` in `OP1` (exactly the grapher's per-column eval in
+   leaving `Y` in `OP1`, as in the grapher's per-column evaluation in
    [Graphing](sub-graphing.md#y-equation-storage-and-evaluation)),
 3. format OP1 and stash the result string/value into the row's cache slot.
 
@@ -361,8 +361,8 @@ Conversely only the recompute driver clears it (`05:5DD7`, `05:62FD`,
    `table_editor_main` (`05:5D0D`) sees `reTable=1` → `table_recompute`
    (`05:5DD7`):
    - seed running-X ← `TblMin` (`05:774B`),
-   - `graph_tbl_find`/`graph_tbl_next` (`33:7097`/`707A`) walk the selected
-     equation list at `iMathPtr4` (0x84D9) — here only `Y1`,
+   - walk the selected equation set — here only `Y1`; the exact builder and
+     iterator remain open,
    - per row: `_StoX` the running-X, evaluate `Y1`'s tokens via the page-38
      evaluator (`_Find_Parse_Formula` / `_ParseInp`) → OP1 = `X²+1`, format and
      stash into `table_value_cache.band[0]`/`band[1]`,
@@ -415,15 +415,15 @@ RAM  8622             table_x_work[2]; running independent-value scratch
 ; --- Y= equations, selected list, evaluation ---
 EquObj = 3 (VAT type)                          ; Y1..Y0 stored as tokenized formulas
 tokens: tVarEqu=0x5E + tY1=0x10 … tY0=0x19     ; Y-var name encoding
-RAM  84D9   iMathPtr4                          ; base of selected-equation pointer list
-33:7097  graph_tbl_find                    ; (re)build selected-equation list
-33:707a  graph_tbl_next                    ; fetch n-th equation ptr (0x84D9+2n)
-33:7066  grf_7066                        ; store n-th equation ptr
+RAM  84D9   iMathPtr4                          ; indexed-list base; contents depend on caller
+33:7097  _HEAP_SORT                       ; sort caller-supplied indexed range
+33:707a  _GET_INDEX_LST                   ; fetch slot n from 0x84D9+2n
+33:7066  _PUT_INDEX_LST                   ; store slot n at 0x84D9+2n
 38:758a  _Find_Parse_Formula              ; FindSym Y-var + parse its formula → OP1
 38:5987  _ParseInp                        ; parse/eval a formula against current X
 38:62a3  _StoX                            ; store OP1 → X system var (per row)
 38:67ae  _RclX  / 38:67a4 _RclY / 38:626c _StoY
-33:5023  graph_parse_tok                   ; pre-scan equation tokens (graphable?)
+33:5023  _GetVarVersion                    ; classify extended tokens by version tier
 
 ; --- reTable (dirty) setters ---
 38:6340 / 38:4809 / 38:54cd  parser sets reTable on Y=/var edit
@@ -441,11 +441,12 @@ RAM  84D9   iMathPtr4                          ; base of selected-equation point
   (`LDIR`/`LDDR`), and the text-grid paint loop: [confirmed] from byte
   disassembly; the dense Z80 bodies don't fully reduce in the decompiler but the
   CALL/buffer structure is byte-pinned.
-- The exact per-row `_StoX` + selected-Y eval calls inside `05:5EE1`/the fill
-  loop are [hypothesis] — the loop, buffers, and the shared selected-equation
-  iterator (`iMathPtr4` / `graph_tbl_next`) are confirmed; the individual on-page
-  direct CALLs to `_StoX`/the evaluator were inferred from the identical
-  grapher per-column path rather than each byte-traced.
+- The exact per-row `_StoX`, selected-Y iterator, and evaluator calls inside
+  `05:5EE1` are [hypothesis]. The loop and buffers are confirmed, but the
+  individual on-page calls were inferred from the grapher's per-column path
+  rather than byte-traced. `_PUT_INDEX_LST`, `_GET_INDEX_LST`, and `_HEAP_SORT`
+  are generic indexed-list helpers; their bodies do not prove that TABLE uses
+  `iMathPtr4` for its selected equations.
 - Y= selection bit (`0x20`) — flags byte `0x23` selected / `0x03` deselected — and the
   `style` byte values (`0`=line … `6`=dotted) are [confirmed] against the
   [TI link-protocol var guide](https://merthsoft.com/linkguide/ti83+/vars.html#style).
