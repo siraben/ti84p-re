@@ -5,22 +5,10 @@ regressions, and writes named results such as `x̄`, `Σx`, `Sx`, `a`, `b`, `r`,
 and `r²`. This page separates the **CALC**, **STAT-TESTS**, and **DISTR** command
 families.
 
-This doc covers the STAT **CALC** computations. The data source is the L1–L6
-lists (VAT/[variables-vat.md](variables-vat.md), [sub-vat-archive.md](sub-vat-archive.md)); the arithmetic is the
-BCD FP engine ([floating-point.md](floating-point.md), [sub-calculation.md](sub-calculation.md)). Stat plots and
-the **DISTR** menu are noted in §8/§9 — DISTR functions are parser functions,
-not part of the STAT-CALC engine.
-
-Address form: `page:addr` (flash page in the `0x4000` slot) or `ram:addr` for the
-fixed page-0 core at `0x0000`. The whole STAT-CALC engine lives on flash page
-`0x3A`. Confidence: [confirmed] = read from Z80 disassembly, [standard] =
-matches documented TI behavior, [hypothesis] = inferred.
-
-The Ghidra decompiler mis-renders the Z80
-`SET/RES b,(IY+d)` flag ops, the `RST` macros, and cross-page `CALL 0x2b09`
-trampolines, so the algorithm here is read primarily from the disassembly.
-
----
+The **CALC** paths read `L1`–`L6` through the VAT and use the BCD
+floating-point engine. The engine lives on Flash page `3A`; raw disassembly
+supplies indexed-bit and cross-page operations that the decompiler can
+mis-render.
 
 ## 1. The `statVars` result block (`0x8A3A`) [confirmed]
 
@@ -390,7 +378,7 @@ named routine in this DB. [hypothesis]
 
 ---
 
-## 10. Integration summary
+## 10. Subsystem integration
 
 ```text
   L1..L6 lists (VAT data)                 statVars (0x8A3A)  ← results, recall-by-name
@@ -414,7 +402,7 @@ equations, depositing every output as a named `TIFloat` in the `statVars` block.
 
 ---
 
-## 11. Confident address index (`space:addr`)
+## 11. Routine index
 
 | space:addr | name | what |
 |------------|------|------|
@@ -448,7 +436,7 @@ equations, depositing every output as a named `TIFloat` in the `statVars` block.
 `00:238A`=`_FPSquare`, `00:2541`=`_FPDiv`, `00:2294`=`_Minus1`, `02:6E38`/`3A:3939`
 =`_SqRoot`, `24BD`=`_InvOP1S`.
 
-## 12. Notes
+## 12. Remaining questions
 
 - **`r` store offset.** `3A:684F` does `LD A,0x12 ; CALL 0x213D`
   (`_Sto_StatVar`, id `0x12` = `tCorr`), i.e. `r → Corr (8ACA)`; `r²`/`R²` is the

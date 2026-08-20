@@ -5,12 +5,8 @@ objects between RAM and the Flash archive, and collect unused Flash records.
 [Variables and the VAT](variables-vat.md) defines the object formats; [Memory
 management](memory-management.md) provides the heap and archive overview.
 
-Every address here is read from the raw Z80 disassembly rather than the decompiler alone, which
-mis-renders the `SET b,(IY+d)` flag ops and
-the cross-page `CALL 0x2b09`-style trampolines. Page numbers are the masked flash page
-(`rawpage & 0x3F`); cross-page trampolines store `lo hi rawpage` in the 3 bytes after the `CALL`.
-
----
+Raw disassembly supplies the indexed-bit operations and cross-page trampolines
+that the decompiler can mis-render.
 
 ## 1. The `arcInfo` workspace and key RAM pointers [confirmed]
 
@@ -672,7 +668,7 @@ archive operation at `3C:7F1C`. [confirmed]
 
 ---
 
-## 9. Confident address index
+## 9. Routine index
 
 | space:addr | name | what |
 |------------|------|------|
@@ -725,7 +721,7 @@ Strings: `01:4126` "Garbage Collecting…", `01:4076` "Defragmenting…", `07:6C
 Ports: `0x06` = bank-A page select (Flash window), `0x14` = Flash write/erase control,
 `0x02` bit7 = Flash-size/model. RAM run-from-RAM stub: `ramCode = 0x8100`.
 
-## 10. Summary and open items
+## 10. Resolved behavior and open items
 
 - **Archive allocation.** [confirmed] The allocator scans upward from page `08` to the exclusive App boundary from `3D:6413`. On the traced OS-only TI-84 Plus, that interval is pages `08`–`28`; the new record begins at `08:4000`.
 - **Hardware Flash path.** [confirmed] `archive_write_record` at `3D:64AA` invokes `_WriteAByte` and `_WriteFlashUnsafe`; the boot worker runs at `0x8100`, issues AMD byte-program commands, polls DQ7/DQ5, and returns success. See [Flash memory](flash-memory.md).

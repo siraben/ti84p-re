@@ -6,16 +6,11 @@ It builds on `_SendAByte` (`3C:420D`) and `_RecAByteIO` (`3C:443F`), described i
 [Two-wire link port hardware](link-port-hardware.md). [USB ASIC and link
 assist](sub-usb-asic.md) covers the ASIC-facing ports.
 
-Addresses here are read from the raw Z80 disassembly. The decompiler mis-renders this subsystem —
-it passes arguments in registers and does its state work with `SET/RES/BIT b,(IY+d)` flag ops that the
-C view shows as bogus `*(param+0xNN)` stores — so the notes follow the disassembly, not the C view.
+Raw disassembly preserves the register-passed arguments and
+`SET`/`RES`/`BIT b,(IY+d)` state operations that the decompiler can mis-render.
+The silent-link engine shares Flash page `3C` with archive command code.
 
-Page numbers are the masked flash page (`rawpage & 0x3F`). The whole silent-link engine lives on
-flash page `3C` (shared with the flash/archive command code — see [sub-vat-archive.md](sub-vat-archive.md)).
-
----
-
-## 0. The three layers
+## 0. Transfer layers
 
 ```mermaid
 flowchart TB
@@ -572,7 +567,7 @@ DBus implementation for the OS, application, and certificate transfer shapes.
 
 ---
 
-## 10. Confident address index
+## 10. Routine index
 
 | space:addr | name | what |
 |------------|------|------|

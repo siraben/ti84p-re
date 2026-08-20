@@ -5,14 +5,8 @@ integration, and time-value-of-money calculations. Each path repeatedly
 evaluates an expression through the [calculation engine](sub-calculation.md) and
 the [TI-BASIC interpreter](sub-tibasic.md).
 
-Address form is `page:addr` (flash page banked at `0x4000`) or `ram:addr` for the fixed
-page-0 core at `0x0000`. Confidence: [confirmed] = read from disassembly,
-[standard] = matches documented TI behavior, [hypothesis] = inferred from
-surrounding code. Disassembly was recovered byte-exact from `tools/rom.bin`; the headless
-Ghidra project on the banked pages is only partially auto-analyzed, so addresses here were
-cross-checked against raw opcodes.
-
----
+Raw opcode checks supply banked-page evidence where Ghidra does not recover a
+complete function body.
 
 ## 0. The four solver errors and the error-code table [confirmed]
 
@@ -376,7 +370,7 @@ Parser entries (page 0x38): `_ParseInp 5987`, `parse_eval_expr 5AB3`,
 
 ---
 
-## 6. Findings
+## 6. Resolved behavior and remaining questions
 
 Summary of the four sub-results:
 
