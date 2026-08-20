@@ -11,6 +11,7 @@ from rom_image import RomImage, RomLocation
 
 
 BOOT_TABLE_PAGE = 0x3F
+BOOT_TABLE_ID_RANGES = ((0x8018, 0x80D2), (0x80E4, 0x8129))
 BOOTFREE_PAGE3F_PREFIX = bytes.fromhex("3e3fd306d307c32c81")
 RETAIL_PAGE3F_PREFIX = bytes.fromhex("3e07d3043e7fd3063e03d30ec32c81")
 
@@ -72,6 +73,11 @@ def boot_target(
 ) -> BcallTarget | None:
     if not 0x8000 <= id_value < 0xC000:
         raise ValueError(f"boot bcall ID must be in 0x8000–0xBFFF, got 0x{id_value:X}")
+    if not any(
+        first <= id_value <= last and (id_value - first) % 3 == 0
+        for first, last in BOOT_TABLE_ID_RANGES
+    ):
+        return None
     table_address = 0x4000 + (id_value & 0x3FFF)
     raw = rom.bytes_at(BOOT_TABLE_PAGE, table_address, 3)
     if raw in (b"\0\0\0", b"\xFF\xFF\xFF"):

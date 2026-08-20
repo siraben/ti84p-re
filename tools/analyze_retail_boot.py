@@ -11,7 +11,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from bcall_tables import read_boot_names
+from bcall_tables import BOOT_TABLE_ID_RANGES, read_boot_names
 from hardware_trace import ResolvedInstruction, iter_resolved_instructions
 from rom_image import RomImage
 from rom_signatures import TI84_PLUS_OS_255MP_SHA256
@@ -23,7 +23,6 @@ BOOT_PAGE = 0x3F
 BOOT_VERSION_ADDRESS = 0x400F
 BOOT_TABLE_FIRST_ID = 0x8018
 BOOT_TABLE_LAST_ID = 0x8129
-BOOT_TABLE_RANGES = ((0x8018, 0x80D2), (0x80E4, 0x8129))
 BOOT_TABLE_STUB_START = 0x40D5
 BOOT_TABLE_STUB_END = 0x40E3
 BOOT_CODE_ADDRESS = 0x412C
@@ -91,7 +90,7 @@ def analyze_boot_page(rom: RomImage) -> BootPageLayout:
     local_targets = 0
     external_targets = 0
     populated = 0
-    for first, last in BOOT_TABLE_RANGES:
+    for first, last in BOOT_TABLE_ID_RANGES:
         for identifier in range(first, last + 1, 3):
             entry = rom.bytes_at(BOOT_PAGE, 0x4000 + (identifier & 0x3FFF), 3)
             if entry == b"\xFF\xFF\xFF":
@@ -120,8 +119,10 @@ def analyze_boot_page(rom: RomImage) -> BootPageLayout:
         metadata_end=0x4017,
         table_first_id=BOOT_TABLE_FIRST_ID,
         table_last_id=BOOT_TABLE_LAST_ID,
-        table_ranges=BOOT_TABLE_RANGES,
-        table_slots=sum((last - first) // 3 + 1 for first, last in BOOT_TABLE_RANGES),
+        table_ranges=BOOT_TABLE_ID_RANGES,
+        table_slots=sum(
+            (last - first) // 3 + 1 for first, last in BOOT_TABLE_ID_RANGES
+        ),
         populated_slots=populated,
         empty_slots=tuple(empty),
         local_targets=local_targets,
@@ -299,7 +300,7 @@ def build_report(
     layout = analyze_boot_page(rom)
     public_names = read_boot_names(ROOT / "tools" / "ti83plus.inc")
     unnamed_entries = []
-    for first, last in BOOT_TABLE_RANGES:
+    for first, last in BOOT_TABLE_ID_RANGES:
         for identifier in range(first, last + 1, 3):
             if identifier in public_names:
                 continue

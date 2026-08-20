@@ -67,6 +67,16 @@ class BcallTableTests(unittest.TestCase):
         self.assertEqual(0x2F, target.page)
         self.assertIsNone(target.name)
 
+    def test_rejects_dispatch_stub_bytes_as_boot_entries(self):
+        for identifier in range(0x80D5, 0x80E2, 3):
+            with self.subTest(identifier=identifier):
+                self.assertIsNone(boot_target(self.rom, identifier))
+
+    def test_rejects_unaligned_boot_ids(self):
+        for identifier in (0x8019, 0x80D1, 0x80E5, 0x8128):
+            with self.subTest(identifier=identifier):
+                self.assertIsNone(boot_target(self.rom, identifier))
+
     def test_classifies_retail_boot_page(self):
         self.assertEqual("retail", classify_boot_page(self.rom))
 
