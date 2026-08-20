@@ -61,7 +61,7 @@ function oracleRound(source) {
   const bytes = Uint8Array.from(source);
   const exponent = bytes[1];
   if (exponent < 0x7f || (exponent === 0x7f && bytes[2] < 0x50)) {
-    bytes.fill(0);
+    bytes.fill(0, 0, 9);
     bytes[1] = 0x80;
     return bytes;
   }
@@ -101,6 +101,10 @@ if (localRom !== null) {
 check('0.499999 rounds to zero', Array.from(graph.roundCoordinateOp1(
   op1(0x7f, 49, 99),
 )), [0, 0x80, 0, 0, 0, 0, 0, 0, 0]);
+check('zeroing preserves bytes after the TIFloat body', (() => {
+  const extended = Uint8Array.of(...op1(0x7e, 99, 99), 0xaa, 0x55);
+  return Array.from(graph.roundCoordinateOp1(extended).slice(9));
+})(), [0xaa, 0x55]);
 check('0.5 rounds upward', Array.from(graph.roundCoordinateOp1(
   op1(0x7f, 50, 0),
 )).slice(0, 4), [0, 0x80, 0x10, 0]);
@@ -136,8 +140,12 @@ checks += 1;
 
 check('conversion returns DE and its low byte in A', (() => {
   const result = graph.convOp1Magnitude(op1(0x82, 12, 34));
-  return {a: result.a, de: result.de, binaryBytes: Array.from(result.op1.slice(3, 5))};
+  return {a: result.a, de: result.de, binaryBytes: Array.from(result.op1.slice(2, 4))};
 })(), {a: 123, de: 123, binaryBytes: [0, 123]});
+check('conversion preserves the byte after its binary overlay', (() => {
+  const result = graph.convOp1Magnitude(op1(0x82, 12, 34));
+  return result.op1[4];
+})(), 0x18);
 assert.throws(() => graph.convOp1Magnitude(op1(0x84, 10, 0)), error =>
   error instanceof graph.CoordinateConversionError && error.kind === 'dimension');
 checks += 1;

@@ -74,7 +74,7 @@ function addPackedBcd(op1, index, addend, byteCount) {
 }
 
 function setOp1Zero(op1) {
-  op1.fill(0, 0, Math.min(11, op1.length));
+  op1.fill(0, 0, 9);
   op1[1] = 0x80;
 }
 
@@ -154,9 +154,9 @@ function convOp1Magnitude(source) {
   }
   de &= 0xffff;
 
-  // 38:746E–38:7470 stores the binary result over OP1 mantissa bytes 1–2.
-  op1[3] = de >>> 8;
-  op1[4] = de & 0xff;
+  // 38:746E–38:7470 stores the binary result at OP1M (`0x847A`–`0x847B`).
+  op1[2] = de >>> 8;
+  op1[3] = de & 0xff;
   return Object.freeze({a: de & 0xff, de, op1});
 }
 
