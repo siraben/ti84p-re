@@ -44,13 +44,15 @@ The pipeline (`build.sh`):
 4. `DeepenPass.java` — flow analysis + name remaining bcall sites
 5. `RamRoutines.java` — mark the page-0 bjump trampoline table (87 cross-page vectors)
 6. `ApplyBjumpTargets.java` — disassemble the hot routines those trampolines point to
-7. `FixInlineBjumps.java` — fix all 355 inline `CALL cross_page_jump` tail-jumps
+7. `FixInlineBjumps.java` — fix the currently disassembled inline `CALL cross_page_jump` tail-jumps
 8. `ParserTable.java` — the page-0x38 parser handler dispatch
 9. `RenameFns.java` — apply the accumulated function names in `names.txt`
 10. `BuildTypes.java` — TI-OS enums, structures, and typed regions
 11. `ApplyLabels.java` — apply reviewed ROM-data and internal-entry labels from `labels.txt`
 12. `ApplyOffsetRefs.java` — render reviewed structure-field references from `poffsets.txt`
-13. `RenameVars.java` — apply reviewed local-variable names from `varnames.txt`
+13. `FixInlineBjumps.java` — repeat the fix-up after seeded code and checked metadata are installed
+14. `ApplyOffsetRefs.java` — restore or verify the reviewed offsets after final flow analysis
+15. `RenameVars.java` — apply reviewed local-variable names from `varnames.txt`
 
 Then open `ti84.gpr` in Ghidra (the GhidraMCP plugin exposes it to Claude over `:8080`).
 
@@ -60,7 +62,7 @@ Then open `ti84.gpr` in Ghidra (the GhidraMCP plugin exposes it to Claude over `
 |--------|-------|
 | Functions | rebuilt from the local ROM by `tools/build.sh` |
 | bcall routines named | 704 total: 621 main-table bcalls + 83 retail boot-table bcalls |
-| bjump sites resolved | 355 inline sites + 87-entry trampoline table |
+| bjump sites modeled | every disassembled inline `CALL cross_page_jump` site; the total includes the 87-entry trampoline table |
 | parser handlers | 84 (page 0x38 dispatch table) |
 | Defined data (strings/floats/typed) | 618 |
 | Flash pages loaded | 64 (1 MiB) |

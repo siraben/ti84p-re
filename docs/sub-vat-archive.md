@@ -42,15 +42,15 @@ byte-confirmed in the disassembly. [hypothesis]
 
 | Addr | Field | Meaning |
 |------|-------------------------|---------|
-| `83EE` | `arcInfo.page`  | page byte of the data (Flash page if archived; RAM marker otherwise) |
-| `83EF` | `arcInfo.data_ptr` | 2-byte data address (in Flash window 0x4000–`0x7FFF`, or RAM) |
-| `83F1` | `arcInfo.vat_ptr` | pointer to the VAT entry's type byte (the symbol record) |
-| `83F3` | `arcInfo.dest_ptr` | destination data pointer (RAM target on unarchive) |
-| `83F5` | `arcInfo.data_size` | a header/record-size component (loaded from `BC` after `CALL 0FDE`) |
-| `83F7` | `arcInfo.size` | the variable's data byte count (from `_DataSize`; `614B` does `CALL 1485` → `LD (83F7),DE`) |
-| `83F9` | `arcInfo.size_full` | size + header overhead |
-| `83FB` | `arcInfo.unknown_tail` | two bytes included in the saved tail; semantics unresolved |
-| `8406` | `savedArcInfo` | 12-byte save slot for `arcInfo.vat_ptr` through `unknown_tail[1]` |
+| `0x83EE` | `arcInfo.page`  | page byte of the data (Flash page if archived; RAM marker otherwise) |
+| `0x83EF` | `arcInfo.data_ptr` | 2-byte data address (in Flash window `0x4000`–`0x7FFF`, or RAM) |
+| `0x83F1` | `arcInfo.vat_ptr` | pointer to the VAT entry's type byte (the symbol record) |
+| `0x83F3` | `arcInfo.dest_ptr` | destination data pointer (RAM target on unarchive) |
+| `0x83F5` | `arcInfo.data_size` | a header/record-size component (loaded from `BC` after `CALL ram:0FDE`) |
+| `0x83F7` | `arcInfo.size` | the variable's data byte count (from `_DataSize`; `07:614B` does `CALL ram:1485` → `LD (83F7),DE`) |
+| `0x83F9` | `arcInfo.size_full` | size + header overhead |
+| `0x83FB` | `arcInfo.unknown_tail` | two bytes included in the saved tail; semantics unresolved |
+| `0x8406` | `savedArcInfo` | 12-byte save slot for `arcInfo.vat_ptr` through `unknown_tail[1]` |
 
 RAM-heap pointers used by the mem checks (cluster at `0x9820`–`0x983A`, confirmed in `.inc`):
 `FPS=9824`, `OPBase=9826`, `OPS=9828` (top of the upward data heap), `pTemp=982E`,

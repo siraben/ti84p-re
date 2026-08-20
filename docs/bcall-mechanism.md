@@ -62,11 +62,17 @@ All six match the documented TI-83+/84+ RST assignments — strong cross-confirm
 
 Besides bcalls, the OS calls *its own* cross-page routines via `bjump`: `CALL cross_page_jump` (`= CALL ram:2B09`) followed inline by `.dw addr; .db page`. `cross_page_jump` reads the stacked return address (its caller's, via an `SP`-relative load — it does not `POP` it), fetches the 2-byte target + 1-byte page from the inline descriptor there, rewrites the return frame past those 3 bytes, banks the page (`& 0x3F`), and returns into the target. The target's `RET` then returns to *the bjump's caller*, so it behaves like a call that consumes the 3 inline bytes.
 
-There is a trampoline table in the page-0 address range `ram:3B01-ram:3D0A`: 87 packed 6-byte entries, each a bjump to a hot OS routine on another page (`ram:3D0B` already begins a separate `CALL ram:2B49` table). The static Ghidra DB models it in the page-0/ROM address space; whether the table is copied to RAM at runtime is a hypothesis, not MCP-confirmed. Code invokes a routine by `CALL ram:3Bxx` into the table. `tools/bjumps.txt` lists every entry's `(offset → page:addr)`; `tools/RamRoutines.java` marks the inline `.dw/.db` as data and comments each target.
+There is a trampoline table in the page-0 address range `ram:3B01`–`ram:3D0A`: 87 packed 6-byte entries, each a bjump to a hot OS routine on another page (`ram:3D0B` already begins a separate `CALL ram:2B49` table). The static Ghidra DB models it in the page-0/ROM address space; whether the table is copied to RAM at runtime is a hypothesis, not MCP-confirmed. Code invokes a routine by `CALL ram:3Bxx` into the table. `tools/bjumps.txt` lists every entry's `(offset → page:addr)`; `tools/RamRoutines.java` marks the inline `.dw/.db` as data and comments each target.
 
 Example: `_PutMap`'s glyph blitter is reached via the trampoline at `ram:3B3D → 07:4588`.
 
-**Inline bjumps:** besides this trampoline table, `CALL cross_page_jump; .dw; .db` appears in other packed dispatch tables (e.g. a page-`3D` dispatch table near `ram:2B6B`) and inline within OS routines. Because `cross_page_jump` consumes the 3 inline bytes and tail-jumps (the target returns to the bjump's caller), the bytes after must be data and the call is non-returning. `tools/FixInlineBjumps.java` marks all 355 such sites in the complete local ROM, which substantially improved OS-wide disassembly coverage.
+**Inline bjumps.** Besides this trampoline table, `CALL cross_page_jump; .dw;
+.db` appears in packed dispatch tables and inside OS routines. The target returns
+to the bjump caller, so `cross_page_jump` consumes the three inline descriptor
+bytes as a non-returning tail-jump. `tools/FixInlineBjumps.java` runs before and
+after the scripts that seed parser handlers and reviewed function entries. Each
+pass marks every disassembled inline site, including the 87 trampoline-table
+entries. Raw byte matches outside disassembled code are not counted. [confirmed]
 
 ## Limitations
 

@@ -60,7 +60,8 @@ by child record IDs. `eqdisp_find_structural_record` (`34:4ACE`) walks the
 structural region, and `eqdisp_find_leaf_record` (`34:4A83`) walks the leaf
 region. `eqdisp_substitute_active_leaf` (`34:4AAF`) substitutes the active
 gap-buffer payload when the leaf pointer equals
-`mathprintArenaState.active_leaf`. The record graph therefore preserves
+`mathprintArenaState.active_leaf` at `0x8DC2` (base `mathprintArenaState` at
+`0x8DAF`). The record graph therefore preserves
 the editable equation tree before evaluation; page `39` row and cell state is
 the transient layout view of that live equation. [confirmed]
 
@@ -239,7 +240,8 @@ bytes, four child slots, and 28 record bytes. Type `0x2B` derives all three
 values from its matrix element count at `33:4F42`–`33:4F6C`. [confirmed]
 
 `34:4869` passes that workspace request to the capacity gate at
-`34:4B7C`. `34:4B86` starts with the word at `0x8DB1`. When
+`34:4B7C`. `eqdisp_capacity_remaining` (`34:4B86`) starts with the word at
+`0x8DB1`. When
 `(IY+2Dh).0` is clear, it subtracts the conditional reserve at `0x8DF8`; when
 the bit is set, it skips that subtraction. It then subtracts the record tail
 at `0x8DBE`. Each subtraction follows `OR A`, so it starts with carry clear and
