@@ -3,12 +3,12 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Boot, contexts &amp; errors - TI-84 Plus OS — Reverse Engineering</title>
+        <title>Boot, contexts, and errors - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
+            window.path_to_searchindex_js = "searchindex-38eea4f6.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-e4551b79.js"></script>
+        <script src="toc-c9603d63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -179,8 +179,9 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="boot-contexts--errors"><a class="header" href="#boot-contexts--errors">Boot, contexts &amp; errors</a></h1>
-<p>Three cross-cutting mechanisms: how the OS starts, how it switches “modes” (contexts), and how it aborts on error.</p>
+                        <h1 id="boot-contexts-and-errors"><a class="header" href="#boot-contexts-and-errors">Boot, contexts, and errors</a></h1>
+<p>This page connects three cross-cutting mechanisms: OS startup, context
+switching, and error unwinding.</p>
 <h2 id="boot-confirmed"><a class="header" href="#boot-confirmed">Boot [confirmed]</a></h2>
 <pre><code class="language-z80">3F:4000:     LD A,0x07; OUT (0x04),A           ; paired mapping
              LD A,0x7F; OUT (0x06),A           ; pages 3E/3F in 4000/8000
@@ -208,7 +209,7 @@ the installation changes no bytes. The continuation begins
 VAT, system flags, the LCD, and enters the main context (the homescreen).
 [confirmed]</p>
 <p>The boot page (<code>3F</code>) and its version queries are exposed to the OS through <code>ti83plus.inc</code> bcalls: <code>_getBootVer</code> (bcall <code>0x80B7</code> → <code>3F:477C</code>) and <code>_getHardwareVersion</code> (bcall <code>0x80BA</code> → <code>3F:4781</code>). The USB boot support entry points route through the same table but land on page <code>2F</code>, for example <code>_AttemptUSBOSReceive</code> (<code>0x80E4</code> → <code>2F:4145</code>) and <code>_InitUSB</code> (<code>0x8108</code> → <code>2F:52A4</code>).</p>
-<h3 id="ram-clear--re-init-ram_reset_wipe--ram0bd9-confirmed"><a class="header" href="#ram-clear--re-init-ram_reset_wipe--ram0bd9-confirmed">RAM clear / re-init (<code>ram_reset_wipe</code> → <code>ram:0BD9</code>) [confirmed]</a></h3>
+<h3 id="ram-clearing-and-reinitialization-ram_reset_wipe-at-ram0bd9-confirmed"><a class="header" href="#ram-clearing-and-reinitialization-ram_reset_wipe-at-ram0bd9-confirmed">RAM clearing and reinitialization (<code>ram_reset_wipe</code> at <code>ram:0BD9</code>) [confirmed]</a></h3>
 <p>The RAM-init proper is <code>ram_reset_wipe</code> (<code>35:719F</code>, reached on a full reset; the same routine backs the <code>[2nd]+[+] · 7 · 1 · 2</code> RAM-reset and the post-boot RAM clear). It zero-fills RAM in two blocks, preserving a handful of flag bits and <code>0x9B73</code> across the wipe:</p>
 <pre><code class="language-z80">ram_reset_wipe (35:719f):
   ; save flags to preserve: (9B73), (IY+34).6, (IY+35).0, (IY+35).1, (IY+3F)&amp;0x7F
@@ -242,7 +243,7 @@ ram_init_after_reset (ram:0BD9):
 <li><code>0xFF</code>/<code>0x7F</code> — quit / no-op.</li>
 </ul>
 <p>So the router classifies a mode key before the active context sees it and returns a context-switch code (<code>0xFB</code>/<code>0xFC</code>); the caller then swaps the <code>cx*</code> vectors. The router itself only writes <code>keyExtend</code> (<code>0x8446</code>, the extended-key state) — its body holds no store to the <code>cx*</code> block. [confirmed]</p>
-<h2 id="contexts--how-the-os-implements-modesapps-confirmed"><a class="header" href="#contexts--how-the-os-implements-modesapps-confirmed">Contexts — how the OS implements “modes”/apps [confirmed]</a></h2>
+<h2 id="contexts-and-os-modes-confirmed"><a class="header" href="#contexts-and-os-modes-confirmed">Contexts and OS modes [confirmed]</a></h2>
 <p>The OS is single-tasking but multi-context. A <em>context</em> is the set of handler routines for whatever is currently in front of the user (homescreen, an editor, the graph screen, a Flash App). The active context’s vectors live in RAM at <code>cxMain</code> (and friends), with <code>cxPage</code> holding which flash page their code is on.</p>
 <ul>
 <li><code>_AppInit</code> (<code>ram:0936</code>) installs a context: copies 12 bytes of handler vectors → <code>cxMain</code>, sets <code>flags.appFlags</code>, and saves <code>cxPage = port_mapBankA</code> (the page the app runs from). [confirmed]</li>
@@ -327,7 +328,7 @@ call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; res
 <h2 id="confirmed-details"><a class="header" href="#confirmed-details">Confirmed details</a></h2>
 <ul>
 <li><strong><code>cx*</code> vector layout — confirmed.</strong> The six 2-byte handler slots and <code>cxPage</code> offsets are pinned by tracing <code>_AppInit</code> (<code>ram:0936</code>): <code>LD DE,0x858D / LD BC,0x000C / LDIR</code> then <code>IN A,(6) / LD (0x8599),A</code>. See <a href="#context-block-layout-confirmed">Context block layout</a> above for the full offset table and <code>_AppInit</code> body. <code>_AppInit</code> installs the block; it is not the sole writer — <code>_POPCX</code> (bcall <code>0x49E1</code> → <code>07:6D1C</code>) restores a saved context into <code>cxMain</code>, and a save path at <code>07:5A8C</code> copies <code>cxMain</code> into the <code>cxPrev</code> shadow.</li>
-<li><strong>Boot RAM-init trace — raw-disassembly trace.</strong> Emulator reset starts at logical <code>0x8000</code> on page <code>3F</code> and reaches <code>boot_os_entry</code>; the page-0 restart vector at <code>ram:0000</code> → <code>ram:028C</code> reaches the same continuation. The RAM clear/re-init is <code>ram_reset_wipe</code> (<code>35:719f</code>): two <code>LDIR</code> zero-fills (<code>0x8000</code>–<code>0x9BC3</code>, <code>0x9BD0</code>–<code>0xFFFF</code>) preserving a few flag bytes, then <code>JP 0x0BD9</code> (<code>ram_init_after_reset</code>: port 0 = <code>0xC0</code>, stack reset in the raw trace, <code>CALL 0x3EC1</code>). The <code>ram:0BD9</code> entry matches the re-init point cross-referenced in <a href="memory-management.html">Memory management</a>. See <a href="#ram-clear--re-init-ram_reset_wipe--ram0bd9-confirmed">RAM clear / re-init</a>.</li>
+<li><strong>Boot RAM-init trace — raw-disassembly trace.</strong> Emulator reset starts at logical <code>0x8000</code> on page <code>3F</code> and reaches <code>boot_os_entry</code>; the page-0 restart vector at <code>ram:0000</code> → <code>ram:028C</code> reaches the same continuation. The RAM clear/re-init is <code>ram_reset_wipe</code> (<code>35:719F</code>): two <code>LDIR</code> zero-fills (<code>0x8000</code>–<code>0x9BC3</code>, <code>0x9BD0</code>–<code>0xFFFF</code>) preserving a few flag bytes, then <code>JP 0x0BD9</code> (<code>ram_init_after_reset</code>: port 0 = <code>0xC0</code>, stack reset in the raw trace, <code>CALL 0x3EC1</code>). The <code>ram:0BD9</code> entry matches the re-init point cross-referenced in <a href="memory-management.html">Memory management</a>. See <a href="#ram-clearing-and-reinitialization-ram_reset_wipe-at-ram0bd9-confirmed">RAM clearing and reinitialization</a>.</li>
 <li><strong>Flash write and erase.</strong> The retail boot table maps <code>_WriteFlash</code> (<code>80C9</code>) to <code>3F:4C8F</code>, <code>_WriteFlashUnsafe</code> (<code>8087</code>) to <code>3F:4CA6</code>, <code>_WriteAByte</code> (<code>8021</code>) to <code>3F:4C9F</code>, and <code>_EraseFlash</code> (<code>8024</code>) to <code>3F:4C2A</code>. Their program and erase loops are copied to <code>ramCode</code> at <code>0x8100</code>. A successful archive trace executes <code>archive_write_record</code> at <code>3D:64AA</code>, three <code>_WriteAByte</code> calls, and six entries through <code>_WriteFlashUnsafe</code>. See <a href="flash-memory.html">Flash memory</a>. [confirmed]</li>
 </ul>
 <p>The <code>JP 0x812C</code> target and the <code>ram:3EC1</code> init continuation are both present in

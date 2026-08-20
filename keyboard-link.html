@@ -8,7 +8,7 @@
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
+            window.path_to_searchindex_js = "searchindex-38eea4f6.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-e4551b79.js"></script>
+        <script src="toc-c9603d63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -205,8 +205,8 @@
 <p><code>_SendAByte = 4EE5</code>, body <code>3C:420D</code>, sends legacy bits least-significant first. It writes <code>1</code> for bit 0 and <code>2</code> for bit 1, waits for a both-low acknowledgement, releases its line, and waits for idle. <code>_RecAByteIO = 4F03</code>, body <code>3C:443F</code>, performs the inverse handshake. Both paths use bounded waits that enter the link-error machinery on timeout. [confirmed]</p>
 <p>Installed error callback <code>3C:6136</code> reaches <code>3C:618D</code> for applicable transfer states. Its raw branch marks the link busy, selects nominal 6 MHz, drives both lines low for a 7,077,785-base-T-state loop, releases them, and clears busy; its USB branch skips port <code>0x00</code>. The documented Flash opcode wait raises the loop to 8,191,881 T-states. This is the OS’s transport-specific abort cleanup. [confirmed] for the ROM role and base count; [standard] for the wait-state-adjusted count.</p>
 <p><a href="link-port-hardware.html">Two-wire link port hardware</a> reconstructs the port read/write inversion, four transitions, receiver rotation, errors, and timer-driven activity check. <a href="sub-usb-asic.html">USB ASIC and link assist</a> covers the assist FIFO selected by the same byte routines.</p>
-<h3 id="variable-transfer-commandpacket-framing"><a class="header" href="#variable-transfer-commandpacket-framing">Variable-transfer command/packet framing</a></h3>
-<p>A TI link packet is a 4-byte header (<code>machine-ID, command-ID, length-lo, length-hi</code>) optionally followed by <code>data[len]</code> and a 16-bit LE checksum; commands include <code>0x06</code> VAR, <code>0x09</code> CTS, <code>0x15</code> DATA, <code>0x56</code> ACK, <code>0x5A</code> NAK, <code>0x92</code> EOT. The full framing, the silent-link send/receive engine (<code>link_xfer_op</code>, <code>_SendVarCmd</code>), checksum/ACK handling, and the 16-byte Flash-batched receive path are all reverse-engineered in <a href="sub-link-transfer.html">sub-link-transfer.md</a> — see §3 (framing) and §5 (variable send). [confirmed]</p>
+<h3 id="variable-transfer-packet-framing"><a class="header" href="#variable-transfer-packet-framing">Variable-transfer packet framing</a></h3>
+<p>A TI link packet is a 4-byte header (<code>machine-ID, command-ID, length-lo, length-hi</code>) optionally followed by <code>data[len]</code> and a 16-bit LE checksum; commands include <code>0x06</code> VAR, <code>0x09</code> CTS, <code>0x15</code> DATA, <code>0x56</code> ACK, <code>0x5A</code> NAK, <code>0x92</code> EOT. <a href="sub-link-transfer.html#ti-link-packet-framing-confirmed">Link transfer</a> covers the framing, silent-link send/receive engine (<code>link_xfer_op</code>, <code>_SendVarCmd</code>), checksum and acknowledgement handling, and 16-byte Flash-batched receive path. [confirmed]</p>
 
                     </main>
 

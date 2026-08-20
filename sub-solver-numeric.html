@@ -3,12 +3,12 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Solver &amp; numerical methods - TI-84 Plus OS — Reverse Engineering</title>
+        <title>Solver and numerical methods - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
+            window.path_to_searchindex_js = "searchindex-38eea4f6.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-e4551b79.js"></script>
+        <script src="toc-c9603d63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -179,20 +179,14 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="solver--numerical-methods"><a class="header" href="#solver--numerical-methods">Solver &amp; numerical methods</a></h1>
-<p>What happens when the user invokes the <strong>equation Solver</strong> / <code>solve(</code>,
-<code>nDeriv(</code>, <code>fnInt(</code>, or the <strong>TVM finance solver</strong>. All of these are <em>iterative</em>
-routines that repeatedly evaluate the user’s expression through the BCD floating-point
-engine (see <a href="sub-calculation.html">sub-calculation.md</a>, <a href="floating-point.html">floating-point.md</a>) and the TI-BASIC parser
-(<a href="sub-tibasic.html">sub-tibasic.md</a>).</p>
-<p>Address form is <code>page:addr</code> (flash page banked at <code>0x4000</code>) or <code>ram:addr</code> for the fixed
-page-0 core at <code>0x0000</code>. Confidence: [confirmed] = read from disassembly,
-[standard] = matches documented TI behavior, [hypothesis] = inferred from
-surrounding code. Disassembly was recovered byte-exact from <code>tools/rom.bin</code>; the headless
-Ghidra project on the banked pages is only partially auto-analyzed, so addresses here were
-cross-checked against raw opcodes.</p>
-<hr>
-<h2 id="0-the-four-solver-errors-and-the-error-code-table-confirmed"><a class="header" href="#0-the-four-solver-errors-and-the-error-code-table-confirmed">0. The four solver errors and the error-code table [confirmed]</a></h2>
+                        <h1 id="solver-and-numerical-methods"><a class="header" href="#solver-and-numerical-methods">Solver and numerical methods</a></h1>
+<p>The numeric solver paths implement root finding, numerical differentiation,
+integration, and time-value-of-money calculations. Each path repeatedly
+evaluates an expression through the <a href="sub-calculation.html">calculation engine</a> and
+the <a href="sub-tibasic.html">TI-BASIC interpreter</a>.</p>
+<p>Raw opcode checks supply banked-page evidence where Ghidra does not recover a
+complete function body.</p>
+<h2 id="solver-errors-confirmed"><a class="header" href="#solver-errors-confirmed">Solver errors [confirmed]</a></h2>
 <p>The numerical routines raise four dedicated errors. Each has a tiny page-0 raiser stub
 that loads an error code into <code>A</code> and tail-jumps to <code>_JError</code> (<code>ram:2793</code>); most banked
 pages also keep a local copy of each stub so the iteration loop can reach it with a
@@ -220,12 +214,12 @@ cheap relative jump.</p>
 <p><code>SOLVER</code>=<code>0x96</code> is the <em>context name</em> shown on the Solver app’s error screen;
 <code>SINGULARTY</code>=<code>0x97</code> is raised when a step lands on a pole. [confirmed]</p>
 <hr>
-<h2 id="1-the-equation-solver--solve-root-finder--page-0x39-confirmed"><a class="header" href="#1-the-equation-solver--solve-root-finder--page-0x39-confirmed">1. The equation Solver / <code>solve(</code> root finder — page 0x39 [confirmed]</a></h2>
+<h2 id="equation-solver-and-solve-root-finder-confirmed"><a class="header" href="#equation-solver-and-solve-root-finder-confirmed">Equation Solver and <code>solve(</code> root finder [confirmed]</a></h2>
 <p>The interactive <strong>Equation Solver</strong> app and the numeric <code>solve(</code> token share one
 root-finding engine living on flash page <code>0x39</code>. (The Solver app’s UI — the
 <code>EQUATION SOLVER</code> / <code>eqn:0=</code> / <code>bound=</code> / <code>left-rt=</code> screen — is drawn from strings at
 <code>06:6ABB</code>, loaded by code at <code>06:6286</code>/<code>06:62EA</code>/<code>06:66F3</code>.)</p>
-<h3 id="11-the-function-value-evaluator-fx-confirmed"><a class="header" href="#11-the-function-value-evaluator-fx-confirmed">1.1 The function-value evaluator <code>f(x)</code> [confirmed]</a></h3>
+<h3 id="function-value-evaluator-fx-confirmed"><a class="header" href="#function-value-evaluator-fx-confirmed">Function-value evaluator <code>f(x)</code> [confirmed]</a></h3>
 <p>A callback, given the trial value in <code>OP1</code>, returns <code>f(x) = left − right</code>
 of the equation. Located around <code>39:468F</code>:</p>
 <ol>
@@ -248,7 +242,7 @@ singularities inside the bracket without aborting. [confirmed]</li>
 </ol>
 <p>The sign test <code>39:463A</code> reads <code>OP1.value.type</code> (<code>8478</code>) and <code>OP2.value.type</code> (<code>8483</code>), masks <code>0x80</code>
 and XORs them: Z = same sign, NZ = opposite sign — the bracket sign-change predicate. [confirmed]</p>
-<h3 id="12-the-iteration-loop-confirmed"><a class="header" href="#12-the-iteration-loop-confirmed">1.2 The iteration loop [confirmed]</a></h3>
+<h3 id="iteration-loop-confirmed"><a class="header" href="#iteration-loop-confirmed">Iteration loop [confirmed]</a></h3>
 <p>Setup (<code>39:43AD…4410</code>) evaluates <code>f</code> at the two user bounds, records their signs, and
 seeds the bracket. The main loop runs from <code>39:4413</code>:</p>
 <ul>
@@ -320,7 +314,7 @@ constants (<code>39:46EA</code>/<code>46E1</code>) all executed as the pseudocod
 <p><code>left-rt</code> shown on the Solver screen is the final residual <code>f(root)</code> (the
 <code>left-side − right-side</code> value the evaluator computed). [standard]</p>
 <hr>
-<h2 id="2-the-tvm-finance-solver--page-0x3a-confirmed"><a class="header" href="#2-the-tvm-finance-solver--page-0x3a-confirmed">2. The TVM finance solver — page 0x3A [confirmed]</a></h2>
+<h2 id="tvm-finance-solver-confirmed"><a class="header" href="#tvm-finance-solver-confirmed">TVM finance solver [confirmed]</a></h2>
 <p>The five-variable time-value-of-money solver (<code>N</code>, <code>I%</code>, <code>PV</code>, <code>PMT</code>, <code>FV</code>, plus
 <code>P/Y</code>, <code>C/Y</code>, and the PMT:END/BEGIN flag) lives on flash page <code>0x3A</code>. Each variable is a
 named system FP var; the routine loads them via small accessors:</p>
@@ -329,7 +323,7 @@ named system FP var; the routine loads them via small accessors:</p>
 (<code>(D?5B)</code> are the finance sysvar VAT slots). <code>(84D3)</code>=<code>iMathPtr1</code>, <code>(84D9)</code>=<code>iMathPtr4</code>,
 <code>(84AF)</code>=OP6, <code>(84D3)</code>/<code>(84D9)</code>/<code>(84D3)</code> hold the iteration state. [confirmed]</li>
 </ul>
-<h3 id="21-the-tvm-equation"><a class="header" href="#21-the-tvm-equation">2.1 The TVM equation</a></h3>
+<h3 id="tvm-equation"><a class="header" href="#tvm-equation">TVM equation</a></h3>
 <p>The solver evaluates the standard cash-flow identity (rate $i = \tfrac{I\%}{100}\big/\tfrac{C}{Y}$, with $S=0$ for
 END / $1$ for BEGIN):</p>
 <p>$$0 = PV + (1+iS)\,PMT\,\frac{1-(1+i)^{-N}}{i} + FV\,(1+i)^{-N}$$</p>
@@ -337,7 +331,7 @@ END / $1$ for BEGIN):</p>
 <code>_FPMult</code> (<code>238B</code>), <code>_FPDiv</code> (<code>2541</code>), <code>_FPAdd</code> (RST 30h), <code>_InvSub</code>/<code>_FPSub</code>
 (<code>227D</code>/<code>2297</code>) around <code>3A:70D6…7140</code>. The compound factor <code>(1+i)^N</code> is built with the
 power/exp helpers. [standard]</p>
-<h3 id="22-the-iteration-confirmed"><a class="header" href="#22-the-iteration-confirmed">2.2 The iteration [confirmed]</a></h3>
+<h3 id="iteration-confirmed"><a class="header" href="#iteration-confirmed">Iteration [confirmed]</a></h3>
 <p>Solving for <code>I%</code> (the only variable with no closed form) uses Newton’s method on the
 rate:</p>
 <ul>
@@ -348,7 +342,7 @@ the exponent of the correction against <code>CP 0x74</code> (<code>3A:71F4</code
 update is ≤ ~10⁻¹². The new estimate is written back via <code>(84D9)→(84D3)</code>
 (<code>3A:71F9…71FE</code>). [confirmed]</li>
 </ul>
-<h3 id="23-the-tvm-rate-loop-calls-_sinh-3a710b-confirmed"><a class="header" href="#23-the-tvm-rate-loop-calls-_sinh-3a710b-confirmed">2.3 The TVM rate loop calls <code>_SinH</code> (<code>3A:710B</code>) [confirmed]</a></h3>
+<h3 id="_sinh-call-in-the-tvm-rate-loop-confirmed"><a class="header" href="#_sinh-call-in-the-tvm-rate-loop-confirmed"><code>_SinH</code> call in the TVM rate loop [confirmed]</a></h3>
 <p>At <code>3A:710B</code> the TVM body contains <code>EF CF 40</code> = <code>RST 0x28; .dw 0x40CF</code>, and the bcall
 table maps <code>0x40CF</code> to <code>_SinH</code> (<code>_SinHCosH</code>=<code>0x40C6</code>, <code>_SinH</code>=<code>0x40CF</code>, <code>_ASinH</code>=<code>0x40ED</code>
 are three consecutive distinct entries). A scan of the whole loop body (<code>3A:70A0…7210</code>) finds
@@ -370,20 +364,20 @@ function tokens (<code>tFinNPV 0x00</code>, <code>tFinIRR 0x01</code>, <code>tFi
 <code>tFinPMTbeg 0x4C</code>; all 0xEF-prefixed 2-byte tokens) are dispatched into this page.
 <code>IRR(</code> internally uses the same rate-Newton iteration and can also raise ITERATIONS. [hypothesis]</p>
 <hr>
-<h2 id="3-nderiv-and-fnint--page-0x33-numeric-calculus-hypothesis"><a class="header" href="#3-nderiv-and-fnint--page-0x33-numeric-calculus-hypothesis">3. nDeriv( and fnInt( — page 0x33 numeric calculus [hypothesis]</a></h2>
+<h2 id="nderiv-and-fnint-numeric-calculus-hypothesis"><a class="header" href="#nderiv-and-fnint-numeric-calculus-hypothesis"><code>nDeriv(</code> and <code>fnInt(</code> numeric calculus [hypothesis]</a></h2>
 <p>The numeric-calculus engine is on flash page <code>0x33</code> (the graph-math page — appropriate,
 since both operate on a Y= expression). The function tokens are 0xBB-prefixed:
 <code>tRoot 0x22</code> (the <code>solve(</code>-style root token), <code>tFnInt 0x24</code> (fnInt), and
 <code>tNDeriv 0x25</code> (nDeriv). They are recognised by the 0xBB-group scanners
 (<code>33:504E CP 0xBB</code>, also <code>38:4E3F</code>).</p>
-<h3 id="31-nderiv--symmetric-difference-quotient-standard"><a class="header" href="#31-nderiv--symmetric-difference-quotient-standard">3.1 nDeriv( — symmetric difference quotient [standard]</a></h3>
+<h3 id="nderiv-symmetric-difference-quotient-standard"><a class="header" href="#nderiv-symmetric-difference-quotient-standard"><code>nDeriv(</code> symmetric difference quotient [standard]</a></h3>
 <p><code>nDeriv(expr, var, value [,ε])</code> computes the centered difference
 <code>(f(x+ε) − f(x−ε)) / (2ε)</code> with default <code>ε = 1e-3</code>. The setup region <code>33:4C80…4D00</code>
 stores/restores the variable, evaluates <code>f</code> at <code>x±ε</code>, and divides by <code>2ε</code> using
 <code>_FPSub</code>/<code>_FPDiv</code> (<code>2297</code>/<code>2541</code>) and <code>_TimesPt5</code>. The <code>(97E7)</code>/<code>(97E9)</code> counters at
 <code>33:4C80</code>/<code>33:4CB4</code> track the two/three sub-evaluations. The finite-difference
 and variable save/restore flow is [confirmed]. The default <code>ε</code> is [standard].</p>
-<h3 id="32-fnint--adaptive-numeric-integration-confirmed"><a class="header" href="#32-fnint--adaptive-numeric-integration-confirmed">3.2 fnInt( — adaptive numeric integration [confirmed]</a></h3>
+<h3 id="fnint-adaptive-numeric-integration-confirmed"><a class="header" href="#fnint-adaptive-numeric-integration-confirmed"><code>fnInt(</code> adaptive numeric integration [confirmed]</a></h3>
 <p><code>fnInt(expr, var, a, b [,tol])</code> is an adaptive iterative quadrature. The body is the
 Ghidra function <code>fnint_body</code> at <code>33:4D00</code> (extent <code>33:4D00…4E91</code>):</p>
 <ul>
@@ -420,9 +414,9 @@ with recursive interval bisection (Simpson-class), not Gauss–Kronrod.
 quadrature node table exists.</p>
 <p>Both nDeriv( and fnInt( evaluate the user’s <code>f</code> by storing the running argument into the
 integration/derivative variable and re-running the parser, exactly like the Solver’s
-<code>f(x)</code> callback in §1.1 — the same “store var → parse_eval → read OP1” loop. [standard]</p>
+<a href="#function-value-evaluator-fx-confirmed"><code>f(x)</code> callback</a> — the same “store var → parse_eval → read OP1” loop. [standard]</p>
 <hr>
-<h2 id="4-how-the-unknown-is-varied--the-parser-feedback-loop-standard"><a class="header" href="#4-how-the-unknown-is-varied--the-parser-feedback-loop-standard">4. How the unknown is varied — the parser feedback loop [standard]</a></h2>
+<h2 id="parser-feedback-loop-standard"><a class="header" href="#parser-feedback-loop-standard">Parser feedback loop [standard]</a></h2>
 <p>Every routine above shares this inner cycle, which is the whole reason they are slow:</p>
 <ol>
 <li>Place the trial value in <code>OP1</code> (<code>_Mov9ToOP1</code> / arithmetic result).</li>
@@ -435,12 +429,12 @@ stored token stream</em> each pass.</li>
 <li>Read the numeric result back from <code>OP1</code>, form the residual / difference, decide the next
 step. The error handler at <code>39:46C7</code>, its <code>(IY+7).2</code> state bit, and the
 <code>_FixTempCnt</code> cleanup catch a DOMAIN/NONREAL error at one sample. The solver
-treats that point as undefined instead of aborting (§1.1).</li>
+treats that point as undefined instead of aborting, as described under <a href="#function-value-evaluator-fx-confirmed">Function-value evaluator</a>.</li>
 </ol>
 <p>Because the expression is re-tokenised and re-evaluated on <em>every</em> iteration, a <code>solve(</code>
 with a 499-iteration cap can parse the equation up to ~499 times, and a <code>fnInt</code> over a fine
 adaptive partition can parse it thousands of times — the dominant cost.</p>
-<h3 id="41-how-tfninttnderivtroot-reach-the-page-0x33-bodies-confirmed"><a class="header" href="#41-how-tfninttnderivtroot-reach-the-page-0x33-bodies-confirmed">4.1 How <code>tFnInt</code>/<code>tNDeriv</code>/<code>tRoot</code> reach the page-0x33 bodies [confirmed]</a></h3>
+<h3 id="parser-routing-for-tfnint-tnderiv-and-troot-confirmed"><a class="header" href="#parser-routing-for-tfnint-tnderiv-and-troot-confirmed">Parser routing for <code>tFnInt</code>, <code>tNDeriv</code>, and <code>tRoot</code> [confirmed]</a></h3>
 <p>These three are 2-byte tokens with the <code>t2ByteTok = 0xBB</code> lead byte (ti83plus.inc:
 <code>tRoot = 0x22</code>, <code>tFnInt = 0x24</code>, <code>tNDeriv = 0x25</code>), so in the token stream they appear as
 <code>BB 22</code> / <code>BB 24</code> / <code>BB 25</code>. The routing is a generic paged command call, not an inline
@@ -462,7 +456,7 @@ in the Ghidra database — the mark of a generic paged call rather than an inlin
 [confirmed]</li>
 </ol>
 <hr>
-<h2 id="5-routine-index-spaceaddr--name-confirmed"><a class="header" href="#5-routine-index-spaceaddr--name-confirmed">5. Routine index (<code>space:addr  name</code>) [confirmed]</a></h2>
+<h2 id="routine-index-confirmed"><a class="header" href="#routine-index-confirmed">Routine index [confirmed]</a></h2>
 <p>Equation Solver / <code>solve(</code> (page 0x39):</p>
 <pre><code class="language-text">39:43AD  solver_root_setup          (eval f at both bounds, seed bracket)
 39:4413  solver_iterate             (bisection+secant hybrid main loop)
@@ -515,21 +509,21 @@ ram:2793 _JError               07:6B81  error_name_table (indexed by code-0x88)
 Parser entries (page 0x38): <code>_ParseInp 5987</code>, <code>parse_eval_expr 5AB3</code>,
 <code>_Find_Parse_Formula 758A</code>.</p>
 <hr>
-<h2 id="6-findings"><a class="header" href="#6-findings">6. Findings</a></h2>
+<h2 id="resolved-behavior-and-remaining-questions"><a class="header" href="#resolved-behavior-and-remaining-questions">Resolved behavior and remaining questions</a></h2>
 <p>Summary of the four sub-results:</p>
 <ul>
-<li><strong>fnInt( quadrature rule (§3.2).</strong> Not Gauss–Kronrod. The body has no node or
+<li><strong><code>fnInt(</code> quadrature rule.</strong> Not Gauss–Kronrod. The <a href="#fnint-adaptive-numeric-integration-confirmed">body</a> has no node or
 weight table; its sole FP constant is <code>const_ln10x100</code>, used with bcall <code>_LnX</code>
 to convert digit-tolerance to a decimal error bound. With explicit ×0.5 interval bisection
 and a coarse-vs-fine estimate comparison, it is an adaptive Newton–Cotes / Simpson-class
 bisection integrator. <code>33:4D1B</code> is executable code (<code>LD A,0x60; CALL fp_set_digit</code>).</li>
-<li><strong>TVM <code>_SinH</code> (id 0x40CF) (§2.3).</strong> The TVM rate loop calls <code>_SinH</code> at
+<li><strong>TVM <code>_SinH</code> (id <code>0x40CF</code>).</strong> The <a href="#_sinh-call-in-the-tvm-rate-loop-confirmed">TVM rate loop</a> calls <code>_SinH</code> at
 <code>3A:710B</code> (<code>0x40C6/0x40CF/0x40ED</code> are three distinct hyperbolic bcalls); it evaluates the
 annuity / compound factor in hyperbolic form for numerical stability at small rates.</li>
-<li><strong>class-3 routing of <code>tFnInt</code>/<code>tNDeriv</code>/<code>tRoot</code> (§4.1).</strong> Path is
+<li><strong>Class-3 routing of <code>tFnInt</code>, <code>tNDeriv</code>, and <code>tRoot</code>.</strong> The <a href="#parser-routing-for-tfnint-tnderiv-and-troot-confirmed">parser route</a> is
 <code>BB-token → page-0x02 dispatcher (02:68F3/6904/58AD) → arg-parse + default-tol (02:6AF6, exp 0x7D = 1e-3) → paged call → page-0x33 bodies</code>, re-validated by <code>bb_token_scanner</code>
 (<code>33:504E</code>). The trampoline hides the static xref, confirming it is a generic paged call.</li>
-<li><strong>page-0 helper cluster (§5).</strong> Generic FPS slot save/restore (9-byte
+<li><strong>Page-0 helper cluster.</strong> The <a href="#routine-index-confirmed">routine index</a> identifies generic FPS slot save/restore (9-byte
 TIFloat slots at <code>-(9*slot)</code> from frame base <code>(9302)</code>) plus the active-frame swapper at
 <code>ram:2800</code>, renamed <code>fps_swap_active_frame</code>; the store/load stubs are
 <code>fp_st_slotN_opX</code> / <code>fp_ld_op1_slotN</code>.</li>
@@ -538,7 +532,7 @@ TIFloat slots at <code>-(9*slot)</code> from frame base <code>(9302)</code>) plu
 <ul>
 <li>The exact byte layout of the For/While/Repeat loop-control record pushed by the
 page-33 control-flow handlers (<code>ctrlflow_handler_table</code>) is not yet field-mapped; only the
-dispatch path is confirmed. (See <a href="sub-tibasic.html">sub-tibasic.md</a> §4.)</li>
+dispatch path is confirmed. See the <a href="sub-tibasic.html#the-execution-pipeline">TI-BASIC execution pipeline</a>.</li>
 <li>bcall <code>0x462A</code> in the TVM body is unmapped (adjacent to <code>_AdrLEle</code>; likely a finance-sysvar
 list/element accessor).</li>
 </ul>

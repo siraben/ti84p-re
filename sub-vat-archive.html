@@ -3,12 +3,12 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Variables, archive &amp; unarchive - TI-84 Plus OS — Reverse Engineering</title>
+        <title>Variables, archive and unarchive - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
+            window.path_to_searchindex_js = "searchindex-38eea4f6.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-e4551b79.js"></script>
+        <script src="toc-c9603d63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -179,16 +179,14 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="variables-archive--unarchive"><a class="header" href="#variables-archive--unarchive">Variables, archive &amp; unarchive</a></h1>
-<p>Companion to <a href="variables-vat.html">variables-vat.md</a> and <a href="memory-management.html">memory-management.md</a>, covering what a
-program that manages memory touches: the VAT walk (<code>_FindSym</code>), variable Store/Recall, and the
-Archive / UnArchive path (RAM ↔ Flash), the Flash garbage collector, and the memory checks.</p>
-<p>Every address here is read from the raw Z80 disassembly rather than the decompiler alone, which
-mis-renders the <code>SET b,(IY+d)</code> flag ops and
-the cross-page <code>CALL 0x2b09</code>-style trampolines. Page numbers are the masked flash page
-(<code>rawpage &amp; 0x3F</code>); cross-page trampolines store <code>lo hi rawpage</code> in the 3 bytes after the <code>CALL</code>.</p>
-<hr>
-<h2 id="1-the-arcinfo-workspace-and-key-ram-pointers-confirmed"><a class="header" href="#1-the-arcinfo-workspace-and-key-ram-pointers-confirmed">1. The <code>arcInfo</code> workspace and key RAM pointers [confirmed]</a></h2>
+                        <h1 id="variables-archive-and-unarchive"><a class="header" href="#variables-archive-and-unarchive">Variables, archive, and unarchive</a></h1>
+<p>The variable-management paths scan the VAT, store and recall values, move
+objects between RAM and the Flash archive, and collect unused Flash records.
+<a href="variables-vat.html">Variables and the VAT</a> defines the object formats; <a href="memory-management.html">Memory
+management</a> provides the heap and archive overview.</p>
+<p>Raw disassembly supplies the indexed-bit operations and cross-page trampolines
+that the decompiler can mis-render.</p>
+<h2 id="arcinfo-workspace-and-ram-pointers-confirmed"><a class="header" href="#arcinfo-workspace-and-ram-pointers-confirmed"><code>arcInfo</code> workspace and RAM pointers [confirmed]</a></h2>
 <p>The archive engine keeps a confirmed 15-byte workspace prefix at <code>arcInfo</code>
 (<code>0x83EE</code>). The prefix contains seven named fields followed by two bytes whose
 meaning remains open:</p>
@@ -236,7 +234,7 @@ pointer from the last lookup (<code>_Arc_Unarc</code> does <code>LD (981C),HL</c
 <code>ti83plus.inc</code>, not <code>tSymPtr1</code> (which is <code>9818h</code>). <code>ramCode=8100h</code> is where Flash
 read/write routines are copied to run (you cannot execute from a Flash page while erasing it).</p>
 <hr>
-<h2 id="2-_findsym-and-the-vat-walk-confirmed"><a class="header" href="#2-_findsym-and-the-vat-walk-confirmed">2. <code>_FindSym</code> and the VAT walk [confirmed]</a></h2>
+<h2 id="_findsym-and-vat-traversal-confirmed"><a class="header" href="#_findsym-and-vat-traversal-confirmed"><code>_FindSym</code> and VAT traversal [confirmed]</a></h2>
 <p><code>_FindSym</code> (<code>00:0E65</code>, = <code>RST 10h</code>) is a page-0 trampoline that cross-page-jumps to the real scanner
 <code>findsym_scan</code> @ <code>07:565F</code>. <code>_ChkFindSym</code> (<code>00:0E60</code>) first type-checks OP1 (<code>_CkOP1Real</code>)
 then falls into FindSym.</p>
@@ -267,7 +265,7 @@ whose data lives on a Flash page.</p>
 <p>For an archived entry the data address (<code>addrLSB/MSB</code>) points into the Flash window and the
 page byte selects the Flash page; the VAT record itself always stays in RAM.</p>
 <hr>
-<h2 id="3-store--recall-standard"><a class="header" href="#3-store--recall-standard">3. Store / Recall [standard]</a></h2>
+<h2 id="store-and-recall-standard"><a class="header" href="#store-and-recall-standard">Store and recall [standard]</a></h2>
 <p><strong>Store</strong> <code>_StoOther</code> (<code>38:62A9</code>) and siblings (<code>_StoAns</code>, <code>_StoX</code>, <code>_StoY</code>, … <code>38:6251-62A3</code>):</p>
 <ul>
 <li>Set OP1 type = 0xFF placeholder (<code>62A9: LD A,FF / LD (8478),A</code>), parse the destination name.</li>
@@ -275,7 +273,7 @@ page byte selects the Flash page; the VAT record itself always stays in RAM.</p>
 destination name token (<code>849B</code>): list-element store (<code>0x2A</code> → bounds-checks via <code>_ErrDimension</code>),
 matrix element, etc. Ultimately a <code>_Create*</code> routine carves RAM with <code>_InsertMem</code> and the data is copied.</li>
 <li>A store into an archived var is not done in place; the OS unarchives first (you cannot rewrite
-Flash in place) — see the <code>_Arc_Unarc</code> direction logic in §4. [hypothesis]</li>
+Flash in place); see the <a href="#archive-and-unarchive-confirmed"><code>_Arc_Unarc</code> direction logic</a>. [hypothesis]</li>
 </ul>
 <p><strong>Recall</strong> <code>_RclVarSym</code> (<code>38:67B1</code>) and <code>rcl_var_push</code> (<code>3A:5D07</code>):</p>
 <ul>
@@ -287,10 +285,10 @@ list/cplx-list read the <code>word count</code> header, matrix uses cols×rows, 
 (<code>0x15</code> AppVar, <code>0x16</code>, <code>0x17</code> Group) read the leading <code>word size</code>.</li>
 <li>The recall code does not care whether the source is RAM or Flash for <em>reading</em> — Flash is
 memory-mapped read-only into the 0x4000 window. To <em>use</em> an archived program/var that must be
-modified or executed in RAM, the OS first copies it via <code>_FlashToRam</code> (§5). [standard]</li>
+modified or executed in RAM, the OS first copies it via <a href="#reading-archived-data-with-_flashtoram-confirmed"><code>_FlashToRam</code></a>. [standard]</li>
 </ul>
 <hr>
-<h2 id="4-archive--unarchive--_arc_unarc-076248-confirmed"><a class="header" href="#4-archive--unarchive--_arc_unarc-076248-confirmed">4. Archive / unarchive — <code>_Arc_Unarc</code> (<code>07:6248</code>) [confirmed]</a></h2>
+<h2 id="archive-and-unarchive-confirmed"><a class="header" href="#archive-and-unarchive-confirmed">Archive and unarchive [confirmed]</a></h2>
 <p><code>bcall(_Arc_Unarc)</code>, OP1 = the variable name. It toggles the var between RAM and
 the Flash archive (the same entry point does both directions, deciding from the current state).</p>
 <pre><code class="language-z80">_Arc_Unarc (07:6248):
@@ -315,11 +313,11 @@ validators for the catalog archive command.)</p>
 <p>Direction note: the <code>B</code>-page test sends an <em>in-RAM</em> var (<code>B==0</code>) to <code>6107</code> (archive) and an
 <em>in-Flash</em> var (<code>B≠0</code>) to <code>61F4</code> (unarchive). <code>6107</code> is the one that programs Flash and frees the
 RAM copy; <code>61F4</code> is the one that carves RAM and copies the data back out of Flash.</p>
-<h3 id="4a-ram--flash-archive-6107-confirmed"><a class="header" href="#4a-ram--flash-archive-6107-confirmed">4a. RAM → Flash (archive), <code>6107</code> [confirmed]</a></h3>
+<h3 id="ram-to-flash-archive-path-confirmed"><a class="header" href="#ram-to-flash-archive-path-confirmed">RAM-to-Flash archive path [confirmed]</a></h3>
 <pre><code class="language-z80">6107:  CALL 7866 ; DI
        CALL 614B                       ; arcInfo.vat_ptr and arcInfo.size
                                        ;   616C reserves the archive-Flash slot
-       CALL 2FF1 (cross_page 3D:64AA)  ; *** program the data into the archive Flash ***  (see §6)
+       CALL 2FF1 (cross_page 3D:64AA)  ; program the data into archive Flash
        LD HL,(83F3) ; LD DE,(83F7) ; CALL _DelMem (1368)  ; release the old RAM copy
        RET
 616C:  reads vatPtr type, AND 0x1F (clean type for the record header),
@@ -329,7 +327,7 @@ RAM copy; <code>61F4</code> is the one that carves RAM and copies the data back 
 <p>The data is appended to the archive Flash (Flash cannot be overwritten in place). The VAT entry’s
 type byte gets its archive flag set and its data ptr/page rewritten to point into Flash; the old RAM
 copy is then released (the upward data heap shrinks). <code>archive_write_record</code> at <code>3D:64AA</code> lays down a fresh archived record plus a copy of the symbol header, name, and data. The status markers are <code>0xFE</code> for in progress, <code>0xFC</code> for valid, <code>0xF0</code> for deleted, and <code>0xFF</code> for erased space. The successful archive trace executes the complete body and its six boot-page writes. [confirmed] <code>_Chk_Batt_Low</code> (<code>00:0D07</code>) gates the Flash write — archiving aborts on low battery (<code>07:61C5: CALL _Chk_Batt_Low</code>).</p>
-<h3 id="4b-flash--ram-unarchive-61f4-confirmed"><a class="header" href="#4b-flash--ram-unarchive-61f4-confirmed">4b. Flash → RAM (unarchive), <code>61F4</code> [confirmed]</a></h3>
+<h3 id="flash-to-ram-unarchive-path-confirmed"><a class="header" href="#flash-to-ram-unarchive-path-confirmed">Flash-to-RAM unarchive path [confirmed]</a></h3>
 <pre><code class="language-z80">61F4:  LD (83EF),DE ; LD (83EE),A      ; arcInfo.data_ptr/page = source
        CALL 6335                       ; set arcInfo.vat_ptr and arcInfo.data_size
        CALL 32D3                       ; size accounting
@@ -346,7 +344,7 @@ cleared and its data ptr/page rewritten back to the new RAM address; the old Fla
 marked dead (<code>0xF0</code>, reclaimed at the next GC). <code>unarchive_record_to_ram</code>
 at <code>3D:6440</code> shares the page-3D flash-control prologue
 (<code>OUT (0x14)</code>) and is an inferred label, not byte-confirmed in the disassembly.</p>
-<h3 id="4c-errors-raised-on-the-path-confirmed"><a class="header" href="#4c-errors-raised-on-the-path-confirmed">4c. Errors raised on the path [confirmed]</a></h3>
+<h3 id="errors-confirmed"><a class="header" href="#errors-confirmed">Errors [confirmed]</a></h3>
 <ul>
 <li><code>2785: LD A,0x31</code> → <code>_JError</code> = <code>E_ArchFull</code> (0x31) “ERR:ARCHIVE FULL” (no room even after GC).</li>
 <li><code>2729</code>/<code>272D</code>/<code>2731</code>: <code>LD A,0x8F</code>/<code>0x90</code>/<code>0x91</code> → E_Invalid / E_IllegalNest / E_Bound. The archive size check (<code>616C</code>) takes the <code>2729</code> (E_Invalid, <code>0x8F</code>) entry on overflow.</li>
@@ -354,7 +352,7 @@ at <code>3D:6440</code> shares the page-3D flash-control prologue
 <li>Error-name strings live at <code>07:6CA9</code>: <code>ARCHIVED, VERSION, ARCHIVE FULL, VARIABLE, DUPLICATE</code>.</li>
 </ul>
 <hr>
-<h2 id="5-reading-archived-data--_flashtoram-3d6745-confirmed"><a class="header" href="#5-reading-archived-data--_flashtoram-3d6745-confirmed">5. Reading archived data — <code>_FlashToRam</code> (<code>3D:6745</code>) [confirmed]</a></h2>
+<h2 id="reading-archived-data-with-_flashtoram-confirmed"><a class="header" href="#reading-archived-data-with-_flashtoram-confirmed">Reading archived data with <code>_FlashToRam</code> [confirmed]</a></h2>
 <p><code>bcall(_FlashToRam)</code> (id 0x5017 → real body <code>3D:6745</code>). Copies <code>BC</code> bytes from a Flash page:addr to
 a RAM destination, transparently advancing the Flash page when the read crosses the <code>0x8000</code>
 window boundary:</p>
@@ -369,7 +367,7 @@ the copier (6761..678A):
 an archived program/appvar is pulled back into RAM to be executed or edited. <code>ti83plus.inc</code> also
 names a sibling <code>_FlashToRam2</code> (id 8054); the retail boot table maps it to <code>3F:4888</code>.</p>
 <hr>
-<h2 id="6-archive-record-allocation-and-programming-confirmed"><a class="header" href="#6-archive-record-allocation-and-programming-confirmed">6. Archive record allocation and programming [confirmed]</a></h2>
+<h2 id="archive-record-allocation-and-programming-confirmed"><a class="header" href="#archive-record-allocation-and-programming-confirmed">Archive record allocation and programming [confirmed]</a></h2>
 <p>The archive manager chooses a free record and then calls the boot-page Flash API. <a href="flash-memory.html">Flash memory</a> reconstructs port <code>0x14</code>, <code>_WriteFlash</code>, <code>_WriteFlashUnsafe</code>, <code>_WriteAByte</code>, erase sectors, DQ polling, and the RAM workers. This section covers the archive-specific layer above that API.</p>
 <div class="table-wrapper">
 <table>
@@ -387,7 +385,7 @@ names a sibling <code>_FlashToRam2</code> (id 8054); the retail boot table maps 
 <p><code>archive_write_record</code> unlocks Flash with the protected port-<code>0x14</code> sequence. It writes an initial <code>0xF0</code> marker when the selected position requires one, starts the record with <code>0xFE</code>, writes the size and variable metadata, copies the data, and finalizes the status as <code>0xFC</code>. It uses <code>_WriteAByte</code> (<code>8021</code>, body <code>3F:4C9F</code>) for marker bytes and <code>_WriteFlashUnsafe</code> (<code>8087</code>, body <code>3F:4CA6</code>) for blocks. [confirmed]</p>
 <p>The bounds checks at <code>3D:6B6D</code> and <code>3D:6B9B</code> reject pages below <code>08</code> and pages at or above the dynamic App boundary from <code>3D:6413</code>. Both require the Flash destination to be at least <code>0x4000</code>; the block form at <code>3D:6B6D</code> also requires <code>HL &gt;= 0x4000</code>. Carry reports rejection to the caller, which raises <code>E_ArchFull</code>. [confirmed]</p>
 <p>A generated 17,000-byte program makes the record data span pages. The traced record writer passes its 17,002-byte <code>[size][body]</code> field to one <code>_WriteFlashUnsafe</code> invocation, which programs physical <code>0x20013</code> through <code>0x2427C</code> continuously across <code>08:7FFF</code> to <code>09:4000</code>. The copied worker increments port <code>0x06</code> from <code>0x08</code> to <code>0x09</code>, resets <code>DE</code> to <code>0x4000</code>, and finishes with its <code>0xF0</code> reset at the final target. This is direct TilEm evidence for the ordinary archive page-crossing path, not a physical-calculator measurement. [confirmed]</p>
-<h3 id="6a-record-status-byte--the-one-way-bit-clearing-scheme-confirmed"><a class="header" href="#6a-record-status-byte--the-one-way-bit-clearing-scheme-confirmed">6a. Record-status byte — the one-way bit-clearing scheme [confirmed]</a></h3>
+<h3 id="record-status-byte-confirmed"><a class="header" href="#record-status-byte-confirmed">Record-status byte [confirmed]</a></h3>
 <p>The status byte is a classic AMD/Am29F <em>monotonic bit-clear</em> marker: erased Flash is all-ones
 (<code>0xFF</code>), and the OS advances a record’s state by <em>clearing</em> bits (program can only flip <code>1→0</code>; only
 a sector erase restores <code>1</code>s). The writers are three tiny routines on page 0x3D that load an AND-mask
@@ -406,13 +404,13 @@ into <code>C</code> and then read-modify-write the status byte (<code>3D:7C9A: C
 </div>
 <p>Successive clears compose: the three helpers take a record <code>0xFF</code> (erased) → <code>0xFE</code> (started) →
 <code>0xFC</code> (valid/complete, bits 0+1 clear). Deletion marks the record <code>0xF0</code> (deleted/dead, bits
-0–3 clear) with a direct write in the delete/GC path (§7), not via those three in-progress/valid
+0–3 clear) with a direct write in the <a href="#flash-garbage-collector-confirmed">delete and garbage-collection path</a>, not via those three in-progress/valid
 helpers. Because only bits go <code>1→0</code>, a deleted record
 can never be re-validated in place — it is reclaimed only by GC erasing the whole sector.
 <code>flash_find_nonff</code> (<code>3D:7DEA</code>) confirms <code>0xFF</code> = empty: it reads the 13-byte record header and <code>CP 0xFF</code>
 on each, treating an all-<code>0xFF</code> run as a free slot. (<code>3D:7C99</code> additionally folds in <code>AND 0xE7</code> and
 conditional <code>OR 0x10</code>/<code>OR 0x08</code> for the swap/relocate state bits driven by <code>(IY+0x1A).0</code> and <code>(IY+0).2</code>.)</p>
-<h3 id="6b-dynamic-archive-and-app-boundary-confirmed"><a class="header" href="#6b-dynamic-archive-and-app-boundary-confirmed">6b. Dynamic archive and App boundary [confirmed]</a></h3>
+<h3 id="dynamic-archive-and-application-boundary-confirmed"><a class="header" href="#dynamic-archive-and-application-boundary-confirmed">Dynamic archive and application boundary [confirmed]</a></h3>
 <p>The archive begins at page <code>08</code>. <code>archive_app_boundary</code> (<code>3D:6413</code>) computes its exclusive upper bound by starting at the model-specific top App page from <code>3D:726E</code>, validating each installed App header, obtaining its span from <code>_FindAppNumPages</code> (<code>3D:4AA3</code>), and subtracting that span until it reaches the first page below the installed App run. [confirmed]</p>
 <div class="table-wrapper">
 <table>
@@ -429,11 +427,11 @@ conditional <code>OR 0x10</code>/<code>OR 0x08</code> for the swap/relocate stat
 <p>The second column is the App scan start, not an archive base. The third column selects the certificate page, not an archive endpoint. <code>archive_find_free_span</code> stores the computed boundary, starts at page <code>08</code>, and scans upward. On the OS-only TI-84 Plus image, the boundary is <code>0x29</code>; the successful <code>Archive prgmA</code> trace selects <code>08:4000</code>. Installed Apps consume pages downward from the upper end and reduce the archive interval. [confirmed]</p>
 <p>The ASIC pages Flash in 16 KiB units, but the chip erases ordinary sectors in 64 KiB units. Page <code>3E</code> contains two 8 KiB certificate sectors, and page <code>3F</code> is a 16 KiB boot sector. See <a href="flash-memory.html#sector-geometry">Sector geometry</a>. [standard]</p>
 <hr>
-<h2 id="7-flash-garbage-collector-confirmed"><a class="header" href="#7-flash-garbage-collector-confirmed">7. Flash garbage collector [confirmed]</a></h2>
+<h2 id="flash-garbage-collector-confirmed"><a class="header" href="#flash-garbage-collector-confirmed">Flash garbage collector [confirmed]</a></h2>
 <p>The archive garbage collector compacts records in 64 KiB sector units. It also journals its phase
 in the inactive half of page <code>3E</code>, so startup code can distinguish an interrupted collection from a
 normal archive layout. This mechanism is separate from <code>_CleanAll</code>, which only compacts RAM.</p>
-<h3 id="7a-command-and-normal-collector-entries"><a class="header" href="#7a-command-and-normal-collector-entries">7a. Command and normal collector entries</a></h3>
+<h3 id="collector-entries"><a class="header" href="#collector-entries">Collector entries</a></h3>
 <p><code>gc_command</code> at <code>3C:71F8</code> displays the two-line banner, runs a recovery preflight, and calls the
 normal collector: [confirmed]</p>
 <pre><code class="language-z80">3C:71F8  di
@@ -450,7 +448,7 @@ and <code>01:412E</code> (<code>"Collecting..."</code>). The related path at <co
 <code>GarbageCollect</code> prompt, and reaches <code>3C:71F8</code>, <code>3C:7219</code>, <code>3C:7733</code>, and <code>3C:7CFB</code> once each. The
 preflight branch at <code>3C:7232</code> sees carry set and returns through <code>3C:7246</code>; it does not enter the
 recovery dispatcher during this normal run. [confirmed]</p>
-<h3 id="7b-four-page-archive-sectors"><a class="header" href="#7b-four-page-archive-sectors">7b. Four-page archive sectors</a></h3>
+<h3 id="four-page-archive-sectors"><a class="header" href="#four-page-archive-sectors">Four-page archive sectors</a></h3>
 <p><code>3C:749C</code> groups the current archive page into one physical 64 KiB sector: [confirmed]</p>
 <pre><code class="language-z80">ld a,(8435h)
 or 03h
@@ -468,7 +466,7 @@ a separate structure. In the observed collection, <code>0xFE</code> identifies t
 <code>0xFC</code> and <code>0xF8</code> are copy-progress states, and <code>0xF0</code> identifies the committed sector containing
 the compacted records. Record bytes one or more bytes after the sector header independently use
 <code>0xFE</code>, <code>0xFC</code>, <code>0xF8</code>, and <code>0xF0</code>. [confirmed]</p>
-<h3 id="7c-observed-sector-copy-sequence"><a class="header" href="#7c-observed-sector-copy-sequence">7c. Observed sector-copy sequence</a></h3>
+<h3 id="observed-sector-copy-sequence"><a class="header" href="#observed-sector-copy-sequence">Observed sector-copy sequence</a></h3>
 <p><code>archive_gc_collect</code> at <code>3C:7733</code> executes the protected port-<code>0x14</code> unlock sequence. It checks the
 archive sectors, adjusts the Flash execution bound, prepares a destination sector, initializes the
 certificate journal, runs <code>gc_run_phase_machine</code> at <code>3C:7CFB</code>, restores the Flash bound with
@@ -501,7 +499,7 @@ VAT location while moving the record. [confirmed]</p>
 <p>The final layout therefore contains an empty <code>0xFE</code> scratch sector at page <code>08</code> and a committed
 <code>0xF0</code> sector at page <code>0C</code>. The live <code>B</code> record remains <code>0xFC</code> at <code>0C:4001</code>. The <code>0xF0</code> byte at
 <code>0C:4000</code> is a sector header, not a deletion marker for the record that follows it. [confirmed]</p>
-<h3 id="7d-certificate-sector-journal"><a class="header" href="#7d-certificate-sector-journal">7d. Certificate-sector journal</a></h3>
+<h3 id="certificate-sector-journal"><a class="header" href="#certificate-sector-journal">Certificate-sector journal</a></h3>
 <p>The collector uses the two 8 KiB halves of page <code>3E</code> transactionally. <code>_GetCertificateStart</code>
 (<code>8057</code>) selects the active half. <code>3D:48E3</code> toggles <code>H</code> with <code>0x20</code>, and
 <code>_EraseCertificateSector</code> (<code>8060</code>) erases the inactive half before the page-3D certificate rewrite
@@ -608,7 +606,7 @@ python tools/analyze_gc_journal.py \
 <p><code>gc_check_interrupted</code> begins at <code>3C:7BC7</code>. The fixture’s startup check reads
 an erased status and skips the branch to <code>3C:7BDD</code> and <code>3C:7C1F</code>.
 [confirmed]</p>
-<h3 id="7e-tilem-restart-at-six-journal-boundaries"><a class="header" href="#7e-tilem-restart-at-six-journal-boundaries">7e. TilEm restart at six journal boundaries</a></h3>
+<h3 id="tilem-restart-at-six-journal-boundaries"><a class="header" href="#tilem-restart-at-six-journal-boundaries">TilEm restart at six journal boundaries</a></h3>
 <p>The <code>GCFLASH</code> command trace can produce interrupted Flash images without
 guessing archive contents. <code>tools/flash_replay.py</code> applies decoded byte-program
 commands as <code>old &amp; requested</code> and applies sector erases with the top-boot
@@ -719,7 +717,7 @@ not at the first trace endpoint. [confirmed] for TilEm.</p>
 <p>TilEm and Wabbitemu exercise all six phase boundaries after successful command
 boundaries. Cuts during busy commands and physical power loss remain untested.
 [confirmed] for the emulator runs; [hypothesis] for the remaining cases.</p>
-<h3 id="7f-wabbitemu-restart-at-six-journal-boundaries"><a class="header" href="#7f-wabbitemu-restart-at-six-journal-boundaries">7f. Wabbitemu restart at six journal boundaries</a></h3>
+<h3 id="wabbitemu-restart-at-six-journal-boundaries"><a class="header" href="#wabbitemu-restart-at-six-journal-boundaries">Wabbitemu restart at six journal boundaries</a></h3>
 <p>A Linux headless adapter now runs the pinned Wabbitemu commit <code>48c2dc0</code> without
 its Windows interface. The acquisition procedure verifies the codeload archive
 hash; the builder then verifies a path-and-content hash over all 334 extracted
@@ -772,7 +770,7 @@ CLIs are documented in <code>tools/dynamic-tracing.md</code>. Their JSON reports
 typed gate writes and transitions, retail-bcall and copied-worker coverage,
 input and output hashes, exact dispatcher visits, instruction and t-state
 counts, changed-byte counts, wake completion, and Flash-settling status.</p>
-<h3 id="7g-reproducing-the-command-timeline"><a class="header" href="#7g-reproducing-the-command-timeline">7g. Reproducing the command timeline</a></h3>
+<h3 id="reproducing-the-command-timeline"><a class="header" href="#reproducing-the-command-timeline">Reproducing the command timeline</a></h3>
 <p><code>tools/flash_trace.py</code> is the importable AMD-command decoder. The CLI resolves mapping changes,
 decodes command sequences, and compacts adjacent program operations: [confirmed]</p>
 <pre><code class="language-sh">python tools/analyze_flash_trace.py \
@@ -790,7 +788,7 @@ python tools/analyze_trace_points.py \
 <code>01:76C9</code>. Automatic collection on archive exhaustion calls the same collector before retrying the
 archive operation at <code>3C:7F1C</code>. [confirmed]</p>
 <hr>
-<h2 id="8-memory-checks-confirmed"><a class="header" href="#8-memory-checks-confirmed">8. Memory checks [confirmed]</a></h2>
+<h2 id="memory-checks-confirmed"><a class="header" href="#memory-checks-confirmed">Memory checks [confirmed]</a></h2>
 <ul>
 <li><code>_MemChk</code> (<code>00:0E20</code>) — free RAM = <code>OPS(0x9828) − FPS(0x9824)</code>; returns 0 if the heap top
 has met the FP stack, else <code>count</code> (<code>INC HL</code> ⇒ off-by-one inclusive). <code>OPS</code> is the top of the
@@ -810,7 +808,7 @@ everything above; <code>_InsertMem</code> fails <code>E_Memory</code> if it woul
 page. The catalog <strong>MEM</strong> path runs through <code>3C:7121</code>. [confirmed]</li>
 </ul>
 <hr>
-<h2 id="9-confident-address-index"><a class="header" href="#9-confident-address-index">9. Confident address index</a></h2>
+<h2 id="routine-index"><a class="header" href="#routine-index">Routine index</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -867,7 +865,7 @@ page. The catalog <strong>MEM</strong> path runs through <code>3C:7121</code>. [
 “ARCHIVED/VERSION/ARCHIVE FULL/VARIABLE/DUPLICATE”, <code>01:76C9</code> “Garbage Collect?”.
 Ports: <code>0x06</code> = bank-A page select (Flash window), <code>0x14</code> = Flash write/erase control,
 <code>0x02</code> bit7 = Flash-size/model. RAM run-from-RAM stub: <code>ramCode = 0x8100</code>.</p>
-<h2 id="10-summary-and-open-items"><a class="header" href="#10-summary-and-open-items">10. Summary and open items</a></h2>
+<h2 id="resolved-behavior-and-open-items"><a class="header" href="#resolved-behavior-and-open-items">Resolved behavior and open items</a></h2>
 <ul>
 <li>
 <p><strong>Archive allocation.</strong> [confirmed] The allocator scans upward from page <code>08</code> to the exclusive App boundary from <code>3D:6413</code>. On the traced OS-only TI-84 Plus, that interval is pages <code>08</code>–<code>28</code>; the new record begins at <code>08:4000</code>.</p>
@@ -879,7 +877,7 @@ Ports: <code>0x06</code> = bank-A page select (Flash window), <code>0x14</code> 
 <p><strong>Erase granularity.</strong> [standard] Ordinary sectors are 64 KiB, not one 16 KiB paging unit. The top-boot geometry also has 32, 8, 8, and 16 KiB sectors at physical <code>0xF0000</code>–<code>0xFFFFF</code>.</p>
 </li>
 <li>
-<p><strong>Record-status bytes.</strong> [confirmed] See §6a. Monotonic bit-clear: <code>0xFF</code> erased → <code>0xFE</code> in-progress
+<p><strong>Record-status bytes.</strong> [confirmed] The <a href="#record-status-byte-confirmed">record-status byte</a> uses monotonic bit clearing: <code>0xFF</code> erased → <code>0xFE</code> in-progress
 → <code>0xFC</code> valid via <code>flash_op_fe/fd/fb</code> (<code>3D:7C97/7C8F/7C93</code>) AND-masking; <code>0xF0</code> deleted is a direct write in the delete/GC path
 the status byte; <code>flash_find_nonff</code> (<code>3D:7DEA</code>) treats an all-<code>0xFF</code> header as free.</p>
 </li>
@@ -895,7 +893,7 @@ through <code>61F4</code>, and groups are handled by a separate routine that wal
 That member-walk routine remains
 unidentified in the disassembly — <code>_Arc_Unarc</code>’s body past the entry <code>CALL</code> is not
 disassembled here (cross-page <code>CALL</code> flagged non-returning), and no group-archive function is
-named or xref-reachable. Confirming it would need a linear disassembly pass like the one behind §4.</p>
+named or xref-reachable. Confirming it would need a linear disassembly pass like the one used for <a href="#archive-and-unarchive-confirmed">archive and unarchive</a>.</p>
 </li>
 </ul>
 

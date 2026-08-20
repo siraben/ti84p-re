@@ -8,7 +8,7 @@
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
+            window.path_to_searchindex_js = "searchindex-38eea4f6.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-e4551b79.js"></script>
+        <script src="toc-c9603d63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -1192,7 +1192,7 @@ and App-restriction behavior:</p>
 <p><code>tools/gc_journal.py</code> decodes the <code>0x1DEA</code> recovery block, master phase
 dispatch, and archive-sector state indexing. Its CLI can correlate the static
 ROM paths with state-changing command writes in a TilEm trace. See
-<a href="sub-vat-archive.html#7d-certificate-sector-journal">Variables, archive &amp; unarchive</a>
+<a href="sub-vat-archive.html#certificate-sector-journal">Variables, archive and unarchive</a>
 for the field and phase tables. [confirmed]</p>
 <pre><code class="language-sh">python tools/analyze_gc_journal.py --json
 python tools/analyze_gc_journal.py --trace /tmp/tibasic-smoke/gcflash.trace
@@ -1759,7 +1759,7 @@ the physical top-boot geometry rather than issuing one erase per 16 KiB paging u
 <p>The collector uses page <code>0C</code> as the destination for the surviving <code>B</code> record, retires the old
 record at <code>08:4016</code>, erases the old page-<code>08</code> sector, and marks page <code>08</code> as the next empty scratch
 sector. It copies the used certificate tail between the two page-<code>3E</code> halves while persistent
-phase bytes advance. [confirmed] See <a href="sub-vat-archive.html#7-flash-garbage-collector-confirmed">Variables, archive &amp; unarchive</a>
+phase bytes advance. [confirmed] See <a href="sub-vat-archive.html#flash-garbage-collector-confirmed">Variables, archive and unarchive</a>
 for the record bytes, sector-header states, journal fields, and recovery dispatcher.</p>
 <p><code>tools/hardware_trace.py</code> exposes reusable resolved-instruction and resolved-memory-write
 iterators. <code>tools/flash_trace.py</code> decodes AMD commands and groups adjacent program runs. Their
@@ -1781,14 +1781,14 @@ branches. The <code>0xFF</code>, <code>0xFE</code>, <code>0xFC</code>, <code>0xF
 byte-for-byte with uninterrupted execution. The <code>0xF0</code> replay has identical
 archive bytes but completes certificate cleanup one boot earlier; cold-booting
 the uninterrupted result once produces the same stable image. See
-<a href="sub-vat-archive.html#7e-tilem-restart-at-six-journal-boundaries">Variables, archive &amp; unarchive</a>
+<a href="sub-vat-archive.html#tilem-restart-at-six-journal-boundaries">Variables, archive and unarchive</a>
 for the input and trace hashes, command counts, controlled-topology boundary,
 and deferred-cleanup result. [confirmed] for TilEm.</p>
 <p>Pinned Wabbitemu cold boots independently execute the same six dispatcher
 branches. Complete output images equal the corresponding TilEm recovery
 results. The record-authentic <code>0xF0</code> input is reconstructed from eight
 deterministic program records before the unmodified OS materializes its journal
-phase. See <a href="sub-vat-archive.html#7f-wabbitemu-restart-at-six-journal-boundaries">Variables, archive &amp; unarchive</a>
+phase. See <a href="sub-vat-archive.html#wabbitemu-restart-at-six-journal-boundaries">Variables, archive and unarchive</a>
 for input hashes, dispatcher visits, and changed-byte counts. [confirmed] for
 the emulator command-boundary runs.</p>
 <h3 id="reproduce-the-trace"><a class="header" href="#reproduce-the-trace">Reproduce the trace</a></h3>

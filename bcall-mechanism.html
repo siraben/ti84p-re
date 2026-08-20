@@ -8,7 +8,7 @@
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
+            window.path_to_searchindex_js = "searchindex-38eea4f6.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-e4551b79.js"></script>
+        <script src="toc-c9603d63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -236,7 +236,7 @@ payload; its BootFree guard otherwise leaves only diagnostic comments.
 <p>All six match the documented TI-83+/84+ RST assignments — strong cross-confirmation of the table resolution.</p>
 <h2 id="bjump--the-sibling-mechanism-os-internal-cross-page-calls"><a class="header" href="#bjump--the-sibling-mechanism-os-internal-cross-page-calls">bjump — the sibling mechanism (OS-internal cross-page calls)</a></h2>
 <p>Besides bcalls, the OS calls <em>its own</em> cross-page routines via <code>bjump</code>: <code>CALL cross_page_jump</code> (<code>= CALL ram:2B09</code>) followed inline by <code>.dw addr; .db page</code>. <code>cross_page_jump</code> reads the stacked return address (its caller’s, via an <code>SP</code>-relative load — it does not <code>POP</code> it), fetches the 2-byte target + 1-byte page from the inline descriptor there, rewrites the return frame past those 3 bytes, banks the page (<code>&amp; 0x3F</code>), and returns into the target. The target’s <code>RET</code> then returns to <em>the bjump’s caller</em>, so it behaves like a call that consumes the 3 inline bytes.</p>
-<p>There is a trampoline table in the page-0 address range <code>ram:3B01</code>–<code>ram:3D0A</code>: 87 packed 6-byte entries, each a bjump to a hot OS routine on another page (<code>ram:3D0B</code> already begins a separate <code>CALL ram:2B49</code> table). The static Ghidra DB models it in the page-0/ROM address space; whether the table is copied to RAM at runtime is a hypothesis, not MCP-confirmed. Code invokes a routine by <code>CALL ram:3Bxx</code> into the table. <code>tools/bjumps.txt</code> lists every entry’s <code>(offset → page:addr)</code>; <code>tools/RamRoutines.java</code> marks the inline <code>.dw/.db</code> as data and comments each target.</p>
+<p>There is a trampoline table in the page-0 address range <code>ram:3B01</code>–<code>ram:3D0A</code>: 87 packed 6-byte entries, each a bjump to a hot OS routine on another page (<code>ram:3D0B</code> already begins a separate <code>CALL ram:2B49</code> table). The static Ghidra database models it in the page-0/ROM address space; whether the table is copied to RAM at runtime remains a hypothesis. Code invokes a routine by <code>CALL ram:3Bxx</code> into the table. <code>tools/bjumps.txt</code> lists every entry’s <code>(offset → page:addr)</code>; <code>tools/RamRoutines.java</code> marks the inline <code>.dw/.db</code> as data and comments each target.</p>
 <p>Example: <code>_PutMap</code>’s glyph blitter is reached via the trampoline at <code>ram:3B3D → 07:4588</code>.</p>
 <p><strong>Inline bjumps.</strong> Besides this trampoline table, <code>CALL cross_page_jump; .dw; .db</code> appears in packed dispatch tables and inside OS routines. The target returns
 to the bjump caller, so <code>cross_page_jump</code> consumes the three inline descriptor

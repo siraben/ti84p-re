@@ -8,7 +8,7 @@
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
+            window.path_to_searchindex_js = "searchindex-38eea4f6.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-e4551b79.js"></script>
+        <script src="toc-c9603d63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,12 +180,15 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="system-overview"><a class="header" href="#system-overview">System overview</a></h1>
-<p>Target: <code>ti84plus.rom</code> (1 MiB flash dump). OS self-identifies as 2.55MP. CPU: Zilog Z80 (16-bit address bus, 64 KiB logical space) with hardware flash/RAM paging. Ghidra project: <code>ti84.gpr</code> (rebuild: <code>tools/build.sh</code>).</p>
-<blockquote>
-<p>Confidence is flagged: [confirmed] = verified in disassembly/decompiler; [standard] = matches documented TI-83+/84+ architecture and is consistent with the disassembly; [hypothesis] = inferred, not yet verified.</p>
-</blockquote>
-<h2 id="the-big-picture"><a class="header" href="#the-big-picture">The big picture</a></h2>
-<p>The TI-84+ is a Z80 machine that can only see 64 KiB at once. The target has
+<p>This wiki documents how TI-84 Plus OS 2.55MP uses the Z80, banked memory,
+calculator hardware, and its internal software subsystems. It keeps direct ROM
+evidence, emulator observations, public hardware behavior, and unresolved
+inferences distinct.</p>
+<p>The target is a validated 1 MiB Flash image whose OS identifies itself as
+2.55MP. <a href="conventions.html">Conventions and methodology</a> defines the address
+notation and confidence flags used throughout the book.</p>
+<h2 id="machine-and-os"><a class="header" href="#machine-and-os">Machine and OS</a></h2>
+<p>The TI-84 Plus is a Z80 machine that can only see 64 KiB at once. The target has
 1 MiB of Flash and eight RAM selector values. Community hardware reports assign
 eight independent 16 KiB RAM blocks to early units. They assign 48 KiB to later
 units, with selectors <code>82</code>–<code>87</code> sharing one block. No physical result is recorded
@@ -194,62 +197,56 @@ system-call (bcall) mechanism expose code and data beyond the current address
 space. The OS is a single-tasking monitor. Its boot/kernel core occupies Flash
 page <code>0</code>, other OS routines span banked Flash pages, and fixed RAM windows hold
 system state. See <a href="ram-pages.html">RAM pages</a> for the revision evidence.</p>
-<p>Everything the user interacts with — the homescreen, TI-BASIC programs, graphing, the catalog — is built on four pillars:</p>
-<ol>
-<li><strong>Paging + bcalls</strong> — how code and data beyond 64 KiB are reached. (see <a href="paging.html">paging.md</a>, <a href="bcall-mechanism.html">bcall-mechanism.md</a>)</li>
-<li><strong>The floating-point engine</strong> — 9-byte BCD reals/complex in the OP1–OP6 registers; all math flows through these. (<a href="floating-point.html">floating-point.md</a>)</li>
-<li><strong>The variable system (VAT)</strong> — named objects (reals, lists, matrices, strings, programs, appvars…) catalogued in the Variable Allocation Table. (<a href="variables-vat.html">variables-vat.md</a>)</li>
-<li><strong>The tokenizer/parser</strong> — TI-BASIC is stored as 1- and 2-byte tokens; the parser executes them. (<a href="tokenizer-basic.html">tokenizer-basic.md</a>)</li>
-</ol>
-<p>Around those sit the I/O subsystems: the <a href="flash-memory.html">Flash command path and boot write APIs</a>; the IM1 interrupt dispatcher (<a href="interrupts.html">interrupts.md</a>); the standard timers, RTC, and low-power state machine (<a href="clock-timers-power.html">clock-timers-power.md</a>); the <a href="md5-hardware.html">MD5 round accelerator</a>; the LCD driver; the keypad scanner; and the link port.</p>
-<h2 id="subsystem-index"><a class="header" href="#subsystem-index">Subsystem index</a></h2>
-<p>Each row maps a documentation page to the subsystem it covers and its analysis status.</p>
+<p>Four mechanisms connect most user-facing OS behavior:</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Doc</th><th>Subsystem</th></tr>
+<tr><th>Mechanism</th><th>Role</th></tr>
 </thead>
 <tbody>
-<tr><td><a href="memory-map.html">memory-map.md</a></td><td>Address space, ports, RAM layout</td></tr>
-<tr><td><a href="flash-memory.html">flash-memory.md</a></td><td>Flash geometry, protection, command sequences, boot write APIs, archive traces, and emulator differences</td></tr>
-<tr><td><a href="paging.html">paging.md</a></td><td>Paired and independent Flash/RAM mapping, extended selectors, boot transition, and forced overlays</td></tr>
-<tr><td><a href="bus-timing.html">bus-timing.md</a></td><td>CPU-speed-selected Flash, RAM, LCD, and timer wait-state registers</td></tr>
-<tr><td><a href="asic-status-gpio.html">asic-status-gpio.md</a></td><td>ASIC status and identity, battery comparison, protection mode, and GPIO</td></tr>
-<tr><td><a href="bcall-mechanism.html">bcall-mechanism.md</a></td><td>rst 28h system calls + jump table</td></tr>
-<tr><td><a href="interrupts.html">interrupts.md</a></td><td>IM1 entry, USB/legacy routing, masks, status, acknowledgement, priority, and wake</td></tr>
-<tr><td><a href="clock-timers-power.html">clock-timers-power.md</a></td><td>Clock domains, programmable timer API, RTC, APD cadence, and power-off</td></tr>
-<tr><td><a href="md5-hardware.html">md5-hardware.md</a></td><td>MD5-assist ports, boot digest API, round descriptors, and Rabin hash transformation</td></tr>
-<tr><td><a href="variables-vat.html">variables-vat.md</a></td><td>Variable Allocation Table, object types</td></tr>
-<tr><td><a href="floating-point.html">floating-point.md</a></td><td>BCD float format, OP registers</td></tr>
-<tr><td><a href="tokenizer-basic.html">tokenizer-basic.md</a></td><td>Token tables, parser/interpreter</td></tr>
-<tr><td><a href="display-lcd.html">display-lcd.md</a></td><td>LCD ports, screen buffers</td></tr>
-<tr><td><a href="keyboard-link.html">keyboard-link.md</a></td><td>Keyboard and link overview</td></tr>
-<tr><td><a href="keypad-on-hardware.html">keypad-on-hardware.md</a></td><td>Matrix electrical behavior, scan timing, debounce, repeat, ON interrupts, and wake</td></tr>
-<tr><td><a href="subsystem-map.html">subsystem-map.md</a></td><td>bcall API surface, system through-line</td></tr>
-<tr><td><a href="boot-contexts-errors.html">boot-contexts-errors.md</a></td><td>Boot, context system, _JError/onSP</td></tr>
-<tr><td><a href="memory-management.html">memory-management.md</a></td><td>RAM heap, VAT/userMem, Flash archive/GC</td></tr>
-<tr><td><a href="flash-page-map.html">flash-page-map.md</a></td><td>What each of the 64 flash pages contains</td></tr>
-<tr><td><a href="ram-pages.html">ram-pages.md</a></td><td>RAM page selectors, page <code>83</code>, and restore rules</td></tr>
-<tr><td><a href="open-questions.html">open-questions.md</a></td><td>Prioritized future-work roadmap</td></tr>
-<tr><td><a href="sub-calculation.html">sub-calculation.md</a></td><td>Calculation engine: FP ops, transcendentals, formatting, errors</td></tr>
-<tr><td><a href="sub-graphing.html">sub-graphing.md</a></td><td>Graphing: window vars, coord↔pixel, draw primitives, Y= eval</td></tr>
-<tr><td><a href="sub-tibasic.html">sub-tibasic.md</a></td><td>TI-BASIC: program execution, control flow, I/O commands</td></tr>
-<tr><td><a href="sub-tibasic-tracing.html">sub-tibasic-tracing.md</a></td><td>TI-BASIC fixture traces, smoke runner, coverage anchors</td></tr>
-<tr><td><a href="sub-vat-archive.html">sub-vat-archive.md</a></td><td>Variables, Sto/Rcl, Archive/Unarchive, Flash GC</td></tr>
-<tr><td><a href="sub-apps-mem-settings.html">sub-apps-mem-settings.md</a></td><td>Apps find/launch, RAM-reset, MODE/format flags</td></tr>
-<tr><td><a href="sub-statistics.html">sub-statistics.md</a></td><td>STAT: 1/2-var, regressions, statVars</td></tr>
-<tr><td><a href="sub-matrix-list.html">sub-matrix-list.md</a></td><td>Matrix/list element access, Gauss-Jordan inverse/det, matmul</td></tr>
-<tr><td><a href="sub-solver-numeric.html">sub-solver-numeric.md</a></td><td>Solver root-finder, nDeriv/fnInt, TVM finance</td></tr>
-<tr><td><a href="sub-table-yvars.html">sub-table-yvars.md</a></td><td>TABLE generation/cache, Y= equation vars</td></tr>
-<tr><td><a href="sub-equation-display.html">sub-equation-display.md</a></td><td>Equation display / MathPrint layout (page 0x39 <code>eqdisp_*</code>)</td></tr>
-<tr><td><a href="sub-link-transfer.html">sub-link-transfer.md</a></td><td>Link protocol: byte/packet/var-transfer (page 0x3C)</td></tr>
-<tr><td><a href="sub-usb-asic.html">sub-usb-asic.md</a></td><td>USB ASIC/link-assist ports and OS transport selection</td></tr>
+<tr><td><a href="paging.html">Paging</a> and <a href="bcall-mechanism.html">bcalls</a></td><td>Reach code and data outside the current 64 KiB address space.</td></tr>
+<tr><td><a href="floating-point.html">Floating-point engine</a></td><td>Store real and complex values in the <code>OP1</code>–<code>OP6</code> registers and perform arithmetic.</td></tr>
+<tr><td><a href="variables-vat.html">Variable Allocation Table (VAT)</a></td><td>Catalog named reals, lists, matrices, strings, programs, and AppVars.</td></tr>
+<tr><td><a href="tokenizer-basic.html">Tokenizer and parser</a></td><td>Store TI-BASIC as one- and two-byte tokens and execute the resulting token stream.</td></tr>
 </tbody>
 </table>
 </div>
-<p>(The <code>sub-*</code> docs are deep dives covering user-facing functionality and I/O internals: calculation, graphing, TI-BASIC, VAT/archive, apps, stats, matrices, solver, table, equation display, link, and USB/link assist.)</p>
-<p>New to these notes? Start with <a href="conventions.html">Conventions &amp; methodology</a> (how to read the addresses and confidence flags) and the <a href="glossary.html">Glossary</a>; the <a href="bcall-index.html">bcall index</a> is the full alphabetical system-call reference.</p>
-<p>The main <code>0x4xxx</code> bcall table and the retail boot bcall table (<code>0x8xxx</code>, from the local complete ROM) both carry TI-OS types. Most boot bcall bodies are on page <code>3F</code>; USB boot routines such as <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>, <code>_InitUSB</code>, and <code>_KillUSB</code> are on page <code>2F</code>. Rebuild: <code>tools/build.sh</code>.</p>
+<p>Around those sit the I/O subsystems: the <a href="flash-memory.html">Flash command path and boot write APIs</a>; the IM1 interrupt dispatcher (<a href="interrupts.html">interrupts.md</a>); the standard timers, RTC, and low-power state machine (<a href="clock-timers-power.html">clock-timers-power.md</a>); the <a href="md5-hardware.html">MD5 round accelerator</a>; the LCD driver; the keypad scanner; and the link port.</p>
+<h2 id="subsystem-index"><a class="header" href="#subsystem-index">Subsystem index</a></h2>
+<p>Each row maps a documentation page to the subsystem it covers.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Page</th><th>Subsystem</th></tr>
+</thead>
+<tbody>
+<tr><td><a href="memory-map.html">Memory map</a></td><td>Address space, ports, and RAM layout</td></tr>
+<tr><td><a href="flash-memory.html">Flash memory</a></td><td>Flash geometry, protection, command sequences, boot write APIs, archive traces, and emulator differences</td></tr>
+<tr><td><a href="paging.html">Paging</a></td><td>Paired and independent Flash/RAM mapping, extended selectors, boot transition, and forced overlays</td></tr>
+<tr><td><a href="bus-timing.html">Bus timing and wait states</a></td><td>CPU-speed-selected Flash, RAM, LCD, and timer wait-state registers</td></tr>
+<tr><td><a href="asic-status-gpio.html">ASIC status, identity, protection, and GPIO</a></td><td>ASIC status and identity, battery comparison, protection mode, and GPIO</td></tr>
+<tr><td><a href="bcall-mechanism.html">The bcall mechanism</a></td><td><code>rst 28h</code> system calls and the jump table</td></tr>
+<tr><td><a href="interrupts.html">Interrupts</a></td><td>IM1 entry, USB and legacy routing, masks, status, acknowledgement, priority, and wake</td></tr>
+<tr><td><a href="clock-timers-power.html">Clock, timers, and power</a></td><td>Clock domains, programmable timer API, RTC, APD cadence, and power-off</td></tr>
+<tr><td><a href="md5-hardware.html">MD5 accelerator and boot API</a></td><td>MD5-assist ports, boot digest API, round descriptors, and Rabin hash transformation</td></tr>
+<tr><td><a href="variables-vat.html">Variables and the VAT</a></td><td>Variable Allocation Table and object types</td></tr>
+<tr><td><a href="floating-point.html">Floating-point engine</a></td><td>BCD floating-point format and OP registers</td></tr>
+<tr><td><a href="tokenizer-basic.html">Tokenizer and TI-BASIC tokens</a></td><td>Token tables, parser, and interpreter</td></tr>
+<tr><td><a href="display-lcd.html">Display and LCD</a></td><td>LCD ports and screen buffers</td></tr>
+<tr><td><a href="keyboard-link.html">Keyboard and link port</a></td><td>Keyboard and link overview</td></tr>
+<tr><td><a href="keypad-on-hardware.html">Keypad and ON-key hardware</a></td><td>Matrix electrical behavior, scan timing, debounce, repeat, ON interrupts, and wake</td></tr>
+<tr><td><a href="subsystem-map.html">Subsystem map</a></td><td>Bcall API surface and the system through-line</td></tr>
+<tr><td><a href="boot-contexts-errors.html">Boot, contexts, and errors</a></td><td>Boot, the context system, <code>_JError</code>, and <code>onSP</code></td></tr>
+<tr><td><a href="memory-management.html">Memory management</a></td><td>RAM heap, VAT, <code>userMem</code>, Flash archive, and garbage collection</td></tr>
+<tr><td><a href="flash-page-map.html">Flash page map</a></td><td>Contents of each of the 64 Flash pages</td></tr>
+<tr><td><a href="ram-pages.html">RAM pages</a></td><td>RAM page selectors, page <code>83</code>, and restore rules</td></tr>
+<tr><td><a href="open-questions.html">Open questions and roadmap</a></td><td>Prioritized future work</td></tr>
+</tbody>
+</table>
+</div>
+<p>The sidebar groups subsystem deep dives beneath their parent pages. The
+<a href="glossary.html">Glossary</a> defines TI-specific terms, and the <a href="bcall-index.html">bcall
+index</a> is the alphabetical system-call reference.</p>
 
                     </main>
 

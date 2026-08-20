@@ -8,7 +8,7 @@
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
+            window.path_to_searchindex_js = "searchindex-38eea4f6.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-e4551b79.js"></script>
+        <script src="toc-c9603d63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,17 +180,12 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="calculation-engine"><a class="header" href="#calculation-engine">Calculation engine</a></h1>
-<p>What happens between the user typing <code>2*sin(π/6)+ln(5)</code> and seeing a number.
-All arithmetic is BCD floating point in the OP registers (<code>OP1</code>–<code>OP6</code> @ <code>0x8478</code>,
-11-byte spaced) with a software FP stack (<code>FPS</code> @ <code>0x9824</code>) for nested temporaries.
-See <a href="floating-point.html">floating-point.md</a> for the <code>TIFloat</code> byte format and <code>_FPAdd</code> internals; this doc
-covers the rest of the engine: ×, ÷, ^, roots, transcendentals, formatting, and errors.</p>
-<p>Address form below is <code>page:addr</code> (flash page in slot <code>4000</code>) or <code>ram:addr</code> for the fixed
-page-0 core mapped at <code>0000</code>. Page-0 routines are reached by <code>RST</code>/direct <code>CALL</code>; everything
-else through the bcall dispatcher. Confidence: [confirmed] = read from disassembly,
-[standard] = matches documented TI behavior, [hypothesis] = inferred.</p>
-<hr>
-<h2 id="1-register--stack-model-confirmed"><a class="header" href="#1-register--stack-model-confirmed">1. Register &amp; stack model [confirmed]</a></h2>
+<p>The calculation engine evaluates arithmetic and transcendental expressions in
+the <code>OP1</code>–<code>OP6</code> BCD floating-point registers. The software stack at <code>FPS</code>
+(<code>0x9824</code>) holds nested temporaries. <a href="floating-point.html">Floating-point engine</a>
+defines the <code>TIFloat</code> format and <code>_FPAdd</code>; this page covers multiplication,
+division, powers, roots, transcendentals, formatting, and errors.</p>
+<h2 id="register-and-stack-model-confirmed"><a class="header" href="#register-and-stack-model-confirmed">Register and stack model [confirmed]</a></h2>
 <p>Every calculation runs through the OP registers and the software FP stack; the table
 gives each register’s RAM address and its role during an operation.</p>
 <div class="table-wrapper">
@@ -216,11 +211,11 @@ gives each register’s RAM address and its role during an operation.</p>
 <li><code>_PopRealO1</code>…<code>_PopRealO6</code> (<code>ram:150F</code>…<code>14F6</code>), <code>_PopReal</code> (<code>ram:1512</code>).</li>
 <li><code>_AllocFPS</code>/<code>_DeallocFPS</code> (<code>ram:1534</code>/<code>1526</code>) grow/shrink the stack frame.</li>
 </ul>
-<p>Example seen in the complex-log core (<code>_CLN</code>, §5): it does <code>_PushRealO1</code> to save the input,
+<p>For example, the <a href="#transcendentals">complex-log core</a> uses <code>_PushRealO1</code> to save the input,
 computes the magnitude, then <code>_PopRealO2</code> to recover it for the angle — the canonical
 “spill then restore” used everywhere the parser evaluates a nested sub-expression.</p>
 <hr>
-<h2 id="2-basic-arithmetic-confirmed"><a class="header" href="#2-basic-arithmetic-confirmed">2. Basic arithmetic [confirmed]</a></h2>
+<h2 id="basic-arithmetic-confirmed"><a class="header" href="#basic-arithmetic-confirmed">Basic arithmetic [confirmed]</a></h2>
 <p>All four route operands through <code>OP1</code>/<code>OP2</code>, clear the guard digits, early-out on zero
 operands, then do BCD mantissa work and renormalize. Result in <code>OP1</code>.</p>
 <div class="table-wrapper">
@@ -245,7 +240,7 @@ operands, then do BCD mantissa work and renormalize. Result in <code>OP1</code>.
 <li><code>_InvSub</code> <code>ram:227D</code> = <code>_InvOP1S</code> then <code>_FPAdd</code> ⇒ <code>OP2 − OP1</code> (reversed subtract). [confirmed]</li>
 <li><strong>Negation</strong>: <code>_InvOP1S</code> <code>ram:24BD</code> (XOR <code>OP1.value.type</code> with <code>0x80</code>, guarding against −0), <code>_InvOP2S</code> <code>ram:24CD</code>, <code>_InvOP1SC</code> <code>ram:24BA</code> (both). <code>_CkOP1Pos</code> <code>ram:1E5D</code> ANDs <code>OP1.value.type</code> with <code>0x80</code>. [confirmed]</li>
 </ul>
-<h3 id="roots--integer-parts-confirmed"><a class="header" href="#roots--integer-parts-confirmed">Roots &amp; integer parts [confirmed]</a></h3>
+<h3 id="roots-and-integer-parts-confirmed"><a class="header" href="#roots-and-integer-parts-confirmed">Roots and integer parts [confirmed]</a></h3>
 <ul>
 <li><code>_SqRoot</code> <code>02:6E38</code>: <code>_ErrD_OP1NotPos</code> (→ DOMAIN if negative/complex-real), <code>fp_clear_guard</code>, <code>_ZeroOP3</code>, then a digit-by-digit BCD square-root extraction loop (<code>ram:1C9C</code> trial-subtract + <code>ram:1D4A</code> compare, halving the exponent up front). A classic long-hand sqrt, not Newton’s method.</li>
 <li><code>_Int</code>/<code>_Intgr</code> <code>ram:2621</code>/<code>2263</code>: floor. <code>_Trunc</code> <code>ram:2279</code> drops the fractional part (toward zero); <code>_Intgr</code> truncates then subtracts 1 (<code>_Minus1</code> <code>ram:2294</code>) when the original was negative, giving true floor.</li>
@@ -253,7 +248,7 @@ operands, then do BCD mantissa work and renormalize. Result in <code>OP1</code>.
 <li><code>_Round</code> / <code>_RndGuard</code> <code>ram:2623</code> / <code>02:6A57</code>: round to the active display-digit count; <code>_Round</code> is a thin <code>cross_page_jump</code> wrapper (body banked off page 0).</li>
 </ul>
 <hr>
-<h2 id="3-degreeradian--polar-conversions-confirmed"><a class="header" href="#3-degreeradian--polar-conversions-confirmed">3. Degree/radian &amp; polar conversions [confirmed]</a></h2>
+<h2 id="degree-radian-and-polar-conversions-confirmed"><a class="header" href="#degree-radian-and-polar-conversions-confirmed">Degree, radian, and polar conversions [confirmed]</a></h2>
 <ul>
 <li><code>_DToR</code> <code>ram:236B</code> (deg→rad): multiply OP1 by $\pi/180$ (<code>ram:235D</code> loads the constant) then normalize via <code>ram:249E</code>.</li>
 <li><code>_RToD</code> <code>ram:2374</code> (rad→deg): multiply by $180/\pi$ (<code>ram:2361</code>).</li>
@@ -262,7 +257,7 @@ These constants are the BCD floats <code>π/180 = 1.745…e-2</code> and <code>1
 <a href="floating-point.html">floating-point.md</a>’s constant scan.</li>
 </ul>
 <hr>
-<h2 id="4-cross-page-dispatch-cross_page_jump--ram2b09-confirmed"><a class="header" href="#4-cross-page-dispatch-cross_page_jump--ram2b09-confirmed">4. Cross-page dispatch (<code>cross_page_jump</code> @ <code>ram:2B09</code>) [confirmed]</a></h2>
+<h2 id="cross-page-dispatch-cross_page_jump-at-ram2b09-confirmed"><a class="header" href="#cross-page-dispatch-cross_page_jump-at-ram2b09-confirmed">Cross-page dispatch (<code>cross_page_jump</code> at <code>ram:2B09</code>) [confirmed]</a></h2>
 <p>Banked ROM calls use a bcall-style trampoline.
 <code>cross_page_jump</code>:</p>
 <ol>
@@ -279,7 +274,7 @@ the <code>_TenX</code> body at <code>02:7069</code>. <code>logexp_digit_table</c
 <code>trig_recurrence_table_a</code> (<code>02:7201</code>), <code>trig_recurrence_table_b</code> (<code>02:7281</code>),
 and <code>fp_constant_table</code> (<code>02:7D42</code>) all reside on page <code>02</code>. [confirmed]</p>
 <hr>
-<h2 id="5-transcendentals"><a class="header" href="#5-transcendentals">5. Transcendentals</a></h2>
+<h2 id="transcendentals"><a class="header" href="#transcendentals">Transcendentals</a></h2>
 <h3 id="logarithms-confirmed"><a class="header" href="#logarithms-confirmed">Logarithms [confirmed]</a></h3>
 <ul>
 <li><code>_LnX</code> <code>02:6EFD</code>: <code>_CkOP1Pos</code>; non-positive real → <code>_ErrDomain</code>. For a positive real it calls the real-log core (<code>_CLN</code> path, selector <code>C=2</code>); the <em>generic</em> entry handles complex args.</li>
@@ -293,7 +288,7 @@ then falls through into the local <code>_TenX</code> body.</li>
 <li><code>_TenX</code> <code>02:7066</code> (10^x): splits exponent into integer (digit shift) + fractional
 (16-slot table-driven evaluation through <code>logexp_digit_table</code>). Argument too large → <code>_ErrOverflow</code>.</li>
 </ul>
-<h3 id="trig--sincostan-confirmed"><a class="header" href="#trig--sincostan-confirmed">Trig — sin/cos/tan [confirmed]</a></h3>
+<h3 id="trigonometric-functions-confirmed"><a class="header" href="#trigonometric-functions-confirmed">Trigonometric functions [confirmed]</a></h3>
 <ul>
 <li><code>_SinCosRad</code> <code>02:733E</code>, <code>_Sin</code> <code>7342</code>, <code>_Cos</code> <code>7346</code>, <code>_Tan</code> <code>734A</code>. Each loads a
 function selector byte into <code>0x8499</code> (<code>1</code>=sin, <code>2</code>=cos, <code>4</code>=tan; <code>0x80</code> bit set when
@@ -328,7 +323,7 @@ with <code>_SinCosRad</code> for the complex case — i.e. <code>a^b = e^(b·Ln 
 glue and <code>_OP2ToOP6</code>/<code>_OP6ToOP1</code> shuffles. Integer/√ special cases short-circuit to
 <code>_FPMult</code>/<code>_SqRoot</code>. <code>^</code> is the most FP-stack-heavy single operator.</p>
 <hr>
-<h2 id="6-number-entry--display-formatting"><a class="header" href="#6-number-entry--display-formatting">6. Number entry &amp; display formatting</a></h2>
+<h2 id="number-entry-and-display-formatting"><a class="header" href="#number-entry-and-display-formatting">Number entry and display formatting</a></h2>
 <p>When the homescreen shows a result (or <code>Ans</code>), the engine converts the <code>OP1</code> <code>TIFloat</code> to a
 digit string honoring the <strong>MODE</strong> screen (Normal/Sci/Eng, Float/Fix 0–9).</p>
 <ul>
@@ -354,7 +349,7 @@ routines (see <a href="display-lcd.html">display-lcd.md</a>).</li>
 <p><code>Ans</code> is the last-result <code>TIFloat</code> saved in a system var and reloaded into <code>OP1</code>
 (via <code>_Mov9ToOP1</code> = RST 20h) when the token <code>Ans</code> is evaluated. [standard]</p>
 <hr>
-<h2 id="7-error-handling-confirmed"><a class="header" href="#7-error-handling-confirmed">7. Error handling [confirmed]</a></h2>
+<h2 id="error-handling-confirmed"><a class="header" href="#error-handling-confirmed">Error handling [confirmed]</a></h2>
 <p>Errors are raised by loading an error code in <code>A</code> and jumping to <code>_JError</code> (<code>ram:2793</code>),
 which unwinds to the error context and shows the named message. The raiser cluster lives at
 <code>ram:26E8</code>+ — exact code map read from disassembly:</p>
@@ -394,7 +389,7 @@ which unwinds to the error context and shows the named message. The raiser clust
 <li>Complex result requested in real mode: <code>0x87</code> NONREAL ANS (the <code>_CLN</code>/complex paths).</li>
 </ul>
 <hr>
-<h2 id="8-routine-index-confident-spaceaddr"><a class="header" href="#8-routine-index-confident-spaceaddr">8. Routine index (confident, <code>space:addr</code>)</a></h2>
+<h2 id="routine-index"><a class="header" href="#routine-index">Routine index</a></h2>
 <p>Arithmetic core (page 0): <code>_FPAdd 229E</code>, <code>_FPSub 2297</code>, <code>_FPMult 238B</code>, <code>_FPDiv 2541</code>,
 <code>_FPRecip 253D</code>, <code>_FPSquare 238A</code>, <code>_Cube 237D</code>, <code>_Times2 2282</code>, <code>_TimesPt5 2382</code>,
 <code>_InvSub 227D</code>, <code>_Int 2621</code>, <code>_Intgr 2263</code>, <code>_Trunc 2279</code>, <code>_Frac 24E3</code>, <code>_Round 2623</code>,
@@ -409,7 +404,7 @@ which unwinds to the error context and shows the named message. The raiser clust
 <p>Formatting (page 06): <code>_FormReal 5ACF</code>, <code>_FormEReal 5799</code>, <code>_FormBase 57C0</code>, <code>_FormDCplx 59D3</code>.</p>
 <p>Errors (page 0): <code>_JError 2793</code>, raiser table <code>26E8</code>+, domain pre-checks <code>2119</code>–<code>2131</code>.</p>
 <hr>
-<h2 id="9-worked-flow-2sinπ6ln5-hypothesis"><a class="header" href="#9-worked-flow-2sinπ6ln5-hypothesis">9. Worked flow: <code>2*sin(π/6)+ln(5)</code> [hypothesis]</a></h2>
+<h2 id="worked-flow-2sinπ6ln5-hypothesis"><a class="header" href="#worked-flow-2sinπ6ln5-hypothesis">Worked flow: <code>2*sin(π/6)+ln(5)</code> [hypothesis]</a></h2>
 <ol>
 <li>Parser pushes <code>2</code> (<code>OP1</code>), evaluates <code>sin(π/6)</code>: loads <code>π/6</code> into OP1, <code>_SinCosRad</code>/<code>_Sin</code>
 (selector <code>0x8499</code>), table-driven digit recurrence → <code>OP1=0.5</code>.</li>

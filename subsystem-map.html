@@ -8,7 +8,7 @@
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
+            window.path_to_searchindex_js = "searchindex-38eea4f6.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-e4551b79.js"></script>
+        <script src="toc-c9603d63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,7 +180,8 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="subsystem-map-bcall-api-surface"><a class="header" href="#subsystem-map-bcall-api-surface">Subsystem map (bcall API surface)</a></h1>
-<p>This page categorizes the ~600 named bcall entry points (the OS’s public API) by subsystem, so the whole OS surface is visible at once. User code and the OS itself program against this surface.</p>
+<p>This page groups the roughly 600 named bcall entry points by subsystem. The
+result shows the public API used by both application code and the OS itself.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -215,7 +216,7 @@
 </pre>
 
 <p>Cross-cutting services used by all of the above: <a href="bcall-mechanism.html">the bcall mechanism</a>, <a href="interrupts.html">interrupt dispatch</a>, <a href="clock-timers-power.html">clock/timers/APD/power</a>, <a href="md5-hardware.html">MD5 and boot signature arithmetic</a>, error handling (<code>_JError</code> + <code>TIError</code> codes), and the system flags (<code>SystemFlags</code> @ <code>flags</code>).</p>
-<h2 id="how-the-pieces-connect-the-through-line"><a class="header" href="#how-the-pieces-connect-the-through-line">How the pieces connect (the through-line)</a></h2>
+<h2 id="execution-through-line"><a class="header" href="#execution-through-line">Execution through-line</a></h2>
 <ol>
 <li><strong>Interrupt</strong> keeps time, scans the keypad into <code>kbdScanCode</code>, runs APD.</li>
 <li><code>_GetKey</code> turns scan codes into key codes (<code>TIKeyCode</code>), driving menus and the homescreen.</li>

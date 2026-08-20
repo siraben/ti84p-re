@@ -8,7 +8,7 @@
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
+            window.path_to_searchindex_js = "searchindex-38eea4f6.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-e4551b79.js"></script>
+        <script src="toc-c9603d63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -231,7 +231,7 @@ for the result. These checks establish reproducible analysis inputs, not a
 physical-capture history. The page-<code>2F</code> and page-<code>3F</code> bodies above decode
 directly from <code>rom.bin</code>. The resolver detects a BootFree input and omits retail
 targets when the retail pages are absent.</p>
-<h2 id="key-ram-regions-named--typed"><a class="header" href="#key-ram-regions-named--typed">Key RAM regions (named &amp; typed)</a></h2>
+<h2 id="key-named-and-typed-ram-regions"><a class="header" href="#key-named-and-typed-ram-regions">Key named and typed RAM regions</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -255,7 +255,7 @@ targets when the retail pages are absent.</p>
 </table>
 </div>
 <p><code>IY</code> is held at <code>flags</code> (<code>0x89F0</code>) almost everywhere, so <code>(IY+off)</code> accesses index <code>SystemFlags</code> fields (<code>appFlags</code>, <code>kbdFlags</code>, …).</p>
-<h2 id="principal-io-ports-standard"><a class="header" href="#principal-io-ports-standard">Principal I/O ports [standard]</a></h2>
+<h2 id="principal-inputoutput-ports-standard"><a class="header" href="#principal-inputoutput-ports-standard">Principal input/output ports [standard]</a></h2>
 <p>A curated selection of the ports most relevant to the memory map and paging; the
 kernel touches many more (timer/crystal, USB-assist, and ASIC-control ports).</p>
 <div class="table-wrapper">

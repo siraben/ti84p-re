@@ -8,7 +8,7 @@
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
+            window.path_to_searchindex_js = "searchindex-38eea4f6.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-e4551b79.js"></script>
+        <script src="toc-c9603d63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,10 +180,11 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="usb-asic-and-link-assist"><a class="header" href="#usb-asic-and-link-assist">USB ASIC and link assist</a></h1>
-<p>This page covers the OS-visible USB/link-assist hardware interface: the Z80 I/O ports the ROM uses,
-the byte FIFO path used by the link layer, and the places where <code>link_xfer_op</code> chooses USB before
-falling back to the 2.5 mm link. It complements <a href="sub-link-transfer.html">Link / data transfer</a>, which
-covers the TI link packet protocol and variable-transfer state machine.</p>
+<p>The USB/link-assist interface exposes control, status, interrupt, endpoint, and
+FIFO registers through Z80 I/O ports. This page traces those ports and the
+transport selection that chooses USB or the 2.5 mm link. <a href="sub-link-transfer.html">Link / data
+transfer</a> covers the packet protocol and variable-transfer
+state machine.</p>
 <p>The full USB controller is broader than the variable-transfer path, but OS 2.55MP does expose enough
 of it to map the public USB entry points, the link-assist byte path, and the interrupt/event path.
 This page is ROM-grounded: the confirmed claims below come from OS 2.55MP disassembly/decompilation
@@ -888,7 +889,7 @@ nix develop -c python tools/run_wabbitemu_usb_receive_probe.py \
 </div>
 <p>The raw FIFO sequence is only the byte layer. A working transfer still needs the packet layer:
 machine ID, command, length, payload checksum, ACK/NAK, and EOT. That framing is documented in
-<a href="sub-link-transfer.html#3-packet-framing--the-ti-link-protocol-confirmed">sub-link-transfer.md</a>.</p>
+<a href="sub-link-transfer.html#ti-link-packet-framing-confirmed">Link transfer</a>.</p>
 <h3 id="native-tilem-link-assist-edges"><a class="header" href="#native-tilem-link-assist-edges">Native TilEm link-assist edges</a></h3>
 <p>The guarded TilEm direct-core probe maps all handlers from <code>0x08</code> through
 <code>0x0D</code>. A fresh disabled engine reports <code>0x20</code>. The read sides of

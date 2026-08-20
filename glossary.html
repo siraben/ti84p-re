@@ -8,7 +8,7 @@
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
+            window.path_to_searchindex_js = "searchindex-38eea4f6.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-e4551b79.js"></script>
+        <script src="toc-c9603d63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,7 +180,8 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="glossary"><a class="header" href="#glossary">Glossary</a></h1>
-<p>Quick definitions for the terms and key RAM symbols used throughout this wiki.</p>
+<p>This glossary defines the TI-specific terms and key RAM symbols used throughout
+the wiki.</p>
 <h2 id="core-concepts"><a class="header" href="#core-concepts">Core concepts</a></h2>
 <div class="table-wrapper">
 <table>
@@ -215,7 +216,7 @@
 </tbody>
 </table>
 </div>
-<h2 id="variables--memory"><a class="header" href="#variables--memory">Variables &amp; memory</a></h2>
+<h2 id="variables-and-memory"><a class="header" href="#variables-and-memory">Variables and memory</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -227,12 +228,12 @@
 <tr><td><strong>archive</strong></td><td>Variables relocated to Flash to save RAM; the VAT entry’s page byte then points into Flash. See <a href="sub-vat-archive.html">Variables, archive &amp; unarchive</a> and <a href="flash-memory.html">Flash memory</a>.</td></tr>
 <tr><td><strong>Flash page</strong></td><td>A 16 KiB ASIC paging unit selected through port <code>0x06</code>. It is not necessarily an erase sector; ordinary sectors span four pages. See <a href="flash-memory.html">Flash memory</a>.</td></tr>
 <tr><td><strong>Flash sector</strong></td><td>The smallest physical region restored to <code>0xFF</code> by one sector-erase operation. The one-megabyte top-boot chip uses 64 KiB ordinary sectors and 32/8/8/16 KiB sectors at the top.</td></tr>
-<tr><td><strong>garbage collection</strong></td><td>Compacting the Flash archive in physical sector units. <code>archive_gc_collect</code> at <code>3C:7733</code> copies live records, erases reclaimed sectors, and journals its phase in the inactive half of page <code>3E</code>. See <a href="sub-vat-archive.html#7-flash-garbage-collector-confirmed">Variables, archive &amp; unarchive</a>.</td></tr>
+<tr><td><strong>garbage collection</strong></td><td>Compacting the Flash archive in physical sector units. <code>archive_gc_collect</code> at <code>3C:7733</code> copies live records, erases reclaimed sectors, and journals its phase in the inactive half of page <code>3E</code>. See <a href="sub-vat-archive.html#flash-garbage-collector-confirmed">Variables, archive and unarchive</a>.</td></tr>
 <tr><td><strong>RAM heap</strong></td><td>The dynamic region from <code>userMem</code> (<code>0x9D95</code>) up to the VAT; managed by <code>_InsertMem</code>/<code>_DelMem</code>. See <a href="memory-management.html">Memory Management</a>.</td></tr>
 </tbody>
 </table>
 </div>
-<h2 id="registers--ram-symbols"><a class="header" href="#registers--ram-symbols">Registers &amp; RAM symbols</a></h2>
+<h2 id="registers-and-ram-symbols"><a class="header" href="#registers-and-ram-symbols">Registers and RAM symbols</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>

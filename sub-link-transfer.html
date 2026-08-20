@@ -3,12 +3,12 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Link / data transfer - TI-84 Plus OS — Reverse Engineering</title>
+        <title>Link and data transfer - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
+            window.path_to_searchindex_js = "searchindex-38eea4f6.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-e4551b79.js"></script>
+        <script src="toc-c9603d63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -179,19 +179,16 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="link--data-transfer"><a class="header" href="#link--data-transfer">Link / data transfer</a></h1>
-<p>Companion to <a href="keyboard-link.html">keyboard-link.md</a>, focused on the data-transfer path:
-pushing a program/list/etc. to a computer (TI-Connect) or another calculator over the
-2.5 mm I/O link or the 84+ USB/hardware link-assist. Builds the full stack on top of the byte
-primitives <code>_SendAByte</code> (<code>3C:420D</code>) and <code>_RecAByteIO</code> (<code>3C:443F</code>), reconstructed in <a href="link-port-hardware.html">Two-wire link port hardware</a>; the ASIC-facing assist/USB ports
-are covered separately in <a href="sub-usb-asic.html">USB ASIC and link assist</a>.</p>
-<p>Addresses here are read from the raw Z80 disassembly. The decompiler mis-renders this subsystem —
-it passes arguments in registers and does its state work with <code>SET/RES/BIT b,(IY+d)</code> flag ops that the
-C view shows as bogus <code>*(param+0xNN)</code> stores — so the notes follow the disassembly, not the C view.</p>
-<p>Page numbers are the masked flash page (<code>rawpage &amp; 0x3F</code>). The whole silent-link engine lives on
-flash page <code>3C</code> (shared with the flash/archive command code — see <a href="sub-vat-archive.html">sub-vat-archive.md</a>).</p>
-<hr>
-<h2 id="0-the-three-layers"><a class="header" href="#0-the-three-layers">0. The three layers</a></h2>
+                        <h1 id="link-and-data-transfer"><a class="header" href="#link-and-data-transfer">Link and data transfer</a></h1>
+<p>The data-transfer subsystem sends variables and system objects through the
+packet layer over either the 2.5 mm link or the TI-84 Plus USB/link-assist path.
+It builds on <code>_SendAByte</code> (<code>3C:420D</code>) and <code>_RecAByteIO</code> (<code>3C:443F</code>), described in
+<a href="link-port-hardware.html">Two-wire link port hardware</a>. <a href="sub-usb-asic.html">USB ASIC and link
+assist</a> covers the ASIC-facing ports.</p>
+<p>Raw disassembly preserves the register-passed arguments and
+<code>SET</code>/<code>RES</code>/<code>BIT b,(IY+d)</code> state operations that the decompiler can mis-render.
+The silent-link engine shares Flash page <code>3C</code> with archive command code.</p>
+<h2 id="transfer-layers"><a class="header" href="#transfer-layers">Transfer layers</a></h2>
 <pre class="mermaid">flowchart TB
     SRC(["user 'Send…' / TI-Connect"])
     subgraph VAR["Variable layer · page 3C"]
@@ -217,7 +214,7 @@ flash page <code>3C</code> (shared with the flash/archive command code — see <
 </pre>
 
 <hr>
-<h2 id="1-ram-state-block-the-link-registers-confirmed"><a class="header" href="#1-ram-state-block-the-link-registers-confirmed">1. RAM state block (the link “registers”) [confirmed]</a></h2>
+<h2 id="ram-state-block-confirmed"><a class="header" href="#ram-state-block-confirmed">RAM state block [confirmed]</a></h2>
 <p>All labels below are confirmed from <code>ti83plus.inc</code>. This contiguous block at <code>0x8670</code> is the
 silent-link control/scratch area:</p>
 <div class="table-wrapper">
@@ -254,9 +251,9 @@ link-mode/peer-type byte (which machine-ID to advertise, USB-vs-DBUS, single-byt
 bit2 “command in progress”, <code>IY+0x24</code> bit1/2 transfer-active, <code>IY+0xC</code> bit2 APD-disable
 save, <code>IY+0x3E</code> bit0 / <code>IY+0x3D</code> bit5 USB-presence.</p>
 <hr>
-<h2 id="2-the-byte-layer-recap--receive-internals-confirmed"><a class="header" href="#2-the-byte-layer-recap--receive-internals-confirmed">2. The byte layer (recap + receive internals) [confirmed]</a></h2>
+<h2 id="byte-layer-confirmed"><a class="header" href="#byte-layer-confirmed">Byte layer [confirmed]</a></h2>
 <p><a href="link-port-hardware.html">Two-wire link port hardware</a> covers the complete raw port-<code>0x00</code> send and receive handshakes. This section records how the byte entries select and report the hardware-assist path.</p>
-<h3 id="2a-hardware-assist-send-6bb2-confirmed"><a class="header" href="#2a-hardware-assist-send-6bb2-confirmed">2a. Hardware-assist send <code>6BB2</code> [confirmed]</a></h3>
+<h3 id="hardware-assist-send-confirmed"><a class="header" href="#hardware-assist-send-confirmed">Hardware-assist send [confirmed]</a></h3>
 <p><code>_SendAByte</code> (<code>3C:420D</code>) starts <code>CALL probe_hw_model_keep_a ; JP Z,0x6BB2</code> — if the model probe sets Z (the
 84+ link-assist hardware is present), it jumps to <code>3C:6BB2</code>:</p>
 <pre><code class="language-z80">6BB2: setup line / 2× short delay (6BD2 seeds 9CAC from port 0x20 = CPU speed)
@@ -267,7 +264,7 @@ save, <code>IY+0x3E</code> bit0 / <code>IY+0x3D</code> bit5 USB-presence.</p>
 6BCA: CALL 6BE4 (decrement 9CAC) ; JR Z,6BBB (retry) ; else JP 4434 (timeout)
 </code></pre>
 <p>So the assist path is: poll port 0x09 bit 5, then <code>OUT (0x0D),byte</code>, with a CPU-speed-scaled timeout. The legacy fall-through writes port <code>0x00</code> directly; see <a href="link-port-hardware.html">Two-wire link port hardware</a> for its two-read polling loop and four-transition handshake.</p>
-<h3 id="2b-receive-_recabyteio-443f-and-decoder-444a-confirmed"><a class="header" href="#2b-receive-_recabyteio-443f-and-decoder-444a-confirmed">2b. Receive <code>_RecAByteIO</code> <code>443F</code> and decoder <code>444A</code> [confirmed]</a></h3>
+<h3 id="receive-path-and-decoder-confirmed"><a class="header" href="#receive-path-and-decoder-confirmed">Receive path and decoder [confirmed]</a></h3>
 <pre><code class="language-z80">443F: DI ; CALL 447E (arm/clock the line) ; CALL 444A (get-status) ; RET C/NZ ; loop if Z
 444A:  CP 1                              ; status 1 selects the error-status path
        LD A,C                            ; A = candidate byte/status marker
@@ -305,7 +302,7 @@ for the status tails and executable decoder model.
 wrapped with APD/<code>_ApdSetup</code> and the bit-bang start-bit detect, used to wait for the <em>first</em> byte
 of an incoming packet (peer may be idle for a long time).</p>
 <hr>
-<h2 id="3-packet-framing--the-ti-link-protocol-confirmed"><a class="header" href="#3-packet-framing--the-ti-link-protocol-confirmed">3. Packet framing — the TI link protocol [confirmed]</a></h2>
+<h2 id="ti-link-packet-framing-confirmed"><a class="header" href="#ti-link-packet-framing-confirmed">TI link packet framing [confirmed]</a></h2>
 <p>A TI link packet is a 4-byte header optionally followed by data + 2-byte checksum:</p>
 <pre><code class="language-text">  +--------+--------+--------+--------+   +============+----------+
   | mach-ID|  cmd   |  len-lo|  len-hi|   |  data[len] | chk16 LE |
@@ -322,7 +319,7 @@ of an incoming packet (peer may be idle for a long time).</p>
 <p>The typed RAM view therefore exposes <code>header.machine_id</code>, <code>header.command_id</code>,
 and <code>header.data_length</code>; the disassembly below retains the concrete addresses
 that establish those fields. [confirmed]</p>
-<h3 id="3a-send-a-header--41c3-confirmed"><a class="header" href="#3a-send-a-header--41c3-confirmed">3a. Send a header — <code>41C3</code> [confirmed]</a></h3>
+<h3 id="sending-a-header-confirmed"><a class="header" href="#sending-a-header-confirmed">Sending a header [confirmed]</a></h3>
 <pre><code class="language-z80">41C3: 6D4B (drive line) ; short delay ; CALL probe_hw_model_keep_a (model probe)
       … (HW handshake on 84+, or bit-bang line-idle wait; failure → _ErrLinkXmit) …
 41F2: (8678)=0                              ; reset checksum accumulator
@@ -334,7 +331,7 @@ that establish those fields. [confirmed]</p>
 <p><code>419B</code> is the generic “send a 0-length control packet”: it sets the local machine-ID (<code>620A</code>),
 stores the command from <code>H</code>, and calls <code>41C3</code>. Convenience entries: <code>4195</code> H=0x92 (EOT),
 <code>4199</code> H=0x09 (CTS), <code>41BC</code> ID=0x73/cmd=0x68 (RTS).</p>
-<h3 id="3b-receive-a-header--4338-confirmed"><a class="header" href="#3b-receive-a-header--4338-confirmed">3b. Receive a header — <code>4338</code> [confirmed]</a></h3>
+<h3 id="receiving-a-header-confirmed"><a class="header" href="#receiving-a-header-confirmed">Receiving a header [confirmed]</a></h3>
 <pre><code class="language-z80">4338: CALL _RecAByteIO ; (8674)=A           ; machine-ID, validated against the known set:
       0x95 0x73 0x23 0x74 0x82 0x02 0x12 0x83 0x03 0x13 0x08   (else fall to 2nd-byte machine list)
 4370: CALL _RecAByteIO ; (8675)=A           ; command-ID, validated: 0x68 0x47 0x74 0x2D … else _JErrorNo
@@ -343,7 +340,7 @@ stores the command from <code>H</code>, and calls <code>41C3</code>. Convenience
 4395: CALL _RecAByteIO ; (8677)=A           ; length hi ; RET
 </code></pre>
 <p>An unrecognised machine-ID or command-ID byte aborts via <code>_JErrorNo</code> (→ <code>E_LnkErr</code> 0x9F).</p>
-<h3 id="3c-machine-id-selector--620a-confirmed"><a class="header" href="#3c-machine-id-selector--620a-confirmed">3c. Machine-ID selector — <code>620A</code> [confirmed]</a></h3>
+<h3 id="machine-id-selector-confirmed"><a class="header" href="#machine-id-selector-confirmed">Machine-ID selector [confirmed]</a></h3>
 <p>The <em>local</em> machine-ID advertised in outgoing packets depends on the peer-type bits in <code>IY+0x1B</code>:</p>
 <pre><code class="language-z80">620A: L=0x82 ; BIT 2,(IY+0x1B) ; RET NZ     ; 0x82 = default / TI-84+ silent
       L=0x95 ; BIT 1,(IY+0x1B) ; RET NZ     ; 0x95 = computer / TI-Connect (USB host)
@@ -351,7 +348,7 @@ stores the command from <code>H</code>, and calls <code>41C3</code>. Convenience
       L=0x03 ; BIT 4,(IY+0x1B) ; RET NZ     ; 0x03 = TI-83
       L=0x73 ; RET                          ; 0x73 = TI-73 / fallback
 </code></pre>
-<h3 id="3d-command-id-byte-cheat-sheet-hypothesis"><a class="header" href="#3d-command-id-byte-cheat-sheet-hypothesis">3d. Command-ID byte cheat-sheet [hypothesis]</a></h3>
+<h3 id="command-id-byte-reference-hypothesis"><a class="header" href="#command-id-byte-reference-hypothesis">Command-ID byte reference [hypothesis]</a></h3>
 <p>Confirmed in the code; semantics are the standard TI link protocol:</p>
 <div class="table-wrapper">
 <table>
@@ -372,7 +369,7 @@ stores the command from <code>H</code>, and calls <code>41C3</code>. Convenience
 </tbody>
 </table>
 </div>
-<h3 id="3e-checksum--ack-tail-confirmed"><a class="header" href="#3e-checksum--ack-tail-confirmed">3e. Checksum / ACK tail [confirmed]</a></h3>
+<h3 id="checksum-and-acknowledgement-tail-confirmed"><a class="header" href="#checksum-and-acknowledgement-tail-confirmed">Checksum and acknowledgement tail [confirmed]</a></h3>
 <p>After the data payload, the sender appends the 16-bit sum and waits for the ACK:</p>
 <pre><code class="language-z80">4167 (send tail): LD HL,(8678) ; A=L ; CALL _SendAByte ; A=H ; CALL _SendAByte   ; chk lo, hi
 4178:  CALL 4318 (save hdr→bakHeader) ; CALL 4338 (recv reply header)
@@ -384,7 +381,7 @@ packet (<code>6385: LD H,0x5A ; CALL 419B</code>) and raises <code>_JErrorNo</co
 caller’s header to <code>868B bakHeader</code>, then builds an ACK with a fresh local machine-ID (<code>CALL 620A</code>),
 command = <code>0x56</code>, length = 0, sends it, and <code>_Mov9B</code> restores the saved header.</p>
 <hr>
-<h2 id="4-receive-data-payload--3c4292-confirmed"><a class="header" href="#4-receive-data-payload--3c4292-confirmed">4. Receive DATA payload — <code>3C:4292</code> [confirmed]</a></h2>
+<h2 id="data-payload-receive-path-confirmed"><a class="header" href="#data-payload-receive-path-confirmed">DATA payload receive path [confirmed]</a></h2>
 <p><code>3C:4261</code> stores the destination in <code>iMathPtr5</code> at <code>0x84DB</code>, validates a DATA
 header, and enters <code>3C:4292</code>. The payload loop loads the destination once at
 <code>3C:42AB</code>. Bit 7 of <code>H</code> then selects one of two storage paths: [confirmed]</p>
@@ -476,13 +473,13 @@ equality quirk.</p>
 </code></pre>
 <p>i.e. the receiver reproduces the VAT-create / <code>_InsertMem</code> path from <a href="sub-vat-archive.html">sub-vat-archive.md</a>.</p>
 <hr>
-<h2 id="5-silent-link-variable-send--link_xfer_op-3c4dd2-confirmed"><a class="header" href="#5-silent-link-variable-send--link_xfer_op-3c4dd2-confirmed">5. Silent-link variable send — <code>link_xfer_op</code> (<code>3C:4DD2</code>) [confirmed]</a></h2>
+<h2 id="silent-link-variable-send-confirmed"><a class="header" href="#silent-link-variable-send-confirmed">Silent-link variable send [confirmed]</a></h2>
 <p>This is the path a “Send” hits (TI-Connect pulls a var, or a calc-to-calc send).
 OP1 = the variable name. It negotiates, sends the VAR header, waits for CTS, then streams the DATA.</p>
 <pre><code class="language-z80">link_xfer_op (3C:4DD2):
   CALL probe_hw_model_keep_a        ; model/HW probe; spin on port 0x20 if assist busy
   SET 1,(IY+0x24)                   ; mark "transfer active"
-  RES 3,(IY+0x1B) ; save IY+0xC (APD) ; install cleanup handler 4F3E via 27DA (see §7)
+  RES 3,(IY+0x1B) ; save IY+0xC (APD) ; install cleanup handler 4F3E via 27DA
   CALL _OP1ToOP6                    ; preserve the var name
   (build the var header into 867F) :
       LD DE,0x867F ; CALL _MovFrOP1 ; *** header = var type byte + name token(s) ***
@@ -500,7 +497,7 @@ OP1 = the variable name. It negotiates, sends the VAR header, waits for CTS, the
   else: send the symbol-table/listing payload (4261)
   RES 1,(IY+0x24) ; FUN_ram_2800 (restore) ; JP 4F3E (cleanup)
 </code></pre>
-<h3 id="5a-resolve-the-variable-for-sending--lnk_resolve_var-confirmed"><a class="header" href="#5a-resolve-the-variable-for-sending--lnk_resolve_var-confirmed">5a. Resolve the variable for sending — <code>lnk_resolve_var</code> [confirmed]</a></h3>
+<h3 id="resolving-the-variable-for-sending-confirmed"><a class="header" href="#resolving-the-variable-for-sending-confirmed">Resolving the variable for sending [confirmed]</a></h3>
 <p><code>lnk_resolve_var</code> (<code>3C:4763</code>) reads the var-header type byte at <code>0x867F</code> and
 branches by class. For graph/equation types (<code>0x0F</code>–<code>0x14</code>) it uses a
 cross-page helper. Otherwise <code>3C:47AB</code> calls <code>_CkOP1Real</code>, checks the size,
@@ -508,7 +505,7 @@ then calls <code>_ChkFindSym</code> (<code>ram:0E60</code>)
 to locate the VAT entry. An archived variable routes through the Flash path,
 where <code>_Chk_Batt_Low</code> saves <code>arcInfo.size</code> at <code>0x83F7</code>. <code>_SetupPagedPtr</code>
 supplies the data pointer, page, and length inside the DATA sender.</p>
-<h3 id="5b-send-the-data-payload--40da-confirmed"><a class="header" href="#5b-send-the-data-payload--40da-confirmed">5b. Send the DATA payload — <code>40DA</code> [confirmed]</a></h3>
+<h3 id="sending-the-data-payload-confirmed"><a class="header" href="#sending-the-data-payload-confirmed">Sending the DATA payload [confirmed]</a></h3>
 <pre><code class="language-z80">40DA: CALL _SetupPagedPtr (17AC)            ; initialize the paged source from HL, DE, and B
       (84DB)=ptr ; (8676)=len               ; iMathPtr5, packet length
       6971 ; 620A (machine-ID) ; (8674)=ID
@@ -603,9 +600,9 @@ same 16-bit checksum at <code>0x8678</code>. The checksum covers all 893 transmi
 modulo <code>0x10000</code>. [confirmed]</p>
 <p><code>_PagedGet</code> makes the streamer transparent to RAM-vs-archived data: an archived program is read
 straight out of the Flash window, advancing the bank-A page (port 0x06) at the 0x8000 boundary,
-exactly like <code>_FlashToRam</code> (<a href="sub-vat-archive.html">sub-vat-archive.md</a> §5).</p>
+exactly like <a href="sub-vat-archive.html#reading-archived-data-with-_flashtoram-confirmed"><code>_FlashToRam</code></a>.</p>
 <hr>
-<h2 id="6-_sendvarcmd-3c4a14--body-3c4edd-confirmed"><a class="header" href="#6-_sendvarcmd-3c4a14--body-3c4edd-confirmed">6. <code>_SendVarCmd</code> (<code>3C:4A14</code> → body <code>3C:4EDD</code>) [confirmed]</a></h2>
+<h2 id="_sendvarcmd-confirmed"><a class="header" href="#_sendvarcmd-confirmed"><code>_SendVarCmd</code> [confirmed]</a></h2>
 <p>The bcall most code/TI-BASIC reaches for to silent-send. It is a thin DI-wrapped front for the same
 machinery:</p>
 <pre><code class="language-z80">4EDD: DI ; save IY+0xC (APD) ; RES 2,(IY+0xC)
@@ -620,7 +617,7 @@ machinery:</p>
 entry points into one routine body. <code>_SendVarCmd</code> is the “send by name from the running context”
 door; <code>link_xfer_op</code> is the “OP1 already set up, do the silent transfer” door.</p>
 <hr>
-<h2 id="7-apd-cleanup-and-the-line-idle-wait-confirmed"><a class="header" href="#7-apd-cleanup-and-the-line-idle-wait-confirmed">7. APD, cleanup, and the line idle wait [confirmed]</a></h2>
+<h2 id="apd-cleanup-and-idle-line-wait-confirmed"><a class="header" href="#apd-cleanup-and-idle-line-wait-confirmed">APD, cleanup, and idle-line wait [confirmed]</a></h2>
 <ul>
 <li><code>27DA</code> (<code>FUN_ram_27da</code>) installs an error callback. <code>link_xfer_op</code> and <code>_SendVarCmd</code> install
 <code>3C:4F3E</code>, which restores link state, the APD timer, and <code>IY+0xC</code> bit 2 after <code>_JError</code>.
@@ -635,7 +632,7 @@ doesn’t auto-power-down mid-transfer.</li>
 <li><code>62B0</code>/<code>62BB</code> clear the link error sub-state byte (<code>8A0B</code>, the low bits of <code>IY+0x1B</code>-area flags).</li>
 </ul>
 <hr>
-<h2 id="8-flash-object-dispatch-and-error-handling"><a class="header" href="#8-flash-object-dispatch-and-error-handling">8. Flash-object dispatch and error handling</a></h2>
+<h2 id="flash-object-dispatch-and-error-handling"><a class="header" href="#flash-object-dispatch-and-error-handling">Flash-object dispatch and error handling</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -692,7 +689,7 @@ for the type table and its
 <a href="https://github.com/debrouxl/tilibs/blob/791d2535813fa7ffef8f9feadf110998d4ae57fb/libticalcs/trunk/src/calc_73.cc"><code>calc_73.cc</code></a>
 DBus implementation for the OS, application, and certificate transfer shapes.</p>
 <hr>
-<h2 id="9-end-to-end-send-prgm-to-computer-standard"><a class="header" href="#9-end-to-end-send-prgm-to-computer-standard">9. End-to-end: “Send PRGM to computer” [standard]</a></h2>
+<h2 id="end-to-end-program-transfer-standard"><a class="header" href="#end-to-end-program-transfer-standard">End-to-end program transfer [standard]</a></h2>
 <ol>
 <li>Host (TI-Connect, machine-ID 0x95) opens the USB/DBUS link; calc detects it (<code>IY+0x1B</code> bit1).</li>
 <li>Host requests the directory or a specific var; calc’s receiver (<code>4338</code>) parses the request
@@ -707,7 +704,7 @@ or Flash staged in 16-byte blocks through <code>3C:6AB1</code>) → checksum ver
 (<code>3C:6356</code>, NAK <code>0x5A</code> on error) → ACK out → VAT store.</li>
 </ol>
 <hr>
-<h2 id="10-confident-address-index"><a class="header" href="#10-confident-address-index">10. Confident address index</a></h2>
+<h2 id="routine-index"><a class="header" href="#routine-index">Routine index</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -758,7 +755,7 @@ state machine. RAM block: <code>ioFlag 8670 … bakHeader 868B</code>, staging
 <p><strong>Command IDs:</strong> 0x06 VAR · 0x09 CTS · 0x15 DATA · 0x2D DEL · 0x36 SKIP/EXIT · 0x56 ACK ·
 0x5A ERR/NAK · 0x68 RTS · 0x92 EOT · 0xA2/0xB7 request. <strong>Machine IDs:</strong> 0x82/0x73 calc(84+/73),
 0x95 computer (TI-Connect), 0x03 TI-83, plus the 0x02/0x12/0x23/0x74/0x83/0x13/0x08 set accepted.</p>
-<h2 id="11-open-items"><a class="header" href="#11-open-items">11. Open items</a></h2>
+<h2 id="open-items"><a class="header" href="#open-items">Open items</a></h2>
 <ul>
 <li>Determine why the legacy backup normalizer chooses system-flags word
 <code>0x0063</code>. Its RAM destination, replacement behavior, section bounds, and

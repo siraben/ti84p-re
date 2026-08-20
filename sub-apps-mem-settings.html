@@ -3,12 +3,12 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Apps, memory reset &amp; settings - TI-84 Plus OS — Reverse Engineering</title>
+        <title>Apps, memory reset, and settings - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
+            window.path_to_searchindex_js = "searchindex-38eea4f6.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-e4551b79.js"></script>
+        <script src="toc-c9603d63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -179,24 +179,19 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="apps-memory-reset--settings"><a class="header" href="#apps-memory-reset--settings">Apps, memory reset &amp; settings</a></h1>
-<p>How the user-facing parts of the OS work: launching Flash Apps, the <strong>MEM → Reset</strong>
-menu (what “RAM Cleared” erases), and the <strong>MODE</strong> screen format/mode flags.
-Addresses are <code>space:addr</code> where <code>ram</code>/<code>page_00</code>=<code>0000-3FFF</code>, flash pages mapped at
-<code>4000-7FFF</code>. Confidence flags follow <a href="conventions.html">conventions.md</a>: [confirmed] = read
-from disassembly; [hypothesis] = strong inference, not yet verified (used below for both
-strongly-inferred claims and <em>partial</em> traces where the code is RAM-resident / cross-page and
-not fully traced).</p>
+                        <h1 id="apps-memory-reset-and-settings"><a class="header" href="#apps-memory-reset-and-settings">Apps, memory reset, and settings</a></h1>
+<p>This page traces Flash App launch, the <strong>MEM → Reset</strong> paths, and the format and
+graph flags controlled by the <strong>MODE</strong> screen. Addresses and confidence flags
+follow <a href="conventions.html">Conventions and methodology</a>.</p>
 <p>Cross-references: <a href="boot-contexts-errors.html">Boot contexts &amp; errors</a> (contexts, <code>_AppInit</code>, event router), <a href="memory-management.html">Memory management</a> (RAM heap,
 <code>_CleanAll</code>), <a href="flash-page-map.html">Flash page map</a> (flash page map). Flag bits use the <code>ti83plus.inc</code> equates; the
 SystemFlags base is <code>IY = flags = 0x89F0</code>, so e.g. <code>(IY+0x0A)</code> = <code>flags + fmtFlags</code>.</p>
-<hr>
-<h2 id="1-flash-apps--find--launch"><a class="header" href="#1-flash-apps--find--launch">1. Flash Apps — find &amp; launch</a></h2>
+<h2 id="flash-apps--find-and-launch"><a class="header" href="#flash-apps--find-and-launch">Flash Apps — find and launch</a></h2>
 <p>This ROM ships with zero bundled apps in the local ROM-byte scan (zero <code>80 0F</code> headers found at page starts) [hypothesis],
 but the entire find/launch machinery is present on <code>page 0x3D</code> (<code>_FindApp*</code>) and
 <code>page 0x3B</code> (<code>_AppInit</code> glue / app-quit). Apps are TI Flash Applications: a contiguous
 run of 16 KiB flash pages whose first page begins with a TLV app header.</p>
-<h3 id="11-app-header-format-tlv-confirmed"><a class="header" href="#11-app-header-format-tlv-confirmed">1.1 App header format (TLV) [confirmed]</a></h3>
+<h3 id="app-header-format-tlv-confirmed"><a class="header" href="#app-header-format-tlv-confirmed">App header format (TLV) [confirmed]</a></h3>
 <p>An app header is a sequence of type-length-value fields starting at offset 0 of the
 app’s first page. Each field begins with two bytes in WikiTI’s <code>TT TS</code> notation: the high
 12 bits are the field number, and the low nibble of the second byte encodes the payload
@@ -321,7 +316,7 @@ generic walkers <code>_FindSubField</code> (bcall <code>0x805D</code>), <code>_F
 sit in the boot-page bcall range (<code>0x8000</code>+); the <code>0x8040</code>/<code>0x8070</code>/<code>0x8080</code> helpers the OS
 also reaches are a distinct group in the same range and are not these field walkers. The body
 addresses behind these public entry points are not defined functions in the disassembly.</p>
-<h3 id="12-_findapp--_findappup--_findappdn-confirmed"><a class="header" href="#12-_findapp--_findappup--_findappdn-confirmed">1.2 <code>_FindApp</code> / <code>_FindAppUp</code> / <code>_FindAppDn</code> [confirmed]</a></h3>
+<h3 id="_findapp-_findappup-and-_findappdn-confirmed"><a class="header" href="#_findapp-_findappup-and-_findappdn-confirmed"><code>_FindApp</code>, <code>_FindAppUp</code>, and <code>_FindAppDn</code> [confirmed]</a></h3>
 <ul>
 <li><code>_FindApp</code> (<code>3D:5EE3</code>) — locate an app by name (OP1). Inits the search page,
 then loops <code>app_find_next_page (5FB1)</code> + a header-match step until done, returning the app’s
@@ -343,7 +338,7 @@ in flash (for the APPS-menu list), both wrapping the common walker <code>app_5de
 </ul>
 <p>State variables: <code>appSearchPage</code> = <code>0x82A3</code>, <code>0x8497</code>/<code>0x8481</code>/<code>0x9C87</code> are search-mode
 scratch (<code>0x9C87</code>=‘i’ selects the in-RAM “temp app” search variant).</p>
-<h3 id="13-launching-an-app-as-a-context-confirmed"><a class="header" href="#13-launching-an-app-as-a-context-confirmed">1.3 Launching an app as a context [confirmed]</a></h3>
+<h3 id="launching-an-app-as-a-context-confirmed"><a class="header" href="#launching-an-app-as-a-context-confirmed">Launching an app as a context [confirmed]</a></h3>
 <p><code>_AppInit</code> (<code>ram:0936</code>, bcall <code>0x404B</code>) installs a context from an app header:</p>
 <pre><code class="language-pseudocode">_AppInit(byte *hdr):                 ; HL -&gt; 13-byte vector block in the header
   copy 12 bytes hdr[0..11] -&gt; cxMain (0x858D)   ; the 6 context vectors
@@ -364,11 +359,11 @@ load (<a href="boot-contexts-errors.html">Boot contexts &amp; errors</a>). The A
 <code>3B:7412</code> is not a defined function in the disassembly; the saved-context restore behavior
 is a byte-trace note (the label is project-local, not a WikiTI or <code>ti83plus.inc</code> equate).</p>
 <hr>
-<h2 id="2-ram-clearing--memory-reset"><a class="header" href="#2-ram-clearing--memory-reset">2. RAM clearing / memory reset</a></h2>
+<h2 id="ram-clearing-and-memory-reset"><a class="header" href="#ram-clearing-and-memory-reset">RAM clearing and memory reset</a></h2>
 <p>The <strong>MEM</strong> menu (<code>[2nd][+]</code>, “MEMORY MANAGEMENT/DELETE” + “RESET”) and its messages are on
 <code>page 0x01</code> (text/homescreen page). The reset <em>engine</em> is on <code>page 0x35</code>; the user-RAM
 re-init lands in page-0 boot code.</p>
-<h3 id="21-the-user-facing-strings-page-0x01-confirmed"><a class="header" href="#21-the-user-facing-strings-page-0x01-confirmed">2.1 The user-facing strings (page 0x01) [confirmed]</a></h3>
+<h3 id="user-facing-strings-on-page-01-confirmed"><a class="header" href="#user-facing-strings-on-page-01-confirmed">User-facing strings on page <code>01</code> [confirmed]</a></h3>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -387,7 +382,7 @@ re-init lands in page-0 boot code.</p>
 </tbody>
 </table>
 </div>
-<h3 id="22-the-reset-dispatcher-mem_reset_dispatch--357180-confirmed"><a class="header" href="#22-the-reset-dispatcher-mem_reset_dispatch--357180-confirmed">2.2 The reset dispatcher (<code>mem_reset_dispatch</code> @ <code>35:7180</code>) [confirmed]</a></h3>
+<h3 id="reset-dispatcher-mem_reset_dispatch-at-357180-confirmed"><a class="header" href="#reset-dispatcher-mem_reset_dispatch-at-357180-confirmed">Reset dispatcher (<code>mem_reset_dispatch</code> at <code>35:7180</code>) [confirmed]</a></h3>
 <p>Dispatch is on the selected reset item held in <code>keyExtend</code> (<code>0x8446</code>):</p>
 <div class="table-wrapper">
 <table>
@@ -403,7 +398,7 @@ re-init lands in page-0 boot code.</p>
 </tbody>
 </table>
 </div>
-<h3 id="23-what-ram-cleared-ram-reset-zeroes-confirmed"><a class="header" href="#23-what-ram-cleared-ram-reset-zeroes-confirmed">2.3 What “RAM Cleared” (RAM reset) zeroes [confirmed]</a></h3>
+<h3 id="what-ram-reset-clears-confirmed"><a class="header" href="#what-ram-reset-clears-confirmed">What RAM reset clears [confirmed]</a></h3>
 <p>The RAM-reset path (<code>35:719F</code>):</p>
 <pre><code class="language-z80">719F BIT 1,(IY+0x35); JP Z,0x0B2F          ; first-stage vs full path select
 71A6 LD HL,(0x9B73)                         ; preserve a saved word
@@ -430,31 +425,31 @@ mid-reset. It then <code>JP 0x0BD9</code>, the RAM-init entry (<code>OUT (0)</co
 then <code>CALL 0x3EC1</code> — the cross-page trampoline that rebuilds the VAT, system vars, and LCD; see <a href="boot-contexts-errors.html">Boot contexts &amp; errors</a>), which rebuilds a
 clean default VAT and system state and re-enters the homescreen. The Flash archive is not
 touched by a plain RAM reset.</p>
-<h3 id="24-full-reset-page_0ram0b27-confirmed"><a class="header" href="#24-full-reset-page_0ram0b27-confirmed">2.4 Full reset (<code>page_0/ram:0B27</code>) [confirmed]</a></h3>
+<h3 id="full-reset-ram0b27-confirmed"><a class="header" href="#full-reset-ram0b27-confirmed">Full reset (<code>ram:0B27</code>) [confirmed]</a></h3>
 <p>The harder reset (RESET ALL / power-on cold start) is at <code>ram:0B27</code>:</p>
 <pre><code class="language-z80">0B27 LD SP,0; ... 0B37 DI; OUT (0),0xC0
 0B41 LD HL,0x8000; LD DE,0x8001; LD BC,0x7FFF; LD (HL),0; LDIR   ; zero ALL of 0x8000-0xFFFF (32 KiB)
 0B4E ... preserve/inspect IY+0x3F; select sub-path; JP 0x3EA9/0x3EAF
 </code></pre>
 <p>This zeroes the <em>entire</em> 32 KiB RAM and does the deepest re-init.</p>
-<h3 id="25-_cleanall--cleanup_temp_ram-0752cf--not-a-reset-confirmed"><a class="header" href="#25-_cleanall--cleanup_temp_ram-0752cf--not-a-reset-confirmed">2.5 <code>_CleanAll</code> / <code>cleanup_temp_ram</code> (<code>07:52CF</code>) — not a reset [confirmed]</a></h3>
+<h3 id="_cleanall-and-cleanup_temp_ram-0752cf-confirmed"><a class="header" href="#_cleanall-and-cleanup_temp_ram-0752cf-confirmed"><code>_CleanAll</code> and <code>cleanup_temp_ram</code> (<code>07:52CF</code>) [confirmed]</a></h3>
 <p>Distinct from the MEM reset. <code>_CleanAll</code> (bcall <code>0x4A50</code>) only compacts temporary RAM
 after a command finishes: it shifts the FP stack (<code>fpBase</code>/<code>FPS</code>) down to <code>tempMem</code>, resets
 the <code>OPBase</code>/<code>OPS</code>/<code>pTemp</code> scratch pointers, and clears <code>pTempCnt</code>/<code>cleanTmp</code>. It does not
 clear the VAT, user vars, or Flash (see <a href="memory-management.html">Memory management</a>). <code>_FixTempCnt</code> (<code>07:4FEC</code>) marks temps
 ≥ a count reclaimable then tail-calls the same compaction.</p>
-<h3 id="26-flash-archive-gc--defragmenting--garbage-collecting-confirmed"><a class="header" href="#26-flash-archive-gc--defragmenting--garbage-collecting-confirmed">2.6 Flash archive GC — “Defragmenting…” / “Garbage Collecting…” [confirmed]</a></h3>
+<h3 id="flash-archive-garbage-collection-confirmed"><a class="header" href="#flash-archive-garbage-collection-confirmed">Flash archive garbage collection [confirmed]</a></h3>
 <p>Separate from RAM reset: <code>gc_show_screen</code> at <code>3C:7E0D</code> displays <code>Garbage Collecting...</code>, while the
 related entry at <code>3C:7E23</code> displays <code>Defragmenting...</code>. <code>archive_gc_collect</code> at <code>3C:7733</code> rewrites
 live archive records in 64 KiB sector units and journals its phase in the inactive 8 KiB half of
 page <code>3E</code>. It clears <code>0x844B</code> (<code>curRow</code>) before drawing the banner and runs with interrupts disabled.
 The erase and program workers execute from RAM through Flash-control port <code>0x14</code>; see
-<a href="sub-vat-archive.html#7-flash-garbage-collector-confirmed">Variables, archive &amp; unarchive</a>. [confirmed]</p>
+<a href="sub-vat-archive.html#flash-garbage-collector-confirmed">Variables, archive and unarchive</a>. [confirmed]</p>
 <hr>
-<h2 id="3-mode--settings-flags"><a class="header" href="#3-mode--settings-flags">3. MODE / settings flags</a></h2>
+<h2 id="mode-settings-flags"><a class="header" href="#mode-settings-flags">MODE settings flags</a></h2>
 <p>The flag bytes live in the SystemFlags area at <code>IY = 0x89F0</code>. The MODE screen (<code>cxMode = kMode = 0x45</code>) is a menu context that flips these bits; the canonical setters below show
 exactly which bits.</p>
-<h3 id="31-angle-degree-vs-radian--trigflags-iy0-confirmed"><a class="header" href="#31-angle-degree-vs-radian--trigflags-iy0-confirmed">3.1 Angle: Degree vs Radian — <code>trigFlags</code> (<code>IY+0</code>) [confirmed]</a></h3>
+<h3 id="angle-mode-in-trigflags-iy0-confirmed"><a class="header" href="#angle-mode-in-trigflags-iy0-confirmed">Angle mode in <code>trigFlags</code> (<code>IY+0</code>) [confirmed]</a></h3>
 <p><code>trigDeg = bit 2</code> of <code>trigFlags</code> (<code>0x89F0</code>): 1 = Degrees, 0 = Radians. (Confirmed against WikiTI <code>Flags:00</code> and the ROM — <code>_Sin</code> (<code>02:7342</code>) tests <code>BIT 2,(IY+0)</code> to pick the degree path.)</p>
 <pre><code class="language-z80">SET 2,(IY+0)   ; FD CB 00 D6  -&gt; Degree
 RES 2,(IY+0)   ; FD CB 00 96  -&gt; Radian
@@ -462,7 +457,7 @@ BIT 2,(IY+0)   ; FD CB 00 56  -&gt; tested by _Sin/_Cos/_Tan to select degree vs
 </code></pre>
 <p>Math routines branch on this bit to choose degree/radian variants (<code>_SinCosRad</code> etc. force
 radians; the degree paths convert first).</p>
-<h3 id="32-graph-type-func--param--polar--seq--grfmodeflags-iy0x02-confirmed"><a class="header" href="#32-graph-type-func--param--polar--seq--grfmodeflags-iy0x02-confirmed">3.2 Graph type: Func / Param / Polar / Seq — <code>grfModeFlags</code> (<code>IY+0x02</code>) [confirmed]</a></h3>
+<h3 id="graph-type-in-grfmodeflags-iy0x02-confirmed"><a class="header" href="#graph-type-in-grfmodeflags-iy0x02-confirmed">Graph type in <code>grfModeFlags</code> (<code>IY+0x02</code>) [confirmed]</a></h3>
 <p>The four graph-mode setters on <code>page 0x36</code> are mutually exclusive: each first clears
 all four bits via <code>clr_grfmode (36:7D00)</code>, then ORs in its own bit, then calls
 <code>_SetTblGraphDraw</code>. <code>param_1</code> is <code>IY</code>, so <code>*(param_1+2)</code> = <code>grfModeFlags</code>.</p>
@@ -487,7 +482,7 @@ the mode if the parity/condition flag (<code>F</code> bit6) requires it, avoidin
 (rect↔polar coordinate readout). Related graph bytes: <code>grfDBFlags</code> (<code>IY+0x04</code>) bit0
 <code>grfDot</code> (line/dot), bit1 <code>grfSimul</code> (sequential/simultaneous), bit4 <code>grfNoCoord</code>,
 bit5 <code>grfNoAxis</code>; <code>seqFlags</code> (<code>IY+0x0F</code>).</p>
-<h3 id="33-numeric-format-normalscieng-floatfix-base--fmtflags-iy0x0a-confirmed"><a class="header" href="#33-numeric-format-normalscieng-floatfix-base--fmtflags-iy0x0a-confirmed">3.3 Numeric format: Normal/Sci/Eng, Float/Fix, base — <code>fmtFlags</code> (<code>IY+0x0A</code>) [confirmed]</a></h3>
+<h3 id="numeric-format-in-fmtflags-iy0x0a-confirmed"><a class="header" href="#numeric-format-in-fmtflags-iy0x0a-confirmed">Numeric format in <code>fmtFlags</code> (<code>IY+0x0A</code>) [confirmed]</a></h3>
 <p><code>fmtFlags</code> byte at <code>0x89FA</code>:</p>
 <div class="table-wrapper">
 <table>
@@ -508,7 +503,7 @@ bit5 <code>grfNoAxis</code>; <code>seqFlags</code> (<code>IY+0x0F</code>).</p>
 <code>fmtOverride</code> (<code>IY+0x0B</code>, <code>0x89FB</code>) is a working copy used during conversions.</p>
 <p>Float vs Fix N is not in <code>fmtFlags</code> — it is the separate byte <code>fmtDigits</code> =
 <code>0x97B0</code>: value <code>0x00-0x09</code> = Fix-N decimal places, <code>0xFF</code> = Float.</p>
-<h3 id="34-mode-screen-plumbing"><a class="header" href="#34-mode-screen-plumbing">3.4 MODE screen plumbing</a></h3>
+<h3 id="mode-screen-plumbing"><a class="header" href="#mode-screen-plumbing">MODE screen plumbing</a></h3>
 <p>The MODE screen is a menu context (<code>cxMode</code>/<code>kMode</code>=0x45) reached via the event/key router
 (<a href="boot-contexts-errors.html">Boot contexts &amp; errors</a>). Its row strings live as token names on page 0x01 (<code>RadianN</code>/<code>DegreeO</code>/<code>NormalP</code>/
 <code>Float</code> at <code>01:49E4..4A06</code>; trailing letters are token-id bytes) and full-caps menu
@@ -517,7 +512,7 @@ documented above directly (<code>SET/RES (IY+…)</code>, or stores into <code>f
 the per-row write table itself is reached through the menu dispatcher and was not traced
 line-by-line, but every target bit/byte is confirmed from the setters and inc equates.</p>
 <hr>
-<h2 id="4-confident-spaceaddr-index"><a class="header" href="#4-confident-spaceaddr-index">4. Confident <code>space:addr</code> index</a></h2>
+<h2 id="routine-index"><a class="header" href="#routine-index">Routine index</a></h2>
 <pre><code class="language-text">3D:5EE3   _FindApp
 3D:5DDA   _FindAppUp
 3D:5DE6   _FindAppDn
@@ -546,7 +541,7 @@ ram:0B27       full_reset_wipe        (zeroes all 0x8000-0xFFFF)
 36:7D39   _SetParM      (grfModeFlags bit6)
 36:7D00   clr_grfmode   (clears grfModeFlags bits 4-7)
 </code></pre>
-<h3 id="key-systemflags--ram-addresses"><a class="header" href="#key-systemflags--ram-addresses">Key SystemFlags / RAM addresses</a></h3>
+<h3 id="key-systemflags-and-ram-addresses"><a class="header" href="#key-systemflags-and-ram-addresses">Key SystemFlags and RAM addresses</a></h3>
 <pre><code class="language-text">0x89F0  flags (IY base)
  +0x00  trigFlags   (bit2 trigDeg: 1=Degree,0=Radian)
  +0x02  grfModeFlags(bit4 Func,bit5 Polar,bit6 Param,bit7 Seq; bit3 grfPolar)

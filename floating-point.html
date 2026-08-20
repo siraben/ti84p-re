@@ -8,7 +8,7 @@
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
+            window.path_to_searchindex_js = "searchindex-38eea4f6.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-e4551b79.js"></script>
+        <script src="toc-c9603d63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -294,7 +294,7 @@ subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
 <p>Multiply/divide/transcendentals (on page 0x02) reuse the same align/normalize primitives.</p>
 <h2 id="floating-point-stack-fps-standard"><a class="header" href="#floating-point-stack-fps-standard">Floating-point stack (FPS) [standard]</a></h2>
 <p><code>FPS</code> (<code>0x9824</code>) is a software stack for temporaries; <code>_PushRealO1</code> (= <code>RST 18h</code>, <code>ram:155C</code>), <code>_PushReal</code>, <code>_PopRealO1</code> through <code>_PopRealO6</code>, <code>_PopReal</code>, <code>_AllocFPS</code>, and <code>_DeallocFPS</code> manage it. Used to spill OP registers during nested expression evaluation.</p>
-<h2 id="multiply--divide--transcendentals-confirmed"><a class="header" href="#multiply--divide--transcendentals-confirmed">Multiply / divide / transcendentals [confirmed]</a></h2>
+<h2 id="multiplication-division-and-transcendentals-confirmed"><a class="header" href="#multiplication-division-and-transcendentals-confirmed">Multiplication, division, and transcendentals [confirmed]</a></h2>
 <p>The rest of the FP op set lives alongside add on page 0, with the transcendentals banked to page 0x02:</p>
 <div class="table-wrapper">
 <table>
@@ -393,7 +393,7 @@ the shared body at <code>02:7069</code>. That body splits the integer digit shif
 sign and reciprocal cases, then evaluates the fractional part through
 <code>logexp_digit_table</code>. The <code>CP 0x0F</code> bound at <code>02:7109</code> establishes 16 selector
 slots. [confirmed]</p>
-<h3 id="_sincosrad--sincos-in-radians-02733e-confirmed"><a class="header" href="#_sincosrad--sincos-in-radians-02733e-confirmed"><code>_SinCosRad</code> — sin/cos in radians (<code>02:733E</code>) [confirmed]</a></h3>
+<h3 id="_sincosrad-sine-and-cosine-in-radians-02733e-confirmed"><a class="header" href="#_sincosrad-sine-and-cosine-in-radians-02733e-confirmed"><code>_SinCosRad</code> sine and cosine in radians (<code>02:733E</code>) [confirmed]</a></h3>
 <p>This one keeps its range reduction on page 0x02 and is the most fully recovered:</p>
 <ol>
 <li><strong>Mode/select flags.</strong> <code>0x8499</code> holds the trig-op selector — <code>0x01</code> (sin), <code>0x02</code> (cos), <code>0x04</code> (tan) — ORed with <code>0x80</code> when <code>(IY+0)</code> bit 2 is clear (<code>BIT 2,(IY+0); JR NZ,+2; OR 0x80</code>). <code>_SinCosRad</code> itself enters with <code>A=0x81</code>, so it stores <code>0x81</code> regardless. <code>fp_clear_guard</code> and <code>_ZeroOP3</code> initialize the work area.</li>

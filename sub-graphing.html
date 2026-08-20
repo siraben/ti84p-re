@@ -8,7 +8,7 @@
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-67caa8d0.js";
+            window.path_to_searchindex_js = "searchindex-38eea4f6.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-e4551b79.js"></script>
+        <script src="toc-c9603d63.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,15 +180,11 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="graphing"><a class="header" href="#graphing">Graphing</a></h1>
-<p>What runs when the user presses <strong>Y=</strong>, <strong>WINDOW</strong>, <strong>GRAPH</strong>, <strong>TRACE</strong>,
-or runs a <strong>DRAW</strong> menu command. This traces the path real-coordinate → screen pixel →
-<code>plotSScreen</code> → LCD, plus the window variables, Y= equation storage, and DRAW primitives.</p>
-<p>Address form is <code>page:addr</code> (flash page hex : logical offset, routines run mapped at
-<code>0x4000</code>). Confidence: [confirmed] = read the code/data directly, or cross-checked
-against equate/convention; [standard] = matches documented TI behavior but not
-byte-verified here; [hypothesis] = inferred, not yet verified.</p>
-<hr>
-<h2 id="1-window-variables-ram-confirmed"><a class="header" href="#1-window-variables-ram-confirmed">1. Window variables (RAM) [confirmed]</a></h2>
+<p>The graphing subsystem maps real coordinates to pixels, draws into
+<code>plotSScreen</code>, and copies that buffer to the LCD. This page connects the
+<strong>Y=</strong>, <strong>WINDOW</strong>, <strong>GRAPH</strong>, <strong>TRACE</strong>, and <strong>DRAW</strong> paths to their window
+state, equation storage, and drawing primitives.</p>
+<h2 id="window-variables-confirmed"><a class="header" href="#window-variables-confirmed">Window variables [confirmed]</a></h2>
 <p>All graph window state lives in a contiguous block of 9-byte <code>TIFloat</code>s starting at <code>0x8F50</code>.
 These are the values the WINDOW editor writes and the grapher reads.</p>
 <div class="table-wrapper">
@@ -236,7 +232,7 @@ official RAM labels. [confirmed]</p>
 forward (real→pixel) and the circle/draw routines. The LCD is <code>96×64</code>, but the graph area
 is 95 columns wide (0..94) and 63 tall (0..62), hence the /94 and /62. [standard]</p>
 <hr>
-<h2 id="2-coordinate--pixel-transforms"><a class="header" href="#2-coordinate--pixel-transforms">2. Coordinate ↔ pixel transforms</a></h2>
+<h2 id="coordinate-to-pixel-transforms"><a class="header" href="#coordinate-to-pixel-transforms">Coordinate-to-pixel transforms</a></h2>
 <h3 id="forward-real-coordinate--pixel-index"><a class="header" href="#forward-real-coordinate--pixel-index">Forward: real coordinate → pixel index</a></h3>
 <p><code>_XftoI</code> (<code>37:41EB</code>) and <code>_YftoI</code> (<code>37:41DF</code>) convert an OP1 real coordinate to a
 pixel index. Both are thin shims around the shared engine at <code>37:41F2</code>: [confirmed]</p>
@@ -270,7 +266,7 @@ and build a real <code>TIFloat</code> in OP1 / OP2 (<code>0x8478</code> / <code>
 <p>These are used to turn a pixel column/row (e.g. under the TRACE cursor) back into the real
 X/Y shown at the bottom of the screen, and by DRAW commands that take pixel arguments.</p>
 <hr>
-<h2 id="3-the-graph-buffer-plotsscreen-and-pixel-addressing"><a class="header" href="#3-the-graph-buffer-plotsscreen-and-pixel-addressing">3. The graph buffer <code>plotSScreen</code> and pixel addressing</a></h2>
+<h2 id="graph-buffer-and-pixel-addressing"><a class="header" href="#graph-buffer-and-pixel-addressing">Graph buffer and pixel addressing</a></h2>
 <ul>
 <li><code>plotSScreen</code> = <code>0x9340</code>, 768 bytes = 96×64/8. Monochrome, 1 bit/pixel, 12 bytes per
 scanline (8 pixels per byte). This is the back buffer everything draws into. [confirmed]</li>
@@ -305,7 +301,7 @@ current graph dimensions <code>lcdTallP</code> (<code>0x8DA3</code>) and <code>p
 full screen, smaller when split — maps the split-screen offset, and returns whether that buffer
 pixel is on. <code>_ErrDomain</code> on out-of-range. [confirmed]</p>
 <hr>
-<h2 id="4-drawing-primitives-page-0x04--0x33"><a class="header" href="#4-drawing-primitives-page-0x04--0x33">4. Drawing primitives (page 0x04 / 0x33)</a></h2>
+<h2 id="drawing-primitives"><a class="header" href="#drawing-primitives">Drawing primitives</a></h2>
 <h3 id="lines"><a class="header" href="#lines">Lines</a></h3>
 <p><code>_ILine</code> (<code>04:4029</code>) — integer pixel line via Bresenham. [confirmed]
 It computes <code>dx=|x2−x1|</code>, <code>dy=|y2−y1|</code>, picks the major axis, sets the error term
@@ -355,7 +351,7 @@ line’s Y (<code>OP1</code>) via <code>_MovFrOP1</code> (<code>00:1B0C</code>),
 <code>_PDspGrph</code>, then <code>_DeallocFPS1(0x24)</code> frees the frame — the window variables are read only,
 so the line just spans the current window edges. [confirmed]</p>
 <hr>
-<h2 id="5-rendering-the-graph-to-the-lcd"><a class="header" href="#5-rendering-the-graph-to-the-lcd">5. Rendering the graph to the LCD</a></h2>
+<h2 id="rendering-the-graph-to-the-lcd"><a class="header" href="#rendering-the-graph-to-the-lcd">Rendering the graph to the LCD</a></h2>
 <p><code>_PDspGrph</code> (<code>04:7904</code>, “possibly-display graph”) decides whether to copy the buffer to the
 screen and whether a full re-plot is needed first. [confirmed]</p>
 <ul>
@@ -377,7 +373,7 @@ reaches the panel. [confirmed]</p>
 turn SmartGraph off; SmartGraph (<code>grfModeFlags</code> bit <code>smartGraph</code>) lets the OS skip the
 re-plot and <code>_GrBufCpy</code> the existing buffer when nothing changed. [confirmed]</p>
 <hr>
-<h2 id="6-y-equations-storage-and-evaluation"><a class="header" href="#6-y-equations-storage-and-evaluation">6. Y= equations: storage and evaluation</a></h2>
+<h2 id="y-equation-storage-and-evaluation"><a class="header" href="#y-equation-storage-and-evaluation">Y= equation storage and evaluation</a></h2>
 <h3 id="storage-confirmed"><a class="header" href="#storage-confirmed">Storage [confirmed]</a></h3>
 <p>Y= functions are ordinary equation variables (<code>EquObj</code>), stored in the VAT as tokenized
 byte streams — the same token encoding the homescreen uses. <code>Y1</code>…<code>Y0</code> (and <code>r1</code>…, <code>X1T/Y1T</code>,
@@ -388,7 +384,7 @@ the selection bit is bit 5 (<code>0x20</code>). The per-equation style byte hold
 (<code>curGStyle</code> <code>0x8D17</code> is the current-equation copy). [confirmed] The
 selection/style byte values also match the
 <a href="https://merthsoft.com/linkguide/ti83+/vars.html#style">TI link-protocol guide</a>.</p>
-<h3 id="parsing--pre-scan"><a class="header" href="#parsing--pre-scan">Parsing / pre-scan</a></h3>
+<h3 id="parsing-and-pre-scan"><a class="header" href="#parsing-and-pre-scan">Parsing and pre-scan</a></h3>
 <p><code>graph_parse_tok</code> (<code>33:5023</code>) walks an equation’s token stream to classify it before
 plotting: it reads tokens via the paged-pointer reader (<code>_SetupPagedPtr</code>/<code>_PagedGet</code>),
 recognizes 2-byte tokens (<code>_IsA2ByteTok</code>), and sets feature bits (e.g. token <code>0xEF…</code>
@@ -417,7 +413,7 @@ that the <code>StoreGDB</code>/<code>RecallGDB</code> commands save. <code>_JErr
 equation pointers (<code>iMathPtr4</code>-based, 2 bytes/entry) used to iterate the selected functions
 during a regraph or TABLE build.</p>
 <hr>
-<h2 id="7-graph-screen-vs-home-screen-trace"><a class="header" href="#7-graph-screen-vs-home-screen-trace">7. Graph screen vs. home screen; TRACE</a></h2>
+<h2 id="graph-home-screen-and-trace-paths"><a class="header" href="#graph-home-screen-and-trace-paths">Graph, home-screen, and TRACE paths</a></h2>
 <ul>
 <li>The home screen uses the large font and <code>curRow</code>/<code>curCol</code> text cursor (see
 <a href="display-lcd.html">display-lcd.md</a>). The graph screen is the pixel buffer <code>plotSScreen</code> rendered by
@@ -432,7 +428,7 @@ X/Y it prints at the bottom. [confirmed]</li>
 re-evaluated) until <code>ClrDraw</code> is issued. [confirmed]</li>
 </ul>
 <hr>
-<h2 id="8-confidence-summary--open-items"><a class="header" href="#8-confidence-summary--open-items">8. Confidence summary / open items</a></h2>
+<h2 id="evidence-summary-and-open-items"><a class="header" href="#evidence-summary-and-open-items">Evidence summary and open items</a></h2>
 <ul>
 <li>Forward transform <code>(value−min)/pixelDelta</code>: structure [confirmed] from the
 <code>37:41F2</code> disassembly (subtract <code>228F</code>, divide <code>2385</code>); the exact rounding in <code>4229</code> is
