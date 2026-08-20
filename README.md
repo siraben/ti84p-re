@@ -1,6 +1,11 @@
 # TI-84 Plus OS — Reverse engineering
 
-A reproducible Ghidra reverse-engineering project for the TI-84 Plus calculator OS (version 2.55MP), a Zilog Z80 system. This repo contains the build scripts, derived symbol data, and reverse-engineering notes — not the ROM image (copyrighted) or the Ghidra database (regenerable).
+An evidence-indexed technical reference for TI-84 Plus OS 2.55MP. The wiki
+documents ROM behavior, hardware interfaces, emulator differences, and the
+remaining unknowns for readers working on emulation, interoperability, or Z80
+software analysis. This repository contains the reproducible Ghidra build,
+derived symbol data, and reverse-engineering notes. It does not contain the
+copyrighted ROM image or the regenerable Ghidra database.
 
 Read the rendered wiki: <https://siraben.github.io/ti84p-re/>
 
@@ -54,7 +59,7 @@ The pipeline (`build.sh`):
 14. `ApplyOffsetRefs.java` — restore or verify the reviewed offsets after final flow analysis
 15. `RenameVars.java` — apply reviewed local-variable names from `varnames.txt`
 
-Then open `ti84.gpr` in Ghidra (the GhidraMCP plugin exposes it to Claude over `:8080`).
+Then open `ti84.gpr` in Ghidra for interactive analysis.
 
 ## Current state
 
@@ -66,13 +71,16 @@ Then open `ti84.gpr` in Ghidra (the GhidraMCP plugin exposes it to Claude over `
 | parser handlers | 84 (page 0x38 dispatch table) |
 | Defined data (strings/floats/typed) | 618 |
 | Flash pages loaded | 64 (1 MiB) |
-| Docs | 41 rendered Markdown pages |
+| Docs | 46 rendered content pages |
 
 ## Architecture in one paragraph
 
 A Z80 (64 KiB address space) with hardware paging maps flash page 0 at `0000` (the kernel: RST vectors, the bcall dispatcher, FP/VAT/memory core) and swaps other 16 KiB flash pages into `4000` on demand. Code reaches routines on other pages via bcalls (`rst 28h` + a 2-byte ID resolved through a jump table on flash page `0x3B`). The OS is a single-tasking context machine: a main event loop runs the active context's handlers, switching contexts by key. All arithmetic flows through a 9-byte BCD floating-point engine (OP1–OP6); named objects live in the VAT; TI-BASIC is stored as 1/2-byte tokens executed by the parser on page `0x38`.
 
-## Documentation index
+## Suggested starting points
+
+The rendered wiki sidebar contains the complete page list. These pages provide
+the shortest paths into the main kinds of material:
 
 | Page | Subsystem |
 |------|-----------|
@@ -97,7 +105,9 @@ A Z80 (64 KiB address space) with hardware paging maps flash page 0 at `0000` (t
 | [RAM pages](docs/ram-pages.md) | RAM page selectors, page `83`, and restore rules |
 | [Open questions](docs/open-questions.md) | Future-work roadmap |
 
-**Subsystem deep-dives** (from parallel multi-agent RE): `sub-calculation`, `sub-graphing`, `sub-tibasic`, `sub-tibasic-programming`, `sub-tibasic-tracing`, `sub-tibasic-for-paren`, `sub-vat-archive`, `sub-apps-mem-settings`, `sub-statistics`, `sub-matrix-list`, `sub-solver-numeric`, `sub-table-yvars`, `sub-equation-display`, `sub-link-transfer`, `sub-usb-asic`.
+Subsystem deep dives cover calculation, graphing, TI-BASIC, VAT and archive
+handling, apps, statistics, matrices and lists, numerical solvers, tables,
+MathPrint, link transfer, and the USB/link-assist hardware.
 
 **Reference**: [`glossary`](docs/glossary.md) (terms & key RAM symbols), [`conventions`](docs/conventions.md) (notation, confidence flags, methodology), [`bcall-index`](docs/bcall-index.md) (main and retail boot bcalls), [`token-tables`](docs/token-tables.md) (492 two-byte tokens, from TI-Toolkit/tokens).
 
@@ -107,10 +117,15 @@ Wiki authoring style lives in the repo-local Codex skill [`ti84-re-writing`](.co
 
 ## Legal
 
-Independent reverse-engineering notes for interoperability/education. No copyrighted TI ROM image or OS code is included—the local ROM inputs are gitignored and must be supplied separately. `ti83plus.inc` is TI's freely-distributed equates file (the full 2007 TI-83 Plus SDK include, the complete version as hosted on WikiTI). All trademarks belong to Texas Instruments; this project is not affiliated with or endorsed by TI.
+Independent reverse-engineering notes for interoperability and education. No
+copyrighted TI ROM image or OS code is included — the local ROM inputs are
+gitignored and must be supplied separately. `ti83plus.inc` is TI's
+freely-distributed equates file (the full 2007 TI-83 Plus SDK include, as hosted
+on WikiTI). All trademarks belong to Texas Instruments; this project is not
+affiliated with or endorsed by TI.
 
 ## Notes
 
-- `ti83plus.inc` is the full 2007 TI-83 Plus SDK equates file (the complete version as hosted on WikiTI), which replaces the earlier trimmed copy. It defines the 84+-era `0x8xxx` boot bcall IDs. With the validated local complete ROM assembled from `ti84plus_patched.rom`, `D84PBE1.8Xv`, and `D84PBE2.8Xv`, those entries resolve through retail page `3F`; the USB boot routines land on page `2F`. These files have exact, reproducible identities, but their acquisition history does not establish a physical-calculator capture.
+- `ti83plus.inc` is the full 2007 TI-83 Plus SDK equates file hosted on WikiTI. It defines the TI-84 Plus-era `0x8xxx` boot bcall IDs. With the validated local ROM assembled from `ti84plus_patched.rom`, `D84PBE1.8Xv`, and `D84PBE2.8Xv`, those entries resolve through retail page `3F`; the USB boot routines land on page `2F`. These files have exact, reproducible identities, but their acquisition history does not establish a physical-calculator capture.
 - ~1600 function names beyond the official bcalls are RE-inferred from behavior (callees, RAM/port touches) — accurate in aggregate, but a specific low-level helper's name is a best-effort guess; flagged by snake_case (vs the `_CamelCase` official TI bcalls).
-- Confidence flags in the docs: [confirmed] (seen in disassembly), [standard] (matches documented TI architecture), [hypothesis] (inferred).
+- Confidence flags in the docs: [confirmed] (direct ROM or labeled-trace evidence), [standard] (documented TI architecture consistent with the ROM), and [hypothesis] (an inference that remains open).

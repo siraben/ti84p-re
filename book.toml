@@ -1,7 +1,7 @@
 [book]
 title = "TI-84 Plus OS — Reverse Engineering"
 authors = ["ti84-re"]
-description = "Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system."
+description = "Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces."
 src = "docs"
 language = "en"
 
