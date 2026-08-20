@@ -8,14 +8,14 @@ Cross-references: [Boot contexts & errors](boot-contexts-errors.md) (contexts, `
 `_CleanAll`), [Flash page map](flash-page-map.md) (flash page map). Flag bits use the `ti83plus.inc` equates; the
 SystemFlags base is `IY = flags = 0x89F0`, so e.g. `(IY+0x0A)` = `flags + fmtFlags`.
 
-## 1. Flash Apps — find & launch
+## Flash Apps — find and launch
 
 This ROM ships with zero bundled apps in the local ROM-byte scan (zero `80 0F` headers found at page starts) [hypothesis],
 but the entire find/launch machinery is present on `page 0x3D` (`_FindApp*`) and
 `page 0x3B` (`_AppInit` glue / app-quit). Apps are TI Flash Applications: a contiguous
 run of 16 KiB flash pages whose first page begins with a TLV app header.
 
-### 1.1 App header format (TLV) [confirmed]
+### App header format (TLV) [confirmed]
 
 An app header is a sequence of type-length-value fields starting at offset 0 of the
 app's first page. Each field begins with two bytes in WikiTI's `TT TS` notation: the high
@@ -138,7 +138,7 @@ sit in the boot-page bcall range (`0x8000`+); the `0x8040`/`0x8070`/`0x8080` hel
 also reaches are a distinct group in the same range and are not these field walkers. The body
 addresses behind these public entry points are not defined functions in the disassembly.
 
-### 1.2 `_FindApp` / `_FindAppUp` / `_FindAppDn` [confirmed]
+### `_FindApp`, `_FindAppUp`, and `_FindAppDn` [confirmed]
 
 - `_FindApp` (`3D:5EE3`) — locate an app by name (OP1). Inits the search page,
   then loops `app_find_next_page (5FB1)` + a header-match step until done, returning the app's
@@ -161,7 +161,7 @@ addresses behind these public entry points are not defined functions in the disa
 State variables: `appSearchPage` = `0x82A3`, `0x8497`/`0x8481`/`0x9C87` are search-mode
 scratch (`0x9C87`='i' selects the in-RAM "temp app" search variant).
 
-### 1.3 Launching an app as a context [confirmed]
+### Launching an app as a context [confirmed]
 
 `_AppInit` (`ram:0936`, bcall `0x404B`) installs a context from an app header:
 ```pseudocode
@@ -188,13 +188,13 @@ is a byte-trace note (the label is project-local, not a WikiTI or `ti83plus.inc`
 
 ---
 
-## 2. RAM clearing / memory reset
+## RAM clearing and memory reset
 
 The **MEM** menu (`[2nd][+]`, "MEMORY MANAGEMENT/DELETE" + "RESET") and its messages are on
 `page 0x01` (text/homescreen page). The reset *engine* is on `page 0x35`; the user-RAM
 re-init lands in page-0 boot code.
 
-### 2.1 The user-facing strings (page 0x01) [confirmed]
+### User-facing strings on page `01` [confirmed]
 
 | Addr | String |
 |------|--------|
@@ -208,7 +208,7 @@ re-init lands in page-0 boot code.
 | `01:7425..746E` | menu titles: `RESET MEMORY`, `RESET DEFAULTS`, `RESET ARC VARS`, `RESET ARC APPS`, `RESET ARC BOTH`, `RESET RAM` |
 | `01:747E` | the long "Resetting ALL / RAM / Vars / Apps / Both …" warning help text |
 
-### 2.2 The reset dispatcher (`mem_reset_dispatch` @ `35:7180`) [confirmed]
+### Reset dispatcher (`mem_reset_dispatch` at `35:7180`) [confirmed]
 
 Dispatch is on the selected reset item held in `keyExtend` (`0x8446`):
 
@@ -220,7 +220,7 @@ Dispatch is on the selected reset item held in `keyExtend` (`0x8446`):
 | 4 | reset all (RAM+archive) | `Resetting All...` (path `71F0`) |
 | else (0) | RAM reset ("RAM Cleared") | wipe + re-init (path `719F`) |
 
-### 2.3 What "RAM Cleared" (RAM reset) zeroes [confirmed]
+### What RAM reset clears [confirmed]
 
 The RAM-reset path (`35:719F`):
 ```z80
@@ -251,7 +251,7 @@ then `CALL 0x3EC1` — the cross-page trampoline that rebuilds the VAT, system v
 clean default VAT and system state and re-enters the homescreen. The Flash archive is not
 touched by a plain RAM reset.
 
-### 2.4 Full reset (`page_0/ram:0B27`) [confirmed]
+### Full reset (`ram:0B27`) [confirmed]
 
 The harder reset (RESET ALL / power-on cold start) is at `ram:0B27`:
 ```z80
@@ -261,7 +261,7 @@ The harder reset (RESET ALL / power-on cold start) is at `ram:0B27`:
 ```
 This zeroes the *entire* 32 KiB RAM and does the deepest re-init.
 
-### 2.5 `_CleanAll` / `cleanup_temp_ram` (`07:52CF`) — not a reset [confirmed]
+### `_CleanAll` and `cleanup_temp_ram` (`07:52CF`) [confirmed]
 
 Distinct from the MEM reset. `_CleanAll` (bcall `0x4A50`) only compacts temporary RAM
 after a command finishes: it shifts the FP stack (`fpBase`/`FPS`) down to `tempMem`, resets
@@ -269,24 +269,24 @@ the `OPBase`/`OPS`/`pTemp` scratch pointers, and clears `pTempCnt`/`cleanTmp`. I
 clear the VAT, user vars, or Flash (see [Memory management](memory-management.md)). `_FixTempCnt` (`07:4FEC`) marks temps
 ≥ a count reclaimable then tail-calls the same compaction.
 
-### 2.6 Flash archive GC — "Defragmenting…" / "Garbage Collecting…" [confirmed]
+### Flash archive garbage collection [confirmed]
 
 Separate from RAM reset: `gc_show_screen` at `3C:7E0D` displays `Garbage Collecting...`, while the
 related entry at `3C:7E23` displays `Defragmenting...`. `archive_gc_collect` at `3C:7733` rewrites
 live archive records in 64 KiB sector units and journals its phase in the inactive 8 KiB half of
 page `3E`. It clears `0x844B` (`curRow`) before drawing the banner and runs with interrupts disabled.
 The erase and program workers execute from RAM through Flash-control port `0x14`; see
-[Variables, archive & unarchive](sub-vat-archive.md#7-flash-garbage-collector-confirmed). [confirmed]
+[Variables, archive and unarchive](sub-vat-archive.md#flash-garbage-collector-confirmed). [confirmed]
 
 ---
 
-## 3. MODE / settings flags
+## MODE settings flags
 
 The flag bytes live in the SystemFlags area at `IY = 0x89F0`. The MODE screen (`cxMode =
 kMode = 0x45`) is a menu context that flips these bits; the canonical setters below show
 exactly which bits.
 
-### 3.1 Angle: Degree vs Radian — `trigFlags` (`IY+0`) [confirmed]
+### Angle mode in `trigFlags` (`IY+0`) [confirmed]
 
 `trigDeg = bit 2` of `trigFlags` (`0x89F0`): 1 = Degrees, 0 = Radians. (Confirmed against WikiTI `Flags:00` and the ROM — `_Sin` (`02:7342`) tests `BIT 2,(IY+0)` to pick the degree path.)
 ```z80
@@ -297,7 +297,7 @@ BIT 2,(IY+0)   ; FD CB 00 56  -> tested by _Sin/_Cos/_Tan to select degree vs ra
 Math routines branch on this bit to choose degree/radian variants (`_SinCosRad` etc. force
 radians; the degree paths convert first).
 
-### 3.2 Graph type: Func / Param / Polar / Seq — `grfModeFlags` (`IY+0x02`) [confirmed]
+### Graph type in `grfModeFlags` (`IY+0x02`) [confirmed]
 
 The four graph-mode setters on `page 0x36` are mutually exclusive: each first clears
 all four bits via `clr_grfmode (36:7D00)`, then ORs in its own bit, then calls
@@ -322,7 +322,7 @@ Other `grfModeFlags` bits (from inc, not in the setters above): bit3 `grfPolar`
 `grfDot` (line/dot), bit1 `grfSimul` (sequential/simultaneous), bit4 `grfNoCoord`,
 bit5 `grfNoAxis`; `seqFlags` (`IY+0x0F`).
 
-### 3.3 Numeric format: Normal/Sci/Eng, Float/Fix, base — `fmtFlags` (`IY+0x0A`) [confirmed]
+### Numeric format in `fmtFlags` (`IY+0x0A`) [confirmed]
 
 `fmtFlags` byte at `0x89FA`:
 
@@ -341,7 +341,7 @@ So Normal/Sci/Eng = (bit0, bit1): Normal = `00`, Sci = `01`, Eng = `11`.
 Float vs Fix N is not in `fmtFlags` — it is the separate byte `fmtDigits` =
 `0x97B0`: value `0x00-0x09` = Fix-N decimal places, `0xFF` = Float.
 
-### 3.4 MODE screen plumbing
+### MODE screen plumbing
 
 The MODE screen is a menu context (`cxMode`/`kMode`=0x45) reached via the event/key router
 ([Boot contexts & errors](boot-contexts-errors.md)). Its row strings live as token names on page 0x01 (`RadianN`/`DegreeO`/`NormalP`/
@@ -353,7 +353,7 @@ line-by-line, but every target bit/byte is confirmed from the setters and inc eq
 
 ---
 
-## 4. Routine index
+## Routine index
 
 ```text
 3D:5EE3   _FindApp

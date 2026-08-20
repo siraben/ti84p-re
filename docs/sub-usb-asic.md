@@ -742,7 +742,7 @@ Prefer the OS entry points unless the program is deliberately writing a USB driv
 
 The raw FIFO sequence is only the byte layer. A working transfer still needs the packet layer:
 machine ID, command, length, payload checksum, ACK/NAK, and EOT. That framing is documented in
-[sub-link-transfer.md](sub-link-transfer.md#3-packet-framing--the-ti-link-protocol-confirmed).
+[Link transfer](sub-link-transfer.md#ti-link-packet-framing-confirmed).
 
 ### Native TilEm link-assist edges
 

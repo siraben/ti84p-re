@@ -11,7 +11,7 @@ storage and arithmetic layers.
 Raw disassembly supplies the banked-page operations that the decompiler does
 not reduce reliably.
 
-## 0. Data model
+## Data model
 
 - A list is `word count` (2 bytes) followed by `count` × 9-byte `TIFloat` elements
   (18-byte complex elements if the list is complex, flagged `0x0C`). Element $i$ (1-based)
@@ -32,7 +32,7 @@ not reduce reliably.
 
 ---
 
-## 1. Data layouts & the creator routines [confirmed]
+## Data layouts and creator routines [confirmed]
 
 ### List — `_CreateRList` (`00:10C4`), `_CreateCList` (`00:1109`)
 
@@ -70,7 +70,7 @@ _CreateRMat(dimWord, dataPtrOut):
 
 ---
 
-## 2. Element access — the index→offset math [confirmed]
+## Element access and index-to-offset conversion [confirmed]
 
 Two address-calculators turn a 1-based index into a byte
 pointer, then a 9-byte move shuttles the `TIFloat` to/from `OP1`.
@@ -118,7 +118,7 @@ Column-major offset: `elem = data + 2 + ((idx0−1)*dim0 + (idx1−1)) * 9`. The
 adds of `dim0` walk whole columns; the `(C-1)` steps within a column. The 8-bit adds track
 a carry into `H` so the address is a true 16-bit offset (matrices up to 99×99). Because the
 multiplied byte is `dim0` and that is the row count (column-major major stride), `B=idx0`
-is the column index and `C=idx1` is the row index — see the [confirmed] dimension-naming note in §1. [confirmed]
+is the column index and `C=idx1` is the row index; see [Data layouts and creator routines](#data-layouts-and-creator-routines-confirmed). [confirmed]
 
 Matrix element wrappers: [confirmed]
 - `_AdrMRow` (`02:4000`) — address of the *start of column idx0* in the column-major buffer
@@ -141,13 +141,13 @@ Matrix element wrappers: [confirmed]
 
 ---
 
-## 3. List operations [standard]
+## List operations [standard]
 
 ### Create / resize / insert / delete
 
 | Routine | addr | Role |
 |---|---|---|
-| `_CreateRList` | `00:10C4` | new real list: `count*9+2` bytes (§1) [confirmed] |
+| `_CreateRList` | `00:10C4` | new real list: `count*9+2` bytes; see [Data layouts and creator routines](#data-layouts-and-creator-routines-confirmed) [confirmed] |
 | `_CreateCList` | `00:1109` | new complex list: `count*18+2` [confirmed] |
 | `_IncLstSize` | `07:4EF4` | grow a list in place via `_InsertMem`; caps length at 999 (`0x3E7`), else `E_Dimension 0x8C` (`07:4F00 JP Z,0x2719 → LD A,0x8C`). `_InsertList` is the distinct sibling at `07:4F07`. [confirmed] |
 | `_DelListEl` | `07:4F43` | delete element(s): `_HLTimes9(index)` to size the gap (×2 if complex, `& 0x1F == 0x0D`), then `_DelMem` via a cross-page jump [confirmed] |
@@ -239,7 +239,7 @@ generated `DATA.8xp` was run under headless TilEm: the screen showed sorted
 
 ---
 
-## 4. Matrix operations [confirmed]
+## Matrix operations [confirmed]
 
 ### `dim(`, redim, identity, copy
 
@@ -256,7 +256,7 @@ generated `DATA.8xp` was run under headless TilEm: the screen showed sorted
   `tDim`), which creates the `r×c` result (`5DBB` → `_CreateRMat 110F`) and stores the dims
   (`631B`/`631C`/`4825`) but performs no fill. `randM(` itself is a separate 2-byte token
   (`tRandM` = `0x20`, `0xBB`-prefix group); its per-cell random fill is the one residual still
-  open (§4) — it does not use the `_Random` bcall (`0x4B79`): a ROM-wide scan finds
+  open in [Matrix operations](#matrix-operations-confirmed) — it does not use the `_Random` bcall (`0x4B79`): a ROM-wide scan finds
   zero `RST 28h; .dw 0x4B79` sites, so randM's randomness comes from some other path. [standard]
 - Matrix copy/reshape = `_DataSize`-counted byte copy of the float payload
   (`mele_copy9_d3` (`02:4539`)/`mele_copy9_loop` (`02:453F`)). [confirmed]
@@ -342,7 +342,7 @@ inside `augment(` are [standard].
 
 ---
 
-## 5. Determinant, inverse, and row reduction [confirmed]
+## Determinant, inverse, and row reduction [confirmed]
 
 `det(` and `[A]⁻¹` share the Gauss-Jordan elimination engine with partial pivoting —
 `matrix_gauss_engine` @ `02:42A6` — the *entry flag in `A`* selecting behaviour; only two
@@ -454,7 +454,7 @@ separate driver from `02:42A6` [confirmed]. Its exact body address remains
 
 ---
 
-## 6. How it ties to the FP engine and the VAT [confirmed]
+## Floating-point and VAT integration [confirmed]
 
 - Every element is a `TIFloat` ([Floating-point](floating-point.md)). Indexing produces a *pointer*; the value is then
   moved into `OP1`/`OP2` (`RST4` = load-9, `_Mov9B`, `_MovFrOP1`) and all arithmetic is the FP
@@ -473,7 +473,7 @@ separate driver from `02:42A6` [confirmed]. Its exact body address remains
 
 ---
 
-## 7. Errors raised on these paths [confirmed]
+## Errors [confirmed]
 
 The list/matrix routines raise these `_JError` codes; each row gives the code, its name,
 and the routine and condition that triggers it.
@@ -490,7 +490,7 @@ and the routine and condition that triggers it.
 
 ---
 
-## 8. Routine index
+## Routine index
 
 | space:addr | name | what |
 |---|---|---|
@@ -503,17 +503,17 @@ and the routine and condition that triggers it.
 | `02:4002` | `_AdrMEle` | matrix element address: `((column-1)*dim0+(row-1))*9` [confirmed] |
 | `02:4044` | `_GetMToOP1` | `[M](i,j)` → OP1 [confirmed] |
 | `02:406C` | `_PutToMat` | OP1 → `[M](i,j)` (validated) [confirmed] |
-| `02:40BA` | matrix-multiply body | O(n³) triple loop, decoded from `rom.bin` (not a defined function in the disassembly); called from `02:5FFF`/`4605`/`5B39` (§4). `0x40BA` in ti83plus.inc is the unrelated `_SinCosRad` bcall ID. [confirmed] |
+| `02:40BA` | matrix-multiply body | O(n³) triple loop, decoded from `rom.bin` (not a defined function in the disassembly); called from `02:5FFF`/`4605`/`5B39`. `0x40BA` in ti83plus.inc is the unrelated `_SinCosRad` bcall ID. [confirmed] |
 | `02:4108` | `identity_build` | `identity(n)`: diagonal-1 fill (token 0xB4) [confirmed] |
-| `02:412A` | `mat_transpose` | transpose `[A]ᵀ` body (token `0x0E`, dispatched `60E9`/called `60FE`): per-cell copy `dst(c,r)=src(r,c)` via the swapped dest header (§4) [confirmed] |
+| `02:412A` | `mat_transpose` | transpose `[A]ᵀ` body (token `0x0E`, dispatched `60E9`/called `60FE`): per-cell copy `dst(c,r)=src(r,c)` via the swapped dest header [confirmed] |
 | `02:414E` | `mrow_swap_loop` | row swap/scale (elimination) [confirmed] |
-| `02:4178` | `mat_fill_type1` | live DB name; single-counter per-cell fill/apply loop in the `414A`–`4178` block — not transpose (§4) [confirmed] |
-| `02:4539` | `mele_copy9_d3` | bulk column-major float-payload copy (skip 2 dim bytes, `LDIR`); used by `augment(`/reshape (§4) [confirmed] |
-| `02:4663` | `mat_gauss_engine` | live DB name; `min(H,L)` partial-pivoting elimination engine; only caller is the `augment(` `0x91` branch (`6379`). Its role inside plain `augment(` is the one open item (§4) [standard] |
-| `02:4773` | `mat_to_list_cols` | `Matr►list(` 2-arg column-extract engine (only caller `63A0`): nested col×row walk copying matrix columns into list element(s) (§4) [confirmed] |
-| `02:5264` | `cplx_swap_dispatch` | live DB name; complex OP-pair arrange/swap (`5344`/`52D3`) reached only from the `0xBD` branch (`62D0`) — not the `0xB5`/`dim(` matrix-create branch (§4) [confirmed] |
-| `02:6238` | `mat_augment_copy` | `augment(` column-concat: allocate result (`5DE0`) + `4539` payload copy + re-point `84D3` (§4) [confirmed] |
-| `02:49E3` | `lele_copy_until_eq` | live DB name; list-element copy-until-length-match (`21BB`, `RET Z`); inner copy of the `Matr►list(` 1-arg/list path (`6397`) (§4) [confirmed] |
+| `02:4178` | `mat_fill_type1` | live DB name; single-counter per-cell fill/apply loop in the `414A`–`4178` block — not transpose [confirmed] |
+| `02:4539` | `mele_copy9_d3` | bulk column-major float-payload copy (skip 2 dim bytes, `LDIR`); used by `augment(`/reshape [confirmed] |
+| `02:4663` | `mat_gauss_engine` | live DB name; `min(H,L)` partial-pivoting elimination engine; only caller is the `augment(` `0x91` branch (`6379`). Its role inside plain `augment(` is the one open item [standard] |
+| `02:4773` | `mat_to_list_cols` | `Matr►list(` 2-arg column-extract engine (only caller `63A0`): nested col×row walk copying matrix columns into list element(s) [confirmed] |
+| `02:5264` | `cplx_swap_dispatch` | live DB name; complex OP-pair arrange/swap (`5344`/`52D3`) reached only from the `0xBD` branch (`62D0`) — not the `0xB5`/`dim(` matrix-create branch [confirmed] |
+| `02:6238` | `mat_augment_copy` | `augment(` column-concat: allocate result (`5DE0`) + `4539` payload copy + re-point `84D3` [confirmed] |
+| `02:49E3` | `lele_copy_until_eq` | live DB name; list-element copy-until-length-match (`21BB`, `RET Z`); inner copy of the `Matr►list(` 1-arg/list path (`6397`) [confirmed] |
 | `02:41C1` | `abs_cmp_op1op2` | absolute-value compare: OP1 vs pivot [confirmed] |
 | `02:41D0` | `pivot_col_scan` | partial-pivot: find largest absolute value in column [confirmed] |
 | `02:4259` | `perm_swap` | swap two entries of the permutation vector (84D5) [confirmed] |
@@ -548,21 +548,21 @@ and the routine and condition that triggers it.
 
 ---
 
-## 9. Resolved behavior and remaining questions
+## Resolved behavior and remaining questions
 
 - `rref(`/`ref(` use a separate driver, not `42A6`. Xref proves `42A6` has
   exactly two callers (inverse `5F80`, det `5FC0`); rref/ref are 2-byte `0xBB`-lead function
   tokens dispatched via the page-38 evaluator's
-  `leaf_production_handler_table` (`38:7175`; §5). The *exact rref/ref body*
+  `leaf_production_handler_table` (`38:7175`). The *exact rref/ref body*
   sits behind that table and is the only residual: its
   start address was not byte-isolated, but it is confirmed not to be `42A6`.
 - det sign / pivot-product (`42A6` tail `43D8-4470`) and dim labelling. The det
   sign = LSB of the permutation-swap count applied via `_InvOP1S` (`24BD`) at `43FB`/`442B`;
   the magnitude is the `238B`/`RST 30h` diagonal-pivot accumulate (`43E3-43F6`); `420F`/`4259`
-  undo the column permutation for the inverse (§5). Row/col vs dim0/dim1 is now [confirmed]:
-  `dim0` (first header byte) = #rows, and `_AdrMEle` takes `B=column`, `C=row` (§1/§2).
+  undo the column permutation for the inverse. Row/col vs dim0/dim1 is now [confirmed]:
+  `dim0` (first header byte) = #rows, and `_AdrMEle` takes `B=column`, `C=row`; see [Data layouts](#data-layouts-and-creator-routines-confirmed) and [Element access](#element-access-and-index-to-offset-conversion-confirmed).
 - transpose, `Matr►list(`, and the `augment(` column-concat bodies. Each command's
-  page-02 dispatch site and body are byte-confirmed, every body having exactly one caller (§4):
+  page-`02` dispatch site and body are byte-confirmed, every body having exactly one caller:
   - transpose `[A]ᵀ` (token `0x0E` @ `60E9`) → `02:412A` (only caller `60FE`): the dim header is
     swapped (`60F5`) and `412A` copies `dst(c,r)=src(r,c)` over every cell. `02:4178` is a separate
     single-counter fill/apply, not transpose. [confirmed]
@@ -575,7 +575,7 @@ and the routine and condition that triggers it.
     is reached only from that complex branch, not here. [confirmed]
   - `List►matr(` `0x8E` branch (`61C1`) → `02:7D19` + `_DataSize` copy (`4539`/`453F`) is
     unchanged [standard].
-- **OPEN — two residuals inside the confirmed branches** (§4):
+- **Open — two residuals inside the confirmed branches:**
   - `augment(`'s `0x91` branch calls `02:4663` (`mat_gauss_engine`, only caller `6379`) — a
     `min(H,L)` partial-pivoting elimination pass — after the column-concat copy. Its role for plain
     `augment(` is byte-confirmed as a call but not explained. [standard]

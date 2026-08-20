@@ -10,7 +10,7 @@ entry points with [TI-BASIC execution](sub-tibasic.md), VAT objects with
 [Variables and the VAT](variables-vat.md), and text output with [Display and
 LCD](display-lcd.md).
 
-## 0. The three pieces and how they connect
+## Subsystem components
 
 ```mermaid
 flowchart TB
@@ -40,7 +40,7 @@ recursive-descent evaluator the grapher and homescreen use; it adds only
 
 ---
 
-## 1. Table setup — where the settings live & how they're read
+## TABLE settings
 
 ### System variables (RAM `TIFloat`s) [confirmed]
 
@@ -94,7 +94,7 @@ row index `0x91E0` when Indpnt flips to Ask. Companion sites: `37:5F2B`
 
 ---
 
-## 2. Y= equation variables — storage, selection, style
+## Y= equation storage, selection, and style
 
 ### Storage [confirmed]
 
@@ -148,7 +148,7 @@ to visit each selected `Yn`. [confirmed]
 ### Resolving & evaluating a Y-var — `_Find_Parse_Formula` (`38:758A`) [confirmed]
 
 `_Find_Parse_Formula` (bcall id `0x4AF2`) is the universal "find a named var and
-parse/evaluate its stored formula" entry (see `sub-tibasic.md §3`). For a Y-var it
+parse/evaluate its stored formula" entry in [TI-BASIC expression evaluation](sub-tibasic.md#expressions-are-nested-productions). For a Y-var it
 `_FindSym`s the `EquObj`, points the parse cursor at its token body, and runs the
 page-38 evaluator, leaving the result in `OP1`. The 38:758A entry seen here is a
 thin RST2 bcall trampoline; the body switches on var type (Window `0x0F` /
@@ -161,7 +161,7 @@ resolves the EquObj, substitutes the argument as `X`, and evaluates. [confirmed]
 
 ---
 
-## 3. Table generation — the page-05 subsystem
+## Table generation
 
 Page 0x05 is the TABLE editor / Graph-Table subsystem. All references to
 `TblMin`/`TblStep` and to the table column-data pointers (`XOutDat 0x918E`,
@@ -189,7 +189,7 @@ recompute driver, otherwise it repaints from the cached values. [confirmed]
 05:5DD7  XOR A ; LD (0x8E63),A           ; reset table column/row state
          CALL 0x3411 ; RET Z             ; (window/mode gate)
          CALL 0x7704                     ; init column descriptors (see below)
-         CALL 0x774B                     ; seed running-X = TblMin  (see §3.1)
+         CALL 0x774B                     ; seed running-X = TblMin
          CALL 0x65D2 ; CALL 0x65C8       ; clear per-column flags
          CALL 0x5EE1                     ; FILL the value cache (the row loop)
          CALL 0x6014 ; CALL 0x5FFC       ; lay out / size the columns
@@ -200,7 +200,7 @@ recompute driver, otherwise it repaints from the cached values. [confirmed]
 After a successful recompute it clears `reTable`, so subsequent scrolls reuse
 the cache until something marks it dirty again. [confirmed]
 
-### 3.1 Seeding the running independent value [confirmed]
+### Seeding the independent value [confirmed]
 
 `05:774B` initialises the two-float `table_x_work` array. It first clears
 `table_x_work[0]` (`0x8622`), then at `05:7751` copies `TblMin` into
@@ -222,9 +222,9 @@ incremental add:
 ```
 
 So row $k$ uses $X=\mathrm{TblMin}+k\cdot\mathrm{TblStep}$. (In **Indpnt = Ask** mode this driver is
-bypassed and the user types each X; see §3.4.) [confirmed]
+bypassed and the user types each X; see [Auto and Ask modes](#auto-and-ask-modes-confirmed).) [confirmed]
 
-### 3.2 The per-row evaluation: set X, evaluate each selected Y [confirmed]
+### Per-row evaluation [confirmed]
 
 For each row the recompute fills the cache by, per selected equation:
 1. store the running-X into the `X` system variable (`_StoX`, `38:62A3`),
@@ -232,7 +232,7 @@ For each row the recompute fills the cache by, per selected equation:
    selected list via `graph_tbl_next` (`33:707A`) and runs each formula through the
    page-38 evaluator (`_ParseInp` `38:5987` / the `_Find_Parse_Formula` path),
    leaving `Y` in `OP1` (exactly the grapher's per-column eval in
-   `sub-graphing.md §6`),
+   [Graphing](sub-graphing.md#y-equation-storage-and-evaluation)),
 3. format OP1 and stash the result string/value into the row's cache slot.
 
 The fill loop is `05:5EE1`: it strides `table_value_cache.band[0]` at
@@ -241,7 +241,7 @@ The fill loop is `05:5EE1`: it strides `table_value_cache.band[0]` at
 top-row index `0x91E0`. The `X` column itself is written from the running-X; the
 `Y` columns from the evaluated OP1. [confirmed]
 
-### 3.3 The value cache & scrolling [confirmed]
+### Value cache and scrolling [confirmed]
 
 The table keeps the visible window of computed values in a RAM cache so that
 scrolling is instant (no recompute):
@@ -280,7 +280,7 @@ stride and the 63-byte scroll-copy stride. [confirmed]
 cached window, it slides the cache and computes only the one new row
 (or recomputes if `reTable`). [confirmed]
 
-### 3.4 Indpnt = Auto vs Ask, Depend = Auto vs Ask [confirmed]
+### Auto and Ask modes [confirmed]
 
 `05:6D40`/`05:6D51` read the mode bits to branch:
 
@@ -290,7 +290,7 @@ cached window, it slides the cache and computes only the one new row
          LD A,(0x91DB) … LD A,(0x91DC) …                  ; Ask-mode row state
 ```
 
-- **Indpnt = Auto** (bit4=0): the driver auto-fills X from TblStart/ΔTbl (§3.1).
+- **Indpnt = Auto** (bit4=0): the driver auto-fills X from TblStart/ΔTbl as described under [Seeding the independent value](#seeding-the-independent-value-confirmed).
 - **Indpnt = Ask** (bit4=1): the X column starts empty; the editor prompts for
   each X, parses it (entry-line editor → `_ParseInp`), stores it
   to `X`, then evaluates the Y columns for only that row.
@@ -298,7 +298,7 @@ cached window, it slides the cache and computes only the one new row
 - **Depend = Ask** (bit5=1): Y cells show blank until the cursor lands on one and
   `[ENTER]` requests it, at which point that single cell is evaluated. [confirmed]
 
-### 3.5 Rendering the grid to the LCD — `05:7E45` (column/row paint loop) [confirmed]
+### Grid rendering [confirmed]
 
 The table is a text grid (not the pixel graph buffer): up to 8 visible rows ×
 columns, drawn with the large font through the home-screen text primitives
@@ -322,7 +322,7 @@ column index, and writes `0xFF`/blank sentinels for empty (Ask) cells. The botto
 status line and the highlighted-cell full-precision readout reuse the same value
 cache. [confirmed]
 
-### 3.6 Split graph-table mode — `screen_split` (`05:7712`) [confirmed]
+### Split graph-table mode [confirmed]
 
 The **G-T** mode (graph on the left half, table on the right) is set up by
 `screen_split` (bcall `0x5227`): it checks the split flag, calls `_Bit_VertSplit`,
@@ -332,7 +332,7 @@ driver, rendered into the right columns alongside the plot. [confirmed]
 
 ---
 
-## 4. What marks the table dirty (`reTable` = 1) [confirmed]
+## Table invalidation through `reTable` [confirmed]
 
 Anything that could change a tabulated value sets `tblFlags` bit6, forcing the
 next TABLE view to recompute:
@@ -349,7 +349,7 @@ Conversely only the recompute driver clears it (`05:5DD7`, `05:62FD`,
 
 ---
 
-## 5. End-to-end: tabulating Y1=X² + 1
+## End-to-end example: tabulating Y1=X² + 1
 
 1. **Y=**: types `X²+1` after `Y1=`. The editor tokenizes it and stores the bytes
    as the `EquObj` `Y1` (token `5E 10`) in the VAT, with its flags byte's select
@@ -375,7 +375,7 @@ Conversely only the recompute driver clears it (`05:5DD7`, `05:62FD`,
 
 ---
 
-## 6. Routine and state index
+## Routine and state index
 
 ```text
 ; --- TABLE setup settings & flags ---
@@ -432,7 +432,7 @@ RAM  84D9   iMathPtr4                          ; base of selected-equation point
 
 ---
 
-## 7. Evidence summary and open items
+## Evidence summary and open items
 
 - TblMin/TblStep addresses + tokens, the `tblFlags` bit layout, and which sites
   set/clear `reTable`: [confirmed] (equates + byte-verified bit-ops).

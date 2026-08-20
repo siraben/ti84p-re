@@ -5,7 +5,7 @@ The graphing subsystem maps real coordinates to pixels, draws into
 **Y=**, **WINDOW**, **GRAPH**, **TRACE**, and **DRAW** paths to their window
 state, equation storage, and drawing primitives.
 
-## 1. Window variables (RAM) [confirmed]
+## Window variables [confirmed]
 
 All graph window state lives in a contiguous block of 9-byte `TIFloat`s starting at `0x8F50`.
 These are the values the WINDOW editor writes and the grapher reads.
@@ -56,7 +56,7 @@ is 95 columns wide (0..94) and 63 tall (0..62), hence the /94 and /62. [standard
 
 ---
 
-## 2. Coordinate ↔ pixel transforms
+## Coordinate-to-pixel transforms
 
 ### Forward: real coordinate → pixel index
 
@@ -97,7 +97,7 @@ X/Y shown at the bottom of the screen, and by DRAW commands that take pixel argu
 
 ---
 
-## 3. The graph buffer `plotSScreen` and pixel addressing
+## Graph buffer and pixel addressing
 
 - `plotSScreen` = `0x9340`, 768 bytes = 96×64/8. Monochrome, 1 bit/pixel, 12 bytes per
   scanline (8 pixels per byte). This is the back buffer everything draws into. [confirmed]
@@ -139,7 +139,7 @@ pixel is on. `_ErrDomain` on out-of-range. [confirmed]
 
 ---
 
-## 4. Drawing primitives (page 0x04 / 0x33)
+## Drawing primitives
 
 ### Lines
 
@@ -193,7 +193,7 @@ so the line just spans the current window edges. [confirmed]
 
 ---
 
-## 5. Rendering the graph to the LCD
+## Rendering the graph to the LCD
 
 `_PDspGrph` (`04:7904`, "possibly-display graph") decides whether to copy the buffer to the
 screen and whether a full re-plot is needed first. [confirmed]
@@ -219,7 +219,7 @@ re-plot and `_GrBufCpy` the existing buffer when nothing changed. [confirmed]
 
 ---
 
-## 6. Y= equations: storage and evaluation
+## Y= equation storage and evaluation
 
 ### Storage [confirmed]
 
@@ -269,7 +269,7 @@ during a regraph or TABLE build.
 
 ---
 
-## 7. Graph screen vs. home screen; TRACE
+## Graph, home-screen, and TRACE paths
 
 - The home screen uses the large font and `curRow`/`curCol` text cursor (see
   [display-lcd.md](display-lcd.md)). The graph screen is the pixel buffer `plotSScreen` rendered by
@@ -285,7 +285,7 @@ during a regraph or TABLE build.
 
 ---
 
-## 8. Evidence summary and open items
+## Evidence summary and open items
 
 - Forward transform `(value−min)/pixelDelta`: structure [confirmed] from the
   `37:41F2` disassembly (subtract `228F`, divide `2385`); the exact rounding in `4229` is

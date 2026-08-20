@@ -36,7 +36,7 @@ the wiki.
 | **archive** | Variables relocated to Flash to save RAM; the VAT entry's page byte then points into Flash. See [Variables, archive & unarchive](sub-vat-archive.md) and [Flash memory](flash-memory.md). |
 | **Flash page** | A 16 KiB ASIC paging unit selected through port `0x06`. It is not necessarily an erase sector; ordinary sectors span four pages. See [Flash memory](flash-memory.md). |
 | **Flash sector** | The smallest physical region restored to `0xFF` by one sector-erase operation. The one-megabyte top-boot chip uses 64 KiB ordinary sectors and 32/8/8/16 KiB sectors at the top. |
-| **garbage collection** | Compacting the Flash archive in physical sector units. `archive_gc_collect` at `3C:7733` copies live records, erases reclaimed sectors, and journals its phase in the inactive half of page `3E`. See [Variables, archive & unarchive](sub-vat-archive.md#7-flash-garbage-collector-confirmed). |
+| **garbage collection** | Compacting the Flash archive in physical sector units. `archive_gc_collect` at `3C:7733` copies live records, erases reclaimed sectors, and journals its phase in the inactive half of page `3E`. See [Variables, archive and unarchive](sub-vat-archive.md#flash-garbage-collector-confirmed). |
 | **RAM heap** | The dynamic region from `userMem` (`0x9D95`) up to the VAT; managed by `_InsertMem`/`_DelMem`. See [Memory Management](memory-management.md). |
 
 ## Registers & RAM symbols

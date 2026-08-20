@@ -36,4 +36,4 @@ Installed error callback `3C:6136` reaches `3C:618D` for applicable transfer sta
 
 ### Variable-transfer command/packet framing
 
-A TI link packet is a 4-byte header (`machine-ID, command-ID, length-lo, length-hi`) optionally followed by `data[len]` and a 16-bit LE checksum; commands include `0x06` VAR, `0x09` CTS, `0x15` DATA, `0x56` ACK, `0x5A` NAK, `0x92` EOT. The full framing, the silent-link send/receive engine (`link_xfer_op`, `_SendVarCmd`), checksum/ACK handling, and the 16-byte Flash-batched receive path are all reverse-engineered in [sub-link-transfer.md](sub-link-transfer.md) — see §3 (framing) and §5 (variable send). [confirmed]
+A TI link packet is a 4-byte header (`machine-ID, command-ID, length-lo, length-hi`) optionally followed by `data[len]` and a 16-bit LE checksum; commands include `0x06` VAR, `0x09` CTS, `0x15` DATA, `0x56` ACK, `0x5A` NAK, `0x92` EOT. [Link transfer](sub-link-transfer.md#ti-link-packet-framing-confirmed) covers the framing, silent-link send/receive engine (`link_xfer_op`, `_SendVarCmd`), checksum and acknowledgement handling, and 16-byte Flash-batched receive path. [confirmed]

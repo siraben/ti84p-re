@@ -10,7 +10,7 @@ Raw disassembly preserves the register-passed arguments and
 `SET`/`RES`/`BIT b,(IY+d)` state operations that the decompiler can mis-render.
 The silent-link engine shares Flash page `3C` with archive command code.
 
-## 0. Transfer layers
+## Transfer layers
 
 ```mermaid
 flowchart TB
@@ -39,7 +39,7 @@ flowchart TB
 
 ---
 
-## 1. RAM state block (the link "registers") [confirmed]
+## RAM state block [confirmed]
 
 All labels below are confirmed from `ti83plus.inc`. This contiguous block at `0x8670` is the
 silent-link control/scratch area:
@@ -74,11 +74,11 @@ save, `IY+0x3E` bit0 / `IY+0x3D` bit5 USB-presence.
 
 ---
 
-## 2. The byte layer (recap + receive internals) [confirmed]
+## Byte layer [confirmed]
 
 [Two-wire link port hardware](link-port-hardware.md) covers the complete raw port-`0x00` send and receive handshakes. This section records how the byte entries select and report the hardware-assist path.
 
-### 2a. Hardware-assist send `6BB2` [confirmed]
+### Hardware-assist send [confirmed]
 
 `_SendAByte` (`3C:420D`) starts `CALL probe_hw_model_keep_a ; JP Z,0x6BB2` — if the model probe sets Z (the
 84+ link-assist hardware is present), it jumps to `3C:6BB2`:
@@ -92,7 +92,7 @@ save, `IY+0x3E` bit0 / `IY+0x3D` bit5 USB-presence.
 ```
 So the assist path is: poll port 0x09 bit 5, then `OUT (0x0D),byte`, with a CPU-speed-scaled timeout. The legacy fall-through writes port `0x00` directly; see [Two-wire link port hardware](link-port-hardware.md) for its two-read polling loop and four-transition handshake.
 
-### 2b. Receive `_RecAByteIO` `443F` and decoder `444A` [confirmed]
+### Receive path and decoder [confirmed]
 
 ```z80
 443F: DI ; CALL 447E (arm/clock the line) ; CALL 444A (get-status) ; RET C/NZ ; loop if Z
@@ -135,7 +135,7 @@ of an incoming packet (peer may be idle for a long time).
 
 ---
 
-## 3. Packet framing — the TI link protocol [confirmed]
+## TI link packet framing [confirmed]
 
 A TI link packet is a 4-byte header optionally followed by data + 2-byte checksum:
 
@@ -160,7 +160,7 @@ The typed RAM view therefore exposes `header.machine_id`, `header.command_id`,
 and `header.data_length`; the disassembly below retains the concrete addresses
 that establish those fields. [confirmed]
 
-### 3a. Send a header — `41C3` [confirmed]
+### Sending a header [confirmed]
 
 ```z80
 41C3: 6D4B (drive line) ; short delay ; CALL probe_hw_model_keep_a (model probe)
@@ -175,7 +175,7 @@ that establish those fields. [confirmed]
 stores the command from `H`, and calls `41C3`. Convenience entries: `4195` H=0x92 (EOT),
 `4199` H=0x09 (CTS), `41BC` ID=0x73/cmd=0x68 (RTS).
 
-### 3b. Receive a header — `4338` [confirmed]
+### Receiving a header [confirmed]
 
 ```z80
 4338: CALL _RecAByteIO ; (8674)=A           ; machine-ID, validated against the known set:
@@ -187,7 +187,7 @@ stores the command from `H`, and calls `41C3`. Convenience entries: `4195` H=0x9
 ```
 An unrecognised machine-ID or command-ID byte aborts via `_JErrorNo` (→ `E_LnkErr` 0x9F).
 
-### 3c. Machine-ID selector — `620A` [confirmed]
+### Machine-ID selector [confirmed]
 
 The *local* machine-ID advertised in outgoing packets depends on the peer-type bits in `IY+0x1B`:
 ```z80
@@ -198,7 +198,7 @@ The *local* machine-ID advertised in outgoing packets depends on the peer-type b
       L=0x73 ; RET                          ; 0x73 = TI-73 / fallback
 ```
 
-### 3d. Command-ID byte cheat-sheet [hypothesis]
+### Command-ID byte reference [hypothesis]
 
 Confirmed in the code; semantics are the standard TI link protocol:
 
@@ -215,7 +215,7 @@ Confirmed in the code; semantics are the standard TI link protocol:
 | `0x92` | `EOT` | `4195` (H=0x92) | end of transmission |
 | `0xA2`/`0xB7` | request | `link_xfer_op` `4E2B/4E2F` | request var (A2=DATA-type, B7=other) |
 
-### 3e. Checksum / ACK tail [confirmed]
+### Checksum and acknowledgement tail [confirmed]
 
 After the data payload, the sender appends the 16-bit sum and waits for the ACK:
 ```z80
@@ -231,7 +231,7 @@ command = `0x56`, length = 0, sends it, and `_Mov9B` restores the saved header.
 
 ---
 
-## 4. Receive DATA payload — `3C:4292` [confirmed]
+## DATA payload receive path [confirmed]
 
 `3C:4261` stores the destination in `iMathPtr5` at `0x84DB`, validates a DATA
 header, and enters `3C:4292`. The payload loop loads the destination once at
@@ -326,7 +326,7 @@ i.e. the receiver reproduces the VAT-create / `_InsertMem` path from [sub-vat-ar
 
 ---
 
-## 5. Silent-link variable send — `link_xfer_op` (`3C:4DD2`) [confirmed]
+## Silent-link variable send [confirmed]
 
 This is the path a "Send" hits (TI-Connect pulls a var, or a calc-to-calc send).
 OP1 = the variable name. It negotiates, sends the VAR header, waits for CTS, then streams the DATA.
@@ -335,7 +335,7 @@ OP1 = the variable name. It negotiates, sends the VAR header, waits for CTS, the
 link_xfer_op (3C:4DD2):
   CALL probe_hw_model_keep_a        ; model/HW probe; spin on port 0x20 if assist busy
   SET 1,(IY+0x24)                   ; mark "transfer active"
-  RES 3,(IY+0x1B) ; save IY+0xC (APD) ; install cleanup handler 4F3E via 27DA (see §7)
+  RES 3,(IY+0x1B) ; save IY+0xC (APD) ; install cleanup handler 4F3E via 27DA
   CALL _OP1ToOP6                    ; preserve the var name
   (build the var header into 867F) :
       LD DE,0x867F ; CALL _MovFrOP1 ; *** header = var type byte + name token(s) ***
@@ -354,7 +354,7 @@ link_xfer_op (3C:4DD2):
   RES 1,(IY+0x24) ; FUN_ram_2800 (restore) ; JP 4F3E (cleanup)
 ```
 
-### 5a. Resolve the variable for sending — `lnk_resolve_var` [confirmed]
+### Resolving the variable for sending [confirmed]
 
 `lnk_resolve_var` (`3C:4763`) reads the var-header type byte at `0x867F` and
 branches by class. For graph/equation types (`0x0F`–`0x14`) it uses a
@@ -364,7 +364,7 @@ to locate the VAT entry. An archived variable routes through the Flash path,
 where `_Chk_Batt_Low` saves `arcInfo.size` at `0x83F7`. `_SetupPagedPtr`
 supplies the data pointer, page, and length inside the DATA sender.
 
-### 5b. Send the DATA payload — `40DA` [confirmed]
+### Sending the DATA payload [confirmed]
 
 ```z80
 40DA: CALL _SetupPagedPtr (17AC)            ; initialize the paged source from HL, DE, and B
@@ -460,11 +460,11 @@ modulo `0x10000`. [confirmed]
 
 `_PagedGet` makes the streamer transparent to RAM-vs-archived data: an archived program is read
 straight out of the Flash window, advancing the bank-A page (port 0x06) at the 0x8000 boundary,
-exactly like `_FlashToRam` ([sub-vat-archive.md](sub-vat-archive.md) §5).
+exactly like [`_FlashToRam`](sub-vat-archive.md#reading-archived-data-with-_flashtoram-confirmed).
 
 ---
 
-## 6. `_SendVarCmd` (`3C:4A14` → body `3C:4EDD`) [confirmed]
+## `_SendVarCmd` [confirmed]
 
 The bcall most code/TI-BASIC reaches for to silent-send. It is a thin DI-wrapped front for the same
 machinery:
@@ -483,7 +483,7 @@ door; `link_xfer_op` is the "OP1 already set up, do the silent transfer" door.
 
 ---
 
-## 7. APD, cleanup, and the line idle wait [confirmed]
+## APD, cleanup, and idle-line wait [confirmed]
 
 - `27DA` (`FUN_ram_27da`) installs an error callback. `link_xfer_op` and `_SendVarCmd` install
   `3C:4F3E`, which restores link state, the APD timer, and `IY+0xC` bit 2 after `_JError`.
@@ -499,7 +499,7 @@ door; `link_xfer_op` is the "OP1 already set up, do the silent transfer" door.
 
 ---
 
-## 8. Flash-object dispatch and error handling
+## Flash-object dispatch and error handling
 
 | Trigger | Address | Error |
 |---------|---------|-------|
@@ -551,7 +551,7 @@ DBus implementation for the OS, application, and certificate transfer shapes.
 
 ---
 
-## 9. End-to-end: "Send PRGM to computer" [standard]
+## End-to-end program transfer [standard]
 
 1. Host (TI-Connect, machine-ID 0x95) opens the USB/DBUS link; calc detects it (`IY+0x1B` bit1).
 2. Host requests the directory or a specific var; calc's receiver (`4338`) parses the request
@@ -567,7 +567,7 @@ DBus implementation for the OS, application, and certificate transfer shapes.
 
 ---
 
-## 10. Routine index
+## Routine index
 
 | space:addr | name | what |
 |------------|------|------|
@@ -615,7 +615,7 @@ state machine. RAM block: `ioFlag 8670 … bakHeader 868B`, staging
 0x5A ERR/NAK · 0x68 RTS · 0x92 EOT · 0xA2/0xB7 request. **Machine IDs:** 0x82/0x73 calc(84+/73),
 0x95 computer (TI-Connect), 0x03 TI-83, plus the 0x02/0x12/0x23/0x74/0x83/0x13/0x08 set accepted.
 
-## 11. Open items
+## Open items
 
 - Determine why the legacy backup normalizer chooses system-flags word
   `0x0063`. Its RAM destination, replacement behavior, section bounds, and

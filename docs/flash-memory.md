@@ -1066,7 +1066,7 @@ python tools/analyze_certificate_rebuild.py --json
 `tools/gc_journal.py` decodes the `0x1DEA` recovery block, master phase
 dispatch, and archive-sector state indexing. Its CLI can correlate the static
 ROM paths with state-changing command writes in a TilEm trace. See
-[Variables, archive & unarchive](sub-vat-archive.md#7d-certificate-sector-journal)
+[Variables, archive and unarchive](sub-vat-archive.md#certificate-sector-journal)
 for the field and phase tables. [confirmed]
 
 ```sh
@@ -1673,7 +1673,7 @@ the physical top-boot geometry rather than issuing one erase per 16 KiB paging u
 The collector uses page `0C` as the destination for the surviving `B` record, retires the old
 record at `08:4016`, erases the old page-`08` sector, and marks page `08` as the next empty scratch
 sector. It copies the used certificate tail between the two page-`3E` halves while persistent
-phase bytes advance. [confirmed] See [Variables, archive & unarchive](sub-vat-archive.md#7-flash-garbage-collector-confirmed)
+phase bytes advance. [confirmed] See [Variables, archive and unarchive](sub-vat-archive.md#flash-garbage-collector-confirmed)
 for the record bytes, sector-header states, journal fields, and recovery dispatcher.
 
 `tools/hardware_trace.py` exposes reusable resolved-instruction and resolved-memory-write
@@ -1699,7 +1699,7 @@ branches. The `0xFF`, `0xFE`, `0xFC`, `0xF8`, and `0xE0` replays converge
 byte-for-byte with uninterrupted execution. The `0xF0` replay has identical
 archive bytes but completes certificate cleanup one boot earlier; cold-booting
 the uninterrupted result once produces the same stable image. See
-[Variables, archive & unarchive](sub-vat-archive.md#7e-tilem-restart-at-six-journal-boundaries)
+[Variables, archive and unarchive](sub-vat-archive.md#tilem-restart-at-six-journal-boundaries)
 for the input and trace hashes, command counts, controlled-topology boundary,
 and deferred-cleanup result. [confirmed] for TilEm.
 
@@ -1707,7 +1707,7 @@ Pinned Wabbitemu cold boots independently execute the same six dispatcher
 branches. Complete output images equal the corresponding TilEm recovery
 results. The record-authentic `0xF0` input is reconstructed from eight
 deterministic program records before the unmodified OS materializes its journal
-phase. See [Variables, archive & unarchive](sub-vat-archive.md#7f-wabbitemu-restart-at-six-journal-boundaries)
+phase. See [Variables, archive and unarchive](sub-vat-archive.md#wabbitemu-restart-at-six-journal-boundaries)
 for input hashes, dispatcher visits, and changed-byte counts. [confirmed] for
 the emulator command-boundary runs.
 
