@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -13,8 +14,11 @@ function check(name, actual, expected) {
   checks += 1;
 }
 
+const localRomPath = path.join(__dirname, 'rom.bin');
+const localRom = fs.existsSync(localRomPath) ? fs.readFileSync(localRomPath) : null;
+
 function romBytes(page, address, length) {
-  const rom = fs.readFileSync(path.join(__dirname, 'rom.bin'));
+  const rom = localRom;
   const offset = page * 0x4000 + (address & 0x3fff);
   return rom.subarray(offset, offset + length).toString('hex');
 }
@@ -78,12 +82,16 @@ function oracleRound(source) {
   return bytes;
 }
 
-check('37:41DF–37:420E ROM body', romBytes(0x37, 0x41df, 0x30),
-  '016b8f216d91b7cdf2413cc9016a8e21649137f5e5c5ebe7e1cd8f22e1cd8523f1300621738ecd8f22cd2942cd893ac9');
-check('37:4229–37:4259 rounding body', romBytes(0x37, 0x4229, 0x31),
-  '3a7984d67f3827281e0602217b84fe023e5028043e05052bcd911cd0217a843610233600c3931e3a7a84fe5030eec3a41b');
-check('38:7433 `_ConvOP1` body', romBytes(0x38, 0x7433, 0x40),
-  '3a7a84b7cca41b2179843e839638ee47217b842809af2bed6723ed6710f7eb1ae60f6f26000e0a44cd73741b1a0e64e60fcd777401e803cd7374eb7223737bc9');
+if (localRom !== null) {
+  check('local ROM SHA-256', crypto.createHash('sha256').update(localRom).digest('hex'),
+    '7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d');
+  check('37:41DF–37:420E ROM body', romBytes(0x37, 0x41df, 0x30),
+    '016b8f216d91b7cdf2413cc9016a8e21649137f5e5c5ebe7e1cd8f22e1cd8523f1300621738ecd8f22cd2942cd893ac9');
+  check('37:4229–37:4259 rounding body', romBytes(0x37, 0x4229, 0x31),
+    '3a7984d67f3827281e0602217b84fe023e5028043e05052bcd911cd0217a843610233600c3931e3a7a84fe5030eec3a41b');
+  check('38:7433 `_ConvOP1` body', romBytes(0x38, 0x7433, 0x40),
+    '3a7a84b7cca41b2179843e839638ee47217b842809af2bed6723ed6710f7eb1ae60f6f26000e0a44cd73741b1a0e64e60fcd777401e803cd7374eb7223737bc9');
+}
 
 check('0.499999 rounds to zero', Array.from(graph.roundCoordinateOp1(
   op1(0x7f, 49, 99),
