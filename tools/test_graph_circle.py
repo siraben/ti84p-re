@@ -209,9 +209,13 @@ class GraphCircleCheckedEvidenceTests(unittest.TestCase):
         self.assertEqual(trace["point_visits"]["grph_circ"], 0)
         self.assertEqual(trace["point_visits"]["draw_circ2_coefficient_lookup"], 0)
         self.assertEqual(trace["point_visits"]["circ_cmd"], 1)
+        self.assertEqual(trace["point_visits"]["circ_cmd_return"], 1)
         self.assertEqual(trace["point_visits"]["alternate_generator"], 1)
+        self.assertEqual(trace["point_visits"]["alternate_end"], 1)
         self.assertEqual(trace["point_visits"]["alternate_loop"], 61)
         self.assertEqual(trace["point_visits"]["alternate_line_emit"], 60)
+        self.assertEqual(trace["point_visits"]["integer_line"], 62)
+        self.assertEqual(trace["point_visits"]["integer_point"], 376)
         self.assertEqual(
             trace["generator_branch_states"],
             [{

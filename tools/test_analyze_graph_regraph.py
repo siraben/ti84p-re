@@ -41,10 +41,14 @@ class GraphRegraphTests(unittest.TestCase):
             instruction(0x68D6, 0xCD, 20),
             instruction(0x69CF, 0x3A, 30),
             memory_write(0x8E67, 1),
+            memory_write(0x9151, 1),
             instruction(0x69DB, 0x32, 40),
             memory_write(0x9340, 0x80),
             instruction(0x4290, 0x77, 50),
             instruction(0x6985, 0xC9, 60),
+            memory_write(0x9151, 2),
+            memory_write(0x9340, 0),
+            instruction(0x0001, 0x00, 70),
         ))
         with tempfile.TemporaryDirectory() as directory:
             trace = Path(directory) / "minimal.trace"
@@ -54,6 +58,7 @@ class GraphRegraphTests(unittest.TestCase):
         self.assertEqual(row["sample_columns_before_advance"]["first"], 0)
         self.assertEqual(row["plot_screen"]["writes"], 1)
         self.assertEqual(row["plot_screen"]["set_pixels"], 1)
+        self.assertEqual(row["xres_int_at_return"], 1)
 
     def test_checked_report_records_natural_function_graphs(self) -> None:
         report = json.loads(REPORT.read_text())

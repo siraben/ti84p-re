@@ -41,7 +41,7 @@ POINTS = {
     "regraph_entry": ("page_04", 0x6764),
     "regraph_return": ("page_04", 0x6985),
     "buffer_clear": ("page_04", 0x6071),
-    "function_mode_loop": ("page_04", 0x68D6),
+    "function_mode_setup": ("page_04", 0x68D6),
     "sample_eval_prepare": ("page_04", 0x710F),
     "sample_cleanup": ("page_04", 0x7045),
     "sample_advance": ("page_04", 0x69CF),
@@ -130,6 +130,7 @@ def analyze_trace(path: Path) -> dict[str, object]:
     function_mode = False
     entry_index = return_index = None
     entry_clock = return_clock = None
+    return_memory: bytes | None = None
     total_instructions = 0
     buffer_writes = 0
     buffer_mutations = 0
@@ -169,9 +170,9 @@ def analyze_trace(path: Path) -> dict[str, object]:
                     point_counts[name] += 1
                     if function_mode:
                         post_mode_counts[name] += 1
-                if location == POINTS["function_mode_loop"]:
+                if location == POINTS["function_mode_setup"]:
                     function_mode = True
-                    post_mode_counts["function_mode_loop"] += 1
+                    post_mode_counts["function_mode_setup"] += 1
                 if location == POINTS["sample_advance"]:
                     sample_columns.append(memory[CUR_INC])
                     style_values.add(memory[CUR_G_STYLE])
@@ -249,15 +250,21 @@ def analyze_trace(path: Path) -> dict[str, object]:
             if active and location == POINTS["regraph_return"]:
                 return_index = total_instructions
                 return_clock = payload[IDX_CLOCK]
+                return_memory = bytes(memory)
                 active = False
                 function_mode = False
 
     if active:
         raise ValueError(f"{path}: `_Regraph` entry has no matching return")
-    if regraph_count != 1 or entry_index is None or return_index is None:
+    if (
+        regraph_count != 1
+        or entry_index is None
+        or return_index is None
+        or return_memory is None
+    ):
         raise ValueError(f"{path}: expected exactly one complete `_Regraph`, found {regraph_count}")
 
-    plot = bytes(memory[PLOT_SCREEN.start : PLOT_SCREEN.stop])
+    plot = return_memory[PLOT_SCREEN.start : PLOT_SCREEN.stop]
     distinct_transform_columns = sorted(set(transform_columns))
     center_column = 47
     center_neighborhood = [
@@ -279,11 +286,11 @@ def analyze_trace(path: Path) -> dict[str, object]:
         "not_observed": sorted(set(POINTS) - set(point_counts)),
         "post_function_mode_visits": dict(sorted(post_mode_counts.items())),
         "sample_columns_before_advance": summarize_sequence(sample_columns),
-        "xres_int_at_return": memory[XRES_INT],
+        "xres_int_at_return": return_memory[XRES_INT],
         "styles_seen_at_sample_advance": sorted(style_values),
         "iterator_words_at_return": {
-            "ram:9810": _word(memory, ITERATOR_WORD_9810),
-            "ram:980E": _word(memory, ITERATOR_WORD_980E),
+            "ram:9810": _word(return_memory, ITERATOR_WORD_9810),
+            "ram:980E": _word(return_memory, ITERATOR_WORD_980E),
         },
         "coordinate_transform_columns": {
             "visits": len(transform_columns),
@@ -330,7 +337,7 @@ def build_report(
     traces: dict[str, Path],
     *,
     rom: Path = DEFAULT_ROM,
-    emulator: Path | None = None,
+    emulator: Path,
 ) -> dict[str, object]:
     unknown = set(traces) - set(SCENARIOS)
     if unknown:
@@ -338,7 +345,7 @@ def build_report(
     rom_digest = digest(rom)
     if rom_digest != TI84_PLUS_OS_255MP_SHA256:
         raise ValueError("ROM SHA-256 does not match the pinned TI-84 Plus OS 2.55MP image")
-    emulator_digest = TILEM_BINARY_SHA256 if emulator is None else digest(emulator)
+    emulator_digest = digest(emulator)
     if emulator_digest != TILEM_BINARY_SHA256:
         raise ValueError("TilEm binary SHA-256 does not match the traced headless build")
     return {
@@ -385,7 +392,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--trace", action="append", type=parse_trace, required=True)
     parser.add_argument("--rom", type=Path, default=DEFAULT_ROM)
-    parser.add_argument("--emulator", type=Path)
+    parser.add_argument("--emulator", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     traces = dict(args.trace)

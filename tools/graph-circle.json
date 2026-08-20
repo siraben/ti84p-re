@@ -44,16 +44,18 @@
     "total_instructions": 5268454,
     "point_visits": {
       "alternate_generator": 1,
+      "alternate_end": 1,
       "alternate_line_emit": 60,
       "alternate_loop": 61,
       "circ_cmd": 1,
+      "circ_cmd_return": 1,
       "coordinate_line": 60,
       "draw_circ2": 0,
       "draw_circ2_coefficient_lookup": 0,
       "generator_branch": 1,
       "grph_circ": 0,
-      "integer_line": 76,
-      "integer_point": 648
+      "integer_line": 62,
+      "integer_point": 376
     },
     "generator_branch_states": [
       {

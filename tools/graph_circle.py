@@ -71,6 +71,8 @@ TRACE_POINTS = {
     "alternate_generator": ("page_33", 0x74E9),
     "alternate_loop": ("page_33", 0x7506),
     "alternate_line_emit": ("page_33", 0x7561),
+    "alternate_end": ("page_33", 0x7580),
+    "circ_cmd_return": ("page_33", 0x74D9),
     "grph_circ": ("page_33", 0x758D),
     "draw_circ2": ("page_3B", 0x7171),
     "draw_circ2_coefficient_lookup": ("page_35", 0x79E9),
@@ -220,6 +222,9 @@ def analyze_trace(path: Path) -> dict[str, object]:
     segments: list[TraceSegment] = []
     branch_states: list[dict[str, int]] = []
     total_instructions = 0
+    circle_active = False
+    circle_complete = False
+    circle_plot: bytes | None = None
 
     with path.open("rb") as stream:
         header = read_header(stream)
@@ -237,6 +242,16 @@ def analyze_trace(path: Path) -> dict[str, object]:
             total_instructions += 1
             resolved, _switch = resolve_instruction(banker, payload)
             location = (resolved[0], resolved[1])
+            if location == TRACE_POINTS["circ_cmd"]:
+                if circle_active or circle_complete:
+                    raise ValueError(f"{path}: expected one Circle command interval")
+                circle_active = True
+            if not circle_active:
+                for address, value in pending_writes:
+                    if 0 <= address < len(memory):
+                        memory[address] = value
+                pending_writes.clear()
+                continue
             name = points_by_location.get(location)
             if name is not None:
                 counts[name] += 1
@@ -256,12 +271,25 @@ def analyze_trace(path: Path) -> dict[str, object]:
                 if 0 <= address < len(memory):
                     memory[address] = value
             pending_writes.clear()
+            if location == TRACE_POINTS["circ_cmd_return"]:
+                circle_active = False
+                circle_complete = True
+                circle_plot = bytes(memory[PLOT_SCREEN.start:PLOT_SCREEN.stop])
 
+    if not circle_complete or circle_plot is None:
+        raise ValueError(f"{path}: Circle interval did not reach its 33:74D9 return")
+    if counts["circ_cmd"] != 1 or counts["generator_branch"] != 1:
+        raise ValueError(f"{path}: expected one Circle command and one generator branch")
+    alternate_selected = counts["alternate_generator"] == 1
+    draw_circ2_selected = counts["draw_circ2"] > 0
+    if alternate_selected == draw_circ2_selected:
+        raise ValueError(f"{path}: Circle generator selection is ambiguous")
+    if len(segments) != counts["coordinate_line"]:
+        raise ValueError(f"{path}: coordinate-line snapshots are incomplete")
     continuity = sum(
         left.raw_new_x == right.raw_old_x and left.raw_new_y == right.raw_old_y
         for left, right in zip(segments, segments[1:])
     )
-    plot = bytes(memory[PLOT_SCREEN.start:PLOT_SCREEN.stop])
     return {
         "sha256": file_sha256(path),
         "bytes": path.stat().st_size,
@@ -284,11 +312,9 @@ def analyze_trace(path: Path) -> dict[str, object]:
         "continuous_adjacent_lines": continuity,
         "first_segments": [asdict(segment) for segment in segments[:2]],
         "last_segments": [asdict(segment) for segment in segments[-1:]],
-        "plot_sscreen_sha256": hashlib.sha256(plot).hexdigest(),
-        "plot_sscreen_dark_pixels": sum(value.bit_count() for value in plot),
-        "caller_state": (
-            "draw_circ2" if counts["draw_circ2"] else "page_33_alternate"
-        ),
+        "plot_sscreen_sha256": hashlib.sha256(circle_plot).hexdigest(),
+        "plot_sscreen_dark_pixels": sum(value.bit_count() for value in circle_plot),
+        "caller_state": "draw_circ2" if draw_circ2_selected else "page_33_alternate",
     }
 
 
@@ -304,17 +330,15 @@ def main(argv: Iterable[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rom", type=Path, default=DEFAULT_ROM)
     parser.add_argument("--trace", type=Path)
+    parser.add_argument("--emulator", type=Path)
     args = parser.parse_args(argv)
     rom_hash = file_sha256(args.rom)
     if rom_hash != TI84_PLUS_OS_255MP_SHA256:
         parser.error("ROM SHA-256 does not match TI-84 Plus OS 2.55MP")
+    if args.trace is not None and args.emulator is None:
+        parser.error("--emulator is required when reducing a trace")
     report: dict[str, object] = {
         "rom": {"path": "tools/rom.bin", "sha256": rom_hash},
-        "tilem": {
-            "source": TILEM_SOURCE,
-            "commit": TILEM_COMMIT,
-            "binary_sha256": TILEM_BINARY_SHA256,
-        },
         "static": inspect_rom(RomImage.from_path(args.rom)),
         "natural_witness": {
             "command": "Circle(0,0,5)",
@@ -322,6 +346,15 @@ def main(argv: Iterable[str] | None = None) -> int:
             "raw_trace_checked_in": False,
         },
     }
+    if args.emulator is not None:
+        emulator_hash = file_sha256(args.emulator)
+        if emulator_hash != TILEM_BINARY_SHA256:
+            parser.error("TilEm binary SHA-256 does not match the traced headless build")
+        report["tilem"] = {
+            "source": TILEM_SOURCE,
+            "commit": TILEM_COMMIT,
+            "binary_sha256": emulator_hash,
+        }
     if args.trace is not None:
         report["natural_trace"] = analyze_trace(args.trace)
     print(json.dumps(report, indent=2, default=_json_default))

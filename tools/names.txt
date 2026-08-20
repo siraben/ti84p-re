@@ -595,6 +595,8 @@ page_04:61eb	graph_lcd_select_column_increment
 page_04:61f5	graph_lcd_begin_next_row
 page_04:6222	graph_set_mant_jump
 page_04:66a1	graph_clr_disp_flags
+page_04:69cf	graph_advance_sample_column
+page_04:7045	graph_restore_temp_count
 page_04:71a1	j_err_div0
 page_04:728a	graph_op1_zero_jump
 page_04:7a1a	graph_chk_posint
