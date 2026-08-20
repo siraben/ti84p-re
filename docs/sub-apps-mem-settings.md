@@ -1,12 +1,8 @@
 # Apps, memory reset & settings
 
-How the user-facing parts of the OS work: launching Flash Apps, the **MEM → Reset**
-menu (what "RAM Cleared" erases), and the **MODE** screen format/mode flags.
-Addresses are `space:addr` where `ram`/`page_00`=`0000-3FFF`, flash pages mapped at
-`4000-7FFF`. Confidence flags follow [conventions.md](conventions.md): [confirmed] = read
-from disassembly; [hypothesis] = strong inference, not yet verified (used below for both
-strongly-inferred claims and *partial* traces where the code is RAM-resident / cross-page and
-not fully traced).
+This page traces Flash App launch, the **MEM → Reset** paths, and the format and
+graph flags controlled by the **MODE** screen. Addresses and confidence flags
+follow [Conventions and methodology](conventions.md).
 
 Cross-references: [Boot contexts & errors](boot-contexts-errors.md) (contexts, `_AppInit`, event router), [Memory management](memory-management.md) (RAM heap,
 `_CleanAll`), [Flash page map](flash-page-map.md) (flash page map). Flag bits use the `ti83plus.inc` equates; the

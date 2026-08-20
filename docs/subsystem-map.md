@@ -1,6 +1,7 @@
 # Subsystem map (bcall API surface)
 
-This page categorizes the ~600 named bcall entry points (the OS's public API) by subsystem, so the whole OS surface is visible at once. User code and the OS itself program against this surface.
+This page groups the roughly 600 named bcall entry points by subsystem. The
+result shows the public API used by both application code and the OS itself.
 
 | Subsystem | ~bcalls | Representative entry points |
 |-----------|--------:|------------------------------|

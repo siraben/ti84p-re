@@ -93,7 +93,7 @@ the shortest paths into the main kinds of material:
 | [MD5 accelerator and boot API](docs/md5-hardware.md) | ASIC round operation, streaming digest bcalls, descriptors, traces, and signature transformation |
 | [Variables & the VAT](docs/variables-vat.md) | Variable Allocation Table & object types |
 | [Floating-point](docs/floating-point.md) | BCD float format, OP registers, `_FPAdd` |
-| [Tokenizer & TI-BASIC](docs/tokenizer-basic.md) | Tokens & the parser (page 0x38) |
+| [Tokenizer and TI-BASIC tokens](docs/tokenizer-basic.md) | Tokens and the parser (page `0x38`) |
 | [Display & LCD](docs/display-lcd.md) | LCD driver, fonts, screen buffers |
 | [Keyboard and link](docs/keyboard-link.md) | Key input and wired-transfer overview |
 | [Keypad and ON-key hardware](docs/keypad-on-hardware.md) | Matrix timing, ghosting, debounce, repeat, ON interrupts, and wake |

@@ -1,12 +1,9 @@
 # Table & Y= variables
 
-This page covers entering functions in **Y=**, configuring
-**TBLSET** (`2nd WINDOW`), and reading the **TABLE** (`2nd GRAPH`) to tabulate
-`Y1(X)`, `Y2(X)`, … over a range of `X`. Traces: where the table-setup settings
-live → how the OS, per X row, sets the `X` variable, evaluates each selected Y=
-function through the parser into OP1, formats the result, and lays the values out
-as a text grid → how Y= equations are stored, selected, and styled → and the
-Table ↔ Y= ↔ parser ↔ display interaction.
+The table subsystem stores equations from **Y=**, reads settings from
+**TBLSET**, evaluates selected equations row by row, caches their values, and
+paints the **TABLE** grid. This page covers automatic and prompted independent
+and dependent values as well as split graph-table mode.
 
 Builds on [sub-graphing.md](sub-graphing.md) (Y= storage, the regraph/eval path, `plotSScreen`),
 [sub-tibasic.md](sub-tibasic.md) (the page-38 parser, `_Find_Parse_Formula`, `_ParseInp`),

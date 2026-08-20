@@ -1,6 +1,8 @@
 # Memory management (RAM heap & Flash archive)
 
-How the OS allocates the ~24 KiB of user RAM between variables, temporaries, the FP stack, and the program being run — and how it offloads variables to Flash ("archive").
+The memory manager divides about 24 KiB of user RAM among variables,
+temporaries, the floating-point stack, and the active program. The archive path
+moves variables between that RAM heap and Flash.
 
 ## The RAM heap [standard]
 

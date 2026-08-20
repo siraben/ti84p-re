@@ -1,10 +1,10 @@
 # Link / data transfer
 
-Companion to [keyboard-link.md](keyboard-link.md), focused on the data-transfer path:
-pushing a program/list/etc. to a computer (TI-Connect) or another calculator over the
-2.5 mm I/O link or the 84+ USB/hardware link-assist. Builds the full stack on top of the byte
-primitives `_SendAByte` (`3C:420D`) and `_RecAByteIO` (`3C:443F`), reconstructed in [Two-wire link port hardware](link-port-hardware.md); the ASIC-facing assist/USB ports
-are covered separately in [USB ASIC and link assist](sub-usb-asic.md).
+The data-transfer subsystem sends variables and system objects through the
+packet layer over either the 2.5 mm link or the TI-84 Plus USB/link-assist path.
+It builds on `_SendAByte` (`3C:420D`) and `_RecAByteIO` (`3C:443F`), described in
+[Two-wire link port hardware](link-port-hardware.md). [USB ASIC and link
+assist](sub-usb-asic.md) covers the ASIC-facing ports.
 
 Addresses here are read from the raw Z80 disassembly. The decompiler mis-renders this subsystem —
 it passes arguments in registers and does its state work with `SET/RES/BIT b,(IY+d)` flag ops that the

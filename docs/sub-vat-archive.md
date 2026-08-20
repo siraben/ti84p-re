@@ -1,8 +1,9 @@
 # Variables, archive & unarchive
 
-Companion to [variables-vat.md](variables-vat.md) and [memory-management.md](memory-management.md), covering what a
-program that manages memory touches: the VAT walk (`_FindSym`), variable Store/Recall, and the
-Archive / UnArchive path (RAM ↔ Flash), the Flash garbage collector, and the memory checks.
+The variable-management paths scan the VAT, store and recall values, move
+objects between RAM and the Flash archive, and collect unused Flash records.
+[Variables and the VAT](variables-vat.md) defines the object formats; [Memory
+management](memory-management.md) provides the heap and archive overview.
 
 Every address here is read from the raw Z80 disassembly rather than the decompiler alone, which
 mis-renders the `SET b,(IY+d)` flag ops and

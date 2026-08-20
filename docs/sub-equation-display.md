@@ -1,9 +1,9 @@
 # Equation display (MathPrint)
 
-MathPrint is the OS subsystem that turns a tokenized expression into a
-two-dimensional screen layout. It serves the home-screen entry line, the
-**Y=** editor, the Solver equation line, and the template menus. It consumes
-the token stream described in [Tokenizer & TI-BASIC](tokenizer-basic.md) and
+MathPrint turns a tokenized expression into a two-dimensional screen layout for
+the home-screen entry line, the **Y=** editor, the Solver equation line, and the
+template menus. It consumes the token stream described in [Tokenizer and
+TI-BASIC tokens](tokenizer-basic.md) and
 preserves the OP registers described in
 [Floating-point engine](floating-point.md).
 
