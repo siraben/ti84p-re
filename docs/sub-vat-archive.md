@@ -8,7 +8,7 @@ management](memory-management.md) provides the heap and archive overview.
 Raw disassembly supplies the indexed-bit operations and cross-page trampolines
 that the decompiler can mis-render.
 
-## 1. The `arcInfo` workspace and key RAM pointers [confirmed]
+## `arcInfo` workspace and RAM pointers [confirmed]
 
 The archive engine keeps a confirmed 15-byte workspace prefix at `arcInfo`
 (`0x83EE`). The prefix contains seven named fields followed by two bytes whose
@@ -58,7 +58,7 @@ read/write routines are copied to run (you cannot execute from a Flash page whil
 
 ---
 
-## 2. `_FindSym` and the VAT walk [confirmed]
+## `_FindSym` and VAT traversal [confirmed]
 
 `_FindSym` (`00:0E65`, = `RST 10h`) is a page-0 trampoline that cross-page-jumps to the real scanner
 `findsym_scan` @ `07:565F`. `_ChkFindSym` (`00:0E60`) first type-checks OP1 (`_CkOP1Real`)
@@ -96,7 +96,7 @@ page byte selects the Flash page; the VAT record itself always stays in RAM.
 
 ---
 
-## 3. Store / Recall [standard]
+## Store and recall [standard]
 
 **Store** `_StoOther` (`38:62A9`) and siblings (`_StoAns`, `_StoX`, `_StoY`, … `38:6251-62A3`):
 - Set OP1 type = 0xFF placeholder (`62A9: LD A,FF / LD (8478),A`), parse the destination name.
@@ -104,7 +104,7 @@ page byte selects the Flash page; the VAT record itself always stays in RAM.
   destination name token (`849B`): list-element store (`0x2A` → bounds-checks via `_ErrDimension`),
   matrix element, etc. Ultimately a `_Create*` routine carves RAM with `_InsertMem` and the data is copied.
 - A store into an archived var is not done in place; the OS unarchives first (you cannot rewrite
-  Flash in place) — see the `_Arc_Unarc` direction logic in §4. [hypothesis]
+  Flash in place); see the [`_Arc_Unarc` direction logic](#archive-and-unarchive-confirmed). [hypothesis]
 
 **Recall** `_RclVarSym` (`38:67B1`) and `rcl_var_push` (`3A:5D07`):
 - `_RclVarSym` calls `RST 10h` (`17A6`, a `_FindSym`+error-check wrapper: `RST 10h; JP C,271D`), then checks the name token (`8479`). For a list
@@ -115,11 +115,11 @@ page byte selects the Flash page; the VAT record itself always stays in RAM.
   (`0x15` AppVar, `0x16`, `0x17` Group) read the leading `word size`.
 - The recall code does not care whether the source is RAM or Flash for *reading* — Flash is
   memory-mapped read-only into the 0x4000 window. To *use* an archived program/var that must be
-  modified or executed in RAM, the OS first copies it via `_FlashToRam` (§5). [standard]
+  modified or executed in RAM, the OS first copies it via [`_FlashToRam`](#reading-archived-data-with-_flashtoram-confirmed). [standard]
 
 ---
 
-## 4. Archive / unarchive — `_Arc_Unarc` (`07:6248`) [confirmed]
+## Archive and unarchive [confirmed]
 
 `bcall(_Arc_Unarc)`, OP1 = the variable name. It toggles the var between RAM and
 the Flash archive (the same entry point does both directions, deciding from the current state).
@@ -150,13 +150,13 @@ Direction note: the `B`-page test sends an *in-RAM* var (`B==0`) to `6107` (arch
 *in-Flash* var (`B≠0`) to `61F4` (unarchive). `6107` is the one that programs Flash and frees the
 RAM copy; `61F4` is the one that carves RAM and copies the data back out of Flash.
 
-### 4a. RAM → Flash (archive), `6107` [confirmed]
+### RAM-to-Flash archive path [confirmed]
 
 ```z80
 6107:  CALL 7866 ; DI
        CALL 614B                       ; arcInfo.vat_ptr and arcInfo.size
                                        ;   616C reserves the archive-Flash slot
-       CALL 2FF1 (cross_page 3D:64AA)  ; *** program the data into the archive Flash ***  (see §6)
+       CALL 2FF1 (cross_page 3D:64AA)  ; program the data into archive Flash
        LD HL,(83F3) ; LD DE,(83F7) ; CALL _DelMem (1368)  ; release the old RAM copy
        RET
 616C:  reads vatPtr type, AND 0x1F (clean type for the record header),
@@ -167,7 +167,7 @@ The data is appended to the archive Flash (Flash cannot be overwritten in place)
 type byte gets its archive flag set and its data ptr/page rewritten to point into Flash; the old RAM
 copy is then released (the upward data heap shrinks). `archive_write_record` at `3D:64AA` lays down a fresh archived record plus a copy of the symbol header, name, and data. The status markers are `0xFE` for in progress, `0xFC` for valid, `0xF0` for deleted, and `0xFF` for erased space. The successful archive trace executes the complete body and its six boot-page writes. [confirmed] `_Chk_Batt_Low` (`00:0D07`) gates the Flash write — archiving aborts on low battery (`07:61C5: CALL _Chk_Batt_Low`).
 
-### 4b. Flash → RAM (unarchive), `61F4` [confirmed]
+### Flash-to-RAM unarchive path [confirmed]
 
 ```z80
 61F4:  LD (83EF),DE ; LD (83EE),A      ; arcInfo.data_ptr/page = source
@@ -187,7 +187,7 @@ marked dead (`0xF0`, reclaimed at the next GC). `unarchive_record_to_ram`
 at `3D:6440` shares the page-3D flash-control prologue
 (`OUT (0x14)`) and is an inferred label, not byte-confirmed in the disassembly.
 
-### 4c. Errors raised on the path [confirmed]
+### Errors [confirmed]
 
 - `2785: LD A,0x31` → `_JError` = `E_ArchFull` (0x31) "ERR:ARCHIVE FULL" (no room even after GC).
 - `2729`/`272D`/`2731`: `LD A,0x8F`/`0x90`/`0x91` → E_Invalid / E_IllegalNest / E_Bound. The archive size check (`616C`) takes the `2729` (E_Invalid, `0x8F`) entry on overflow.
@@ -196,7 +196,7 @@ at `3D:6440` shares the page-3D flash-control prologue
 
 ---
 
-## 5. Reading archived data — `_FlashToRam` (`3D:6745`) [confirmed]
+## Reading archived data with `_FlashToRam` [confirmed]
 
 `bcall(_FlashToRam)` (id 0x5017 → real body `3D:6745`). Copies `BC` bytes from a Flash page:addr to
 a RAM destination, transparently advancing the Flash page when the read crosses the `0x8000`
@@ -215,7 +215,7 @@ names a sibling `_FlashToRam2` (id 8054); the retail boot table maps it to `3F:4
 
 ---
 
-## 6. Archive record allocation and programming [confirmed]
+## Archive record allocation and programming [confirmed]
 
 The archive manager chooses a free record and then calls the boot-page Flash API. [Flash memory](flash-memory.md) reconstructs port `0x14`, `_WriteFlash`, `_WriteFlashUnsafe`, `_WriteAByte`, erase sectors, DQ polling, and the RAM workers. This section covers the archive-specific layer above that API.
 
@@ -232,7 +232,7 @@ The bounds checks at `3D:6B6D` and `3D:6B9B` reject pages below `08` and pages a
 
 A generated 17,000-byte program makes the record data span pages. The traced record writer passes its 17,002-byte `[size][body]` field to one `_WriteFlashUnsafe` invocation, which programs physical `0x20013` through `0x2427C` continuously across `08:7FFF` to `09:4000`. The copied worker increments port `0x06` from `0x08` to `0x09`, resets `DE` to `0x4000`, and finishes with its `0xF0` reset at the final target. This is direct TilEm evidence for the ordinary archive page-crossing path, not a physical-calculator measurement. [confirmed]
 
-### 6a. Record-status byte — the one-way bit-clearing scheme [confirmed]
+### Record-status byte [confirmed]
 
 The status byte is a classic AMD/Am29F *monotonic bit-clear* marker: erased Flash is all-ones
 (`0xFF`), and the OS advances a record's state by *clearing* bits (program can only flip `1→0`; only
@@ -247,14 +247,14 @@ into `C` and then read-modify-write the status byte (`3D:7C9A: CALL flash_read_b
 
 Successive clears compose: the three helpers take a record `0xFF` (erased) → `0xFE` (started) →
 `0xFC` (valid/complete, bits 0+1 clear). Deletion marks the record `0xF0` (deleted/dead, bits
-0–3 clear) with a direct write in the delete/GC path (§7), not via those three in-progress/valid
+0–3 clear) with a direct write in the [delete and garbage-collection path](#flash-garbage-collector-confirmed), not via those three in-progress/valid
 helpers. Because only bits go `1→0`, a deleted record
 can never be re-validated in place — it is reclaimed only by GC erasing the whole sector.
 `flash_find_nonff` (`3D:7DEA`) confirms `0xFF` = empty: it reads the 13-byte record header and `CP 0xFF`
 on each, treating an all-`0xFF` run as a free slot. (`3D:7C99` additionally folds in `AND 0xE7` and
 conditional `OR 0x10`/`OR 0x08` for the swap/relocate state bits driven by `(IY+0x1A).0` and `(IY+0).2`.)
 
-### 6b. Dynamic archive and App boundary [confirmed]
+### Dynamic archive and application boundary [confirmed]
 
 The archive begins at page `08`. `archive_app_boundary` (`3D:6413`) computes its exclusive upper bound by starting at the model-specific top App page from `3D:726E`, validating each installed App header, obtaining its span from `_FindAppNumPages` (`3D:4AA3`), and subtracting that span until it reaches the first page below the installed App run. [confirmed]
 
@@ -270,13 +270,13 @@ The ASIC pages Flash in 16 KiB units, but the chip erases ordinary sectors in 64
 
 ---
 
-## 7. Flash garbage collector [confirmed]
+## Flash garbage collector [confirmed]
 
 The archive garbage collector compacts records in 64 KiB sector units. It also journals its phase
 in the inactive half of page `3E`, so startup code can distinguish an interrupted collection from a
 normal archive layout. This mechanism is separate from `_CleanAll`, which only compacts RAM.
 
-### 7a. Command and normal collector entries
+### Collector entries
 
 `gc_command` at `3C:71F8` displays the two-line banner, runs a recovery preflight, and calls the
 normal collector: [confirmed]
@@ -299,7 +299,7 @@ The deterministic `GCFLASH` fixture archives `A` and `B`, unarchives `A`, accept
 preflight branch at `3C:7232` sees carry set and returns through `3C:7246`; it does not enter the
 recovery dispatcher during this normal run. [confirmed]
 
-### 7b. Four-page archive sectors
+### Four-page archive sectors
 
 `3C:749C` groups the current archive page into one physical 64 KiB sector: [confirmed]
 
@@ -323,7 +323,7 @@ a separate structure. In the observed collection, `0xFE` identifies the erased s
 the compacted records. Record bytes one or more bytes after the sector header independently use
 `0xFE`, `0xFC`, `0xF8`, and `0xF0`. [confirmed]
 
-### 7c. Observed sector-copy sequence
+### Observed sector-copy sequence
 
 `archive_gc_collect` at `3C:7733` executes the protected port-`0x14` unlock sequence. It checks the
 archive sectors, adjusts the Flash execution bound, prepares a destination sector, initializes the
@@ -355,7 +355,7 @@ The final layout therefore contains an empty `0xFE` scratch sector at page `08` 
 `0xF0` sector at page `0C`. The live `B` record remains `0xFC` at `0C:4001`. The `0xF0` byte at
 `0C:4000` is a sector header, not a deletion marker for the record that follows it. [confirmed]
 
-### 7d. Certificate-sector journal
+### Certificate-sector journal
 
 The collector uses the two 8 KiB halves of page `3E` transactionally. `_GetCertificateStart`
 (`8057`) selects the active half. `3D:48E3` toggles `H` with `0x20`, and
@@ -461,7 +461,7 @@ python tools/analyze_gc_journal.py \
 an erased status and skips the branch to `3C:7BDD` and `3C:7C1F`.
 [confirmed]
 
-### 7e. TilEm restart at six journal boundaries
+### TilEm restart at six journal boundaries
 
 The `GCFLASH` command trace can produce interrupted Flash images without
 guessing archive contents. `tools/flash_replay.py` applies decoded byte-program
@@ -570,7 +570,7 @@ TilEm and Wabbitemu exercise all six phase boundaries after successful command
 boundaries. Cuts during busy commands and physical power loss remain untested.
 [confirmed] for the emulator runs; [hypothesis] for the remaining cases.
 
-### 7f. Wabbitemu restart at six journal boundaries
+### Wabbitemu restart at six journal boundaries
 
 A Linux headless adapter now runs the pinned Wabbitemu commit `48c2dc0` without
 its Windows interface. The acquisition procedure verifies the codeload archive
@@ -623,7 +623,7 @@ typed gate writes and transitions, retail-bcall and copied-worker coverage,
 input and output hashes, exact dispatcher visits, instruction and t-state
 counts, changed-byte counts, wake completion, and Flash-settling status.
 
-### 7g. Reproducing the command timeline
+### Reproducing the command timeline
 
 `tools/flash_trace.py` is the importable AMD-command decoder. The CLI resolves mapping changes,
 decodes command sequences, and compacts adjacent program operations: [confirmed]
@@ -647,7 +647,7 @@ archive operation at `3C:7F1C`. [confirmed]
 
 ---
 
-## 8. Memory checks [confirmed]
+## Memory checks [confirmed]
 
 - `_MemChk` (`00:0E20`) — free RAM = `OPS(0x9828) − FPS(0x9824)`; returns 0 if the heap top
   has met the FP stack, else `count` (`INC HL` ⇒ off-by-one inclusive). `OPS` is the top of the
@@ -668,7 +668,7 @@ archive operation at `3C:7F1C`. [confirmed]
 
 ---
 
-## 9. Routine index
+## Routine index
 
 | space:addr | name | what |
 |------------|------|------|
@@ -721,12 +721,12 @@ Strings: `01:4126` "Garbage Collecting…", `01:4076` "Defragmenting…", `07:6C
 Ports: `0x06` = bank-A page select (Flash window), `0x14` = Flash write/erase control,
 `0x02` bit7 = Flash-size/model. RAM run-from-RAM stub: `ramCode = 0x8100`.
 
-## 10. Resolved behavior and open items
+## Resolved behavior and open items
 
 - **Archive allocation.** [confirmed] The allocator scans upward from page `08` to the exclusive App boundary from `3D:6413`. On the traced OS-only TI-84 Plus, that interval is pages `08`–`28`; the new record begins at `08:4000`.
 - **Hardware Flash path.** [confirmed] `archive_write_record` at `3D:64AA` invokes `_WriteAByte` and `_WriteFlashUnsafe`; the boot worker runs at `0x8100`, issues AMD byte-program commands, polls DQ7/DQ5, and returns success. See [Flash memory](flash-memory.md).
 - **Erase granularity.** [standard] Ordinary sectors are 64 KiB, not one 16 KiB paging unit. The top-boot geometry also has 32, 8, 8, and 16 KiB sectors at physical `0xF0000`–`0xFFFFF`.
-- **Record-status bytes.** [confirmed] See §6a. Monotonic bit-clear: `0xFF` erased → `0xFE` in-progress
+- **Record-status bytes.** [confirmed] The [record-status byte](#record-status-byte-confirmed) uses monotonic bit clearing: `0xFF` erased → `0xFE` in-progress
   → `0xFC` valid via `flash_op_fe/fd/fb` (`3D:7C97/7C8F/7C93`) AND-masking; `0xF0` deleted is a direct write in the delete/GC path
   the status byte; `flash_find_nonff` (`3D:7DEA`) treats an all-`0xFF` header as free.
 
@@ -739,4 +739,4 @@ Ports: `0x06` = bank-A page select (Flash window), `0x14` = Flash write/erase co
   That member-walk routine remains
   unidentified in the disassembly — `_Arc_Unarc`'s body past the entry `CALL` is not
   disassembled here (cross-page `CALL` flagged non-returning), and no group-archive function is
-  named or xref-reachable. Confirming it would need a linear disassembly pass like the one behind §4.
+  named or xref-reachable. Confirming it would need a linear disassembly pass like the one used for [archive and unarchive](#archive-and-unarchive-confirmed).

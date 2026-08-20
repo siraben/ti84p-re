@@ -6,7 +6,7 @@ the `OP1`–`OP6` BCD floating-point registers. The software stack at `FPS`
 defines the `TIFloat` format and `_FPAdd`; this page covers multiplication,
 division, powers, roots, transcendentals, formatting, and errors.
 
-## 1. Register & stack model [confirmed]
+## Register and stack model [confirmed]
 
 Every calculation runs through the OP registers and the software FP stack; the table
 gives each register's RAM address and its role during an operation.
@@ -29,13 +29,13 @@ Binary/transcendental routines that need to preserve an operand spill it to `FPS
 - `_PopRealO1`…`_PopRealO6` (`ram:150F`…`14F6`), `_PopReal` (`ram:1512`).
 - `_AllocFPS`/`_DeallocFPS` (`ram:1534`/`1526`) grow/shrink the stack frame.
 
-Example seen in the complex-log core (`_CLN`, §5): it does `_PushRealO1` to save the input,
+For example, the [complex-log core](#transcendentals) uses `_PushRealO1` to save the input,
 computes the magnitude, then `_PopRealO2` to recover it for the angle — the canonical
 "spill then restore" used everywhere the parser evaluates a nested sub-expression.
 
 ---
 
-## 2. Basic arithmetic [confirmed]
+## Basic arithmetic [confirmed]
 
 All four route operands through `OP1`/`OP2`, clear the guard digits, early-out on zero
 operands, then do BCD mantissa work and renormalize. Result in `OP1`.
@@ -64,7 +64,7 @@ Convenience / derived ops:
 
 ---
 
-## 3. Degree/radian & polar conversions [confirmed]
+## Degree, radian, and polar conversions [confirmed]
 
 - `_DToR` `ram:236B` (deg→rad): multiply OP1 by $\pi/180$ (`ram:235D` loads the constant) then normalize via `ram:249E`.
 - `_RToD` `ram:2374` (rad→deg): multiply by $180/\pi$ (`ram:2361`).
@@ -74,7 +74,7 @@ These constants are the BCD floats `π/180 = 1.745…e-2` and `180/π = 5.729…
 
 ---
 
-## 4. Cross-page dispatch (`cross_page_jump` @ `ram:2B09`) [confirmed]
+## Cross-page dispatch (`cross_page_jump` at `ram:2B09`) [confirmed]
 
 Banked ROM calls use a bcall-style trampoline.
 `cross_page_jump`:
@@ -93,7 +93,7 @@ and `fp_constant_table` (`02:7D42`) all reside on page `02`. [confirmed]
 
 ---
 
-## 5. Transcendentals
+## Transcendentals
 
 ### Logarithms [confirmed]
 
@@ -146,7 +146,7 @@ glue and `_OP2ToOP6`/`_OP6ToOP1` shuffles. Integer/√ special cases short-circu
 
 ---
 
-## 6. Number entry & display formatting
+## Number entry and display formatting
 
 When the homescreen shows a result (or `Ans`), the engine converts the `OP1` `TIFloat` to a
 digit string honoring the **MODE** screen (Normal/Sci/Eng, Float/Fix 0–9).
@@ -172,7 +172,7 @@ digit string honoring the **MODE** screen (Normal/Sci/Eng, Float/Fix 0–9).
 
 ---
 
-## 7. Error handling [confirmed]
+## Error handling [confirmed]
 
 Errors are raised by loading an error code in `A` and jumping to `_JError` (`ram:2793`),
 which unwinds to the error context and shows the named message. The raiser cluster lives at
@@ -207,7 +207,7 @@ which unwinds to the error context and shows the named message. The raiser clust
 
 ---
 
-## 8. Routine index (confident, `space:addr`)
+## Routine index
 
 Arithmetic core (page 0): `_FPAdd 229E`, `_FPSub 2297`, `_FPMult 238B`, `_FPDiv 2541`,
 `_FPRecip 253D`, `_FPSquare 238A`, `_Cube 237D`, `_Times2 2282`, `_TimesPt5 2382`,
@@ -228,7 +228,7 @@ Errors (page 0): `_JError 2793`, raiser table `26E8`+, domain pre-checks `2119`�
 
 ---
 
-## 9. Worked flow: `2*sin(π/6)+ln(5)` [hypothesis]
+## Worked flow: `2*sin(π/6)+ln(5)` [hypothesis]
 
 1. Parser pushes `2` (`OP1`), evaluates `sin(π/6)`: loads `π/6` into OP1, `_SinCosRad`/`_Sin`
    (selector `0x8499`), table-driven digit recurrence → `OP1=0.5`.
