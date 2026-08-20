@@ -1,38 +1,200 @@
-# Open questions & roadmap
+# Open questions and roadmap
 
-The current pages map the major ROM and hardware subsystems, both cross-page
-mechanisms, and the input → parse → evaluate → display pipeline. The evidence
-is uneven: some paths are byte- and trace-confirmed, while the items below
-still require static reduction, fault injection, or physical measurement.
+The major ROM and hardware subsystems are mapped well enough to support focused
+follow-up work. This page lists only unresolved behavior and the evidence needed
+to resolve it. Completed reconstructions and emulator comparisons remain on the
+subsystem pages linked below.
 
-## Still open
+## Static-analysis work
 
-1. **Flash hardware and remaining physical interruption tests.** `_WriteFlash`, its DQ7/DQ5 poll, top-boot sectors, the normal collector, 64 KiB archive-sector rotation, 8 KiB certificate-half journal, and phase dispatcher are reconstructed in [Flash memory](flash-memory.md) and [Variables, archive & unarchive](sub-vat-archive.md#flash-garbage-collector-confirmed). Cold TilEm and pinned Wabbitemu restarts exercise all six ROM-written phases. Five converge byte-for-byte with uninterrupted execution; `0xF0` has identical archive bytes and reaches the same stable certificate state after deferred `0xE0` cleanup on the uninterrupted result's next boot. Guarded native TilEm, Wabbitemu, and MAME matrices verify their differing legal and illegal program status, command families, erase geometry, chip-erase policy, and busy-read behavior. The TilEm run also pins its real-time timer conversion at 42, 300, and 1,200,000 clocks at the 6 MHz reset speed. The MAME runs check mapped Flash reports and complete saved arrays against pinned source models. A CPU/I/O-space MAME run also confirms that its stored port-`0x14` state does not gate mapped Flash commands. A Wabbitemu direct worker probe covers success, false-success, and failure tails while opening emulator state directly. A second assembled Wabbitemu probe executes `_WriteFlash`, `_WriteFlashUnsafe`, `_WriteAByteSafe`, `_WriteAByte`, `_EraseFlashPage`, `_EraseFlash`, `_EraseCertificateSector`, `_SetFlashLowerBound`, and seven `_FlashToRam` readbacks through the retail ROM. A separate cold-recovery run executes the retail startup caller, protected port-`0x14` unlock, public Flash bcalls, copied workers, and relock for all six phases. Measure legal and illegal `0→1` program requests, DQ toggle cadence, program and erase durations, erase suspend, and busy reads across the four top-boot boundaries on physical calculators. Force an erase DQ5 failure with `DE` first in Flash and then in restoring scratch RAM to test the worker's undocumented reset write. Physical power cuts must cover all six phase boundaries and cuts inside busy program and erase commands. The completed emulator command-boundary results are confirmed; physical timing and exact power-loss guarantees remain hypotheses.
-2. **Enum equates.** Apply `TIKeyCode`/`TIError`/`TIVarType` to scalar operands in the relevant handlers (conservative, scoped).
-3. **Forward-trigonometry table semantics.** The range reduction and the table-driven recurrence are byte-pinned, but the exact rotation identity represented by each row at `02:7201`/`02:7281` remains open. See [Floating point](floating-point.md#_sincosrad--sincos-in-radians-02733e-confirmed).
-4. **Graph raster details.** Exhaustively decode the rounding and sentinel handling at `37:4229`, then trace `_DrawCirc2` at `3B:7171` to recover its parametric stepping. The coordinate transforms and circle setup are already pinned. See [Graphing](sub-graphing.md#evidence-summary-and-open-items).
-5. **TABLE evaluation paths.** Byte-trace the per-row `_StoX` and selected-Y evaluation calls in the page-05 fill loop. The Depend:Ask prompt path and the `TblRng` special case in `_Find_Parse_Formula` also need end-to-end traces. See [Table & Y= variables](sub-table-yvars.md#evidence-summary-and-open-items).
-6. **Statistics command families.** Locate and decode the DISTR numerical cores and each STAT-TEST handler that writes `PStat` through `SStat`. The intermediate calculations that produce `r` and `r²` in `3A:6845`–`6891` also need a complete byte trace. See [Statistics](sub-statistics.md#remaining-questions).
-7. **Link and USB residuals.** Determine why the legacy backup path normalizes the restored system-flags word to `0x0063`. The word's destination at `0x89F0`, the `0x89F0`–`0x8D6C` section bounds, and the checksum coverage are byte-pinned. A complete direct indexed-bit audit shows that it clears the degree-mode, pending-keyboard, editor-open, answer-scroll, monitor-abandon, and one unnamed active bit while setting `donePrgm`. The remaining ambiguity is why active unnamed bits 0 and 1 and an otherwise unreferenced bit 6 of `0x89F0` are set. The current evidence does not distinguish a canonical post-restore state from model/version compatibility. The `0x22`–`0x25` variable-header dispatcher is classified as error, OS/AMS, Flash-application, and certificate handling, and the `0x22` error-table path resolves to `ERR:LINK`. The `3C:618D` both-low waveform is tied to installed error cleanup and its software duration is cycle-counted. A guarded direct-core TilEm run verifies the complete raw truth table, activity interrupt, all six assist handlers, LSB-first byte send and receive, idle/data acknowledgement, sticky error state, and its auxiliary-register and external-line reset retention. One guarded initialized-core Wabbitemu run verifies the same raw truth table, missing assist ports `0x0B`/`0x0C`, ready/read interrupts, LSB-first byte send and receive, and seeded-error read-to-clear behavior. Guarded MAME runs verify its PCR readback, connector-output mismatch, peer-input reads, assist advertisement, inert port `0x08`–`0x0D`, and the fixed disconnected `0x55 = 0x1F`/`0x56 = 0x00` pair inside an otherwise unmapped `0x4A`–`0x5B` block. Another Wabbitemu run verifies the Fake USB port set, missing port `0x54`, reset values, active-low interrupt summary, mask-independent event, repeat-event path, and latch masks. A controlled port harness executes the retail `_InitUSB` success and timeout paths and dispatches event `0x40` through `_AttemptUSBOSReceive` to `2F:4170`; all four cases leave Flash unchanged. A second controlled run scripts exact endpoint FIFO packets through `_ReceiveOS_USB`, reaches service-5 installer dispatch, rejects page `0x3E`, runs cleanup, and leaves Flash unchanged after an explicit progress-state intervention. These remain emulator and controlled-harness results, not a natural connected install. Physical tests still need to measure port-`0x00` pull-ups, thresholds, rise times, both CPU-speed timeout durations, and the pulse's actual duration and voltage levels. Run the read-only USB snapshot on known TA2 and TA3 units, both connected and disconnected, to establish ports `0x49`, `0x51`, and `0x52` before testing their claimed transceiver and enable-timer behavior. Verify the FDRC-family register hypothesis and TI-specific PHY behavior on physical hardware, including the effects of port `0x4B` and the port-`0x4F`/`0x50` setup sequence. Capture port-`0x5A` presentation traffic to determine whether LCD-port writes produce two-byte endpoint-2 packets and whether the feature requires host mode. Then exercise endpoint payload transfer and the complete connected boot receive path. See [Two-wire link port hardware](link-port-hardware.md#resolved-findings-and-open-hardware-tests), [Link transfer](sub-link-transfer.md#open-items), and [USB ASIC and link assist](sub-usb-asic.md#limits).
-   The prepared [raw two-wire link probe](hardware-probes.md#raw-two-wire-link-probe) records the disconnected four-state truth table at four instruction gaps and releases both lines during cleanup. A physical run can constrain digital settling but does not replace voltage, pull-up, or rise-time measurements.
-8. **MD5 physical edge behavior.** The valid 64-step path, boot API, two implementing emulator models, and MAME's missing port block are reconciled in [MD5 accelerator and boot API](md5-hardware.md). Guarded native TilEm and Wabbitemu runs exercise partial and fifth writes, high control bits, undefined operand reads, and read-time recalculation. The TilEm run also verifies complete reset clearing and zero modeled port latency under the locked compiler. A separate guarded MAME run confirms that its unmapped ports discard patterned writes and return zero for the known first `"abc"` step. The [physical hardware probe](hardware-probes.md#md5-edge-probe) prepares the corresponding ASIC measurements. Physical TA2/TA3 tests still need to run it and add reset-retention and I/O wait-state measurements.
-9. **Memory-mapper overlay hardware.** The boot transition, paired and independent modes, extended Flash selectors, and emulator implementations are reconciled in [Paging](paging.md). A guarded initialized-core Wabbitemu run verifies its fixed-page opcode handoff, selector readback, duplicated even page in paired mode, `0x27` cutoff, independent-mode read/write/fetch overlays, and paired-mode overlay suppression. A guarded MAME run verifies its read-triggered fixed-page handoff, selector masks, adjacent paired pages, safe RAM banks through `0x86`, unmapped extended and overlay ports, and underlying read/write/fetch routing. Selector `0x87` remains source-only because MAME maps seven RAM pages. These are emulator results. Physical tests must resolve whether ports `0x27`/`0x28` remain active in paired mode, whether the `0xFB64` cutoff exists in the ASIC, and whether [execution protection](execution-protection.md#mapping-and-forced-overlays) follows the underlying window or forced RAM page.
-10. **Bus-timing and LCD-controller measurements.** The boot values, wait-state decode, controller commands, display paths, and emulator implementations are reconciled in [Bus timing and wait states](bus-timing.md) and [LCD controller and display bus](lcd-hardware.md). Guarded initialized-core Wabbitemu runs verify its 60-T-state guard, 15-column increment cycle, direct hidden-column alias, one-transfer read latch, absent mirror ports, strict $48 + 64f$ ready boundary, write-based ready timestamp, complete wait-gate matrix, default and internal extra-speed matrices, and raw port-`0x2D` latch without low-power side effects. Guarded MAME runs verify its controller startup state, permanent busy-clear status, mirror ports, 15-byte hidden-column aliases, one-transfer read latch, 6-bit packing, stored analog fields, fixed ready bit, raw speed readback, exact 6:15 MHz loop ratio, unmapped `0x29`–`0x2F` block, and retained speed byte across soft reset. These are emulator results. Physical tests must measure each port-`0x2E` access class, CPU-speed readback and frequency across ASIC revisions, port-`0x2D` low-power behavior, LCD read-versus-write ready timing, controller-specific minimum delays, hidden-column bounds, status-read pointer behavior, and the unmodeled port-`0x2F` mode-3 timer prescaler across TA2 and TA3 controller revisions.
-   The prepared [memory-bus timing probe](hardware-probes.md#memory-bus-timing-probe) pairs baseline and enabled timer-2 runs for all six port-`0x2E` classes. The separate [prefix-M1 probe](hardware-probes.md#prefix-m1-timing-probe) covers unprefixed, CB, ED, DD, repeated-DD, and indexed-CB loops. Its exact assembled image completes in pinned Wabbitemu and distinguishes that core's three-wait indexed-CB implementation from the documented Z80/TilEm two-M1 path. The prepared [`HWTMR` probe](hardware-probes.md#programmable-timer-physical-probe) measures the mode-3 prescaler across CPU-speed requests and also distinguishes timer divisor, counter-zero, and expiry-status models. Its exact assembled image reproduces pinned Wabbitemu's omitted prescaler. These are emulator results. Physical TA2/TA3 execution and separate LCD-ready and low-power measurements remain open.
-11. **ASIC status, RAM topology, execution protection, and GPIO measurements.** The ROM's battery routines, status-bit uses, protected port setup, and GPIO read-modify-write sequences are reconciled in [ASIC status, identity, protection, and GPIO](asic-status-gpio.md) and [Execution protection](execution-protection.md). Complete immediate-opcode audits classify all 55 port-`0x02` reads, all 14 raw port-`0x21` pairs, and all 68 raw GPIO pairs. Port `0x02` has 44 bit-7, eight bit-0, and three bit-1 consumers. Port `0x21` has ten reads that all mask with `0x03`, one boot write, and three operand overlaps. The GPIO set has 65 reviewed instructions, two operand overlaps, and one table-data false decode. No raw pair remains unclassified. Guarded TilEm and Wabbitemu runs exercise both sides of their differing default Flash intervals. A separate pinned TilEm sweep verifies all four modeled battery thresholds and proves that its ordering makes `_Chk_Batt_Level` result 2 unreachable. RAM runs also cover the common chunk edge, mode-0 and mode-1 disagreements, all four Wabbitemu modes, and its 16-bit high-bound wrap. Guarded initialized-core runs verify Wabbitemu's port-`0x02` lock bit, RAM-revision identity split, the shared protected-write gate across ports `0x21`–`0x26`, port-`0x21` readback loss, port-`0x24` high-field clearing, RAM-bound wrap, absent port `0x39`, and the port-`0x3A` byte latch. A guarded MAME run verifies its raw gate-to-status shift, fixed identity, unprotected port-`0x21` nibble, missing ports `0x22`–`0x2F` and `0x39`–`0x3A`, live RAM execution with patterned protection writes, and retained gate/speed/control fields across soft reset. A Wabbitemu reset run verifies all fields written by `CPU_reset`, 14 retained component groups, the frontend's LCD-only addition, and same-step execution after a violation. A TilEm reset run verifies its broader eight-group reset, nine retained groups, and a forbidden instruction's surviving pre-reset RAM write. These remain emulator evidence. The [battery-level probe](hardware-probes.md#battery-level-probe) calls the retail bcall 16 times and verifies restoration state. The [RAM alias probe](hardware-probes.md#ram-alias-probe) prepares one restoring selector-topology measurement and now decodes partial alias groups. The [execution-fetch suite](hardware-probes.md#execution-protection-fetch-probes) prepares read-only retail-mode Flash and RAM fetches with pre-fetch result records. Physical units must correlate the probe's port-`0x15` byte and alias groups with PCB date and ASIC marking instead of assuming a TA label determines capacity. TA1/TA2/TA3 tests must also sweep battery thresholds in both directions, test protected-register readback and high-value behavior, characterize violations and warm/cold reset retention, and measure port-`0x39` direction polarity plus port-`0x3A` electrical signals.
-   The prepared [raw battery-selector probe](hardware-probes.md#raw-battery-selector-probe) complements the battery-level probe by repeating all four comparator reads 16 times and reproducing the ROM cleanup after every sequence. Physical TA1, TA2, and TA3 work must run both probes across upward and downward controlled-voltage sweeps.
-12. **MathPrint runtime coverage.** Exact trace-point reports cover a filled integral and an integral with a nested stacked fraction. Both use `39:4CA4`; neither reaches the static compositor entry at `39:5167`. Find the expression and cursor state that selects `39:5167`, then trace its row-step and saved-operand callees at `39:5949`, `39:5B10`, and `39:5B1D`. A MathPrint-side witness must continue through `39:59E0` or `39:59F9` to `_FindAlphaUp` or `_FindAlphaDn`. The finite VAT models cover type, key, record-marker, and candidate-decision projections, but arbitrary VAT sequences and the two extension bytes in the page-7 11-byte OP scratch registers remain open. See [Equation display](sub-equation-display.md#from-live-editor-state-to-settled-drawing).
-13. **Matrix and list residuals.** Explain why plain `augment(` calls the partial-pivoting engine at `02:4663`; locate the `randM(` cell-fill path; identify the separate `rref(`/`ref(` driver; and finish the `seq(`/`SortA(`/`SortD(` collection and element-load traces. See [Matrices & lists](sub-matrix-list.md#resolved-behavior-and-remaining-questions).
-14. **Smaller residuals.** Map the For/While/Repeat FPS loop-frame bytes; recover the `Asm(`/`AsmPrgm` setup before the traced `ram:9D95` payload handoff; find a direct ASM-to-BASIC program-call entry beyond VAT lookup and the cooperative `Ans` callback; and trace the group-archive member walk after `_Arc_Unarc` rejects type `0x17`. A guarded direct-core run verifies TilEm's complete source-divisor table, rounded count readback, off sources, ignored port-`0x2F`, counter-zero behavior, first/second expiry distinction, acknowledgement, unacknowledged non-loop restart, source-write retention, deterministic RTC transitions, reset retention, and torn byte reads. A guarded initialized-core run verifies Wabbitemu's timer catch-up, counter-zero completion, first-underflow status bit 2, HALT-line suppression, retained interrupt generation, and frozen disabled RTC reads. A guarded MAME run verifies its fixed-crystal source collapse, immediate first decrement, idle counter zero, inverted mode polarity, one-reload loop, global completion clearing, and absent RTC block. The exact assembled `HWTMR` image reproduces Wabbitemu's divisor-32, omitted-prescaler, counter-zero-completion, and first-expiry-bit-2 behavior through cleanup. No physical result is available. TA2/TA3 hardware must still distinguish the published `33`/`328`/`3277` timer divisors from Wabbitemu/MAME's `32`/`327`/`3276`, test the port-`0x2F` prescaler, counter zero, first-versus-second-expiry status bit 2, programmable-timer `HALT` behavior, disabled RTC reads, and rollover coherence. A guarded direct-core TilEm run verifies transitive keypad closure, all eight stored rows, complete group-byte storage, row-major scancode bounds, separate ON state, both ON edges, and reset clearing. Another guarded run verifies Wabbitemu's pairwise keypad closure, ignored row 7, and press-only ON latch with release rearming. A guarded MAME live-input run verifies its seven-group, eight-column scan, ignored write bit 7, XOR cancellation, and lack of matrix closure. These remain emulator evidence. The prepared [keypad settling probe](hardware-probes.md#keypad-settling-probe) samples all eight group writes at 0, 4, 16, and 64 `NOP` gaps for a held key or chord. Physical runs still need worst-case chords on TA2 and TA3 units, while switch bounce and ON interrupt edges require separate time-domain tests; see [Keypad and ON-key hardware](keypad-on-hardware.md#resolved-findings-and-open-hardware-tests). The timer, APD, RTC, and power reconstruction is in [Clock, timers, and power](clock-timers-power.md).
-15. **Interrupt-controller physical tests.** A guarded direct-core TilEm run verifies complete mask readback, both clear-on-zero acknowledgement paths, ON press and release latches, both timer-2 callbacks, link transitions, programmable-timer HALT gating, and its reset readback/internal-policy mismatch. A separate guarded TilEm link run verifies raw activity plus assist idle, receive, and sticky-error interrupt transitions. A guarded initialized-core Wabbitemu run verifies full mask readback, ON-latch clearing, its rounded standard-timer rates, strict expiry edge, port-`0x03` and port-`0x02` timer acknowledgement, programmable completion readback, and LCD-based low-power approximation. A guarded MAME run verifies shared port-`0x03`/`0x04` status, direct port-`0x02` pending-field writes, three-bit port-`0x03` masking, press-only timer-sampled ON edges, both standard-timer pending bits during scheduled frames, and retained interrupt fields across soft reset. These are emulator results. On TA2 and TA3 calculators, measure which ON transitions latch a request, which link transitions wake low power, whether simultaneous legacy requests are coalesced by the port-`0x03` clear-on-zero sequence, and which timer configurations can wake `HALT`. Compare the results with the explicit TilEm, Wabbitemu, and MAME differences in [Interrupts (IM1)](interrupts.md#emulator-comparison).
+### Symbol types
 
-The ROM-wide I/O audit is complete. All 35 aligned non-descriptor immediate
-candidates are reviewed as 34 table-data decodes and one operand overlap. A
-raw census also classifies all 37 register/block-I/O opcode pairs as 27 operand
-overlaps, eight data pairs, and the two RTC instructions at `37:58A9` and
-`37:5944`. No unresolved immediate or computed-`C` candidate remains. The
-physical tests above remain open. [confirmed]
+Apply `TIKeyCode`, `TIError`, and `TIVarType` to scalar operands in the handlers
+that consume them. Keep the changes scoped to operands whose domains are already
+established.
 
-## How to continue
+### Floating-point table semantics
 
-Reopen `ti84.gpr` (the GhidraMCP plugin reconnects for interactive work), or extend the headless pipeline in `tools/` and rebuild with `tools/build.sh`. The remaining static items mostly need raw-byte decoding of regions the live decompiler leaves unanalyzed, including mapping the `0xBB` tokens through the now-typed page-`0x38` leaf-handler table to their exact destinations. Hardware-only timer and RTC quirks need measurements on physical calculators.
+The `_SinCosRad` range reduction and table-driven recurrence are byte-pinned.
+The exact rotation identity represented by each row at `02:7201` and `02:7281`
+is still unknown. [confirmed]
+
+Reduce the rows to their mathematical identities and reconcile them with the
+recurrence in [Floating point](floating-point.md#_sincosrad--sincos-in-radians-02733e-confirmed).
+
+### Graph raster details
+
+Decode the rounding and sentinel handling at `37:4229`. Then trace `_DrawCirc2`
+at `3B:7171` to recover its parametric stepping. The coordinate transforms and
+circle setup are already pinned in [Graphing](sub-graphing.md#evidence-summary-and-open-items).
+
+### TABLE evaluation
+
+Trace the per-row `_StoX` call and each selected-Y evaluation in the page-`05`
+fill loop. The Depend:Ask prompt path and the `TblRng` special case in
+`_Find_Parse_Formula` also need end-to-end traces. See [Table and Y= variables](sub-table-yvars.md#evidence-summary-and-open-items).
+
+### Statistics command families
+
+Locate and decode the DISTR numerical cores and each STAT-TEST handler that
+writes `PStat` through `SStat`. Complete the byte trace of `3A:6845`–`3A:6891`,
+where the regression path derives `r` and `r²`. See [Statistics](sub-statistics.md#remaining-questions).
+
+### MathPrint runtime paths
+
+Existing traces cover a filled integral and an integral containing a stacked
+fraction. Both reach `39:4CA4`, but neither reaches the static compositor entry
+at `39:5167`. [confirmed]
+
+Find an expression and cursor state that selects `39:5167`, then trace the
+row-step and saved-operand callees at `39:5949`, `39:5B10`, and `39:5B1D`. A
+MathPrint-side witness must continue through `39:59E0` or `39:59F9` to
+`_FindAlphaUp` or `_FindAlphaDn`. Arbitrary VAT sequences and the two extension
+bytes in the page-`07` 11-byte OP scratch registers also remain open. See
+[Equation display](sub-equation-display.md#from-live-editor-state-to-settled-drawing).
+
+### Matrix and list paths
+
+Explain why plain `augment(` calls the partial-pivoting engine at `02:4663`.
+Locate the `randM(` cell-fill path and the separate `rref(`/`ref(` driver. Finish
+the collection and element-load traces for `seq(`, `SortA(`, and `SortD(`. See
+[Matrices and lists](sub-matrix-list.md#resolved-behavior-and-remaining-questions).
+
+### Parser and archive residuals
+
+Map the FPS loop-frame bytes used by `For(`, `While`, and `Repeat`. Recover the
+`Asm(`/`AsmPrgm` setup before the traced `ram:9D95` payload handoff. Find a
+direct assembly-to-TI-BASIC program-call entry beyond VAT lookup and the
+cooperative `Ans` callback. Trace the group-archive member walk after
+`_Arc_Unarc` rejects type `0x17`.
+
+## Physical-hardware work
+
+The emulator pages distinguish ROM behavior from TilEm, Wabbitemu, and MAME
+behavior. The items below require calculator measurements; emulator agreement
+does not close them.
+
+### Flash commands and interrupted collection
+
+The Flash workers, top-boot geometry, archive-sector rotation,
+certificate-sector journal, and all six ROM-written collector phases are
+reconstructed. Cold TilEm and pinned Wabbitemu restart tests cover each phase,
+but do not establish physical timing or power-loss guarantees. [confirmed]
+
+On physical calculators:
+
+- measure legal and illegal `0→1` programming, DQ toggle cadence, program and
+  erase durations, erase suspend, and busy reads at all four top-boot boundaries;
+- force DQ5 failure with `DE` first in Flash and then in restoring scratch RAM
+  to test the worker's undocumented reset write; and
+- cut power at each phase boundary and during active program and erase commands.
+
+The reconstructed paths and emulator results are in [Flash memory](flash-memory.md)
+and [Variables, archive and unarchive](sub-vat-archive.md#flash-garbage-collector-confirmed).
+
+### Two-wire link and USB
+
+Determine why the legacy backup path normalizes the restored system-flags word
+at `0x89F0` to `0x0063`. The destination, section bounds, checksum coverage, and
+affected indexed bits are pinned; the unresolved question is whether the value
+is a canonical post-restore state or a compatibility state. [confirmed]
+
+On physical calculators:
+
+- measure port-`0x00` pull-ups, thresholds, rise times, both CPU-speed timeout
+  durations, and the both-low pulse's voltage and duration;
+- run the read-only USB snapshot on identified TA2 and TA3 units, connected and
+  disconnected, before testing ports `0x49`, `0x51`, and `0x52`;
+- test the FDRC-family register hypothesis, port `0x4B`, and the port-`0x4F`/`0x50`
+  setup sequence;
+- capture port-`0x5A` presentation traffic to test the proposed two-byte
+  endpoint-2 LCD packets and host-mode dependency; and
+- exercise endpoint payload transfer and the connected boot receive path.
+
+The prepared [raw two-wire link probe](hardware-probes.md#raw-two-wire-link-probe)
+measures digital settling but not analog voltage or pull-up behavior. See
+[Two-wire link port hardware](link-port-hardware.md#resolved-findings-and-open-hardware-tests),
+[Link transfer](sub-link-transfer.md#open-items), and
+[USB ASIC and link assist](sub-usb-asic.md#limits).
+
+### MD5 accelerator
+
+Run the [MD5 edge probe](hardware-probes.md#md5-edge-probe) on TA2 and TA3 units.
+Add reset-retention and I/O wait-state measurements. The valid 64-step path,
+boot API, TilEm and Wabbitemu models, and MAME's missing port block are already
+reconciled in [MD5 accelerator and boot API](md5-hardware.md).
+
+### Memory-mapper overlays
+
+Determine whether ports `0x27` and `0x28` remain active in paired mode, whether
+the `0xFB64` cutoff exists in the ASIC, and whether forced
+[execution-protection overlays](execution-protection.md#mapping-and-forced-overlays)
+follow the underlying window or a forced RAM page. The boot transition, selector
+modes, and emulator differences are in [Paging](paging.md).
+
+### Bus timing and LCD controller
+
+On TA2 and TA3 controller revisions:
+
+- measure every port-`0x2E` access class, CPU-speed readback, and actual clock
+  frequency;
+- characterize port-`0x2D` low-power behavior and the port-`0x2F` mode-3 timer
+  prescaler;
+- measure LCD read-versus-write ready timing and controller-specific minimum
+  delays; and
+- test hidden-column bounds and status-read pointer behavior.
+
+Use the [memory-bus timing probe](hardware-probes.md#memory-bus-timing-probe),
+[prefix-M1 probe](hardware-probes.md#prefix-m1-timing-probe), and
+[programmable-timer probe](hardware-probes.md#programmable-timer-physical-probe).
+The established decode and emulator differences are in
+[Bus timing and wait states](bus-timing.md) and
+[LCD controller and display bus](lcd-hardware.md).
+
+### ASIC identity, RAM, protection, and GPIO
+
+Run the [battery-level probe](hardware-probes.md#battery-level-probe) and
+[raw battery-selector probe](hardware-probes.md#raw-battery-selector-probe)
+through upward and downward voltage sweeps on TA1, TA2, and TA3 units. Correlate
+the [RAM alias probe](hardware-probes.md#ram-alias-probe) results and port-`0x15`
+byte with PCB date and ASIC marking rather than assuming that a TA label fixes
+RAM capacity.
+
+Also test protected-register readback and high-value behavior, violation and
+warm/cold reset behavior, the [execution-fetch suite](hardware-probes.md#execution-protection-fetch-probes),
+port-`0x39` direction polarity, and port-`0x3A` electrical signals. See
+[ASIC status, identity, protection, and GPIO](asic-status-gpio.md) and
+[Execution protection](execution-protection.md).
+
+### Timers, keypad, and interrupts
+
+On TA2 and TA3 units:
+
+- distinguish timer divisors `33`/`328`/`3277` from the emulator values
+  `32`/`327`/`3276`;
+- test the port-`0x2F` prescaler, counter zero, first- versus second-expiry
+  status bit 2, programmable-timer `HALT` behavior, disabled RTC reads, and
+  rollover coherence;
+- run the [keypad settling probe](hardware-probes.md#keypad-settling-probe) with
+  worst-case chords, then measure switch bounce and ON-key edges separately;
+- determine which ON and link transitions wake low power; and
+- test whether simultaneous legacy requests are coalesced by the port-`0x03`
+  clear-on-zero sequence and which timer configurations wake `HALT`.
+
+See [Clock, timers, and power](clock-timers-power.md),
+[Keypad and ON-key hardware](keypad-on-hardware.md#resolved-findings-and-open-hardware-tests),
+and [Interrupts](interrupts.md#emulator-comparison).
+
+## Closed audit boundary
+
+The ROM-wide I/O census is complete. It classifies all 35 aligned
+non-descriptor immediate candidates and all 37 register/block-I/O opcode pairs;
+no unresolved immediate or computed-`C` candidate remains. [confirmed]
+
+## Reproduction paths
+
+Static work can extend the headless pipeline in `tools/` and rebuild with
+`tools/build.sh`. Regions the decompiler leaves unanalyzed should be reduced
+from raw bytes and reconciled with the generated database. Hardware work should
+use the restoring probes in [Hardware probes](hardware-probes.md) and record the
+calculator revision, PCB date, and ASIC marking with each result.
