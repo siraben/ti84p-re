@@ -27,9 +27,10 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `fpx_7d9d` | `533B` | `02:7D9D` |
 | `fpx_7dfe` | `5338` | `02:7DFE` |
 | `get_pos_list_elem` | `4666` | `02:5BBB` |
-| `graph_parse_tok` | `510A` | `33:5023` |
-| `graph_tbl_find` | `47CB` | `33:7097` |
-| `graph_tbl_next` | `47C8` | `33:707A` |
+| `_GetVarVersion` | `510A` | `33:5023` |
+| `_GET_INDEX_LST` | `47C8` | `33:707A` |
+| `_HEAP_SORT` | `47CB` | `33:7097` |
+| `_PUT_INDEX_LST` | `47C5` | `33:7066` |
 | `grc_454b` | `5263` | `37:454B` |
 | `grc_4556` | `5266` | `37:4556` |
 | `grc_4575` | `5269` | `37:4575` |
