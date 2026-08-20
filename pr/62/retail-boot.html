@@ -3,8 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Page not found - TI-84 Plus OS — Reverse Engineering</title>
-        <base href="/ti84p-re/">
+        <title>Retail boot page - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
@@ -180,14 +179,209 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="document-not-found-404"><a class="header" href="#document-not-found-404">Document not found (404)</a></h1>
-<p>This URL is invalid, sorry. Please use the navigation bar or search to continue.</p>
+                        <h1 id="retail-boot-page"><a class="header" href="#retail-boot-page">Retail boot page</a></h1>
+<p><em>TI-84 Plus OS 2.55MP — page layout, startup dispatch, recovery, and validation.</em></p>
+<p>Flash page <code>3F</code> is the calculator’s retail boot block. It owns the reset stub,
+the <code>0x8xxx</code> bcall table, OS-validation and certificate services, the serial
+recovery receiver, and the hardware setup that hands control to either the
+installed OS or an installer. [confirmed]</p>
+<p>This page maps that control plane. See
+<a href="boot-hardware.html">Retail boot hardware initialization</a> for the register-level
+reset sequence and the destructive hardware diagnostics.</p>
+<h2 id="evidence-boundaries"><a class="header" href="#evidence-boundaries">Evidence boundaries</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Evidence</th><th>What it establishes</th><th>Confidence</th></tr>
+</thead>
+<tbody>
+<tr><td>OS 2.55MP page <code>3F</code> bytes</td><td>page layout, instructions, direct branch targets, table entries, and validation checks</td><td>[confirmed]</td></tr>
+<tr><td>Rebuilt Ghidra database</td><td>function boundaries and cross-references within page <code>3F</code> and the USB payload on page <code>2F</code></td><td>[confirmed]</td></tr>
+<tr><td>Four reset-origin TilEm traces</td><td>ordinary, DEL-held, STAT-held, and MODE-held startup behavior in the pinned emulator</td><td>[confirmed] for those runs</td></tr>
+<tr><td>Full 2007 <code>ti83plus.inc</code></td><td>official names for 83 of the 87 callable table entries</td><td>[confirmed]</td></tr>
+<tr><td>Physical calculator with a sending peer</td><td>electrical link/USB behavior and a complete installer transaction</td><td>[hypothesis] until measured</td></tr>
+</tbody>
+</table>
+</div>
+<p>The checked trace reduction is <code>tools/retail-boot-traces.json</code>. Its ROM hash,
+emulator source commit, emulator-binary hash, trace hashes, visit counts, and
+first-visit clocks keep each dynamic claim tied to a specific run. The raw
+TLMT traces are too large for the repository and remain external.</p>
+<h2 id="physical-layout"><a class="header" href="#physical-layout">Physical layout</a></h2>
+<p>Boot version <code>1.03</code> partitions page <code>3F</code> as follows: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Page-<code>3F</code> range</th><th>Contents</th></tr>
+</thead>
+<tbody>
+<tr><td><code>3F:4000</code>–<code>3F:400E</code></td><td>reset stub</td></tr>
+<tr><td><code>3F:400F</code>–<code>3F:4017</code></td><td>NUL-terminated version string and header data</td></tr>
+<tr><td><code>3F:4018</code>–<code>3F:40D4</code></td><td>63 bcall entries, IDs <code>0x8018</code>–<code>0x80D2</code></td></tr>
+<tr><td><code>3F:40D5</code>–<code>3F:40E3</code></td><td>bank/return dispatch stub, not bcall entries</td></tr>
+<tr><td><code>3F:40E4</code>–<code>3F:412B</code></td><td>24 bcall entries, IDs <code>0x80E4</code>–<code>0x8129</code></td></tr>
+<tr><td><code>3F:412C</code>–<code>3F:7E4D</code></td><td>executable code and data</td></tr>
+<tr><td><code>3F:7E4E</code>–<code>3F:7FFF</code></td><td>434 erased bytes (<code>0xFF</code>)</td></tr>
+</tbody>
+</table>
+</div>
+<p>The table therefore has 87 populated three-byte entries in two ranges, not
+one continuous range. Treating <code>3F:40D5</code>–<code>3F:40E3</code> as five more entries
+decodes executable stub bytes as bogus targets. <code>tools/bcall_tables.py</code> rejects
+those reserved IDs. [confirmed]</p>
+<p>Each real entry stores a little-endian target address followed by a page byte.
+Eighty-one targets stay on page <code>3F</code>; six enter the companion USB boot payload
+on page <code>2F</code>. The public include file names 83 entries. These four populated
+slots lack public equates: [confirmed] for addresses and bytes; routine names
+and summaries are inferred.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>ID</th><th>Body</th><th>Inferred role</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x804E</code></td><td><code>certificate_reconcile_id_fields</code> at <code>3F:4924</code></td><td>reconcile calculator-ID certificate fields and rewrite the certificate/validation data</td></tr>
+<tr><td><code>0x8066</code></td><td><code>certificate_find_matching_field_data</code> at <code>3F:4F91</code></td><td>find matching data under certificate field <code>0x0310</code> and subfield <code>0x0610</code></td></tr>
+<tr><td><code>0x8069</code></td><td><code>certificate_count_matching_fields</code> at <code>3F:4EFF</code></td><td>count or match certificate fields beginning with field <code>0x0300</code></td></tr>
+<tr><td><code>0x810B</code></td><td><code>usb_set_port81_bit0_delay</code> at <code>2F:62C5</code></td><td>set bit 0 of USB port <code>0x81</code>, then delay</td></tr>
+</tbody>
+</table>
+</div>
+<p>The three certificate summaries agree with the comments beside their unnamed
+slots in <code>ti83plus.inc</code>. The <code>0x804E</code> body also calls certificate erase/write,
+RSA-validation, and <code>_WriteValidationNumber</code> services. These semantic names
+remain [hypothesis] pending complete caller and data-format reconstruction.</p>
+<h2 id="reset-dispatch"><a class="header" href="#reset-dispatch">Reset dispatch</a></h2>
+<p>After the delay, memory-map transition, and ASIC initialization, the reset path
+calls the raw keypad scanner and reaches <code>boot_startup_dispatch</code> at <code>3F:422D</code>.
+Only two scan codes have first-scan boot meanings: [confirmed]</p>
+<pre><code class="language-z80">3F:422D  call raw_key_scan
+3F:4230  cp 0x38             ; DEL
+3F:4232  jp z,3F:4279
+3F:4235  cp 0x20             ; STAT
+3F:4237  jr z,3F:4270
+</code></pre>
+<p>All other keys, including MODE (<code>0x37</code>), take the fast installed-OS check:
+[confirmed]</p>
+<pre><code class="language-z80">3F:4238  ld a,(0x0038)
+3F:423B  cp 0xFF
+3F:423F  ld hl,(0x0056)
+3F:4242  ld bc,0xA55A
+3F:4246  sbc hl,bc
+3F:4248  jp z,0x0053
+</code></pre>
+<p>The jump requires byte <code>0x0038 != 0xFF</code> and word <code>0x0056 = 0xA55A</code>.
+<code>ram:0053</code> jumps to <code>ram:0C4F</code>, the installed-OS handoff body. A failed check
+enters recovery initialization at <code>3F:42B3</code>. [confirmed]</p>
+<pre class="mermaid">flowchart TD
+    reset[Reset at 3F:4000] --&gt; init[Delay, mapping, and ASIC setup]
+    init --&gt; scan[First raw key scan]
+    scan --&gt;|DEL 0x38| del[Initialize recovery]
+    scan --&gt;|STAT 0x20| stat[Set USB-first flag and initialize recovery]
+    scan --&gt;|Any other code| marker{RAM sentinels valid?}
+    marker --&gt;|Yes| os[ram:0053 to installed OS]
+    marker --&gt;|No| del
+    del --&gt; receive[boot_receive_dispatch]
+    stat --&gt; receive
+    receive --&gt;|USB-first flag clear| serial[Serial link receive wait]
+    receive --&gt;|USB-first flag set| usb[Attempt USB OS receive]
+</pre>
+
+<p>The following trace outcomes distinguish those branches: [confirmed] for the
+pinned emulator runs.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Held key</th><th>First scan</th><th>Observed endpoint within the trace</th></tr>
+</thead>
+<tbody>
+<tr><td>none</td><td><code>0x00</code></td><td><code>ram:0053</code>, then <code>ram:0C4F</code></td></tr>
+<tr><td>DEL</td><td><code>0x38</code></td><td><code>boot_link_receive_wait</code> at <code>3F:63B2</code></td></tr>
+<tr><td>STAT</td><td><code>0x20</code></td><td><code>_AttemptUSBOSReceive</code> at <code>2F:4145</code></td></tr>
+<tr><td>MODE</td><td><code>0x37</code></td><td><code>ram:0053</code>, then <code>ram:0C4F</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The DEL and STAT runs both display <code>Waiting...</code>, <code>Please install</code>, <code>operating</code>,
+and <code>system now</code>. DEL enters the page-<code>3F</code> serial-link wait without visiting
+the page-<code>2F</code> USB attempt. STAT sets bit 5 at <code>IY + 0x1B</code>, reaches the USB
+attempt, and does not return to the serial wait during the three-second run.
+[confirmed]</p>
+<h2 id="the-orphan-mode-dispatcher"><a class="header" href="#the-orphan-mode-dispatcher">The orphan MODE dispatcher</a></h2>
+<p><code>boot_mode_diagnostic_dispatch</code> at <code>3F:427E</code> contains another raw key scan,
+compares its result with MODE (<code>0x37</code>), and can jump to
+<code>boot_flash_ram_diagnostic</code> at <code>3F:4504</code>. It is not part of the reset dispatch
+described above. [confirmed]</p>
+<p>No direct page-<code>3F</code> branch or call targets <code>3F:427E</code>, and none of the four
+reset-origin traces visits it. In particular, holding MODE at reset produces
+scan code <code>0x37</code> at <code>3F:4230</code> and hands off to the installed OS; it visits
+neither <code>3F:427E</code> nor <code>3F:4504</code>. [confirmed]</p>
+<p>An undiscovered computed entry remains possible, so the stronger claim that
+the block is unreachable under every boot-page state is [hypothesis]. Directly
+entering <code>3F:427E</code> with a MODE result does select the destructive Flash/RAM
+diagnostic documented on the hardware page. [confirmed]</p>
+<h2 id="recovery-initialization-and-transport"><a class="header" href="#recovery-initialization-and-transport">Recovery initialization and transport</a></h2>
+<p><code>boot_recovery_init</code> at <code>3F:42B3</code> selects CPU speed 1, restores the runtime
+mapping with RAM page <code>0x81</code> in window B, initializes the link port and LCD,
+and clears RAM from <code>0x8000</code> through <code>0xFE70</code>. It then displays the installer
+prompt and enters <code>boot_receive_dispatch</code> at <code>3F:5C7E</code>. [confirmed]</p>
+<p>The first-scan key determines the initial transport:</p>
+<ul>
+<li>DEL enters the ordinary recovery initializer and reaches
+<code>boot_link_receive_wait</code> at <code>3F:63B2</code>. [confirmed]</li>
+<li>STAT first sets bit 5 of the boot flag byte at <code>IY + 0x1B</code>. The receive
+dispatcher observes that flag and calls <code>_AttemptUSBOSReceive</code> at
+<code>2F:4145</code>. [confirmed]</li>
+</ul>
+<p>The traces stop while each path waits for a peer. They prove transport
+selection, not receipt, signature validation, Flash programming, fallback
+after a USB error, or a successful reboot. Those end-to-end behaviors require
+a controlled sending peer. [hypothesis]</p>
+<h2 id="os-validation-and-invalid-image-handling"><a class="header" href="#os-validation-and-invalid-image-handling">OS validation and invalid-image handling</a></h2>
+<p>The fast reset path deliberately uses only the RAM sentinel at <code>0x0038</code> and
+handoff marker <code>0xA55A</code> at <code>0x0056</code>. It does not call <code>_CheckOSValidated</code>.
+[confirmed]</p>
+<p>Recovery and diagnostic paths can instead call <code>boot_check_os_validated</code> at
+<code>3F:43A9</code>. That predicate rejects <code>ram:0026 = 0xFF</code>, opens the protected Flash
+gate, invokes <code>_CheckOSValidated</code> (<code>0x809C</code>, body <code>3F:52C6</code>), closes the gate,
+and, on its zero-result path, tail-checks the same <code>0xA55A</code> marker in
+<code>boot_check_os_handoff_marker</code> at <code>3F:4425</code>. [confirmed]</p>
+<p>Error handling at <code>3F:57E2</code> can transfer to <code>boot_erase_invalid_os</code> at
+<code>3F:4308</code> after that full validation fails. The routine reinitializes recovery
+state, validates again, erases Flash page 0 if the image remains invalid,
+closes the protected gate, and enters a power/HALT loop. [confirmed]</p>
+<p>This split matters when interpreting a normal trace: reaching the installed
+OS proves that the two RAM markers passed on that boot, not that the trace
+executed a fresh certificate or cryptographic validation. [confirmed]</p>
+<h2 id="reproduction"><a class="header" href="#reproduction">Reproduction</a></h2>
+<p>Capture each macro from reset with the pinned TilEm build, <code>--normal-speed</code>,
+and <code>--trace-range all</code>, as described in <code>tools/dynamic-tracing.md</code>. Reduce the
+four TLMT files with: [confirmed]</p>
+<pre><code class="language-sh">PYTHONPATH=tools python tools/analyze_retail_boot.py \
+  --rom tools/rom.bin \
+  --trace normal=/tmp/retail-boot-normal.trace \
+  --trace del=/tmp/retail-boot-del.trace \
+  --trace stat=/tmp/retail-boot-stat.trace \
+  --trace mode_ignored=/tmp/retail-boot-mode-ignored.trace \
+  --output tools/retail-boot-traces.json
+</code></pre>
+<p>The corresponding macros are <code>tools/macros/boot-idle.macro</code>,
+<code>tools/macros/boot-del-recovery.macro</code>,
+<code>tools/macros/boot-stat-recovery.macro</code>, and
+<code>tools/macros/boot-mode-ignored.macro</code>. The reducer validates the ROM and
+emulator hashes before replacing the checked report.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="boot-contexts-errors.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
 
+                            <a rel="next prefetch" href="boot-hardware.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -195,7 +389,13 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="boot-contexts-errors.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
 
+                    <a rel="next prefetch" href="boot-hardware.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
             </nav>
 
         </div>

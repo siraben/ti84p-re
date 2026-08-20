@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-91c2a18a.js";
+            window.path_to_searchindex_js = "searchindex-58585ae1.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-c9603d63.js"></script>
+        <script src="toc-b88a411b.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -183,7 +183,9 @@
 <p><em>TI-84 Plus OS 2.55MP — reset delay, hardware writes, safety checks, and boot diagnostics.</em></p>
 <p>The retail boot page changes the reset memory map into the OS runtime map,
 checks that both RAM windows are writable, programs the ASIC registers, and
-selects an OS or recovery path. This page follows <code>retail_boot_reset_stub</code> at
+selects an OS or recovery path. <a href="retail-boot.html">Retail boot page</a> maps the
+page-level control flow, bcall table, recovery transports, and validation
+logic. This page follows <code>retail_boot_reset_stub</code> at
 <code>3F:4000</code> through the first keypad scan at <code>3F:422D</code> and decodes
 <code>boot_ram_test</code> at <code>3F:461A</code>. It also documents
 <code>boot_lcd_keypad_diagnostic</code> at <code>3F:4658</code>.</p>
@@ -332,9 +334,10 @@ emulator interpretations.</li>
 </ul>
 <h2 id="first-boot-decision"><a class="header" href="#first-boot-decision">First boot decision</a></h2>
 <p>The raw keypad scanner at <code>3F:6503</code> returns a scan code to <code>3F:422D</code>.
-The first two comparisons select <strong>DEL</strong> (<code>0x38</code>) and <strong>STAT</strong> (<code>0x20</code>) boot
-paths. The later scan at <code>3F:427E</code> recognizes <strong>MODE</strong> (<code>0x37</code>) and jumps to
-<code>3F:4504</code>. [confirmed]</p>
+The reset dispatcher assigns boot actions only to <strong>DEL</strong> (<code>0x38</code>) and
+<strong>STAT</strong> (<code>0x20</code>). Every other result, including <strong>MODE</strong> (<code>0x37</code>), takes the
+installed-OS check below. A reset-origin MODE trace confirms that behavior.
+[confirmed]</p>
 <p>Without those keys, the normal path checks two page-0 values: [confirmed]</p>
 <pre><code class="language-z80">3F:4238  ld a,(0x0038)
 3F:423B  cp 0xFF
@@ -350,10 +353,17 @@ speed zero, polls the ON-key state, restores speed one, and enters the receive
 flow. [confirmed] The electrical ON-key polarity and oscillator frequencies
 remain subject to the evidence limits on
 <a href="keypad-on-hardware.html">Keypad and ON-key hardware</a> and
-<a href="clock-timers-power.html">Clock, timers, and power</a>.</p>
+<a href="clock-timers-power.html">Clock, timers, and power</a>. The DEL/STAT transport split
+and trace results are detailed on <a href="retail-boot.html#reset-dispatch">Retail boot page</a>.</p>
 <h2 id="destructive-ram-diagnostic"><a class="header" href="#destructive-ram-diagnostic">Destructive RAM diagnostic</a></h2>
-<p>The <strong>MODE</strong> path at <code>3F:427E</code> jumps to <code>3F:4504</code>. Its later RAM-test path calls
-<code>boot_ram_test</code> at <code>3F:461A</code> to test main RAM and banked RAM. [confirmed]</p>
+<p>The unreferenced dispatcher at <code>3F:427E</code> contains a second raw key scan. If
+entered directly with <strong>MODE</strong> (<code>0x37</code>), it jumps to
+<code>boot_flash_ram_diagnostic</code> at <code>3F:4504</code>. No direct page-<code>3F</code> caller or
+reset-origin trace reaches <code>3F:427E</code>; MODE at the first reset scan instead
+takes the installed-OS check. [confirmed] An undiscovered computed entry is
+[hypothesis].</p>
+<p>The diagnostic’s later RAM-test path calls <code>boot_ram_test</code> at <code>3F:461A</code> to
+test main RAM and banked RAM. [confirmed]</p>
 <p><code>boot_ram_test</code> takes the start address in <code>DE</code>, computes length
 <code>0x10000 - DE</code>, writes a repeating byte pattern, rewinds, and verifies the same
 pattern. The pattern is <code>0x00</code>, <code>0x01</code>, …, <code>0xFA</code>, then repeats at <code>0x00</code>.
@@ -507,7 +517,7 @@ revisions and capture port timing, contrast voltage, and panel output.</li>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="boot-contexts-errors.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="retail-boot.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -521,7 +531,7 @@ revisions and capture port timing, contrast voltage, and panel output.</li>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="boot-contexts-errors.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="retail-boot.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

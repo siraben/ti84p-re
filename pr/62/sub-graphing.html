@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-91c2a18a.js";
+            window.path_to_searchindex_js = "searchindex-58585ae1.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-c9603d63.js"></script>
+        <script src="toc-b88a411b.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -184,6 +184,10 @@
 <code>plotSScreen</code>, and copies that buffer to the LCD. This page connects the
 <strong>Y=</strong>, <strong>WINDOW</strong>, <strong>GRAPH</strong>, <strong>TRACE</strong>, and <strong>DRAW</strong> paths to their window
 state, equation storage, and drawing primitives.</p>
+<p>The <a href="graphing/">interactive graphing pipeline demo</a> steps through the verified
+sample columns, coordinate mapping, discontinuity break, and Circle segment
+schedule on a 96×64 pixel grid. It uses browser arithmetic for the floating-point
+values and labels that boundary on the page.</p>
 <h2 id="window-variables-confirmed"><a class="header" href="#window-variables-confirmed">Window variables [confirmed]</a></h2>
 <p>All graph window state lives in a contiguous block of 9-byte <code>TIFloat</code>s starting at <code>0x8F50</code>.
 These are the values the WINDOW editor writes and the grapher reads.</p>
