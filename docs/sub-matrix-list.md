@@ -1,4 +1,4 @@
-# Matrices & lists
+# Matrices and lists
 
 TI-84 Plus OS 2.55MP stores lists and matrices as VAT objects and evaluates
 their element, aggregate, and linear-algebra operations through page-`02`

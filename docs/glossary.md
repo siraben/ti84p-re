@@ -27,7 +27,7 @@ the wiki.
 | **FPS** | Floating-Point Stack — a software stack (pointer at `0x9824`) for spilling OP registers during nested evaluation. |
 | **guard digits** | The 2 extra mantissa bytes past the 9-byte number (`OP1EXT`/`OP2EXT`), used for rounding during math. |
 
-## Variables & memory
+## Variables and memory
 
 | Term | Meaning |
 |------|---------|
@@ -39,7 +39,7 @@ the wiki.
 | **garbage collection** | Compacting the Flash archive in physical sector units. `archive_gc_collect` at `3C:7733` copies live records, erases reclaimed sectors, and journals its phase in the inactive half of page `3E`. See [Variables, archive and unarchive](sub-vat-archive.md#flash-garbage-collector-confirmed). |
 | **RAM heap** | The dynamic region from `userMem` (`0x9D95`) up to the VAT; managed by `_InsertMem`/`_DelMem`. See [Memory Management](memory-management.md). |
 
-## Registers & RAM symbols
+## Registers and RAM symbols
 
 | Symbol | Addr | Meaning |
 |--------|------|---------|

@@ -1,4 +1,4 @@
-# Variables, archive & unarchive
+# Variables, archive, and unarchive
 
 The variable-management paths scan the VAT, store and recall values, move
 objects between RAM and the Flash archive, and collect unused Flash records.

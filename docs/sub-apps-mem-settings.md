@@ -1,4 +1,4 @@
-# Apps, memory reset & settings
+# Apps, memory reset, and settings
 
 This page traces Flash App launch, the **MEM → Reset** paths, and the format and
 graph flags controlled by the **MODE** screen. Addresses and confidence flags
