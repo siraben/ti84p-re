@@ -23,8 +23,8 @@ These are the values the WINDOW editor writes and the grapher reads.
 | `0x9151` | `Xres_int` | integer copy of Xres |
 | `0x9152` | `deltaX` | `(Xmax−Xmin)/94` — real width of one pixel column |
 | `0x915B` | `deltaY` | `(Ymax−Ymin)/62` — real height of one pixel row |
-| `0x9164` | `shortX` | scratch/divisor float for the X transform (per-pixel ΔX) |
-| `0x916D` | `shortY` | scratch/divisor float for the Y transform (per-pixel ΔY) |
+| `0x9164` | `shortX` | reciprocal X scale used as a multiplier |
+| `0x916D` | `shortY` | reciprocal Y scale used as a multiplier |
 | `0x913F` | `XFact` / `0x9148` `YFact` | ZOOM IN/OUT factors |
 
 There is a second "u" copy block at `0x8E7E` (`uXmin`…`uXres` at `0x8F3B`) — the
@@ -49,10 +49,11 @@ For example, `activeWindow.x_min` is the established `Xmin` address
 notation distinguishes which window copy a routine uses without dropping the
 official RAM labels. [confirmed]
 
-`deltaX`/`deltaY` are derived from `activeWindow.x_min` through
-`activeWindow.y_scale` when the graph is set up and feed both the
-forward (real→pixel) and the circle/draw routines. The LCD is `96×64`, but the graph area
-is 95 columns wide (0..94) and 63 tall (0..62), hence the /94 and /62. [standard]
+`deltaX` and `deltaY` are the per-pixel steps used by graph sampling and DRAW
+routines. The forward transform instead multiplies by `shortX` or `shortY`.
+The LCD is 96×64, but the full graph scale spans columns 0–94 and 62 vertical
+intervals; `_YftoI` represents those as bottom-up coordinates 1–63. Hence the
+window setup's divisions by 94 and 62. [confirmed]
 
 ---
 
@@ -60,27 +61,48 @@ is 95 columns wide (0..94) and 63 tall (0..62), hence the /94 and /62. [standard
 
 ### Forward: real coordinate → pixel index
 
-`_XftoI` (`37:41EB`) and `_YftoI` (`37:41DF`) convert an OP1 real coordinate to a
-pixel index. Both are thin shims around the shared engine at `37:41F2`: [confirmed]
+`_XftoI` (`37:41EB`) and `_YftoI` (`37:41DF`) take a pointer in `DE` to a
+9-byte `TIFloat` and return a pixel index in `A`. Both select operands for the
+shared engine at `37:41F2`: [confirmed]
 
 ```z80
-_XftoI (37:41EB):  BC = 0x8E6A (X working float),  HL = shortX (0x9164),  SCF  → 41F2
-_YftoI (37:41DF):  BC = Ymin   (0x8F6B),            HL = shortY (0x916D),  OR A → 41F2; INC A
+_XftoI (37:41EB):  BC = 0x8E6A, HL = shortX (0x9164), SCF  → 37:41F2
+_YftoI (37:41DF):  BC = Ymin,   HL = shortY (0x916D), OR A → 37:41F2; INC A
 ```
 
-Shared engine `37:41F2` computes $\mathrm{pixel}=\dfrac{\mathrm{value}-\mathrm{min}}{\mathrm{pixelDelta}}$:
-- `RST 20h` pushes/loads OP1 (the input value),
-- `CALL 228F` moves the `min` operand in and subtracts it (`value − min`),
-- `CALL 2385` divides by the per-pixel delta (`shortX`/`shortY`),
-- the X path additionally adds the `0x8E73` X-origin term, the Y path negates so that
-  larger Y maps to a *smaller* row (screen Y grows downward),
-- `CALL 4229` clamps/handles the float→integer exponent (reads `OP1.value.exp` at `0x8479`,
-  bias `0x7F`) and rounds to an integer pixel; out-of-range loads ±large sentinel.
-`_YftoI` returns pixel row +1 (`INC A`) so callers get a 1-based / inverted row. [confirmed]
+The core loads `*DE`, subtracts the selected base through `ram:228F`, and
+multiplies by the selected reciprocal through `ram:2385`. The X path then adds
+the origin term at `0x8E73`. In compact form: [confirmed]
 
-A function value `y` at sample `x` becomes a `(col,row)` pair via two
-subtract-then-divide float ops against the window. This conversion drives both plotting and
-the TRACE coordinate readout.
+```pseudocode
+scaled = (*DE - *base) * *reciprocal_scale
+if axis == X:
+    scaled += *0x8E73
+A = graph_round_coordinate_magnitude(scaled)
+if axis == Y:
+    A = (A + 1) & 0xFF
+```
+
+The finishing routine at `37:4229` is sign-agnostic. Magnitudes below 0.5
+become zero; values from 0.5 through the two-digit range round half upward by
+packed-BCD addition. Three- and four-digit values receive an out-of-frame bias
+before conversion. A mantissa carry writes the canonical `10 00` prefix and
+increments the exponent. `_ConvOP1` (`38:7433`) then converts up to four
+integer digits into `DE`, returns `E` in `A`, and raises a dimension error for
+an exponent above `0x83`. [confirmed]
+
+`tools/graph-coordinate.js` translates this operand order and finishing path.
+Its test pins the three ROM spans and compares 220,000 packed-BCD OP1 states
+against an independent transcription. [confirmed]
+
+The Y result is a 1-based, bottom-up graph coordinate: a natural `Y1=X²`
+trace maps $y=8.872793118$ to `A=60` with `Ymin=-10` and `shortY=3.1`.
+`_IOffset` later mirrors it for the LCD controller with `0x3F - y`.
+[confirmed]
+
+A function value `y` at sample `x` becomes a `(column, row)` pair through these
+subtract-and-multiply transforms. The same conversion serves graph plotting
+and TRACE coordinate display. [confirmed]
 
 ### Inverse: pixel index → real coordinate
 
