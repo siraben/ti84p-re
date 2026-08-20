@@ -1,0 +1,296 @@
+{
+  "schema": 1,
+  "rom": {
+    "path": "tools/rom.bin",
+    "sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d"
+  },
+  "emulator": {
+    "source": "https://github.com/siraben/tilem-headless",
+    "commit": "d1bdc58dd321ae462a701e556fcb62bb925a78b1",
+    "binary_sha256": "cdd257c57b918b8f0b05df6e49f249d4f0461a7c1ed2d9b87fe76fc3d2b0e1ee"
+  },
+  "scope": "natural reset, DEL, STAT, and MODE-held startup traces; raw TLMT files remain outside the repository",
+  "page_layout": {
+    "version": "1.03",
+    "reset_stub_start": 16384,
+    "reset_stub_end": 16398,
+    "metadata_start": 16399,
+    "metadata_end": 16407,
+    "table_first_id": 32792,
+    "table_last_id": 33065,
+    "table_ranges": [
+      [
+        32792,
+        32978
+      ],
+      [
+        32996,
+        33065
+      ]
+    ],
+    "table_slots": 87,
+    "populated_slots": 87,
+    "empty_slots": [],
+    "local_targets": 81,
+    "external_targets": 6,
+    "table_stub_start": 16597,
+    "table_stub_end": 16611,
+    "code_start": 16684,
+    "code_end": 32333,
+    "erased_tail_start": 32334,
+    "erased_tail_bytes": 434
+  },
+  "public_table_names": 83,
+  "unnamed_entries": [
+    {
+      "id": "804E",
+      "target": "3F:4924"
+    },
+    {
+      "id": "8066",
+      "target": "3F:4F91"
+    },
+    {
+      "id": "8069",
+      "target": "3F:4EFF"
+    },
+    {
+      "id": "810B",
+      "target": "2F:62C5"
+    }
+  ],
+  "entry_points": {
+    "reset_entry": "3F:4000",
+    "first_key_compare": "3F:4230",
+    "fast_os_check": "3F:4238",
+    "fast_os_jump": "3F:4248",
+    "stat_recovery": "3F:4270",
+    "del_recovery": "3F:4279",
+    "unreferenced_mode_dispatch": "3F:427E",
+    "recovery_init": "3F:42B3",
+    "diagnostic_entry": "3F:4504",
+    "receive_loop": "3F:5C7E",
+    "link_receive_wait": "3F:63B2",
+    "usb_receive_attempt": "2F:4145",
+    "os_handoff_vector": "ram:0053",
+    "os_handoff_body": "ram:0C4F"
+  },
+  "scenarios": {
+    "normal": {
+      "macro": "tools/macros/boot-idle.macro",
+      "expected_key": 0,
+      "expected_disposition": "OS handoff",
+      "sha256": "87a61fa0109e4208906138080f0c015a3956ef7259ac8740def4d95bdf029cf3",
+      "bytes": 86172618,
+      "total_instructions": 1753773,
+      "page_3f_instructions": 134993,
+      "first_key_code": 0,
+      "first_key_name": "none",
+      "disposition": "OS handoff",
+      "point_visits": {
+        "reset_entry": 1,
+        "first_key_compare": 1,
+        "fast_os_check": 1,
+        "fast_os_jump": 1,
+        "stat_recovery": 0,
+        "del_recovery": 0,
+        "unreferenced_mode_dispatch": 0,
+        "recovery_init": 0,
+        "diagnostic_entry": 0,
+        "receive_loop": 0,
+        "link_receive_wait": 0,
+        "usb_receive_attempt": 0,
+        "os_handoff_vector": 1,
+        "os_handoff_body": 1
+      },
+      "first_visits": {
+        "reset_entry": {
+          "instruction_index": 0,
+          "clock": 7
+        },
+        "first_key_compare": {
+          "instruction_index": 134872,
+          "clock": 1748303
+        },
+        "fast_os_check": {
+          "instruction_index": 134876,
+          "clock": 1748341
+        },
+        "fast_os_jump": {
+          "instruction_index": 134883,
+          "clock": 1748418
+        },
+        "os_handoff_vector": {
+          "instruction_index": 134884,
+          "clock": 1748429
+        },
+        "os_handoff_body": {
+          "instruction_index": 134885,
+          "clock": 1748449
+        }
+      }
+    },
+    "del": {
+      "macro": "tools/macros/boot-del-recovery.macro",
+      "expected_key": 56,
+      "expected_disposition": "DEL link recovery",
+      "sha256": "c2dffdeaea0d9e11447e8619ca5cd176d218631a2eb44b23dc79f1021ea51e48",
+      "bytes": 196987674,
+      "total_instructions": 3967917,
+      "page_3f_instructions": 3823653,
+      "first_key_code": 56,
+      "first_key_name": "DEL",
+      "disposition": "DEL link recovery",
+      "point_visits": {
+        "reset_entry": 1,
+        "first_key_compare": 1,
+        "fast_os_check": 0,
+        "fast_os_jump": 0,
+        "stat_recovery": 0,
+        "del_recovery": 1,
+        "unreferenced_mode_dispatch": 0,
+        "recovery_init": 1,
+        "diagnostic_entry": 0,
+        "receive_loop": 1,
+        "link_receive_wait": 1,
+        "usb_receive_attempt": 0,
+        "os_handoff_vector": 0,
+        "os_handoff_body": 0
+      },
+      "first_visits": {
+        "reset_entry": {
+          "instruction_index": 0,
+          "clock": 7
+        },
+        "first_key_compare": {
+          "instruction_index": 135292,
+          "clock": 1752298
+        },
+        "del_recovery": {
+          "instruction_index": 135294,
+          "clock": 1752331
+        },
+        "recovery_init": {
+          "instruction_index": 135295,
+          "clock": 1752339
+        },
+        "receive_loop": {
+          "instruction_index": 376944,
+          "clock": 4839954
+        },
+        "link_receive_wait": {
+          "instruction_index": 377001,
+          "clock": 4840923
+        }
+      }
+    },
+    "stat": {
+      "macro": "tools/macros/boot-stat-recovery.macro",
+      "expected_key": 32,
+      "expected_disposition": "STAT USB-first recovery",
+      "sha256": "270c1e47073b6e61471cf9305d48556f203a02926fb91a97a3c2d7b6fb002ca0",
+      "bytes": 197412432,
+      "total_instructions": 3966938,
+      "page_3f_instructions": 232776,
+      "first_key_code": 32,
+      "first_key_name": "STAT",
+      "disposition": "STAT USB-first recovery",
+      "point_visits": {
+        "reset_entry": 1,
+        "first_key_compare": 1,
+        "fast_os_check": 0,
+        "fast_os_jump": 0,
+        "stat_recovery": 1,
+        "del_recovery": 0,
+        "unreferenced_mode_dispatch": 0,
+        "recovery_init": 1,
+        "diagnostic_entry": 0,
+        "receive_loop": 1,
+        "link_receive_wait": 0,
+        "usb_receive_attempt": 1,
+        "os_handoff_vector": 0,
+        "os_handoff_body": 0
+      },
+      "first_visits": {
+        "reset_entry": {
+          "instruction_index": 0,
+          "clock": 7
+        },
+        "first_key_compare": {
+          "instruction_index": 135292,
+          "clock": 1752298
+        },
+        "stat_recovery": {
+          "instruction_index": 135296,
+          "clock": 1752347
+        },
+        "recovery_init": {
+          "instruction_index": 135297,
+          "clock": 1752355
+        },
+        "receive_loop": {
+          "instruction_index": 376947,
+          "clock": 4839996
+        },
+        "usb_receive_attempt": {
+          "instruction_index": 377043,
+          "clock": 4841327
+        }
+      }
+    },
+    "mode_ignored": {
+      "macro": "tools/macros/boot-mode-ignored.macro",
+      "expected_key": 55,
+      "expected_disposition": "MODE ignored; OS handoff",
+      "sha256": "3132be4fd65ec48d7fe55e1ae37b6062e75f4e1c557e5a6cbb1a4294b398232a",
+      "bytes": 13028910,
+      "total_instructions": 270061,
+      "page_3f_instructions": 135304,
+      "first_key_code": 55,
+      "first_key_name": "MODE",
+      "disposition": "MODE ignored; OS handoff",
+      "point_visits": {
+        "reset_entry": 1,
+        "first_key_compare": 1,
+        "fast_os_check": 1,
+        "fast_os_jump": 1,
+        "stat_recovery": 0,
+        "del_recovery": 0,
+        "unreferenced_mode_dispatch": 0,
+        "recovery_init": 0,
+        "diagnostic_entry": 0,
+        "receive_loop": 0,
+        "link_receive_wait": 0,
+        "usb_receive_attempt": 0,
+        "os_handoff_vector": 1,
+        "os_handoff_body": 1
+      },
+      "first_visits": {
+        "reset_entry": {
+          "instruction_index": 0,
+          "clock": 7
+        },
+        "first_key_compare": {
+          "instruction_index": 135292,
+          "clock": 1752298
+        },
+        "fast_os_check": {
+          "instruction_index": 135296,
+          "clock": 1752336
+        },
+        "fast_os_jump": {
+          "instruction_index": 135303,
+          "clock": 1752413
+        },
+        "os_handoff_vector": {
+          "instruction_index": 135304,
+          "clock": 1752424
+        },
+        "os_handoff_body": {
+          "instruction_index": 135305,
+          "clock": 1752444
+        }
+      }
+    }
+  }
+}

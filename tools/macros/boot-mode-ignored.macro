@@ -1,0 +1,8 @@
+# Hold MODE across the first retail-boot key scan. The retail dispatcher does
+# not assign MODE a first-scan recovery action, so a valid OS still boots.
+# Run at --normal-speed --reset with a full-address trace.
+press MODE
+wait 1s
+release MODE
+wait 2s
+screenshot /tmp/boot-mode-ignored.png
