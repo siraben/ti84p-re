@@ -1,0 +1,4 @@
+interface:
+  display_name: "TI-84 RE accuracy review"
+  short_description: "ROM-grounded accuracy audit for wiki pages"
+  default_prompt: "Use $ti84-re-review to verify and correct the factual claims in a TI-84 RE wiki page against ROM ground truth (byte-verify every direction/register/flag/address claim)."
