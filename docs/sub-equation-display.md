@@ -355,6 +355,56 @@ action-`0x03` do-while loop at `39:50A1` wraps to `0xFF` and makes 256 calls.
 `39:4E14` emits the final argument on row 7. The action-`0x04` delegated return
 passes through `39:5447` and `39:52A2`. [confirmed]
 
+### Action bytes are TI key codes
+
+The action byte that reaches `eqdisp_layout_main` (`39:4F9A`, entered with the
+code in `A`) is a raw key code from the editor's key-dispatch loop. The
+dispatcher compares it directly. `CP 2` (`kLeft`) at `39:5048` opens the
+backward-walk path. `CP 8` (`kAlphaDown` in the `ti83plus.inc` keypress
+equates) at `39:507C` opens window advance. [confirmed]
+
+The window-advance body computes
+`count(0x85E2) - index(0x85E0) + baseline(0x844B)`. For values below nine, it
+stores `6` at `0x844D` and loops over `CALL 39:5167` with the `DEC (HL)`
+counter at `39:50A4`–`39:50AB`. Otherwise, `ADD A,7` repositions the index
+before the jump to `39:5132`. [confirmed]
+
+Two traces constrain which inputs select it:
+
+- A trace of a 20-digit integrand does not reach `eqdisp_layout_main` while the
+  content scrolls. Its template dispatchers run during insertion transitions.
+  In-slot horizontal scrolling uses a separate page-`39` scroll set
+  (`39:530A`–`39:539F`, `39:53A1`–`39:53FE`,
+  `39:5500`–`39:5563`, `39:5605`–`39:5632`, `39:5709`–`39:572C`,
+  `39:57AC`–`39:57FC`, and `39:5955`–`39:599B`). Character scrolling inside
+  that slot is not a compositor event. [confirmed]
+- Inserting a nested radical into the integrand re-enters the layout dispatcher
+  at `39:507C`. The action is not `kAlphaDown`, so the relayout jumps directly
+  to `39:5112`. This structural insertion does not select window advance.
+  [confirmed]
+
+The translator at `39:53A1` converts a specific incoming key code into layout
+actions. It first calls bcall ID `4A68h`, whose body at `07:59F1` is a context
+test rather than a key fetch. The body copies the entry `A` to `B` and calls
+the helper at `07:59E5`. That helper compares `cxMain` at `0x858D` with
+context ID `0x5B53`. A mismatch returns NZ. When the context matches, the body
+returns Z only for codes `0x41`–`0x59` that equal the context byte at `0x859A`.
+[confirmed]
+
+The translator then compares the preserved `A` with `0xFB`. On a match, it
+reads the template ID at `0x8446`: `0xC7` yields action `7`, and `0xC8` yields
+action `8`, before the jump to `39:4F9A`. Register captures show `0xC8`
+(`kFnInt`) at `0x8446` when `fnInt(` is inserted, including a nested insertion
+inside another integral's integrand. The `ti83plus.inc` equates identify
+`0xC7` as `kNDeriv`, `0xC8` as `kFnInt`, and `0xFB` as `kwnA`. Plain template
+insertion therefore does not pass the `CP 0xFB` gate. The editor state that
+sends `0xFB` to this handler remains open. [confirmed]
+
+Five more jumps to `39:4F9A` occur on page `35`, at `35:4DAE`, `35:4E73`,
+`35:4F1D`, `35:4F70`, and `35:5052`. The jump at `39:53D7` is another entry.
+These entries have not yet been attributed to specific editor events.
+[confirmed]
+
 ## Cell coordinates
 
 Descriptor-backed templates use a fixed ABI. A descriptor is:
@@ -481,7 +531,13 @@ The static `39:5167` path can compose argument slots around a fixed glyph:
 
 The parser slot order and the static compositor are identified. The filled and
 nested-integral traces use `39:4CA4` instead, so the expression or cursor state
-that selects `39:5167` remains open. Fixed glyph cells use `39:4E8E` and
+that selects `39:5167` remains open. A headless TilEm trace that inserts the
+`fnInt(` template and walks the cursor across its slots exercises the action
+dispatcher once each at `39:51F1` (action `0x03`) and `39:52A5` (action
+`0x04`) but takes the non-`5167` branches; the window-advance path at
+`39:50A4` does not execute. The witness state therefore needs either more
+arguments than the visible window (count ≥ 8) or a template whose slot walk
+crosses a window boundary. Fixed glyph cells use `39:4E8E` and
 `39:4F1A`; page `07:4588` copies large-font records. [confirmed]
 
 ## Archived fixed-token markers

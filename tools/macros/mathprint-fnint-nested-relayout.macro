@@ -1,0 +1,139 @@
+# Insert fnInt( with a NESTED radical inside the integrand, forcing the
+# MathPrint relayout action 0x08 (39:507C) that loops through 39:5167.
+#
+#   $TILEM --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
+#     --macro tools/macros/mathprint-fnint-nested-relayout.macro \
+#     --trace /tmp/fnint-nested.trace --trace-range all
+#
+# fnInt( = MATH 9. Nested radical = 2ND SQUARE. X = GRAPHVAR. theta not needed.
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+wait 0.5s
+key MATH
+wait 1s
+key 9
+wait 1.5s
+# nested radical inside the integrand slot
+key 2ND
+key SQUARE
+wait 1s
+key 1
+key 2
+wait 0.4s
+key GRAPHVAR
+key ADD
+key 3
+wait 0.5s
+# leave radical, fill remaining fnInt slots
+key RPAREN
+wait 0.4s
+key GRAPHVAR
+key COMMA
+key 1
+key COMMA
+key 9
+wait 0.5s
+# walk slots, then ALPHA+DOWN/UP (kAlphaDown=08/kAlphaUp=07) which are the
+# compositor's window-advance actions
+key LEFT
+wait 0.35s
+key LEFT
+wait 0.35s
+key LEFT
+wait 0.35s
+key LEFT
+wait 0.35s
+key LEFT
+wait 0.35s
+key LEFT
+wait 0.35s
+key LEFT
+wait 0.35s
+key LEFT
+wait 0.35s
+key LEFT
+wait 0.35s
+key LEFT
+wait 0.35s
+key LEFT
+wait 0.35s
+key LEFT
+wait 0.35s
+key LEFT
+wait 0.35s
+key LEFT
+wait 0.35s
+wait 0.6s
+key RIGHT
+wait 0.35s
+key RIGHT
+wait 0.35s
+key RIGHT
+wait 0.35s
+key RIGHT
+wait 0.35s
+key RIGHT
+wait 0.35s
+key RIGHT
+wait 0.35s
+key RIGHT
+wait 0.35s
+key RIGHT
+wait 0.35s
+key RIGHT
+wait 0.35s
+key RIGHT
+wait 0.35s
+key RIGHT
+wait 0.35s
+key RIGHT
+wait 0.35s
+key RIGHT
+wait 0.35s
+key RIGHT
+wait 0.35s
+wait 0.6s
+# true chords so get-key returns the combined code:
+press ALPHA
+press DOWN
+wait 0.5s
+release DOWN
+release ALPHA
+wait 0.5s
+press ALPHA
+press DOWN
+wait 0.5s
+release DOWN
+release ALPHA
+wait 0.5s
+press ALPHA
+press UP
+wait 0.5s
+release UP
+release ALPHA
+wait 0.5s
+press ALPHA
+press UP
+wait 0.5s
+release UP
+release ALPHA
+wait 0.5s
+press ALPHA
+press DOWN
+wait 0.5s
+release DOWN
+release ALPHA
+wait 0.5s
+press ALPHA
+press UP
+wait 0.5s
+release UP
+release ALPHA
+wait 1s
+screenshot /tmp/fnint-nested.png
