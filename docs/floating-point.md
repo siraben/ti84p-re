@@ -253,15 +253,46 @@ This one keeps its range reduction on page 0x02 and is the most fully recovered:
    - `02:7D81` — the 2π full-turn modulus (mantissa `62 83 18 53 07 17 96` = `6.2831853…`), copied to the OP3 work reg via `LD HL,02:7D81; CALL ram:1AE2` (`ram:1AE2`/`copy7_from_8490` copies 7 mantissa bytes to `0x8490`).
    - `02:7D8E`, `02:7D95`, `02:7D96` — companion constants used in the quadrant-fixup / remainder comparisons (`CALL ram:1D7B` magnitude compare at `02:73B1`/`02:7447`).
    The quadrant (0–3) is accumulated in `B`/`bStack_1` (bits 0/3/6) and decides sin-vs-cos and the result sign (the `XOR 0x1 / OR 0x8 / XOR 0x8` flag juggling at `02:7424`–`02:7464`).
-4. **Per-digit evaluation.** After reduction (`02:7475` onward, falling through `02:7488 LD A,B`) the reduced argument in `[0, pi/4)` drives the same table-stepping digit recurrence as ln/e^x: a selector walks the coefficient table one row per step rather than unrolling a fixed polynomial. The loaders are local — `02:74AB: CALL 02:731D` reads the signed table at `02:7201`, `02:74EA: CALL 02:7312` reads the signed table at `02:7281` — and the selector advances under `BIT 3,B` / `BIT 3,C` in the tail (`02:74DD`–`02:74E0`, `02:75C6`–`02:75C8`), so the walk covers eight selector rows (`0..7`), each carrying two 8-byte sign/phase variants. Per-row decoding of `02:7201`/`02:7281` is the one piece still open: the rows climb toward 10 (e.g. `02:7201[00]`=`9.9668…`, `[06]`=`9.999999…`), the shape of a half-angle / rotation factor consumed one digit at a time.
+4. **Per-digit evaluation.** The reduced argument enters
+   `transcendental_eval` (`02:7498`), the shared engine used by $\ln$ and $e^x$. For
+   `sin(1)`, the reduced argument is
+   $r = \pi/2 - 1 = 0.5707963267948966$. The engine computes $\cos r$, while
+   the quadrant bits in `OP5.value.type` carry the sign and phase. The
+   recurrence has three phases; the first two consume the trig tables:
+
+   - **Phase 1 — digit extraction (`02:74A4`–`02:74E0`).** For rows
+     $k=0,\ldots,7$, `02:74A8` sets `DE = OP2M` and calls the table-A entry at
+     `02:731D`. The selected row address is `0x7201 + 16*k + 8*v`, where $v$
+     is bit 7 of `OP5.value.type`.
+     `ram:1A94` copies the eight bytes. `fp_align_round_diff` aligns the row
+     into `OP3` at scale $10^{-(k+1)}$. A non-restoring subtract/add sweep
+     reduces the accumulator modulo 1 and stores one decimal digit in
+     `OP5.value.mantissa[k]`. For `sin(1)`, the digits are
+     `6,3,8,8,2,4,3,6`, leaving $u \approx 2.56\times10^{-9}$. [confirmed]
+   - **Phase 2 — correction product (`02:74E6`–`02:7528`).** Entry `02:7312`
+     loads `trig_recurrence_table_b[0]`, where
+     $b_0 = 0.9509852944837202$, into `OP2M`. At each digit position $k$, the
+     loop performs $n_k = \lfloor(11-d_k)/2\rfloor$ BCD shift-add steps of
+     $\mathtt{OP2} \gets \mathtt{OP2} + \mathtt{OP2}\cdot10^{-2k}$. This builds
+     $b_0\cdot\prod_k(1+10^{-2k})^{n_k}$ without general multiplication. For
+     `sin(1)`, the product is $0.9704891777365256$. [confirmed]
+   - **Phase 3 — result assembly (`02:752A` onward).** The engine walks the
+     stored digits again with align/add-sub steps and exponent bookkeeping.
+     For `sin(1)`, it produces `OP4 = 0.8414709848078931`, with
+     `cos(1) = 0.5403023058681400` alongside. [confirmed]
+
+   The closed-form identity of the phase-1 digit map remains open; see [Open questions](open-questions.md#static-analysis-work).
 
 > **Dynamic confirmation.** Traced under headless TilEm: `sin(1)` in radian mode
 > ([`sin1.macro`](https://github.com/siraben/ti84p-re/blob/main/tools/macros/sin1.macro)) drives `_SinCosRad`. The flag init,
 > the exponent gate (`735D LD A,(0x8479); SUB 0x80; JP C,02:73D4; CP 0x0C; JP NC` — neither
-> branch taken, since `exp(1)=0` is in `[0,12)`), the reduction multiply by the `02:7D81` constant
-> (`7372 LD HL,02:7D81; CALL ram:1AE2`), and the table-stepping loader `02:731D` returning
-> successive rows of `02:7201` (HL = `7209/7219/…/7279`, 16-byte stride) all execute as
-> described. On-screen result: `.8414709848`. (Per-row coefficient meaning remains the open piece.)
+> branch taken, since the decimal exponent of 1 is `0`), and
+> the reduction multiply by the `02:7D81` constant
+> (`7372 LD HL,02:7D81; CALL ram:1AE2`). The trace records all three recurrence
+> phases and the on-screen result `.8414709848`. It also records eight phase-1
+> entries at `02:731D`, with `B = 0`–`7` and
+> `HL = 0x7201 + 16·B + 8` after each `ram:1A94` copy, followed by one
+> `02:7312` entry for the phase-2 base row.
 
 ### Coefficient tables [confirmed]
 
@@ -284,8 +315,15 @@ directly from the same block.
   [08] 59 26 53 58 98 78 53 98 16
 ```
 
-`logexp_digit_table` is loaded by `coeff_load_idx` and its adjacent entry
-points at `02:7301`–`7305`. It has 16 eight-byte rows:
+Three entry paths share the indexing tail at `02:7320`. Entry `02:7301`
+selects `logexp_digit_table` and `OP4M`. Entry `02:7312` selects
+`trig_recurrence_table_b` and `OP2M`. Entry `02:731A` selects `OP4M`, then
+falls through `02:731D` to select `trig_recurrence_table_a`. The phase-1 path
+enters at `02:731D` with `OP2M` already in `DE`. The shared tail adds
+`16*B + 8*v` to `HL`, where $v$ is bit 7 of `OP5.value.type`, then `ram:1A94`
+copies the eight-byte row to the destination. [confirmed]
+
+`logexp_digit_table` has 16 eight-byte rows:
 
 ```text
 [00] 30 10 29 99 56 63 98 12  [01] 04 13 92 68 51 58 22 50
