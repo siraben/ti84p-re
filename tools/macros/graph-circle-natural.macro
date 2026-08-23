@@ -1,0 +1,22 @@
+# Draw Circle(0,0,5) through the OS DRAW menu from a reset calculator.
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key 2ND
+key PRGM
+wait 0.8s
+key 9
+key 0
+key COMMA
+key 0
+key COMMA
+key 5
+key RPAREN
+key ENTER
+wait 10s
+screenshot /tmp/graph-circle-natural.png
