@@ -14,10 +14,13 @@
         z80dasm = pkgs.stdenv.mkDerivation {
           pname = "z80dasm";
           version = "1.2.0";
-          src = pkgs.fetchurl {
-            url = "https://geeklan.co.uk/files/z80dasm-1.2.0.tar.gz";
-            hash = "sha256-jaLEpYo5F6ginewNqX5xj5Dt6EmFQk10RWV1v1rP7sg=";
+          src = pkgs.fetchFromGitHub {
+            owner = "erikarn";
+            repo = "z80dasm";
+            rev = "41b40654471be769f9a30bceb81ff6e7e1fd7d55";
+            hash = "sha256-xfJElI85LH0FFdy54s4bbMraDKQmcXnhrhnP4SOLsfA=";
           };
+          postUnpack = ''sourceRoot=$sourceRoot/src'';
         };
         # pseudocode.js (renders LaTeX algorithm blocks; not packaged in nixpkgs)
         pseudocodeJs = pkgs.fetchurl {
@@ -42,7 +45,7 @@
           src = ./.;
           nativeBuildInputs = [
             pkgs.mdbook pkgs.mdbook-mermaid pkgs.bash pkgs.python3 pkgs.katex
-            pkgs.nodejs pkgs.z3 z80dasm
+            pkgs.chromium pkgs.nodejs pkgs.z3 z80dasm
           ];
           buildPhase = ''
             mdbook-mermaid install .       # generate mermaid.min.js + mermaid-init.js
@@ -53,6 +56,7 @@
             python3 tools/cachebust-mathprint.py $out/mathprint
             python3 tools/check-mdbook-output.py $out
             python3 tools/check-katex-output.py $out
+            python3 tools/check-wiki-rendering.py docs $out
             node tools/test-mathprint.js
             python3 tools/test_trace_lcd.py
             python3 tools/test_mathprint_extractors.py

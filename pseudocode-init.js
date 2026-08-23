@@ -18,7 +18,10 @@
         pre.parentNode.replaceChild(wrap, pre);
       } catch (e) {
         // On a syntax error leave the raw block in place so nothing is lost.
-        if (window.console) console.error("pseudocode render error:", e);
+        var detail = e && e.message ? e.message : String(e);
+        pre.classList.add("pseudocode-render-error");
+        pre.setAttribute("data-render-error", detail);
+        if (window.console) console.error("pseudocode render error:", detail);
       }
     }
   }
