@@ -164,7 +164,7 @@ scratch (`0x9C87`='i' selects the in-RAM "temp app" search variant).
 ### Launching an app as a context [confirmed]
 
 `_AppInit` (`ram:0936`, bcall `0x404B`) installs a context from an app header:
-```pseudocode
+```text
 _AppInit(byte *hdr):                 ; HL -> 13-byte vector block in the header
   copy 12 bytes hdr[0..11] -> cxMain (0x858D)   ; the 6 context vectors
   flags.appFlags (IY+0x0D) = hdr[12]            ; appFlags byte
@@ -303,7 +303,7 @@ The four graph-mode setters on `page 0x36` are mutually exclusive: each first cl
 all four bits via `clr_grfmode (36:7D00)`, then ORs in its own bit, then calls
 `_SetTblGraphDraw`. `param_1` is `IY`, so `*(param_1+2)` = `grfModeFlags`.
 
-```pseudocode
+```text
 clr_grfmode (36:7D00):  grfModeFlags &= 0xEF & 0xDF & 0xBF & 0x7F   ; clear bits 4,5,6,7
 ```
 

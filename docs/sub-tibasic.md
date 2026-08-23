@@ -75,7 +75,7 @@ means the lead and following byte must move together. The scanner also treats a
 quoted string as one region, so `Then`, `Else`, or `End` bytes inside a string
 cannot terminate an outer scan. [confirmed]
 
-```pseudocode
+```text
 scan_to_delimiter():
   loop:
     token = current_token()
@@ -117,7 +117,7 @@ distinct handler destinations. The bytes there are data — beginning `9F 41 F0 
 1C 42 ...`—not executable Z80. The selector doubles the class, reads the
 pointer, and calls the chosen production. [confirmed]
 
-```pseudocode
+```text
 evaluate_production(class, level):
   if level == 2:
     return postfix_production_478C(class)
@@ -200,7 +200,7 @@ A false single-line `If` only has to skip one statement. A false `If ... Then`,
 executing the intervening tokens. That is the purpose of
 `blockmatch_end_else` (`38:4130`). [confirmed]
 
-```pseudocode
+```text
 find_matching_boundary():
   depth = 0
   loop:
@@ -414,7 +414,7 @@ pointers. It saves each pointer as a delta from the corresponding base at
 `0x9822` or `0x9826`, together with the previous error stack and mapped page.
 The unwind path at `00:27BB–27D9` restores them in reverse order. [confirmed]
 
-```pseudocode
+```text
 save_error_context(target):
   push current_flash_page
   push previous_error_stack

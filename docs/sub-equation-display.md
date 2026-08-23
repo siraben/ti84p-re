@@ -211,13 +211,13 @@ Construction is table-driven rather than a switch over complete expressions:
 \begin{algorithm}
 \caption{Construct one structural arena record}
 \begin{algorithmic}
-\STATE $t \gets \Call{LookupRenderType}{sourceToken}$ \COMMENT{eqdisp\_source\_type\_table}
-\STATE $g \gets \Call{LookupAllocationGeometry}{t}$ \COMMENT{eqdisp\_allocation\_geometry\_table}
-\STATE $record \gets \Call{AllocateArenaRecord}{g}$
-\STATE \Call{ReserveChildIds}{$record, g$}
-\STATE $s \gets \Call{LookupChildScan}{t}$ \COMMENT{eqdisp\_child\_scan\_table}
-\STATE $children \gets \Call{ScanSourceArguments}{s}$
-\STATE \Call{StoreChildrenInRenderOrder}{$record, children$}
+\STATE $t \gets \operatorname{LookupRenderType}(sourceToken)$ \COMMENT{eqdisp\_source\_type\_table}
+\STATE $g \gets \operatorname{LookupAllocationGeometry}(t)$ \COMMENT{eqdisp\_allocation\_geometry\_table}
+\STATE $record \gets \operatorname{AllocateArenaRecord}(g)$
+\STATE $\operatorname{ReserveChildIds}(record, g)$
+\STATE $s \gets \operatorname{LookupChildScan}(t)$ \COMMENT{eqdisp\_child\_scan\_table}
+\STATE $children \gets \operatorname{ScanSourceArguments}(s)$
+\STATE $\operatorname{StoreChildrenInRenderOrder}(record, children)$
 \end{algorithmic}
 \end{algorithm}
 ```
@@ -1148,7 +1148,7 @@ the cursor:
 \begin{algorithm}
 \caption{Insert a structural template}
 \begin{algorithmic}
-\STATE $rule \gets \Call{TemplateRule}{renderType}$
+\STATE $rule \gets \operatorname{TemplateRule}(renderType)$
 \STATE split the active leaf at the cursor on a packed-token boundary
 \STATE consume one token on the right when $rule$ requires replacement
 \STATE write placeholder \texttt{EF type 00 00 EF 2D} into the containing leaf
@@ -1930,12 +1930,12 @@ record delegates placement to the handler for its type:
 \begin{algorithm}
 \caption{Render an arena record}
 \begin{algorithmic}
-\STATE $record \gets \Call{ResolveRecordId}{id}$
+\STATE $record \gets \operatorname{ResolveRecordId}(id)$
 \IF{$record.type < \mathtt{0x1F}$}
-  \STATE \Call{ExecuteLeafProgram}{$record.payload, origin, depth$}
+  \STATE $\operatorname{ExecuteLeafProgram}(record.payload, origin, depth)$
 \ELSE
-  \STATE $handler \gets \Call{StructuralHandler}{record.type}$
-  \STATE \Call{RenderPlacedChildrenAndPrimitives}{$handler, record, origin, depth$}
+  \STATE $handler \gets \operatorname{StructuralHandler}(record.type)$
+  \STATE $\operatorname{RenderPlacedChildrenAndPrimitives}(handler, record, origin, depth)$
 \ENDIF
 \end{algorithmic}
 \end{algorithm}
@@ -2323,14 +2323,14 @@ discarding the text on either side:
 \begin{algorithmic}
 \WHILE{$pc < payloadEnd$}
   \IF{$pc$ names an embedded structural record}
-    \STATE \Call{RenderRecord}{$\Call{ResolveRecordId}{marker.id}, pen, depth$}
+    \STATE $\operatorname{RenderRecord}(\operatorname{ResolveRecordId}(marker.id), pen, depth)$
     \STATE advance past the marker
   \ELSIF{$pc$ is an embedded-object separator}
     \STATE advance past the separator
   \ELSE
-    \STATE $(token, pc) \gets \Call{DecodeNativeToken}{pc}$
-    \FOR{each $displayCode$ in \Call{KeyToString}{token}}
-      \STATE \Call{EmitGlyph}{$displayCode, pen, depth$}
+    \STATE $(token, pc) \gets \operatorname{DecodeNativeToken}(pc)$
+    \FOR{each $displayCode$ in $\operatorname{KeyToString}(token)$}
+      \STATE $\operatorname{EmitGlyph}(displayCode, pen, depth)$
     \ENDFOR
   \ENDIF
 \ENDWHILE

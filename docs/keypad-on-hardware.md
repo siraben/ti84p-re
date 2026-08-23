@@ -216,7 +216,7 @@ The matrix has no isolation diode at each key. Three closed switches can connect
 
 TilEm reproduces this topology in `tilem_keypad_read_keys`. It starts with all keys in selected groups, then repeatedly unions any group sharing a set bit until the set stops growing. The returned byte is the complement of that transitive closure. [standard]
 
-```pseudocode
+```text
 closed = union(keysDown[group] for each selected group)
 repeat
     previous = closed
