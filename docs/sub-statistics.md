@@ -70,12 +70,11 @@ menu) and are written by the test commands, not by 1/2-Var Stats. An ANOVA block
 **STAT-TESTS are separate command handlers.** [confirmed] `Z-Test`/`T-Test`/`χ²-Test`/
 `2-SampFTest`/`ANOVA(` etc. come in as their own 2-byte `t2ByteTok` (`0xBB`)-prefixed command tokens — e.g.
 `LinRegTTest=34h` in the [STAT command token map](#stat-command-token-map-confirmed) — and are not dispatched through `_OneVar` (whose token map is
-only `F2`–`FF`). They fill the `PStat…SStat`/`anovaf_vars` block above directly. No
-`PStat`/`ZStat`-writing routine appears among the page-0x3A `stat_*` symbols (all of which are
-the `_OneVar` accumulate/variance/median/regression engine), confirming the tests live in their
-own command handlers reached from the parser's command dispatch, separate from the STAT-CALC
-engine documented here. The exact per-test handler addresses are not exposed as
-named routines in this database and remain [hypothesis].
+only `F2`–`FF`). They fill the `PStat…SStat`/`anovaf_vars` block above directly. Test
+handlers appear on both sides of the named `stat_*` accumulation, variance,
+median, and regression routines within `3A:4A00`–`3A:7E60`. See
+[STAT-TESTS engine](#stat-tests-engine-on-page-3a-confirmed). The per-test entry addresses are
+not exposed as named routines and remain [hypothesis].
 
 A scratch byte `stat_calc_command` (`0x8A36`, immediately below `statVars`) holds the stat-command
 discriminator (the model index set from the [command token](#stat-command-token-map-confirmed)) for the
@@ -259,12 +258,40 @@ matrix `[ M | Σxⁱy ]`. `_OneVar` solves it in place by Gauss-Jordan eliminati
 67fa: RST 8 ; …                     ; pivot reciprocal
 6804: CALL 2541 (_FPDiv)            ; divide row by pivot
 680d..6815: elimination loop
-6845: CALL 3939 (_SqRoot) ; 6849 ; CALL 2541 (_FPDiv)  ; (forms r²/r from the fit)
-684f: LD A,12 ; CALL 213d           ; r-related store/guard
-6859..6876: row-reduce all other rows (3aa7 get, 238b _FPMult, RST 30 _FPAdd)
-6880: CALL 2541 (_FPDiv) ; CP 2 ; LD A,0x35/0x36 ; CALL 213d  ; *** _Sto_StatVar stores into the
-                                                              ; statVar slots id 0x35/0x36 — NOT a SingularMat raise.
-                                                              ; the zero-pivot guard is the 67F7→212D path → 0x83.
+```
+
+The `3A:6845`–`6891` cluster, byte by byte:
+
+```text
+6845  CALL 3939  (cross_page_jump)   ; OP1 = √OP1 (page-39 _SqRoot body)
+6848  RST 08h   (_OP1ToOP2)          ; OP2 = √…
+6849  CALL 1674  (_CpyTo1FPST)       ; OP1 ← FPS−9 (the saved numerator sum)
+684C  CALL 2541  (_FPDiv)            ; OP1 = numerator/denominator = r
+684F  LD A,0x12 ; CALL 213D          ; _Sto_StatVar(tCorr): Corr (8ACA) ← r
+6854  CALL 1BA4  (_OP1Set0)          ; accumulator = 0
+6857  POP BC / PUSH BC               ; BC = augmented-matrix row count
+685B  LD B,2                         ; start at row 2 (first data column)
+685D  loop:
+        CALL 19EC (_OP1ToOP4); CALL 150A (_PopRealO2)   ; OP2 ← popped FPS value
+        CALL 3AA7 (cross_page_jump)  ; matrix element (col B) → OP1
+        CALL 238B (_FPMult)          ; element · value
+        CALL 19FE; RST 30h (_FPAdd)  ; accumulate into OP4/OP1
+        INC B until B = H            ; walk the column
+6878  CALL 2903 (fp_st_slot7_op3)    ; stash the column sum
+687B  CALL 1DEE  (_CkOP2FP0)         ; denominator zero?
+687E  JR Z,6891                      ; yes → skip r² store
+6880  CALL 2541  (_FPDiv)            ; ratio for r²/R²
+6885  LD A,B; CP 2                   ; model order == 2 (linear)?
+6888  LD A,0x35 / 0x36               ; id 0x35 = r² (slot 8C05), 0x36 = R² (8C0E)
+688E  CALL 213D  (_Sto_StatVar)
+```
+
+The region forms `r = num/den` and stores it to `Corr` at `0x8ACA`. It then
+accumulates a column-weighted residual sum over the augmented matrix. When the
+denominator is nonzero, it stores `r²` for linear fits or `R²` for higher-order
+fits in separate statVar slots at `0x8C05` and `0x8C0E`. [confirmed]
+
+```z80
 68d6..6953: back-substitution — each coeff = (rhs − Σ known·M) / pivot
    (3aa7/3aa1 matrix access, 238b _FPMult, RST 30/RST 8 accumulate,
     24bd _InvOP1S to subtract, 2541 _FPDiv)
@@ -272,15 +299,16 @@ matrix `[ M | Σxⁱy ]`. `_OneVar` solves it in place by Gauss-Jordan eliminati
        then copied out to the QuadA..QuartE statVars block.
 ```
 
-- A zero/near-zero pivot raises `_ErrSingularMat` (0x83) "SINGULAR MAT"
-  (e.g. all x equal, or too few distinct points for the degree). The `LD A,0x35`/
-  `0x36` and `CALL 0x213d` are the in-solver guards. [confirmed]
+- A zero/near-zero pivot raises `_ErrSingularMat` (`0x83`, `SINGULAR MAT`),
+  for example when all x values are equal or the degree exceeds the number of
+  distinct points. The guard is the `3A:67F7` call to `ram:212D`; the
+  `0x35`/`0x36` calls at `3A:6888`–`3A:688E` are stat-variable stores.
+  [confirmed]
 - The solver is dimension-generic: `LinReg` (2×2) → `a,b`; `QuadReg` (3×3) →
   `a,b,c`; `CubicReg` (4×4) → `a,b,c,d`; `QuartReg` (5×5) → `a,b,c,d,e`. The
   coefficients land in `QuadA`(`8AEE`) downward. [confirmed]
 - Correlation `r` and `r²` are computed for the linear models from the
   centred sums:
-
   $$r=\frac{\sum (x-\bar x)(y-\bar y)}{\sqrt{\sum (x-\bar x)^2\\,\sum (y-\bar y)^2}}=\frac{n\sum xy-\sum x\sum y}{\sqrt{\big(n\sum x^2-(\sum x)^2\big)\big(n\sum y^2-(\sum y)^2\big)}}$$
 
   assembled with `_FPMult`/`_FPSub`/`_SqRoot`/
@@ -290,8 +318,9 @@ matrix `[ M | Σxⁱy ]`. `_OneVar` solves it in place by Gauss-Jordan eliminati
   `0x3E07` statVar dispatcher with the name id in `A`). Id `0x12` = `tCorr` = the `Corr`
   slot, so this single sequence is exactly `r → Corr (8ACA)`. The preceding `3A:6845`
   `_SqRoot`/`_FPDiv` cluster forms the ratio; `r²` (and `R²` for higher-order fits) is the
-  `r·r` / coefficient-of-determination derived from the same cluster and surfaced through the
-  same `Corr` slot. [standard]
+  coefficient of determination derived by the following column-weighted pass. It is stored
+  separately through IDs `0x35` and `0x36`, at `0x8C05` and `0x8C0E` respectively.
+  [confirmed]
 - The fitted equation is also written to `RegEQ` (the `Y=`-style regression
   equation system var, recalled via token `tRegEq=0x01`) so `RegEQ` can be pasted
   or graphed. [standard]
@@ -371,10 +400,72 @@ cores returns no `normalcdf`/`erf`/incomplete-gamma/incomplete-beta entry points
 `fp_normalize`/`fp_norm_left` (mantissa normalisation), `cplx_norm_*` (complex modulus) and the
 `eqdisp_setnorm_split` layout helpers — none is a distribution. Likewise every `stat_*`
 symbol on page 0x3A is part of the `_OneVar` STAT-CALC engine (accumulate / variance / median /
-sort / regression), not a DISTR core. So the erf / incomplete-gamma / incomplete-beta continued
-fractions are [hypothesis] — outside the STAT-CALC engine, sitting behind the parser's 2-byte
-(`0xBB`-prefixed) DISTR-token function table; their exact page/address is not exposed as a
-named routine in this DB. [hypothesis]
+sort / regression), not a DISTR core. The `normalcdf(` evaluation path runs in the
+page `39` FP core described below. The STAT-TESTS p-value approximation carries
+its coefficients in a table on page `3A`
+([STAT-TESTS engine](#stat-tests-engine-on-page-3a-confirmed)). The erf / incomplete-gamma /
+incomplete-beta continued fractions behind the remaining DISTR tokens remain
+[hypothesis]. The parser's two-byte, `0xBB`-prefixed DISTR-token function table does
+not expose them as named routines in this database.
+
+**Traced `normalcdf(` path.** [confirmed] A headless TilEm trace of
+`normalcdf(0,1)` through the OS 2.55 interactive prompt identifies the evaluation
+path (`tools/macros/distr-normalcdf.macro`). Coverage against `boot-idle.macro`
+shows the parser collecting the fields on the FP stack. A `cross_page_jump` chain
+through `ram:2B09` reaches page `39` through page `01` glue. The numerical core
+occupies `39:4A02`–`39:4F5B`, with helpers at `39:5D2D`–`39:5E41`,
+`39:6C63`–`39:6D31`, and `39:57CF`–`39:57FC`. The trace does not execute the
+page `38` slot suggested by a raw token-index read (`38:459F` for `tDNormal`).
+The table at `38:4000` contains parse-side argument-class stubs such as
+`LD B,0x29 ; JR 4A44`; it is not the execution dispatch.
+
+---
+
+## STAT-TESTS engine on page 3A [confirmed]
+
+The inferential-statistics commands execute in their own engine on page `3A`, sharing the bank
+with `_OneVar` but distinct from it. Three byte-pinned structures locate it:
+
+**Candidate `PStat`–`SStat` references.** A ROM-wide byte-pattern scan
+(`tools/scan_stat_writers.py`, immediate or absolute operands landing in
+`0x8B5A`–`0x8C37`) finds about 50 opcode-shaped candidates on page `3A`
+(`3A:4B15`–`3A:6BDC`) plus candidates on pages `06`, `35`, `37`, and `39`.
+Because the scan does not recover instruction boundaries, these hits locate a
+search cluster but do not by themselves establish a writer count or exclude
+references on other pages. [hypothesis]
+
+**A T-Test output stage at `3A:5500`.** [confirmed] The routine multiplies `OP1` through
+`fp_mult_const` (`ram:2385`), scales by `StdPX` (`0x8A67`), divides through `fp_div_const`
+(`ram:2532`) against `SStat` (`0x8BFC`), then stores the result with
+`LD A,0x24 ; CALL _Sto_StatVar`. ID `0x24` is `tStatT`, the `TStat` slot. The
+routine then references `DF` at `0x8B87`. The surrounding code reads and clears
+`statFlags` bits and dispatches on the stored model ID.
+
+**The normal p-value coefficient table at `3A:554F`.** [confirmed] Nine-byte `TIFloat`
+constants, byte-verified in sequence:
+
+| Addr | Value | Role |
+|------|-------|------|
+| `3A:554F` | `0.2316419` | threshold `p` |
+| `3A:5558` | `1.330274429` | coefficient `b5` |
+| `3A:5561` | `-1.821255978` | coefficient `b4` |
+| `3A:556A` | `1.781477937` | coefficient `b3` |
+| `3A:5573` | `-0.356563782` | coefficient `b2` |
+| `3A:557C` | `0.319381530` | coefficient `b1` |
+
+This coefficient set matches the Zelen–Severo approximation of the standard normal tail,
+$\Phi(z)\approx 1-\varphi(z)\,(b_1t+b_2t^2+b_3t^3+b_4t^4+b_5t^5)$ with
+$t=1/(1+pz)$. The loop at `3A:551F` evaluates the five coefficients in descending order by
+Horner steps; `LD HL,554Fh` at `3A:550E` pins the table start. The type bytes at `3A:5561`
+and `3A:5573` are `0x80`, which supplies the negative signs on `b4` and `b2`.
+The STAT-TESTS handlers use the result to form `PStat`. [confirmed]
+
+**UI descriptor tables at `3A:7D00`–`3A:7E60`.** [confirmed] The same bank carries
+the test editor's data. It includes alternative-hypothesis strings for the
+1-PropZTest and 2-PropZTest menus, plus the `F`-test tail strings. It also contains
+SinReg and Logistic formula templates, three-byte dispatch stubs into fixed page 0
+vectors, and an ascending handler-pointer array at `3A:7DF4`–`3A:7E1E`. The mapping
+from array slots to menu items remains open.
 
 ---
 
@@ -422,6 +513,11 @@ equations, depositing every output as a named `TIFloat` in the `statVars` block.
 | `3A:7935` | `stat_sort` | stat-internal data sort (median/quartile, Med-Med) |
 | `3A:79B9` | `stat_median_quartile` | median/Q1/Q3 + Med-Med medians |
 | `3A:760F`/`75E4` | `medmed_partition` | Med-Med 3-partition setup |
+| `3A:5500` | `ttest_output_stage` | T-Test result store: ×`StdPX`, ÷`SStat`, `_Sto_StatVar` ID `0x24` (`TStat`) |
+| `3A:554F` | `normal_tail_coef_tbl` | Zelen–Severo coefficients (`p`, `b5`…`b1`) for `PStat` p-values |
+| `00:2385` | `fp_mult_const` | OP1 ×= (HL)-pointed float constant |
+| `00:2532` | `fp_div_const` | OP1 ÷= (HL)-pointed float constant |
+| `39:4A02`–`39:4F5B` | `distr_normal_core` (unnamed) | traced `normalcdf(` evaluation core on page 39 |
 | `00:2149` | `_Rcl_StatVar` | recall a named statVar into OP1, id 0x42DC |
 | `00:2741` | `_ErrStat` | raise STAT error (code 0x15), id 0x44C2 |
 | `00:2759` | `_ErrStatPlot` | raise STAT PLOT error (0x1B), id 0x44D1 |
@@ -429,7 +525,7 @@ equations, depositing every output as a named `TIFloat` in the `statVars` block.
 | `33:65DC` | `_ZmStats` | ZoomStat — fit window to plotted data, id 0x47A4 |
 | `00:2715` | `_ErrDimMismatch` | list length mismatch (0x8B) |
 
-**RAM:** `statVars=0x8A3A`, `stat_calc_command=0x8A36`, work ptrs `0x84AF-0x84DB`
+**RAM:** `statVars=0x8A3A`, `stat_calc_command=0x8A36`, work pointers `0x84AF`–`0x84DB`
 (`84D3` x/median ptr, `84D5/84D7` element ptrs, `84D9` sums-matrix base,
 `84DB` freq ptr, `84B1/84B2` loop counters, `84B3` element count).
 **FP engine reused:** `RST 30h`=`_FPAdd`, `RST 08h`=OP1→OP2, `00:238B`=`_FPMult`,
@@ -438,17 +534,28 @@ equations, depositing every output as a named `TIFloat` in the `statVars` block.
 
 ## Remaining questions
 
-- **`r` store offset.** `3A:684F` does `LD A,0x12 ; CALL 0x213D`
-  (`_Sto_StatVar`, id `0x12` = `tCorr`), i.e. `r → Corr (8ACA)`; `r²`/`R²` is the
-  `r·r`/coefficient-of-determination from the same `6845` `_SqRoot`/`_FPDiv` cluster, surfaced
-  through the same `Corr` slot in the [regression solver](#regression-solver-confirmed). (Residual: the `6845-6891` region is unanalyzed code in the
-  DB, so only the `A=0x12` store sequence was byte-pinned, not every intermediate.)
-- **DISTR numerical cores** (erf/incomplete-gamma/incomplete-beta) are
-  *outside* the STAT-CALC engine: no distribution core is a named routine in this DB; they sit
-  behind the parser's 2-byte DISTR-token function table described under [DISTR functions](#distr-functions-confirmed). Exact address [hypothesis].
-- **STAT-TESTS** (Z/T/χ²/F/ANOVA) that fill `PStat…SStat`/`anovaf_vars` are
-  *separate command handlers*, not reached through `_OneVar` (whose tokens are only `F2`–`FF`);
-  no `PStat`-writing routine is among the page-`3A` `stat_*` symbols in the [`statVars` result block](#statvars-result-block-confirmed). Per-test addresses [hypothesis].
+- **Correlation stores.** `3A:684F` does `LD A,0x12 ; CALL 0x213D`
+  (`_Sto_StatVar`, ID `0x12` = `tCorr`), i.e. `r → Corr (0x8ACA)`; `r²`/`R²` is the
+  coefficient of determination from the following column-weighted pass, stored through IDs
+  `0x35`/`0x36` at `0x8C05`/`0x8C0E`. See the annotated `3A:6845`–`3A:6891`
+  listing under [Regression solver](#regression-solver-confirmed). [confirmed]
+- **DISTR numerical cores.** The `normalcdf(` evaluation path is traced to the
+  page `39` FP core (`39:4A02`–`39:4F5B` and helpers) — see
+  [DISTR functions](#distr-functions-confirmed). The erf / incomplete-gamma /
+  incomplete-beta continued fractions behind the remaining DISTR tokens are unnamed and
+  untraced; the page `38` parse-side table is not the execution dispatch. The exact algorithm in
+  the page `39` core (continued fraction versus polynomial or rational fit) remains
+  [hypothesis].
+- **STAT-TESTS** (Z/T/χ²/F/ANOVA) fill `PStat…SStat`/`anovaf_vars` from their own engine on
+  page `3A`. A pinned T-Test output stage, the normal-tail coefficient table, and
+  the UI descriptor area locate the engine. See
+  [STAT-TESTS engine](#stat-tests-engine-on-page-3a-confirmed). The per-test entry
+  addresses and the slot-to-menu mapping for the `3A:7DF4` pointer array remain
+  [hypothesis].
+  The `_Sto_StatVar`/`_Rcl_StatVar` stubs (`ram:213D`/`ram:2149`) funnel through the
+  cross-page-jump table at `ram:3E07` (one `CALL 2B09` + inline `addr,page`
+  descriptor per ID); resolving those descriptors gives the per-ID bodies
+  without needing a live trace.
 - `stat_sort` (`3A:7935`) is a 49-byte setup that validates/counts the elements
   then dispatches the compare-swap via `rst 28h` (the bcall site isn't fully
   analyzed in the DB). The `SortA(`/`SortD(` *command* sort is a different routine
