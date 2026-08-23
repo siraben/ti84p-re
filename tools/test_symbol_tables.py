@@ -23,6 +23,8 @@ TYPE_SIZES = {
     "byte": 1,
     "word": 2,
     "TIVarType": 1,
+    "TIKeyCode": 1,
+    "TIError": 1,
     "TIFloat": 9,
     "TIOpRegister": 11,
     "Context": 14,

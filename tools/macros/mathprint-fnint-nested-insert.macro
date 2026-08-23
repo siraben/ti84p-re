@@ -1,0 +1,41 @@
+# Insert fnInt(, then insert a SECOND fnInt( inside its integrand slot.
+# The template-insertion translator (39:53A1) dispatches on the inserted
+# token code (kFnInt=0xC8 held at 0x8446) and synthesizes layout action 8
+# (kAlphaDown), which drives the 39:5167 window-advance loop.
+#
+#   $TILEM --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
+#     --macro tools/macros/mathprint-fnint-nested-insert.macro \
+#     --trace /tmp/fnint-nest2.trace --trace-range all
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+wait 0.5s
+key MATH
+wait 1s
+key 9
+wait 1.5s
+# cursor is in the integrand slot; insert a nested fnInt( there
+key MATH
+wait 1s
+key 9
+wait 1.5s
+# fill the innermost slot a little, then walk
+key 1
+wait 0.3s
+key GRAPHVAR
+wait 0.4s
+key LEFT
+wait 0.35s
+key LEFT
+wait 0.35s
+key RIGHT
+wait 0.35s
+key RIGHT
+wait 0.35s
+wait 1s
+screenshot /tmp/fnint-nest2.png

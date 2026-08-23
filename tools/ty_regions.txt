@@ -46,3 +46,7 @@ page_3F:4C3B	RamWorkerDescriptor		boot_flash_erase_worker_descriptor
 page_3F:4CC8	RamWorkerDescriptor		flash_program_worker_descriptor
 page_3D:6761	RamWorkerDescriptor		flash_to_ram_worker_descriptor
 page_3D:7308	RamWorkerDescriptor		certificate_worker_descriptor
+8444	TIKeyCode		kbdKey
+8445	TIKeyCode		kbdGetKy
+8446	TIKeyCode		keyExtend
+86DD	TIError		errNo
