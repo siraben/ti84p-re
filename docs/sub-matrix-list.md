@@ -36,7 +36,7 @@ not reduce reliably.
 
 ### List — `_CreateRList` (`00:10C4`), `_CreateCList` (`00:1109`)
 
-```pseudocode
+```text
 _CreateRList(count, dataPtrOut):
   reject unless OP1 name token (8478.exp) ∈ {0x5D, 0x24, 0x3A, 0x72}  ; list-name classes
   var_alloc(1)                  ; carve  count*9 + 2  bytes via _InsertMem
@@ -48,7 +48,7 @@ flag and 18-byte elements.
 
 ### Matrix — `_CreateRMat` (`00:1115`)
 
-```pseudocode
+```text
 _CreateRMat(dimWord, dataPtrOut):
   _HTimesL()                    ; element count = H * L  (the two dims multiplied)
   var_alloc(2)                  ; carve  H*L*9 + 2  bytes
@@ -171,7 +171,7 @@ Binary list ops are element-wise folds: the parser walks both lists by index, lo
 
 Tokens `0xB6`=`sum(`, `0xB7`=`prod(` load a *combiner function pointer* and fold the
 list (dispatcher `02:6104`):
-```pseudocode
+```text
 sum(  : HL = 0x3A83 (cross-page → FP add-accumulate),  seed via _OP1Set0
 prod( : HL = 0x49B9 (seed accumulator = 1.0, _PushOP1), combine with _FPMult
         CALL 0x64B7 ; ... ; JP (HL)   ; apply the combiner across e1..eN
@@ -326,7 +326,7 @@ is also the `_SinCosRad` bcall ID in ti83plus.inc — a hex coincidence, unrelat
 address.)
 
 `40BA` is a classic O(n³) triple loop with an FP accumulator:
-```pseudocode
+```text
 for each result cell (i,j):                  ; counters at 84B7, 84B4
     for k = 1 .. inner:                       ; inner counter at 84AF
         load [A](i,k)          (403C mele_adr_af_jp)
@@ -408,7 +408,7 @@ unverified) first type-checks the operand is a matrix (`chk_op_is_matrix` (`02:6
 
 ### The engine (`42A6`) [confirmed]
 
-```pseudocode
+```text
 matrix_gauss_engine(A = mode flags):
   HL = dims (84AF); if H != L -> _JError(0x8C)   ; must be square (det/inverse)
   if 1x1: handle scalar directly (inverse = _FPRecip)

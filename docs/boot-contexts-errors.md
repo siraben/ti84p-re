@@ -127,7 +127,7 @@ The destination `0x858D` and length `0x000C` pin the six 2-byte handler slots `c
 
 ### How a context handler is invoked [confirmed]
 
-```pseudocode
+```text
 call_context_main (ram:08fa):   set_bankA_page(cxPage); call (cxMain) via jp_hl; ret   ; run handler on its page, control returns here
 call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; restore port6
 ```

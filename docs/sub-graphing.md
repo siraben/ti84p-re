@@ -78,7 +78,7 @@ The core loads `*DE`, subtracts the selected base through `ram:228F`, and
 multiplies by the selected reciprocal through `ram:2385`. The X path then adds
 the origin term at `0x8E73`. In compact form: [confirmed]
 
-```pseudocode
+```text
 scaled = (*DE - *base) * *reciprocal_scale
 if axis == X:
     scaled += *0x8E73
@@ -134,7 +134,7 @@ X/Y shown at the bottom of the screen, and by DRAW commands that take pixel argu
 `LD (HL),0` + 0x2FF-byte propagate copy). [confirmed]
 
 `_IOffset` (`04:42B5`) computes the LCD controller address bytes for a pixel (inputs `B`=x, `C`=y):
-```pseudocode
+```text
 (0x844F) = (x >> 3) | 0x20     ; LCD byte-column command for the horizontal group
 (0x8451) = (0x3F - y) | 0x80   ; LCD row command, vertically mirrored
 returns (table_42E4)[x & 7]    ; the 1-of-8 bit mask within the byte (bit = x mod 8)

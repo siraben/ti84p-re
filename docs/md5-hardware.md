@@ -60,7 +60,7 @@ The ROM writes every operand on every step. It does not depend on power-on conte
 
 Both TilEm and Wabbitemu model each operand port as a four-byte sliding register: [standard]
 
-```pseudocode
+```text
 on write byte v to operand register r:
     r = (r >> 8) | (v << 24)
 ```
