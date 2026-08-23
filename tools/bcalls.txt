@@ -543,9 +543,9 @@
 4666	get_pos_list_elem
 4669	fpx_5d70
 466C	fpx_5dbb
-47C5	grf_7066
-47C8	graph_tbl_next
-47CB	graph_tbl_find
+47C5	_PUT_INDEX_LST
+47C8	_GET_INDEX_LST
+47CB	_HEAP_SORT
 4825	drw_5df4
 4873	draw_zero_op1
 487C	drw_638e
@@ -567,7 +567,7 @@
 50FB	link_xfer_op
 50FE	c_log_prep
 5101	fpx_7069
-510A	graph_parse_tok
+510A	_GetVarVersion
 5140	grf_435f
 5143	_chkTmr
 514F	_getDate
