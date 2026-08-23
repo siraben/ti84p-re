@@ -232,25 +232,45 @@ programs do not enter it. It is not the `For(`/`End` transition. [confirmed]
 
 Natural `For(` execution reaches `parse_for_production` (`38:41E5`). Natural
 `End` execution reaches `parse_end_ops_record` (`38:4200`), which consumes a
-`TIForOpsRecord` from the operator stack at `OPS + 1`: [confirmed]
+5-byte loop record from the operator stack at `OPS + 1`. All three structured
+loops share the shape — sentinel byte, continuation word, state word: [confirmed]
 
 ```c
 #pragma pack(push, 1)
 typedef struct {
     uint8_t sentinel;       /* 00h */
-    uint16_t continuation;  /* for_first_update or for_steady_update */
-    uint16_t state;         /* 0012h in both observed forms */
-} TIForOpsRecord;
+    uint16_t continuation;  /* where the End token jumps back to */
+    uint16_t state;         /* varies per fixture; meaning open */
+} TILoopOpsRecord;
 #pragma pack(pop)
 ```
 
-The observed bytes use this order:
+A shadow-memory replay of the headless trace records the loop state for a
+program that runs `For(θ,1,3)`, `While θ<3`, and `Repeat θ≥2` in sequence. The
+reproduction macro is `tools/macros/run-loops-typed.macro`.
 
-| Offset | First `End` | Later `End` visits | Role |
-|--------|-------------|--------------------|------|
-| `+0` | `00h` | `00h` | `sentinel` consumed by `parse_end_ops_record` |
-| `+1..+2` | `36 58` | `7D 58` | `continuation`: `for_first_update` (`38:5836`) or `for_steady_update` (`38:587D`) |
-| `+3..+4` | `12 00` | `12 00` | Stable state word `0012h` |
+| Loop | Record at `End` | Continuation | State |
+|------|-----------------|--------------|-------|
+| `For(` first `End` | `00 36 58 07 00` | `for_first_update` (`38:5836`) | `0007h` |
+| `For(` later `End`s | `00 7D 58 07 00` | `for_steady_update` (`38:587D`) | `0007h` |
+| `Repeat` `End` | `00 E7 57 23 00` | `38:57E7` | `0023h` |
+
+The continuation field selects the loop mechanics. Observed state words include
+`0012h` and `0007h`, so the field is not a fixed constant; its exact role is
+still open. [confirmed]
+
+`While` and `Repeat` push their records in a parse-time form with continuation
+`38:5AC1`. Three observed pushes carry marker bytes `F0 58`, `11 58`, and
+`2A 58`. The first condition evaluation rewrites the record to the runtime form
+above. That evaluation runs through
+`38:41CC` or `38:41D9` — each guards with `CALL 7203`, calls `71B4`, pops the
+saved value into `HL`, and jumps to `38:57A8` or `38:57E1` respectively;
+`38:57E1` sits immediately before the `Repeat` continuation `38:57E7`.
+[confirmed]
+
+A single trace does not establish which loop re-enters through
+`parse_end_ops_record` on each iteration and which jumps directly from its
+continuation. [hypothesis]
 
 ```mermaid
 flowchart LR

@@ -1,0 +1,94 @@
+# Create prgmOO (9->theta) and prgmPP (prgmOO; theta+1->theta), then run PP.
+# The callee transition into the page-38 program-body evaluator (38:6914)
+# happens when PP invokes OO - traced to snapshot the live parser frame.
+#
+#   $TILEM --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
+#     --macro tools/macros/run-callsub-typed.macro \
+#     --trace /tmp/callsub2.trace --trace-range all
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+wait 0.5s
+# --- program OO: 9->theta ---
+key PRGM
+wait 0.8s
+key RIGHT
+wait 0.4s
+key RIGHT
+wait 0.8s
+key ENTER
+wait 2.5s
+key 8
+wait 0.3s
+key 8
+wait 0.4s
+key ENTER
+wait 3s
+key 9
+key STORE
+key ALPHA
+key 3
+wait 0.4s
+key ENTER
+wait 0.6s
+key 2ND
+key MODE
+wait 1.2s
+# --- program PP: prgmOO ; theta+1->theta ---
+key PRGM
+wait 0.8s
+key RIGHT
+wait 0.4s
+key RIGHT
+wait 0.8s
+key ENTER
+wait 2.5s
+key 7
+wait 0.3s
+key 7
+wait 0.4s
+key ENTER
+wait 3s
+# insert prgmOO from the editor's PRGM EXEC tab
+key PRGM
+wait 0.8s
+key RIGHT
+wait 0.4s
+key RIGHT
+wait 0.6s
+key DOWN
+wait 0.4s
+key ENTER
+wait 0.8s
+key ENTER
+wait 0.6s
+# second line: theta+1->theta
+key ALPHA
+key 3
+key ADD
+key 1
+key STORE
+key ALPHA
+key 3
+wait 0.4s
+key ENTER
+wait 0.6s
+key 2ND
+key MODE
+wait 1.2s
+# --- run prgmPP ---
+key CLEAR
+wait 0.4s
+key PRGM
+wait 1s
+key ENTER
+wait 1s
+key ENTER
+wait 6s
+memdump /tmp/callsub2-final.ram ram-logical
+screenshot /tmp/callsub2.png

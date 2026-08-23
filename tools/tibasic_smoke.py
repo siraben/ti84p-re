@@ -18,10 +18,9 @@ from hardware_debug import MemoryExpectation, MemoryMismatch, check_memory_expec
 ROOT = Path(__file__).resolve().parents[1]
 SAMPLES = ROOT / "tools" / "tibasic-samples"
 DEFAULT_MACRO = ROOT / "tools" / "macros" / "run-first-program.macro"
-FACTORIAL_MACRO = ROOT / "tools" / "macros" / "run-first-program-factorial5.macro"
-MD5_MACRO = ROOT / "tools" / "macros" / "run-first-program-md5.macro"
-GCFLASH_MACRO = ROOT / "tools" / "macros" / "run-first-program-gcflash.macro"
-BRANCH_STATE_MACRO = ROOT / "tools" / "macros" / "run-first-program-branch-state.macro"
+# Legacy macros in tools/macros/run-first-program*.macro relied on positional
+# .8xp arguments, which the current tilem-headless build ignores; cases now
+# generate loadvar-based macros instead (see generate_loadvar_macro).
 NAMES = ROOT / "tools" / "names.txt"
 TRACE_RESOLVE = ROOT / "tools" / "tilem_trace_resolve.py"
 DEFAULT_ROM = ROOT / "tools" / "rom.bin"
@@ -40,12 +39,20 @@ class Case:
     programs: tuple[str, ...]
     expected: str
     anchors: tuple[str, ...]
-    macro: Path = DEFAULT_MACRO
+    macro: Path | None = DEFAULT_MACRO
     min_dark_pixels: int = 0
     min_changed_pixels: int = 0
     min_distinct_frames: int = 0
     visual_regions: tuple[VisualRegion, ...] = ()
     memory_expectations: tuple[MemoryExpectation, ...] = ()
+    # When set (the default), ignore `macro` and generate a macro that loads
+    # every fixture through the LINK->RECEIVE `loadvar` transfer command (the
+    # current tilem-headless build ignores positional .8xp arguments), then
+    # runs the alphabetically-first program via PRGM > EXEC.
+    use_loadvar: bool = True
+    # Raw macro lines inserted after PRGM EXEC starts (program input keys,
+    # delayed prompts, extra waits). Each line is responsible for its own waits.
+    exec_lines: tuple[str, ...] = ()
 
 
 GRAPH_TOPOLOGY_REGIONS = (
@@ -64,6 +71,8 @@ CASES: dict[str, Case] = {
         ("HELLO.8xp",),
         "HELLO, WORLD; Done",
         ("eval_stmt_entry", "_Disp"),
+        macro=None,
+        use_loadvar=True,
         visual_regions=(
             VisualRegion("HELLO line", "75x9+0+0", 120),
             VisualRegion("Done marker", "28x9+66+10", 30),
@@ -73,7 +82,10 @@ CASES: dict[str, Case] = {
         ("FACTOR.8xp",),
         "N=5; 120; Done",
         ("eval_stmt_entry", "_FPMult", "_Disp"),
-        FACTORIAL_MACRO,
+        macro=None,
+        use_loadvar=True,
+        # answer FACTOR's N? prompt with 5
+        exec_lines=("wait 1s", "key 5", "key ENTER"),
         visual_regions=(
             VisualRegion("prompt echo", "28x9+0+10", 20),
             VisualRegion("result 120", "20x9+76+16", 5),
@@ -102,7 +114,9 @@ CASES: dict[str, Case] = {
             "page_3C:7e0d",
             "page_3F:4c2a",
         ),
-        GCFLASH_MACRO,
+        macro=None,
+        # accept the GarbageCollect confirmation prompt
+        exec_lines=("wait 9s", "key 2", "key ENTER"),
     ),
     "asmcall": Case(
         ("ASMCALL.8xp", "ASMRET.8xp"),
@@ -118,7 +132,7 @@ CASES: dict[str, Case] = {
         ("ASMMD5.8xp", "MD5TEST.8xp"),
         "BEFORE; MD5 DONE; Done; MD5Hash contains MD5(\"abc\")",
         ("_MD5Init", "_MD5Update", "_MD5Final", "md5_assist_step"),
-        MD5_MACRO,
+        macro=None,  # memdump for MD5Hash is emitted automatically
         visual_regions=(
             VisualRegion("BEFORE line", "36x9+0+9", 25),
             VisualRegion("MD5 DONE line", "48x9+0+18", 50),
@@ -292,7 +306,7 @@ CASES: dict[str, Case] = {
         ("BRANCHES.8xp", "ZPASS.8xp"),
         "BRANCH; Done",
         ("blockmatch_end_else", "parse_scan_tokens", "_Disp"),
-        BRANCH_STATE_MACRO,
+        macro=None,  # memdump emitted automatically from memory_expectations
         memory_expectations=(
             MemoryExpectation(
                 "selected Else-body marker",
@@ -306,7 +320,7 @@ CASES: dict[str, Case] = {
         ("FORPAREN.8xp", "ZMARK.8xp", "ZPASS.8xp"),
         "I reaches 26 and sets a RAM marker",
         ("ram:9d95",),
-        BRANCH_STATE_MACRO,
+        macro=None,  # memdump emitted automatically from memory_expectations
         memory_expectations=(
             MemoryExpectation(
                 "For( explicit-close completion marker",
@@ -320,7 +334,7 @@ CASES: dict[str, Case] = {
         ("FORIMPL.8xp", "ZMARK.8xp", "ZPASS.8xp"),
         "I reaches 26 and sets a RAM marker",
         ("ram:9d95",),
-        BRANCH_STATE_MACRO,
+        macro=None,  # memdump emitted automatically from memory_expectations
         memory_expectations=(
             MemoryExpectation(
                 "For( implicit-close completion marker",
@@ -463,10 +477,64 @@ CASES: dict[str, Case] = {
 }
 
 
-def run(cmd: list[str], *, cwd: Path, stdout: Path | None = None) -> str:
-    print("+", " ".join(cmd))
+def generate_loadvar_macro(dest: Path, programs: tuple[str, ...], exec_lines: tuple[str, ...] = ()) -> Path:
+    """Write a macro that transfers fixtures via `loadvar` and runs the first
+    PRGM > EXEC entry (fixtures sort so the driver program is first), then any
+    per-case exec lines (input keys / delayed prompts)."""
+    lines = [
+        "# Generated by tibasic_smoke.py: load fixtures via LINK->RECEIVE",
+        "# loadvar transfer, then run the first EXEC-list program.",
+        "set key_hold 0.18s",
+        "set key_delay 0.3s",
+        "wait 4s",
+        "key ON",
+        "wait 3s",
+        "key ENTER",
+        "wait 1.6s",
+        "key CLEAR",
+    ]
+    for program in programs:
+        fixture = SAMPLES / program
+        if not fixture.exists():
+            raise SystemExit(f"fixture not found: {fixture}")
+        lines += [
+            "key 2ND",
+            "wait 0.5s",
+            "key GRAPHVAR",
+            "wait 1.4s",
+            "key RIGHT",
+            "wait 0.8s",
+            "key ENTER",
+            "wait 2s",
+            f"loadvar {fixture}",
+            "wait 1s",
+            "key CLEAR",
+        ]
+    lines += [
+        "wait 0.5s",
+        "key PRGM",
+        "wait 1s",
+        "key ENTER",
+        "wait 0.8s",
+        "key ENTER",
+    ]
+    lines.extend(exec_lines)
+    lines.append("wait 8s")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return dest
+
+
+def run(
+    cmd: list[str], *, cwd: Path, stdout: Path | None = None,
+    timeout: float | None = None,
+) -> str:
+    print("+", " ".join(cmd), flush=True)
     if stdout is None:
-        completed = subprocess.run(cmd, cwd=cwd, check=True, text=True, capture_output=True)
+        completed = subprocess.run(
+            cmd, cwd=cwd, check=True, text=True, capture_output=True,
+            timeout=timeout,
+        )
         if completed.stdout:
             print(completed.stdout, end="")
         if completed.stderr:
@@ -474,7 +542,7 @@ def run(cmd: list[str], *, cwd: Path, stdout: Path | None = None) -> str:
         return completed.stdout
 
     with stdout.open("w", encoding="utf-8") as f:
-        subprocess.run(cmd, cwd=cwd, check=True, stdout=f)
+        subprocess.run(cmd, cwd=cwd, check=True, stdout=f, timeout=timeout)
     return ""
 
 
@@ -574,7 +642,10 @@ def count_distinct_frames(gif: Path) -> int:
     return len({line.strip() for line in completed.stdout.splitlines() if line.strip()})
 
 
-def run_case(name: str, case: Case, tilem: Path, rom: Path, out_dir: Path, keep_trace: bool) -> None:
+def run_case(
+    name: str, case: Case, tilem: Path, rom: Path, out_dir: Path,
+    keep_trace: bool, emulator_timeout: float | None,
+) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     trace = out_dir / f"{name}.trace"
     gif = out_dir / f"{name}.gif"
@@ -591,26 +662,54 @@ def run_case(name: str, case: Case, tilem: Path, rom: Path, out_dir: Path, keep_
         or case.min_distinct_frames
         or case.visual_regions
     )
-    cmd = [
-        str(tilem),
-        "--headless",
-        "--rom",
-        str(rom),
-        "--model",
-        "ti84p",
-        "--normal-speed",
-        "--reset",
-        "--macro",
-        str(case.macro),
-        "--trace",
-        str(trace),
-        "--trace-range",
-        "all",
-    ]
-    if needs_visual:
-        cmd.extend(["--headless-record", str(gif)])
-    cmd.extend(str(SAMPLES / program) for program in case.programs)
-    run(cmd, cwd=ROOT)
+    if case.use_loadvar:
+        exec_lines = list(case.exec_lines)
+        for expectation in case.memory_expectations:
+            exec_lines.append(f"memdump {expectation.dump} ram-logical")
+        macro = generate_loadvar_macro(out_dir / f"{name}.macro", case.programs, tuple(exec_lines))
+        cmd = [
+            str(tilem),
+            "--headless",
+            "--rom",
+            str(rom),
+            "--model",
+            "ti84p",
+            "--normal-speed",
+            "--reset",
+            "--macro",
+            str(macro),
+            "--trace",
+            str(trace),
+            "--trace-range",
+            "all",
+        ]
+        if needs_visual:
+            cmd.extend(["--headless-record", str(gif)])
+        run(cmd, cwd=ROOT, timeout=emulator_timeout)
+    else:
+        cmd = [
+            str(tilem),
+            "--headless",
+            "--rom",
+            str(rom),
+            "--model",
+            "ti84p",
+            "--normal-speed",
+            "--reset",
+            "--macro",
+            str(case.macro),
+            "--trace",
+            str(trace),
+            "--trace-range",
+            "all",
+        ]
+        if needs_visual:
+            cmd.extend(["--headless-record", str(gif)])
+        # Positional .8xp arguments are ignored by the current tilem-headless
+        # build; legacy macros relied on them. Keep passing them for older
+        # builds that still honor the loading path.
+        cmd.extend(str(SAMPLES / program) for program in case.programs)
+        run(cmd, cwd=ROOT, timeout=emulator_timeout)
 
     for expectation in case.memory_expectations:
         try:
@@ -685,6 +784,10 @@ def main() -> None:
     parser.add_argument("--case", action="append", choices=sorted(CASES), help="case to run; repeatable")
     parser.add_argument("--list", action="store_true", help="list cases and exit")
     parser.add_argument("--keep-trace", action="store_true", help="keep large binary trace files")
+    parser.add_argument(
+        "--emulator-timeout", type=float, default=300.0,
+        help="wall-clock timeout per TilEm case in seconds; 0 disables it",
+    )
     args = parser.parse_args()
 
     if args.list:
@@ -694,9 +797,18 @@ def main() -> None:
 
     tilem = require_tilem(args.tilem or os.environ.get("TILEM"))
     rom = require_path(args.rom or os.environ.get("TI84_ROM") or DEFAULT_ROM, "ROM image")
+    emulator_timeout = args.emulator_timeout or None
     selected = args.case or list(CASES)
     for name in selected:
-        run_case(name, CASES[name], tilem, rom, args.out_dir, args.keep_trace)
+        try:
+            run_case(
+                name, CASES[name], tilem, rom, args.out_dir, args.keep_trace,
+                emulator_timeout,
+            )
+        except subprocess.TimeoutExpired as error:
+            raise SystemExit(
+                f"{name}: TilEm exceeded the {args.emulator_timeout:g}s timeout"
+            ) from error
 
 
 if __name__ == "__main__":

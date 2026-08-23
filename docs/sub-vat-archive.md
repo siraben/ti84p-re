@@ -96,9 +96,9 @@ page byte selects the Flash page; the VAT record itself always stays in RAM.
 
 ---
 
-## Store and recall [standard]
+## Store and recall [confirmed]
 
-**Store** `_StoOther` (`38:62A9`) and siblings (`_StoAns`, `_StoX`, `_StoY`, … `38:6251-62A3`):
+**Store.** `_StoOther` (`38:62A9`) and siblings (`_StoAns`, `_StoX`, `_StoY`, … `38:6251-62A3`):
 - Set OP1 type = 0xFF placeholder (`62A9: LD A,FF / LD (8478),A`), parse the destination name.
 - `5F45` resolves/creates the target symbol; then it copies the value. It dispatches on the
   destination name token (`849B`): list-element store (`0x2A` → bounds-checks via `_ErrDimension`),
@@ -106,16 +106,23 @@ page byte selects the Flash page; the VAT record itself always stays in RAM.
 - A store into an archived var is not done in place; the OS unarchives first (you cannot rewrite
   Flash in place); see the [`_Arc_Unarc` direction logic](#archive-and-unarchive-confirmed). [hypothesis]
 
-**Recall** `_RclVarSym` (`38:67B1`) and `rcl_var_push` (`3A:5D07`):
-- `_RclVarSym` calls `RST 10h` (`17A6`, a `_FindSym`+error-check wrapper: `RST 10h; JP C,271D`), then checks the name token (`8479`). For a list
+**Recall.** `_RclVarSym` (`38:67B1`) and `rcl_var_push` (`3A:5D07`):
+- `_RclVarSym` calls the wrapper at `00:17A6`. It runs `_FindSym`, raises
+  `ERR:UNDEFINED` on a miss, then tests the returned page byte `B`; a nonzero
+  page jumps through `00:2779` to `ERR:ARCHIVED`. It then checks the name token
+  at `ram:8479`. For a list
   recall (`63`/`2A`) it sizes the data with `_DataSize` (`00:1485`) and copies it into a work buffer
-  (`91E0`), using `_LdHLind` and cross-page helpers; ends `JP _OP4ToOP1`.
+  at `ram:91E0`, using `_LdHLind` and cross-page helpers; it ends with
+  `JP _OP4ToOP1`.
 - `_DataSize` (`00:1485`): returns the variable's data byte-count in DE from the type byte — real=9,
   list/cplx-list read the `word count` header, matrix uses cols×rows, and named types
   (`0x15` AppVar, `0x16`, `0x17` Group) read the leading `word size`.
-- The recall code does not care whether the source is RAM or Flash for *reading* — Flash is
-  memory-mapped read-only into the 0x4000 window. To *use* an archived program/var that must be
-  modified or executed in RAM, the OS first copies it via [`_FlashToRam`](#reading-archived-data-with-_flashtoram-confirmed). [standard]
+- Flash is memory-mapped read-only in the `0x4000` window, but this recall
+  wrapper rejects a Flash-backed symbol before reading its data. The same page
+  check is visible when invoking an archived TI-BASIC program, as described in
+  [archived-target receipt](#resolved-behavior-and-open-items). Explicit copy
+  primitives such as [`_FlashToRam`](#reading-archived-data-with-_flashtoram-confirmed)
+  remain available to callers that intentionally handle Flash-backed data.
 
 ---
 
@@ -209,9 +216,11 @@ the copier (6761..678A):
    IN A,(6) saved ; OUT (6),A     ; bank A = the source Flash page into 0x4000 window
    loop LDI:  BIT 7,H → at 0x8000 wrap: IN A,(6); INC A; OUT (6),A; LD HL,0x4000  ; next page
 ```
-Port `6` is the bank-A page-select; the read code itself runs from `ramCode (0x8100)`. This is how
-an archived program/appvar is pulled back into RAM to be executed or edited. `ti83plus.inc` also
-names a sibling `_FlashToRam2` (id 8054); the retail boot table maps it to `3F:4888`.
+Port `6` is the bank-A page-select; the read code itself runs from `ramCode`
+at `ram:8100`. This is an explicit Flash-to-RAM byte-copy primitive, not proof
+that ordinary TI-BASIC recall or program execution invokes it automatically.
+`ti83plus.inc` also names a sibling `_FlashToRam2` (id `8054h`); the retail boot
+table maps it to `3F:4888`.
 
 ---
 
@@ -727,16 +736,56 @@ Ports: `0x06` = bank-A page select (Flash window), `0x14` = Flash write/erase co
 - **Hardware Flash path.** [confirmed] `archive_write_record` at `3D:64AA` invokes `_WriteAByte` and `_WriteFlashUnsafe`; the boot worker runs at `0x8100`, issues AMD byte-program commands, polls DQ7/DQ5, and returns success. See [Flash memory](flash-memory.md).
 - **Erase granularity.** [standard] Ordinary sectors are 64 KiB, not one 16 KiB paging unit. The top-boot geometry also has 32, 8, 8, and 16 KiB sectors at physical `0xF0000`–`0xFFFFF`.
 - **Record-status bytes.** [confirmed] The [record-status byte](#record-status-byte-confirmed) uses monotonic bit clearing: `0xFF` erased → `0xFE` in-progress
-  → `0xFC` valid via `flash_op_fe/fd/fb` (`3D:7C97/7C8F/7C93`) AND-masking; `0xF0` deleted is a direct write in the delete/GC path
-  the status byte; `flash_find_nonff` (`3D:7DEA`) treats an all-`0xFF` header as free.
+  → `0xFC` valid via `flash_op_fe/fd/fb` (`3D:7C97`/`3D:7C8F`/`3D:7C93`) AND-masking. The delete and GC paths write `0xF0` directly to the status byte; `flash_find_nonff` (`3D:7DEA`) treats an all-`0xFF` header as free.
 
 - **Garbage collection.** [confirmed] `archive_gc_collect` at `3C:7733` moves live records in 64 KiB sector units and uses the inactive 8 KiB certificate half as a persistent journal. The ordinary `GCFLASH` trace copies the surviving `B` record from the page-`08` sector to page `0C`, erases the old sector, and rotates the empty scratch sector back to page `08`. TilEm and pinned Wabbitemu cold restarts exercise all six ROM-written journal phases. Five converge byte-for-byte with uninterrupted execution; `0xF0` converges after the uninterrupted result performs deferred `0xE0` cleanup on its next boot. [hypothesis] Physical power loss and cuts inside busy commands remain untested.
-- **Group archive path.** [hypothesis] The path is partially pinned. `_DataSize` (`00:1485`) confirms a Group
-  (type `0x17`, like AppVar `0x15`/`0x16`) carries a leading word-size header, so a group *can* be
-  stored as one Flash blob. In `_Arc_Unarc` the `CP 0x17` → `26E0` reject sits on the B≠0 (in-Flash)
-  branch, immediately before the unarchive worker `61F4` — so an archived group is not unarchived
-  through `61F4`, and groups are handled by a separate routine that walks the group's member list.
-  That member-walk routine remains
-  unidentified in the disassembly — `_Arc_Unarc`'s body past the entry `CALL` is not
-  disassembled here (cross-page `CALL` flagged non-returning), and no group-archive function is
-  named or xref-reachable. Confirming it would need a linear disassembly pass like the one used for [archive and unarchive](#archive-and-unarchive-confirmed).
+- **Group receive path.** [confirmed] The standard link variable-receive loop is
+  the member walk. `_DataSize` (`00:1485`) confirms that a Group (type `0x17`)
+  carries a leading word-size header. `_Arc_Unarc`'s `CP 0x17` → `26E0` reject
+  is on the Flash-backed branch before worker `07:61F4`. Its only bcall site at
+  `38:56E2` is a wrapper gated by the `Archive`/`UnArchive` statement handler at
+  `38:56E8`. That handler checks `tStore` (`5Fh`) and rejects `16h`. Page `07`
+  also contains the group guard cluster: the reject at `07:6266`, type-class
+  checker at `07:62C8`, insertion guards at `07:7338` and `07:739B`, and
+  group-aware VAT walker at `07:73B7`.
+
+  A two-program `.8xg` fixture contains `HELLO` and `FACTOR`. It concatenates
+  standard variable records — a `000Dh` header-length word, 13-byte header,
+  echoed size, and payload — followed by a 16-bit checksum and no end marker.
+  Libtifiles rejects a trailing `80h` byte. A headless TilEm trace compares this
+  fixture with a single-variable `HELLO` baseline:
+
+  - The members land as individual variables. The RAM dump shows `FACTOR` in a
+    VAT record with type byte `05h`, not a `0x17h` Group object. No group blob
+    remains in the final RAM image.
+  - The coverage difference contains no new page-`07` addresses. Neither trace
+    executes the guard cluster at `07:6266`, `07:62C8`, `07:7338`, `07:739B`,
+    and `07:73B7`. Those guards belong to the `Archive`/`UnArchive` statement
+    path, not to receipt.
+  - The trace contains no dedicated receiver-side member walker. The standard
+    variable-receive loop runs once per entry. Its per-member anchors execute
+    once in the single-variable baseline and twice in the two-member trace.
+    These anchors include the post-transfer finalization block at
+    `38:7858`–`38:790F`, the checksum verifier at `3C:6356`, and the
+    receive-and-store sequence at `3C:6994`. The finalization block resets
+    flags, performs `_ChkFindSym`-adjacent stores, and reloads VAT pointers from
+    `ram:96EE`–`ram:96F0` into `ram:8588`–`ram:858B`. The receive-and-store
+    sequence is documented in
+    [Link transfer](sub-link-transfer.md). The `.8xg` framing exists only in the
+    file and sender. On the wire, each member is an independently framed
+    variable transfer. The receiver's existing loop until end of transfer is
+    the member walk.
+
+  A second fixture contains archive-flagged `HELLO` followed by ordinary
+  `FACTOR`; the complete link transfer succeeds. In the final VAT, `HELLO` has
+  page `08`, data address
+  `0x4001`, and type `05h`, while `FACTOR` has page `00` and type `05h`. The
+  **PRGM** menu marks only `HELLO` as archived. This confirms that the receiver
+  honors each member's `80h` attribute independently and still creates no
+  type-`17h` object. [confirmed]
+
+  Invoking that archived `HELLO` reaches `ERR:ARCHIVED`. A bounded dynamic trace
+  records `00:179D`–`00:17A1` with `B=08`, followed by `JP NZ,00:2779`.
+  The target loads error code `0xAF` (`E_Archived`) and enters `_JError` at
+  `00:2793`. The observed path does not call `_FlashToRam` automatically.
+  [confirmed]
