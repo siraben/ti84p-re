@@ -144,6 +144,28 @@ def asm_payload(machine_hex: str) -> tuple[str, list[int]]:
     )
 
 
+def asm_to_basic_transplant() -> tuple[str, list[int]]:
+    """Build the ZZRUN private evaluator-entry experiment for prgmOO."""
+    user_mem = 0x9D95
+    payload = bytearray.fromhex(
+        "210000117884010900EDB0EFF142D86B624E234623E5225B96225D9609225F96"
+        "3E01326196217884115296010900EDB03E38D306CD10693E81D306EF5845"
+    )
+
+    ok_pointer_offset = len(payload) + 1
+    payload.extend(bytes.fromhex("210000EF0A45C9"))
+    ok_offset = len(payload)
+    payload.extend(b"OK\0")
+    target_offset = len(payload)
+    payload.extend(bytes([0x05, *b"OO", 0, 0, 0, 0, 0, 0]))
+
+    payload[1:3] = (user_mem + target_offset).to_bytes(2, "little")
+    payload[ok_pointer_offset:ok_pointer_offset + 2] = (
+        user_mem + ok_offset
+    ).to_bytes(2, "little")
+    return asm_payload(payload.hex().upper())
+
+
 def asm_wrapper(program: str) -> tuple[str, list[int]]:
     return (
         f'Asm(prgm{program})\nDisp "RETURN"',
@@ -328,6 +350,20 @@ SAMPLES: dict[str, tuple[str, list[int]]] = {
             T["disp"], *string_literal("BEFORE"), T["enter"],
             T["2byte"], T["asm"], T["prog"], T["Z"], T["Z"], T["F"], T["O"], T["R"], T["M"], T["rparen"], T["enter"],
             T["disp"], *string_literal("AFTER"), T["enter"],
+        ],
+    ),
+    "ootarget": (
+        'Disp "SUB"',
+        [
+            T["disp"], *string_literal("SUB"), T["enter"],
+        ],
+    ),
+    "zzrun": asm_to_basic_transplant(),
+    "zzrunwr": (
+        "Asm(prgmZZRUN)",
+        [
+            T["2byte"], T["asm"], T["prog"], *letters("ZZRUN"),
+            T["rparen"], T["enter"],
         ],
     ),
     "animtext": (
@@ -845,6 +881,9 @@ PROGRAM_NAMES = {
     "asmparse": "ASMPARSE",
     "zzformula": "ZZFORM",
     "asmformula": "ASMFORM",
+    "ootarget": "OO",
+    "zzrun": "ZZRUN",
+    "zzrunwr": "ZZRUNWR",
     "animtext": "ANIMTXT",
     "graphviz": "GRAPHV",
     "graphdfs": "GRAPHDFS",

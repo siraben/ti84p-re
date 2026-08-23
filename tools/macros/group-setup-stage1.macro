@@ -1,0 +1,78 @@
+# Stage 1: create two tiny programs (77, 88) and open the MEMORY menu,
+# capturing a screenshot so the GROUP entry point can be located.
+#
+#   $TILEM --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
+#     --macro tools/macros/group-setup-stage1.macro \
+#     --headless-record /tmp/group1.gif
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+wait 0.5s
+# --- program 77 ---
+key PRGM
+wait 0.8s
+key RIGHT
+wait 0.4s
+key RIGHT
+wait 0.8s
+key ENTER
+wait 2.5s
+key 7
+wait 0.3s
+key 7
+wait 0.4s
+key ENTER
+wait 3s
+key 1
+key STORE
+key ALPHA
+key 3
+wait 0.4s
+key ENTER
+wait 0.6s
+key 2ND
+key MODE
+wait 1.2s
+# --- program 88 ---
+key PRGM
+wait 0.8s
+key RIGHT
+wait 0.4s
+key RIGHT
+wait 0.8s
+key ENTER
+wait 2.5s
+key 8
+wait 0.3s
+key 8
+wait 0.4s
+key ENTER
+wait 3s
+key 2
+key STORE
+key ALPHA
+key 3
+wait 0.4s
+key ENTER
+wait 0.6s
+key 2ND
+key MODE
+wait 1.2s
+# --- open MEMORY menu to locate GROUP ---
+key 2ND
+key ADD
+wait 3s
+key DOWN
+wait 0.6s
+key DOWN
+wait 0.6s
+key DOWN
+wait 0.6s
+key DOWN
+wait 1s
+screenshot /tmp/group-menu2.png

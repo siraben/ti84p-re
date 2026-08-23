@@ -480,6 +480,19 @@ compile/copy the `AsmPrgm` body and hand off through `07:57B4`, execute the
 payload byte at `userMem` (`0x9D95`) with opcode `C9h`, and return to BASIC.
 [confirmed]
 
+**Open discrepancy.** The `_ExecutePrgm` setup body at `07:5762` runs
+`_ChkFindSym`, reads the size word, and validates the program body's first two
+bytes against `BB` (`07:576B`) and `6D` (`07:5772`, raw bytes `FE 6D`). A
+mismatch jumps to the BASIC-program path at `07:57D4`. Only the `6D` case
+performs the ASM setup: size sanity against `0x2000`
+(`07:577B`), `_ErrNotEnoughMem` guard, `_InsertMem` to grow `userMem`
+(`07:578D`), size saved to `0x89EC`, `LDIR` of the payload, USB state save
+around port `0x20` on non-TI-84 hardware probes, cleanup handler `0x5800` via
+`ctx_save_switch`, and the jump table entry `07:57FD` → `JP 0x9D95`. The
+working fixtures emit `AsmPrgm` as `BB 6C`, yet their traces reach the payload.
+The remaining gap is whether the upstream `Asm(` handler rewrites the token or
+uses a second entry. [confirmed]
+
 Practical convention: pass data through OS variables or known RAM locations,
 validate inputs on the BASIC side, and make the ASM payload return normally with
 `RET` unless it intentionally transfers control elsewhere.
@@ -555,17 +568,17 @@ hits `userMem`, `_OP1Set2` (`00:1B50`), `_StoAns` (`38:6251`), `_AnsName`,
 | ASM → BASIC callback | ASM stores a signal/result such as `Ans=1`, returns, and the BASIC wrapper conditionally runs `prgmNAME`. | BASIC must own the actual `prgm` call; this is cooperative, not an arbitrary ASM bcall into BASIC. |
 | ASM → BASIC value return | ASM stores a numeric result in `Ans` with `_StoAns`; BASIC resumes and evaluates `Ans`. | This returns data to BASIC, not control into a BASIC program body. |
 | ASM → VAT lookup | `ASMFIND` builds `OP1={ProgObj,"ZZBASIC"}` and bcalls `_ChkFindSym`. | Lookup is not execution; the wrapper returns and `ZZBASIC` does not display `CALLED`. |
-| Direct ASM → BASIC | No working public bcall sequence is proven in this repo. | `ASMPARSE` reaches `_ParseInpLastEnt`/`_ParseInp` and then `ERR:INVALID`; `ASMFORM` reaches `_Find_Parse_Formula` and then `ERR:UNDEFINED`; forced-command/edit-buffer probes did not call the target BASIC program. |
+| Direct ASM → BASIC | No working public bcall sequence is proven in this repo. | `ASMPARSE` reaches `_ParseInpLastEnt`/`_ParseInp` and then `ERR:INVALID`; `ASMFORM` reaches `_Find_Parse_Formula` and then `ERR:UNDEFINED`; `ZZRUN` reaches the private evaluator and then `ERR:SYNTAX`; forced-command/edit-buffer probes did not call the target BASIC program successfully. |
 
 ### ASM to BASIC
 
 Direct ASM-initiated BASIC program execution is not yet run-confirmed in this
-repo. Two easy-looking bcalls are not that entry point:
+repository. Two apparent candidates are not that entry point:
 
 - `_ExecutePrgm` is the `AsmPrgm` executor reached by `Asm(prgmNAME)`, not a
   general "run a BASIC program" entry.
 - `_ExecuteNewPrgm` (`4C3C`, target `00:265F`) is not a drop-in BASIC runner
-  from an arbitrary `AsmPrgm` either. It expects more OS state than just a name
+  from an arbitrary `AsmPrgm` either. It expects OS state beyond a name
   pointer.
 - `_ParsePrgmName` (`4E82`, target `38:40D4`) only consumes a `prgmNAME` token
   from the current parser cursor and builds the name object used by `Asm(`.
@@ -578,6 +591,45 @@ parser/VAT path, enters the program-body evaluator at `38:6914` →
 from arbitrary ASM requires more than loading OP1 and bcalling a single public
 entry; it needs the same parser cursor, stack, error, and run-state setup that a
 live BASIC caller already has. [hypothesis]
+
+A typed two-program trace of `prgmPP` calling `prgmOO` captures the live parser
+frame at each `38:6914` entry through shadow-memory replay. The reproduction
+macro is `tools/macros/run-callsub-typed.macro`.
+
+| Field | Observed value at callee entry |
+|-------|-------------------------------|
+| `basic_prog` (`0x9652`) | `05h`, two encoded name bytes, six zeros |
+| `basic_start` (`0x965B`) | callee body start (first token) |
+| `next_parse_byte` (`0x965D`) | equals start before execution; end when finished |
+| `basic_end` (`0x965F`) | start + body size |
+| state byte (`0x9661`) | `01h` |
+| `FPS` / `OPS` pointers | valid live pointers (`0x9E94` / `0xFCB1` on one entry) |
+| gate bits | `BIT 0,(IY+28h)` and `BIT 7,(IY+48h)` are both zero (`IY=0x89F0`; bytes at `0x8A18` and `0x8A38`) |
+
+Both gate bits read zero in the working path. The private callee transition at
+`38:6910` executes `XOR A ; CALL 6A15` before entering the evaluator. These
+observations suggest that an ASM payload must locate the target through
+`_ChkFindSym` into OP1, copy the name header to `0x9652`, point
+`start`/`cursor` at `_ChkFindSym`'s data pointer plus two (past the size word),
+set `end` = start + size, store `01h` at `0x9661`, ensure the FPS/OPS bounds
+are sane, bank page `38` into port `0x06`, and enter `38:6910`. No identified
+public bcall performs this setup. This proposed hand-built state transplant
+also accounts for the parser-frame failures in the negative probes
+(`ZZFIND`/`ZZFORM`/`ZZPARSE`). [hypothesis]
+
+The generated negative probe consists of `OO.8xp`, `ZZRUN.8xp`, and
+`ZZRUNWR.8xp`. `ZZRUN` is an 81-byte payload targeting `prgmOO`; it returns
+immediately if `_ChkFindSym` sets carry. `ZZRUNWR` contains the one-line
+`Asm(prgmZZRUN)` launcher.
+
+A link-loaded run resolves `OO` through `_ChkFindSym` with `DE=0x9E76`, then
+sets the parser interval to `0x9E78`–`0x9E7F` and enters `38:6910`. The trace
+reaches `38:6914` and `38:778F`, walks the target body, and terminates at
+`_ErrSyntax` (`ram:2700`) with the parser cursor at `0x9E7C`. The final frame
+shows `ERR:SYNTAX`. An otherwise equivalent 80-byte layout without the
+`_ChkFindSym` carry guard instead ended at `_ErrArgument` (`ram:2711`). The
+layout-sensitive error indicates that the copied name and cursor interval do not
+reproduce the native BASIC call frame. [confirmed]
 
 `ASMFIND.8xp` and `ZZFIND.8xp` make the VAT lookup boundary reproducible. The
 wrapper displays `BEFORE`, runs `Asm(prgmZZFIND)`, and displays `AFTER`. The
