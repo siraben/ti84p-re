@@ -1,0 +1,55 @@
+# Evaluate seq(X²,X,1,5) from the home screen via LIST OPS item 5.
+#
+#   $TILEM --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
+#     --macro tools/macros/list-seq-eval.macro \
+#     --trace /tmp/seq.trace --trace-range all
+#
+# seq( inserts with cursor inside the expression slot; X = GRAPHVAR,
+# square = SQUARE key.
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+wait 0.5s
+key 2ND
+key STAT
+wait 1s
+key RIGHT
+wait 0.6s
+key 5
+wait 1.2s
+# expression slot: X^2
+key GRAPHVAR
+key SQUARE
+wait 0.4s
+key ENTER
+wait 0.8s
+# Variable: X
+key GRAPHVAR
+wait 0.4s
+key ENTER
+wait 0.8s
+# start: 1
+key 1
+wait 0.3s
+key ENTER
+wait 0.8s
+# end: 5
+key 5
+wait 0.3s
+key ENTER
+wait 0.8s
+# step: 1
+key 1
+wait 0.3s
+key ENTER
+wait 1s
+key ENTER
+wait 1.5s
+key ENTER
+wait 6s
+screenshot /tmp/seq.png

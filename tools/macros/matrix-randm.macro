@@ -1,0 +1,32 @@
+# Evaluate randM(3,3) from the home screen via the MATRIX MATH menu.
+#
+#   TILEM=~/Git/tilem-headless/result/bin/tilem2
+#   $TILEM --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
+#     --macro tools/macros/matrix-randm.macro \
+#     --headless-record /tmp/randm.gif \
+#     --trace /tmp/randm.trace --trace-range all
+#
+# MATRIX menu tabs: NAMES / MATH / EDIT; item 8 = randM(
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+wait 0.5s
+key 2ND
+key RECIP
+wait 1s
+key RIGHT
+wait 0.6s
+key 6
+wait 1.2s
+key 3
+key COMMA
+key 3
+key RPAREN
+key ENTER
+wait 4s
+screenshot /tmp/randm.png

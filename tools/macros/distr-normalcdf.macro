@@ -1,0 +1,34 @@
+# Evaluate normalcdf(0,1) from the home screen via the DISTR menu.
+#
+#   TILEM=~/Git/tilem-headless/result/bin/tilem2
+#   $TILEM --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
+#     --macro tools/macros/distr-normalcdf.macro \
+#     --headless-record /tmp/normalcdf.gif \
+#     --trace /tmp/normalcdf.trace --trace-range all
+#
+# DISTR menu items: 1:normalpdf  2:normalcdf  3:invNorm  ...
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+wait 0.5s
+key 2ND
+key VARS
+wait 1.2s
+key 2
+wait 1.2s
+key 0
+key ENTER
+wait 1s
+key 1
+key ENTER
+wait 1s
+key ENTER
+wait 1s
+key ENTER
+wait 4s
+screenshot /tmp/normalcdf.png
