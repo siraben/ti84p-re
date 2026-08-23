@@ -42,13 +42,14 @@
           src = ./.;
           nativeBuildInputs = [
             pkgs.mdbook pkgs.mdbook-mermaid pkgs.bash pkgs.python3 pkgs.katex
-            pkgs.nodejs pkgs.z3
+            pkgs.nodejs pkgs.z3 z80dasm
           ];
           buildPhase = ''
             mdbook-mermaid install .       # generate mermaid.min.js + mermaid-init.js
             ${setupAssets}                  # vendor KaTeX (css/js/fonts)
             mdbook build --dest-dir $out
             cp -r web/mathprint $out/mathprint   # standalone renderer, outside the book
+            cp -r web/graphing $out/graphing     # standalone graph pipeline demo
             python3 tools/cachebust-mathprint.py $out/mathprint
             python3 tools/check-mdbook-output.py $out
             python3 tools/check-katex-output.py $out
@@ -60,6 +61,11 @@
             python3 tools/test_mathprint_saturation.py
             PYTHONPATH=tools python3 tools/test_analyze_retail_boot.py
             PYTHONPATH=tools python3 tools/test_bcall_tables.py
+            node tools/test-graph-coordinate.js
+            node tools/test-graphing-demo.js
+            python3 tools/test_analyze_graph_regraph.py
+            PYTHONPATH=tools python3 tools/test_graph_circle.py
+            PYTHONPATH=tools python3 tools/test_fixture_tools.py
             python3 tools/test_wiki_style.py
             python3 tools/test_symbol_tables.py
             PYTHONPATH=tools python3 -m unittest \
