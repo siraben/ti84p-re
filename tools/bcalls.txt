@@ -9,6 +9,7 @@
 4030	_newContext
 4039	_PutAway
 404B	_AppInit
+4051	_lcd_busy
 4054	_Min
 4057	_Max
 405A	_AbsO1PAbsO2
@@ -394,7 +395,9 @@
 48C1	_DrawCmd
 48C7	_InvCmd
 48D3	_CloseEditBuf
+4909	_BufInsert
 492D	_IsEditEmpty
+4936	_BufClear
 4960	_PutTokString
 496C	_CloseEditEqu
 4972	_GetKey
@@ -531,6 +534,7 @@
 4FD8	_Arc_Unarc
 5002	_JForceGraphNoKey
 5005	_JForceGraphKey
+500B	_GetKeyRetOff
 5011	_FillBasePageTable
 5014	_ArcChk
 5017	_FlashToRam
@@ -551,6 +555,7 @@
 50C8	_UngroupVar
 50CE	_SetSilentLinkHook
 50DD	_GetSysInfo
+50E0	_NZIf83Plus
 
 4639	rcl_list_elem_to_op1
 463C	rcl_list_elem_b

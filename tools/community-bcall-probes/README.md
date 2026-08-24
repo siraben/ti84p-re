@@ -29,3 +29,64 @@ nix develop -c python3 \
 The checked result is in `tools/data/community-custom-error.csv`. The raw trace
 and ROM remain outside Git; their SHA-256 identities bind the compact result to
 those artifacts.
+
+The symbolic-equate audit adds a return-path fixture for `_lcd_busy`,
+`_BufClear`, `_BufInsert`, and `_NZIf83Plus`. It uses `_BufClear` and
+`_BufInsert` only with the home-screen edit-buffer state established by direct
+`Asm(` launch. Build and capture it with the accepted patched TilEm binary:
+
+```sh
+fixture_dir=$(mktemp -d /tmp/community-manual-bcalls.XXXXXX)
+nix develop -c spasm \
+  tools/community-bcall-probes/manual-valid.asm \
+  "$fixture_dir/manual-valid.bin"
+nix develop -c python3 tools/community-bcall-probes/build_manual.py \
+  "$fixture_dir/manual-valid.bin" "$fixture_dir"
+
+"$TILEM" --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
+  --macro tools/community-bcall-probes/manual-valid.macro \
+  --trace /tmp/community-manual-bcalls.trace --trace-range all \
+  "$fixture_dir/AMANUAL.8xp" "$fixture_dir/MANBCALL.8xp"
+
+nix develop -c python3 tools/community-bcall-probes/analyze_manual.py \
+  /tmp/community-manual-bcalls.trace /tmp/community-manual-bcalls.ram \
+  --rom tools/rom.bin --emulator "$TILEM" \
+  --payload "$fixture_dir/MANBCALL.8xp" \
+  --wrapper "$fixture_dir/AMANUAL.8xp" \
+  --output tools/data/community-manual-bcall-traces.csv
+```
+
+The analyzer requires one visit to each fixture-local `rst 28h` site, the
+resolved OS targets, and the final return marker. The full symbolic-source
+classification, including inactive target-platform branches, is in
+`tools/data/community-symbolic-bcall-triage.csv`.
+
+The Cool release supplies the negative case. Build `ACOOL = Asm(prgmCOOL)`,
+then capture and reduce the packaged calculator program:
+
+```sh
+nix develop -c python3 tools/build_asm_wrapper.py \
+  COOL /tmp/ACOOL.8xp --wrapper-name ACOOL
+
+"$TILEM" --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
+  --macro tools/community-bcall-probes/cool-invalid.macro \
+  --trace /tmp/community-cool-invalid.trace --trace-range all \
+  --headless-record /tmp/community-cool-invalid.gif \
+  /tmp/ACOOL.8xp "$ARCHIVE/extracted/graphics/cool.zip.contents/cool.8xp"
+
+nix develop -c python3 \
+  tools/community-bcall-probes/analyze_cool_invalid.py \
+  /tmp/community-cool-invalid.trace --rom tools/rom.bin \
+  --emulator "$TILEM" \
+  --archive "$ARCHIVE/mirror/pub/83plus/asm/graphics/cool.zip" \
+  --source "$ARCHIVE/extracted/graphics/cool.zip.contents/cool.asm" \
+  --program "$ARCHIVE/extracted/graphics/cool.zip.contents/cool.8xp" \
+  --wrapper /tmp/ACOOL.8xp \
+  --macro tools/community-bcall-probes/cool-invalid.macro \
+  --recording /tmp/community-cool-invalid.gif \
+  --output /tmp/community-cool-invalid.csv
+```
+
+The checked reduction is `tools/data/community-invalid-bcall-traces.csv`.
+It validates the release bytes and overlapping ROM-table bytes before accepting
+the dynamic path.

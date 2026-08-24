@@ -92,8 +92,10 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_ATanRad` | `40D5` | `02:76CF` |
 | `_BinOPExec` | `4663` | `02:53DD` |
 | `_Bit_VertSplit` | `4FA8` | `00:215D` |
+| `_BufClear` | `4936` | `00:222E` |
 | `_BufClr` | `5074` | `04:6074` |
 | `_BufCpy` | `5071` | `04:60A6` |
+| `_BufInsert` | `4909` | `06:42E5` |
 | `_CAbs` | `4E97` | `02:6C47` |
 | `_CAdd` | `4E88` | `02:6BA5` |
 | `_CanAlphIns` | `4C69` | `00:04C6` |
@@ -349,6 +351,7 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_getDtStr` | `5158` | `37:55A9` |
 | `_GetK` | `4744` | `37:746D` |
 | `_GetKey` | `4972` | `06:491E` |
+| `_GetKeyRetOff` | `500B` | `06:491A` |
 | `_GetLToOP1` | `4636` | `02:47EA` |
 | `_GetMToOP1` | `4615` | `02:4044` |
 | `_GetStringInput2` | `4E61` | `37:5194` |
@@ -421,6 +424,7 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_Mov9ToOP2` | `4180` | `00:1B07` |
 | `_MovFrOP1` | `4183` | `00:1B0C` |
 | `_NewLine` | `452E` | `01:5F4A` |
+| `_NZIf83Plus` | `50E0` | `00:1837` |
 | `_newContext` | `4030` | `00:077E` |
 | `_OneVar` | `4BA3` | `3A:6420` |
 | `_OP1ExOP2` | `421F` | `00:1DD2` |
@@ -644,6 +648,7 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_ZmTrig` | `4861` | `36:7B36` |
 | `_ZmUsr` | `4855` | `04:601D` |
 | `_ZooDefault` | `4867` | `36:7BF9` |
+| `_lcd_busy` | `4051` | `00:0CC3` |
 
 ## Community numeric-use audit
 
@@ -679,6 +684,62 @@ three-byte entries on ROM page `0x3B` resolves every target: [confirmed]
 The table entry proves the body address, not the community comment's ABI or
 the result under every OS state. Runtime observations therefore remain separate
 from these ROM-resolved rows.
+
+### Archive-local symbolic equates
+
+The scanner's `--symbolic` mode resolves an unambiguous equate across each
+extracted archive before classifying its use. Five active IDs add valid OS
+2.55MP table rows: [confirmed]
+
+| ID | Name | Body | Active community use |
+|---:|---|---|---|
+| `4051` | `_lcd_busy` | `00:0CC3` | Letter waits before writing an LCD control byte. |
+| `4909` | `_BufInsert` | `06:42E5` | Plasma inserts `Asm` and program-name tokens into the edit buffer. |
+| `4936` | `_BufClear` | `00:222E` | Plasma clears the edit buffer before inserting a launch command. |
+| `500B` | `_GetKeyRetOff` | `06:491A` | Balltrix, Nukewar, and CalClock request the **ON** return code. |
+| `50E0` | `_NZIf83Plus` | `00:1837` | ZMegaMan branches on the calculator model before masking a Flash page. |
+
+A source-built trace calls `4051`, `4936`, `4909`, `4936`, and `50E0` from
+`ram:9D9F`, `ram:9DA7`, `ram:9DB2`, `ram:9DBA`, and `ram:9DC4`. Each call site
+executes once and reaches its resolved body. `50E0` preserves `A = 0xA5` and
+returns Z on the TI-84 Plus. PRGMHIDE separately reaches `500B` in its packaged
+execution trace. `tools/data/community-manual-bcall-traces.csv` pins the ROM,
+emulator, fixture, trace, and snapshot hashes. [confirmed] under TilEm.
+
+The scan also finds one active malformed call. `graphics/cool.zip:cool.asm`
+defines `_copygbuf = 4B9Ch` and emits `EF 9C 4B`; the packaged `cool.8xp`
+contains the same bytes. `4B9Ch` is not aligned to a three-byte main-table
+entry. Page `0x3B` supplies overlapping bytes `7A EF 5E`, which requests
+logical address `0xEF7A` instead of a valid body. The TI-83 Plus `_GrBufCpy`
+ID is `486Ah`, with body `04:60A3`.
+
+A complete trace of the packaged `cool.8xp` enters at `ram:9D95`, executes the
+malformed call at `ram:9DAF`, and reaches logical `0xEF7A` once. It never
+reaches `_GrBufCpy` at `04:60A3`, `_ExecutePrgm` cleanup at `07:57D1`, or
+`E_Invalid` at `ram:2729`; it later reaches the OS handoff vector at
+`ram:0053`. The final display is blank. This confirms a nonreturning malformed
+dispatch under TilEm, not the physical-calculator failure mode. The trace and
+artifact identities are in `tools/data/community-invalid-bcall-traces.csv`.
+[confirmed] under TilEm; physical behavior remains [hypothesis].
+
+The Cool archive SHA-256 is
+`1593afbeb85b831e910793d293963a9af52377bdf8af481300b13d1fa3b346f6`.
+Member `cool.asm` has SHA-256
+`6d05c43420f4514357803fc09221a49252d0147e172a12ebdd12b74aef001998`;
+member `cool.8xp` has SHA-256
+`ef2304ef5a731c1e4eee9f3602c1bd7c9ddb7c85427a037fbc7cecd18af0cd1c`.
+
+Preprocessor triage excludes four target-platform artifacts from the TI-84
+Plus map. Math Pack's `4166h` `_cpop1op2` equate is inside the non-`TI83P`
+branch; its TI-83 Plus build obtains `_CpOP1OP2 = 4111h`. Eliza's `4004h`,
+`477Dh`, and `4014h` values come from `source/ti83asm.INC`, which only its
+`TI83I` branch includes. Lock's `5371h` `_getcsc` is a direct call address in
+the `TI86` branch. None is an active TI-84 Plus bcall. [confirmed] for source
+preprocessor structure.
+
+`tools/data/community-symbolic-bcall-triage.csv` preserves every active row and
+excluded platform case with archive/member hashes, line numbers, and the TI-84
+Plus replacement ID where applicable.
 
 ## Retail boot (`0x8xxx`) bcalls
 
