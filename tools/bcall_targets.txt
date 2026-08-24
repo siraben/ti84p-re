@@ -6,6 +6,7 @@ _DivHLByA	4012	026B	00
 _GetCSC	4018	04B2	00
 _JForceCmdNoChar	4027	0746	00
 _JForceCmd	402A	0747	00
+_newContext	4030	077E	00
 _PutAway	4039	08AF	00
 _AppInit	404B	0936	00
 _Min	4054	2244	00
@@ -130,6 +131,7 @@ _ZeroOP2	41C8	1BB4	00
 _ZeroOP3	41CB	1BB9	00
 _ZeroOP	41CE	1BBC	00
 _ClrLp	41D1	1BC4	00
+_ShRAcc	41D4	1BCB	00
 _OP2ExOP6	4207	1D93	00
 _OP5ExOP6	420A	1D98	00
 _OP1ExOP5	420D	1DA0	00
@@ -346,6 +348,7 @@ _UnOPExec	4672	5E14	02
 _ThreeExec	4675	64ED	02
 _FourExec	467B	6889	02
 _FiveExec	467E	69BC	02
+_GetK	4744	746D	37
 _CloseEditBufNoR	476E	4743	03
 _ReleaseBuffer	4771	47AC	03
 _Load_SFont	4783	4A8F	03
@@ -419,6 +422,7 @@ _FormReal	4999	5ACF	06
 mde_7da9	49DB	7DA9	36
 _CheckSplitFlag	49F0	2060	00
 _SetNorm_Vals	49FC	220F	00
+_ConvKeyToTok	4A02	44DE	07
 _SendVarCmd	4A14	4EDD	3C
 _DelRes	4A20	72F5	07
 _ConvLcToLr	4A23	4CFF	07
@@ -513,6 +517,7 @@ _DrawRectBorderClear	4D8C	692A	3B
 _IBoundsFull	4D98	4306	04
 _DisplayImage	4D9B	6A72	3B
 _CPoint	4DC8	43D8	04
+_GetStringInput2	4E61	5194	37
 _CreateAppVar	4E6A	114B	00
 _CreateProtProg	4E6D	114F	00
 _CSub	4E85	6BA2	02
@@ -535,14 +540,18 @@ _CDivByReal	4EBB	6DAC	02
 _CTrunc	4EBE	6DBD	02
 _CFrac	4EC1	6DCF	02
 _CIntgr	4EC4	6DDD	02
+_SendPacket	4ED6	4139	3C
 _SendAByte	4EE5	420D	3C
 _Rec1stByte	4EFA	439C	3C
 _Rec1stByteNC	4EFD	43A3	3C
 _RecAByteIO	4F03	443F	3C
 _SrchVLstUp	4F0F	707F	07
 _SrchVLstDn	4F12	71D7	07
+_FlashWriteDisable	4F3C	66D5	3C
 _Disp	4F45	51D3	37
 _SetGetKeyHook	4F66	7D00	3B
+_ClrCursorHook	4F69	7AEA	3B
+_ClrRawKeyHook	4F6F	7B88	3B
 _SetTokenHook	4F99	7D0B	3B
 _Bit_VertSplit	4FA8	215D	00
 _DelVarArc	4FC6	12D9	00
@@ -552,11 +561,15 @@ _Arc_Unarc	4FD8	6248	07
 _JForceGraphNoKey	5002	6BFB	01
 _JForceGraphKey	5005	6BFD	01
 _PowerOff	5008	09E6	00
+_FillBasePageTable	5011	2692	00
+_ArcChk	5014	61AF	3D
 _FlashToRam	5017	6745	3D
 _LoadDEIndPaged	501A	6B36	3C
 _LoadCIndPaged	501D	029F	00
 _SetupPagedPtr	5020	17AC	00
 _PagedGet	5023	17BB	00
+_SetParserHook	5026	7D6E	3B
+_ClearParserHook	5029	7C3B	3B
 _DispMenuTitle	5065	4D21	39
 _BufCpy	5071	60A6	04
 _BufClr	5074	6074	04
@@ -565,6 +578,8 @@ _FindAppNumPages	509B	4AA3	3D
 _FormBase	50AA	57C0	06
 _Chk_Batt_Low	50B3	0D07	00
 _SetExSpeed	50BF	0DCA	00
+_UngroupVar	50C8	764A	39
+_SetSilentLinkHook	50CE	7DBB	3B
 _GetSysInfo	50DD	7345	07
 link_xfer_op	50FB	4DD2	3C
 c_log_prep	50FE	6F1B	02
@@ -599,6 +614,7 @@ scr_4056	51F1	4056	05
 grc_60cb	51FA	60CB	37
 grc_5f42	5200	5F42	37
 sta_5d3c	5203	5D3C	35
+_Chk_Batt_Level	5221	4E9B	33
 screen_split	5227	7712	05
 grc_454b	5263	454B	37
 grc_4556	5266	4556	37

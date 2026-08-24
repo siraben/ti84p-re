@@ -6,6 +6,7 @@
 4018	_GetCSC
 4027	_JForceCmdNoChar
 402A	_JForceCmd
+4030	_newContext
 4039	_PutAway
 404B	_AppInit
 4054	_Min
@@ -130,6 +131,7 @@
 41CB	_ZeroOP3
 41CE	_ZeroOP
 41D1	_ClrLp
+41D4	_ShRAcc
 4207	_OP2ExOP6
 420A	_OP5ExOP6
 420D	_OP1ExOP5
@@ -337,6 +339,7 @@
 4675	_ThreeExec
 467B	_FourExec
 467E	_FiveExec
+4744	_GetK
 476E	_CloseEditBufNoR
 4771	_ReleaseBuffer
 4783	_Load_SFont
@@ -401,6 +404,7 @@
 4999	_FormReal
 49F0	_CheckSplitFlag
 49FC	_SetNorm_Vals
+4A02	_ConvKeyToTok
 4A14	_SendVarCmd
 4A20	_DelRes
 4A23	_ConvLcToLr
@@ -484,6 +488,7 @@
 4D98	_IBoundsFull
 4D9B	_DisplayImage
 4DC8	_CPoint
+4E61	_GetStringInput2
 4E6A	_CreateAppVar
 4E6D	_CreateProtProg
 4E85	_CSub
@@ -506,14 +511,18 @@
 4EBE	_CTrunc
 4EC1	_CFrac
 4EC4	_CIntgr
+4ED6	_SendPacket
 4EE5	_SendAByte
 4EFA	_Rec1stByte
 4EFD	_Rec1stByteNC
 4F03	_RecAByteIO
 4F0F	_SrchVLstUp
 4F12	_SrchVLstDn
+4F3C	_FlashWriteDisable
 4F45	_Disp
 4F66	_SetGetKeyHook
+4F69	_ClrCursorHook
+4F6F	_ClrRawKeyHook
 4F99	_SetTokenHook
 4FA8	_Bit_VertSplit
 4FC6	_DelVarArc
@@ -522,11 +531,15 @@
 4FD8	_Arc_Unarc
 5002	_JForceGraphNoKey
 5005	_JForceGraphKey
+5011	_FillBasePageTable
+5014	_ArcChk
 5017	_FlashToRam
 501A	_LoadDEIndPaged
 501D	_LoadCIndPaged
 5020	_SetupPagedPtr
 5023	_PagedGet
+5026	_SetParserHook
+5029	_ClearParserHook
 5065	_DispMenuTitle
 5071	_BufCpy
 5074	_BufClr
@@ -535,6 +548,8 @@
 50AA	_FormBase
 50B3	_Chk_Batt_Low
 50BF	_SetExSpeed
+50C8	_UngroupVar
+50CE	_SetSilentLinkHook
 50DD	_GetSysInfo
 
 4639	rcl_list_elem_to_op1
@@ -600,6 +615,7 @@
 51FA	grc_60cb
 5200	grc_5f42
 5203	sta_5d3c
+5221	_Chk_Batt_Level
 5227	screen_split
 5263	grc_454b
 5266	grc_4556
