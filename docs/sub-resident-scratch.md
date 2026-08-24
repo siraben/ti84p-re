@@ -65,7 +65,7 @@ The guarded direct-launch fixture calls `_DisableApd` and `_DelRes`, fills all
 768 bytes of `saveSScreen` with `0xA5` and all 531 bytes of `statVars` with
 `0x5A`, polls `_GetCSC`, blocks in `_GetKey`, and receives one injected ON
 event. Both complete checks pass, and the fixture displays `SAVE STAT 1 1`.
-[confirmed for TI-OS 2.55MP in the pinned TilEm x4 run]
+This result is limited to TI-OS 2.55MP in the pinned TilEm x4 run. [confirmed]
 
 Build the TI-BASIC `Asm(prgmSCRPROBE)` wrapper with
 `tools/build_scratch_probe_wrapper.py`; then assemble
@@ -103,7 +103,7 @@ boot, and expression evidence gives these known owners:
 | `83:43D9`–`83:44BD` | Boot/home block copy [confirmed] |
 | `83:577E`–`83:5A7D` | MathPrint previous-entry history [confirmed] |
 | `83:5A7E`–`83:5D7D` | LCD/home-display capture [confirmed] |
-| `83:5D7E`–`83:5DF2` | Additional boot/home writes [confirmed within that scenario] |
+| `83:5D7E`–`83:5DF2` | Additional boot/home writes in the measured scenario [confirmed] |
 
 All holes are candidates, not safe ranges. Current coverage omits USB receive,
 archive garbage collection, statistics, the program editor, app transitions,
