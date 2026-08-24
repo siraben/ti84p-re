@@ -167,6 +167,16 @@ does not bound the copy to 13 bytes or write an explicit null terminator.
 This static source is evidence of community usage, not evidence that arbitrary
 `Ans` strings are safe. [confirmed]
 
+The bounded `ERRPROBE` fixture copies `COMMTRACE\0` into `appErr1` and invokes
+the same bcall under TilEm x4. Its 3,623,530-instruction trace reaches
+`ram:2771`, `_JError` at `ram:2793`, and the display path at `07:6A72` once
+each. The rendered error is `ERR:COMMTRACE`; control does not reach the
+fixture's post-bcall halt. The trace SHA-256 is
+`393141d8f68e400a9cb7a845e1bab1430ccbd41a64f3a75755e6f9d20e514067`.
+`tools/data/community-custom-error.csv` records the ROM identity and hit
+counts. This confirms the nonlocal path in the identified emulator scenario;
+it is not a physical-hardware result. [confirmed]
+
 ### Error-message table [confirmed]
 
 The error screen shows `ERR:<MESSAGE>`; the `ERR:` prefix is at `01:4008`. The handler at `07:6A72` masks the code with `0x7F`, then indexes a little-endian pointer table at `07:6ACC` by `(code) − 1` for codes below `0x3A`. It fetches the pointer through `_LdHLind` and copies the selected null-terminated string. Codes `0x36`, `0x37`, `0x39`, and values at least `0x3A` bypass the table and select `?` at `07:6C5A`. [confirmed]

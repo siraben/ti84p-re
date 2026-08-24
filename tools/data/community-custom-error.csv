@@ -1,0 +1,2 @@
+scenario,model,os_version,rom_sha256,trace_sha256,instructions,payload_hits,err_custom_1_hits,j_error_hits,error_display_hits,app_err_1,result,evidence_limit
+community-custom-error,ti84p,2.55MP,dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09,393141d8f68e400a9cb7a845e1bab1430ccbd41a64f3a75755e6f9d20e514067,3623530,1,1,1,1,COMMTRACE,nonlocal-error-path-observed,TilEm-x4;BootFree-page3F;no-physical-hardware
