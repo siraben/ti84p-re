@@ -10,6 +10,7 @@ means that the scenario did not write the range; it is not a safety proof.
 import argparse
 from collections import Counter
 import csv
+import hashlib
 import json
 import sys
 
@@ -26,6 +27,14 @@ BUFFERS = (
     ("plotSScreen", 0x9340, 0x963F),
     ("appBackUpScreen", 0x9872, 0x9B71),
 )
+
+
+def file_sha256(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def map_page81_write(banker, logical):
@@ -182,6 +191,7 @@ def main():
         "os_version": args.os_version,
         "launch_method": args.launch_method,
         "trace": args.trace,
+        "trace_sha256": file_sha256(args.trace),
         "trace_version": header["version"],
         "trace_range": f"0x{header['range_start']:04X}-0x{header['range_end']:04X}",
         "instructions": instructions,
@@ -202,13 +212,14 @@ def main():
         return
     if args.format == "csv":
         fields = ("scenario", "model", "asic", "os_version", "launch_method",
+                  "trace_sha256",
                   "name", "start", "end", "size", "writes", "touched_bytes",
                   "coverage_percent", "touched_ranges", "top_write_pcs")
-        writer = csv.DictWriter(sys.stdout, fieldnames=fields)
+        writer = csv.DictWriter(sys.stdout, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         for row in rows:
-            flat = {key: metadata[key] for key in fields[:5]}
-            flat.update({key: row[key] for key in fields[5:-2]})
+            flat = {key: metadata[key] for key in fields[:6]}
+            flat.update({key: row[key] for key in fields[6:-2]})
             flat["touched_ranges"] = ";".join(row["touched_ranges"])
             flat["top_write_pcs"] = ";".join(
                 f"{item['pc']}:{item['writes']}" for item in row["top_write_pcs"]

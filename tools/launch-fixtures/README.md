@@ -23,8 +23,8 @@ and 8191 bytes.
 
 ## Run
 
-The runner requires the local headless TilEm build that loads command-line link
-files before starting a macro. It boots a clean calculator for each fixture
+Set `TILEM` to the local headless TilEm build that loads command-line link files
+before starting a macro. The runner boots a clean calculator for each fixture
 pair, runs the wrapper, records a full instruction trace, and resolves coverage
 through `tools/tilem_trace_resolve.py`. It checks the launch anchors against raw
 logical PCs because command-line transfer occurs before tracing starts, so the
@@ -33,16 +33,16 @@ trace may not contain the initial bank-selector writes needed to label
 
 ```sh
 nix develop --command python3 tools/launch-fixtures/run.py \
-  --tilem /tmp/tilem-headless.i939BM/result/bin/tilem2 \
+  --tilem "$TILEM" \
   --rom tools/rom.bin \
   --fixtures /tmp/launch-boundary-fixtures \
   --out-dir /tmp/launch-boundary-results \
   --keep-trace
 ```
 
-An accepted case must reach `_ExecutePrgm` at `07:5758`, `_InsertMem` at
-`07:578D`, the payload handoff at `07:57B4`, and `ram:9D95`. A rejected case
-must branch to the page-0 memory-error path at `00:2729` before `_InsertMem`.
+An accepted case must reach `_ExecutePrgm` at `07:5758`, the `_InsertMem` call
+site at `07:578D`, the payload handoff at `07:57B4`, and `ram:9D95`. A rejected
+case must branch to the `E_Invalid` shim at `ram:2729` before the call site.
 
 ## Confirmed result
 
@@ -50,7 +50,7 @@ must branch to the page-0 memory-error path at `00:2729` before `_InsertMem`.
 |---------------|----------------|---------------|
 | `0x1FFF` | 8189 bytes | accepted |
 | `0x2000` | 8190 bytes | accepted |
-| `0x2001` | 8191 bytes | memory error |
+| `0x2001` | 8191 bytes | `ERR:INVALID` |
 
 The threshold follows the unsigned subtraction at `07:577B`–`07:5781`.
 All three rows were run on TI-OS 2.55MP under TilEm x4 with base-ROM SHA-256
@@ -63,5 +63,7 @@ Machine-readable fixture and trace hashes are in
 The complete-image hash identifies the BootFree 11.259 variant. Flash page
 `0x07`, which contains the measured launcher, is byte-identical to the
 canonical retail analysis image. These traces make no retail-boot claim.
+[confirmed]
 
 Dynamic acceptance still depends on enough free RAM for the execution copy.
+[confirmed]

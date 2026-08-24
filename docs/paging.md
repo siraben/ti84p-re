@@ -46,7 +46,7 @@ of the selected physical page. [confirmed]
 Ghidra models physical Flash pages 1–63 as overlay blocks based at `0x4000`.
 This makes every banked body statically visible while preserving its logical
 address. Runtime traces still need the active port-`0x06` value to identify the
-physical page. [standard]
+physical page. [confirmed]
 
 ## The four logical windows
 

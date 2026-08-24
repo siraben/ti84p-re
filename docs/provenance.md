@@ -1,14 +1,15 @@
 # Build and evidence provenance
 
-Reverse-engineering results are meaningful only when their ROM, hardware or
-emulator profile, include file, and analysis tools are identifiable. This
-repository uses SHA-256 identities rather than filenames as the primary
-provenance boundary.
+Reverse-engineering results are meaningful only when their ROM, execution
+environment, include file, and analysis tools are identifiable. This repository
+uses SHA-256 identities rather than filenames as the primary provenance
+boundary.
 
 ## Two local OS 2.55MP images
 
-The repository recognizes two complete-image identities. Their OS pages are
-the same, but their boot support differs. [confirmed]
+The repository recognizes two complete-image identities. Pages `0x00`–`0x2E`
+and `0x30`–`0x3E` are identical. Their pages `0x2F` and `0x3F` provide
+different boot support. [confirmed]
 
 | Image | SHA-256 | Page `0x2F` | Page `0x3F` |
 |---|---|---|---|
@@ -29,41 +30,48 @@ Its acquisition artifact is not pinned, so this is a page-identity statement,
 not a physical-capture provenance claim. [confirmed]
 
 Use the retail image for boot-table, USB boot, reset, recovery, certificate,
-and page-`0x3F` claims. A BootFree trace can establish behavior confined to
-unchanged pages, provided the result records the complete-image hash and the
-relevant page identity. It cannot establish retail boot behavior. [standard]
+and page-`0x3F` claims. A BootFree trace identifies execution on unchanged page
+bytes, but the replacement boot can change the program's initial state. Such a
+trace supports an OS-path claim only when the required state and dependent
+pages are also recorded. It cannot establish retail boot behavior.
 
 ## BootFree callable surface and reset path
 
 `tools/data/boot-page-comparison.csv` compares all 87 populated `0x8xxx`
-table entries. Every target address differs. BootFree implements 38 entries,
-maps 45 entries to a bare `RET`, and maps four entries to small constant-return
-stubs. The six retail entries whose bodies live on USB boot page `0x2F` all map
-to BootFree's bare-`RET` stub. [confirmed]
+table entries. Every target address differs. BootFree maps 38 entries to other
+bodies, 45 entries to a bare `RET`, and four entries to small
+constant-return stubs. The six retail entries whose bodies live on USB boot
+page `0x2F` all map to BootFree's bare-`RET` stub. [confirmed]
 
 The reset paths also differ before any OS code runs: [confirmed]
 
 | Step | Retail boot 1.03 | BootFree 11.259 |
 |---|---|---|
 | Reset stub | Writes ports `0x04`, `0x06`, and `0x0E`, then jumps to `0x812C` | Maps page `0x3F` through ports `0x06` and `0x07`, then jumps to `0x812C` |
-| Installed-OS test | Scans the keypad; DEL and STAT select recovery; otherwise tests byte `0x0038` and marker `0xA55A` at `0x0056` | Does not scan a recovery key; tests only marker `0xA55A` at `0x0056` |
+| Installed-OS test | Scans the keypad; **DEL** and **STAT** select recovery; otherwise tests byte `0x0038` and marker `0xA55A` at `0x0056` | Tests only marker `0xA55A` at `0x0056`; it does not scan a recovery key |
 | Missing or rejected OS | Enters serial or USB-assisted recovery and can receive an OS | Displays `No OS Loaded` and halts |
 | Boot services | Certificate, validation, serial receive, USB receive, installer display, and error paths | Smaller Flash/certificate utility set; signature, receive, USB, and most installer-display entries are stubs |
 
-The CSV classifies every public callable table slot, not every internal helper
+The retail reset and installed-OS branches are at `3F:4000`–`3F:400C` and
+`3F:420B`–`3F:4308`. The corresponding BootFree branches are at
+`3F:4000`–`3F:4006` and `3F:412C`–`3F:41FC`. [confirmed]
+
+The CSV classifies every populated boot-table slot, not every internal helper
 entry in either page. A complete internal-routine comparison still requires
 matched function-entry recovery for both images. [confirmed]
 
 ## Generate a manifest
 
 `tools/rom_provenance.py` records the complete ROM identity, target model,
-ASIC revision, OS version, boot-page classification, component page ranges,
-the 2007 include-file identity, Ghidra version, Git revision, dirty-tree state,
-and a digest over the top-level analysis scripts.
+hardware or emulator environment, ASIC revision, emulator profile, OS version,
+boot-page classification, component page ranges, the 2007 include-file
+identity, Ghidra version, Git revision, dirty-tree state, and a digest over the
+top-level analysis scripts.
 
 ```sh
 nix develop -c python3 tools/rom_provenance.py manifest \
-  --rom tools/rom.bin --model 'TI-84 Plus' --asic 'TilEm x4' \
+  --rom tools/rom.bin --model 'TI-84 Plus' --environment emulator \
+  --asic unknown --emulator-profile 'TilEm x4' \
   --output /tmp/ti84p-provenance.json
 ```
 
@@ -72,9 +80,11 @@ ROM rather than silently assigning it a known OS identity. [confirmed]
 
 ## Reject stale results
 
-Checked CSV result tables use a `rom_sha256` column. JSON reports use either a
-`rom_sha256` field or a `rom.sha256` object. Verify them against the current
-manifest before reuse:
+Single-ROM CSV result tables use a `rom_sha256` column. Dual-ROM tables record
+both identities, and tables derived from external source or hardware record an
+evidence identity instead. JSON reports use either a `rom_sha256` field or a
+`rom.sha256` object. Verify a single-ROM artifact against the current manifest
+before reuse:
 
 ```sh
 nix develop -c python3 tools/rom_provenance.py verify \
@@ -110,17 +120,17 @@ The 989,125 undefined Flash bytes are addresses with no defined Ghidra code or
 data unit. That number measures database coverage; it does not imply that those
 bytes are unused or safe to overwrite. Likewise, an unresolved jump is a
 specific analysis task, not evidence that the ROM's control flow is invalid.
-[standard]
+[confirmed]
 
 The health report is deterministic for a given database, script revision, and
 Ghidra version. Its `rom_sha256` field can be checked with
 `tools/rom_provenance.py verify`; use a separately rebuilt retail project when
-auditing retail boot and USB pages. [standard]
+auditing retail boot and USB pages. [confirmed]
 
 ## Evidence limit
 
-A matching hash proves byte identity, not how the image was obtained. The ASIC
-field distinguishes a physical revision from an emulator profile but does not
-turn emulator behavior into hardware evidence. Git and script-tree identities
-make an analysis run reproducible; they do not by themselves validate the
-analysis conclusion.
+A matching hash proves byte identity, not how the image was obtained. The
+environment, ASIC, and emulator-profile fields keep physical and emulator
+evidence separate. They do not turn emulator behavior into hardware evidence.
+Git and script-tree identities make an analysis run reproducible; they do not
+by themselves validate the analysis conclusion.

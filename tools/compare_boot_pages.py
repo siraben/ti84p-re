@@ -42,7 +42,13 @@ def target_text(target) -> str:
     return f"{target.page:02X}:{target.address:04X}"
 
 
-def rows(bootfree: RomImage, retail: RomImage) -> list[dict[str, str]]:
+def rows(
+    bootfree: RomImage,
+    retail: RomImage,
+    *,
+    bootfree_hash: str,
+    retail_hash: str,
+) -> list[dict[str, str]]:
     names = read_boot_names(TOOLS / "ti83plus.inc")
     result = []
     for first, last in BOOT_TABLE_ID_RANGES:
@@ -53,6 +59,8 @@ def rows(bootfree: RomImage, retail: RomImage) -> list[dict[str, str]]:
                 raise ValueError(f"missing populated boot entry 0x{identifier:04X}")
             disposition = STUBS.get(left.address, "implemented")
             result.append({
+                "bootfree_rom_sha256": bootfree_hash,
+                "retail_rom_sha256": retail_hash,
                 "bcall_id": f"0x{identifier:04X}",
                 "name": names.get(identifier, "unpublished"),
                 "bootfree_target": target_text(left),
@@ -84,6 +92,7 @@ def main() -> None:
         parser.error("retail input does not have the retail page prefix")
 
     fields = (
+        "bootfree_rom_sha256", "retail_rom_sha256",
         "bcall_id", "name", "bootfree_target", "bootfree_disposition",
         "retail_target", "same_target",
     )
@@ -91,7 +100,12 @@ def main() -> None:
     try:
         writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
-        writer.writerows(rows(bootfree, retail))
+        writer.writerows(rows(
+            bootfree,
+            retail,
+            bootfree_hash=bootfree_hash,
+            retail_hash=retail_hash,
+        ))
     finally:
         if args.output:
             stream.close()

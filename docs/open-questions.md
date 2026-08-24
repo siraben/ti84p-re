@@ -157,21 +157,22 @@ page-byte guard to `ERR:ARCHIVED`. See
 
 The compiled `Asm(` launcher, its `0x2000` internal-size cap, pointer repair,
 archived lookup, scratch-buffer observations, and normal bank-A bcall restore
-are documented. These boundaries still need dynamic or physical evidence:
+are documented. The following cases remain unresolved:
 
 - Repeat the completed direct, unarchived compiled-launch heap snapshot under
   `_ExecAsm`, archived OS paths, and shell paths with boundary-size programs.
 - Isolate scratch-buffer writes by bcall. Complete a successful
   `_DisableApd`/`_DelRes` guard run through `_GetKey`, ON-key handling, an OS
   error, APD, archive collection, link/USB, and shell interrupts.
-- Run page-`0x83` guards through editor, graph, table, statistics, App,
+- Run RAM-selector `0x83` guards through editor, graph, table, statistics, App,
   archive-GC, and transfer contexts. Probe selectors `0x84`–`0x87` on
   identified 48 KiB and 128 KiB calculators.
 - Measure execution-protection ports and reset behavior on each ASIC. Recover
   Fullrene from an original artifact and test instruction fetch, operand read,
   stack access, and block copy at the same physical addresses.
-- Measure maximum AppVar allocations for direct `Asm(`, shell move loaders, and
-  one- and multi-page Flash Apps with clean and representative VAT states.
+- Repeat the direct-`Asm(` maximum-AppVar measurement with representative VAT
+  states. Measure the same limit under shell move loaders and one- and
+  multi-page Flash Apps.
 - Force Flash-page, sector, and garbage-collection crossings while streaming an
   archived object. Reacquire its VAT result after each moving operation.
 - Run one instrumented self-modifying payload under Ion, MirageOS, Doors CS, and

@@ -711,38 +711,50 @@ $ python tools/analyze_rom_io.py 0x21 0x22 0x23 0x24 0x25 0x26 --summary
 ## Community execution techniques
 
 Crabcake's original source uses two model-specific methods. On a 6 MHz
-TI-83 Plus it uses a Flash-unlock exploit to invoke a protected port-`0x16`
-writer and changes the older port-`0x05` execution setting. On the
+TI-83 Plus it uses a Flash-unlock exploit, locates a protected
+`OUT (0x16),A` routine on Flash page `0x1F`, and calls it with `0x00` or `0x07`.
+Separate exploit code changes the port-`0x05` mapping. On the
 TI-83+SE/TI-84+/SE family it does not rewrite ports `0x25` or `0x26`. With
 interrupts disabled, it swaps all `0x4000` bytes between physical RAM pages
 `0x80` and `0x83`, then maps page `0x83` into bank C. Code above `0xC000`
 remains at the same CPU address while residing on an executable odd physical
-page. [standard]
+page. The Crabcake release source contains both paths. [confirmed]
 
 The TI-84-family cleanup restores port `0x05` to an assumed normal value,
 unconditionally enables interrupts, and has no error handler around the swap.
-The release predates an explicit 48 KiB alias-model distinction, so that
-hardware remains unsupported without a probe.
+These operations are explicit in the release source. [confirmed] The release
+does not distinguish the later 48 KiB alias model. That hardware remains
+unsupported without a physical probe.
 
 zStart 1.3.013 implements its `Execute >C000` option as a persistent policy.
-After its Flash-unlock path it writes `0x00` to port `0x25` and `0xFF` to port
-`0x26`; disabling the option writes the assumed retail values `0x10` and
-`0x20`. Its ON script reapplies the enabled policy during startup. This is not
-a per-launch save/restore wrapper. [standard]
+Its menu toggle first writes the assumed retail values `0x10` and `0x20` to
+ports `0x25` and `0x26`, regardless of the new option state. If the option is
+enabled, later configuration and ON-script paths call `unlockC000`, which
+writes `0x00` and `0xFF` after unlocking Flash writes. This is not a per-launch
+save/restore wrapper. The zStart release source confirms this control flow.
+[confirmed]
 
-Contemporary descriptions identify Fullrene as an Axe Axiom for executable
-space beyond the normal limit. Its original binary or source was not recovered
-from the inspected Axe 1.2.2 release, library archive, adjacent repositories,
-or prior-session artifacts. Its port values, model matrix, and cleanup remain
-[hypothesis]; do not infer them from zStart or Crabcake.
+The Swords 2 source release contains `FULLRENE.8xv`, a 229-byte AppVar payload
+with the Axiom `DE C0` signature. Both embedded command bodies contain this
+sequence: [confirmed]
 
-The source identities used here are Crabcake's ticalc.org release
-`crabcake.zip`, SHA-256
-`84f6660c86f715e09e03637b19df47abe46b86906ed34791bc4281959186f71e`,
-and zStart 1.3.013, SHA-256
-`7a1b7c69c85030b412bb6ea11ae71ac608b9882a9de3ab7dbef1faf69519c5e9`.
-The compact classification is stored in
-`tools/data/execution-protection-observations.csv`.
+```z80
+    LD A,0x10
+    JR NC,+1
+    XOR A
+    OUT (0x25),A
+```
+
+The incoming carry therefore selects `0x10` or `0x00` for port `0x25`, and
+neither command body writes port `0x26`. One command immediately calls
+`_FlashWriteDisable` and returns. The other restores port `0x06` from the stack
+before the same bcall and return. [confirmed] The artifact does not establish a
+hardware model matrix or behavior after an OS error. Those details remain
+[hypothesis].
+
+`tools/data/execution-protection-observations.csv` records the emulator and
+physical-probe classifications in the preceding sections. It does not classify
+Crabcake, zStart, or Fullrene.
 
 ## Resolved findings and open hardware tests
 
@@ -808,3 +820,6 @@ emulator agreement is only a test oracle for emulator behavior.
 | [MAME `ti85.cpp` and `ti85_m.cpp` at `mame0287`](https://github.com/mamedev/mame/tree/mame0287/src/mame/ti) | absent execution-protection ports and unused Flash-unlock state |
 | [jsTIfied deployed `20170706a` artifact](https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a) and [readable mirror](https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js) | protected writes, page-level `run_lock`, violation reset, and unused stored RAM-bound ports |
 | [WikiTI port `0x22`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:22), [`0x23`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:23), [`0x24`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:24), [`0x25`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:25), and [`0x26`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:26) | public register descriptions, treated as secondary evidence |
+| [Crabcake release archive](https://www.ticalc.org/pub/83plus/asm/libs/crabcake.zip), SHA-256 `84f6660c86f715e09e03637b19df47abe46b86906ed34791bc4281959186f71e` | 6 MHz protected-port path and TI-84-family page-swap path |
+| [zStart 1.3.013 release archive](https://www.ticalc.org/pub/83plus/flash/shells/zstart.zip), SHA-256 `7a1b7c69c85030b412bb6ea11ae71ac608b9882a9de3ab7dbef1faf69519c5e9` | persistent `Execute >C000` configuration and ON-script restoration |
+| [Swords 2 source release](https://www.ticalc.org/archives/files/fileinfo/449/44919.html), archive SHA-256 `830878e3449221664b85eb3996992ad0f8b46b7e57183c337930b7e78e5a3397`; `FULLRENE.8xv` SHA-256 `327ea2ce2a603febc46490d9758cffc12c9fc926fc1d773a0d53a5ccdf5d4ec3` | original Fullrene Axiom command bodies |

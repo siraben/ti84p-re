@@ -54,17 +54,17 @@ and FP-stack pointers before registering the variable in the VAT. This path is
 distinct from the public `_InsertMem`. See [Variables & the VAT](variables-vat.md).
 [confirmed]
 
-Resident assembly programs need an additional rule: OS pointer repair does not
-relocate program counters or runtime-owned pointers. The compiled `Asm(` path
-also caps its internal program-data size at `0x2000`, below the full
-`ram:9D95`–`ram:BFFF` span. See [Resident assembly programs](sub-resident-programs.md)
-for the launch copy, cleanup, AppVar handle protocol, and archived streaming
-contract. [confirmed]
+Resident assembly programs need an additional rule: OS pointer repair updates
+OS-owned pointer slots, not program counters or runtime-owned pointers. The
+compiled `Asm(` path also caps its internal program-data size at `0x2000`, below
+the full `ram:9D95`–`ram:BFFF` span. See
+[Resident assembly programs](sub-resident-programs.md) for the launch copy,
+cleanup, AppVar handle protocol, and archived streaming contract. [confirmed]
 
 The familiar OP, display, graph, statistics, and context buffers are not one
-pool of universally safe scratch space. See [Resident scratch RAM](sub-resident-scratch.md)
-for direct clobber measurements, conditional ownership, and the bank-A page
-mapping protocol. [confirmed]
+pool of universally safe scratch space. See
+[Resident scratch RAM](sub-resident-scratch.md) for direct clobber measurements,
+conditional ownership, and the bank-A page-mapping protocol. [confirmed]
 
 ## Flash archive [confirmed]
 

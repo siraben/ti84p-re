@@ -8,6 +8,7 @@ import csv
 import hashlib
 import json
 from pathlib import Path
+import shlex
 import subprocess
 import sys
 from typing import Iterable
@@ -69,7 +70,7 @@ def git_state() -> tuple[str, bool]:
         text=True, capture_output=True,
     ).stdout.strip()
     dirty = bool(subprocess.run(
-        ["git", "status", "--porcelain", "--untracked-files=no"],
+        ["git", "status", "--porcelain", "--untracked-files=all"],
         cwd=ROOT, check=True, text=True, capture_output=True,
     ).stdout)
     return revision, dirty
@@ -119,7 +120,9 @@ def build_manifest(
     rom_path: Path,
     *,
     model: str,
+    environment: str,
     asic: str,
+    emulator_profile: str,
     os_version: str,
     ghidra_version: str,
 ) -> dict[str, object]:
@@ -132,7 +135,9 @@ def build_manifest(
         "schema": "ti84p-re.provenance.v1",
         "target": {
             "model": model,
+            "environment": environment,
             "asic_revision": asic,
+            "emulator_profile": emulator_profile,
             "os_version": os_version,
         },
         "rom": {
@@ -157,8 +162,14 @@ def build_manifest(
             "script_file_count": len(scripts),
         },
         "source_command": (
-            "python3 tools/rom_provenance.py manifest --rom "
-            + str(rom_path)
+            "python3 tools/rom_provenance.py manifest"
+            f" --rom {shlex.quote(str(rom_path))}"
+            f" --model {shlex.quote(model)}"
+            f" --environment {shlex.quote(environment)}"
+            f" --asic {shlex.quote(asic)}"
+            f" --emulator-profile {shlex.quote(emulator_profile)}"
+            f" --os-version {shlex.quote(os_version)}"
+            f" --ghidra-version {shlex.quote(ghidra_version)}"
         ),
     }
 
@@ -222,7 +233,12 @@ def main() -> None:
     manifest = commands.add_parser("manifest")
     manifest.add_argument("--rom", type=Path, default=TOOLS / "rom.bin")
     manifest.add_argument("--model", default="TI-84 Plus")
+    manifest.add_argument(
+        "--environment", choices=("hardware", "emulator", "unknown"),
+        default="unknown",
+    )
     manifest.add_argument("--asic", default="unknown")
+    manifest.add_argument("--emulator-profile", default="unknown")
     manifest.add_argument("--os-version", default="2.55MP")
     manifest.add_argument("--ghidra-version", default="12.1.2")
     manifest.add_argument("--output", type=Path)
@@ -237,7 +253,9 @@ def main() -> None:
             value = build_manifest(
                 args.rom,
                 model=args.model,
+                environment=args.environment,
                 asic=args.asic,
+                emulator_profile=args.emulator_profile,
                 os_version=args.os_version,
                 ghidra_version=args.ghidra_version,
             )

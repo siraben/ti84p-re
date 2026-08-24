@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from rom_provenance import (  # noqa: E402
     artifact_rom_hashes,
+    build_manifest,
     combined_digest,
     component_map,
     manifest_rom_hash,
@@ -68,6 +69,32 @@ class RomProvenanceTests(unittest.TestCase):
             path.write_text("{}")
             with self.assertRaisesRegex(ValueError, "missing rom.sha256"):
                 manifest_rom_hash(path)
+
+    def test_manifest_separates_hardware_and_emulator_identity(self):
+        with tempfile.TemporaryDirectory() as temp:
+            rom = Path(temp) / "rom.bin"
+            rom.write_bytes(bytes(0x4000))
+            with (
+                patch("rom_provenance.ROOT", Path.cwd()),
+                patch("rom_provenance.TOOLS", Path("tools")),
+                patch("rom_provenance.analysis_files", return_value=[]),
+                patch("rom_provenance.git_state", return_value=("revision", False)),
+                patch("rom_provenance.classify_boot_page", return_value="unknown"),
+            ):
+                manifest = build_manifest(
+                    rom,
+                    model="TI-84 Plus",
+                    environment="emulator",
+                    asic="unknown",
+                    emulator_profile="TilEm x4",
+                    os_version="2.55MP",
+                    ghidra_version="12.1.2",
+                )
+        self.assertEqual(manifest["target"]["environment"], "emulator")
+        self.assertEqual(manifest["target"]["asic_revision"], "unknown")
+        self.assertEqual(manifest["target"]["emulator_profile"], "TilEm x4")
+        self.assertIn("--environment emulator", manifest["source_command"])
+        self.assertIn("--emulator-profile 'TilEm x4'", manifest["source_command"])
 
 
 if __name__ == "__main__":

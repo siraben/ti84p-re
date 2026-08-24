@@ -2,26 +2,26 @@
 
 A Flash App keeps its kernel in Flash instead of copying it to `userMem`.
 This removes the normal assembly-program execution copy, but it does not turn
-`ram:9D95` through `ram:BFFF` into private storage. The OS still owns that range
+`ram:9D95`–`ram:BFFF` into private storage. The OS still owns that range
 as part of the user heap.
 
 This page describes long-running App runtimes. See
-[Apps, memory reset & settings](sub-apps-mem-settings.md) for App discovery and
-headers, [Boot, contexts & errors](boot-contexts-errors.md) for context
+[Apps, memory reset, and settings](sub-apps-mem-settings.md) for App discovery
+and headers, [Boot, contexts, and errors](boot-contexts-errors.md) for context
 dispatch, and [Memory management](memory-management.md) for the RAM heap.
 
 ## Code in Flash, state in RAM
 
-The current App page executes in bank A at `0x4000` through `0x7FFF`. An App
+The current App page executes in bank A at `0x4000`–`0x7FFF`. An App
 therefore avoids the temporary copy that the compiled `Asm(` launcher creates
-at `ram:9D95`. The conventional `ram:9D95` through `ram:BFFF` interval contains
+at `ram:9D95`. The conventional `ram:9D95`–`ram:BFFF` interval contains
 8,811 bytes. [confirmed]
 
 That interval remains part of the movable user-data region. Variables,
 temporary objects, the FPS/OPS gap, and the VAT determine how much space is
-available. An App must reserve mutable storage with an OS allocation or start
-from a controlled memory image. It cannot claim 8,811 bytes merely because its
-code executes from Flash. [confirmed]
+available. An App must reserve mutable storage through the OS or start from a
+controlled memory image. It cannot claim 8,811 bytes merely because its code
+executes from Flash. [standard]
 
 The practical maximum contiguous allocation depends on the calculator model,
 OS version, VAT contents, temporary objects, and current heap pointers. Measure
@@ -40,7 +40,7 @@ untested. [hypothesis]
 
 A multi-page App cannot treat bank-A addresses as flat pointers. Mapping
 another App or OS page changes the bytes visible at the same logical address.
-Any pointer into `0x4000` through `0x7FFF` is valid only while its page remains
+Any pointer into `0x4000`–`0x7FFF` is valid only while its page remains
 mapped. [confirmed]
 
 RPN83P provides a concrete multi-page design. Its page-0 branch table stores
@@ -51,18 +51,18 @@ entries in this form:
 .db relative_app_page
 ```
 
-Other App pages call those entries through an App-aware `bcall()` macro. Page
-0 remains the stable branch and event-handler page, while larger modules live
-on later pages. [confirmed] The checked source is RPN83P commit
-`e2ad0bff98c94a13f34ae461b13f79384a75c17f`.
+Other App pages call those entries through an App-aware `bcall()` macro. App
+page 0 contains the branch table and event handlers, while larger modules live
+on later App pages. The identified RPN83P source at commit
+`e2ad0bff98c94a13f34ae461b13f79384a75c17f` confirms this layout. [confirmed]
 
 An OS bcall or App-page call may remap bank A. This affects Flash data as well
-as code. RPN83P avoids passing a Flash string directly to `_PutS`; its local
-display helper reads one byte from the current page and passes that character
-to `_PutC`. Apply the same rule to any API that may retain or dereference a
-pointer after remapping bank A. Reacquire or remap the page before continuing.
-The RPN83P string helpers confirm this failure mode. [confirmed] Applying the
-rule to untested APIs remains a [hypothesis].
+as code. RPN83P does not pass a Flash string to `_PutS`. Its `putS` helper
+reads each byte on the current App page and passes the byte to `_PutC`; its
+source comments identify `_PutS` and `_VPutS` as RAM-string routines. [confirmed]
+Reacquire or remap the App page before an untested API dereferences a Flash
+pointer after a page-changing call. That broader API rule remains a
+[hypothesis].
 
 ## Install an App context
 
@@ -95,21 +95,25 @@ A resident App should make cleanup an explicit part of this context:
 6. Call `_ReloadAppEntryVecs`, then return through `_JForceCmdNoChar` or
    `_PutAway` as appropriate.
 
-RPN83P follows this lifecycle and routes both its explicit exit and `PutAway`
-handler through common cleanup. This is a reusable design example, not an OS
-guarantee that cleanup runs for arbitrary Apps. A reset or an unhandled jump
-can still bypass the App's code. [confirmed]
+RPN83P routes both explicit exit and its `cxPutAway` handler through
+`mainExit`, which closes its AppVars, saves state, and restores OS settings.
+Its identified source does not install `AppOnErr`, so this example does not
+cover a TI-OS error that unwinds past the App. A reset or nonlocal jump can also
+bypass the App's cleanup. [confirmed]
 
 ## Keep persistent state relocatable
 
-RPN83P stores mutable state in four RAM AppVars and uses between 1,044 and 2,545
-bytes, depending on its register count. Its structured variables carry size,
-CRC16, App ID, type, and schema version. Startup rejects stale, truncated, or
-corrupt structures and falls back to a cold state. [confirmed]
+RPN83P stores mutable state in four RAM AppVars and uses 1,044–2,545 bytes,
+depending on its register count. Its structured variables carry a size,
+CRC16, App ID, variable type, and schema version. Startup rejects stale,
+truncated, or corrupt structures and initializes the affected state again.
+These sizes and checks come from the identified RPN83P source and README.
+[confirmed]
 
-Its `RPN83SAV` update is not atomic: it deletes the old variable before the
-replacement exists. Validation detects corruption on the next launch, but an
-interruption can lose the last valid state. [confirmed]
+Its `RPN83SAV` update is not atomic: `StoreAppState` deletes the old variable
+before `_CreateAppVar` creates the replacement. Validation detects corruption
+on the next launch, but an interruption can lose the last valid state.
+[confirmed]
 
 A runtime that needs the last committed dictionary should use two named slots.
 This design remains a fixture target: [hypothesis]
@@ -117,7 +121,8 @@ This design remains a fixture target: [hypothesis]
 - Store a magic value, format version, generation, payload length, CRC,
   payload, and final commit marker in each slot.
 - Write and validate the inactive slot before archiving it.
-- Reacquire the archived slot with `_ChkFindSym`, then validate it again.
+- Reacquire the archived slot with `_ChkFindSym`, read it with page-aware
+  access, then validate the copied record again.
 - Delete the old slot only after the new archived slot is proven valid.
 - At startup, validate both RAM and archived candidates and select the highest
   valid generation.
@@ -160,8 +165,15 @@ entry bytes at 4080: CD 50 00 27 40 02 2D 40
 
 The header field `801` contains key ID `0104`, the TI-83+/84+ freeware and
 shareware developer key. This fixture has been assembled and decoded. It has
-not been transferred to physical hardware. The build is confirmed. [confirmed]
-Physical launch remains untested. [hypothesis]
+not been transferred to physical hardware. The build and decoded header are
+confirmed. [confirmed] Physical launch remains untested. [hypothesis]
+
+## Source provenance
+
+| Artifact | Exact identity | Source |
+|---|---|---|
+| RPN83P source | Commit `e2ad0bff98c94a13f34ae461b13f79384a75c17f` | [RPN83P commit](https://github.com/bxparks/rpn83p/tree/e2ad0bff98c94a13f34ae461b13f79384a75c17f) |
+| SPASM-ng used for the reference build | Commit `5f0786d38f064835be674d4b7df42969967bb73c` | [SPASM-ng commit](https://github.com/alberthdev/spasm-ng/tree/5f0786d38f064835be674d4b7df42969967bb73c) |
 
 ## Remaining measurements
 
@@ -178,4 +190,4 @@ The fixture still needs these extensions:
   calculators.
 
 Until those runs exist, report Flash residency as removal of the assembly copy,
-not as proof that the complete `ram:9D95` through `ram:BFFF` range is available.
+not as proof that the complete `ram:9D95`–`ram:BFFF` range is available.

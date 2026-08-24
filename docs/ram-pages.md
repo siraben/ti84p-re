@@ -144,12 +144,15 @@ reported hardware revision. [confirmed]
 
 ## Per-page trace coverage
 
-The boot/home and `2+3 ENTER` traces exercise startup, homescreen initialization,
-display capture, parsing, evaluation, and previous-entry storage. They do not exercise
-app launch, USB transfer, graph drawing, archive cleanup, or a 48 KiB ASIC. Within
-that scope, physical RAM-page writes for the executed selectors are:
+The boot/home and `2+3` **ENTER** traces exercise startup, homescreen
+initialization, display capture, parsing, evaluation, and previous-entry
+storage. Separate traces cover graph drawing, a resident `_GetKey` wait
+interrupted by **ON**, and an OS error dialog. They do not exercise APD timeout,
+app launch, USB transfer, variable receive, archive cleanup,
+table/statistics/program editors, or a 48 KiB ASIC. Within the baseline scope,
+physical RAM-page writes for the executed selectors are:
 
-| RAM selector | Idle trace writes | `2+3 ENTER` trace writes | Interpretation |
+| RAM selector | Idle trace writes | `2+3` **ENTER** trace writes | Interpretation |
 |--------------|-------------------|--------------------------|----------------|
 | `80` | `256227` writes, all page addresses touched | `345702` writes, all page addresses touched | Normal high RAM selected by port `0x05`; contains stack, system, and user RAM activity in `C000-FFFF`. [confirmed] |
 | `81` | `62947` writes, all page addresses touched | `72638` writes, all page addresses touched | Normal `8000-BFFF` RAM; contains OS variables, flags, OP registers, the heap, the VAT window, and working buffers. [confirmed] |
@@ -164,6 +167,25 @@ The graph scenario in `tools/macros/graph-y1-x2.macro` reaches the graph screen 
 still only writes pages `80`, `81`, and `83`. It increases normal page-`80`/`81`
 activity but leaves page-`83` at the same confirmed ranges as the idle trace.
 It does not write through selector `82` or select `84`–`87`. [confirmed]
+
+Two longer direct-TI-OS scenarios add coverage without establishing a borrowable
+range:
+
+| Scenario | Page-`83` result | Limit |
+|---|---|---|
+| Resident guard, `_DisableApd`, `_DelRes`, `_GetKey`, then **ON** | `3,893` writes to `83:4373`–`83:4390`, `83:577E`–`83:5794`, and `83:5A7E`–`83:5D7D` | The trace starts after reset with port `0x06` unknown. The analyzer recovers each page-`83` selection, but skips unrelated writes whose initial mapping is unresolved. APD is disabled, so this is ON handling during a wait, not an APD-timeout test. [confirmed] |
+| Cold boot, then `1/0` **ENTER** error dialog | `3,418` writes to `83:43D9`–`83:44BD` and `83:5A7E`–`83:5DF2` | The complete trace includes boot. The error path adds no page-`83` range beyond the idle baseline; this does not prove that every error path behaves alike. [confirmed] |
+
+The guarded resident run also rechecks `saveSScreen` and `statVars` after the **ON**
+event; both sentinels remained intact in this emulator run. That narrow result does
+not make the other page-`83` holes safe and is not physical-calculator evidence.
+The trace SHA-256 values and initial-mapping assumptions are recorded in
+`tools/data/ram-page-observations.csv`.
+These trace files do not have complete-ROM sidecars. Their TLMT initial
+Flash page `0x00` SHA-256 is
+`bfc698e445d98d6d0905589ec34a88c9372a90cb0ed2d1fe9aa9b6fca0962fc1`,
+which matches page `0x00` in both known OS 2.55MP images. [confirmed] That
+page hash does not identify the boot pages or the complete image.
 
 ## How to hit the confirmed paths
 
@@ -205,9 +227,9 @@ more than anonymous free RAM. Keep the evidence classes separate:
 
 | Range | Use | Evidence |
 |-------|-----|----------|
-| `4373-4390` | Expression-path page-`83` scratch copy | Added by the `2+3 ENTER` trace. `flash_copy_block+0x16` (`ram:187E`) performs the `LDIR`; `flash_copy_block+0x14` (`ram:187C`) maps page `83`. The caller is still unlabeled. [confirmed] |
+| `4373-4390` | Expression-path page-`83` scratch copy | Added by the `2+3` **ENTER** trace. `flash_copy_block+0x16` (`ram:187E`) performs the `LDIR`; `flash_copy_block+0x14` (`ram:187C`) maps page `83`. The caller is still unlabeled. [confirmed] |
 | `43D9-44BD` | Boot/home page-`83` scratch copy | Present in the idle trace. `flash_copy_block+0x16` performs the `LDIR`, and `37:44D8` stores one additional byte. [confirmed] |
-| `577E-5A7D` | Homescreen previous-entry history | Page `33` references `577E`, the `5A7E` upper bound, `lastEntryPTR` (`0x8DA7`), and `numLastEntries` (`0x8E29`). The `2+3 ENTER` trace writes `577E-5790`, advances `lastEntryPTR` to `5791`, and sets `numLastEntries` to `01`. [confirmed] |
+| `577E-5A7D` | Homescreen previous-entry history | Page `33` references `577E`, the `5A7E` upper bound, `lastEntryPTR` (`0x8DA7`), and `numLastEntries` (`0x8E29`). The `2+3` **ENTER** trace writes `577E-5790`, advances `lastEntryPTR` to `5791`, and sets `numLastEntries` to `01`. [confirmed] |
 | `5A7E-5DF2` | LCD/home display capture area | Present in the idle trace. The `_SaveDisp` LCD capture (`ram:1890`) fills the first `0x300` bytes, `5A7E-5D7D` (the 96×64 framebuffer); the `5D7E-5DF2` tail is additional page-`83` writes in the same scenario. Ghidra decompiles `ram:1890` as an LCD-read helper that maps page `83` through port `6` and stores bytes read from LCD port `11`. [confirmed] |
 | `4000-4080` | App base-page staging before app execution | WikiTI public note; the two traces on this page do not launch an app. [standard] |
 | `4100-433A` | USB communication buffers | WikiTI public note; the two traces on this page do not exercise USB transfer. [standard] |
@@ -293,9 +315,14 @@ tilem2 --headless --rom "$ROM" --model ti84p --normal-speed --reset \
 tilem2 --headless --rom "$ROM" --model ti84p --normal-speed --reset \
   --macro tools/macros/graph-y1-x2.macro \
   --trace /tmp/page83-graph.trace --trace-range all
+tilem2 --headless --rom "$ROM" --model ti84p --normal-speed --reset \
+  --macro tools/macros/page83-error-divzero.macro \
+  --trace /tmp/page83-error-divzero.trace --trace-range all
 python3 tools/analyze_ram_page_trace.py /tmp/page83-idle.trace --page 0x83
 python3 tools/analyze_ram_page_trace.py /tmp/page83-2plus3.trace --page 0x83
 python3 tools/analyze_ram_page_trace.py /tmp/page83-graph.trace --page 0x83
+python3 tools/analyze_ram_page_trace.py /tmp/page83-error-divzero.trace \
+  --page 0x83 --initial-mapping ti84p-reset
 ```
 
 The baseline idle trace writes:
@@ -307,7 +334,7 @@ range 43D9-44BD
 range 5A7E-5DF2
 ```
 
-The `2+3 ENTER` trace writes:
+The `2+3` **ENTER** trace writes:
 
 ```text
 RAM page 0x83 writes: 3467
@@ -318,12 +345,21 @@ range 577E-5790
 range 5A7E-5DF2
 ```
 
+The division-by-zero dialog trace writes:
+
+```text
+RAM page 0x83 writes: 3418
+unique page addresses: 1114
+range 43D9-44BD
+range 5A7E-5DF2
+```
+
 The before/after RAM variables line up with the previous-entry write:
 
 | Scenario | `lastEntryPTR` (`0x8DA7`) | `numLastEntries` (`0x8E29`) |
 |----------|---------------------------|-----------------------------|
 | Idle home screen | `577E` | `00` |
-| After `2+3 ENTER` | `5791` | `01` |
+| After `2+3` **ENTER** | `5791` | `01` |
 
 Those values come from end-of-trace RAM reconstruction. The added page-`83` range
 `577E-5790` is exactly the bytes between the old and new `lastEntryPTR` values. [confirmed]
