@@ -2,8 +2,9 @@
 """Find numeric bcall use in an extracted community-source corpus.
 
 The scanner recognizes numeric ``bcall``/``b_call`` macro invocations and raw
-``rst 28h`` plus ``.dw`` sequences.  It ignores comments and macro definitions,
-then compares each identifier with the repository's main and boot bcall maps.
+``rst 28h`` plus ``.dw`` sequences. With ``--symbolic`` it also resolves names
+from unambiguous equates in the same extracted archive. It ignores comments and
+macro definitions, then compares each identifier with the main and boot maps.
 """
 
 from __future__ import annotations
@@ -21,8 +22,15 @@ CALL_RE = re.compile(
     r"(?i)\b(?:b_?call(?:z|nz|c|nc)?)\s*(?:\(\s*)?"
     r"(?:\$|0x)?([0-9a-f]{3,4})h?\b\s*\)?"
 )
+SYMBOL_CALL_RE = re.compile(
+    r"(?i)\b(?:b_?call(?:z|nz|c|nc)?)\s*(?:\(\s*)?"
+    r"([A-Za-z_][A-Za-z0-9_]*)\b\s*\)?"
+)
 RST_RE = re.compile(r"(?i)\brst\s+(?:\$?28h?|0x28)\b")
 WORD_RE = re.compile(r"(?i)\.(?:dw|word)\s+(?:\$|0x)?([0-9a-f]{3,4})h?\b")
+SYMBOL_WORD_RE = re.compile(
+    r"(?i)\.(?:dw|word)\s+([A-Za-z_][A-Za-z0-9_]*)\b"
+)
 BYTE_DIRECTIVE_RE = re.compile(r"(?i)^\s*\.(?:db|byte)\s+(.+?)\s*$")
 DEFINE_RE = re.compile(r"(?i)^\s*[#.]?(?:define|defcont|macro)\b")
 EQUATE_RE = re.compile(
@@ -67,7 +75,7 @@ def byte_literal(value: str) -> int | None:
     return result if 0 <= result <= 0xFF else None
 
 
-def scan_file(path: Path) -> list[Finding]:
+def scan_file(path: Path, symbols: dict[str, int] | None = None) -> list[Finding]:
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     findings: list[Finding] = []
     for index, line in enumerate(lines):
@@ -78,6 +86,19 @@ def scan_file(path: Path) -> list[Finding]:
             findings.append(
                 Finding(int(match.group(1), 16), path, index + 1, "macro", line.strip())
             )
+        if symbols is not None:
+            for match in SYMBOL_CALL_RE.finditer(code):
+                identifier = symbols.get(match.group(1).lower())
+                if identifier is not None:
+                    findings.append(
+                        Finding(
+                            identifier,
+                            path,
+                            index + 1,
+                            "macro-symbol",
+                            line.strip(),
+                        )
+                    )
         byte_directive = BYTE_DIRECTIVE_RE.match(code)
         if byte_directive is not None:
             values = [byte_literal(item) for item in byte_directive.group(1).split(",")]
@@ -104,7 +125,60 @@ def scan_file(path: Path) -> list[Finding]:
             findings.append(
                 Finding(int(word.group(1), 16), path, index + 1, "raw-rst", line.strip())
             )
+        elif symbols is not None:
+            symbol_word = SYMBOL_WORD_RE.search(code)
+            if symbol_word is None:
+                for following in lines[index + 1 : index + 4]:
+                    following_code = code_part(following).strip()
+                    if not following_code:
+                        continue
+                    symbol_word = SYMBOL_WORD_RE.search(following_code)
+                    break
+            if symbol_word is not None:
+                identifier = symbols.get(symbol_word.group(1).lower())
+                if identifier is not None:
+                    findings.append(
+                        Finding(
+                            identifier,
+                            path,
+                            index + 1,
+                            "raw-rst-symbol",
+                            line.strip(),
+                        )
+                    )
     return findings
+
+
+def source_group(source: Path, corpus: Path) -> str:
+    """Return the extracted archive container that owns a source file."""
+
+    relative = source.relative_to(corpus).as_posix()
+    marker = ".zip.contents/"
+    if marker in relative:
+        return relative.split(marker, 1)[0] + ".zip.contents"
+    return source.parent.relative_to(corpus).as_posix()
+
+
+def read_group_symbols(sources: list[Path], corpus: Path) -> dict[str, dict[str, int]]:
+    """Resolve unambiguous equates within each extracted archive."""
+
+    candidates: dict[str, dict[str, set[int]]] = {}
+    for source in sources:
+        group = source_group(source, corpus)
+        group_symbols = candidates.setdefault(group, {})
+        text = source.read_text(encoding="utf-8", errors="replace")
+        for match in EQUATE_RE.finditer(text):
+            identifier = int(match.group(2), 16)
+            if 0x4000 <= identifier < 0x9000:
+                group_symbols.setdefault(match.group(1).lower(), set()).add(identifier)
+    return {
+        group: {
+            name: next(iter(values))
+            for name, values in names.items()
+            if len(values) == 1
+        }
+        for group, names in candidates.items()
+    }
 
 
 def read_main_names(path: Path) -> dict[int, str]:
@@ -160,6 +234,11 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--all", action="store_true", help="include mapped identifiers")
     parser.add_argument(
+        "--symbolic",
+        action="store_true",
+        help="also resolve symbolic bcall operands from unambiguous archive-local equates",
+    )
+    parser.add_argument(
         "--inventory",
         type=Path,
         default=Path("tools/data/community-archive-inventory.csv"),
@@ -177,14 +256,26 @@ def main() -> int:
     include_names = read_equates(args.include)
     inventory = read_inventory(args.inventory)
 
+    sources = [
+        source
+        for source in sorted(corpus.rglob("*"))
+        if source.is_file() and source.suffix.lower() in SOURCE_SUFFIXES
+    ]
+    symbols = read_group_symbols(sources, corpus) if args.symbolic else {}
     findings: list[Finding] = []
-    for source in sorted(corpus.rglob("*")):
-        if source.is_file() and source.suffix.lower() in SOURCE_SUFFIXES:
-            findings.extend(scan_file(source))
+    for source in sources:
+        findings.extend(
+            scan_file(source, symbols.get(source_group(source, corpus)))
+        )
 
     rows = []
     for finding in findings:
-        if finding.identifier in main_names:
+        if 0x4000 <= finding.identifier < 0x8000 and (
+            finding.identifier - 0x4000
+        ) % 3:
+            status = "invalid-main-alignment"
+            map_name = ""
+        elif finding.identifier in main_names:
             status = "mapped-main"
             map_name = main_names[finding.identifier]
         elif finding.identifier in boot_names:
@@ -230,7 +321,8 @@ def main() -> int:
         writer = csv.DictWriter(stream, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
-    print(f"scanned {len(findings)} numeric bcall uses; wrote {len(rows)} rows")
+    scope = "numeric and archive-resolved symbolic" if args.symbolic else "numeric"
+    print(f"scanned {len(findings)} {scope} bcall uses; wrote {len(rows)} rows")
     return 0
 
 
