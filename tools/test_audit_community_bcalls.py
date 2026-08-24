@@ -10,7 +10,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from audit_community_bcalls import scan_file
+from audit_community_bcalls import read_group_symbols, scan_file
 
 
 class ScanFileTest(unittest.TestCase):
@@ -34,6 +34,30 @@ class ScanFileTest(unittest.TestCase):
         findings = self.scan(".db $EF,$C4,$45 ; native bcall\n")
         self.assertEqual([0x45C4], [row.identifier for row in findings])
         self.assertEqual("raw-bytes", findings[0].form)
+
+    def test_symbolic_forms_use_supplied_equates(self):
+        findings = self.scan("bcall(_Hidden)\nrst $28\n.dw _Other\n")
+        self.assertEqual([], findings)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "fixture.z80"
+            path.write_text("bcall(_Hidden)\nrst $28\n.dw _Other\n")
+            findings = scan_file(path, {"_hidden": 0x4051, "_other": 0x50CE})
+        self.assertEqual([0x4051, 0x50CE], [row.identifier for row in findings])
+        self.assertEqual(
+            ["macro-symbol", "raw-rst-symbol"], [row.form for row in findings]
+        )
+
+    def test_archive_symbols_drop_conflicting_equates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            corpus = Path(directory)
+            group = corpus / "sample.zip.contents"
+            group.mkdir()
+            first = group / "first.inc"
+            second = group / "second.asm"
+            first.write_text("_Good equ 4051h\n_Bad equ 4166h\n")
+            second.write_text("_Good equ 4051h\n_Bad equ 4111h\n")
+            symbols = read_group_symbols([first, second], corpus)
+        self.assertEqual({"_good": 0x4051}, symbols["sample.zip.contents"])
 
     def test_ignores_comments_and_definitions(self):
         findings = self.scan(
