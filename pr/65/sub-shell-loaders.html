@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a39ac739.js";
+            window.path_to_searchindex_js = "searchindex-6f06b547.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3529f298.js"></script>
+        <script src="toc-34eae533.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -250,11 +250,13 @@ moves the client to <code>0x9D95</code>. [confirmed]</p>
 archive bytes through a temporary page-read thunk. It replaces and rearchives
 the program only when the comparison differs. The release changelog describes
 the same smart-writeback policy. [confirmed]</p>
-<p>The launch wrapper selects IM1 for the client, installs an OS error handler,
-and restores MirageOS’s IM2 tasker state afterward. MirageOS itself reserves
-the first five bytes of <code>statVars</code> (<code>0x8A3A</code>–<code>0x8A3E</code>) for tasker timers and
-uses <code>0x966F</code> for its custom-interrupt entry. Those bytes are not general client
-scratch while the tasker or custom interrupt is active. [confirmed]</p>
+<p>The launch wrapper installs an OS error handler and conditionally prepares the
+MirageOS tasker before calling the client. With tasker flag bit 6 at <code>0x9689</code>
+set, mapped <code>0x7176</code>–<code>0x71E9</code> installs IM2 and writes timers, code, and a vector
+table across <code>0x8A3A</code>–<code>0x8C1B</code>. The wrapper selects IM1 after the client
+returns. It uses <code>0x966F</code> as the custom-interrupt entry when that option is
+enabled. These <code>statVars</code> ranges are not client scratch while the tasker or
+custom interrupt is active. [confirmed]</p>
 <p>The changelog also states that ON+<code>^</code> quits immediately without writeback.
 Whether that path restores every intermediate body and mapping, and what
 <code>_ChkFindSym</code> returns for the archived program name while the client runs,

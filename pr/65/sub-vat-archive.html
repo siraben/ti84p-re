@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a39ac739.js";
+            window.path_to_searchindex_js = "searchindex-6f06b547.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3529f298.js"></script>
+        <script src="toc-34eae533.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -264,6 +264,37 @@ whose data lives on a Flash page.</p>
 </ul>
 <p>For an archived entry the data address (<code>addrLSB/MSB</code>) points into the Flash window and the
 page byte selects the Flash page; the VAT record itself always stays in RAM.</p>
+<hr>
+<h2 id="ordinary-and-protected-programs-after-lookup"><a class="header" href="#ordinary-and-protected-programs-after-lookup">Ordinary and protected programs after lookup</a></h2>
+<p><code>ProgObj</code> (<code>0x05</code>) and <code>ProtProgObj</code> (<code>0x06</code>) use the same data representation.
+The helper at <code>ram:2042</code>–<code>ram:2058</code>, called by <code>_ChkFindSym</code>, admits both types
+as named program objects. <code>findsym_scan</code> returns the matched VAT type in <code>A</code> and
+OP1, so the caller can still distinguish <code>0x05</code> from <code>0x06</code>. [confirmed]</p>
+<p>The shared data and archive paths do not branch on that distinction:</p>
+<ul>
+<li><code>_DataSize</code> at <code>ram:1485</code>–<code>ram:14BB</code> sends both types through the same leading
+size-word case and includes the same two-byte header in its result.</li>
+<li><code>_Arc_Unarc</code> at <code>07:6248</code> branches on the returned page byte in <code>B</code>. Its only
+post-lookup object-type rejection is <code>GroupObj</code> (<code>0x17</code>) at <code>07:6263</code>.
+<code>07:614B</code>–<code>07:6158</code> obtains either program type’s size through <code>_DataSize</code>.</li>
+<li>The archive writer masks the VAT type with <code>0x1F</code> at <code>07:616F</code>–<code>07:6178</code> and
+preserves that low-five-bit value in the record. Copy length and page
+crossing do not depend on whether the preserved value is <code>0x05</code> or <code>0x06</code>.</li>
+<li><code>_FlashToRam</code> at <code>3D:6745</code> receives a page, source pointer, destination
+pointer, and byte count. It does not receive or read a VAT type.</li>
+</ul>
+<p>Protected-program behavior remains a type-routing policy outside those data
+paths. The alphabetical VAT selector maps <code>0x06</code> to the ordinary program class
+at <code>07:524D</code>–<code>07:5251</code>. The parser accepts either value and joins the same
+program path at <code>38:6012</code>–<code>38:601C</code>. <code>_ExecuteNewPrgm</code> instead requires
+<code>ProtProgObj</code> at <code>ram:2670</code>–<code>ram:2677</code>; this internal helper is not a general
+TI-BASIC execution API. These sites accept, normalize, or reject a type before
+using the common size-word payload. [confirmed]</p>
+<p>An archived-source reader therefore uses the same mapping, <code>_FlashToRam</code>, and
+cross-page rules for both program types after lookup. It must retain the actual
+type when it constructs OP1 for a later lookup. This conclusion covers TI-84
+Plus OS 2.55MP; shell-specific loading and writeback policies remain separate.
+[confirmed]</p>
 <hr>
 <h2 id="store-and-recall-standard"><a class="header" href="#store-and-recall-standard">Store and recall [standard]</a></h2>
 <p><strong>Store</strong> <code>_StoOther</code> (<code>38:62A9</code>) and siblings (<code>_StoAns</code>, <code>_StoX</code>, <code>_StoY</code>, … <code>38:6251-62A3</code>):</p>

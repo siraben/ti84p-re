@@ -38,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a39ac739.js";
+            window.path_to_searchindex_js = "searchindex-6f06b547.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3529f298.js"></script>
+        <script src="toc-34eae533.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -354,6 +354,116 @@ throughout the wiki.</p>
 <li><strong>Decompiler caveats.</strong> Ghidra’s Z80 decompiler can mis-render <code>SET b,(IY+d)</code> flag operations, <code>CALL cross_page_jump</code> (<code>ram:2B09</code>) trampolines, and register-passed arguments on banked pages. Raw disassembly and ROM bytes are authoritative for these cases.</li>
 </ul>
 <p>See the repository <code>README.md</code> for the exact build pipeline and tooling.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="build-and-evidence-provenance"><a class="header" href="#build-and-evidence-provenance">Build and evidence provenance</a></h1>
+<p>Reverse-engineering results are meaningful only when their ROM, hardware or
+emulator profile, include file, and analysis tools are identifiable. This
+repository uses SHA-256 identities rather than filenames as the primary
+provenance boundary.</p>
+<h2 id="two-local-os-255mp-images"><a class="header" href="#two-local-os-255mp-images">Two local OS 2.55MP images</a></h2>
+<p>The repository recognizes two complete-image identities. Their OS pages are
+the same, but their boot support differs. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Image</th><th>SHA-256</th><th>Page <code>0x2F</code></th><th>Page <code>0x3F</code></th></tr>
+</thead>
+<tbody>
+<tr><td>Canonical retail analysis image</td><td><code>7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d</code></td><td><code>D84PBE2</code> USB boot page</td><td>Retail boot 1.03</td></tr>
+<tr><td>BootFree runtime-trace image</td><td><code>dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09</code></td><td>Patched-base page</td><td>BootFree 11.259</td></tr>
+</tbody>
+</table>
+</div>
+<p>The canonical image starts from <code>ti84plus_patched.rom</code>, whose SHA-256 is
+<code>90472848b5f56902287fd5d8b455e62d60e9ab054647c9a03c1c91a67fc1a95a</code>.
+<code>D84PBE2.8Xv</code> supplies page <code>0x2F</code>; <code>D84PBE1.8Xv</code> supplies page <code>0x3F</code>, although
+that decoded retail page is byte-identical to the base image’s page <code>0x3F</code>.
+The exact AppVar and decoded-page identities are pinned in
+<code>tools/rom_signatures.py</code>. [confirmed]</p>
+<p>The BootFree image matches the patched base on pages <code>0x00</code>–<code>0x3E</code>. Only page
+<code>0x3F</code> differs, with SHA-256
+<code>b3ae75aa81231de15e5931746d79834863132d5e4dca01010e3a8e24aabd3003</code>.
+Its acquisition artifact is not pinned, so this is a page-identity statement,
+not a physical-capture provenance claim. [confirmed]</p>
+<p>Use the retail image for boot-table, USB boot, reset, recovery, certificate,
+and page-<code>0x3F</code> claims. A BootFree trace can establish behavior confined to
+unchanged pages, provided the result records the complete-image hash and the
+relevant page identity. It cannot establish retail boot behavior. [standard]</p>
+<h2 id="bootfree-callable-surface-and-reset-path"><a class="header" href="#bootfree-callable-surface-and-reset-path">BootFree callable surface and reset path</a></h2>
+<p><code>tools/data/boot-page-comparison.csv</code> compares all 87 populated <code>0x8xxx</code>
+table entries. Every target address differs. BootFree implements 38 entries,
+maps 45 entries to a bare <code>RET</code>, and maps four entries to small constant-return
+stubs. The six retail entries whose bodies live on USB boot page <code>0x2F</code> all map
+to BootFree’s bare-<code>RET</code> stub. [confirmed]</p>
+<p>The reset paths also differ before any OS code runs: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Step</th><th>Retail boot 1.03</th><th>BootFree 11.259</th></tr>
+</thead>
+<tbody>
+<tr><td>Reset stub</td><td>Writes ports <code>0x04</code>, <code>0x06</code>, and <code>0x0E</code>, then jumps to <code>0x812C</code></td><td>Maps page <code>0x3F</code> through ports <code>0x06</code> and <code>0x07</code>, then jumps to <code>0x812C</code></td></tr>
+<tr><td>Installed-OS test</td><td>Scans the keypad; DEL and STAT select recovery; otherwise tests byte <code>0x0038</code> and marker <code>0xA55A</code> at <code>0x0056</code></td><td>Does not scan a recovery key; tests only marker <code>0xA55A</code> at <code>0x0056</code></td></tr>
+<tr><td>Missing or rejected OS</td><td>Enters serial or USB-assisted recovery and can receive an OS</td><td>Displays <code>No OS Loaded</code> and halts</td></tr>
+<tr><td>Boot services</td><td>Certificate, validation, serial receive, USB receive, installer display, and error paths</td><td>Smaller Flash/certificate utility set; signature, receive, USB, and most installer-display entries are stubs</td></tr>
+</tbody>
+</table>
+</div>
+<p>The CSV classifies every public callable table slot, not every internal helper
+entry in either page. A complete internal-routine comparison still requires
+matched function-entry recovery for both images. [confirmed]</p>
+<h2 id="generate-a-manifest"><a class="header" href="#generate-a-manifest">Generate a manifest</a></h2>
+<p><code>tools/rom_provenance.py</code> records the complete ROM identity, target model,
+ASIC revision, OS version, boot-page classification, component page ranges,
+the 2007 include-file identity, Ghidra version, Git revision, dirty-tree state,
+and a digest over the top-level analysis scripts.</p>
+<pre><code class="language-sh">nix develop -c python3 tools/rom_provenance.py manifest \
+  --rom tools/rom.bin --model 'TI-84 Plus' --asic 'TilEm x4' \
+  --output /tmp/ti84p-provenance.json
+</code></pre>
+<p>The generated manifest reports an unknown component map for an unrecognized
+ROM rather than silently assigning it a known OS identity. [confirmed]</p>
+<h2 id="reject-stale-results"><a class="header" href="#reject-stale-results">Reject stale results</a></h2>
+<p>Checked CSV result tables use a <code>rom_sha256</code> column. JSON reports use either a
+<code>rom_sha256</code> field or a <code>rom.sha256</code> object. Verify them against the current
+manifest before reuse:</p>
+<pre><code class="language-sh">nix develop -c python3 tools/rom_provenance.py verify \
+  --manifest /tmp/ti84p-provenance.json \
+  tools/data/launch-boundary-results.csv \
+  tools/data/resident-launch-snapshot.csv
+</code></pre>
+<p>The command rejects missing, mixed, or mismatched identities. Raw TLMT traces
+do not embed a ROM hash, so they require a JSON provenance sidecar; verify the
+sidecar rather than treating the trace filename as evidence. [confirmed]</p>
+<h2 id="audit-the-ghidra-database"><a class="header" href="#audit-the-ghidra-database">Audit the Ghidra database</a></h2>
+<p><code>tools/DatabaseHealth.java</code> makes database coverage and cleanup debt
+machine-readable. Run it against the existing project without analysis or
+writes:</p>
+<pre><code class="language-sh">nix develop -c ghidra-analyzeHeadless "$PWD" ti84 \
+  -process -noanalysis -readOnly -scriptPath "$PWD/tools" \
+  -postScript DatabaseHealth.java tools/data/database-health.json
+</code></pre>
+<p>The checked report identifies the BootFree runtime-trace image by its complete
+ROM hash. It records 64 loaded Flash pages, 27,995 instructions, 2,413
+functions, and 94.081086 percent of instructions inside functions. The listing
+has no overlapping instructions. It also lists each of the 163 unresolved
+inline cross-page jumps and 45 primary symbols that have neither an instruction
+nor typed storage at their address. [confirmed]</p>
+<p>The 989,125 undefined Flash bytes are addresses with no defined Ghidra code or
+data unit. That number measures database coverage; it does not imply that those
+bytes are unused or safe to overwrite. Likewise, an unresolved jump is a
+specific analysis task, not evidence that the ROM’s control flow is invalid.
+[standard]</p>
+<p>The health report is deterministic for a given database, script revision, and
+Ghidra version. Its <code>rom_sha256</code> field can be checked with
+<code>tools/rom_provenance.py verify</code>; use a separately rebuilt retail project when
+auditing retail boot and USB pages. [standard]</p>
+<h2 id="evidence-limit"><a class="header" href="#evidence-limit">Evidence limit</a></h2>
+<p>A matching hash proves byte identity, not how the image was obtained. The ASIC
+field distinguishes a physical revision from an emulator profile but does not
+turn emulator behavior into hardware evidence. Git and script-tree identities
+make an analysis run reproducible; they do not by themselves validate the
+analysis conclusion.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="glossary"><a class="header" href="#glossary">Glossary</a></h1>
 <p>This glossary defines the TI-specific terms and key RAM symbols used throughout
@@ -5003,6 +5113,37 @@ whose data lives on a Flash page.</p>
 <p>For an archived entry the data address (<code>addrLSB/MSB</code>) points into the Flash window and the
 page byte selects the Flash page; the VAT record itself always stays in RAM.</p>
 <hr>
+<h2 id="ordinary-and-protected-programs-after-lookup"><a class="header" href="#ordinary-and-protected-programs-after-lookup">Ordinary and protected programs after lookup</a></h2>
+<p><code>ProgObj</code> (<code>0x05</code>) and <code>ProtProgObj</code> (<code>0x06</code>) use the same data representation.
+The helper at <code>ram:2042</code>–<code>ram:2058</code>, called by <code>_ChkFindSym</code>, admits both types
+as named program objects. <code>findsym_scan</code> returns the matched VAT type in <code>A</code> and
+OP1, so the caller can still distinguish <code>0x05</code> from <code>0x06</code>. [confirmed]</p>
+<p>The shared data and archive paths do not branch on that distinction:</p>
+<ul>
+<li><code>_DataSize</code> at <code>ram:1485</code>–<code>ram:14BB</code> sends both types through the same leading
+size-word case and includes the same two-byte header in its result.</li>
+<li><code>_Arc_Unarc</code> at <code>07:6248</code> branches on the returned page byte in <code>B</code>. Its only
+post-lookup object-type rejection is <code>GroupObj</code> (<code>0x17</code>) at <code>07:6263</code>.
+<code>07:614B</code>–<code>07:6158</code> obtains either program type’s size through <code>_DataSize</code>.</li>
+<li>The archive writer masks the VAT type with <code>0x1F</code> at <code>07:616F</code>–<code>07:6178</code> and
+preserves that low-five-bit value in the record. Copy length and page
+crossing do not depend on whether the preserved value is <code>0x05</code> or <code>0x06</code>.</li>
+<li><code>_FlashToRam</code> at <code>3D:6745</code> receives a page, source pointer, destination
+pointer, and byte count. It does not receive or read a VAT type.</li>
+</ul>
+<p>Protected-program behavior remains a type-routing policy outside those data
+paths. The alphabetical VAT selector maps <code>0x06</code> to the ordinary program class
+at <code>07:524D</code>–<code>07:5251</code>. The parser accepts either value and joins the same
+program path at <code>38:6012</code>–<code>38:601C</code>. <code>_ExecuteNewPrgm</code> instead requires
+<code>ProtProgObj</code> at <code>ram:2670</code>–<code>ram:2677</code>; this internal helper is not a general
+TI-BASIC execution API. These sites accept, normalize, or reject a type before
+using the common size-word payload. [confirmed]</p>
+<p>An archived-source reader therefore uses the same mapping, <code>_FlashToRam</code>, and
+cross-page rules for both program types after lookup. It must retain the actual
+type when it constructs OP1 for a later lookup. This conclusion covers TI-84
+Plus OS 2.55MP; shell-specific loading and writeback policies remain separate.
+[confirmed]</p>
+<hr>
 <h2 id="store-and-recall-standard"><a class="header" href="#store-and-recall-standard">Store and recall [standard]</a></h2>
 <p><strong>Store</strong> <code>_StoOther</code> (<code>38:62A9</code>) and siblings (<code>_StoAns</code>, <code>_StoX</code>, <code>_StoY</code>, … <code>38:6251-62A3</code>):</p>
 <ul>
@@ -5689,6 +5830,27 @@ its length. It consequently reads two bytes beyond the size-described program
 data. Those bytes occupy the final two bytes of the execution allocation.
 [confirmed] A boundary fixture should place guard bytes after the variable to
 record their exact values at <code>ram:BD93</code> and <code>ram:BD94</code>.</p>
+<p>The builders and TilEm runner in <code>tools/launch-fixtures/</code> exercise the three
+actual boundary sizes. Each accepted trace reaches <code>_ExecutePrgm</code>, the limit
+test, <code>_InsertMem</code>, the payload handoff, and <code>ram:9D95</code>; the rejected trace
+reaches <code>ram:2729</code> before insertion. [confirmed]</p>
+<p><code>tools/data/launch-boundary-results.csv</code> records the ROM, fixture, and trace
+hashes together with instruction counts and reached checkpoints. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Internal size</th><th style="text-align: right">Bytes after marker</th><th>TilEm result</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right"><code>0x1FFF</code></td><td style="text-align: right">8,189</td><td>Accepted</td></tr>
+<tr><td style="text-align: right"><code>0x2000</code></td><td style="text-align: right">8,190</td><td>Accepted</td></tr>
+<tr><td style="text-align: right"><code>0x2001</code></td><td style="text-align: right">8,191</td><td>Rejected with memory error</td></tr>
+</tbody>
+</table>
+</div>
+<p>The previously suggested 8,808–8,814-byte variables are all above this ROM
+limit, so they cannot distinguish the boundary. The fixture uses the adjacent
+sizes instead.</p>
 <h2 id="text-asmprgm-launch"><a class="header" href="#text-asmprgm-launch">Text <code>AsmPrgm</code> launch</a></h2>
 <p>The <code>BB 6C</code> text path begins at <code>07:57D4</code>. <code>07:5717</code>–<code>07:5731</code> counts decoded
 hex-byte pairs while ignoring <code>?</code> separators, then applies the same <code>0x2000</code>
@@ -5733,6 +5895,45 @@ every register it needs and return with the hardware stack balanced.</p>
 port-7 write has occurred since capture began. The logical PC is <code>0x9D95</code>, and
 the launcher’s <code>JP 0x9D95</code> establishes that the instruction is in RAM. This is
 a trace-reconstruction limitation. [confirmed]</p>
+<h2 id="timed-heap-and-stack-snapshots"><a class="header" href="#timed-heap-and-stack-snapshots">Timed heap and stack snapshots</a></h2>
+<p>The <code>RTSNAP</code> fixture records the heap fields from inside the payload, while a
+TLMT v2 replay applies every logical-memory write and samples the same fields
+at OS-side checkpoints. The trace used TI-84 Plus OS 2.55MP, an unarchived
+compiled program launched by <code>Asm(prgmRTSNAP)</code>, and the ROM with SHA-256
+<code>dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09</code>.
+[confirmed]</p>
+<p>That complete-image identity is the BootFree 11.259 variant, not the canonical
+retail-boot image. The launch implementation on Flash page <code>0x07</code> is
+byte-identical in both images; page <code>0x07</code> has SHA-256
+<code>6335c5f15cb5d534423b8d018dd412d21905e5ca448cc3f84d6c53d15b3aa60e</code>.
+The trace therefore supports the page-<code>0x07</code> launch result, but no retail-boot
+claim. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Checkpoint</th><th style="text-align: right"><code>FPS</code></th><th style="text-align: right"><code>OPS</code></th><th style="text-align: right"><code>pTemp</code></th><th style="text-align: right"><code>progPtr</code></th><th style="text-align: right"><code>SP</code></th><th style="text-align: right"><code>_MemChk</code></th></tr>
+</thead>
+<tbody>
+<tr><td><code>_ExecutePrgm</code> entry</td><td style="text-align: right"><code>0x9FFA</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFD7</code></td><td style="text-align: right"><code>0x5CC1</code></td></tr>
+<tr><td>First payload instruction</td><td style="text-align: right"><code>0xA171</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFC9</code></td><td style="text-align: right"><code>0x5B4A</code></td></tr>
+<tr><td>Nested <code>_MemChk</code> entry</td><td style="text-align: right"><code>0xA171</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFC3</code></td><td style="text-align: right"><code>0x5B4A</code></td></tr>
+<tr><td>Payload return</td><td style="text-align: right"><code>0xA171</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFCB</code></td><td style="text-align: right"><code>0x5B4A</code></td></tr>
+<tr><td>Cleanup entry</td><td style="text-align: right"><code>0xA171</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFD7</code></td><td style="text-align: right"><code>0x5B4A</code></td></tr>
+<tr><td>Cleanup return</td><td style="text-align: right"><code>0x9FFA</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFD9</code></td><td style="text-align: right"><code>0x5CC1</code></td></tr>
+</tbody>
+</table>
+</div>
+<p><code>fpBase</code> moves from <code>0x9FE8</code> to <code>0xA15F</code>, and <code>FPS</code> moves from <code>0x9FFA</code>
+to <code>0xA171</code>. Both shifts are the fixture’s <code>0x0177</code>-byte internal program
+size. <code>OPBase</code>, <code>OPS</code>, <code>pTemp</code>, <code>progPtr</code>, and <code>symTable</code> remain unchanged at
+these checkpoints; cleanup restores the two shifted fields. The nested bcall
+uses six more stack bytes than payload entry, but does not change the measured
+heap pointers or <code>_MemChk</code>. [confirmed]</p>
+<p>The fixture, decoder, analyzer, capture recipe, and compact provenance rows are
+under <code>tools/launch-probes/</code> and <code>tools/data/resident-launch-snapshot.csv</code>.
+These observations do not establish an entry ABI or cover <code>_ExecAsm</code>, an
+archived launcher path, shell launchers, other OS releases, or hardware.
+[confirmed]</p>
 <h2 id="free-ram-and-stack-headroom"><a class="header" href="#free-ram-and-stack-headroom">Free RAM and stack headroom</a></h2>
 <p><code>_MemChk</code> at <code>ram:0E20</code> returns <code>(OPS - FPS) + 1</code> when <code>OPS &gt;= FPS</code>; otherwise
 it returns zero. <code>_EnoughMem</code> at <code>ram:0FA6</code> compares a request with that result
@@ -5818,13 +6019,13 @@ location stable. Reacquire it after an operation that may write or collect the
 archive.</p>
 <h2 id="evidence-limits"><a class="header" href="#evidence-limits">Evidence limits</a></h2>
 <p>The ROM and traces on this page cover the compiled and text <code>Asm(</code> paths,
-normal cleanup bytes, pointer-repair code, VAT results, and Flash-page copying
-on TI-84 Plus OS 2.55MP. They do not establish behavior for <code>_ExecAsm</code>, a shell
-launcher, another OS version, a 48 KiB ASIC, or a physical calculator.</p>
-<p>Useful next fixtures are internal sizes <code>0x1FFF</code>, <code>0x2000</code>, and <code>0x2001</code>; timed
-snapshots before insertion, at payload entry, inside a nested bcall, and after
-cleanup; an archived variable that crosses a 16 KiB page; and a forced archive
-garbage collection followed by a fresh lookup.</p>
+timed unarchived compiled-launch heap snapshots, normal cleanup bytes,
+pointer-repair code, VAT results, and Flash-page copying on TI-84 Plus OS
+2.55MP. They do not establish behavior for <code>_ExecAsm</code>, an archived launch path,
+a shell launcher, another OS version, a 48 KiB ASIC, or a physical calculator.</p>
+<p>Useful next fixtures should guard the two-byte over-read, repeat the timed
+snapshots for archived, <code>_ExecAsm</code>, and shell routes, and force archive garbage
+collection followed by a fresh lookup.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="shell-loaders-and-writeback"><a class="header" href="#shell-loaders-and-writeback">Shell loaders and writeback</a></h1>
 <p>Ion, MirageOS, Doors CS, and zStart all place assembly code at <code>userMem</code>
@@ -5897,11 +6098,13 @@ moves the client to <code>0x9D95</code>. [confirmed]</p>
 archive bytes through a temporary page-read thunk. It replaces and rearchives
 the program only when the comparison differs. The release changelog describes
 the same smart-writeback policy. [confirmed]</p>
-<p>The launch wrapper selects IM1 for the client, installs an OS error handler,
-and restores MirageOS’s IM2 tasker state afterward. MirageOS itself reserves
-the first five bytes of <code>statVars</code> (<code>0x8A3A</code>–<code>0x8A3E</code>) for tasker timers and
-uses <code>0x966F</code> for its custom-interrupt entry. Those bytes are not general client
-scratch while the tasker or custom interrupt is active. [confirmed]</p>
+<p>The launch wrapper installs an OS error handler and conditionally prepares the
+MirageOS tasker before calling the client. With tasker flag bit 6 at <code>0x9689</code>
+set, mapped <code>0x7176</code>–<code>0x71E9</code> installs IM2 and writes timers, code, and a vector
+table across <code>0x8A3A</code>–<code>0x8C1B</code>. The wrapper selects IM1 after the client
+returns. It uses <code>0x966F</code> as the custom-interrupt entry when that option is
+enabled. These <code>statVars</code> ranges are not client scratch while the tasker or
+custom interrupt is active. [confirmed]</p>
 <p>The changelog also states that ON+<code>^</code> quits immediately without writeback.
 Whether that path restores every intermediate body and mapping, and what
 <code>_ChkFindSym</code> returns for the archived program name while the client runs,
@@ -6008,7 +6211,8 @@ anonymous memory while continuing to call arbitrary OS routines. Two OS
 <code>textShadow</code>, and every byte of <code>saveSScreen</code>. The remaining advertised ranges
 have subsystem owners that make them conditional, even where these traces did
 not touch them. [confirmed]</p>
-<p>The measurements are in <code>tools/data/scratch-ram-observations.csv</code>.
+<p>The measurements are in <code>tools/data/scratch-ram-observations.csv</code> and
+<code>tools/data/scratch-guard-results.csv</code>.
 Regenerate a row set from a full-range TilEm trace with:</p>
 <pre><code class="language-sh">nix develop --command python3 tools/analyze_scratch_trace.py TRACE \
   --initial-port-5 0 --initial-port-7 0x81 \
@@ -6053,16 +6257,75 @@ link, and USB path is allowed. A runtime may borrow a conditional range only by
 defining the excluded calls and contexts as part of its ABI.</p>
 <h2 id="conditional-savesscreen-and-statvars-claims"><a class="header" href="#conditional-savesscreen-and-statvars-claims">Conditional <code>saveSScreen</code> and <code>statVars</code> claims</a></h2>
 <p>Public TI-83 Plus documentation permits <code>saveSScreen</code> after <code>_DisableApd</code>, and
-permits <code>statVars</code> after <code>_DelRes</code> when statistics code is excluded. A shell
-interrupt, especially MirageOS’s interrupt, adds another owner of <code>statVars</code>.
-[standard]</p>
-<p>Those conditions are not yet locally confirmed across <code>_GetKey</code>, the ON key,
-error unwinding, and shell interrupts. The source fixture
-<code>tools/fixtures/scratch_guard_probe.asm</code> and its TilEm macro
-<code>tools/macros/scratch-guard-probe.macro</code> fill both
-ranges, enter <code>_GetKey</code>, and check the guards. Its first automated launch
-reached a TI-OS error before the fixture executed, so it supplies no result.
-[hypothesis fixture]</p>
+permits <code>statVars</code> after <code>_DelRes</code> when statistics code is excluded. <code>_DelRes</code>
+invalidates existing statistics results; it does not reserve the block against
+later statistics commands or third-party interrupt handlers. [standard]</p>
+<h3 id="direct-ti-os-guard"><a class="header" href="#direct-ti-os-guard">Direct TI-OS guard</a></h3>
+<p>The guarded direct-launch fixture calls <code>_DisableApd</code> and <code>_DelRes</code>, fills all
+768 bytes of <code>saveSScreen</code> with <code>0xA5</code> and all 531 bytes of <code>statVars</code> with
+<code>0x5A</code>, polls <code>_GetCSC</code>, blocks in <code>_GetKey</code>, and receives one injected ON
+event. Both complete checks pass, and the fixture displays <code>SAVE STAT 1 1</code>.
+This result is limited to TI-OS 2.55MP in the pinned TilEm x4 run. [confirmed]</p>
+<p>Build the TI-BASIC <code>Asm(prgmSCRPROBE)</code> wrapper with
+<code>tools/build_scratch_probe_wrapper.py</code>; then assemble
+<code>tools/fixtures/scratch_guard_probe.asm</code> and run
+<code>tools/macros/scratch-guard-probe.macro</code>. The full trace executes 14,736
+instructions in the payload range, including the 767- and 530-byte fill
+<code>LDIR</code>s and the complete 768- and 531-byte comparison loops. The fixture halts
+after rendering the result so a held ON key cannot enter another <code>_GetKey</code>.</p>
+<p>This confirms the documented <code>saveSScreen</code> condition for that direct emulator
+scenario. It does not cover an APD timeout, error unwinding, physical hardware,
+or statistics code after <code>_DelRes</code>.</p>
+<h3 id="shell-owned-statvars-ranges"><a class="header" href="#shell-owned-statvars-ranges">Shell-owned <code>statVars</code> ranges</a></h3>
+<p>Common shells do not share one <code>statVars</code> contract. The table separates static
+shell ownership from the direct dynamic guard. [confirmed] for the identified
+release source or binary; untraced runtime cells remain open.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Context</th><th>Result</th><th>Evidence and boundary</th></tr>
+</thead>
+<tbody>
+<tr><td>Direct TI-OS 2.55MP</td><td>All 531 bytes pass</td><td>One TilEm x4 guard with <code>_DelRes</code>, statistics excluded, and IM1; no physical run</td></tr>
+<tr><td>MirageOS 1.2 with tasker disabled</td><td>Candidate only</td><td>The setup routine returns while tasker flag bit 6 at <code>0x9689</code> is clear; no client guard run</td></tr>
+<tr><td>MirageOS 1.2 with tasker or custom interrupt active</td><td>Unsafe</td><td>The original binary installs timers, handler code, and an IM2 vector table inside <code>statVars</code> before client execution</td></tr>
+<tr><td>Doors CS 7.4</td><td>Unsafe as general client storage</td><td>Source reserves the block for shell state; its Mirage-compatible interrupt also installs code and vectors there</td></tr>
+<tr><td>Ion 1.6</td><td>Unresolved</td><td>Source review pins no Ion-owned interrupt in this block; no client guard run</td></tr>
+<tr><td>zStart 1.3.013</td><td>Unresolved</td><td>The launcher selects IM1 for the client and pins no explicit shell owner in this block; no client guard run</td></tr>
+</tbody>
+</table>
+</div>
+<p>MirageOS’s tasker setup at mapped <code>0x7176</code>–<code>0x71E9</code> writes these ranges:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Range</th><th>MirageOS owner</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x8A3A</code>–<code>0x8A3E</code></td><td>three timer counters and two reload values</td></tr>
+<tr><td><code>0x8A4F</code>–<code>0x8A88</code></td><td>relocated interrupt code</td></tr>
+<tr><td><code>0x8A8A</code>–<code>0x8AFE</code></td><td>relocated interrupt dispatcher</td></tr>
+<tr><td><code>0x8B00</code>–<code>0x8C00</code></td><td>257-byte IM2 vector table built by <code>_MemSet = 4C33</code></td></tr>
+<tr><td><code>0x8C01</code>–<code>0x8C1B</code></td><td>relocated timer worker</td></tr>
+</tbody>
+</table>
+</div>
+<p>The timer worker at mapped <code>0x7140</code>–<code>0x715A</code> updates the first five bytes. The
+launch paths call the setup routine before calling the client at <code>0x9680</code> or
+<code>0x9D96</code>; they select IM1 only after that call returns at mapped <code>0x7584</code> or
+<code>0x75A3</code>. A client can therefore run while the MirageOS IM2 owner is active.
+[confirmed]</p>
+<p>Doors CS source defines <code>pendfile = 0x8A3A</code> and places up to 48 bytes of ALE
+vectors after its ten-byte record, occupying <code>0x8A3A</code>–<code>0x8A73</code>. Its source
+also declares the complete 531-byte <code>statVars</code>/<code>anovaf_vars</code> span as internal
+storage. The Mirage-compatible <code>mos_setupint</code> routine installs its handler at
+<code>0x8A8A</code>, its vector table at <code>0x8B00</code>–<code>0x8C00</code>, and optional timers at
+<code>0x8A3A</code>–<code>0x8A3E</code>. <code>_DelRes</code> does not release these shell-owned objects.
+[confirmed]</p>
+<p><code>tools/data/scratch-guard-results.csv</code> records the direct trace, the exact
+MirageOS and Doors CS owned ranges, and explicit <code>not-run</code> rows for Ion and
+zStart. Dynamic guards under all four shells and physical-calculator runs
+remain required before the checklist’s common-shell requirement is complete.</p>
 <h2 id="page-0x83-during-resident-execution"><a class="header" href="#page-0x83-during-resident-execution">Page <code>0x83</code> during resident execution</a></h2>
 <p>Page <code>0x83</code> is OS state rather than a spare 16 KiB page. The two resident traces
 add the following observations to the boot and expression traces documented in
@@ -6092,7 +6355,7 @@ boot, and expression evidence gives these known owners:</p>
 <tr><td><code>83:43D9</code>–<code>83:44BD</code></td><td>Boot/home block copy [confirmed]</td></tr>
 <tr><td><code>83:577E</code>–<code>83:5A7D</code></td><td>MathPrint previous-entry history [confirmed]</td></tr>
 <tr><td><code>83:5A7E</code>–<code>83:5D7D</code></td><td>LCD/home-display capture [confirmed]</td></tr>
-<tr><td><code>83:5D7E</code>–<code>83:5DF2</code></td><td>Additional boot/home writes [confirmed within that scenario]</td></tr>
+<tr><td><code>83:5D7E</code>–<code>83:5DF2</code></td><td>Additional boot/home writes in the measured scenario [confirmed]</td></tr>
 </tbody>
 </table>
 </div>
@@ -22671,9 +22934,8 @@ cooperative <code>Ans</code> callback. Trace the group-archive member walk after
 archived lookup, scratch-buffer observations, and normal bank-A bcall restore
 are documented. These boundaries still need dynamic or physical evidence:</p>
 <ul>
-<li>Capture heap pointers, <code>_MemChk</code>, and <code>SP</code> before insertion, at payload entry,
-inside a nested bcall, and after cleanup. Repeat <code>_ExecAsm</code>, archived OS
-paths, and shell paths with boundary-size programs.</li>
+<li>Repeat the completed direct, unarchived compiled-launch heap snapshot under
+<code>_ExecAsm</code>, archived OS paths, and shell paths with boundary-size programs.</li>
 <li>Isolate scratch-buffer writes by bcall. Complete a successful
 <code>_DisableApd</code>/<code>_DelRes</code> guard run through <code>_GetKey</code>, ON-key handling, an OS
 error, APD, archive collection, link/USB, and shell interrupts.</li>

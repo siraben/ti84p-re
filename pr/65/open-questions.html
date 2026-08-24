@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a39ac739.js";
+            window.path_to_searchindex_js = "searchindex-6f06b547.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3529f298.js"></script>
+        <script src="toc-34eae533.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -232,9 +232,8 @@ cooperative <code>Ans</code> callback. Trace the group-archive member walk after
 archived lookup, scratch-buffer observations, and normal bank-A bcall restore
 are documented. These boundaries still need dynamic or physical evidence:</p>
 <ul>
-<li>Capture heap pointers, <code>_MemChk</code>, and <code>SP</code> before insertion, at payload entry,
-inside a nested bcall, and after cleanup. Repeat <code>_ExecAsm</code>, archived OS
-paths, and shell paths with boundary-size programs.</li>
+<li>Repeat the completed direct, unarchived compiled-launch heap snapshot under
+<code>_ExecAsm</code>, archived OS paths, and shell paths with boundary-size programs.</li>
 <li>Isolate scratch-buffer writes by bcall. Complete a successful
 <code>_DisableApd</code>/<code>_DelRes</code> guard run through <code>_GetKey</code>, ON-key handling, an OS
 error, APD, archive collection, link/USB, and shell interrupts.</li>

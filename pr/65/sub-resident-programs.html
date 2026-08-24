@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a39ac739.js";
+            window.path_to_searchindex_js = "searchindex-6f06b547.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3529f298.js"></script>
+        <script src="toc-34eae533.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -233,6 +233,27 @@ its length. It consequently reads two bytes beyond the size-described program
 data. Those bytes occupy the final two bytes of the execution allocation.
 [confirmed] A boundary fixture should place guard bytes after the variable to
 record their exact values at <code>ram:BD93</code> and <code>ram:BD94</code>.</p>
+<p>The builders and TilEm runner in <code>tools/launch-fixtures/</code> exercise the three
+actual boundary sizes. Each accepted trace reaches <code>_ExecutePrgm</code>, the limit
+test, <code>_InsertMem</code>, the payload handoff, and <code>ram:9D95</code>; the rejected trace
+reaches <code>ram:2729</code> before insertion. [confirmed]</p>
+<p><code>tools/data/launch-boundary-results.csv</code> records the ROM, fixture, and trace
+hashes together with instruction counts and reached checkpoints. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Internal size</th><th style="text-align: right">Bytes after marker</th><th>TilEm result</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right"><code>0x1FFF</code></td><td style="text-align: right">8,189</td><td>Accepted</td></tr>
+<tr><td style="text-align: right"><code>0x2000</code></td><td style="text-align: right">8,190</td><td>Accepted</td></tr>
+<tr><td style="text-align: right"><code>0x2001</code></td><td style="text-align: right">8,191</td><td>Rejected with memory error</td></tr>
+</tbody>
+</table>
+</div>
+<p>The previously suggested 8,808–8,814-byte variables are all above this ROM
+limit, so they cannot distinguish the boundary. The fixture uses the adjacent
+sizes instead.</p>
 <h2 id="text-asmprgm-launch"><a class="header" href="#text-asmprgm-launch">Text <code>AsmPrgm</code> launch</a></h2>
 <p>The <code>BB 6C</code> text path begins at <code>07:57D4</code>. <code>07:5717</code>–<code>07:5731</code> counts decoded
 hex-byte pairs while ignoring <code>?</code> separators, then applies the same <code>0x2000</code>
@@ -277,6 +298,45 @@ every register it needs and return with the hardware stack balanced.</p>
 port-7 write has occurred since capture began. The logical PC is <code>0x9D95</code>, and
 the launcher’s <code>JP 0x9D95</code> establishes that the instruction is in RAM. This is
 a trace-reconstruction limitation. [confirmed]</p>
+<h2 id="timed-heap-and-stack-snapshots"><a class="header" href="#timed-heap-and-stack-snapshots">Timed heap and stack snapshots</a></h2>
+<p>The <code>RTSNAP</code> fixture records the heap fields from inside the payload, while a
+TLMT v2 replay applies every logical-memory write and samples the same fields
+at OS-side checkpoints. The trace used TI-84 Plus OS 2.55MP, an unarchived
+compiled program launched by <code>Asm(prgmRTSNAP)</code>, and the ROM with SHA-256
+<code>dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09</code>.
+[confirmed]</p>
+<p>That complete-image identity is the BootFree 11.259 variant, not the canonical
+retail-boot image. The launch implementation on Flash page <code>0x07</code> is
+byte-identical in both images; page <code>0x07</code> has SHA-256
+<code>6335c5f15cb5d534423b8d018dd412d21905e5ca448cc3f84d6c53d15b3aa60e</code>.
+The trace therefore supports the page-<code>0x07</code> launch result, but no retail-boot
+claim. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Checkpoint</th><th style="text-align: right"><code>FPS</code></th><th style="text-align: right"><code>OPS</code></th><th style="text-align: right"><code>pTemp</code></th><th style="text-align: right"><code>progPtr</code></th><th style="text-align: right"><code>SP</code></th><th style="text-align: right"><code>_MemChk</code></th></tr>
+</thead>
+<tbody>
+<tr><td><code>_ExecutePrgm</code> entry</td><td style="text-align: right"><code>0x9FFA</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFD7</code></td><td style="text-align: right"><code>0x5CC1</code></td></tr>
+<tr><td>First payload instruction</td><td style="text-align: right"><code>0xA171</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFC9</code></td><td style="text-align: right"><code>0x5B4A</code></td></tr>
+<tr><td>Nested <code>_MemChk</code> entry</td><td style="text-align: right"><code>0xA171</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFC3</code></td><td style="text-align: right"><code>0x5B4A</code></td></tr>
+<tr><td>Payload return</td><td style="text-align: right"><code>0xA171</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFCB</code></td><td style="text-align: right"><code>0x5B4A</code></td></tr>
+<tr><td>Cleanup entry</td><td style="text-align: right"><code>0xA171</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFD7</code></td><td style="text-align: right"><code>0x5B4A</code></td></tr>
+<tr><td>Cleanup return</td><td style="text-align: right"><code>0x9FFA</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFD9</code></td><td style="text-align: right"><code>0x5CC1</code></td></tr>
+</tbody>
+</table>
+</div>
+<p><code>fpBase</code> moves from <code>0x9FE8</code> to <code>0xA15F</code>, and <code>FPS</code> moves from <code>0x9FFA</code>
+to <code>0xA171</code>. Both shifts are the fixture’s <code>0x0177</code>-byte internal program
+size. <code>OPBase</code>, <code>OPS</code>, <code>pTemp</code>, <code>progPtr</code>, and <code>symTable</code> remain unchanged at
+these checkpoints; cleanup restores the two shifted fields. The nested bcall
+uses six more stack bytes than payload entry, but does not change the measured
+heap pointers or <code>_MemChk</code>. [confirmed]</p>
+<p>The fixture, decoder, analyzer, capture recipe, and compact provenance rows are
+under <code>tools/launch-probes/</code> and <code>tools/data/resident-launch-snapshot.csv</code>.
+These observations do not establish an entry ABI or cover <code>_ExecAsm</code>, an
+archived launcher path, shell launchers, other OS releases, or hardware.
+[confirmed]</p>
 <h2 id="free-ram-and-stack-headroom"><a class="header" href="#free-ram-and-stack-headroom">Free RAM and stack headroom</a></h2>
 <p><code>_MemChk</code> at <code>ram:0E20</code> returns <code>(OPS - FPS) + 1</code> when <code>OPS &gt;= FPS</code>; otherwise
 it returns zero. <code>_EnoughMem</code> at <code>ram:0FA6</code> compares a request with that result
@@ -362,13 +422,13 @@ location stable. Reacquire it after an operation that may write or collect the
 archive.</p>
 <h2 id="evidence-limits"><a class="header" href="#evidence-limits">Evidence limits</a></h2>
 <p>The ROM and traces on this page cover the compiled and text <code>Asm(</code> paths,
-normal cleanup bytes, pointer-repair code, VAT results, and Flash-page copying
-on TI-84 Plus OS 2.55MP. They do not establish behavior for <code>_ExecAsm</code>, a shell
-launcher, another OS version, a 48 KiB ASIC, or a physical calculator.</p>
-<p>Useful next fixtures are internal sizes <code>0x1FFF</code>, <code>0x2000</code>, and <code>0x2001</code>; timed
-snapshots before insertion, at payload entry, inside a nested bcall, and after
-cleanup; an archived variable that crosses a 16 KiB page; and a forced archive
-garbage collection followed by a fresh lookup.</p>
+timed unarchived compiled-launch heap snapshots, normal cleanup bytes,
+pointer-repair code, VAT results, and Flash-page copying on TI-84 Plus OS
+2.55MP. They do not establish behavior for <code>_ExecAsm</code>, an archived launch path,
+a shell launcher, another OS version, a 48 KiB ASIC, or a physical calculator.</p>
+<p>Useful next fixtures should guard the two-byte over-read, repeat the timed
+snapshots for archived, <code>_ExecAsm</code>, and shell routes, and force archive garbage
+collection followed by a fresh lookup.</p>
 
                     </main>
 
