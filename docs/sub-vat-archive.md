@@ -133,6 +133,46 @@ it must inspect the type returned by lookup before applying type-specific
 policy. This conclusion covers TI-84 Plus OS 2.55MP; shell-specific loading
 and writeback policies remain separate. [confirmed]
 
+### Community VAT mutation utilities
+
+Two identified community utilities illustrate why a shared payload format is
+not, by itself, a safe type-conversion contract.
+
+PRGMHIDE toggles bit 6 of the first stored name byte. Its source obtains the
+selected VAT type pointer, subtracts seven to the first name byte, and applies
+`XOR 0x40`; for example, stored `A` (`0x41`) becomes `0x01`. Its own display
+path restores bit 6 only while drawing the name. The 471-byte source rebuild is
+byte-identical to the packaged `PRGMHIDE.8xp` body. [confirmed] for the
+identified community source and binary.
+
+The archive writer copies the VAT name into the Flash record, so archiving a
+name after this mutation preserves the changed byte across unarchive and RAM
+reset. [confirmed] for the OS copy path. The release says the altered name is
+hidden from ordinary program menus, but that menu-filter result was not rerun
+on OS 2.55MP. Creating a visible name that differs only by this stored bit may
+also produce confusing lookup or display results. [hypothesis]
+
+The older `HIDE` utility directly replaces the complete VAT type byte with
+`ProgObj`, `ProtProgObj`, or `AppVarObj`. It does not test the returned Flash
+page or preserve archive-state bits. Applying it to an archived object can
+therefore clear the archived flag while leaving the page and address fields
+unchanged. [confirmed] for the write; [hypothesis] for the resulting OS state.
+
+PRGMAPPV provides the safer counterexample. It refuses archived inputs, creates
+a destination through `_CreateAppVar` or `_CreateProtProg`, copies the data,
+then deletes the original with `_DelVarNoArc`. Its ordinary/protected lock
+toggle changes only `0x05` and `0x06`, and also refuses archived inputs. The
+packaged 550-byte body matches the included source. [confirmed] for the
+identified community source and binary.
+
+The exact artifacts are:
+
+| Utility | Archive SHA-256 | Source member SHA-256 | Packaged member SHA-256 |
+|---|---|---|---|
+| `programs/prgmhide.zip` | `6342d57b18a1277aa3ce13ba514d986fc3c485dfc4b747a157972fad61756103` | `source/PRGMHIDE.z80`: `10b7b0bfd902ebdef63f70120ef08d0fcb0fa3144885e8daf53e4880572648a1` | `PRGMHIDE.8xp`: `16e0ad05b138ccd15cde0648312b5032bd1f450faa544cd3b6ab1b882d4f0a43` |
+| `programs/programtoappvar.zip` | `4e27be8774fca769f26f1ce9984026f250fc8c4e9222277d3458a67e7fb25dc9` | `Hide.asm`: `65d290071a4ca2837f2e7ad08b3614939ec024a946057c75452f7b174b081a57` | `HIDE.8XP`: `0b03d6d7c97322140eb051844458adba1acf95009bf28d827c510e38f545e756` |
+| `programs/prgmappv.zip` | `33ba32795488b17e316f2efe556f5b323b6ca5b9fa9a1bf08db8dc59bac44ddf` | `PRGMAPPV.z80`: `5d75239635d4791b08519e366276aebef3de51d1fe81f68c8cd5ee59f65f97bb` | `PRGMAPPV.8XP`: `a035c67a56e31dd8504d9d2f293d955a0ce56638a4506b0fcdd8ed9b27d54eb0` |
+
 ---
 
 ## Store and recall [confirmed]
@@ -301,6 +341,36 @@ can never be re-validated in place — it is reclaimed only by GC erasing the wh
 `flash_find_nonff` (`3D:7DEA`) confirms `0xFF` = empty: it reads the 13-byte record header and `CP 0xFF`
 on each, treating an all-`0xFF` run as a free slot. (`3D:7C99` additionally folds in `AND 0xE7` and
 conditional `OR 0x10`/`OR 0x08` for the swap/relocate state bits driven by `(IY+0x1A).0` and `(IY+0).2`.)
+
+### Deleted-record recovery before collection
+
+Marking a record `0xF0` does not erase its remaining bytes. Archive Utility 1.0
+uses that interval before garbage collection: it scans after each sector header,
+accepts live `0xFC` and deleted `0xF0` records of program, protected-program,
+and AppVar type, creates a RAM program, copies the record's original type into
+the new VAT entry, and calls `_FlashToRam` for the saved data. It does not
+rewrite or revalidate the old Flash record. Its 1,547-byte source rebuild is
+byte-identical to the packaged body. [confirmed] for the identified community
+source and binary.
+
+Recovery is opportunistic. The next garbage collection can erase or repurpose
+the containing sector, and a stale record must still have intact metadata and
+data. The utility permits a record to cross a 16 KiB page boundary but rejects
+one that extends beyond its four-page sector. That last rule is community
+reader policy; ROM-level proof that the allocator never crosses a 64 KiB erase
+sector remains open. [confirmed] for the utility; [hypothesis] for the general
+allocator invariant.
+
+An earlier Archive Recover release describes recovery of “programs,” but its
+source accepts deleted records only when their type is `ProtProgObj` (`0x06`)
+and recreates them with `_CreateProtProg`. Ordinary `ProgObj` records are not
+accepted. [confirmed] for the identified source; the release claim is broader
+than its implementation.
+
+| Utility | Archive SHA-256 | Source member SHA-256 | Packaged member SHA-256 |
+|---|---|---|---|
+| `programs/archive_utility.zip` | `04ca940aacb229a65378450c0c673644bea6fce723215396d195552487e2a7e8` | `archutil.z80`: `152f96d1d1b3eee178cd728527c10bacc5cdaa3498941ef750e4df79e2d2b2b2` | `ARCHUTIL.8XP`: `0b74c5a8eb6a2daa4e6b598d307cd6cca24948d7a7aa707dcc446bcabbf87569` |
+| `programs/mirageos/arcrecov.zip` | `991c0324521ac9099276a3de1bc795e87b272cd4c56eba276268b6f100c7d19c` | `arcrecov.asm`: `1b30935bad150965b42fc75cf786570469d3df63a7ddd33816d664c46acb0a68` | `ARCRECOV.8XP`: `d1e5c3faf49eb65b9fd3fcc1cbb6cbf69883087f5996ad3a3d481562b2f7d71a` |
 
 ### Dynamic archive and application boundary [confirmed]
 
@@ -772,7 +842,7 @@ Ports: `0x06` = bank-A page select (Flash window), `0x14` = Flash write/erase co
 
 ## Resolved behavior and open items
 
-- **Archive allocation.** [confirmed] The allocator scans upward from page `08` to the exclusive App boundary from `3D:6413`. On the traced OS-only TI-84 Plus, that interval is pages `08`–`28`; the new record begins at `08:4000`.
+- **Archive allocation.** [confirmed] The allocator scans upward from page `08` to the exclusive App boundary from `3D:6413`. On the traced OS-only TI-84 Plus, that interval is pages `08`–`28`; the sector header is at `08:4000`, and the first record begins at `08:4001`.
 - **Hardware Flash path.** [confirmed] `archive_write_record` at `3D:64AA` invokes `_WriteAByte` and `_WriteFlashUnsafe`; the boot worker runs at `0x8100`, issues AMD byte-program commands, polls DQ7/DQ5, and returns success. See [Flash memory](flash-memory.md).
 - **Erase granularity.** [standard] Ordinary sectors are 64 KiB, not one 16 KiB paging unit. The top-boot geometry also has 32, 8, 8, and 16 KiB sectors at physical `0xF0000`–`0xFFFFF`.
 - **Record-status bytes.** [confirmed] The [record-status byte](#record-status-byte-confirmed) uses monotonic bit clearing: `0xFF` erased → `0xFE` in-progress
