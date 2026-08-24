@@ -708,6 +708,42 @@ $ python tools/disassemble_rom.py 0x3f --start 0x41d5 --end 0x4206
 $ python tools/analyze_rom_io.py 0x21 0x22 0x23 0x24 0x25 0x26 --summary
 ```
 
+## Community execution techniques
+
+Crabcake's original source uses two model-specific methods. On a 6 MHz
+TI-83 Plus it uses a Flash-unlock exploit to invoke a protected port-`0x16`
+writer and changes the older port-`0x05` execution setting. On the
+TI-83+SE/TI-84+/SE family it does not rewrite ports `0x25` or `0x26`. With
+interrupts disabled, it swaps all `0x4000` bytes between physical RAM pages
+`0x80` and `0x83`, then maps page `0x83` into bank C. Code above `0xC000`
+remains at the same CPU address while residing on an executable odd physical
+page. [confirmed from source]
+
+The TI-84-family cleanup restores port `0x05` to an assumed normal value,
+unconditionally enables interrupts, and has no error handler around the swap.
+The release predates an explicit 48 KiB alias-model distinction, so that
+hardware remains unsupported without a probe.
+
+zStart 1.3.013 implements its `Execute >C000` option as a persistent policy.
+After its Flash-unlock path it writes `0x00` to port `0x25` and `0xFF` to port
+`0x26`; disabling the option writes the assumed retail values `0x10` and
+`0x20`. Its ON script reapplies the enabled policy during startup. This is not
+a per-launch save/restore wrapper. [confirmed from source]
+
+Contemporary descriptions identify Fullrene as an Axe Axiom for executable
+space beyond the normal limit. Its original binary or source was not recovered
+from the inspected Axe 1.2.2 release, library archive, adjacent repositories,
+or prior-session artifacts. Its port values, model matrix, and cleanup remain
+[hypothesis]; do not infer them from zStart or Crabcake.
+
+The source identities used here are Crabcake's ticalc.org release
+`crabcake.zip`, SHA-256
+`84f6660c86f715e09e03637b19df47abe46b86906ed34791bc4281959186f71e`,
+and zStart 1.3.013, SHA-256
+`7a1b7c69c85030b412bb6ea11ae71ac608b9882a9de3ab7dbef1faf69519c5e9`.
+The compact classification is stored in
+`tools/data/execution-protection-observations.csv`.
+
 ## Resolved findings and open hardware tests
 
 - The boot writes `00`, `08`, `29`, `10`, and `20` to ports `0x21`, `0x22`,
