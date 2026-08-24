@@ -102,6 +102,7 @@
             pkgs.mdbook-mermaid
             pkgs.python3
             pkgs.spasm-ng
+            pkgs.unzip
             pkgs.z3
             z80dasm
           ];
