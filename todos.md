@@ -7,6 +7,10 @@ OS version, and launch path. Prefer a ROM/disassembly anchor plus a reproducible
 TilEm trace; items involving 48 KiB versus 128 KiB hardware also need real-calculator
 confirmation.
 
+Continue with [`followup-todos.md`](followup-todos.md) after this checklist. It
+covers broader TI-OS, hardware, tooling, and documentation work that is not
+specific to a resident language runtime.
+
 Status updated 2026-08-24 on branch `siraben/resident-runtime-research`.
 Checked items have a reproducible answer for the stated OS 2.55MP/source scope.
 Unchecked items still require the named trace, fixture, original source, or
