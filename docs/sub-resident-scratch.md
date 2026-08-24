@@ -47,7 +47,7 @@ writes, followed by the number of distinct bytes touched.
 | `statVars` | `ram:8A3A`–`ram:8C4C` | 0 / 0 | 0 / 0 | Candidate only after `_DelRes`, with statistics and shell interrupts excluded |
 | Table/solver workspace | `ram:91DC`–`ram:9301` | 0 / 0 | 0 / 0 | Candidate only while table, solver, finance, and graph-table contexts are excluded |
 | `plotSScreen` | `ram:9340`–`ram:963F` | 0 / 0 | 0 / 0 | Unsafe when graph or buffered-display routines remain available |
-| `appBackUpScreen` | `ram:9872`–`ram:9B71` | 0 / 0 | 0 / 0 | Candidate only in a controlled assembly context without app or menu transitions |
+| `appBackUpScreen` | `ram:9872`–`ram:9B71` | 0 / 0 | 0 / 0 | Candidate only without app/menu transitions or installed hooks that own the buffer |
 
 The traces include writers at `ram:1F37` and `07:51FA` for operand storage,
 `07:4F70`–`07:4F82` for iMath pointers, and `01:617A` and `01:61C2` for text
@@ -64,6 +64,28 @@ There is consequently no buffer in this table that remains stable while every
 display, keyboard, VAT, archive, graph, table, statistics, app, error, APD,
 link, and USB path is allowed. A runtime may borrow a conditional range only by
 defining the excluded calls and contexts as part of its ABI.
+
+### Third-party hook ownership of `appBackUpScreen`
+
+Archived community source identifies persistent raw-key and parser hooks as
+additional owners of `appBackUpScreen`. These are static source findings. The
+distributed binaries were not installed or traced, and the source does not
+establish behavior on physical hardware.
+
+- NoExec copies a raw-key hook to `appBackUpScreen` and a parser hook to
+  `appBackUpScreen + 500`. It calls `_EnRawKeyHook` and `_EnParserHook`, then
+  returns while the hooks remain installed according to its control flow.
+- Plasma 1.4.1 copies its raw-key hook to `0x9872`, installs it with
+  `_EnRawKeyHook = 4F66h`, and launches its loader while that hook can receive
+  key and **ON** events.
+- Remote Control copies a key hook to its `KEYLOC` equate at
+  `appBackUpScreen`, installs it with bcall ID `4F66h`, and returns. The hook
+  sends bytes through `_SendAByte` when TI-OS invokes it.
+
+An assembly runtime must therefore exclude or explicitly remove installed
+raw-key, parser, and shell hooks before borrowing this buffer. The documented
+`_DisableApd` and `_DelRes` conditions for other buffers do not establish that
+`appBackUpScreen` is unowned.
 
 ## Conditional `saveSScreen` and `statVars` claims
 
@@ -97,12 +119,12 @@ This confirms the documented `saveSScreen` condition for that direct emulator
 scenario. It does not cover an APD timeout, error unwinding, physical hardware,
 or statistics code after `_DelRes`.
 
-### Shell-owned `statVars` ranges
+### Third-party-owned `statVars` ranges
 
-Common shells do not share one `statVars` contract. The table separates static
-shell ownership from the direct dynamic guard. Identified owned ranges come
-from the release source or binary. [confirmed] Untraced runtime cells remain
-open.
+Common shells and interrupt installers do not share one `statVars` contract.
+The table separates static third-party ownership from the direct dynamic guard.
+Identified owned ranges come from the release source or binary. [confirmed]
+Untraced runtime cells remain open.
 
 | Context | Result | Evidence and boundary |
 |---|---|---|
@@ -110,6 +132,7 @@ open.
 | MirageOS 1.2 with tasker disabled | Candidate only | The setup routine returns while tasker flag bit 6 at `0x9689` is clear; no client guard run |
 | MirageOS 1.2 with tasker or custom interrupt active | Unsafe | The original binary installs timers, handler code, and an IM2 vector table inside `statVars` before client execution |
 | Doors CS 7.4 | Unsafe as general client storage | Source reserves the block for shell state; its Mirage-compatible interrupt also installs code and vectors there |
+| ViewRegs interrupt installed | Unsafe | Source relocates IM2 code and a vector table into `saveSScreen` and `statVars`; no dynamic or physical run |
 | Ion 1.6 | Unresolved | Source review pins no Ion-owned interrupt in this block; no client guard run |
 | zStart 1.3.013 | Unresolved | The launcher selects IM1 for the client and pins no explicit shell owner in this block; no client guard run |
 
@@ -136,6 +159,15 @@ storage. The Mirage-compatible `mos_setupint` routine installs its handler at
 `0x8A8A`, its vector table at `0x8B00`–`0x8C00`, and optional timers at
 `0x8A3A`–`0x8A3E`. `_DelRes` does not release these shell-owned objects.
 [confirmed]
+
+ViewRegs calls `_DelRes`, then copies a 603-byte interrupt block to
+`IntAddress = saveSScreen + 767 - 603`. It copies another block to the start of
+`statVars`, builds an IM2 vector table at `0x8B00`–`0x8C00`, and places another
+handler block at `0x8C01`. Its readme warns that `statVars` must not be accessed
+and statistics must not run while the interrupt is active. This is static
+release-source evidence, not a runtime observation. It shows that `_DelRes`
+does not reserve either buffer against a subsequently installed third-party
+interrupt.
 
 `tools/data/scratch-guard-results.csv` records the direct trace, the exact
 MirageOS and Doors CS owned ranges, and explicit `not-run` rows for Ion and
@@ -233,3 +265,7 @@ hardware; doing so keeps the helper transparent and portable to related models.
 | [Doors CS source at `33af4f5`](https://github.com/KermMartian/Doors_CS_7/tree/33af4f5ede199eee77cf2f89b5463a0a6ec9a1af) | shell state, ALE vectors, and Mirage-compatible interrupt ownership |
 | [Ion 1.6 release archive](https://www.ticalc.org/pub/83plus/asm/shells/ion.zip), SHA-256 `b5a5ba97f325f8779aa35cda23e38152087930298ff8b7b8573905710230e6e6` | source review for the unresolved Ion row |
 | [zStart 1.3.013 release archive](https://www.ticalc.org/pub/83plus/flash/shells/zstart.zip), SHA-256 `7a1b7c69c85030b412bb6ea11ae71ac608b9882a9de3ab7dbef1faf69519c5e9` | source review for the unresolved zStart row |
+| [NoExec release archive](https://www.ticalc.org/pub/83plus/asm/programs/noexec.zip), SHA-256 `dc3ddf2dd4de8a802a2862d6aaf671a4ff5e618eb98377844eb711b90a443a84`; member `noexec.z80`, SHA-256 `de323ead58eea7b9590865da2694905b775b8f900c798fa438b4aa9b035d58b5` | static raw-key and parser hook placement in `appBackUpScreen` |
+| [Plasma 1.4.1 release archive](https://www.ticalc.org/pub/83plus/asm/shells/plasma141.zip), SHA-256 `62965a41fe071902043ebcbbd1254f710d29729bf86a78f20b6f14d6974f5d5a`; member `Plasma/plasma.asm`, SHA-256 `b424980285adf3f16225239c3ba3f133a42efb38d0666d968eee4b1fe24b810f` | static raw-key hook placement in `appBackUpScreen` |
+| [Remote Control release archive](https://www.ticalc.org/pub/83plus/asm/programs/remotecontrol.zip), SHA-256 `9eb1d4bb9beabe0ae31e49756c2a23938c6301a27f3d553a5d3381651262e591`; member `RemoteC.z80`, SHA-256 `19eb8c5b8b20a1f9139ac89c8603727f76977ddb9548c8ff318ef5eec07285c4` | static key-hook placement and link-send behavior |
+| [ViewRegs release archive](https://www.ticalc.org/pub/83plus/asm/programs/viewregs.zip), SHA-256 `84837e779315f799b53f8115e8c4e9563babc5add0541f52d72117d93a68e2b2`; member `ViewRegs/ViewRegs.z80`, SHA-256 `120d8a7845a0f0f7a4f3c32f4f53b1e1f1d5efd210af542e64e1408546bba13b`; member `ViewRegs/readme.txt`, SHA-256 `a4f66bc84f2f7d17e2dbfa5603fb3b65ed57f311e20dbb7143ad95bde20d2cf7` | static IM2 ownership of `saveSScreen` and `statVars`, plus the statistics warning |
