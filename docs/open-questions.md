@@ -159,9 +159,8 @@ The compiled `Asm(` launcher, its `0x2000` internal-size cap, pointer repair,
 archived lookup, scratch-buffer observations, and normal bank-A bcall restore
 are documented. These boundaries still need dynamic or physical evidence:
 
-- Capture heap pointers, `_MemChk`, and `SP` before insertion, at payload entry,
-  inside a nested bcall, and after cleanup. Repeat `_ExecAsm`, archived OS
-  paths, and shell paths with boundary-size programs.
+- Repeat the completed direct, unarchived compiled-launch heap snapshot under
+  `_ExecAsm`, archived OS paths, and shell paths with boundary-size programs.
 - Isolate scratch-buffer writes by bcall. Complete a successful
   `_DisableApd`/`_DelRes` guard run through `_GetKey`, ON-key handling, an OS
   error, APD, archive collection, link/USB, and shell interrupts.
