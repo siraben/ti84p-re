@@ -1,0 +1,19 @@
+# Run packaged HIDE with Str0="ZTARGET" and choose program-to-AppVar.
+set key_hold 0.15s
+set key_delay 0.10s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.6s
+key ENTER
+wait 0.8s
+key ENTER
+wait 3s
+key 1
+wait 3s
+memdump /tmp/community-hide-type.ram ram-logical
+screenshot /tmp/community-hide-type.png

@@ -1,0 +1,40 @@
+# Recover the live record at 08:4001 as RCVLIVE through packaged Archive Utility.
+set key_hold 0.15s
+set key_delay 0.10s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.6s
+key ENTER
+wait 0.8s
+key ENTER
+wait 3s
+key MUL
+wait 1s
+type 084001
+wait 1s
+screenshot /tmp/community-archive-extract-live-address.png
+key MUL
+wait 0.2s
+key PRGM
+wait 0.2s
+key 6
+wait 0.2s
+key RPAREN
+wait 0.2s
+key SQUARE
+wait 0.2s
+key 6
+wait 0.2s
+key SIN
+wait 1s
+screenshot /tmp/community-archive-extract-live-name.png
+key ENTER
+wait 5s
+memdump /tmp/community-archive-extract-live.ram ram-logical
+memdump /tmp/community-archive-extract-live.rom rom
+screenshot /tmp/community-archive-extract-live.png
