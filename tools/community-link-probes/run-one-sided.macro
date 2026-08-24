@@ -1,0 +1,18 @@
+# Run AALINK = Asm(prgmLINKWAIT) with no emulated peer, then press MODE.
+set key_hold 0.18s
+set key_delay 0.10s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.6s
+key ENTER
+wait 0.8s
+key ENTER
+wait 3s
+key MODE
+wait 2s
+screenshot /tmp/community-link-wait.png
