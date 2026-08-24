@@ -1,0 +1,3 @@
+scenario,model,asic,os_version,launch_method,ram_page,writes,touched_bytes,touched_ranges,evidence
+ti84-forth-launch,ti84p,emulator-unspecified,2.55MP,direct-Asm,0x83,2304,768,0x5A7E-0x5D7D,observed-write
+ti84-forth-input,ti84p,emulator-unspecified,2.55MP,direct-Asm,0x83,3840,768,0x5A7E-0x5D7D,observed-write

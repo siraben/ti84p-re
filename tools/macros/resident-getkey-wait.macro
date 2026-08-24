@@ -1,0 +1,25 @@
+# Run the first program in PRGM > EXEC, type input, then wait in its input loop.
+# Load exactly one resident assembly-program fixture before this macro. The
+# fixture must accept cooked _GetKey input and remain resident after ENTER.
+# Capture with --trace-range all and compare this scenario with a launch-only
+# trace. Replace the typed text when the fixture uses a different command set.
+set key_hold 0.30s
+set key_delay 0.15s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.6s
+key ENTER
+wait 0.8s
+key ENTER
+wait 3s
+type "1 2 + ."
+key ENTER
+wait 8s
+memdump /tmp/resident-getkey-wait-logical.ram ram-logical
+memdump /tmp/resident-getkey-wait-physical.ram ram
+screenshot /tmp/resident-getkey-wait.png

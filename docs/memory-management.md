@@ -61,6 +61,11 @@ also caps its internal program-data size at `0x2000`, below the full
 for the launch copy, cleanup, AppVar handle protocol, and archived streaming
 contract. [confirmed]
 
+The familiar OP, display, graph, statistics, and context buffers are not one
+pool of universally safe scratch space. See [Resident scratch RAM](sub-resident-scratch.md)
+for direct clobber measurements, conditional ownership, and the bank-A page
+mapping protocol. [confirmed]
+
 ## Flash archive [confirmed]
 
 To save scarce RAM, variables can be archived to Flash. The archive entry point is on `flash page 0x07`, while the low-level flash read/write/erase workers are on `page 0x3D`:
