@@ -143,6 +143,10 @@ class WikiStyleTests(unittest.TestCase):
                     problems.append(
                         f"{path.relative_to(ROOT)}:{number}: instruction follows Z80 comment marker"
                     )
+                if fence_language == "pseudocode" and ";" in line:
+                    problems.append(
+                        f"{path.relative_to(ROOT)}:{number}: semicolon in pseudocode fence"
+                    )
 
         self.assertEqual([], problems, "\n" + "\n".join(problems))
 

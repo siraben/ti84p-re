@@ -103,24 +103,35 @@ list arguments; the [command token](#stat-command-token-map-confirmed) (`F2`–`
 _OneVar (3A:6420):
   SET 5,(IY+9)            ; statFlags: "stat computation active"
   LD B,0                  ; arg counter
-  RES 1,(IY+0)  ; RES 1,(IY+1a)
+  RES 1,(IY+0)
+  RES 1,(IY+1a)
   LD (9817),0             ; clear a status byte
-  LD HL,8499 ; CALL 1b33  ; stage the parsed arg descriptor at 8499
-  LD A,0FF ; LD (84af),A
+  LD HL,8499
+  CALL 1b33  ; stage the parsed arg descriptor at 8499
+  LD A,0FF
+  LD (84af),A
   CALL _CkOP1Real (1942-ish) / arg-class checks …
   ; ---- argument parsing (6442..64de) ----
   ;   walks the parser argument list, accepting list-name tokens (0x24 list,
   ;   0x2A list-element, 0x1C/0x25/0x19 = freq/list variants); validates count;
   ;   _JError(0x8A) ARGUMENT / 0x88 SYNTAX on a bad arg list.
   ; ---- set up the data pointers (64e1..6503) ----
-  LD HL,847a ; LD DE,8d2a ; CALL 1a9a  ; resolve the x-list (and y/freq) → 84D3..84DB
-  POP AF ; LD (8a36),A          ; *** save the command code → model discriminator ***
-  LD HL,6352 ; CALL 27da        ; install an on-error cleanup frame
+  LD HL,847a
+  LD DE,8d2a
+  CALL 1a9a  ; resolve the x-list (and y/freq) → 84D3..84DB
+  POP AF
+  LD (8a36),A          ; *** save the command code → model discriminator ***
+  LD HL,6352
+  CALL 27da        ; install an on-error cleanup frame
   CALL 6572                     ; accumulation pass
-  CALL 2800 ; CALL 6345         ; tear down frame
+  CALL 2800
+  CALL 6345         ; tear down frame
   ; ---- regression coefficient region select (6506..652f) ----
-  LD A,(8a36) ; CP 4 ; JR NC,..  ; A<4 ⇒ polynomial regression
-       LD A,16 ; LD HL,8aee      ; coeff dest = QuadA block; … solve
+  LD A,(8a36)
+  CP 4
+  JR NC,..  ; A<4 ⇒ polynomial regression
+       LD A,16
+       LD HL,8aee      ; coeff dest = QuadA block; … solve
   …
   SET 7,(IY+9)                  ; mark results valid
   CALL 67c1 …                   ; finalize / median
@@ -185,8 +196,11 @@ mean, variance, and least-squares normal equations. Read from disassembly:
 6590: LD A,(8a36)           ; dispatch on command:
    CP 8 (Med-Med) → jump to the resistant-line path (760f/75e4 → 79b9)
    else compute the matrix dimension from the degree:
-        CP 1c/25/19/9 → dim=4 ; CP 5 (CubicReg) NC → dim+? ; default
-   65c1: A = dim ; SUB 2 ; PUSH AF
+        CP 1c/25/19/9 → dim=4
+        CP 5 (CubicReg) NC → dim+? ; default
+   65c1: A = dim
+   SUB 2
+   PUSH AF
 65cd: set up x/y element pointers (84d5/84d7/84db)
 65f0: ---- per-element accumulator init ----
    LD DE,8a3a ; … CALL 1a92  ; StatN slot
@@ -195,7 +209,9 @@ mean, variance, and least-squares normal equations. Read from disassembly:
 6646..66fe: ---- per-element loop ----
    6f6a  : fetch next x (and y) list element, advance ptr
    28e4/2297 : loop bound (RST FPSub / compare)
-   6567  : helper = (RST 8: OP1→OP2) ; LD HL,(84af) ; CALL 6f7d ; _FPMult (238b)
+   6567  : helper = (RST 8: OP1→OP2)
+   LD HL,(84af)
+   CALL 6f7d ; _FPMult (238b)
            → forms the running power x^k · freq
    238a  : _FPSquare (Σx²)
    238b  : _FPMult   (Σxy, Σx^(i+j))
@@ -215,8 +231,14 @@ power-sums `Σxⁱ` (i = 0 … 2d) and the right-hand side `Σxⁱy`, stored as 
 `LnReg`/`PwrReg` (`ln x`), pre-applies the logarithm to each element before
 accumulating, then exponentiates the resulting linear coefficients off page 0x3A. The
 per-element `ln` is in the element fetch `stat_next_elem` (`3A:6F6A`):
-`LD A,(8A36); CP 4;
-RET NC` then `bcall _LnX` at `3A:6F72` for model codes `< 4` (`ExpReg`/`LnReg`/`PwrReg`); the
+
+```z80
+LD A,(8A36)
+CP 4
+RET NC
+```
+
+It then bcalls `_LnX` at `3A:6F72` for model codes `< 4` (`ExpReg`/`LnReg`/`PwrReg`); the
 back-transform `_EToX`/`_TenX` lives on page `02`; see [Transcendentals](sub-calculation.md#transcendentals). This is the standard
 "linearize, fit a line, transform back" method; `r` is the correlation of the
 *transformed* data.
@@ -226,17 +248,22 @@ back-transform `_EToX`/`_TenX` lives on page `02`; see [Transcendentals](sub-cal
 After the pass, `_OneVar` finalizes the moments (`3A:6762`+):
 
 ```z80
-6762: LD DE,8a67 ; CALL 6984   ; σx  (population) from Σx², Σx, n
-6786: LD DE,8a5e ; CALL 6989   ; Sx  (sample), via _Minus1 (n→n-1) at 677c
-6798: LD DE,8a55 ; CALL 6998   ; Σx² slot
-67a7: LD DE,8aa6 ; CALL 6998   ; Σy²   (2-Var)
+6762: LD DE,8a67
+CALL 6984   ; σx  (population) from Σx², Σx, n
+6786: LD DE,8a5e
+CALL 6989   ; Sx  (sample), via _Minus1 (n→n-1) at 677c
+6798: LD DE,8a55
+CALL 6998   ; Σx² slot
+67a7: LD DE,8aa6
+CALL 6998   ; Σy²   (2-Var)
 ```
 
 The variance helpers (`3A:6984`/`6989`/`6998`) implement the one-pass formula
 `var = (Σx² − n·x̄²)/N` then `√`:
 ```z80
 6998: _FPSquare(x̄) ; recall Σx² (15da) ; _FPMult ; (RST 30 _FPAdd / subtract) ; …
-6989: CALL _FPDiv (2541) ; CALL 3939 (_SqRoot wrapper) ; store
+6989: CALL _FPDiv (2541)
+CALL 3939 (_SqRoot wrapper) ; store
 ```
 The *only* difference between σx (population) and Sx (sample) is the divisor:
 the population path divides by `n`, the sample path first does `_Minus1`
@@ -253,7 +280,8 @@ matrix `[ M | Σxⁱy ]`. `_OneVar` solves it in place by Gauss-Jordan eliminati
 ```z80
 67c6: build/copy the augmented matrix; 84d9 = base
 67d4..67e3: scale the pivot row
-67ec: LD BC,0202 ; CALL 3aad        ; pivot element (2,2)
+67ec: LD BC,0202
+CALL 3aad        ; pivot element (2,2)
 67f7: CALL 212d                     ; _ErrD check (zero pivot → SINGULAR MAT 0x83)
 67fa: RST 8 ; …                     ; pivot reciprocal
 6804: CALL 2541 (_FPDiv)            ; divide row by pivot
@@ -313,7 +341,7 @@ fits in separate statVar slots at `0x8C05` and `0x8C0E`. [confirmed]
 
   assembled with `_FPMult`/`_FPSub`/`_SqRoot`/
   `_FPDiv` (the `6845`/`684c` cluster) and stored to `Corr` (`8ACA`). The store offset is
-  pinned: at `3A:684F` the code does `LD A,0x12 ; CALL 0x213D`, and `0x213D` is
+  pinned: at `3A:684F` the code does <code>LD A,0x12</code><br><code>CALL 0x213D</code>, and `0x213D` is
   `_Sto_StatVar` (the store counterpart of `_Rcl_StatVar 00:2149` — both funnel through the
   `0x3E07` statVar dispatcher with the name id in `A`). Id `0x12` = `tCorr` = the `Corr`
   slot, so this single sequence is exactly `r → Corr (8ACA)`. The preceding `3A:6845`
@@ -417,7 +445,7 @@ occupies `39:4A02`–`39:4F5B`, with helpers at `39:5D2D`–`39:5E41`,
 `39:6C63`–`39:6D31`, and `39:57CF`–`39:57FC`. The trace does not execute the
 page `38` slot suggested by a raw token-index read (`38:459F` for `tDNormal`).
 The table at `38:4000` contains parse-side argument-class stubs such as
-`LD B,0x29 ; JR 4A44`; it is not the execution dispatch.
+<code>LD B,0x29</code><br><code>JR 4A44</code>; it is not the execution dispatch.
 
 ---
 
@@ -437,7 +465,7 @@ references on other pages. [hypothesis]
 **A T-Test output stage at `3A:5500`.** [confirmed] The routine multiplies `OP1` through
 `fp_mult_const` (`ram:2385`), scales by `StdPX` (`0x8A67`), divides through `fp_div_const`
 (`ram:2532`) against `SStat` (`0x8BFC`), then stores the result with
-`LD A,0x24 ; CALL _Sto_StatVar`. ID `0x24` is `tStatT`, the `TStat` slot. The
+<code>LD A,0x24</code><br><code>CALL _Sto_StatVar</code>. ID `0x24` is `tStatT`, the `TStat` slot. The
 routine then references `DF` at `0x8B87`. The surrounding code reads and clears
 `statFlags` bits and dispatches on the stored model ID.
 
@@ -534,7 +562,7 @@ equations, depositing every output as a named `TIFloat` in the `statVars` block.
 
 ## Remaining questions
 
-- **Correlation stores.** `3A:684F` does `LD A,0x12 ; CALL 0x213D`
+- **Correlation stores.** `3A:684F` does <code>LD A,0x12</code><br><code>CALL 0x213D</code>
   (`_Sto_StatVar`, ID `0x12` = `tCorr`), i.e. `r → Corr (0x8ACA)`; `r²`/`R²` is the
   coefficient of determination from the following column-weighted pass, stored through IDs
   `0x35`/`0x36` at `0x8C05`/`0x8C0E`. See the annotated `3A:6845`–`3A:6891`

@@ -127,7 +127,7 @@ seeds the bracket. The main loop runs from `39:4413`:
         \STATE $b \gets x$
     \ENDIF
     \IF{$|b-a| < 10^{-13}$}
-        \RETURN $x$ \COMMENT{converged; exits via 39:4540 -> 4553}
+        \RETURN $x$ \COMMENT{converged, exits via 39:4540 -> 4553}
     \ENDIF
 \ENDFOR
 \STATE \textbf{raise} \textsc{iterations} (0x99) / \textsc{bad guess} (0x9A)

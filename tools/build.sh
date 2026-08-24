@@ -55,7 +55,7 @@ if grep -q "REPORT SCRIPT ERROR" "$GHIDRA_BUILD_LOG"; then
 fi
 echo "Build complete: $PROJ/$NAME.gpr"
 # Pipeline: 64-page load + symbols/floats/bcall-fixup (BuildTI84Full)
-#  -> name 621 bcall routines at real (page,addr) (ApplyBcalls)
+#  -> name 645 bcall routines at real (page,addr) (ApplyBcalls)
 #  -> follow flow + name new bcall sites (DeepenPass)
 #  -> apply accumulated manual function names (RenameFns)
 #  -> TI-OS enums/structs/typed regions (BuildTypes)

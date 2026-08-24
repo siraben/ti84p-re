@@ -395,7 +395,7 @@
 48C1	_DrawCmd
 48C7	_InvCmd
 48D3	_CloseEditBuf
-4909	_BufInsert
+4909	_bufInsert
 492D	_IsEditEmpty
 4936	_BufClear
 4960	_PutTokString

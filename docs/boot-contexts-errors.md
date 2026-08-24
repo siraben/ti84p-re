@@ -152,8 +152,16 @@ The destination `0x858D` and length `0x000C` pin the six 2-byte handler slots `c
 ### How a context handler is invoked [confirmed]
 
 ```text
-call_context_main (ram:08fa):   set_bankA_page(cxPage); call (cxMain) via jp_hl; ret   ; run handler on its page, control returns here
-call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; restore port6
+call_context_main (ram:08fa):
+  set_bankA_page(cxPage)
+  call (cxMain) via jp_hl
+  ret                            # control returns here after the paged handler
+
+call_context_savepage (ram:08e9):
+  save port6
+  set_bankA_page(cxPage)
+  jp_hl
+  restore port6
 ```
 Primitives: `set_bankA_page` (`ram:078c`, `port6 = page`) and `jp_hl` (`ram:090b`, `jp (hl)` dynamic dispatch). The OS pages the handler in, runs it, and (for the savepage variant) restores the caller's page.
 
@@ -184,7 +192,7 @@ The community example
 [`programs/generateerror.zip`](https://www.ticalc.org/pub/83plus/asm/programs/generateerror.zip)
 (SHA-256
 `1731b2b2cf7580855f7007478d55299e12b1ec4b7430d371feedea764c9139cf`)
-copies the `Ans` string payload into `appErr1` and invokes bcall `4D41`. Its
+copies the `Ans` string payload into `appErr1` and invokes bcall `4D41h`. Its
 `generr.z80` member (SHA-256
 `5f28fca2dec72dc4d495aff18a8d6b076f02d34b8cafcdbd78c11c05f364386d`)
 does not bound the copy to 13 bytes or write an explicit null terminator.
@@ -192,13 +200,17 @@ This static source is evidence of community usage, not evidence that arbitrary
 `Ans` strings are safe. [confirmed]
 
 The bounded `ERRPROBE` fixture copies `COMMTRACE\0` into `appErr1` and invokes
-the same bcall under TilEm x4. Its 3,623,530-instruction trace reaches
+the same `4D41h` bcall under TilEm x4. Its 3,634,222-instruction trace reaches
 `ram:2771`, `_JError` at `ram:2793`, and the display path at `07:6A72` once
 each. The rendered error is `ERR:COMMTRACE`; control does not reach the
 fixture's post-bcall halt. The trace SHA-256 is
-`393141d8f68e400a9cb7a845e1bab1430ccbd41a64f3a75755e6f9d20e514067`.
-`tools/data/community-custom-error.csv` records the ROM identity and hit
-counts. This confirms the nonlocal path in the identified emulator scenario;
+`1c9dbb368b74258ab3b82dc46f9fbb23710b23e343455415dddcef4d37a959eb`.
+The patched TilEm executable SHA-256 is
+`b8ee505483c79732a4ca21efb8b904de0792477795f6fc717874dcd5addaed09`.
+`tools/data/community-custom-error.csv` records both executable identities,
+the fixture, macro, recording, and hit counts. It also records zero visits to
+the fixture's unexpected-return path. This confirms the nonlocal path in the
+identified emulator scenario;
 it is not a physical-hardware result. [confirmed]
 
 ### Error-message table [confirmed]

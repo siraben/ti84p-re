@@ -516,7 +516,7 @@ RAM  84D9   iMathPtr4                          ; indexed-list base; contents dep
   evaluates individual cells at `05:637C`, with OPS continuation `05:644E`.
   See [Auto and Ask modes](#auto-and-ask-modes-confirmed).
 - `_Find_Parse_Formula`'s `TblRng` (type 0x11) special-case is [confirmed] at
-  two byte sites: `38:734D` (`CP 0x11; CALL NZ, 38:72DA` — validates the
+  two byte sites: `38:734D` (<code>CP 0x11</code><br><code>CALL NZ, 38:72DA</code> — validates the
   range variable's data layout via `38:7260` before accepting it) and
   `38:7056` (`CP 0x11` / `CP 0x12` distinguishing TblRng from the following
   type in the header switch).

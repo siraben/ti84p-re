@@ -189,10 +189,10 @@ scratch (`0x9C87`='i' selects the in-RAM "temp app" search variant).
 
 `_AppInit` (`ram:0936`, bcall `0x404B`) installs a context from an app header:
 ```text
-_AppInit(byte *hdr):                 ; HL -> 13-byte vector block in the header
-  copy 12 bytes hdr[0..11] -> cxMain (0x858D)   ; the 6 context vectors
-  flags.appFlags (IY+0x0D) = hdr[12]            ; appFlags byte
-  cxPage (0x8599) = port_mapBankA               ; the flash page the handlers run from
+_AppInit(byte *hdr):                 # HL -> 13-byte vector block in the header
+  copy 12 bytes hdr[0..11] -> cxMain (0x858D)   # the 6 context vectors
+  flags.appFlags (IY+0x0D) = hdr[12]            # appFlags byte
+  cxPage (0x8599) = port_mapBankA               # the flash page the handlers run from
 ```
 The 12 bytes are the 6 little-endian handler pointers (`cxMain`, `cxPPutAway`, `cxPutAway`,
 `cxRedisp`, `cxErrorEP`, `cxSizeWind` — see [Boot contexts & errors](boot-contexts-errors.md) §Context block). Example: the OS's own
@@ -581,7 +581,7 @@ all four bits via `clr_grfmode (36:7D00)`, then ORs in its own bit, then calls
 `_SetTblGraphDraw`. `param_1` is `IY`, so `*(param_1+2)` = `grfModeFlags`.
 
 ```text
-clr_grfmode (36:7D00):  grfModeFlags &= 0xEF & 0xDF & 0xBF & 0x7F   ; clear bits 4,5,6,7
+clr_grfmode (36:7D00):  grfModeFlags &= 0xEF & 0xDF & 0xBF & 0x7F   # clear bits 4,5,6,7
 ```
 
 | bcall | addr | bit set | flag (inc) |

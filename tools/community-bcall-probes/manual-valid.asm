@@ -15,9 +15,9 @@
     ld a,$36
     ld ($9875),a
 
-    ld de,$BB6A        ; Asm token, matching Plasma's _BufInsert caller
+    ld de,$BB6A        ; Asm token, matching Plasma's _bufInsert caller
     rst $28
-    .dw $4909          ; _BufInsert
+    .dw $4909          ; _bufInsert
     ld a,$09
     ld ($9876),a
 

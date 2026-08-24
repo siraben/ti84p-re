@@ -412,7 +412,7 @@ _DrawCmd	48C1	7B8B	04
 _InvCmd	48C7	7D6A	04
 _CloseEditBuf	48D3	5675	05
 vert_split_draw	48DC	5D88	05
-_BufInsert	4909	42E5	06
+_bufInsert	4909	42E5	06
 _IsEditEmpty	492D	21A7	00
 _BufClear	4936	222E	00
 _PutTokString	4960	46FD	06

@@ -8551,7 +8551,7 @@ def dump_display_byte_caller_flow(rom):
         print(f"  {target:04X} {label}: " + (" ".join(f"07:{ref:04X}" for ref in refs) or "none"))
 
     print("\nraw Ghidra identity")
-    print("  raw HTTP identifies 07:44DE as arc_chk_type, but bytes show the page-7 FE/FC/FB display-byte classifier")
+    print("  bcall 4A02 identifies 07:44DE as _ConvKeyToTok, the page-7 FE/FC/FB display-byte classifier")
     print("  raw Ghidra does not split the ROM-wide caller sites as functions, so this audit uses byte anchors and local-window scans")
 
     print("\ninterpretation")

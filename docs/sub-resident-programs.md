@@ -225,10 +225,11 @@ and `RUNCOUNT.8xp` has SHA-256
 
 An instrumented TI-84 Plus OS 2.55MP direct `Asm(` run executes this packaged
 program twice. Both passes reach the store at `ram:9DAC`; `_ChkFindSym` returns
-the named RAM source at `ram:9EC5`, and the attributed writes store `1`, then
-`2`, there. The result dynamically confirms explicit source writeback for this
-unarchived route rather than mutation of the separate execution copy. The ROM,
-program, wrapper, macro, emulator, and trace hashes are pinned in
+the named variable's data-size pointer at `ram:9EBD`, and the program advances
+to `count_lsb_bcd` at `ram:9EC5`. The attributed writes store `1`, then `2`, at
+that source field. The result dynamically confirms explicit source writeback
+for this unarchived route rather than mutation of the separate execution copy.
+The ROM, program, wrapper, macro, emulator, and trace hashes are pinned in
 `tools/data/community-loader-traces.csv`. [confirmed]
 
 The source does not test the returned page byte in `B`. Its direct store is
@@ -355,14 +356,18 @@ cleanup contract using identified original releases.
 
 ### Comparison
 
-| Launcher | RAM-resident input | Archived input | Archive writeback | Error cleanup |
-|---|---|---|---|---|
-| Ion 1.6 | Moves the original body | Unarchives the original, then moves its body | Always rearchives | No Ion-owned error handler |
-| Plasma 1.4 | Copies the body into the current `userMem` execution allocation | Copies the body from Flash with `_FlashToRam` | None; clients can save to an AppVar | No Plasma-owned error handler |
-| TSE 1.5/1.6 | Moves the active body and task state between the variable and `userMem` | Unarchives the original, then uses the RAM task path | Leaves the program in RAM | Cooperative switch and exit paths only |
-| MirageOS 1.2 | Uses a symmetric move loader | Creates a named `TempProgObj` RAM copy, then moves its body | Rewrites only if changed | Installs an OS error handler |
-| Doors CS 7.4 | Moves the original body | Creates a complete RAM variable under a derived temporary name | Compares the temporary variable with the archive; replaces the archive only if changed | Routes OS errors through reverse-swap cleanup |
-| zStart 1.3.013 | Moves the original body | Copies the body into a raw `userMem` allocation | Uses a 16-bit checksum; replaces the archive only if changed | Routes OS errors through local cleanup |
+| Launcher | RAM-resident input | Archived input | Archive writeback | Error cleanup | Evidence |
+|---|---|---|---|---|---|
+| Ion 1.6 | Moves the original body | Unarchives the original, then moves its body | Always rearchives | No Ion-owned error handler | Identified original source; runtime untraced |
+| Plasma 1.4 | Copies the body into the current `userMem` execution allocation | Copies the body from Flash with `_FlashToRam` | None; clients can save to an AppVar | No Plasma-owned error handler | Byte-matched release source; release entry traced, client paths untraced |
+| TSE 1.5/1.6 | Moves the active body and task state between the variable and `userMem` | Unarchives the original, then uses the RAM task path | Leaves the program in RAM | Cooperative switch and exit paths only | Byte-matched release source; infrastructure loader traced, task switching untraced |
+| MirageOS 1.2 | Uses a symmetric move loader | Creates a named `TempProgObj` RAM copy, then moves its body | Rewrites only if changed | Installs an OS error handler | Identified release-binary disassembly; runtime untraced |
+| Doors CS 7.4 | Moves the original body | Creates a complete RAM variable under a derived temporary name | Compares the temporary variable with the archive; replaces the archive only if changed | Routes OS errors through reverse-swap cleanup | Identified source commit; runtime untraced |
+| zStart 1.3.013 | Moves the original body | Copies the body into a raw `userMem` allocation | Uses a 16-bit checksum; replaces the archive only if changed | Routes OS errors through local cleanup | Identified source commit; runtime untraced |
+
+Unless a trace is stated explicitly below, `[confirmed]` in these launcher
+subsections refers to the identified source or release-binary control flow,
+not a replicated runtime outcome.
 
 The three source-available move loaders show that “run at `userMem`” does not
 imply “make a second complete copy.” Ion, Doors CS, and zStart move a
@@ -371,7 +376,8 @@ and relocates its shell tail around it. TSE moves the body together with an
 appended task-state area. Archived inputs also differ: Ion and TSE first
 unarchive the original, MirageOS and Doors CS build named temporary variables,
 Plasma copies from Flash into its current execution allocation, and zStart
-builds an unnamed execution allocation. [confirmed]
+builds an unnamed execution allocation. [confirmed] for the identified source
+and release-binary control flow.
 
 The source identity, execution strategy, and open evidence boundary for the
 original four comparison rows are also recorded in
@@ -414,8 +420,8 @@ even when the program did not change. [confirmed]
 
 Ion calls the client without installing an Ion-owned OS error handler. The
 source therefore provides no cleanup path for an OS error or nonlocal exit
-that bypasses the normal return. The resulting calculator state still needs a
-dynamic trace; it is not inferred here. [confirmed]
+that bypasses the normal return. [confirmed] The resulting calculator state
+still needs a dynamic trace. [hypothesis]
 
 The loader stages its preloader in `appBackUpScreen` (`0x9872`) and its move
 routine in `cmdShadow` (`0x966E`). It uses `plotSScreen` during the forward and
@@ -451,8 +457,8 @@ exports `savedata` and `fetchdata`: the first replaces a named AppVar with
 `_FlashToRam`. A client that needs persistent data must use an explicit storage
 path such as this one. [confirmed]
 
-No Plasma-owned OS error handler appears in the release source. The state after
-an OS error or nonlocal exit remains a dynamic-trace question. [confirmed]
+No Plasma-owned OS error handler appears in the release source. [confirmed]
+The state after an OS error or nonlocal exit remains [hypothesis].
 
 The release archive has SHA-256
 `62965a41fe071902043ebcbbd1254f710d29729bf86a78f20b6f14d6974f5d5a`.
@@ -498,7 +504,8 @@ typedef struct {
 The tail begins immediately after the requested external-data area. TSE writes
 the initial code address into the last two bytes of that area as the first
 stack return address, while `saved_sp` records the resulting stack pointer.
-[confirmed]
+[confirmed] for the byte-matched source layout; live save and restore remain
+untraced.
 
 `cpy_prgm_in` reduces the stored variable to its three-byte `BB 6D C9` header,
 then moves the remaining body and task state to `userMem` in chunks no larger
@@ -511,7 +518,9 @@ Before a task switch, TSE stores the live `SP` and flag bytes in the active
 task block. The reverse move writes the complete active image back to its RAM
 variable, including client modifications. TSE then moves the selected task to
 `userMem`, restores its flags and `SP`, and resumes it with `RET`. Ending a task
-removes the external-data area and 62-byte state tail. [confirmed]
+removes the external-data area and 62-byte state tail. [confirmed] for the
+byte-matched source control flow; a live task switch and writeback remain
+untraced.
 
 Utopia handles an archived TSE program by calling `_Arc_Unarc` before
 `_tseStartTask`. It does not rearchive that program when the task ends. The
@@ -564,33 +573,37 @@ remain static results. Hashes and counts are in
 ### MirageOS 1.2
 
 MirageOS 1.2 is a one-page, binary-only Flash App. Static disassembly of the
-original App shows a symmetric loader at App addresses `0x75CF`–`0x76C0`. It
-uses `saveSScreen` as a 768-byte shuttle, calls `_DelMem` and `_InsertMem`, and
+original App shows a symmetric loader at mapped bank-A logical addresses
+`0x75CF`–`0x76C0`. It uses `saveSScreen` as a 768-byte shuttle, calls `_DelMem`
+and `_InsertMem`, and
 moves the client to `0x9D95`. [confirmed]
 
-For archived input, `0x7899`–`0x78FD` creates a program named `Z,1.`, changes
-its VAT type to `TempProgObj` (`0x16`), and copies the archived object into it
+For archived input, mapped bank-A logical addresses `0x7899`–`0x78FD` create a
+program named `Z,1.`, change its VAT type to `TempProgObj` (`0x16`), and copy
+the archived object into it
 with `_FlashToRam`. The original name continues to identify the archived
 object while the temporary object's body is moved to `0x9D95`. Before creating
 the temporary, the loader deletes any existing `Z,1.` program. [confirmed]
 
-The writeback path at mapped addresses `0x77D5`–`0x7870` compares RAM bytes with
-archive bytes through a temporary page-read thunk. It replaces and rearchives
+The writeback path at mapped bank-A logical addresses `0x77D5`–`0x7870`
+compares RAM bytes with archive bytes through a temporary page-read thunk. It
+replaces and rearchives
 the program only when the comparison differs. The release changelog describes
 the same smart-writeback policy. [confirmed]
 
 The launch wrapper installs an OS error handler and conditionally prepares the
 MirageOS tasker before calling the client. With tasker flag bit 6 at `0x9689`
-set, `0x7176`–`0x71E9` installs IM2. It writes tasker state beginning at
-`0x8A3A`, code at `0x8A4F`–`0x8A88` and `0x8A8A`–`0x8AFE`, and an IM2 handler
+set, mapped bank-A logical addresses `0x7176`–`0x71E9` install IM2. The path
+writes tasker state beginning at `0x8A3A`, code at `0x8A4F`–`0x8A88` and
+`0x8A8A`–`0x8AFE`, and an IM2 handler
 at `0x8C01`–`0x8C1B`. It also builds the 257-byte IM2 vector table at
 `0x8B00`–`0x8C00`. It uses the word at `0x966F` as an optional custom interrupt
 target. These `statVars` ranges are not client scratch while the tasker or
 custom interrupt is active. [confirmed]
 
 The changelog states that **ON**+**^** quits immediately without writeback.
-Whether that path restores every intermediate body and mapping remains a
-dynamic-trace question. [confirmed]
+[confirmed] for the identified changelog text. Whether that path restores
+every intermediate body and mapping remains [hypothesis].
 
 ### Doors CS 7.4
 
