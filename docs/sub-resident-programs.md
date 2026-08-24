@@ -183,6 +183,36 @@ absolute pointer into a program, AppVar, or workspace can become stale after a
 create, delete, resize, archive, unarchive, temporary cleanup, variable receive,
 or archive garbage collection. [confirmed]
 
+## Explicit source writeback
+
+Changing bytes in the direct `Asm(` execution copy does not change the named
+program variable. RUNCOUNT 16, whose release describes itself as
+self-modifying, handles that distinction explicitly: it relies on OP1 still
+naming the running program, calls `_ChkFindSym`, and increments two BCD counter
+bytes through the returned source pointer. It performs a second lookup before
+converting the counter to `Ans`. [confirmed] for the identified community
+source.
+
+The raw 136-byte source build is SHA-256
+`3e506c4330cd5499a031ae56c73d0487f811278b5fc3d52949bc0f56a69b2f05`.
+The packaged program body is exactly `BB 6D` followed by that build, so this
+writeback design is also confirmed for the identified release binary. The
+archive `programs/runcounter16.zip` has SHA-256
+`736212242e2e9a97e90908ce42fa051b27dff52a84ef1141546d58cd4e5eaf08`;
+member `Source/RunCounter16.z80` has SHA-256
+`2ea3efc9d4764813f6f57fa19ae4a3564ef2f3855f4daf997619ff29f54316d5`,
+and `RUNCOUNT.8xp` has SHA-256
+`41615816759a6cb2df1aee41f906956a6823aa09c19e4ec8e79712868c1d889a`.
+[confirmed]
+
+The source does not test the returned page byte in `B`. Its direct store is
+therefore supported only when lookup returns a RAM source. An archived source
+or a shell that moves the named body can produce a Flash pointer or a
+shell-defined in-flight representation instead. Persistent self-modification
+must follow the launcher's lookup and writeback contract, not merely reuse this
+fixed-offset pattern. [confirmed] for the missing guard; [hypothesis] for
+untraced launcher outcomes.
+
 ## Resident allocation trace
 
 The fixture under `tools/allocation-probes/` calls `_EnoughMem`,
