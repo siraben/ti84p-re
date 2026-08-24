@@ -142,6 +142,31 @@ Errors use a non-local exit, not return codes:
 
 So `errSP` + `_JError` together implement try/catch: a context seeds `errSP` (from `onSP`) at entry, and any depth of nested calls can abort straight back to it.
 
+### Custom-error wrapper [confirmed]
+
+`_ErrCustom1` (bcall `4D41` → `ram:2771`) loads `A = 0xAB` and branches to
+`_JError` at `ram:2793`. After the error handler masks off `E_EDIT`, code
+`0x2B` selects the pointer at `07:6B20`. That table entry is `0x984D`, the
+`appErr1` custom-message buffer. The display path treats the buffer as a
+null-terminated string. [confirmed]
+
+The pinned include places `appErr1` at `0x984D` and `appErr2` at `0x985A`, so
+the first buffer occupies 13 bytes. A bounded message can contain at most 12
+bytes plus its null terminator. `_ErrCustom1` takes the same non-local path as
+`_JError`, so instructions after the bcall do not perform caller cleanup.
+[confirmed]
+
+The community example
+[`programs/generateerror.zip`](https://www.ticalc.org/pub/83plus/asm/programs/generateerror.zip)
+(SHA-256
+`1731b2b2cf7580855f7007478d55299e12b1ec4b7430d371feedea764c9139cf`)
+copies the `Ans` string payload into `appErr1` and invokes bcall `4D41`. Its
+`generr.z80` member (SHA-256
+`5f28fca2dec72dc4d495aff18a8d6b076f02d34b8cafcdbd78c11c05f364386d`)
+does not bound the copy to 13 bytes or write an explicit null terminator.
+This static source is evidence of community usage, not evidence that arbitrary
+`Ans` strings are safe. [confirmed]
+
 ### Error-message table [confirmed]
 
 The error screen shows `ERR:<MESSAGE>`; the `ERR:` prefix is at `01:4008`. The handler at `07:6A72` masks the code with `0x7F`, then indexes a little-endian pointer table at `07:6ACC` by `(code) − 1` for codes below `0x3A`. It fetches the pointer through `_LdHLind` and copies the selected null-terminated string. Codes `0x36`, `0x37`, `0x39`, and values at least `0x3A` bypass the table and select `?` at `07:6C5A`. [confirmed]
