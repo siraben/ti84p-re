@@ -1,0 +1,17 @@
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.6s
+key ENTER
+wait 0.8s
+key ENTER
+wait 0.8s
+key ENTER
+wait 6s
+screenshot /tmp/resident-allocation.png
