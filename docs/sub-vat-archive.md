@@ -96,6 +96,42 @@ page byte selects the Flash page; the VAT record itself always stays in RAM.
 
 ---
 
+## Ordinary and protected programs after lookup
+
+`ProgObj` (`0x05`) and `ProtProgObj` (`0x06`) use the same data representation.
+The helper at `ram:2042`–`ram:2058`, called by `_ChkFindSym`, admits both types
+as named program objects. `findsym_scan` returns the matched VAT type in `A` and
+OP1, so the caller can still distinguish `0x05` from `0x06`. [confirmed]
+
+The shared data and archive paths do not branch on that distinction:
+
+- `_DataSize` at `ram:1485`–`ram:14BB` sends both types through the same leading
+  size-word case and includes the same two-byte header in its result.
+- `_Arc_Unarc` at `07:6248` branches on the returned page byte in `B`. Its only
+  post-lookup object-type rejection is `GroupObj` (`0x17`) at `07:6263`.
+  `07:614B`–`07:6158` obtains either program type's size through `_DataSize`.
+- The archive writer masks the VAT type with `0x1F` at `07:616F`–`07:6178` and
+  preserves that low-five-bit value in the record. Copy length and page
+  crossing do not depend on whether the preserved value is `0x05` or `0x06`.
+- `_FlashToRam` at `3D:6745` receives a page, source pointer, destination
+  pointer, and byte count. It does not receive or read a VAT type.
+
+Protected-program behavior remains a type-routing policy outside those data
+paths. The alphabetical VAT selector maps `0x06` to the ordinary program class
+at `07:524D`–`07:5251`. The parser accepts either value and joins the same
+program path at `38:6012`–`38:601C`. `_ExecuteNewPrgm` instead requires
+`ProtProgObj` at `ram:2670`–`ram:2677`; this internal helper is not a general
+TI-BASIC execution API. These sites accept, normalize, or reject a type before
+using the common size-word payload. [confirmed]
+
+An archived-source reader therefore uses the same mapping, `_FlashToRam`, and
+cross-page rules for both program types after lookup. It must retain the actual
+type when it constructs OP1 for a later lookup. This conclusion covers TI-84
+Plus OS 2.55MP; shell-specific loading and writeback policies remain separate.
+[confirmed]
+
+---
+
 ## Store and recall [confirmed]
 
 **Store.** `_StoOther` (`38:62A9`) and siblings (`_StoAns`, `_StoX`, `_StoY`, … `38:6251-62A3`):
