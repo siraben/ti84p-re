@@ -8,6 +8,10 @@ Cross-references: [Boot contexts & errors](boot-contexts-errors.md) (contexts, `
 `_CleanAll`), [Flash page map](flash-page-map.md) (flash page map). Flag bits use the `ti83plus.inc` equates; the
 SystemFlags base is `IY = flags = 0x89F0`, so e.g. `(IY+0x0A)` = `flags + fmtFlags`.
 
+Long-running App design is covered separately in
+[Flash Apps as resident runtimes](sub-flash-app-runtime.md), including RAM
+allocation, cross-page calls, contexts, cleanup, and persistent AppVars.
+
 ## Flash Apps — find and launch
 
 This ROM ships with zero bundled apps in the local ROM-byte scan (zero `80 0F` headers found at page starts) [hypothesis],
