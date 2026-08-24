@@ -24,7 +24,8 @@ Generate a result manifest with `nix develop -c python3
 tools/rom_provenance.py manifest --rom tools/rom.bin`; use its `verify`
 subcommand to reject CSV or JSON evidence produced from a different ROM. The
 [provenance page](docs/provenance.md) distinguishes the canonical retail image
-from the BootFree runtime-trace variant.
+from the BootFree runtime-trace variant and records the reproducible Ghidra
+database-health audit.
 
 ## Browse the wiki
 
@@ -79,6 +80,12 @@ Then open `ti84.gpr` in Ghidra for interactive analysis.
 | Defined data (strings/floats/typed) | 618 |
 | Flash pages loaded | 64 (1 MiB) |
 | Docs | 46 rendered content pages |
+
+The checked [database-health report](tools/data/database-health.json) records
+coverage and concrete cleanup locations for the current BootFree-derived
+database. Regenerate it with the read-only command on the
+[provenance page](docs/provenance.md); its ROM hash prevents those results from
+being confused with the canonical retail database.
 
 ## Architecture in one paragraph
 

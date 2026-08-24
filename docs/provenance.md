@@ -87,6 +87,36 @@ The command rejects missing, mixed, or mismatched identities. Raw TLMT traces
 do not embed a ROM hash, so they require a JSON provenance sidecar; verify the
 sidecar rather than treating the trace filename as evidence. [confirmed]
 
+## Audit the Ghidra database
+
+`tools/DatabaseHealth.java` makes database coverage and cleanup debt
+machine-readable. Run it against the existing project without analysis or
+writes:
+
+```sh
+nix develop -c ghidra-analyzeHeadless "$PWD" ti84 \
+  -process -noanalysis -readOnly -scriptPath "$PWD/tools" \
+  -postScript DatabaseHealth.java tools/data/database-health.json
+```
+
+The checked report identifies the BootFree runtime-trace image by its complete
+ROM hash. It records 64 loaded Flash pages, 27,995 instructions, 2,413
+functions, and 94.081086 percent of instructions inside functions. The listing
+has no overlapping instructions. It also lists each of the 163 unresolved
+inline cross-page jumps and 45 primary symbols that have neither an instruction
+nor typed storage at their address. [confirmed]
+
+The 989,125 undefined Flash bytes are addresses with no defined Ghidra code or
+data unit. That number measures database coverage; it does not imply that those
+bytes are unused or safe to overwrite. Likewise, an unresolved jump is a
+specific analysis task, not evidence that the ROM's control flow is invalid.
+[standard]
+
+The health report is deterministic for a given database, script revision, and
+Ghidra version. Its `rom_sha256` field can be checked with
+`tools/rom_provenance.py verify`; use a separately rebuilt retail project when
+auditing retail boot and USB pages. [standard]
+
 ## Evidence limit
 
 A matching hash proves byte identity, not how the image was obtained. The ASIC

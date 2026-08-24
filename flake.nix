@@ -75,7 +75,8 @@
             PYTHONPATH=tools python3 -m unittest \
               tools.test_tibasic_coverage tools.test_tibasic_for_paren \
               tools.test_tibasic_saturation tools.test_tibasic_numeric_errors \
-              tools.test_rom_provenance tools.test_compare_boot_pages
+              tools.test_rom_provenance tools.test_compare_boot_pages \
+              tools.test_database_health_report
           '';
           dontInstall = true;
           dontFixup = true;
