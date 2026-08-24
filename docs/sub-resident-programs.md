@@ -3,7 +3,10 @@
 TI-OS copies a compiled assembly program to `userMem` (`0x9D95`), executes it,
 and removes that copy when it returns. This page documents the OS 2.55MP launch
 path, the memory limit enforced by the ROM, pointer stability during variable
-allocation, and archived-data access for long-running runtimes.
+allocation, and archived-data access for long-running runtimes. Third-party
+launchers use different movement and archive-writeback policies; see
+[Shell loaders and writeback](sub-shell-loaders.md) for a source-based
+comparison.
 
 ## Compiled `Asm(` launch
 
