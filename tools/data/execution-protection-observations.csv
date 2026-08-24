@@ -1,0 +1,7 @@
+platform,model,mode,port21,port25,port26,upper_inclusive,fetch_only,reset_behavior,evidence
+boot-rom,TI-84 Plus,0,00,10,20,unknown,unknown,unknown,confirmed ROM writes at 3F:41D5-3F:4206
+TilEm,ti84p,0,00,10,20,yes,yes,current opcode completes then broad reset,confirmed pinned emulator probe
+Wabbitemu,TI-84 Plus,0,00,10,20,yes,yes,reset occurs inside opcode fetch,confirmed pinned emulator probe
+physical,TI-83+SE,unknown,unknown,unknown,unknown,unknown,unknown,unknown,unmeasured
+physical,TI-84+/SE 128 KiB,unknown,unknown,unknown,unknown,unknown,unknown,unknown,unmeasured
+physical,TI-84+/SE 48 KiB,unknown,unknown,unknown,unknown,unknown,unknown,unknown,unmeasured
