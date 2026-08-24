@@ -744,7 +744,6 @@ page_06:7cf3	app_mode_dispatch
 page_06:7d44	fmt_split_dispatch
 page_06:7f49	cursor_glyph_sel
 page_06:7f9c	set_insert_redraw
-page_07:44de	arc_chk_type
 page_07:44fe	arc_chk_type2
 page_07:45b6	arc_dispatch
 page_07:45eb	lgfont_glyph_ptr_adjust

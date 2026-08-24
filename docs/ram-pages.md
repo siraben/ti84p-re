@@ -106,8 +106,9 @@ result. Its readme says pages `84`–`87` can buffer a Flash sector on older
 saves port `0x06`, maps selected pages through it, and uses the extra selectors
 during edit and sector operations. It records no calculator identity, alias
 matrix, or hardware trace, so the claim does not establish which selectors are
-independent on any identified unit. [confirmed] for the source instructions;
-[standard] for the community claim; [hypothesis] for physical topology.
+independent on any identified unit. The source instructions and identified
+readme wording are [confirmed]; the claimed physical topology remains
+[hypothesis].
 
 The exact release is `programs/flashed.zip`, SHA-256
 `b99e56f11084f473c34bc2d7679d37b407764a698aee95f9ef8b6f663d7c8463`.

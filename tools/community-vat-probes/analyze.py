@@ -280,8 +280,10 @@ def main() -> None:
 
     # Safe numeric-bcall execution found while auditing the community sources.
     numeric_trace = root / "community-numeric-bcalls.trace"
-    numeric_counts = pc_counts(numeric_trace, {0x2692, 0x61AF})
-    if numeric_counts[0x2692] != 1 or numeric_counts[0x61AF] != 1:
+    numeric_counts = pc_counts(numeric_trace, {0x2692, 0x61AF, 0x9D9F, 0x9DA2})
+    if numeric_counts[0x9D9F] != 1 or numeric_counts[0x9DA2] != 1:
+        raise SystemExit(f"numeric bcall fixture sites mismatch: {numeric_counts}")
+    if not numeric_counts[0x2692] or not numeric_counts[0x61AF]:
         raise SystemExit(f"numeric bcall targets missing: {numeric_counts}")
     numeric_path = root / "community-numeric-bcalls.ram"
     numeric_ram = logical_ram(numeric_path)
@@ -297,7 +299,9 @@ def main() -> None:
         "target_type": "",
         "target_page": "",
         "target_address": "",
-        "trace_anchors": anchors(numeric_counts, (0x2692, 0x61AF)),
+        "trace_anchors": anchors(
+            numeric_counts, (0x9D9F, 0x9DA2, 0x2692, 0x61AF)
+        ),
         "trace_sha256": digest(numeric_trace),
         "snapshot_sha256": digest(numeric_path),
         "input_rom_sha256": rom_hash,

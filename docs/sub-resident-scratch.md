@@ -260,7 +260,7 @@ add the following observations to the boot and expression traces documented in
 | Scenario | Writes | Touched range |
 |---|---:|---|
 | Direct resident launch | 2,304 | `83:5A7E`–`83:5D7D` |
-| Interactive resident input | 3,840 | `83:5A7E`–`83:5D7D` |
+| Interactive resident input | 3,072 | `83:5A7E`–`83:5D7D` |
 | Guarded `_GetKey` wait interrupted by **ON** | 3,893 | `83:4373`–`83:4390`, `83:577E`–`83:5794`, and `83:5A7E`–`83:5D7D` |
 
 The range is the LCD/home-display capture area. Combining these runs with ROM,

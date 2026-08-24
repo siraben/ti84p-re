@@ -101,7 +101,7 @@ bytes in the page-`07` 11-byte OP scratch registers also remain open. See
 Plain `augment(` enters the partial-pivoting engine at `02:4663` but never
 eliminates: the `0x91` branch sets carry (`02:6361 SCF`, restored by the
 `POP AF` at `02:6378`), and the engine gates its elimination body on that flag
-(`46DA POP AF ; JR C,46EF`). The elimination pass belongs to the statistics
+(<code>46DA POP AF</code><br><code>JR C,46EF</code>). The elimination pass belongs to the statistics
 regression path, which enters the same dispatcher through `3A:6398`. [confirmed]
 
 The `randM(` fill is decoded: `02:5CC1`–`02:5CE6` computes `int(19·rand)−9` per

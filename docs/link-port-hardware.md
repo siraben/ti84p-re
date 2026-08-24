@@ -105,8 +105,8 @@ no identified unit, load, instrument, or measurement procedure. The archive
 and member `stopwatch.txt` has SHA-256
 `eb944f2bdc93dfb76ca244a39218d52424c9edf1ed0c6fe2587732b2b301a710`.
 That claim does not replace the still-open voltage, pull-up, threshold, or load
-measurements. [standard] for the community claim; [hypothesis] for unmeasured
-physical values.
+measurements. The identified readme wording is [confirmed]; the physical values
+remain [hypothesis].
 
 ### Differential audio output
 

@@ -95,7 +95,7 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_BufClear` | `4936` | `00:222E` |
 | `_BufClr` | `5074` | `04:6074` |
 | `_BufCpy` | `5071` | `04:60A6` |
-| `_BufInsert` | `4909` | `06:42E5` |
+| `_bufInsert` | `4909` | `06:42E5` |
 | `_CAbs` | `4E97` | `02:6C47` |
 | `_CAdd` | `4E88` | `02:6BA5` |
 | `_CanAlphIns` | `4C69` | `00:04C6` |
@@ -657,12 +657,17 @@ numeric bcall macros, raw `rst 28h` plus word sequences, and complete
 `EF low high` instruction bytes. The pinned snapshot contains 112 such uses of
 56 IDs. Three uses encode `_CursorOn`, `_KeyToString`, and `_CursorOff` as raw
 bytes; the other 109 use macro or `rst 28h` forms. Exact archive and source
-hashes are in `tools/data/community-bcall-uses.csv`.
+hashes are in `tools/data/community-bcall-uses.csv`. [confirmed] for the
+checked scan output.
 
 Sixteen used main-table IDs were absent from the generated map. Decoding their
 three-byte entries on ROM page `0x3B` resolves every target: [confirmed]
 
-| ID | Include name | Body | Community use |
+These rows establish the ROM table mapping and the static source call site.
+They do not, by themselves, establish every runtime side effect named in the
+source comment.
+
+| ID | Include name | Body | Source call-site context |
 |---|---|---|---|
 | `4030` | `_newContext` | `00:077E` | Plasma home-context restore |
 | `41D4` | `_ShRAcc` | `00:1BCB` | RLIB nibble conversion |
@@ -694,7 +699,7 @@ extracted archive before classifying its use. Five active IDs add valid OS
 | ID | Name | Body | Active community use |
 |---:|---|---|---|
 | `4051` | `_lcd_busy` | `00:0CC3` | Letter waits before writing an LCD control byte. |
-| `4909` | `_BufInsert` | `06:42E5` | Plasma inserts `Asm` and program-name tokens into the edit buffer. |
+| `4909` | `_bufInsert` | `06:42E5` | Plasma inserts `Asm` and program-name tokens into the edit buffer. |
 | `4936` | `_BufClear` | `00:222E` | Plasma clears the edit buffer before inserting a launch command. |
 | `500B` | `_GetKeyRetOff` | `06:491A` | Balltrix, Nukewar, and CalClock request the **ON** return code. |
 | `50E0` | `_NZIf83Plus` | `00:1837` | ZMegaMan branches on the calculator model before masking a Flash page. |

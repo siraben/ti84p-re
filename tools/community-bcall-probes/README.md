@@ -7,7 +7,7 @@ Build and run the custom-error witness with the patched headless TilEm described
 in `tools/dynamic-tracing.md`:
 
 ```sh
-nix develop -c spasm -E \
+nix develop -c spasm \
   tools/community-bcall-probes/custom-error.asm \
   /tmp/community-custom-error.bin
 nix develop -c python3 tools/community-bcall-probes/build.py \
@@ -23,6 +23,11 @@ nix develop -c python3 tools/community-bcall-probes/build.py \
 nix develop -c python3 \
   tools/community-bcall-probes/analyze_custom_error.py \
   /tmp/community-custom-error.trace \
+  --rom tools/rom.bin --emulator "$TILEM" \
+  --payload /tmp/community-custom-error-fixture/ERRPROBE.8xp \
+  --wrapper /tmp/community-custom-error-fixture/AERR.8xp \
+  --macro tools/community-bcall-probes/custom-error.macro \
+  --recording /tmp/community-custom-error.gif \
   --output /tmp/community-custom-error.csv
 ```
 
@@ -31,8 +36,8 @@ and ROM remain outside Git; their SHA-256 identities bind the compact result to
 those artifacts.
 
 The symbolic-equate audit adds a return-path fixture for `_lcd_busy`,
-`_BufClear`, `_BufInsert`, and `_NZIf83Plus`. It uses `_BufClear` and
-`_BufInsert` only with the home-screen edit-buffer state established by direct
+`_BufClear`, `_bufInsert`, and `_NZIf83Plus`. It uses `_BufClear` and
+`_bufInsert` only with the home-screen edit-buffer state established by direct
 `Asm(` launch. Build and capture it with the accepted patched TilEm binary:
 
 ```sh

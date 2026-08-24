@@ -71,7 +71,8 @@ shared engine at `37:41F2`: [confirmed]
 
 ```z80
 _XftoI (37:41EB):  BC = 0x8E6A, HL = shortX (0x9164), SCF  → 37:41F2
-_YftoI (37:41DF):  BC = Ymin,   HL = shortY (0x916D), OR A → 37:41F2; INC A
+_YftoI (37:41DF):  BC = Ymin,   HL = shortY (0x916D), OR A → 37:41F2
+INC A
 ```
 
 The core loads `*DE`, subtracts the selected base through `ram:228F`, and
@@ -135,9 +136,9 @@ X/Y shown at the bottom of the screen, and by DRAW commands that take pixel argu
 
 `_IOffset` (`04:42B5`) computes the LCD controller address bytes for a pixel (inputs `B`=x, `C`=y):
 ```text
-(0x844F) = (x >> 3) | 0x20     ; LCD byte-column command for the horizontal group
-(0x8451) = (0x3F - y) | 0x80   ; LCD row command, vertically mirrored
-returns (table_42E4)[x & 7]    ; the 1-of-8 bit mask within the byte (bit = x mod 8)
+(0x844F) = (x >> 3) | 0x20     # LCD byte-column command for the horizontal group
+(0x8451) = (0x3F - y) | 0x80   # LCD row command, vertically mirrored
+returns (table_42E4)[x & 7]    # the 1-of-8 bit mask within the byte (bit = x mod 8)
 HL = 3 * ((4 * display_row) & 0xFF) + (x >> 3)
 ```
 This maps a `(x,y)` pixel to a byte+bit in the buffer and produces the matching LCD

@@ -17,7 +17,7 @@ from tilem_trace_resolve import IDX_PC, iter_records, read_header  # noqa: E402
 
 POINTS = {
     ("ram", 0x0CC3): "_lcd_busy",
-    ("page_06", 0x42E5): "_BufInsert",
+    ("page_06", 0x42E5): "_bufInsert",
     ("ram", 0x222E): "_BufClear",
     ("ram", 0x1837): "_NZIf83Plus",
 }

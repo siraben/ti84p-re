@@ -75,7 +75,8 @@ findsym_scan (07:565F):
   else: HL = symTable (0xFE66), scan downward to progPtr
   loop:
      A = (HL); A &= 0x1F            ; *** mask off archive flag bits in high nibble ***
-     SBC HL,DE ; RET C  (ran past end → not found)
+     SBC HL,DE
+     RET C  (ran past end → not found)
      CP (HL) against token (8479); on match check name bytes (847A/847B) at HL-1/HL-2
      else step HL -= 3 from the name pointer (9 bytes type-to-type for fixed entries)
           / -= (6+nameLen) for named entries, and continue
@@ -192,7 +193,7 @@ The reproducible macros and analyzer are in `tools/community-vat-probes/`.
 snapshot, input-ROM, output-ROM, and emulator hashes. The ROM hash is
 `dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09`;
 the patched TilEm executable hash is
-`f0f0703e8658f8146c4dcd43dbb1b1dc858f4617baf33eaa16878bf2e35399c6`.
+`b8ee505483c79732a4ca21efb8b904de0792477795f6fc717874dcd5addaed09`.
 
 ### Numeric community bcalls
 
@@ -207,11 +208,13 @@ reliably named in older include sets:
 | `5014h` | `_ArcChk`, `3D:61AF` | `libs/rage.zip:RAGE/RAGE.asm:71`; populate archive-accounting words beginning at `0x839F`. |
 | `50C8h` | `_UngroupVar`, `39:764A` | `libs/c3asm.zip:C3ASM/_CELTIC/CELTIC3.ASM:832`; ungroup only after OP1 is confirmed as `GroupObj`. |
 
-PRGMHIDE dynamically reaches `500Bh` and `509Eh`. A separate source-built
-probe reaches `5011h` and `5014h` once each and returns normally after saving
-the `_ArcChk` words. `50C8h` was not called without an authentic group object
-and caller state. These tests confirm the first four ID-to-target mappings and
-safe return paths, not every side effect implied by the community comments.
+PRGMHIDE dynamically reaches `500Bh` and `509Eh`. In a separate source-built
+probe, the `5011h` and `5014h` fixture call sites each execute once, both OS
+bodies are reached, and the final marker proves that both calls return after
+saving the `_ArcChk` words. Other OS activity may reach the same body addresses.
+`50C8h` was not called without an authentic group object and caller state.
+These tests confirm the first four ID-to-target mappings and safe return paths,
+not every side effect implied by the community comments.
 [confirmed]
 
 | Archive | Archive SHA-256 | Source member SHA-256 |
@@ -261,21 +264,30 @@ the Flash archive (the same entry point does both directions, deciding from the 
 ```z80
 _Arc_Unarc (07:6248):
   SET 0,(IY+0x24)              ; flag: an archive operation is in progress
-  CALL 628B                    ; validate OP1 name is an archivable class; Z⇒not allowed → JP 26E0 (local error shim; LD A,0xB2 = E_Variable, ERR:VARIABLE → _JError)
+  CALL 628B                    ; validate OP1 name is an archivable class
+                               ; Z ⇒ JP 26E0, whose shim loads E_Variable (0xB2)
   CALL _OP1ToOP3 (1A0F)
   CALL _ChkFindSym (0E60)      ; locate the VAT entry; C ⇒ JP 271D (undefined)
   DI
   LD (981C),HL                 ; chkDelPtr3 = entry ptr
-  LD A,B ; OR A ; JR Z,6272    ; B = page byte: 0 ⇒ currently in RAM, else ⇒ in Flash
-      (Flash, B≠0) LD A,(HL); CP 0x17 ; Group? ⇒ JP 26E0 reject  [groups archive via a different path]
-                   CALL 61F4   ; *** Flash → RAM:  unarchive ***
-   6272 (RAM, B==0):  CALL 6107        ; *** RAM → Flash:  archive ***
+  LD A,B
+  OR A
+  JR Z,6272                    ; B = 0 means RAM; nonzero means Flash
+  LD A,(HL)                    ; Flash-backed object type
+  CP 0x17
+  JP Z,26E0                    ; reject GroupObj
+  CALL 61F4                    ; Flash → RAM: unarchive
+6272:
+  CALL 6107                    ; RAM → Flash: archive
   ... name-token-0x5D (list name, `tVarLst`) special-case via 32A9 / cross_page 05:4A6E
-  LD A,(83EE); OR A; EI; RET
+  LD A,(83EE)
+  OR A
+  EI
+  RET
 ```
 
 `628B` is the *archivable-name guard*: after `_CkOP1Real` it returns Z for the non-archivable
-single-letter real/sysvar name tokens `0x58 0x59 0x54 0x5B 0x52 0x72 0xFC` (`CP n; RET Z` chain), so
+single-letter real/sysvar name tokens `0x58 0x59 0x54 0x5B 0x52 0x72 0xFC` (<code>CP n</code><br><code>RET Z</code> chain), so
 `_Arc_Unarc`'s `JP Z,26E0` rejects them via the `26E0` shim (`LD A,0xB2` = E_Variable, ERR:VARIABLE →
 `_JError`); archivable classes (lists, matrices, programs, appvars, …) return NZ and continue. (`arc_59f1` @`07:59F1` and `arc_5936` @`07:5936` are companion name/range
 validators for the catalog archive command.)
@@ -287,14 +299,19 @@ RAM copy; `61F4` is the one that carves RAM and copies the data back out of Flas
 ### RAM-to-Flash archive path [confirmed]
 
 ```z80
-6107:  CALL 7866 ; DI
+6107: CALL 7866
+      DI
        CALL 614B                       ; arcInfo.vat_ptr and arcInfo.size
                                        ;   616C reserves the archive-Flash slot
        CALL 2FF1 (cross_page 3D:64AA)  ; program the data into archive Flash
-       LD HL,(83F3) ; LD DE,(83F7) ; CALL _DelMem (1368)  ; release the old RAM copy
+       LD HL,(83F3)
+       LD DE,(83F7)
+       CALL _DelMem (1368)  ; release the old RAM copy
        RET
 616C:  reads vatPtr type, AND 0x1F (clean type for the record header),
-       LD HL,(83F7)+(83F5) ; ADC ; JP C,2729 (E_Invalid, 0x8F)  ; size overflow?
+       LD HL,(83F7)+(83F5)
+       ADC
+       JP C,2729 (E_Invalid, 0x8F)  ; size overflow?
        reserves a Flash slot via archive_prepare_scan / archive_find_free_span
 ```
 The data is appended to the archive Flash (Flash cannot be overwritten in place). The VAT entry's
@@ -304,13 +321,17 @@ copy is then released (the upward data heap shrinks). `archive_write_record` at 
 ### Flash-to-RAM unarchive path [confirmed]
 
 ```z80
-61F4:  LD (83EF),DE ; LD (83EE),A      ; arcInfo.data_ptr/page = source
+61F4: LD (83EF),DE
+      LD (83EE),A                      ; arcInfo.data_ptr/page = source
        CALL 6335                       ; set arcInfo.vat_ptr and arcInfo.data_size
        CALL 32D3                       ; size accounting
-       LD A,(HL) ; CALL 146C           ; add header overhead → arcInfo.size_full
-       EX DE,HL ; CALL _EnoughMem(0FA6); ensure there is RAM room for the unarchived copy
-                JP C,_ErrMemory(2721)
-       OR 1 ; CALL 0F0C                ; carve the RAM gap (internal create-gap routine)
+       LD A,(HL)
+       CALL 146C           ; add header overhead → arcInfo.size_full
+       EX DE,HL
+       CALL _EnoughMem(0FA6)           ; ensure there is RAM room
+       JP C,_ErrMemory(2721)
+       OR 1
+       CALL 0F0C                ; carve the RAM gap (internal create-gap routine)
        LD (83F3),DE                    ; arcInfo.dest_ptr = new RAM address
        CALL 3003 (unarchive_record_to_ram) ; copy Flash→RAM, retire old record
        RET
@@ -337,11 +358,23 @@ a RAM destination, transparently advancing the Flash page when the read crosses 
 window boundary:
 ```z80
 3D:6745: mask page (AND 1F / AND 3F per port-2 model check FUN 1837/182F)
-         PUSH IX ; LD IX,6761 ; CALL 678C ; POP IX ; RET
+         PUSH IX
+         LD IX,6761
+         CALL 678C
+         POP IX
+         RET
 3D:678C: copies the small arg-block to ramCode, sets DE=0x8100, JP 8100  ; runs the copier from RAM
 the copier (6761..678A):
-   IN A,(6) saved ; OUT (6),A     ; bank A = the source Flash page into 0x4000 window
-   loop LDI:  BIT 7,H → at 0x8000 wrap: IN A,(6); INC A; OUT (6),A; LD HL,0x4000  ; next page
+   IN A,(6) saved
+   OUT (6),A                    ; map the source Flash page into bank A
+loop:
+   LDI
+   BIT 7,H
+                              ; crossing 0x8000 advances the mapped page
+   IN A,(6)                     ; advance after the 0x8000 boundary
+   INC A
+   OUT (6),A
+   LD HL,0x4000
 ```
 Port `6` is the bank-A page-select; the read code itself runs from `ramCode`
 at `ram:8100`. This is an explicit Flash-to-RAM byte-copy primitive, not proof
@@ -373,7 +406,7 @@ A generated 17,000-byte program makes the record data span pages. The traced rec
 The status byte is a classic AMD/Am29F *monotonic bit-clear* marker: erased Flash is all-ones
 (`0xFF`), and the OS advances a record's state by *clearing* bits (program can only flip `1→0`; only
 a sector erase restores `1`s). The writers are three tiny routines on page 0x3D that load an AND-mask
-into `C` and then read-modify-write the status byte (`3D:7C9A: CALL flash_read_byte; AND C; …`):
+into `C` and then read-modify-write the status byte (<code>3D:7C9A: CALL flash_read_byte</code><br><code>AND C</code><br><code>…</code>):
 
 | Routine | Mask in `C` | Bit cleared | State after |
 |---------|-------------|-------------|-------------|

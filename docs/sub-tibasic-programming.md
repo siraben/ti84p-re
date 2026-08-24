@@ -607,7 +607,7 @@ macro is `tools/macros/run-callsub-typed.macro`.
 | gate bits | `BIT 0,(IY+28h)` and `BIT 7,(IY+48h)` are both zero (`IY=0x89F0`; bytes at `0x8A18` and `0x8A38`) |
 
 Both gate bits read zero in the working path. The private callee transition at
-`38:6910` executes `XOR A ; CALL 6A15` before entering the evaluator. These
+`38:6910` executes <code>XOR A</code><br><code>CALL 6A15</code> before entering the evaluator. These
 observations suggest that an ASM payload must locate the target through
 `_ChkFindSym` into OP1, copy the name header to `0x9652`, point
 `start`/`cursor` at `_ChkFindSym`'s data pointer plus two (past the size word),

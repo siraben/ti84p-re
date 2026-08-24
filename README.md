@@ -74,7 +74,7 @@ Then open `ti84.gpr` in Ghidra for interactive analysis.
 | Metric | Value |
 |--------|-------|
 | Functions | rebuilt from the local ROM by `tools/build.sh` |
-| bcall routines named | 704 total: 621 main-table bcalls + 83 retail boot-table bcalls |
+| bcall routines named | 728 total: 645 main-table bcalls + 83 retail boot-table bcalls |
 | bjump sites modeled | every disassembled inline `CALL cross_page_jump` site; the total includes the 87-entry trampoline table |
 | parser handlers | 84 (page 0x38 dispatch table) |
 | Defined data (strings/floats/typed) | 618 |
