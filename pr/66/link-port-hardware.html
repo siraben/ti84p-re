@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2eaafcfe.js";
+            window.path_to_searchindex_js = "searchindex-0e592f65.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -243,6 +243,25 @@ above: low write bits clear release the lines, and set bits pull them low. The
 code is historical corroboration for port usage, not a reliable electrical
 description. [confirmed] for the source instructions; [standard] for the
 open-collector correction.</p>
+<p>The archive’s two shipped calculator files are not TI-83 Plus link files:
+<code>example.8xp</code> and <code>EXAMPLE.83P</code> both begin with the TI-83 container signature
+<code>2A 2A 54 49 38 33 2A 2A 1A 0A 00</code>. Their SHA-256 values are
+<code>fdc5d25fd21abd1d6f06a4e4e3bfb7d562b2c5964e34c6cf0a7d5c1d6b7c3e2b</code>
+and <code>396e9c499cafaccb30b39bf6d44bd726e07064f961d7e9926a85e2d8f97096a5</code>.
+A headless TI-84 Plus run transferred those files, invoked a valid
+<code>Asm(prgmEXAMPLE)</code> wrapper, reached the <code>E_Invalid</code> shim at <code>ram:2729</code> once,
+and never reached the compiled-program handoff at <code>07:57B4</code> or <code>ram:9D95</code>.
+The result is therefore a release-packaging inconsistency, not a runtime test
+of the source’s <code>TI83P</code> branch. [confirmed]</p>
+<p>A separate 40-byte TI-83+ fixture transcribes the source’s initial one-sided
+wait loop. On TilEm x4 with no peer, it entered at <code>ram:9D95</code>, first read
+<code>0x03</code> from port <code>0x00</code>, wrote <code>0xD1</code> once to port <code>0x00</code>, selected keypad row
+<code>0xBF</code> 214,766 times, observed injected MODE value <code>0xBF</code>, and returned through
+<code>07:57D1</code>. This confirms the source-level port sequence in that bounded
+emulator scenario. It does not test a peer exchange, the rest of the tutorial,
+physical voltage, or electrical polarity. Compact results and exact trace
+identities are in <code>tools/data/community-link-wait.csv</code> and
+<code>tools/data/community-linktutorial-release.csv</code>. [confirmed]</p>
 <p>The tutorial archive <code>source/linktutorial83plus.zip</code> has SHA-256
 <code>7a0917379bd1b46b45e802b44c9bdc129ac5db42f94c979fae01c29c6b5ca8fe</code>.
 Members <code>link tutorial.txt</code> and <code>example.z80</code> have SHA-256

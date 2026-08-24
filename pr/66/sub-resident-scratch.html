@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2eaafcfe.js";
+            window.path_to_searchindex_js = "searchindex-0e592f65.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -241,10 +241,12 @@ display, keyboard, VAT, archive, graph, table, statistics, app, error, APD,
 link, and USB path is allowed. A runtime may borrow a conditional range only by
 defining the excluded calls and contexts as part of its ABI.</p>
 <h3 id="third-party-hook-ownership-of-appbackupscreen"><a class="header" href="#third-party-hook-ownership-of-appbackupscreen">Third-party hook ownership of <code>appBackUpScreen</code></a></h3>
-<p>Archived community source identifies persistent raw-key and parser hooks as
-additional owners of <code>appBackUpScreen</code>. These are static source findings. The
-distributed binaries were not installed or traced, and the source does not
-establish behavior on physical hardware.</p>
+<p>Archived community source and complete TilEm traces identify persistent
+raw-key, parser, and IM2 residents as additional owners of
+<code>appBackUpScreen</code>. The runs use OS 2.55MP image SHA-256
+<code>dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09</code>
+and patched TilEm commit <code>d1bdc58dd321ae462a701e556fcb62bb925a78b1</code>.
+They establish emulator execution, not physical-hardware behavior. [confirmed]</p>
 <ul>
 <li>NoExec copies a raw-key hook to <code>appBackUpScreen</code> and a parser hook to
 <code>appBackUpScreen + 500</code>. It calls <code>_EnRawKeyHook</code> and <code>_EnParserHook</code>, then
@@ -260,6 +262,23 @@ sends bytes through <code>_SendAByte</code> when TI-OS invokes it.</li>
 <code>appBackUpScreen</code>. Its handler clears port-<code>0x03</code> bit 0 before calling the
 TI-OS IM1 entry at <code>ram:003A</code>.</li>
 </ul>
+<p><strong>Dynamic confirmation.</strong> NoExec writes <code>0x83</code> at both <code>ram:9872</code> and
+<code>ram:9A66</code>. <code>_SetGetKeyHook</code> at <code>3B:7D00</code> then stores pointer
+<code>0x9872</code>, page <code>0x07</code>, and sets bit 5 of <code>IY + 0x34</code>.
+<code>_SetParserHook</code> at <code>3B:7D6E</code> stores pointer <code>0x9A66</code>, page <code>0x07</code>, and sets
+bit 1 of <code>IY + 0x36</code>. Remote Control reaches the same raw-key installer with
+pointer <code>0x9872</code>, while Plasma stores pointer <code>0x9872</code> with its supplied page
+byte <code>0x41</code>. These runs stop before invoking Remote Control’s link sender.
+[confirmed]</p>
+<p>After the selected NoExec removal sequence, the resident reaches
+<code>_ClrRawKeyHook</code> at <code>3B:7B88</code> and <code>_ClearParserHook</code> at <code>3B:7C3B</code>; the two
+active bytes at <code>IY + 0x34</code> and <code>IY + 0x36</code> become zero. Remote Control’s
+resident removal path was not exercised because its ordinary hook events send
+link bytes. [confirmed] for NoExec; [hypothesis] for Remote Control removal.</p>
+<p>The ONBLOCK trace writes <code>0x9A</code> at <code>ram:9900</code> and <code>ram:9901</code>, copies byte
+<code>0x08</code> to its handler entry at <code>ram:9A9A</code>, and subsequently executes that
+entry 1,303 times. The source handler tail calls the TI-OS IM1 entry at
+<code>ram:003A</code>. [confirmed]</p>
 <p>An assembly runtime must therefore exclude or explicitly remove installed
 raw-key, parser, and shell hooks and persistent IM2 residents before borrowing
 this buffer. The documented <code>_DisableApd</code> and <code>_DelRes</code> conditions for other
@@ -296,8 +315,8 @@ scenario. It does not cover an APD timeout, error unwinding, physical hardware,
 or statistics code after <code>_DelRes</code>.</p>
 <h3 id="additional-third-party-savesscreen-owners"><a class="header" href="#additional-third-party-savesscreen-owners">Additional third-party <code>saveSScreen</code> owners</a></h3>
 <p>Three older community sources deliberately execute from or overlap
-<code>saveSScreen</code>. These are static source findings; none of the distributed
-binaries was run. [confirmed]</p>
+<code>saveSScreen</code>. Weird and LCD2 have complete OS 2.55MP emulator traces; GPP
+remains a static source finding. [confirmed]</p>
 <ul>
 <li>GPP 1.1 builds IM2 tables at <code>ram:8600</code> and <code>ram:8700</code>, places interrupt
 code at <code>ram:8686</code> and <code>ram:8787</code>, and alternates display buffers from the
@@ -308,6 +327,14 @@ through ports <code>0x10</code> and <code>0x11</code>.</li>
 <li>LCD2 emits a timing routine into <code>saveSScreen</code>, calls the buffer as code,
 and uses direct LCD reads to adjust its delay.</li>
 </ul>
+<p>The source-built Weird fixture writes its <code>0xFF</code> signature at <code>ram:86EC</code>,
+copies an ISR beginning with <code>0xF3</code> to <code>ram:8888</code>, fills its table at
+<code>ram:8700</code> with <code>0x88</code>, and executes the ISR entry seven times. LCD2 rewrites
+the timing entry at <code>ram:86EC</code> during calibration and executes that address
+141 times before reaching its result screen. [confirmed]</p>
+<p>GPP’s distributed examples require the legacy Ion client environment. No
+byte-matched direct-client run is recorded, so execution at <code>ram:8686</code> and
+<code>ram:8787</code> remains unmeasured. [hypothesis]</p>
 <p>These examples are evidence of additional third-party ownership, not evidence
 that the range is safe on current OS or shell combinations.</p>
 <h3 id="third-party-owned-statvars-ranges"><a class="header" href="#third-party-owned-statvars-ranges">Third-party-owned <code>statVars</code> ranges</a></h3>
@@ -325,7 +352,7 @@ Untraced runtime cells remain open.</p>
 <tr><td>MirageOS 1.2 with tasker disabled</td><td>Candidate only</td><td>The setup routine returns while tasker flag bit 6 at <code>0x9689</code> is clear; no client guard run</td></tr>
 <tr><td>MirageOS 1.2 with tasker or custom interrupt active</td><td>Unsafe</td><td>The original binary installs timers, handler code, and an IM2 vector table inside <code>statVars</code> before client execution</td></tr>
 <tr><td>Doors CS 7.4</td><td>Unsafe as general client storage</td><td>Source reserves the block for shell state; its Mirage-compatible interrupt also installs code and vectors there</td></tr>
-<tr><td>ViewRegs interrupt installed</td><td>Unsafe</td><td>Source relocates IM2 code and a vector table into <code>saveSScreen</code> and <code>statVars</code>; no dynamic or physical run</td></tr>
+<tr><td>ViewRegs interrupt installed</td><td>Unsafe</td><td>The release binary dynamically copies code to <code>ram:8790</code>, <code>statVars</code>, and <code>ram:8C01</code>, fills <code>ram:8B00</code> with <code>0x8A</code>, and executes <code>ram:8790</code> 656 times in TilEm; no physical run</td></tr>
 <tr><td>Ion 1.6</td><td>Unresolved</td><td>Source review pins no Ion-owned interrupt in this block; no client guard run</td></tr>
 <tr><td>zStart 1.3.013</td><td>Unresolved</td><td>The launcher selects IM1 for the client and pins no explicit shell owner in this block; no client guard run</td></tr>
 </tbody>
@@ -362,14 +389,17 @@ storage. The Mirage-compatible <code>mos_setupint</code> routine installs its ha
 <code>IntAddress = saveSScreen + 767 - 603</code>. It copies another block to the start of
 <code>statVars</code>, builds an IM2 vector table at <code>0x8B00</code>–<code>0x8C00</code>, and places another
 handler block at <code>0x8C01</code>. Its readme warns that <code>statVars</code> must not be accessed
-and statistics must not run while the interrupt is active. This is static
-release-source evidence, not a runtime observation. It shows that <code>_DelRes</code>
-does not reserve either buffer against a subsequently installed third-party
-interrupt.</p>
+and statistics must not run while the interrupt is active. The trace observes
+first writes at <code>ram:8790</code>, <code>ram:8A3A</code>, <code>ram:8B00</code>, and <code>ram:8C01</code>, followed
+by 656 executions of the resident entry. <code>_DelRes</code> therefore does not reserve
+either buffer against a subsequently installed third-party interrupt.
+[confirmed]</p>
 <p><code>tools/data/scratch-guard-results.csv</code> records the direct trace, the exact
 MirageOS and Doors CS owned ranges, and explicit <code>not-run</code> rows for Ion and
 zStart. Dynamic guards under all four shells and physical-calculator runs
-remain required before the checklist’s common-shell requirement is complete.</p>
+remain required before the checklist’s common-shell requirement is complete.
+The community-program trace identities and exact write observations are in
+<code>tools/data/community-runtime-observations.csv</code>.</p>
 <h2 id="page-0x83-during-resident-execution"><a class="header" href="#page-0x83-during-resident-execution">Page <code>0x83</code> during resident execution</a></h2>
 <p>Page <code>0x83</code> is OS state rather than a spare 16 KiB page. The two resident traces
 add the following observations to the boot and expression traces documented in
@@ -481,7 +511,7 @@ hardware; doing so keeps the helper transparent and portable to related models.<
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="sub-shell-loaders.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="sub-resident-programs.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -495,7 +525,7 @@ hardware; doing so keeps the helper transparent and portable to related models.<
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="sub-shell-loaders.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="sub-resident-programs.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

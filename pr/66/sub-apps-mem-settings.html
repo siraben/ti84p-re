@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2eaafcfe.js";
+            window.path_to_searchindex_js = "searchindex-0e592f65.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,17 +180,15 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="apps-memory-reset-and-settings"><a class="header" href="#apps-memory-reset-and-settings">Apps, memory reset, and settings</a></h1>
-<p>This page traces Flash App launch, the <strong>MEM → Reset</strong> paths, and the format and
-graph flags controlled by the <strong>MODE</strong> screen. Addresses and confidence flags
-follow <a href="conventions.html">Conventions and methodology</a>.</p>
+<p>This page traces Flash App launch and resident runtime design, the <strong>MEM →
+Reset</strong> paths, and the format and graph flags controlled by the <strong>MODE</strong>
+screen. Addresses and confidence flags follow
+<a href="conventions.html">Conventions and methodology</a>.</p>
 <p>Cross-references: <a href="boot-contexts-errors.html">Boot, contexts, and errors</a>
 (contexts, <code>_AppInit</code>, event router), <a href="memory-management.html">Memory management</a>
 (RAM heap, <code>_CleanAll</code>), and <a href="flash-page-map.html">Flash page map</a> (Flash page
 map). Flag bits use the <code>ti83plus.inc</code> equates; the SystemFlags base is
 <code>IY = flags = 0x89F0</code>, so, for example, <code>(IY+0x0A)</code> = <code>flags + fmtFlags</code>.</p>
-<p>Long-running App design is covered separately in
-<a href="sub-flash-app-runtime.html">Flash Apps as resident runtimes</a>, including RAM
-allocation, cross-page calls, contexts, cleanup, and persistent AppVars.</p>
 <h2 id="flash-apps--find-and-launch"><a class="header" href="#flash-apps--find-and-launch">Flash Apps — find and launch</a></h2>
 <p>This ROM ships with zero bundled apps in the local ROM-byte scan (zero <code>80 0F</code> headers found at page starts) [hypothesis],
 but the entire find/launch machinery is present on <code>page 0x3D</code> (<code>_FindApp*</code>) and
@@ -365,6 +363,189 @@ through <code>call_context_main</code> (pages in <code>cxPage</code>, jumps <cod
 load (<a href="boot-contexts-errors.html">Boot contexts &amp; errors</a>). The App quit restore-path candidate at
 <code>3B:7412</code> is not a defined function in the disassembly; the saved-context restore behavior
 is a byte-trace note (the label is project-local, not a WikiTI or <code>ti83plus.inc</code> equate).</p>
+<hr>
+<h2 id="flash-apps-as-resident-runtimes"><a class="header" href="#flash-apps-as-resident-runtimes">Flash Apps as resident runtimes</a></h2>
+<p>A Flash App can keep its runtime in Flash instead of copying it to <code>userMem</code>.
+Some Apps instead use Flash as a launcher for generated RAM code. Neither
+design turns <code>ram:9D95</code>–<code>ram:BFFF</code> into private storage; the OS still owns that
+range as part of the user heap.</p>
+<h3 id="code-in-flash-state-in-ram"><a class="header" href="#code-in-flash-state-in-ram">Code in Flash, state in RAM</a></h3>
+<p>The current App page executes in bank A at <code>0x4000</code>–<code>0x7FFF</code>. An App
+therefore avoids the temporary copy that the compiled <code>Asm(</code> launcher creates
+at <code>ram:9D95</code>. The conventional <code>ram:9D95</code>–<code>ram:BFFF</code> interval contains
+8,811 bytes. [confirmed]</p>
+<p>That interval remains part of the movable user-data region. Variables,
+temporary objects, the FPS/OPS gap, and the VAT determine how much space is
+available. An App must reserve mutable storage through the OS or start from a
+controlled memory image. It cannot claim 8,811 bytes merely because its code
+executes from Flash. [standard]</p>
+<p>The practical maximum contiguous allocation depends on the calculator model,
+OS version, VAT contents, temporary objects, and current heap pointers. Measure
+it with <code>_MemChk</code> and a real allocation in each fixture state. Do not use the
+address-map span as the capacity result. [confirmed]</p>
+<p>Generated native code must also remain in executable physical RAM. Staying
+below <code>ram:C000</code> matches the retail executable window, but the exact physical
+RAM-page rules differ among emulators and remain partly unverified on hardware.
+See <a href="execution-protection.html">RAM execution protection</a>. A threaded bytecode or
+data image does not require executable RAM, although its interpreter still
+does. The map is confirmed. [confirmed] The physical hardware boundary remains
+untested. [hypothesis]</p>
+<h3 id="community-ram-core-launcher"><a class="header" href="#community-ram-core-launcher">Community RAM-core launcher</a></h3>
+<p>The TruVid App build uses Flash as a wrapper around a RAM playback core. Its
+source calls <code>_InsertMem</code> for <code>programEnd - program</code> bytes at <code>ram:9D95</code>, copies
+<code>program</code> into that allocation, and calls <code>ram:9D95</code>. After the RAM core
+returns, the Flash wrapper exits through <code>_JForceCmdNoChar</code>. App packaging
+therefore does not establish that all executable code stays in Flash.
+[confirmed] for the identified community source.</p>
+<p>The RAM core finds its two-byte settings AppVar through <code>_ChkFindSym</code>. It reads
+a RAM payload directly. For an archived payload, it normalizes a wrapped
+bank-A pointer and page before calling <code>_LoadCIndPaged</code> and
+<code>_LoadDEIndPaged</code>. This is a concrete page-aware archived-data reader, not a
+general guarantee that an archived pointer remains valid across memory-moving
+calls. [confirmed] for the identified community source.</p>
+<p>The normal <strong>CLEAR</strong> quit path restores IM 1, the saved stack pointer, mapped
+page, display state, several hardware ports, and the OS base-page table. When
+the settings are dirty, it deletes any old AppVar, creates a two-byte
+replacement, and archives it before returning to the Flash wrapper. No error
+frame appears in this source, so it does not establish cleanup after a reset or
+an unhandled OS error. [confirmed] for the static source path; reset and error
+cleanup remain [hypothesis].</p>
+<p>A source-derived App fixture appends one silent same-page frame to the pinned
+release source. Its complete TilEm trace reaches <code>_InsertMem</code> at <code>ram:0F81</code>,
+the copied core at <code>ram:9D95</code>, the missing-settings branch at <code>ram:9DCF</code>, and
+the normal quit entry at <code>ram:9F5F</code>, each once. The trace SHA-256 is
+<code>c2481399d804a3b5232e9dde99c80fb77a28afc54eaf57ad0f84ed5e89d43b56</code>;
+the generated App SHA-256 is
+<code>11250fda7ce6892c79bcbe44958bd16f77f1faead58ebf99eaf6fa04712f6ab1</code>.
+The run uses OS image SHA-256
+<code>dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09</code>
+and patched TilEm commit <code>d1bdc58dd321ae462a701e556fcb62bb925a78b1</code>.
+[confirmed] for this emulator fixture.</p>
+<p>Build the App with <code>tools/community-probes/truvid_probe.asm</code> and run
+<code>tools/macros/community-truvid-cleanup.macro</code>. The wrapper resumes once at
+<code>page_29:4095</code> after the RAM core returns. The trace does not exercise an
+existing archived settings AppVar, the media page-wrap branch, an error, a
+reset, or physical hardware. Those paths remain [hypothesis].</p>
+<h3 id="cross-page-code-and-data"><a class="header" href="#cross-page-code-and-data">Cross-page code and data</a></h3>
+<p>A multi-page App cannot treat bank-A addresses as flat pointers. Mapping
+another App or OS page changes the bytes visible at the same logical address.
+Any pointer into <code>0x4000</code>–<code>0x7FFF</code> is valid only while its page remains
+mapped. [confirmed]</p>
+<p>RPN83P provides a concrete multi-page design. Its page-0 branch table stores
+entries in this form:</p>
+<pre><code class="language-z80">.dw target_routine
+.db relative_app_page
+</code></pre>
+<p>Other App pages call those entries through an App-aware <code>bcall()</code> macro. App
+page 0 contains the branch table and event handlers, while larger modules live
+on later App pages. The identified RPN83P source at commit
+<code>e2ad0bff98c94a13f34ae461b13f79384a75c17f</code> confirms this layout. [confirmed]</p>
+<p>An OS bcall or App-page call may remap bank A. This affects Flash data as well
+as code. RPN83P does not pass a Flash string to <code>_PutS</code>. Its <code>putS</code> helper
+reads each byte on the current App page and passes the byte to <code>_PutC</code>; its
+source comments identify <code>_PutS</code> and <code>_VPutS</code> as RAM-string routines. [confirmed]
+Reacquire or remap the App page before an untested API dereferences a Flash
+pointer after a page-changing call. That broader API rule remains a
+[hypothesis].</p>
+<h3 id="context-cleanup"><a class="header" href="#context-cleanup">Context cleanup</a></h3>
+<p>A resident App should make cleanup an explicit part of this context:</p>
+<ol>
+<li>Save each OS setting that the App changes.</li>
+<li>Open or validate persistent AppVars.</li>
+<li>Call <code>_AppInit</code> with a <code>cxPutAway</code> handler that reaches the normal cleanup
+routine.</li>
+<li>Install an error frame around each command dispatched by the App.</li>
+<li>On explicit quit, <code>PutAway</code>, or a handled error, close mutable variables,
+persist state, restore settings, and restore the default context.</li>
+<li>Call <code>_ReloadAppEntryVecs</code>, then return through <code>_JForceCmdNoChar</code> or
+<code>_PutAway</code> as appropriate.</li>
+</ol>
+<p>RPN83P routes both explicit exit and its <code>cxPutAway</code> handler through
+<code>mainExit</code>, which closes its AppVars, saves state, and restores OS settings.
+Its identified source does not install <code>AppOnErr</code>, so this example does not
+cover a TI-OS error that unwinds past the App. A reset or nonlocal jump can also
+bypass the App’s cleanup. [confirmed]</p>
+<h3 id="keep-persistent-state-relocatable"><a class="header" href="#keep-persistent-state-relocatable">Keep persistent state relocatable</a></h3>
+<p>RPN83P stores mutable state in four RAM AppVars and uses 1,044–2,545 bytes,
+depending on its register count. Its structured variables carry a size,
+CRC16, App ID, variable type, and schema version. Startup rejects stale,
+truncated, or corrupt structures and initializes the affected state again.
+These sizes and checks come from the identified RPN83P source and README.
+[confirmed]</p>
+<p>Its <code>RPN83SAV</code> update is not atomic: <code>StoreAppState</code> deletes the old variable
+before <code>_CreateAppVar</code> creates the replacement. Validation detects corruption
+on the next launch, but an interruption can lose the last valid state.
+[confirmed]</p>
+<p>A runtime that needs the last committed dictionary should use two named slots.
+This design remains a fixture target: [hypothesis]</p>
+<ul>
+<li>Store a magic value, format version, generation, payload length, CRC,
+payload, and final commit marker in each slot.</li>
+<li>Write and validate the inactive slot before archiving it.</li>
+<li>Reacquire the archived slot with <code>_ChkFindSym</code>, read it with page-aware
+access, then validate the copied record again.</li>
+<li>Delete the old slot only after the new archived slot is proven valid.</li>
+<li>At startup, validate both RAM and archived candidates and select the highest
+valid generation.</li>
+<li>Test resets at every write, archive, garbage-collection, and delete boundary.</li>
+</ul>
+<p>AppVar data can move during allocation, deletion, archive, unarchive, or
+garbage collection. Retain names and offsets, not long-lived absolute payload
+pointers. Reacquire a RAM payload after memory-moving calls and an archived
+payload after any operation that can collect the archive. See
+<a href="sub-resident-programs.html">Resident assembly programs</a> for the detailed handle
+protocol. [confirmed]</p>
+<h3 id="minimal-developer-key-fixture"><a class="header" href="#minimal-developer-key-fixture">Minimal developer-key fixture</a></h3>
+<p><code>tools/flash-apps/minimal_flash_app.asm</code> builds a one-page App named <code>REPROBE</code>.
+It immediately exits through
+<code>_JForceCmdNoChar</code>; it is a packaging and launch fixture, not yet a RAM-budget
+probe.</p>
+<p>The source uses SPASM-ng’s <code>app.inc</code> and <code>ti83plus.inc</code>:</p>
+<pre><code class="language-sh">spasm -N -I path/to/spasm-ng/inc \
+  tools/flash-apps/minimal_flash_app.asm /tmp/minimal-flash-app.8xk
+</code></pre>
+<p>Use a SPASM-ng build with GMP and OpenSSL App signing enabled. A build compiled
+with <code>NO_APPSIGN=1</code> can emit raw App bytes, but its <code>.8xk</code> wrapper is not a
+usable signed developer-key transfer file.</p>
+<p>The reference build used SPASM-ng commit
+<code>5f0786d38f064835be674d4b7df42969967bb73c</code>. It produces 668 bytes with SHA-256
+<code>4dcbd992e71734b2255db34321d6980f5a908f8c0641ad4b79408e68e8334981</code>.
+The repository header decoder reports:</p>
+<pre><code class="language-text">name REPROBE; pages 1/1; final field ends at 4070
+entry bytes at 4080: CD 50 00 27 40 02 2D 40
+</code></pre>
+<p>The header field <code>801</code> contains key ID <code>0104</code>, the TI-83+/84+ freeware and
+shareware developer key. This fixture has been assembled and decoded. It has
+not been transferred to physical hardware. The build and decoded header are
+confirmed. [confirmed] Physical launch remains untested. [hypothesis]</p>
+<h3 id="source-provenance"><a class="header" href="#source-provenance">Source provenance</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Artifact</th><th>Exact identity</th><th>Source</th></tr>
+</thead>
+<tbody>
+<tr><td>RPN83P source</td><td>Commit <code>e2ad0bff98c94a13f34ae461b13f79384a75c17f</code></td><td><a href="https://github.com/bxparks/rpn83p/tree/e2ad0bff98c94a13f34ae461b13f79384a75c17f">RPN83P commit</a></td></tr>
+<tr><td>TruVid release archive</td><td>Archive SHA-256 <code>ea61474625bc56ef1397fd67f978e29e8bd026ffd4ffc9c2f17c3bdc17f25ca9</code>; member <code>TruVid/source/truVid.z80</code>, SHA-256 <code>2a9a042177197583dae5af51367cfe906e2d7e84f0d15d1e5859a5dd20ee7953</code></td><td><a href="https://www.ticalc.org/pub/83plus/asm/media/sound/truvid.zip">truvid.zip</a></td></tr>
+<tr><td>SPASM-ng used for the reference build</td><td>Commit <code>5f0786d38f064835be674d4b7df42969967bb73c</code></td><td><a href="https://github.com/alberthdev/spasm-ng/tree/5f0786d38f064835be674d4b7df42969967bb73c">SPASM-ng commit</a></td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="remaining-measurements"><a class="header" href="#remaining-measurements">Remaining measurements</a></h3>
+<p>The fixture still needs these extensions:</p>
+<ul>
+<li>reserve generated-code RAM through a named AppVar;</li>
+<li>record <code>_MemChk</code>, heap pointers, VAT endpoints, and <code>SP</code> before and after the
+allocation;</li>
+<li>compare one-page and multi-page App builds on clean and representative VAT
+states;</li>
+<li>force an error, <code>PutAway</code>, reset, and archive garbage collection during
+persistence updates;</li>
+<li>repeat the executable-RAM boundary on identified 48 KiB and 128 KiB physical
+calculators.</li>
+</ul>
+<p>Until those runs exist, report Flash residency as removal of the assembly copy,
+not as proof that the complete <code>ram:9D95</code>–<code>ram:BFFF</code> range is available.</p>
 <hr>
 <h2 id="ram-clearing-and-memory-reset"><a class="header" href="#ram-clearing-and-memory-reset">RAM clearing and memory reset</a></h2>
 <p>The <strong>MEM</strong> menu (<code>[2nd][+]</code>, “MEMORY MANAGEMENT/DELETE” + “RESET”) and its messages are on
@@ -571,7 +752,7 @@ ram:0B27       full_reset_wipe        (zeroes all 0x8000-0xFFFF)
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="sub-flash-app-runtime.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="flash-memory.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -585,7 +766,7 @@ ram:0B27       full_reset_wipe        (zeroes all 0x8000-0xFFFF)
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="sub-flash-app-runtime.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="flash-memory.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

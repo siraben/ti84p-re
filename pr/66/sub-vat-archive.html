@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2eaafcfe.js";
+            window.path_to_searchindex_js = "searchindex-0e592f65.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -307,23 +307,36 @@ selected VAT type pointer, subtracts seven to the first name byte, and applies
 path restores bit 6 only while drawing the name. The 471-byte source rebuild is
 byte-identical to the packaged <code>PRGMHIDE.8xp</code> body. [confirmed] for the
 identified community source and binary.</p>
-<p>The archive writer copies the VAT name into the Flash record, so archiving a
-name after this mutation preserves the changed byte across unarchive and RAM
-reset. [confirmed] for the OS copy path. The release says the altered name is
-hidden from ordinary program menus, but that menu-filter result was not rerun
-on OS 2.55MP. Creating a visible name that differs only by this stored bit may
-also produce confusing lookup or display results. [hypothesis]</p>
+<p>A source-matched TilEm trace reaches the utility’s write at <code>ram:9F2E</code> and
+changes <code>ZTARGET</code>’s first stored byte from <code>0x5A</code> to <code>0x1A</code>. The same run then
+archives the program through <code>_Arc_Unarc</code>; its VAT entry becomes type <code>0x05</code>,
+page <code>0x08</code>, address <code>0x4001</code>, with the changed name intact. A cold reset from
+that output Flash image rebuilds the same VAT entry, and the ordinary program
+menu contains no entry. The hidden-name persistence and menu filtering are
+therefore confirmed under TilEm on OS 2.55MP, but not on physical hardware.
+[confirmed]</p>
+<p>Creating a visible name that differs only by this stored bit may still produce
+confusing lookup or display results. [hypothesis]</p>
 <p>The older <code>HIDE</code> utility directly replaces the complete VAT type byte with
 <code>ProgObj</code>, <code>ProtProgObj</code>, or <code>AppVarObj</code>. It does not test the returned Flash
-page or preserve archive-state bits. Applying it to an archived object can
-therefore clear the archived flag while leaving the page and address fields
-unchanged. [confirmed] for the write; [hypothesis] for the resulting OS state.</p>
+page or preserve archive-state bits. A source-matched trace reaches its write
+at <code>ram:9E29</code> and changes a RAM <code>ProgObj</code> into an <code>AppVarObj</code> without moving its
+data. [confirmed] Applying it to an archived object can clear the archived flag
+while leaving the page and address fields unchanged. That unsafe case was not
+executed because it deliberately creates an inconsistent VAT; the resulting OS
+behavior remains a hypothesis. [hypothesis]</p>
 <p>PRGMAPPV provides the safer counterexample. It refuses archived inputs, creates
 a destination through <code>_CreateAppVar</code> or <code>_CreateProtProg</code>, copies the data,
 then deletes the original with <code>_DelVarNoArc</code>. Its ordinary/protected lock
 toggle changes only <code>0x05</code> and <code>0x06</code>, and also refuses archived inputs. The
 packaged 550-byte body matches the included source. [confirmed] for the
-identified community source and binary.</p>
+identified community source and binary. A source-matched trace of the
+program-to-AppVar path reaches <code>_CreateAppVar</code> at <code>ram:9F31</code> and <code>_DelVarNoArc</code>
+at <code>ram:9F5E</code>; the resulting RAM entry is type <code>0x15</code>. A second trace selects
+an archived program, reaches the refusal at <code>ram:9F6A</code>, and reaches neither
+create nor delete. [confirmed] The lock-toggle refusal uses the same source
+gate, but it was not keyed separately. [confirmed] for source; [hypothesis]
+for that untraced interaction.</p>
 <p>The exact artifacts are:</p>
 <div class="table-wrapper">
 <table>
@@ -334,6 +347,48 @@ identified community source and binary.</p>
 <tr><td><code>programs/prgmhide.zip</code></td><td><code>6342d57b18a1277aa3ce13ba514d986fc3c485dfc4b747a157972fad61756103</code></td><td><code>source/PRGMHIDE.z80</code>: <code>10b7b0bfd902ebdef63f70120ef08d0fcb0fa3144885e8daf53e4880572648a1</code></td><td><code>PRGMHIDE.8xp</code>: <code>16e0ad05b138ccd15cde0648312b5032bd1f450faa544cd3b6ab1b882d4f0a43</code></td></tr>
 <tr><td><code>programs/programtoappvar.zip</code></td><td><code>4e27be8774fca769f26f1ce9984026f250fc8c4e9222277d3458a67e7fb25dc9</code></td><td><code>Hide.asm</code>: <code>65d290071a4ca2837f2e7ad08b3614939ec024a946057c75452f7b174b081a57</code></td><td><code>HIDE.8XP</code>: <code>0b03d6d7c97322140eb051844458adba1acf95009bf28d827c510e38f545e756</code></td></tr>
 <tr><td><code>programs/prgmappv.zip</code></td><td><code>33ba32795488b17e316f2efe556f5b323b6ca5b9fa9a1bf08db8dc59bac44ddf</code></td><td><code>PRGMAPPV.z80</code>: <code>5d75239635d4791b08519e366276aebef3de51d1fe81f68c8cd5ee59f65f97bb</code></td><td><code>PRGMAPPV.8XP</code>: <code>a035c67a56e31dd8504d9d2f293d955a0ce56638a4506b0fcdd8ed9b27d54eb0</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The reproducible macros and analyzer are in <code>tools/community-vat-probes/</code>.
+<code>tools/data/community-vat-dynamic-observations.csv</code> records the complete trace,
+snapshot, input-ROM, output-ROM, and emulator hashes. The ROM hash is
+<code>dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09</code>;
+the patched TilEm executable hash is
+<code>f0f0703e8658f8146c4dcd43dbb1b1dc858f4617baf33eaa16878bf2e35399c6</code>.</p>
+<h3 id="numeric-community-bcalls"><a class="header" href="#numeric-community-bcalls">Numeric community bcalls</a></h3>
+<p>The same source audit found manually defined or numeric bcalls that were not
+reliably named in older include sets:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">ID</th><th>OS 2.55MP target</th><th>Community source and use</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right"><code>500Bh</code></td><td><code>_GetKeyRetOff</code>, <code>06:491A</code></td><td><code>programs/prgmhide.zip:source/Dialog.z80:42</code>; return from the dialog on a key.</td></tr>
+<tr><td style="text-align: right"><code>509Eh</code></td><td><code>_HLMinus5</code>, <code>ram:1785</code></td><td><code>programs/prgmhide.zip:source/RefreshDisplay.z80:68</code>; move a VAT pointer back five bytes.</td></tr>
+<tr><td style="text-align: right"><code>5011h</code></td><td><code>_FillBasePageTable</code>, <code>ram:2692</code></td><td><code>programs/2dca.zip:source/Cherries.z80:35</code>; repair the base-page RAM table before exit.</td></tr>
+<tr><td style="text-align: right"><code>5014h</code></td><td><code>_ArcChk</code>, <code>3D:61AF</code></td><td><code>libs/rage.zip:RAGE/RAGE.asm:71</code>; populate archive-accounting words beginning at <code>0x839F</code>.</td></tr>
+<tr><td style="text-align: right"><code>50C8h</code></td><td><code>_UngroupVar</code>, <code>39:764A</code></td><td><code>libs/c3asm.zip:C3ASM/_CELTIC/CELTIC3.ASM:832</code>; ungroup only after OP1 is confirmed as <code>GroupObj</code>.</td></tr>
+</tbody>
+</table>
+</div>
+<p>PRGMHIDE dynamically reaches <code>500Bh</code> and <code>509Eh</code>. A separate source-built
+probe reaches <code>5011h</code> and <code>5014h</code> once each and returns normally after saving
+the <code>_ArcChk</code> words. <code>50C8h</code> was not called without an authentic group object
+and caller state. These tests confirm the first four ID-to-target mappings and
+safe return paths, not every side effect implied by the community comments.
+[confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Archive</th><th>Archive SHA-256</th><th>Source member SHA-256</th></tr>
+</thead>
+<tbody>
+<tr><td><code>programs/prgmhide.zip</code></td><td><code>6342d57b18a1277aa3ce13ba514d986fc3c485dfc4b747a157972fad61756103</code></td><td><code>source/Dialog.z80</code>: <code>d05696213724cf74fdad5d20af58f6f74833fe541194c795403e8c90ff0fa054</code>; <code>source/RefreshDisplay.z80</code>: <code>bf8c40214695bb28c1c444d16e44635931a399429dd9e004f861fa4d110307bf</code></td></tr>
+<tr><td><code>programs/2dca.zip</code></td><td><code>b8f1f0fdd4f7787b3474e3ddd4af2454a91b5bf50ac10249ff62eb66783d545c</code></td><td><code>source/Cherries.z80</code>: <code>b3ac8ea3d80e3cd62dfc67b5562648ae50fa6c7538603da6f161ff0d83fbddac</code></td></tr>
+<tr><td><code>libs/rage.zip</code></td><td><code>4849830711b0c0ef0cdc6ad93b437dd905cab7ce8b55a5bff9d10e261f6688f4</code></td><td><code>RAGE/RAGE.asm</code>: <code>8882aa3c8f7fdbf9e1155addebd6ed74bc80f913b1d3179bc7e1ecab8563890d</code></td></tr>
+<tr><td><code>libs/c3asm.zip</code></td><td><code>61a7b698bdcbdfba482c24a002b19e4e6b5bb1cab3493413433ee832d0f15e9f</code></td><td><code>C3ASM/_CELTIC/CELTIC3.ASM</code>: <code>14c3084a160fd4f43120efbceef8d045788bc7b389bfe0d5933f83d597734279</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -492,6 +547,16 @@ the new VAT entry, and calls <code>_FlashToRam</code> for the saved data. It doe
 rewrite or revalidate the old Flash record. Its 1,547-byte source rebuild is
 byte-identical to the packaged body. [confirmed] for the identified community
 source and binary.</p>
+<p>A controlled page-<code>0x08</code> image places a live <code>ProgObj</code> record at <code>08:4001</code>
+and a deleted <code>ProtProgObj</code> record at <code>08:4013</code>. The source-matched utility’s
+scan reaches <code>ram:9E68</code> twice and its deleted-record branch at <code>ram:9EBF</code> once.
+Separate retrieval traces reach <code>_CreateProg</code> at <code>ram:9FD0</code> and <code>_FlashToRam</code>
+at <code>ram:9FE7</code>. They create <code>RCVLIVE</code> as type <code>0x05</code> and <code>RCVDEAD</code> as type
+<code>0x06</code>, with the exact two-byte-size and two-byte data fields from their
+records. Both output Flash images are byte-identical to the controlled input,
+SHA-256
+<code>b532eb990567ea3d48b73e4f69e5b9e864d7455872c3d231f9bf9853e413a59e</code>.
+[confirmed] under TilEm.</p>
 <p>Recovery is opportunistic. The next garbage collection can erase or repurpose
 the containing sector, and a stale record must still have intact metadata and
 data. The utility permits a record to cross a 16 KiB page boundary but rejects
@@ -499,6 +564,14 @@ one that extends beyond its four-page sector. That last rule is community
 reader policy; ROM-level proof that the allocator never crosses a 64 KiB erase
 sector remains open. [confirmed] for the utility; [hypothesis] for the general
 allocator invariant.</p>
+<p>A second controlled image places a record at <code>08:7FE0</code>; its size-and-data field
+begins at <code>08:7FEF</code>. Retrieval creates a RAM <code>ProgObj</code> whose size word and bytes
+<code>0x00</code>–<code>0x1F</code> match across the page-<code>0x09</code> boundary. The output image remains
+byte-identical to its input,
+SHA-256
+<code>7fef8578f31c2becf15b1c1d940a5231594df970a035dcbb64cb71d511d5cb90</code>.
+This confirms the utility’s page-crossing read under TilEm. It does not test a
+record crossing a 64 KiB sector boundary. [confirmed]</p>
 <p>An earlier Archive Recover release describes recovery of “programs,” but its
 source accepts deleted records only when their type is <code>ProtProgObj</code> (<code>0x06</code>)
 and recreates them with <code>_CreateProtProg</code>. Ordinary <code>ProgObj</code> records are not

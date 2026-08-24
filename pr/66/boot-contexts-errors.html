@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2eaafcfe.js";
+            window.path_to_searchindex_js = "searchindex-0e592f65.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -320,6 +320,15 @@ copies the <code>Ans</code> string payload into <code>appErr1</code> and invokes
 does not bound the copy to 13 bytes or write an explicit null terminator.
 This static source is evidence of community usage, not evidence that arbitrary
 <code>Ans</code> strings are safe. [confirmed]</p>
+<p>The bounded <code>ERRPROBE</code> fixture copies <code>COMMTRACE\0</code> into <code>appErr1</code> and invokes
+the same bcall under TilEm x4. Its 3,623,530-instruction trace reaches
+<code>ram:2771</code>, <code>_JError</code> at <code>ram:2793</code>, and the display path at <code>07:6A72</code> once
+each. The rendered error is <code>ERR:COMMTRACE</code>; control does not reach the
+fixture’s post-bcall halt. The trace SHA-256 is
+<code>393141d8f68e400a9cb7a845e1bab1430ccbd41a64f3a75755e6f9d20e514067</code>.
+<code>tools/data/community-custom-error.csv</code> records the ROM identity and hit
+counts. This confirms the nonlocal path in the identified emulator scenario;
+it is not a physical-hardware result. [confirmed]</p>
 <h3 id="error-message-table-confirmed"><a class="header" href="#error-message-table-confirmed">Error-message table [confirmed]</a></h3>
 <p>The error screen shows <code>ERR:&lt;MESSAGE&gt;</code>; the <code>ERR:</code> prefix is at <code>01:4008</code>. The handler at <code>07:6A72</code> masks the code with <code>0x7F</code>, then indexes a little-endian pointer table at <code>07:6ACC</code> by <code>(code) − 1</code> for codes below <code>0x3A</code>. It fetches the pointer through <code>_LdHLind</code> and copies the selected null-terminated string. Codes <code>0x36</code>, <code>0x37</code>, <code>0x39</code>, and values at least <code>0x3A</code> bypass the table and select <code>?</code> at <code>07:6C5A</code>. [confirmed]</p>
 <div class="table-wrapper">
