@@ -52,6 +52,21 @@ data. Those bytes occupy the final two bytes of the execution allocation.
 [confirmed] A boundary fixture should place guard bytes after the variable to
 record their exact values at `ram:BD93` and `ram:BD94`.
 
+The builders and TilEm runner in `tools/launch-fixtures/` exercise the three
+actual boundary sizes. Each accepted trace reaches `_ExecutePrgm`, the limit
+test, `_InsertMem`, the payload handoff, and `ram:9D95`; the rejected trace
+reaches `ram:2729` before insertion. [confirmed]
+
+| Internal size | Bytes after marker | TilEm result |
+|---:|---:|---|
+| `0x1FFF` | 8,189 | Accepted |
+| `0x2000` | 8,190 | Accepted |
+| `0x2001` | 8,191 | Rejected with memory error |
+
+The previously suggested 8,808–8,814-byte variables are all above this ROM
+limit, so they cannot distinguish the boundary. The fixture uses the adjacent
+sizes instead.
+
 ## Text `AsmPrgm` launch
 
 The `BB 6C` text path begins at `07:57D4`. `07:5717`–`07:5731` counts decoded
@@ -99,6 +114,37 @@ The trace resolver may label the first instruction `page_??:5D95` when no
 port-7 write has occurred since capture began. The logical PC is `0x9D95`, and
 the launcher's `JP 0x9D95` establishes that the instruction is in RAM. This is
 a trace-reconstruction limitation. [confirmed]
+
+## Timed heap and stack snapshots
+
+The `RTSNAP` fixture records the heap fields from inside the payload, while a
+TLMT v2 replay applies every logical-memory write and samples the same fields
+at OS-side checkpoints. The trace used TI-84 Plus OS 2.55MP, an unarchived
+compiled program launched by `Asm(prgmRTSNAP)`, and the ROM with SHA-256
+`dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09`.
+[confirmed]
+
+| Checkpoint | `FPS` | `OPS` | `pTemp` | `progPtr` | `SP` | `_MemChk` |
+|---|---:|---:|---:|---:|---:|---:|
+| `_ExecutePrgm` entry | `0x9FFA` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFFD7` | `0x5CC1` |
+| First payload instruction | `0xA171` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFFC9` | `0x5B4A` |
+| Nested `_MemChk` entry | `0xA171` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFFC3` | `0x5B4A` |
+| Payload return | `0xA171` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFFCB` | `0x5B4A` |
+| Cleanup entry | `0xA171` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFFD7` | `0x5B4A` |
+| Cleanup return | `0x9FFA` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFFD9` | `0x5CC1` |
+
+`fpBase` moves from `0x9FE8` to `0xA15F`, and `FPS` moves from `0x9FFA`
+to `0xA171`. Both shifts are the fixture's `0x0177`-byte internal program
+size. `OPBase`, `OPS`, `pTemp`, `progPtr`, and `symTable` remain unchanged at
+these checkpoints; cleanup restores the two shifted fields. The nested bcall
+uses six more stack bytes than payload entry, but does not change the measured
+heap pointers or `_MemChk`. [confirmed]
+
+The fixture, decoder, analyzer, capture recipe, and compact provenance rows are
+under `tools/launch-probes/` and `tools/data/resident-launch-snapshot.csv`.
+These observations do not establish an entry ABI or cover `_ExecAsm`, an
+archived launcher path, shell launchers, other OS releases, or hardware.
+[confirmed]
 
 ## Free RAM and stack headroom
 
@@ -190,11 +236,11 @@ archive.
 ## Evidence limits
 
 The ROM and traces on this page cover the compiled and text `Asm(` paths,
-normal cleanup bytes, pointer-repair code, VAT results, and Flash-page copying
-on TI-84 Plus OS 2.55MP. They do not establish behavior for `_ExecAsm`, a shell
-launcher, another OS version, a 48 KiB ASIC, or a physical calculator.
+timed unarchived compiled-launch heap snapshots, normal cleanup bytes,
+pointer-repair code, VAT results, and Flash-page copying on TI-84 Plus OS
+2.55MP. They do not establish behavior for `_ExecAsm`, an archived launch path,
+a shell launcher, another OS version, a 48 KiB ASIC, or a physical calculator.
 
-Useful next fixtures are internal sizes `0x1FFF`, `0x2000`, and `0x2001`; timed
-snapshots before insertion, at payload entry, inside a nested bcall, and after
-cleanup; an archived variable that crosses a 16 KiB page; and a forced archive
-garbage collection followed by a fresh lookup.
+Useful next fixtures should guard the two-byte over-read, repeat the timed
+snapshots for archived, `_ExecAsm`, and shell routes, and force archive garbage
+collection followed by a fresh lookup.
