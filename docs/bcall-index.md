@@ -81,6 +81,7 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_AppGetCbl` | `4C75` | `3B:54C3` |
 | `_AppInit` | `404B` | `00:0936` |
 | `_Arc_Unarc` | `4FD8` | `07:6248` |
+| `_ArcChk` | `5014` | `3D:61AF` |
 | `_ASin` | `40E4` | `02:76F1` |
 | `_ASinH` | `40ED` | `02:7956` |
 | `_ASinRad` | `40DB` | `02:76DA` |
@@ -106,6 +107,7 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_ChkFindSym` | `42F1` | `00:0E60` |
 | `_chkTimer0` | `5176` | `37:557E` |
 | `_chkTmr` | `5143` | `37:54C1` |
+| `_Chk_Batt_Level` | `5221` | `33:4E9B` |
 | `_Chk_Batt_Low` | `50B3` | `00:0D07` |
 | `_CIntgr` | `4EC4` | `02:6DDD` |
 | `_CircCmd` | `47D4` | `33:74CE` |
@@ -122,6 +124,7 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_CkPosInt` | `4231` | `00:1DFD` |
 | `_CkValidNum` | `4270` | `00:1E9B` |
 | `_CleanAll` | `4A50` | `07:52CF` |
+| `_ClearParserHook` | `5029` | `3B:7C3B` |
 | `_ClearRect` | `4D5C` | `3B:6935` |
 | `_ClearRow` | `4CED` | `01:6934` |
 | `_CLine` | `4798` | `33:6028` |
@@ -132,12 +135,14 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_CloseEditBufNoR` | `476E` | `03:4743` |
 | `_CloseEditEqu` | `496C` | `06:4771` |
 | `_CloseProg` | `4A35` | `07:4FB4` |
+| `_ClrCursorHook` | `4F69` | `3B:7AEA` |
 | `_ClrGraphRef` | `4A38` | `07:4FD8` |
 | `_ClrLCD` | `4543` | `01:60F5` |
 | `_ClrLCDFull` | `4540` | `01:60E4` |
 | `_ClrLp` | `41D1` | `00:1BC4` |
 | `_ClrOP1S` | `425E` | `00:1E68` |
 | `_ClrOP2S` | `425B` | `00:1E63` |
+| `_ClrRawKeyHook` | `4F6F` | `3B:7B88` |
 | `_ClrScrn` | `4549` | `01:6167` |
 | `_ClrScrnFull` | `4546` | `01:6162` |
 | `_ClrTxtShd` | `454C` | `01:616F` |
@@ -147,6 +152,7 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_Conj` | `4EB5` | `02:6D8F` |
 | `_ConvDim` | `4B43` | `38:741F` |
 | `_ConvDim00` | `4B46` | `38:7422` |
+| `_ConvKeyToTok` | `4A02` | `07:44DE` |
 | `_ConvLcToLr` | `4A23` | `07:4CFF` |
 | `_ConvLrToLc` | `4A56` | `07:5368` |
 | `_ConvOP1` | `4AEF` | `38:7433` |
@@ -307,6 +313,7 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_ExLp` | `4222` | `00:1DDA` |
 | `_ExpToHex` | `424F` | `00:1E4E` |
 | `_Factorial` | `4B85` | `35:7995` |
+| `_FillBasePageTable` | `5011` | `00:2692` |
 | `_FillRect` | `4D62` | `3B:6939` |
 | `_FillRectPattern` | `4D89` | `3B:6814` |
 | `_FindAlphaDn` | `4A47` | `07:50B8` |
@@ -320,6 +327,7 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_FiveExec` | `467E` | `02:69BC` |
 | `_FixTempCnt` | `4A3B` | `07:4FEC` |
 | `_FlashToRam` | `5017` | `3D:6745` |
+| `_FlashWriteDisable` | `4F3C` | `3C:66D5` |
 | `_ForceFullScreen` | `508F` | `39:66D2` |
 | `_FormBase` | `50AA` | `06:57C0` |
 | `_FormDCplx` | `4996` | `06:59D3` |
@@ -339,9 +347,11 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_GetDateString` | `5152` | `37:55E8` |
 | `_getDtFmt` | `5155` | `37:5581` |
 | `_getDtStr` | `5158` | `37:55A9` |
+| `_GetK` | `4744` | `37:746D` |
 | `_GetKey` | `4972` | `06:491E` |
 | `_GetLToOP1` | `4636` | `02:47EA` |
 | `_GetMToOP1` | `4615` | `02:4044` |
+| `_GetStringInput2` | `4E61` | `37:5194` |
 | `_GetSysInfo` | `50DD` | `07:7345` |
 | `_getTime` | `515B` | `37:5551` |
 | `_GetTimeString` | `515E` | `37:567E` |
@@ -411,6 +421,7 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_Mov9ToOP2` | `4180` | `00:1B07` |
 | `_MovFrOP1` | `4183` | `00:1B0C` |
 | `_NewLine` | `452E` | `01:5F4A` |
+| `_newContext` | `4030` | `00:077E` |
 | `_OneVar` | `4BA3` | `3A:6420` |
 | `_OP1ExOP2` | `421F` | `00:1DD2` |
 | `_OP1ExOP3` | `4219` | `00:1DB7` |
@@ -543,6 +554,7 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_RunIndicOn` | `456D` | `01:6518` |
 | `_SaveDisp` | `4C7B` | `39:5DD8` |
 | `_SendAByte` | `4EE5` | `3C:420D` |
+| `_SendPacket` | `4ED6` | `3C:4139` |
 | `_SendVarCmd` | `4A14` | `3C:4EDD` |
 | `_SetAllPlots` | `4FCC` | `38:49C7` |
 | `_setDate` | `516A` | `37:536E` |
@@ -551,8 +563,10 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_SetGetKeyHook` | `4F66` | `3B:7D00` |
 | `_SetNorm_Vals` | `49FC` | `00:220F` |
 | `_SetParM` | `4849` | `36:7D39` |
+| `_SetParserHook` | `5026` | `3B:7D6E` |
 | `_SetPolM` | `4846` | `36:7D2C` |
 | `_SetSeqM` | `4843` | `36:7D1F` |
+| `_SetSilentLinkHook` | `50CE` | `3B:7DBB` |
 | `_SetTblGraphDraw` | `4C00` | `00:00F5` |
 | `_SetTokenHook` | `4F99` | `3B:7D0B` |
 | `_setTime` | `5170` | `37:540D` |
@@ -562,6 +576,7 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_SetXXXXOP2` | `4792` | `33:5F9E` |
 | `_SetZeroOne` | `5167` | `37:5359` |
 | `_SFont_Len` | `4786` | `03:4ABD` |
+| `_ShRAcc` | `41D4` | `00:1BCB` |
 | `_Sin` | `40BD` | `02:7342` |
 | `_SinCosRad` | `40BA` | `02:733E` |
 | `_SinH` | `40CF` | `02:7632` |
@@ -599,6 +614,7 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_ToFrac` | `4657` | `02:4BBE` |
 | `_Trunc` | `4060` | `00:2279` |
 | `_UCLineS` | `4795` | `33:6010` |
+| `_UngroupVar` | `50C8` | `39:764A` |
 | `_UnLineCmd` | `48AF` | `04:797C` |
 | `_UnOPExec` | `4672` | `02:5E14` |
 | `_VertCmd` | `48A9` | `04:7955` |
@@ -628,6 +644,41 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_ZmTrig` | `4861` | `36:7B36` |
 | `_ZmUsr` | `4855` | `04:601D` |
 | `_ZooDefault` | `4867` | `36:7BF9` |
+
+## Community numeric-use audit
+
+`tools/audit_community_bcalls.py` scans the extracted community corpus for
+numeric bcall macros, raw `rst 28h` plus word sequences, and complete
+`EF low high` instruction bytes. The pinned snapshot contains 112 such uses of
+56 IDs. Three uses encode `_CursorOn`, `_KeyToString`, and `_CursorOff` as raw
+bytes; the other 109 use macro or `rst 28h` forms. Exact archive and source
+hashes are in `tools/data/community-bcall-uses.csv`.
+
+Sixteen used main-table IDs were absent from the generated map. Decoding their
+three-byte entries on ROM page `0x3B` resolves every target: [confirmed]
+
+| ID | Include name | Body | Community use |
+|---|---|---|---|
+| `4030` | `_newContext` | `00:077E` | Plasma home-context restore |
+| `41D4` | `_ShRAcc` | `00:1BCB` | RLIB nibble conversion |
+| `4744` | `_GetK` | `37:746D` | AntiNibbles key input |
+| `4A02` | `_ConvKeyToTok` | `07:44DE` | FlashED editor key conversion |
+| `4E61` | `_GetStringInput2` | `37:5194` | Elite string input |
+| `4ED6` | `_SendPacket` | `3C:4139` | Overflow link packet sender |
+| `4F3C` | `_FlashWriteDisable` | `3C:66D5` | Crabcake protection cleanup |
+| `4F69` | `_ClrCursorHook` | `3B:7AEA` | DisLink hook removal |
+| `4F6F` | `_ClrRawKeyHook` | `3B:7B88` | Remote Control and Sentry cleanup |
+| `5011` | `_FillBasePageTable` | `00:2692` | Cherries App-state repair |
+| `5014` | `_ArcChk` | `3D:61AF` | RAGE archive check |
+| `5026` | `_SetParserHook` | `3B:7D6E` | chemistry parser extensions |
+| `5029` | `_ClearParserHook` | `3B:7C3B` | chemistry parser cleanup |
+| `50C8` | `_UngroupVar` | `39:764A` | Celtic III group extraction |
+| `50CE` | `_SetSilentLinkHook` | `3B:7DBB` | DisLink silent-link hook |
+| `5221` | `_Chk_Batt_Level` | `33:4E9B` | Battery Check display |
+
+The table entry proves the body address, not the community comment's ABI or
+the result under every OS state. Runtime observations therefore remain separate
+from these ROM-resolved rows.
 
 ## Retail boot (`0x8xxx`) bcalls
 
