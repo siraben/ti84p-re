@@ -76,8 +76,8 @@ establish behavior on physical hardware.
   `appBackUpScreen + 500`. It calls `_EnRawKeyHook` and `_EnParserHook`, then
   returns while the hooks remain installed according to its control flow.
 - Plasma 1.4.1 copies its raw-key hook to `0x9872`, installs it with
-  `_EnRawKeyHook = 4F66h`, and launches its loader while that hook can receive
-  key and **ON** events.
+  bcall `4F66h`, and launches its loader while that hook can receive key and
+  **ON** events.
 - Remote Control copies a key hook to its `KEYLOC` equate at
   `appBackUpScreen`, installs it with bcall ID `4F66h`, and returns. The hook
   sends bytes through `_SendAByte` when TI-OS invokes it.
@@ -90,6 +90,11 @@ An assembly runtime must therefore exclude or explicitly remove installed
 raw-key, parser, and shell hooks and persistent IM2 residents before borrowing
 this buffer. The documented `_DisableApd` and `_DelRes` conditions for other
 buffers do not establish that `appBackUpScreen` is unowned.
+
+The pinned include names `4F66h` `_SetGetKeyHook`; the Plasma and NoExec
+sources instead describe raw-key-hook enablement. The ROM target stores the
+supplied pointer and page and sets the active flag, so this page records both
+names as aliases without deriving the callback ABI from either name.
 
 ## Conditional `saveSScreen` and `statVars` claims
 
@@ -122,6 +127,24 @@ after rendering the result so a held **ON** key cannot enter another `_GetKey`.
 This confirms the documented `saveSScreen` condition for that direct emulator
 scenario. It does not cover an APD timeout, error unwinding, physical hardware,
 or statistics code after `_DelRes`.
+
+### Additional third-party `saveSScreen` owners
+
+Three older community sources deliberately execute from or overlap
+`saveSScreen`. These are static source findings; none of the distributed
+binaries was run. [confirmed]
+
+- GPP 1.1 builds IM2 tables at `ram:8600` and `ram:8700`, places interrupt
+  code at `ram:8686` and `ram:8787`, and alternates display buffers from the
+  handler. Both code ranges overlap `saveSScreen`.
+- Weird places a signature at `ram:86EC`, an ISR at `ram:8888`, and an IM2
+  table at `ram:8700`. Its handler also reads `apdTimer` and writes the LCD
+  through ports `0x10` and `0x11`.
+- LCD2 emits a timing routine into `saveSScreen`, calls the buffer as code,
+  and uses direct LCD reads to adjust its delay.
+
+These examples are evidence of additional third-party ownership, not evidence
+that the range is safe on current OS or shell combinations.
 
 ### Third-party-owned `statVars` ranges
 
@@ -274,3 +297,6 @@ hardware; doing so keeps the helper transparent and portable to related models.
 | [Remote Control release archive](https://www.ticalc.org/pub/83plus/asm/programs/remotecontrol.zip), SHA-256 `9eb1d4bb9beabe0ae31e49756c2a23938c6301a27f3d553a5d3381651262e591`; member `RemoteC.z80`, SHA-256 `19eb8c5b8b20a1f9139ac89c8603727f76977ddb9548c8ff318ef5eec07285c4` | static key-hook placement and link-send behavior |
 | [ONBLOCK release archive](https://www.ticalc.org/pub/83plus/asm/programs/onblock.zip), SHA-256 `40a5139d378608a303691fb34f3edf79ae4968bf39801b75bc311371b66f69d2`; member `ONBLOCK.asm`, SHA-256 `3023dc7654db87f8f2ea60f54a4b61beba1ca1252cc3fff975409631384ed750` | static persistent IM2 vector and handler placement in `appBackUpScreen` |
 | [ViewRegs release archive](https://www.ticalc.org/pub/83plus/asm/programs/viewregs.zip), SHA-256 `84837e779315f799b53f8115e8c4e9563babc5add0541f52d72117d93a68e2b2`; member `ViewRegs/ViewRegs.z80`, SHA-256 `120d8a7845a0f0f7a4f3c32f4f53b1e1f1d5efd210af542e64e1408546bba13b`; member `ViewRegs/readme.txt`, SHA-256 `a4f66bc84f2f7d17e2dbfa5603fb3b65ed57f311e20dbb7143ad95bde20d2cf7` | static IM2 ownership of `saveSScreen` and `statVars`, plus the statistics warning |
+| [GPP 1.1 release archive](https://www.ticalc.org/pub/83plus/asm/graphics/ion/gpp11.zip), SHA-256 `08167b71e72cca031782d5154048fdb4b3f2b8a6a088b476936b5abd1f53ed10`; member `graydev/template/graylib.inc`, SHA-256 `2891c83665a136c02fd43df5a5db05ef9be229a5f98263539c4596458f211fa8` | static IM2 table and interrupt-code placement overlapping `saveSScreen` |
+| [Weird source](https://www.ticalc.org/pub/83plus/asm/source/weird.z80), SHA-256 `881cb1b39c41da3e2629e8cc39765f4cc8e337e6e5a2b65d0539df2cb9fd8ca4` | static persistent IM2 ownership inside `saveSScreen` |
+| [LCD2 release archive](https://www.ticalc.org/pub/83plus/asm/programs/lcd2.zip), SHA-256 `46532d795aadfff782a83ca52001da87ad73cef9e2013c7800291f4b26af94ab`; member `lcd2.asm`, SHA-256 `01033202eb0439a7a6dcdb1b28abf62f2c52aeecc630c4688c8603de75b97780` | static timing-code execution from `saveSScreen` |
