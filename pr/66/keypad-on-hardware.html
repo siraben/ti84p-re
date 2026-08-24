@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0e592f65.js";
+            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -546,7 +546,7 @@ join <code>poweroff_shared_tail</code> at <code>ram:0A24</code>. The final hardw
 <tr><td><code>ram:0A51</code></td><td>clear <code>shift2nd</code></td><td>discard the power-off modifier</td></tr>
 <tr><td><code>ram:0A55</code></td><td>clear <code>onRunning</code></td><td>mark the OS powered down</td></tr>
 <tr><td><code>ram:0A5B</code></td><td><code>EI</code></td><td>accept a selected wake interrupt</td></tr>
-<tr><td><code>poweroff_halt_loop</code> at <code>ram:0A5C</code></td><td><code>HALT; JR ram:0A5C</code></td><td>remain in the low-power loop</td></tr>
+<tr><td><code>poweroff_halt_loop</code> at <code>ram:0A5C</code></td><td><code>HALT</code><br><code>JR ram:0A5C</code></td><td>remain in the low-power loop</td></tr>
 </tbody>
 </table>
 </div>

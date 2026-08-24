@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0e592f65.js";
+            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -354,8 +354,11 @@ The packaged 508-byte <code>HWPRAM.8xp</code> has SHA-256
 <h2 id="execution-protection-fetch-probes"><a class="header" href="#execution-protection-fetch-probes">Execution-protection fetch probes</a></h2>
 <p>Probe ID 4 tests one bank-A selector per program. It scans the configured range
 through data reads for an existing <code>RET</code> byte. It creates a result AppVar with a
-pending outcome, remaps and verifies that byte, and performs <code>PUSH DE; JP (HL)</code>.
-A successful fetch executes <code>RET</code>, returns to the probe, and changes the AppVar
+pending outcome, remaps and verifies that byte, and performs:</p>
+<pre><code class="language-z80">PUSH DE
+JP (HL)
+</code></pre>
+<p>A successful fetch executes <code>RET</code>, returns to the probe, and changes the AppVar
 outcome to <code>returned</code>. The program never writes the selected RAM or Flash page.
 [confirmed] for the assembled instruction sequence.</p>
 <p>The existing <code>RET</code> is also the only target opcode. It has no memory-write or
@@ -488,7 +491,7 @@ return early instead. [confirmed] from the assembled probe and the ROM path at
 <code>33:4EDC</code>–<code>33:4EE8</code>.</p>
 <p>After each sequence, the probe reproduces the cleanup at <code>33:4EEB</code>–<code>33:4F00</code>:
 it sets port-<code>0x39</code> bit 4, pulses port-<code>0x3A</code> bit 4 around
-<code>A=0x40; CALL 00:0CED</code>, and clears port-<code>0x3A</code> bits 4 and 7. The common 30-byte
+<code>CALL 00:0CED</code> with <code>A = 0x40</code>, and clears port-<code>0x3A</code> bits 4 and 7. The common 30-byte
 state layout matches the battery-level probe, with raw masks at offsets
 <code>4</code>–<code>19</code> and post-sequence state at offsets <code>20</code>–<code>24</code>. The decoder rejects
 masks above <code>0x0F</code>. It reports a 16-bin histogram, a stable mask only when all

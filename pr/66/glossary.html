@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0e592f65.js";
+            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -190,7 +190,7 @@ the wiki.</p>
 </thead>
 <tbody>
 <tr><td><strong>bcall</strong></td><td>“branch call” — the OS system-call mechanism: <code>rst 28h</code> + a 2-byte ID, dispatched through a jump table to a routine on any flash page. See <a href="bcall-mechanism.html">The bcall Mechanism</a>.</td></tr>
-<tr><td><strong>bjump</strong></td><td>OS-internal cross-page <em>jump</em>: <code>CALL cross_page_jump; .dw addr; .db page</code> (a tail-jump). The sibling of bcall for the OS’s own use.</td></tr>
+<tr><td><strong>bjump</strong></td><td>OS-internal cross-page <em>jump</em>: <code>CALL cross_page_jump</code><br><code>.dw addr</code><br><code>.db page</code> (a tail-jump). The sibling of bcall for the OS’s own use.</td></tr>
 <tr><td><strong>RST shortcut</strong></td><td>A 1-byte <code>rst NN</code> vector that fast-paths a hot routine (<code>rst 10h</code>=<code>_FindSym</code>, <code>rst 30h</code>=<code>_FPAdd</code>, <code>rst 28h</code>=the bcall dispatcher).</td></tr>
 <tr><td><strong>context</strong></td><td>The active “mode” (homescreen, Y= editor, graph, an app…). A block of handler vectors at <code>cxMain</code> (<code>0x858D</code>); the main loop runs the current context’s handlers. See <a href="boot-contexts-errors.html">Boot, Contexts &amp; Errors</a>.</td></tr>
 <tr><td><strong>paging / banking</strong></td><td>The Z80 sees 64 KiB; ports 6/7 swap which 16 KiB flash/RAM page is visible in the two middle slots. See <a href="paging.html">Paging</a>.</td></tr>

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0e592f65.js";
+            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -350,13 +350,17 @@ paint_grid(...)                                                  ; 05:7771
 <p>So on every entry to the TABLE the editor checks <code>reTable</code>: if dirty it runs the
 recompute driver, otherwise it repaints from the cached values. [confirmed]</p>
 <h3 id="recompute-driver--table_recompute-055dd7-confirmed"><a class="header" href="#recompute-driver--table_recompute-055dd7-confirmed">Recompute driver — <code>table_recompute</code> (<code>05:5DD7</code>) [confirmed]</a></h3>
-<pre><code class="language-z80">05:5DD7  XOR A ; LD (0x8E63),A           ; reset table column/row state
-         CALL 0x3411 ; RET Z             ; (window/mode gate)
+<pre><code class="language-z80">05:5DD7  XOR A
+         LD (0x8E63),A                   ; reset table column/row state
+         CALL 0x3411
+         RET Z                           ; window/mode gate
          CALL 0x7704                     ; init column descriptors (see below)
          CALL 0x774B                     ; seed running-X = TblMin
-         CALL 0x65D2 ; CALL 0x65C8       ; clear per-column flags
+         CALL 0x65D2
+         CALL 0x65C8                     ; clear per-column flags
          CALL 0x5EE1                     ; FILL the value cache (the row loop)
-         CALL 0x6014 ; CALL 0x5FFC       ; lay out / size the columns
+         CALL 0x6014
+         CALL 0x5FFC                     ; lay out / size the columns
          RES 6,(IY+0x13)                 ; reTable = 0  (cache now valid)
          CALL 0x76BA
 </code></pre>
@@ -366,15 +370,28 @@ the cache until something marks it dirty again. [confirmed]</p>
 <p><code>05:774B</code> initialises the two-float <code>table_x_work</code> array. It first clears
 <code>table_x_work[0]</code> (<code>0x8622</code>), then at <code>05:7751</code> copies <code>TblMin</code> into
 <code>table_x_work[1]</code>, the running-X slot:</p>
-<pre><code class="language-z80">05:7751  LD HL,0x92B3 (TblMin) ; LD DE,0x862B ; JP 0x1A92   ; running-X (0x862B) ← TblMin
+<pre><code class="language-z80">05:7751  LD HL,0x92B3                  ; TblMin
+         LD DE,0x862B                  ; running-X destination
+         JP 0x1A92
 </code></pre>
 <p>i.e. the first row’s independent value is <code>TblStart</code>. The row index is bounds-checked at
-<code>05:65DC</code> (<code>LD A,(0x91E0); LD HL,CurTableRow; CP (HL); RET</code> — current row vs the last
-row), and the per-row X is computed as <code>TblStart + k·TblStep</code> rather than by an
+<code>05:65DC</code> by comparing the current row with the last row:</p>
+<pre><code class="language-z80">LD A,(0x91E0)
+LD HL,CurTableRow
+CP (HL)
+RET
+</code></pre>
+<p>The per-row X is computed as <code>TblStart + k·TblStep</code> rather than by an
 incremental add:</p>
-<pre><code class="language-z80">05:65DC  LD A,(0x91E0) ; LD HL,0x91DC ; CP (HL) ; RET   ; row-index bound check
+<pre><code class="language-z80">05:65DC  LD A,(0x91E0)
+         LD HL,0x91DC
+         CP (HL)
+         RET                            ; row-index bound check
 05:6359  LD A,(0x91DD) … LD DE,0x9221 / 0x91E2 (cell buffers)
-         LD HL,(0x91DC /* row idx */) ; ADD ; CALL _LdHLind ; ADD HL,DE
+         LD HL,(0x91DC /* row idx */)
+         ADD
+         CALL _LdHLind
+         ADD HL,DE
 </code></pre>
 <p>So row $k$ uses $X=\mathrm{TblMin}+k\cdot\mathrm{TblStep}$. (In <strong>Indpnt = Ask</strong> mode this driver is
 bypassed and the user types each X; see <a href="#auto-and-ask-modes-confirmed">Auto and Ask modes</a>.) [confirmed]</p>
@@ -427,15 +444,26 @@ typedef struct {
 <p>Thus <code>0x9221</code> is <code>table_value_cache.band[1]</code>, and <code>0x9260</code> is
 <code>table_value_cache.band[2]</code>. This notation captures both the 9-byte element
 stride and the 63-byte scroll-copy stride. [confirmed]</p>
-<p><code>05:6014</code> performs the scroll: <code>LD HL,0x9221 ; LD DE,0x9260 ; LDIR</code> copies
+<p><code>05:6014</code> performs the scroll:</p>
+<pre><code class="language-z80">LD HL,0x9221
+LD DE,0x9260
+LDIR
+</code></pre>
+<p>This copies
 <code>table_value_cache.band[1]</code> to <code>band[2]</code> (a <code>0x3F</code>-byte block) and performs an
 <code>LDDR</code> shift of a <code>0xB4</code>-byte region. When the cursor moves above or below the
 cached window, it slides the cache and computes only the one new row
 (or recomputes if <code>reTable</code>). [confirmed]</p>
 <h3 id="auto-and-ask-modes-confirmed"><a class="header" href="#auto-and-ask-modes-confirmed">Auto and Ask modes [confirmed]</a></h3>
 <p><code>05:6D40</code>/<code>05:6D51</code> read the mode bits to branch:</p>
-<pre><code class="language-z80">05:6D40  … CALL 0x74BE ; JR NZ ; BIT 4,(IY+0x13) ; RET   ; Indpnt (autoFill) test
-         … CALL 0x74BE ; JR NZ ; BIT 5,(IY+0x13) ; RET   ; Depend (autoCalc) test
+<pre><code class="language-z80">05:6D40  … CALL 0x74BE
+         JR NZ
+         BIT 4,(IY+0x13)
+         RET                             ; Indpnt (autoFill) test
+         … CALL 0x74BE
+         JR NZ
+         BIT 5,(IY+0x13)
+         RET                             ; Depend (autoCalc) test
          LD A,(0x91DB) … LD A,(0x91DC) …                  ; Ask-mode row state
 </code></pre>
 <ul>
@@ -457,9 +485,12 @@ columns, drawn with the large font through the home-screen text primitives
            CALL 0x7E9D
            LD DE,(0x9192 YOutDat) ; the Y-column value pointer
            CP 2 / CP 5            ; column-kind dispatch (X col vs Y col vs input)
-           CALL 0x7E7C ; CALL 0x7E98   ; render the cached value into the cell
+           CALL 0x7E7C
+           CALL 0x7E98             ; render the cached value into the cell
            CALL 0x65DC            ; row-index bound check (current row vs last)
-           INC row ; … ; LD (0x91DC),A
+           INC row
+           …
+           LD (0x91DC),A
 </code></pre>
 <p><code>05:7E7C</code> chooses the destination cache band (<code>table_value_cache.band[1]</code> at
 <code>0x9221</code> versus <code>band[0]</code> at <code>0x91E2</code>) based on the

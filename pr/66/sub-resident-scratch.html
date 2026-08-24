@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0e592f65.js";
+            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -270,6 +270,17 @@ bit 1 of <code>IY + 0x36</code>. Remote Control reaches the same raw-key install
 pointer <code>0x9872</code>, while Plasma stores pointer <code>0x9872</code> with its supplied page
 byte <code>0x41</code>. These runs stop before invoking Remote Control’s link sender.
 [confirmed]</p>
+<p>The ROM installers store each callback as a packed three-byte target:</p>
+<pre><code class="language-c">#pragma pack(push, 1)
+typedef struct {
+    uint16_t callback_addr;  /* +0x00, little-endian */
+    uint8_t page;            /* +0x02 */
+} OSHookTarget;              /* 3 bytes */
+#pragma pack(pop)
+</code></pre>
+<p>The raw-key target begins at <code>0x9B84</code>, and the parser target begins at
+<code>0x9BAC</code>. Their active bits at <code>IY + 0x34</code> and <code>IY + 0x36</code> are separate OS
+state, not fields in this record. [confirmed]</p>
 <p>After the selected NoExec removal sequence, the resident reaches
 <code>_ClrRawKeyHook</code> at <code>3B:7B88</code> and <code>_ClearParserHook</code> at <code>3B:7C3B</code>; the two
 active bytes at <code>IY + 0x34</code> and <code>IY + 0x36</code> become zero. Remote Control’s

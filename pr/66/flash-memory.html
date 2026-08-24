@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0e592f65.js";
+            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -1486,7 +1486,11 @@ writes. [confirmed] for the fixture and TilEm execution.</p>
 </div>
 <p>The page rejection returns at <code>3F:4C25</code>. The direct call returns at
 <code>3F:4C2E</code>. The invalid certificate address branches from <code>3F:4E4E</code> to the
-common <code>POP AF; RET</code> tail at <code>3F:4E55</code>–<code>3F:4E56</code>. [confirmed]</p>
+common tail at <code>3F:4E55</code>–<code>3F:4E56</code>:</p>
+<pre><code class="language-z80">POP AF
+RET
+</code></pre>
+<p>[confirmed]</p>
 <p>The erase worker issues the six-cycle AMD sector-erase command: [confirmed]</p>
 <div class="table-wrapper">
 <table>
@@ -1543,10 +1547,15 @@ before the erase branch. <code>_GetCertificateStart</code> preserves <code>DE</c
 push/pop pairs at <code>3F:486E</code>–<code>3F:4884</code>. This path therefore transports archive
 and OS-header metadata through the erase call; it does not establish a Flash
 reset pointer. [confirmed]</p>
-<p>The <code>3D:60EE</code> entry is similarly caller-controlled. Its page-0 thunk is a raw
-<code>CALL 2B09; .dw 6098; .db 7D</code> descriptor at <code>00:3EEB</code>; masking the raw page
-selects physical page <code>3D</code>. The reset caller initializes <code>HL</code>, <code>SP</code>, and <code>IY</code>
-at <code>00:0D65</code>–<code>00:0D6F</code> but not <code>DE</code> before calling the thunk. The page-<code>3D</code>
+<p>The <code>3D:60EE</code> entry is similarly caller-controlled. Its page-0 thunk at
+<code>00:3EEB</code> contains this raw descriptor:</p>
+<pre><code class="language-z80">CALL 2B09
+.dw 6098
+.db 7D
+</code></pre>
+<p>Masking the raw page selects physical page <code>3D</code>. The reset caller initializes
+<code>HL</code>, <code>SP</code>, and <code>IY</code> at <code>00:0D65</code>–<code>00:0D6F</code> but not <code>DE</code> before calling the
+thunk. The page-<code>3D</code>
 body and its Flash-byte reader preserve that inherited value through the erase
 at <code>3D:60EE</code>. [confirmed]</p>
 <p>The GC trace supplies a counterexample to any broader internal convention. Its

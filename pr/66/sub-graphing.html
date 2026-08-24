@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0e592f65.js";
+            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -237,7 +237,8 @@ is 95 columns wide (0..94) and 63 tall (0..62), hence the /94 and /62. [standard
 <p><code>_XftoI</code> (<code>37:41EB</code>) and <code>_YftoI</code> (<code>37:41DF</code>) convert an OP1 real coordinate to a
 pixel index. Both are thin shims around the shared engine at <code>37:41F2</code>: [confirmed]</p>
 <pre><code class="language-z80">_XftoI (37:41EB):  BC = 0x8E6A (X working float),  HL = shortX (0x9164),  SCF  → 41F2
-_YftoI (37:41DF):  BC = Ymin   (0x8F6B),            HL = shortY (0x916D),  OR A → 41F2; INC A
+_YftoI (37:41DF):  BC = Ymin   (0x8F6B),            HL = shortY (0x916D),  OR A → 41F2
+                    INC A
 </code></pre>
 <p>Shared engine <code>37:41F2</code> computes $\mathrm{pixel}=\dfrac{\mathrm{value}-\mathrm{min}}{\mathrm{pixelDelta}}$:</p>
 <ul>

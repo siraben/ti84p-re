@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0e592f65.js";
+            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -246,12 +246,18 @@ with the 2 name bytes at <code>847A</code>/<code>847B</code>:</p>
         scan the temp/list region: HL from progPtr(9830) down toward OPBase(9826), pTemp(982E)
   else: HL = symTable (0xFE66), scan downward to progPtr
   loop:
-     A = (HL); A &amp;= 0x1F            ; *** mask off archive flag bits in high nibble ***
-     SBC HL,DE ; RET C  (ran past end → not found)
-     CP (HL) against token (8479); on match check name bytes (847A/847B) at HL-1/HL-2
+     A = (HL)
+     A &amp;= 0x1F                       ; *** mask off archive flag bits in high nibble ***
+     SBC HL,DE
+     RET C                           ; ran past end → not found
+     CP (HL) against token (8479)
+     on match check name bytes (847A/847B) at HL-1/HL-2
      else step HL -= 3 from the name pointer (9 bytes type-to-type for fixed entries)
           / -= (6+nameLen) for named entries, and continue
-  on match:  B=(entry).pageByte, DE=dataPtr, A=(entry+6)=type; store type→8478
+  on match:  B=(entry).pageByte
+             DE=dataPtr
+             A=(entry+6)=type
+             store type→8478
 </code></pre>
 <p>So each VAT entry is read high-address-first; the type byte’s low 5 bits are the <code>TIVarType</code>; the
 high bits flag the archive state. <code>_FindSym</code> returns: type in <code>A</code> and <code>8478</code>, data pointer in DE,
@@ -405,15 +411,26 @@ Flash in place); see the <a href="#archive-and-unarchive-confirmed"><code>_Arc_U
 </ul>
 <p><strong>Recall</strong> <code>_RclVarSym</code> (<code>38:67B1</code>) and <code>rcl_var_push</code> (<code>3A:5D07</code>):</p>
 <ul>
-<li><code>_RclVarSym</code> calls <code>RST 10h</code> (<code>17A6</code>, a <code>_FindSym</code>+error-check wrapper: <code>RST 10h; JP C,271D</code>), then checks the name token (<code>8479</code>). For a list
+<li>
+<p><code>_RclVarSym</code> calls <code>RST 10h</code>. The wrapper at <code>17A6</code> performs <code>_FindSym</code> and
+checks the error condition:</p>
+<pre><code class="language-z80">RST 10h
+JP C,271D
+</code></pre>
+<p>It then checks the name token (<code>8479</code>). For a list
 recall (<code>63</code>/<code>2A</code>) it sizes the data with <code>_DataSize</code> (<code>00:1485</code>) and copies it into a work buffer
-(<code>91E0</code>), using <code>_LdHLind</code> and cross-page helpers; ends <code>JP _OP4ToOP1</code>.</li>
-<li><code>_DataSize</code> (<code>00:1485</code>): returns the variable’s data byte-count in DE from the type byte — real=9,
+(<code>91E0</code>), using <code>_LdHLind</code> and cross-page helpers; ends <code>JP _OP4ToOP1</code>.</p>
+</li>
+<li>
+<p><code>_DataSize</code> (<code>00:1485</code>): returns the variable’s data byte-count in DE from the type byte — real=9,
 list/cplx-list read the <code>word count</code> header, matrix uses cols×rows, and named types
-(<code>0x15</code> AppVar, <code>0x16</code>, <code>0x17</code> Group) read the leading <code>word size</code>.</li>
-<li>The recall code does not care whether the source is RAM or Flash for <em>reading</em> — Flash is
+(<code>0x15</code> AppVar, <code>0x16</code>, <code>0x17</code> Group) read the leading <code>word size</code>.</p>
+</li>
+<li>
+<p>The recall code does not care whether the source is RAM or Flash for <em>reading</em> — Flash is
 memory-mapped read-only into the 0x4000 window. To <em>use</em> an archived program/var that must be
-modified or executed in RAM, the OS first copies it via <a href="#reading-archived-data-with-_flashtoram-confirmed"><code>_FlashToRam</code></a>. [standard]</li>
+modified or executed in RAM, the OS first copies it via <a href="#reading-archived-data-with-_flashtoram-confirmed"><code>_FlashToRam</code></a>. [standard]</p>
+</li>
 </ul>
 <hr>
 <h2 id="archive-and-unarchive-confirmed"><a class="header" href="#archive-and-unarchive-confirmed">Archive and unarchive [confirmed]</a></h2>
@@ -421,20 +438,30 @@ modified or executed in RAM, the OS first copies it via <a href="#reading-archiv
 the Flash archive (the same entry point does both directions, deciding from the current state).</p>
 <pre><code class="language-z80">_Arc_Unarc (07:6248):
   SET 0,(IY+0x24)              ; flag: an archive operation is in progress
-  CALL 628B                    ; validate OP1 name is an archivable class; Z⇒not allowed → JP 26E0 (local error shim; LD A,0xB2 = E_Variable, ERR:VARIABLE → _JError)
+  CALL 628B                    ; validate OP1 name as an archivable class, else JP 26E0
   CALL _OP1ToOP3 (1A0F)
-  CALL _ChkFindSym (0E60)      ; locate the VAT entry; C ⇒ JP 271D (undefined)
+  CALL _ChkFindSym (0E60)      ; locate the VAT entry, C ⇒ JP 271D (undefined)
   DI
   LD (981C),HL                 ; chkDelPtr3 = entry ptr
-  LD A,B ; OR A ; JR Z,6272    ; B = page byte: 0 ⇒ currently in RAM, else ⇒ in Flash
-      (Flash, B≠0) LD A,(HL); CP 0x17 ; Group? ⇒ JP 26E0 reject  [groups archive via a different path]
+  LD A,B
+  OR A
+  JR Z,6272                    ; B = page byte: 0 ⇒ currently in RAM, else ⇒ in Flash
+      (Flash, B≠0) LD A,(HL)
+                   CP 0x17     ; Group? ⇒ JP 26E0, groups use a different path
                    CALL 61F4   ; *** Flash → RAM:  unarchive ***
    6272 (RAM, B==0):  CALL 6107        ; *** RAM → Flash:  archive ***
   ... name-token-0x5D (list name, `tVarLst`) special-case via 32A9 / cross_page 05:4A6E
-  LD A,(83EE); OR A; EI; RET
+  LD A,(83EE)
+  OR A
+  EI
+  RET
 </code></pre>
 <p><code>628B</code> is the <em>archivable-name guard</em>: after <code>_CkOP1Real</code> it returns Z for the non-archivable
-single-letter real/sysvar name tokens <code>0x58 0x59 0x54 0x5B 0x52 0x72 0xFC</code> (<code>CP n; RET Z</code> chain), so
+single-letter real/sysvar name tokens <code>0x58 0x59 0x54 0x5B 0x52 0x72 0xFC</code> through this repeated pair:</p>
+<pre><code class="language-z80">CP n
+RET Z
+</code></pre>
+<p>Thus
 <code>_Arc_Unarc</code>’s <code>JP Z,26E0</code> rejects them via the <code>26E0</code> shim (<code>LD A,0xB2</code> = E_Variable, ERR:VARIABLE →
 <code>_JError</code>); archivable classes (lists, matrices, programs, appvars, …) return NZ and continue. (<code>arc_59f1</code> @<code>07:59F1</code> and <code>arc_5936</code> @<code>07:5936</code> are companion name/range
 validators for the catalog archive command.)</p>
@@ -442,27 +469,36 @@ validators for the catalog archive command.)</p>
 <em>in-Flash</em> var (<code>B≠0</code>) to <code>61F4</code> (unarchive). <code>6107</code> is the one that programs Flash and frees the
 RAM copy; <code>61F4</code> is the one that carves RAM and copies the data back out of Flash.</p>
 <h3 id="ram-to-flash-archive-path-confirmed"><a class="header" href="#ram-to-flash-archive-path-confirmed">RAM-to-Flash archive path [confirmed]</a></h3>
-<pre><code class="language-z80">6107:  CALL 7866 ; DI
+<pre><code class="language-z80">6107:  CALL 7866
+       DI
        CALL 614B                       ; arcInfo.vat_ptr and arcInfo.size
                                        ;   616C reserves the archive-Flash slot
        CALL 2FF1 (cross_page 3D:64AA)  ; program the data into archive Flash
-       LD HL,(83F3) ; LD DE,(83F7) ; CALL _DelMem (1368)  ; release the old RAM copy
+       LD HL,(83F3)
+       LD DE,(83F7)
+       CALL _DelMem (1368)             ; release the old RAM copy
        RET
 616C:  reads vatPtr type, AND 0x1F (clean type for the record header),
-       LD HL,(83F7)+(83F5) ; ADC ; JP C,2729 (E_Invalid, 0x8F)  ; size overflow?
+       LD HL,(83F7)+(83F5)
+       ADC
+       JP C,2729 (E_Invalid, 0x8F)      ; size overflow?
        reserves a Flash slot via archive_prepare_scan / archive_find_free_span
 </code></pre>
 <p>The data is appended to the archive Flash (Flash cannot be overwritten in place). The VAT entry’s
 type byte gets its archive flag set and its data ptr/page rewritten to point into Flash; the old RAM
 copy is then released (the upward data heap shrinks). <code>archive_write_record</code> at <code>3D:64AA</code> lays down a fresh archived record plus a copy of the symbol header, name, and data. The status markers are <code>0xFE</code> for in progress, <code>0xFC</code> for valid, <code>0xF0</code> for deleted, and <code>0xFF</code> for erased space. The successful archive trace executes the complete body and its six boot-page writes. [confirmed] <code>_Chk_Batt_Low</code> (<code>00:0D07</code>) gates the Flash write — archiving aborts on low battery (<code>07:61C5: CALL _Chk_Batt_Low</code>).</p>
 <h3 id="flash-to-ram-unarchive-path-confirmed"><a class="header" href="#flash-to-ram-unarchive-path-confirmed">Flash-to-RAM unarchive path [confirmed]</a></h3>
-<pre><code class="language-z80">61F4:  LD (83EF),DE ; LD (83EE),A      ; arcInfo.data_ptr/page = source
+<pre><code class="language-z80">61F4:  LD (83EF),DE
+       LD (83EE),A                     ; arcInfo.data_ptr/page = source
        CALL 6335                       ; set arcInfo.vat_ptr and arcInfo.data_size
        CALL 32D3                       ; size accounting
-       LD A,(HL) ; CALL 146C           ; add header overhead → arcInfo.size_full
-       EX DE,HL ; CALL _EnoughMem(0FA6); ensure there is RAM room for the unarchived copy
+       LD A,(HL)
+       CALL 146C                       ; add header overhead → arcInfo.size_full
+       EX DE,HL
+       CALL _EnoughMem(0FA6)           ; ensure there is RAM room for the unarchived copy
                 JP C,_ErrMemory(2721)
-       OR 1 ; CALL 0F0C                ; carve the RAM gap (internal create-gap routine)
+       OR 1
+       CALL 0F0C                       ; carve the RAM gap (internal create-gap routine)
        LD (83F3),DE                    ; arcInfo.dest_ptr = new RAM address
        CALL 3003 (unarchive_record_to_ram) ; copy Flash→RAM, retire old record
        RET
@@ -485,11 +521,21 @@ at <code>3D:6440</code> shares the page-3D flash-control prologue
 a RAM destination, transparently advancing the Flash page when the read crosses the <code>0x8000</code>
 window boundary:</p>
 <pre><code class="language-z80">3D:6745: mask page (AND 1F / AND 3F per port-2 model check FUN 1837/182F)
-         PUSH IX ; LD IX,6761 ; CALL 678C ; POP IX ; RET
-3D:678C: copies the small arg-block to ramCode, sets DE=0x8100, JP 8100  ; runs the copier from RAM
+         PUSH IX
+         LD IX,6761
+         CALL 678C
+         POP IX
+         RET
+3D:678C: copies the small arg-block to ramCode, sets DE=0x8100, JP 8100
+         ; runs the copier from RAM
 the copier (6761..678A):
-   IN A,(6) saved ; OUT (6),A     ; bank A = the source Flash page into 0x4000 window
-   loop LDI:  BIT 7,H → at 0x8000 wrap: IN A,(6); INC A; OUT (6),A; LD HL,0x4000  ; next page
+   IN A,(6) saved
+   OUT (6),A                       ; bank A = the source Flash page into 0x4000 window
+   loop LDI:  BIT 7,H → at 0x8000 wrap:
+              IN A,(6)
+              INC A
+              OUT (6),A
+              LD HL,0x4000        ; next page
 </code></pre>
 <p>Port <code>6</code> is the bank-A page-select; the read code itself runs from <code>ramCode (0x8100)</code>. This is how
 an archived program/appvar is pulled back into RAM to be executed or edited. <code>ti83plus.inc</code> also
@@ -517,7 +563,11 @@ names a sibling <code>_FlashToRam2</code> (ID <code>8054h</code>, body <code>3F:
 <p>The status byte is a classic AMD/Am29F <em>monotonic bit-clear</em> marker: erased Flash is all-ones
 (<code>0xFF</code>), and the OS advances a record’s state by <em>clearing</em> bits (program can only flip <code>1→0</code>; only
 a sector erase restores <code>1</code>s). The writers are three tiny routines on page 0x3D that load an AND-mask
-into <code>C</code> and then read-modify-write the status byte (<code>3D:7C9A: CALL flash_read_byte; AND C; …</code>):</p>
+into <code>C</code> and then read-modify-write the status byte at <code>3D:7C9A</code>:</p>
+<pre><code class="language-z80">CALL flash_read_byte
+AND C
+…
+</code></pre>
 <div class="table-wrapper">
 <table>
 <thead>

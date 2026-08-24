@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0e592f65.js";
+            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -470,9 +470,8 @@ auditing retail boot and USB pages. [confirmed]</p>
 <h2 id="community-assembly-archive-snapshot"><a class="header" href="#community-assembly-archive-snapshot">Community assembly archive snapshot</a></h2>
 <p>The community-source audit uses a 2026-08-24 mirror of the
 <a href="https://www.ticalc.org/pub/83plus/asm/">ticalc.org TI-83/84 Plus assembly archive</a>.
-The mirror remains outside this repository under
-<code>~/src/ticalc-83plus-asm-archive</code>; the repository contains hashes and analysis
-tools, not the contributed programs. [confirmed]</p>
+The archive was cloned outside this repository. This repository contains
+hashes and analysis tools, not the contributed programs. [confirmed]</p>
 <p><code>tools/data/community-archive-inventory.csv</code> records every mirrored ZIP path,
 its SHA-256, compressed and expanded sizes, member count, source-member count,
 and the number of paths with byte-identical archive contents. The snapshot has
@@ -482,10 +481,10 @@ ZIPs, 897 contain at least one such member. [confirmed]</p>
 <p>Run the same inventory and safe extraction process from the development
 environment:</p>
 <pre><code class="language-sh">nix develop -c python3 tools/community_archive.py \
-  ~/src/ticalc-83plus-asm-archive/mirror/pub/83plus/asm \
+  "$COMMUNITY_ARCHIVE/mirror/pub/83plus/asm" \
   --archive-csv tools/data/community-archive-inventory.csv \
   --member-csv /tmp/community-archive-members.csv \
-  --extract-to ~/src/ticalc-83plus-asm-archive/extracted
+  --extract-to "$COMMUNITY_ARCHIVE/extracted"
 </code></pre>
 <p>The extractor validates paths before writing, keeps each ZIP in a separate
 directory, preserves duplicate member revisions under an explicit namespace,
@@ -517,7 +516,7 @@ the wiki.</p>
 </thead>
 <tbody>
 <tr><td><strong>bcall</strong></td><td>“branch call” — the OS system-call mechanism: <code>rst 28h</code> + a 2-byte ID, dispatched through a jump table to a routine on any flash page. See <a href="#the-bcall-mechanism">The bcall Mechanism</a>.</td></tr>
-<tr><td><strong>bjump</strong></td><td>OS-internal cross-page <em>jump</em>: <code>CALL cross_page_jump; .dw addr; .db page</code> (a tail-jump). The sibling of bcall for the OS’s own use.</td></tr>
+<tr><td><strong>bjump</strong></td><td>OS-internal cross-page <em>jump</em>: <code>CALL cross_page_jump</code><br><code>.dw addr</code><br><code>.db page</code> (a tail-jump). The sibling of bcall for the OS’s own use.</td></tr>
 <tr><td><strong>RST shortcut</strong></td><td>A 1-byte <code>rst NN</code> vector that fast-paths a hot routine (<code>rst 10h</code>=<code>_FindSym</code>, <code>rst 30h</code>=<code>_FPAdd</code>, <code>rst 28h</code>=the bcall dispatcher).</td></tr>
 <tr><td><strong>context</strong></td><td>The active “mode” (homescreen, Y= editor, graph, an app…). A block of handler vectors at <code>cxMain</code> (<code>0x858D</code>); the main loop runs the current context’s handlers. See <a href="#boot-contexts-and-errors">Boot, Contexts &amp; Errors</a>.</td></tr>
 <tr><td><strong>paging / banking</strong></td><td>The Z80 sees 64 KiB; ports 6/7 swap which 16 KiB flash/RAM page is visible in the two middle slots. See <a href="#paging">Paging</a>.</td></tr>
@@ -3143,10 +3142,22 @@ BootFree guard otherwise leaves only diagnostic comments.
 </div>
 <p>All six match the documented TI-83+/84+ RST assignments — strong cross-confirmation of the table resolution.</p>
 <h2 id="bjump--the-sibling-mechanism-os-internal-cross-page-calls"><a class="header" href="#bjump--the-sibling-mechanism-os-internal-cross-page-calls">bjump — the sibling mechanism (OS-internal cross-page calls)</a></h2>
-<p>Besides bcalls, the OS calls <em>its own</em> cross-page routines via <code>bjump</code>: <code>CALL cross_page_jump</code> (<code>= CALL ram:2B09</code>) followed inline by <code>.dw addr; .db page</code>. <code>cross_page_jump</code> reads the stacked return address (its caller’s, via an <code>SP</code>-relative load — it does not <code>POP</code> it), fetches the 2-byte target + 1-byte page from the inline descriptor there, rewrites the return frame past those 3 bytes, banks the page (<code>&amp; 0x3F</code>), and returns into the target. The target’s <code>RET</code> then returns to <em>the bjump’s caller</em>, so it behaves like a call that consumes the 3 inline bytes.</p>
+<p>Besides bcalls, the OS calls <em>its own</em> cross-page routines via <code>bjump</code>. Its
+encoding is:</p>
+<pre><code class="language-z80">CALL cross_page_jump ; = CALL ram:2B09
+.dw addr
+.db page
+</code></pre>
+<p><code>cross_page_jump</code> reads the stacked return address (its caller’s, via an
+<code>SP</code>-relative load — it does not <code>POP</code> it), fetches the 2-byte target + 1-byte
+page from the inline descriptor there, rewrites the return frame past those 3
+bytes, banks the page (<code>&amp; 0x3F</code>), and returns into the target. The target’s
+<code>RET</code> then returns to <em>the bjump’s caller</em>, so it behaves like a call that
+consumes the 3 inline bytes.</p>
 <p>There is a trampoline table in the page-0 address range <code>ram:3B01</code>–<code>ram:3D0A</code>: 87 packed 6-byte entries, each a bjump to a hot OS routine on another page (<code>ram:3D0B</code> already begins a separate <code>CALL ram:2B49</code> table). The static Ghidra database models it in the page-0/ROM address space; whether the table is copied to RAM at runtime remains a hypothesis. Code invokes a routine by <code>CALL ram:3Bxx</code> into the table. <code>tools/bjumps.txt</code> lists every entry’s <code>(offset → page:addr)</code>; <code>tools/RamRoutines.java</code> marks the inline <code>.dw/.db</code> as data and comments each target.</p>
 <p>Example: <code>_PutMap</code>’s glyph blitter is reached via the trampoline at <code>ram:3B3D → 07:4588</code>.</p>
-<p><strong>Inline bjumps.</strong> Besides this trampoline table, <code>CALL cross_page_jump; .dw; .db</code> appears in packed dispatch tables and inside OS routines. The target returns
+<p><strong>Inline bjumps.</strong> Besides this trampoline table, the three-line bjump encoding
+above appears in packed dispatch tables and inside OS routines. The target returns
 to the bjump caller, so <code>cross_page_jump</code> consumes the three inline descriptor
 bytes as a non-returning tail-jump. <code>tools/FixInlineBjumps.java</code> runs before and
 after the scripts that seed parser handlers and reviewed function entries. Each
@@ -4086,7 +4097,7 @@ own cleanup at <code>ram:0374</code> and joins the same tail. [confirmed]</p>
 <tr><td><code>ram:0A51</code></td><td>clear <code>shift2nd</code></td><td>remove the <strong>[2nd]</strong> modifier</td></tr>
 <tr><td><code>ram:0A55</code></td><td>clear <code>onRunning</code></td><td>mark the OS as powered down</td></tr>
 <tr><td><code>ram:0A5B</code></td><td><code>EI</code></td><td>allow the selected wake interrupt</td></tr>
-<tr><td><code>poweroff_halt_loop</code></td><td><code>HALT; JR ram:0A5C</code></td><td>remain in the ASIC low-power loop</td></tr>
+<tr><td><code>poweroff_halt_loop</code></td><td><code>HALT</code><br><code>JR ram:0A5C</code></td><td>remain in the ASIC low-power loop</td></tr>
 </tbody>
 </table>
 </div>
@@ -4316,9 +4327,12 @@ nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
 <p>This page connects three cross-cutting mechanisms: OS startup, context
 switching, and error unwinding.</p>
 <h2 id="boot-confirmed"><a class="header" href="#boot-confirmed">Boot [confirmed]</a></h2>
-<pre><code class="language-z80">3F:4000:     LD A,0x07; OUT (0x04),A           ; paired mapping
-             LD A,0x7F; OUT (0x06),A           ; pages 3E/3F in 4000/8000
-             LD A,0x03; OUT (0x0E),A           ; extended Flash bits
+<pre><code class="language-z80">3F:4000:     LD A,0x07
+             OUT (0x04),A                      ; paired mapping
+             LD A,0x7F
+             OUT (0x06),A                      ; pages 3E/3F in 4000/8000
+             LD A,0x03
+             OUT (0x0E),A                      ; extended Flash bits
              JP 0x812C                         ; page 3F in the 8000 window
 </code></pre>
 <p>The emulator reset trace begins at logical <code>0x8000</code>, where paired mode exposes
@@ -4337,9 +4351,13 @@ programming, first keypad scan, OS-validity decision, and destructive RAM
 diagnostic. It also reconciles standard Z80 timing with the pinned TilEm trace.</p>
 <p>The assembled <code>rom.bin</code> validates and installs the retail <code>D84PBE1.8Xv</code>
 payload at page <code>3F</code>; the pinned base already contains the same 16 KiB page, so
-the installation changes no bytes. The continuation begins
-<code>IM 1; LD B,0; LD SP,0xFDFA; …</code>. The boot page eventually initializes RAM, the
-VAT, system flags, the LCD, and enters the main context (the homescreen).
+the installation changes no bytes. The continuation begins:</p>
+<pre><code class="language-z80">IM 1
+LD B,0
+LD SP,0xFDFA
+</code></pre>
+<p>The boot page eventually initializes RAM, the VAT, system flags, the LCD, and
+enters the main context (the homescreen).
 [confirmed]</p>
 <p>The boot page (<code>3F</code>) and its version queries are exposed to the OS through <code>ti83plus.inc</code> bcalls: <code>_getBootVer</code> (bcall <code>0x80B7</code> → <code>3F:477C</code>) and <code>_getHardwareVersion</code> (bcall <code>0x80BA</code> → <code>3F:4781</code>). The USB boot support entry points route through the same table but land on page <code>2F</code>, for example <code>_AttemptUSBOSReceive</code> (<code>0x80E4</code> → <code>2F:4145</code>) and <code>_InitUSB</code> (<code>0x8108</code> → <code>2F:52A4</code>).</p>
 <h3 id="ram-clearing-and-reinitialization-ram_reset_wipe-at-ram0bd9-confirmed"><a class="header" href="#ram-clearing-and-reinitialization-ram_reset_wipe-at-ram0bd9-confirmed">RAM clearing and reinitialization (<code>ram_reset_wipe</code> at <code>ram:0BD9</code>) [confirmed]</a></h3>
@@ -4347,26 +4365,40 @@ VAT, system flags, the LCD, and enters the main context (the homescreen).
 <pre><code class="language-z80">ram_reset_wipe (35:719f):
   ; save flags to preserve: (9B73), (IY+34).6, (IY+35).0, (IY+35).1, (IY+3F)&amp;0x7F
   DI
-  LD HL,0x8000 ; LD DE,0x8001 ; LD BC,0x1BC3 ; LD (HL),0 ; LDIR   ; clear 8000..9BC3
+  LD HL,0x8000
+  LD DE,0x8001
+  LD BC,0x1BC3
+  LD (HL),0
+  LDIR                          ; clear 8000..9BC3
   ... restore the saved flag bits ...
-  LD HL,0x9BD0 ; LD DE,0x9BD1 ; LD BC,0x642F ; LD (HL),0 ; LDIR   ; clear 9BD0..FFFF
+  LD HL,0x9BD0
+  LD DE,0x9BD1
+  LD BC,0x642F
+  LD (HL),0
+  LDIR                          ; clear 9BD0..FFFF
   JP 0x0BD9
 ram_init_after_reset (ram:0BD9):
-  LD A,0xC0 ; OUT (0),A        ; port 0 = memory-map control
+  LD A,0xC0
+  OUT (0),A                    ; port 0 = memory-map control
   LD SP,0xFFF7                 ; reset stack to top of RAM
   CALL 0x3EC1                  ; continue init (page-0 kernel): VAT, sysflags, LCD …
 </code></pre>
-<p>So RAM is wiped in two LDIR runs (<code>0x8000</code>–<code>0x9BC3</code>, then <code>0x9BD0</code>–<code>0xFFFF</code>, leaving the <code>0x9BC4</code>–<code>0x9BCF</code> window and the explicitly-saved flag bytes intact), then <code>ram:0BD9</code> resets the memory map (port 0) and the stack and hands off through <code>ram:3EC1</code>. This <code>ram:0BD9</code> entry is the same RAM re-init point cross-referenced from <a href="#memory-management-ram-heap-and-flash-archive">Memory management</a>. The <code>ram:3EC1</code> continuation (VAT/sysflag/LCD bring-up) is page-0 kernel code and is statically present (<code>ram:3EC1</code> = <code>CALL 0x2B09; …</code>). The reset jump to <code>boot_os_entry</code> is also present in the assembled database, so the page-0 and retail boot portions can be followed in one project.</p>
+<p>So RAM is wiped in two LDIR runs (<code>0x8000</code>–<code>0x9BC3</code>, then <code>0x9BD0</code>–<code>0xFFFF</code>, leaving the <code>0x9BC4</code>–<code>0x9BCF</code> window and the explicitly-saved flag bytes intact), then <code>ram:0BD9</code> resets the memory map (port 0) and the stack and hands off through <code>ram:3EC1</code>. This <code>ram:0BD9</code> entry is the same RAM re-init point cross-referenced from <a href="#memory-management-ram-heap-and-flash-archive">Memory management</a>. The <code>ram:3EC1</code> continuation (VAT/sysflag/LCD bring-up) is page-0 kernel code and begins with <code>CALL 0x2B09</code>. The reset jump to <code>boot_os_entry</code> is also present in the assembled database, so the page-0 and retail boot portions can be followed in one project.</p>
 <h3 id="the-main-event-loop-confirmed"><a class="header" href="#the-main-event-loop-confirmed">The main event loop [confirmed]</a></h3>
 <p><code>main_event_loop</code> @ <code>ram:05e6</code> (page 0) is the OS root dispatcher. Structure:</p>
-<pre><code class="language-z80">05e6: LD B,8;  LD HL,0x84BE        ; iterate an 8-entry event/context stack
+<pre><code class="language-z80">05e6: LD B,8
+      LD HL,0x84BE                 ; iterate an 8-entry event/context stack
 05eb: INC HL                       ; first slot is 0x84BF
-05ec: LD A,(HL); OR A; JR Z,...    ; skip empty slots
+05ec: LD A,(HL)
+      OR A
+      JR Z,...                     ; skip empty slots
 05f5: CALL 0x3f3f                  ; per-entry dispatch (event/key router)
 0601: CP 0x7F / 0xFE / 0xFC / 0xFB ; branch on the handler's return code
 ...
-0690: LD A,0x7F; CALL call_context_main   ; run the active context's handler
-0699: POP AF; JP Z,0x05e6                 ; loop
+0690: LD A,0x7F
+      CALL call_context_main       ; run the active context's handler
+0699: POP AF
+      JP Z,0x05e6                 ; loop
 </code></pre>
 <p>So the loop pumps an event/context stack (8 slots from <code>0x84BF</code>, after the <code>INC HL</code>), routes each via the dispatcher at <code>ram:3F3F</code>, and ultimately runs the active context’s <code>cxMain</code> handler through <code>call_context_main</code>, looping forever.</p>
 <p>The <code>ram:3F3F</code> router is a bjump trampoline → <code>event_key_router</code> (<code>07:4539</code>): given a key code, it scans key→context dispatch tables (<code>07:4099</code>, ~105 entries, for 1-byte keys; <code>07:422C</code>/<code>4426</code> for extended 2-byte keys, using <code>_LdHLind</code>/<code>_CpHLDE</code>) and returns a routing code:</p>
@@ -4811,10 +4843,13 @@ value before continuing. An interrupt or reset between those writes could
 leave one byte complemented; the routine executes with interrupts disabled.
 [confirmed]</p>
 <p>The disable wrapper saves <code>AF</code>, clears <code>A</code>, emits the protected instruction
-sequence, and writes port <code>0x14</code>. It then executes <code>OR A; JP NZ,0x0000</code> before
-restoring <code>AF</code>. The test is necessarily zero when normal sequential execution
-reaches it. It detects a control-flow or instruction-corruption error rather
-than reading the write back. [confirmed]</p>
+sequence, and writes port <code>0x14</code>. It then executes:</p>
+<pre><code class="language-z80">OR A
+JP NZ,0x0000
+</code></pre>
+<p>The wrapper restores <code>AF</code> afterward. The test is necessarily zero when normal
+sequential execution reaches it. It detects a control-flow or
+instruction-corruption error rather than reading the write back. [confirmed]</p>
 <h2 id="ordered-hardware-programming"><a class="header" href="#ordered-hardware-programming">Ordered hardware programming</a></h2>
 <p>The first guarded enable is followed by the complete initialization sequence
 below. The order includes the call from <code>3F:41BA</code> into
@@ -5177,12 +5212,18 @@ with the 2 name bytes at <code>847A</code>/<code>847B</code>:</p>
         scan the temp/list region: HL from progPtr(9830) down toward OPBase(9826), pTemp(982E)
   else: HL = symTable (0xFE66), scan downward to progPtr
   loop:
-     A = (HL); A &amp;= 0x1F            ; *** mask off archive flag bits in high nibble ***
-     SBC HL,DE ; RET C  (ran past end → not found)
-     CP (HL) against token (8479); on match check name bytes (847A/847B) at HL-1/HL-2
+     A = (HL)
+     A &amp;= 0x1F                       ; *** mask off archive flag bits in high nibble ***
+     SBC HL,DE
+     RET C                           ; ran past end → not found
+     CP (HL) against token (8479)
+     on match check name bytes (847A/847B) at HL-1/HL-2
      else step HL -= 3 from the name pointer (9 bytes type-to-type for fixed entries)
           / -= (6+nameLen) for named entries, and continue
-  on match:  B=(entry).pageByte, DE=dataPtr, A=(entry+6)=type; store type→8478
+  on match:  B=(entry).pageByte
+             DE=dataPtr
+             A=(entry+6)=type
+             store type→8478
 </code></pre>
 <p>So each VAT entry is read high-address-first; the type byte’s low 5 bits are the <code>TIVarType</code>; the
 high bits flag the archive state. <code>_FindSym</code> returns: type in <code>A</code> and <code>8478</code>, data pointer in DE,
@@ -5336,15 +5377,26 @@ Flash in place); see the <a href="#archive-and-unarchive-confirmed"><code>_Arc_U
 </ul>
 <p><strong>Recall</strong> <code>_RclVarSym</code> (<code>38:67B1</code>) and <code>rcl_var_push</code> (<code>3A:5D07</code>):</p>
 <ul>
-<li><code>_RclVarSym</code> calls <code>RST 10h</code> (<code>17A6</code>, a <code>_FindSym</code>+error-check wrapper: <code>RST 10h; JP C,271D</code>), then checks the name token (<code>8479</code>). For a list
+<li>
+<p><code>_RclVarSym</code> calls <code>RST 10h</code>. The wrapper at <code>17A6</code> performs <code>_FindSym</code> and
+checks the error condition:</p>
+<pre><code class="language-z80">RST 10h
+JP C,271D
+</code></pre>
+<p>It then checks the name token (<code>8479</code>). For a list
 recall (<code>63</code>/<code>2A</code>) it sizes the data with <code>_DataSize</code> (<code>00:1485</code>) and copies it into a work buffer
-(<code>91E0</code>), using <code>_LdHLind</code> and cross-page helpers; ends <code>JP _OP4ToOP1</code>.</li>
-<li><code>_DataSize</code> (<code>00:1485</code>): returns the variable’s data byte-count in DE from the type byte — real=9,
+(<code>91E0</code>), using <code>_LdHLind</code> and cross-page helpers; ends <code>JP _OP4ToOP1</code>.</p>
+</li>
+<li>
+<p><code>_DataSize</code> (<code>00:1485</code>): returns the variable’s data byte-count in DE from the type byte — real=9,
 list/cplx-list read the <code>word count</code> header, matrix uses cols×rows, and named types
-(<code>0x15</code> AppVar, <code>0x16</code>, <code>0x17</code> Group) read the leading <code>word size</code>.</li>
-<li>The recall code does not care whether the source is RAM or Flash for <em>reading</em> — Flash is
+(<code>0x15</code> AppVar, <code>0x16</code>, <code>0x17</code> Group) read the leading <code>word size</code>.</p>
+</li>
+<li>
+<p>The recall code does not care whether the source is RAM or Flash for <em>reading</em> — Flash is
 memory-mapped read-only into the 0x4000 window. To <em>use</em> an archived program/var that must be
-modified or executed in RAM, the OS first copies it via <a href="#reading-archived-data-with-_flashtoram-confirmed"><code>_FlashToRam</code></a>. [standard]</li>
+modified or executed in RAM, the OS first copies it via <a href="#reading-archived-data-with-_flashtoram-confirmed"><code>_FlashToRam</code></a>. [standard]</p>
+</li>
 </ul>
 <hr>
 <h2 id="archive-and-unarchive-confirmed"><a class="header" href="#archive-and-unarchive-confirmed">Archive and unarchive [confirmed]</a></h2>
@@ -5352,20 +5404,30 @@ modified or executed in RAM, the OS first copies it via <a href="#reading-archiv
 the Flash archive (the same entry point does both directions, deciding from the current state).</p>
 <pre><code class="language-z80">_Arc_Unarc (07:6248):
   SET 0,(IY+0x24)              ; flag: an archive operation is in progress
-  CALL 628B                    ; validate OP1 name is an archivable class; Z⇒not allowed → JP 26E0 (local error shim; LD A,0xB2 = E_Variable, ERR:VARIABLE → _JError)
+  CALL 628B                    ; validate OP1 name as an archivable class, else JP 26E0
   CALL _OP1ToOP3 (1A0F)
-  CALL _ChkFindSym (0E60)      ; locate the VAT entry; C ⇒ JP 271D (undefined)
+  CALL _ChkFindSym (0E60)      ; locate the VAT entry, C ⇒ JP 271D (undefined)
   DI
   LD (981C),HL                 ; chkDelPtr3 = entry ptr
-  LD A,B ; OR A ; JR Z,6272    ; B = page byte: 0 ⇒ currently in RAM, else ⇒ in Flash
-      (Flash, B≠0) LD A,(HL); CP 0x17 ; Group? ⇒ JP 26E0 reject  [groups archive via a different path]
+  LD A,B
+  OR A
+  JR Z,6272                    ; B = page byte: 0 ⇒ currently in RAM, else ⇒ in Flash
+      (Flash, B≠0) LD A,(HL)
+                   CP 0x17     ; Group? ⇒ JP 26E0, groups use a different path
                    CALL 61F4   ; *** Flash → RAM:  unarchive ***
    6272 (RAM, B==0):  CALL 6107        ; *** RAM → Flash:  archive ***
   ... name-token-0x5D (list name, `tVarLst`) special-case via 32A9 / cross_page 05:4A6E
-  LD A,(83EE); OR A; EI; RET
+  LD A,(83EE)
+  OR A
+  EI
+  RET
 </code></pre>
 <p><code>628B</code> is the <em>archivable-name guard</em>: after <code>_CkOP1Real</code> it returns Z for the non-archivable
-single-letter real/sysvar name tokens <code>0x58 0x59 0x54 0x5B 0x52 0x72 0xFC</code> (<code>CP n; RET Z</code> chain), so
+single-letter real/sysvar name tokens <code>0x58 0x59 0x54 0x5B 0x52 0x72 0xFC</code> through this repeated pair:</p>
+<pre><code class="language-z80">CP n
+RET Z
+</code></pre>
+<p>Thus
 <code>_Arc_Unarc</code>’s <code>JP Z,26E0</code> rejects them via the <code>26E0</code> shim (<code>LD A,0xB2</code> = E_Variable, ERR:VARIABLE →
 <code>_JError</code>); archivable classes (lists, matrices, programs, appvars, …) return NZ and continue. (<code>arc_59f1</code> @<code>07:59F1</code> and <code>arc_5936</code> @<code>07:5936</code> are companion name/range
 validators for the catalog archive command.)</p>
@@ -5373,27 +5435,36 @@ validators for the catalog archive command.)</p>
 <em>in-Flash</em> var (<code>B≠0</code>) to <code>61F4</code> (unarchive). <code>6107</code> is the one that programs Flash and frees the
 RAM copy; <code>61F4</code> is the one that carves RAM and copies the data back out of Flash.</p>
 <h3 id="ram-to-flash-archive-path-confirmed"><a class="header" href="#ram-to-flash-archive-path-confirmed">RAM-to-Flash archive path [confirmed]</a></h3>
-<pre><code class="language-z80">6107:  CALL 7866 ; DI
+<pre><code class="language-z80">6107:  CALL 7866
+       DI
        CALL 614B                       ; arcInfo.vat_ptr and arcInfo.size
                                        ;   616C reserves the archive-Flash slot
        CALL 2FF1 (cross_page 3D:64AA)  ; program the data into archive Flash
-       LD HL,(83F3) ; LD DE,(83F7) ; CALL _DelMem (1368)  ; release the old RAM copy
+       LD HL,(83F3)
+       LD DE,(83F7)
+       CALL _DelMem (1368)             ; release the old RAM copy
        RET
 616C:  reads vatPtr type, AND 0x1F (clean type for the record header),
-       LD HL,(83F7)+(83F5) ; ADC ; JP C,2729 (E_Invalid, 0x8F)  ; size overflow?
+       LD HL,(83F7)+(83F5)
+       ADC
+       JP C,2729 (E_Invalid, 0x8F)      ; size overflow?
        reserves a Flash slot via archive_prepare_scan / archive_find_free_span
 </code></pre>
 <p>The data is appended to the archive Flash (Flash cannot be overwritten in place). The VAT entry’s
 type byte gets its archive flag set and its data ptr/page rewritten to point into Flash; the old RAM
 copy is then released (the upward data heap shrinks). <code>archive_write_record</code> at <code>3D:64AA</code> lays down a fresh archived record plus a copy of the symbol header, name, and data. The status markers are <code>0xFE</code> for in progress, <code>0xFC</code> for valid, <code>0xF0</code> for deleted, and <code>0xFF</code> for erased space. The successful archive trace executes the complete body and its six boot-page writes. [confirmed] <code>_Chk_Batt_Low</code> (<code>00:0D07</code>) gates the Flash write — archiving aborts on low battery (<code>07:61C5: CALL _Chk_Batt_Low</code>).</p>
 <h3 id="flash-to-ram-unarchive-path-confirmed"><a class="header" href="#flash-to-ram-unarchive-path-confirmed">Flash-to-RAM unarchive path [confirmed]</a></h3>
-<pre><code class="language-z80">61F4:  LD (83EF),DE ; LD (83EE),A      ; arcInfo.data_ptr/page = source
+<pre><code class="language-z80">61F4:  LD (83EF),DE
+       LD (83EE),A                     ; arcInfo.data_ptr/page = source
        CALL 6335                       ; set arcInfo.vat_ptr and arcInfo.data_size
        CALL 32D3                       ; size accounting
-       LD A,(HL) ; CALL 146C           ; add header overhead → arcInfo.size_full
-       EX DE,HL ; CALL _EnoughMem(0FA6); ensure there is RAM room for the unarchived copy
+       LD A,(HL)
+       CALL 146C                       ; add header overhead → arcInfo.size_full
+       EX DE,HL
+       CALL _EnoughMem(0FA6)           ; ensure there is RAM room for the unarchived copy
                 JP C,_ErrMemory(2721)
-       OR 1 ; CALL 0F0C                ; carve the RAM gap (internal create-gap routine)
+       OR 1
+       CALL 0F0C                       ; carve the RAM gap (internal create-gap routine)
        LD (83F3),DE                    ; arcInfo.dest_ptr = new RAM address
        CALL 3003 (unarchive_record_to_ram) ; copy Flash→RAM, retire old record
        RET
@@ -5416,11 +5487,21 @@ at <code>3D:6440</code> shares the page-3D flash-control prologue
 a RAM destination, transparently advancing the Flash page when the read crosses the <code>0x8000</code>
 window boundary:</p>
 <pre><code class="language-z80">3D:6745: mask page (AND 1F / AND 3F per port-2 model check FUN 1837/182F)
-         PUSH IX ; LD IX,6761 ; CALL 678C ; POP IX ; RET
-3D:678C: copies the small arg-block to ramCode, sets DE=0x8100, JP 8100  ; runs the copier from RAM
+         PUSH IX
+         LD IX,6761
+         CALL 678C
+         POP IX
+         RET
+3D:678C: copies the small arg-block to ramCode, sets DE=0x8100, JP 8100
+         ; runs the copier from RAM
 the copier (6761..678A):
-   IN A,(6) saved ; OUT (6),A     ; bank A = the source Flash page into 0x4000 window
-   loop LDI:  BIT 7,H → at 0x8000 wrap: IN A,(6); INC A; OUT (6),A; LD HL,0x4000  ; next page
+   IN A,(6) saved
+   OUT (6),A                       ; bank A = the source Flash page into 0x4000 window
+   loop LDI:  BIT 7,H → at 0x8000 wrap:
+              IN A,(6)
+              INC A
+              OUT (6),A
+              LD HL,0x4000        ; next page
 </code></pre>
 <p>Port <code>6</code> is the bank-A page-select; the read code itself runs from <code>ramCode (0x8100)</code>. This is how
 an archived program/appvar is pulled back into RAM to be executed or edited. <code>ti83plus.inc</code> also
@@ -5448,7 +5529,11 @@ names a sibling <code>_FlashToRam2</code> (ID <code>8054h</code>, body <code>3F:
 <p>The status byte is a classic AMD/Am29F <em>monotonic bit-clear</em> marker: erased Flash is all-ones
 (<code>0xFF</code>), and the OS advances a record’s state by <em>clearing</em> bits (program can only flip <code>1→0</code>; only
 a sector erase restores <code>1</code>s). The writers are three tiny routines on page 0x3D that load an AND-mask
-into <code>C</code> and then read-modify-write the status byte (<code>3D:7C9A: CALL flash_read_byte; AND C; …</code>):</p>
+into <code>C</code> and then read-modify-write the status byte at <code>3D:7C9A</code>:</p>
+<pre><code class="language-z80">CALL flash_read_byte
+AND C
+…
+</code></pre>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -6192,6 +6277,21 @@ naming the running program, calls <code>_ChkFindSym</code>, and increments two B
 bytes through the returned source pointer. It performs a second lookup before
 converting the counter to <code>Ans</code>. [confirmed] for the identified community
 source.</p>
+<p>Viewed from the data-size pointer returned in <code>DE</code>, RUNCOUNT’s fixed prefix is:</p>
+<pre><code class="language-c">#pragma pack(push, 1)
+typedef struct {
+    uint16_t data_size;       /* +0x00 */
+    uint8_t asm_marker[2];    /* +0x02, BB 6D */
+    uint8_t entry_jump[3];    /* +0x04, JP start */
+    uint8_t count_msb_bcd;    /* +0x07 */
+    uint8_t count_lsb_bcd;    /* +0x08 */
+    uint8_t code[];           /* +0x09 */
+} RunCountVariablePrefix;     /* 9-byte fixed prefix */
+#pragma pack(pop)
+</code></pre>
+<p>The first lookup increments <code>count_lsb_bcd</code> and carries into
+<code>count_msb_bcd</code>. The second lookup passes the address of <code>count_msb_bcd</code> to
+the BCD-to-<code>Ans</code> conversion. [confirmed]</p>
 <p>The raw 136-byte source build is SHA-256
 <code>3e506c4330cd5499a031ae56c73d0487f811278b5fc3d52949bc0f56a69b2f05</code>.
 The packaged program body is exactly <code>BB 6D</code> followed by that build, so this
@@ -6439,8 +6539,18 @@ kernel source returns version 1.6. The combined label records that release
 inconsistency. [confirmed]</p>
 <p><code>starttask</code> appends the program’s requested external-data area followed by a
 62-byte state tail. The tail contains a saved <code>SP</code> word and 60 bytes copied
-from <code>flags</code> at <code>0x89F0</code>. It also records the initial code address and stack
-pointer. [confirmed]</p>
+from <code>flags</code> at <code>0x89F0</code>. Its packed layout is:</p>
+<pre><code class="language-c">#pragma pack(push, 1)
+typedef struct {
+    uint16_t saved_sp;       /* +0x00 */
+    uint8_t flags[60];       /* +0x02, copy of 0x89F0-0x8A2B */
+} TSETaskStateTail;          /* 62 bytes */
+#pragma pack(pop)
+</code></pre>
+<p>The tail begins immediately after the requested external-data area. TSE writes
+the initial code address into the last two bytes of that area as the first
+stack return address, while <code>saved_sp</code> records the resulting stack pointer.
+[confirmed]</p>
 <p><code>cpy_prgm_in</code> reduces the stored variable to its three-byte <code>BB 6D C9</code> header,
 then moves the remaining body and task state to <code>userMem</code> in chunks no larger
 than <code>0x100</code>. Each chunk opens the destination with <code>_InsertMem</code>, copies the
@@ -6734,6 +6844,17 @@ bit 1 of <code>IY + 0x36</code>. Remote Control reaches the same raw-key install
 pointer <code>0x9872</code>, while Plasma stores pointer <code>0x9872</code> with its supplied page
 byte <code>0x41</code>. These runs stop before invoking Remote Control’s link sender.
 [confirmed]</p>
+<p>The ROM installers store each callback as a packed three-byte target:</p>
+<pre><code class="language-c">#pragma pack(push, 1)
+typedef struct {
+    uint16_t callback_addr;  /* +0x00, little-endian */
+    uint8_t page;            /* +0x02 */
+} OSHookTarget;              /* 3 bytes */
+#pragma pack(pop)
+</code></pre>
+<p>The raw-key target begins at <code>0x9B84</code>, and the parser target begins at
+<code>0x9BAC</code>. Their active bits at <code>IY + 0x34</code> and <code>IY + 0x36</code> are separate OS
+state, not fields in this record. [confirmed]</p>
 <p>After the selected NoExec removal sequence, the resident reaches
 <code>_ClrRawKeyHook</code> at <code>3B:7B88</code> and <code>_ClearParserHook</code> at <code>3B:7C3B</code>; the two
 active bytes at <code>IY + 0x34</code> and <code>IY + 0x36</code> become zero. Remote Control’s
@@ -7005,7 +7126,10 @@ length bytes. The decoder bytes are at <code>init_flash_page_counter+0x08</code>
 </tbody>
 </table>
 </div>
-<pre><code class="language-z80">3D:7285  AND 0x0F; CP 0x0F -&gt; B=4 ; CP 0x0E -&gt; B=2 ; CP 0x0D -&gt; B=1
+<pre><code class="language-z80">3D:7285  AND 0x0F
+         CP 0x0F              ; B=4
+         CP 0x0E              ; B=2
+         CP 0x0D              ; B=1
 </code></pre>
 <p>The master field at offset 0 is usually <code>80 0F …</code> (<code>field 800</code>, size nibble <code>F</code>, followed
 by a 4-byte size) — this is what the page-scan keys on to recognise an app. Fields carry
@@ -7073,13 +7197,23 @@ the local decode below uses that lead and verifies it against the extracted <cod
 4067  RET
 </code></pre>
 <p><code>RST 20h</code> is <code>_Mov9ToOP1</code>, so the helper copies the thunk at <code>4065</code> into OP1
-(<code>0x8478</code>) and jumps to OP1. That makes <code>OUT (6),A; RET</code> run from RAM after <code>A</code>
-has been set to the current bank-A page minus one. The preceding <code>CPIR</code> searches
+(<code>0x8478</code>) and jumps to OP1. That makes the following thunk run from RAM after
+<code>A</code> has been set to the current bank-A page minus one:</p>
+<pre><code class="language-z80">OUT (6),A
+RET
+</code></pre>
+<p>The preceding <code>CPIR</code> searches
 from <code>HL</code> for a <code>RET</code> byte (<code>0xC9</code>) and pushes the byte after it as the return
 address. The first half preserves the popped registers while it probes caller-owned
 bytes and can return early; the later page switch and RAM-thunk behavior are directly
 decoded from the sample bytes.</p>
-<p>The same sample’s conventional entry area at <code>4080</code> starts <code>NOP; JR 408C; JP 4097; JP 4548</code>. <code>tools/app_header_re.py</code> reproduces this pass: <code>--fetch-known</code> downloads a
+<p>The same sample’s conventional entry area at <code>4080</code> starts:</p>
+<pre><code class="language-z80">NOP
+JR 408C
+JP 4097
+JP 4548
+</code></pre>
+<p><code>tools/app_header_re.py</code> reproduces this pass: <code>--fetch-known</code> downloads a
 local corpus from ticalc.org into ignored <code>tools/app-samples/</code>, and <code>--markdown</code> prints
 the decoded header table. The corpus keeps the same parser boundary rule:</p>
 <div class="table-wrapper">
@@ -7097,7 +7231,7 @@ the decoded header table. The corpus keeps the same parser boundary rule:</p>
 <tr><td>BatLib-modified Celtic 3 / Grammer / Omnicalc</td><td>1 / 1</td><td><code>4070</code></td><td>app-specific jump/vector bytes</td><td>same boundary; nonzero <code>807F</code> size bytes are ignored</td></tr>
 <tr><td>zStart 1.3.013 / zStart83</td><td>1 / 1</td><td><code>4080</code></td><td><code>18 11 83 C3 ...</code></td><td><code>809D0F</code> carries a 15-byte Z80 helper at <code>406B</code></td></tr>
 <tr><td>CtlgHelp / zChem from zStart</td><td>2 / 2 or 1 / 1</td><td><code>4070</code></td><td>app-specific bytes</td><td>padding to <code>4080</code></td></tr>
-<tr><td>usb8x</td><td>1 / 1</td><td><code>4029</code></td><td><code>00 00 00 00 00 00 00 96</code></td><td>mostly zero padding, plus <code>JP 4180h; JP 42EAh</code> at <code>4049</code></td></tr>
+<tr><td>usb8x</td><td>1 / 1</td><td><code>4029</code></td><td><code>00 00 00 00 00 00 00 96</code></td><td>mostly zero padding, plus <code>JP 4180h</code><br><code>JP 42EAh</code> at <code>4049</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -7121,7 +7255,8 @@ start page and a found/not-found flag via <code>RST 28</code> (bcall) into RAM f
 5EE6 CALL 5FB1            ; step to next candidate page (DEC appSearchPage)
 5EE9 RET C                ; ran off the end -&gt; not found
 5EEA CALL 5EB2            ; read/compare this page's header
-5EED BIT 3,C; JR Z,5EE6   ; not a match -&gt; keep scanning
+5EED BIT 3,C
+     JR Z,5EE6            ; not a match -&gt; keep scanning
 </code></pre>
 </li>
 <li><code>app_find_next_page</code> (<code>3D:5FB1</code>) — <code>appSearchPage (0x82A3) -= 1</code>; stops at page 7
@@ -7195,6 +7330,18 @@ bank-A pointer and page before calling <code>_LoadCIndPaged</code> and
 <code>_LoadDEIndPaged</code>. This is a concrete page-aware archived-data reader, not a
 general guarantee that an archived pointer remains valid across memory-moving
 calls. [confirmed] for the identified community source.</p>
+<p>The AppVar payload has this packed layout:</p>
+<pre><code class="language-c">#pragma pack(push, 1)
+typedef struct {
+    uint8_t contrast;         /* +0x00 */
+    uint8_t delay;            /* +0x01 */
+} TruVidSettings;             /* 2 bytes */
+#pragma pack(pop)
+</code></pre>
+<p>The missing-settings path seeds <code>contrast</code> from the OS contrast byte and sets
+<code>delay</code> to <code>178</code>. The save path copies these two bytes from <code>curContrast</code> and
+<code>delayValue</code> into the replacement AppVar. [confirmed] for the identified
+community source.</p>
 <p>The normal <strong>CLEAR</strong> quit path restores IM 1, the saved stack pointer, mapped
 page, display state, several hardware ports, and the OS base-page table. When
 the settings are dirty, it deletes any old AppVar, creates a two-byte
@@ -7380,14 +7527,24 @@ re-init lands in page-0 boot code.</p>
 </div>
 <h3 id="what-ram-reset-clears-confirmed"><a class="header" href="#what-ram-reset-clears-confirmed">What RAM reset clears [confirmed]</a></h3>
 <p>The RAM-reset path (<code>35:719F</code>):</p>
-<pre><code class="language-z80">719F BIT 1,(IY+0x35); JP Z,0x0B2F          ; first-stage vs full path select
+<pre><code class="language-z80">719F BIT 1,(IY+0x35)
+     JP Z,0x0B2F                           ; first-stage vs full path select
 71A6 LD HL,(0x9B73)                         ; preserve a saved word
-71B4 LD A,(IY+0x3F); AND 0x7F               ; keep low 7 bits (clear bit 7) of flag byte 0x3F
+71B4 LD A,(IY+0x3F)
+     AND 0x7F                              ; keep low 7 bits (clear bit 7) of flag byte 0x3F
 71B9 DI
-71BA LD HL,0x8000; LD DE,0x8001; LD BC,0x1BC3; LD (HL),0; LDIR   ; *** zero system RAM 0x8000-0x9BC3 ***
+71BA LD HL,0x8000
+     LD DE,0x8001
+     LD BC,0x1BC3
+     LD (HL),0
+     LDIR                                  ; *** zero system RAM 0x8000-0x9BC3 ***
 71C7 LD (IY+0x3F),A                         ; restore the saved low 7 bits
 ...   (restore IY+0x34 bit6, IY+0x35 bit0 from the preserved state)
-71E0 LD HL,0x9BD0; LD DE,0x9BD1; LD BC,0x642F; LD (HL),0; LDIR   ; *** zero user RAM 0x9BD0-0xFFFF ***
+71E0 LD HL,0x9BD0
+     LD DE,0x9BD1
+     LD BC,0x642F
+     LD (HL),0
+     LDIR                                  ; *** zero user RAM 0x9BD0-0xFFFF ***
 71ED JP 0x0BD9                              ; re-init RAM (page-0 boot init)
 </code></pre>
 <p>So a RAM reset clears two blocks to 0:</p>
@@ -7408,9 +7565,18 @@ clean default VAT and system state and re-enters the homescreen. The Flash archi
 touched by a plain RAM reset.</p>
 <h3 id="full-reset-ram0b27-confirmed"><a class="header" href="#full-reset-ram0b27-confirmed">Full reset (<code>ram:0B27</code>) [confirmed]</a></h3>
 <p>The harder reset (RESET ALL / power-on cold start) is at <code>ram:0B27</code>:</p>
-<pre><code class="language-z80">0B27 LD SP,0; ... 0B37 DI; OUT (0),0xC0
-0B41 LD HL,0x8000; LD DE,0x8001; LD BC,0x7FFF; LD (HL),0; LDIR   ; zero ALL of 0x8000-0xFFFF (32 KiB)
-0B4E ... preserve/inspect IY+0x3F; select sub-path; JP 0x3EA9/0x3EAF
+<pre><code class="language-z80">0B27 LD SP,0
+     ...
+0B37 DI
+     OUT (0),0xC0
+0B41 LD HL,0x8000
+     LD DE,0x8001
+     LD BC,0x7FFF
+     LD (HL),0
+     LDIR                                  ; zero ALL of 0x8000-0xFFFF (32 KiB)
+0B4E ... preserve/inspect IY+0x3F
+     ... select sub-path
+     JP 0x3EA9/0x3EAF
 </code></pre>
 <p>This zeroes the <em>entire</em> 32 KiB RAM and does the deepest re-init.</p>
 <h3 id="_cleanall-and-cleanup_temp_ram-0752cf-confirmed"><a class="header" href="#_cleanall-and-cleanup_temp_ram-0752cf-confirmed"><code>_CleanAll</code> and <code>cleanup_temp_ram</code> (<code>07:52CF</code>) [confirmed]</a></h3>
@@ -8843,7 +9009,11 @@ writes. [confirmed] for the fixture and TilEm execution.</p>
 </div>
 <p>The page rejection returns at <code>3F:4C25</code>. The direct call returns at
 <code>3F:4C2E</code>. The invalid certificate address branches from <code>3F:4E4E</code> to the
-common <code>POP AF; RET</code> tail at <code>3F:4E55</code>–<code>3F:4E56</code>. [confirmed]</p>
+common tail at <code>3F:4E55</code>–<code>3F:4E56</code>:</p>
+<pre><code class="language-z80">POP AF
+RET
+</code></pre>
+<p>[confirmed]</p>
 <p>The erase worker issues the six-cycle AMD sector-erase command: [confirmed]</p>
 <div class="table-wrapper">
 <table>
@@ -8900,10 +9070,15 @@ before the erase branch. <code>_GetCertificateStart</code> preserves <code>DE</c
 push/pop pairs at <code>3F:486E</code>–<code>3F:4884</code>. This path therefore transports archive
 and OS-header metadata through the erase call; it does not establish a Flash
 reset pointer. [confirmed]</p>
-<p>The <code>3D:60EE</code> entry is similarly caller-controlled. Its page-0 thunk is a raw
-<code>CALL 2B09; .dw 6098; .db 7D</code> descriptor at <code>00:3EEB</code>; masking the raw page
-selects physical page <code>3D</code>. The reset caller initializes <code>HL</code>, <code>SP</code>, and <code>IY</code>
-at <code>00:0D65</code>–<code>00:0D6F</code> but not <code>DE</code> before calling the thunk. The page-<code>3D</code>
+<p>The <code>3D:60EE</code> entry is similarly caller-controlled. Its page-0 thunk at
+<code>00:3EEB</code> contains this raw descriptor:</p>
+<pre><code class="language-z80">CALL 2B09
+.dw 6098
+.db 7D
+</code></pre>
+<p>Masking the raw page selects physical page <code>3D</code>. The reset caller initializes
+<code>HL</code>, <code>SP</code>, and <code>IY</code> at <code>00:0D65</code>–<code>00:0D6F</code> but not <code>DE</code> before calling the
+thunk. The page-<code>3D</code>
 body and its Flash-byte reader preserve that inherited value through the erase
 at <code>3D:60EE</code>. [confirmed]</p>
 <p>The GC trace supplies a counterexample to any broader internal convention. Its
@@ -10893,8 +11068,11 @@ The packaged 508-byte <code>HWPRAM.8xp</code> has SHA-256
 <h2 id="execution-protection-fetch-probes"><a class="header" href="#execution-protection-fetch-probes">Execution-protection fetch probes</a></h2>
 <p>Probe ID 4 tests one bank-A selector per program. It scans the configured range
 through data reads for an existing <code>RET</code> byte. It creates a result AppVar with a
-pending outcome, remaps and verifies that byte, and performs <code>PUSH DE; JP (HL)</code>.
-A successful fetch executes <code>RET</code>, returns to the probe, and changes the AppVar
+pending outcome, remaps and verifies that byte, and performs:</p>
+<pre><code class="language-z80">PUSH DE
+JP (HL)
+</code></pre>
+<p>A successful fetch executes <code>RET</code>, returns to the probe, and changes the AppVar
 outcome to <code>returned</code>. The program never writes the selected RAM or Flash page.
 [confirmed] for the assembled instruction sequence.</p>
 <p>The existing <code>RET</code> is also the only target opcode. It has no memory-write or
@@ -11027,7 +11205,7 @@ return early instead. [confirmed] from the assembled probe and the ROM path at
 <code>33:4EDC</code>–<code>33:4EE8</code>.</p>
 <p>After each sequence, the probe reproduces the cleanup at <code>33:4EEB</code>–<code>33:4F00</code>:
 it sets port-<code>0x39</code> bit 4, pulses port-<code>0x3A</code> bit 4 around
-<code>A=0x40; CALL 00:0CED</code>, and clears port-<code>0x3A</code> bits 4 and 7. The common 30-byte
+<code>CALL 00:0CED</code> with <code>A = 0x40</code>, and clears port-<code>0x3A</code> bits 4 and 7. The common 30-byte
 state layout matches the battery-level probe, with raw masks at offsets
 <code>4</code>–<code>19</code> and post-sequence state at offsets <code>20</code>–<code>24</code>. The decoder rejects
 masks above <code>0x0F</code>. It reports a 16-bin histogram, a stable mask only when all
@@ -11754,7 +11932,11 @@ subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
 </tbody>
 </table>
 </div>
-<p><code>ram:1d2f</code> and <code>ram:1d37</code> are two entry points into the same BCD-subtract body — <code>1d2f</code> loads <code>HL=0x8481</code> (OP1 guard), <code>DE=0x848C</code> (OP2 guard) and computes <code>OP2 − OP1</code> into OP2 (<code>LD A,(DE); SUB (HL)</code>), while <code>1d37</code> enters with the pointers swapped for the reverse <code>OP1 − OP2</code>, before joining the common loop — so the caller picks the subtraction direction by choosing the entry. This is what lets <code>_FPAdd</code> produce a non-negative magnitude and then fix the sign.</p>
+<p><code>ram:1d2f</code> and <code>ram:1d37</code> are two entry points into the same BCD-subtract body. <code>1d2f</code> loads <code>HL=0x8481</code> (OP1 guard), <code>DE=0x848C</code> (OP2 guard), and computes <code>OP2 − OP1</code> into OP2:</p>
+<pre><code class="language-z80">LD A,(DE)
+SUB (HL)
+</code></pre>
+<p>The <code>1d37</code> entry uses the pointers in reverse for <code>OP1 − OP2</code>, then joins the common loop. The caller selects the subtraction direction by choosing the entry. This lets <code>_FPAdd</code> produce a non-negative magnitude and then fix the sign.</p>
 <p>Multiply/divide/transcendentals (on page 0x02) reuse the same align/normalize primitives.</p>
 <h2 id="floating-point-stack-fps-standard"><a class="header" href="#floating-point-stack-fps-standard">Floating-point stack (FPS) [standard]</a></h2>
 <p><code>FPS</code> (<code>0x9824</code>) is a software stack for temporaries; <code>_PushRealO1</code> (= <code>RST 18h</code>, <code>ram:155C</code>), <code>_PushReal</code>, <code>_PopRealO1</code> through <code>_PopRealO6</code>, <code>_PopReal</code>, <code>_AllocFPS</code>, and <code>_DeallocFPS</code> manage it. Used to spill OP registers during nested expression evaluation.</p>
@@ -11832,7 +12014,11 @@ supplies the base-conversion and trig-reduction constants. [confirmed]</p>
 (<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/ln2.macro"><code>ln2.macro</code></a>) drives <code>_LnX</code>, whose selector
 (<code>02:6F94</code>) steps <code>A=00…07</code> then <code>08…0F</code> (the coarse/fine split at the <code>6FAD AND 0x8</code>
 / <code>6FD3 BIT 4</code> tests), walking successive <code>02:7181</code> rows with a per-step
-shift-add, then fetches $\ln 10$ via <code>LD A,6; CALL ram:2362</code> and multiplies.
+shift-add, then fetches $\ln 10$:</p>
+<pre><code class="language-z80">LD A,6
+CALL ram:2362
+</code></pre>
+<p>It then multiplies.
 <code>e^{1}</code> (<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/exp1.macro"><code>exp1.macro</code></a>) drives <code>_EToX</code>, which consumes
 the same table in reverse (the inner step is <code>fp_sub_mantissa</code> <code>1d37</code>, the
 accumulator add <code>fp_add_mantissa</code> <code>1cb9</code>), selector sweeping <code>00…0F</code> under the
@@ -11860,31 +12046,70 @@ slots. [confirmed]</p>
 <h3 id="_sincosrad-sine-and-cosine-in-radians-02733e-confirmed"><a class="header" href="#_sincosrad-sine-and-cosine-in-radians-02733e-confirmed"><code>_SinCosRad</code> sine and cosine in radians (<code>02:733E</code>) [confirmed]</a></h3>
 <p>This one keeps its range reduction on page 0x02 and is the most fully recovered:</p>
 <ol>
-<li><strong>Mode/select flags.</strong> <code>0x8499</code> holds the trig-op selector — <code>0x01</code> (sin), <code>0x02</code> (cos), <code>0x04</code> (tan) — ORed with <code>0x80</code> when <code>(IY+0)</code> bit 2 is clear (<code>BIT 2,(IY+0); JR NZ,+2; OR 0x80</code>). <code>_SinCosRad</code> itself enters with <code>A=0x81</code>, so it stores <code>0x81</code> regardless. <code>fp_clear_guard</code> and <code>_ZeroOP3</code> initialize the work area.</li>
-<li><strong>Exponent gate.</strong> <code>LD A,(0x8479); SUB 0x80; JP C,02:73D4; CP 0x0C; JP NC</code> — tiny arguments (negative exponent) take a fast path at <code>02:73D4</code>, and arguments with decimal exponent ≥ 12 are rejected to the slow/error path (<code>_JError 0x84</code> for out-of-range), because reduction can no longer be done accurately.</li>
-<li><strong>Reduce the angle.</strong> It reduces against the stored period constants and takes the fractional part to find the quadrant. The reduction constants are the page-0x02 BCD block:
+<li>
+<p><strong>Mode/select flags.</strong> <code>0x8499</code> holds the trig-op selector — <code>0x01</code> (sin), <code>0x02</code> (cos), <code>0x04</code> (tan) — ORed with <code>0x80</code> when <code>(IY+0)</code> bit 2 is clear:</p>
+<pre><code class="language-z80">BIT 2,(IY+0)
+JR NZ,+2
+OR 0x80
+</code></pre>
+<p><code>_SinCosRad</code> itself enters with <code>A=0x81</code>, so it stores <code>0x81</code> regardless. <code>fp_clear_guard</code> and <code>_ZeroOP3</code> initialize the work area.</p>
+</li>
+<li>
+<p><strong>Exponent gate.</strong> The routine tests the exponent with:</p>
+<pre><code class="language-z80">LD A,(0x8479)
+SUB 0x80
+JP C,02:73D4
+CP 0x0C
+JP NC
+</code></pre>
+<p>Tiny arguments (negative exponent) take a fast path at <code>02:73D4</code>. Arguments with decimal exponent ≥ 12 are rejected to the slow/error path (<code>_JError 0x84</code> for out-of-range), because reduction can no longer be done accurately.</p>
+</li>
+<li>
+<p><strong>Reduce the angle.</strong> It reduces against the stored period constants and takes the fractional part to find the quadrant. The reduction constants are the page-0x02 BCD block:</p>
 <ul>
-<li><code>02:7D81</code> — the 2π full-turn modulus (mantissa <code>62 83 18 53 07 17 96</code> = <code>6.2831853…</code>), copied to the OP3 work reg via <code>LD HL,02:7D81; CALL ram:1AE2</code> (<code>ram:1AE2</code>/<code>copy7_from_8490</code> copies 7 mantissa bytes to <code>0x8490</code>).</li>
-<li><code>02:7D8E</code>, <code>02:7D95</code>, <code>02:7D96</code> — companion constants used in the quadrant-fixup / remainder comparisons (<code>CALL ram:1D7B</code> magnitude compare at <code>02:73B1</code>/<code>02:7447</code>).
-The quadrant (0–3) is accumulated in <code>B</code>/<code>bStack_1</code> (bits 0/3/6) and decides sin-vs-cos and the result sign (the <code>XOR 0x1 / OR 0x8 / XOR 0x8</code> flag juggling at <code>02:7424</code>–<code>02:7464</code>).</li>
+<li>
+<p><code>02:7D81</code> — the 2π full-turn modulus (mantissa <code>62 83 18 53 07 17 96</code> = <code>6.2831853…</code>), copied to the OP3 work register with:</p>
+<pre><code class="language-z80">LD HL,02:7D81
+CALL ram:1AE2
+</code></pre>
+<p><code>ram:1AE2</code>/<code>copy7_from_8490</code> copies 7 mantissa bytes to <code>0x8490</code>.</p>
+</li>
+<li>
+<p><code>02:7D8E</code>, <code>02:7D95</code>, <code>02:7D96</code> — companion constants used in the quadrant-fixup / remainder comparisons (<code>CALL ram:1D7B</code> magnitude compare at <code>02:73B1</code>/<code>02:7447</code>).
+The quadrant (0–3) is accumulated in <code>B</code>/<code>bStack_1</code> (bits 0/3/6) and decides sin-vs-cos and the result sign (the <code>XOR 0x1 / OR 0x8 / XOR 0x8</code> flag juggling at <code>02:7424</code>–<code>02:7464</code>).</p>
+</li>
 </ul>
 </li>
-<li><strong>Per-digit evaluation.</strong> After reduction (<code>02:7475</code> onward, falling through <code>02:7488 LD A,B</code>) the reduced argument in <code>[0, pi/4)</code> drives the same table-stepping digit recurrence as ln/e^x: a selector walks the coefficient table one row per step rather than unrolling a fixed polynomial. The loaders are local — <code>02:74AB: CALL 02:731D</code> reads the signed table at <code>02:7201</code>, <code>02:74EA: CALL 02:7312</code> reads the signed table at <code>02:7281</code> — and the selector advances under <code>BIT 3,B</code> / <code>BIT 3,C</code> in the tail (<code>02:74DD</code>–<code>02:74E0</code>, <code>02:75C6</code>–<code>02:75C8</code>), so the walk covers eight selector rows (<code>0..7</code>), each carrying two 8-byte sign/phase variants. Per-row decoding of <code>02:7201</code>/<code>02:7281</code> is the one piece still open: the rows climb toward 10 (e.g. <code>02:7201[00]</code>=<code>9.9668…</code>, <code>[06]</code>=<code>9.999999…</code>), the shape of a half-angle / rotation factor consumed one digit at a time.</li>
+<li>
+<p><strong>Per-digit evaluation.</strong> After reduction (<code>02:7475</code> onward, falling through <code>02:7488 LD A,B</code>) the reduced argument in <code>[0, pi/4)</code> drives the same table-stepping digit recurrence as ln/e^x: a selector walks the coefficient table one row per step rather than unrolling a fixed polynomial. The loaders are local — <code>02:74AB: CALL 02:731D</code> reads the signed table at <code>02:7201</code>, <code>02:74EA: CALL 02:7312</code> reads the signed table at <code>02:7281</code> — and the selector advances under <code>BIT 3,B</code> / <code>BIT 3,C</code> in the tail (<code>02:74DD</code>–<code>02:74E0</code>, <code>02:75C6</code>–<code>02:75C8</code>), so the walk covers eight selector rows (<code>0..7</code>), each carrying two 8-byte sign/phase variants. Per-row decoding of <code>02:7201</code>/<code>02:7281</code> is the one piece still open: the rows climb toward 10 (e.g. <code>02:7201[00]</code>=<code>9.9668…</code>, <code>[06]</code>=<code>9.999999…</code>), the shape of a half-angle / rotation factor consumed one digit at a time.</p>
+</li>
 </ol>
 <blockquote>
 <p><strong>Dynamic confirmation.</strong> Traced under headless TilEm: <code>sin(1)</code> in radian mode
 (<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/sin1.macro"><code>sin1.macro</code></a>) drives <code>_SinCosRad</code>. The flag init,
-the exponent gate (<code>735D LD A,(0x8479); SUB 0x80; JP C,02:73D4; CP 0x0C; JP NC</code> — neither
-branch taken, since <code>exp(1)=0</code> is in <code>[0,12)</code>), the reduction multiply by the <code>02:7D81</code> constant
-(<code>7372 LD HL,02:7D81; CALL ram:1AE2</code>), and the table-stepping loader <code>02:731D</code> returning
+the exponent gate:</p>
+<pre><code class="language-z80">735D LD A,(0x8479)
+     SUB 0x80
+     JP C,02:73D4
+     CP 0x0C
+     JP NC
+</code></pre>
+<p>Neither branch is taken because <code>exp(1)=0</code> is in <code>[0,12)</code>. The reduction multiply by the <code>02:7D81</code> constant uses:</p>
+<pre><code class="language-z80">7372 LD HL,02:7D81
+     CALL ram:1AE2
+</code></pre>
+<p>The table-stepping loader <code>02:731D</code> returns
 successive rows of <code>02:7201</code> (HL = <code>7209/7219/…/7279</code>, 16-byte stride) all execute as
 described. On-screen result: <code>.8414709848</code>. (Per-row coefficient meaning remains the open piece.)</p>
 </blockquote>
 <h3 id="coefficient-tables-confirmed"><a class="header" href="#coefficient-tables-confirmed">Coefficient tables [confirmed]</a></h3>
 <p><code>coeff_fetch</code> zeroes <code>OP2.value.type</code>, indexes <code>fp_constant_table[A]</code>, then
-copies the selected constant into <code>OP2</code>. The only
-<code>LD A,n; CALL fp_mul_indexed_constant</code> uses in this cluster select row 3
-(<code>log10(e)</code>) and row 6 (<code>ln(10)</code>). Later trig reduction constants are loaded
+copies the selected constant into <code>OP2</code>. The cluster uses this sequence only
+to select row 3 (<code>log10(e)</code>) and row 6 (<code>ln(10)</code>):</p>
+<pre><code class="language-z80">LD A,n
+CALL fp_mul_indexed_constant
+</code></pre>
+<p>Later trig reduction constants are loaded
 directly from the same block.</p>
 <pre><code class="language-text">02:7D42 constants, 9-byte stride:
   [00] 81 57 29 57 79 51 30 82 32
@@ -12266,24 +12491,35 @@ list arguments; the <a href="#stat-command-token-map-confirmed">command token</a
 <pre><code class="language-z80">_OneVar (3A:6420):
   SET 5,(IY+9)            ; statFlags: "stat computation active"
   LD B,0                  ; arg counter
-  RES 1,(IY+0)  ; RES 1,(IY+1a)
+  RES 1,(IY+0)
+  RES 1,(IY+1a)
   LD (9817),0             ; clear a status byte
-  LD HL,8499 ; CALL 1b33  ; stage the parsed arg descriptor at 8499
-  LD A,0FF ; LD (84af),A
+  LD HL,8499
+  CALL 1b33               ; stage the parsed arg descriptor at 8499
+  LD A,0FF
+  LD (84af),A
   CALL _CkOP1Real (1942-ish) / arg-class checks …
   ; ---- argument parsing (6442..64de) ----
   ;   walks the parser argument list, accepting list-name tokens (0x24 list,
   ;   0x2A list-element, 0x1C/0x25/0x19 = freq/list variants); validates count;
   ;   _JError(0x8A) ARGUMENT / 0x88 SYNTAX on a bad arg list.
   ; ---- set up the data pointers (64e1..6503) ----
-  LD HL,847a ; LD DE,8d2a ; CALL 1a9a  ; resolve the x-list (and y/freq) → 84D3..84DB
-  POP AF ; LD (8a36),A          ; *** save the command code → model discriminator ***
-  LD HL,6352 ; CALL 27da        ; install an on-error cleanup frame
+  LD HL,847a
+  LD DE,8d2a
+  CALL 1a9a                     ; resolve the x-list (and y/freq) → 84D3..84DB
+  POP AF
+  LD (8a36),A                   ; *** save the command code → model discriminator ***
+  LD HL,6352
+  CALL 27da                     ; install an on-error cleanup frame
   CALL 6572                     ; accumulation pass
-  CALL 2800 ; CALL 6345         ; tear down frame
+  CALL 2800
+  CALL 6345                     ; tear down frame
   ; ---- regression coefficient region select (6506..652f) ----
-  LD A,(8a36) ; CP 4 ; JR NC,..  ; A&lt;4 ⇒ polynomial regression
-       LD A,16 ; LD HL,8aee      ; coeff dest = QuadA block; … solve
+  LD A,(8a36)
+  CP 4
+  JR NC,..                     ; A&lt;4 ⇒ polynomial regression
+       LD A,16
+       LD HL,8aee              ; coeff dest = QuadA block, then solve
   …
   SET 7,(IY+9)                  ; mark results valid
   CALL 67c1 …                   ; finalize / median
@@ -12341,21 +12577,29 @@ mean, variance, and least-squares normal equations. Read from disassembly:</p>
 <pre><code class="language-z80">6572: CALL 6f90/6f7d         ; default freq = 1 if no freq list given
 6584: CALL 21bb              ; if freq list present, length-check vs x-list
                              ;   → _ErrDimMismatch (2715) on mismatch
-658a: LD HL,(84d3)          ; HL = first element ptr; DE = element count
+658a: LD HL,(84d3)          ; HL = first element ptr, DE = element count
 6590: LD A,(8a36)           ; dispatch on command:
    CP 8 (Med-Med) → jump to the resistant-line path (760f/75e4 → 79b9)
    else compute the matrix dimension from the degree:
-        CP 1c/25/19/9 → dim=4 ; CP 5 (CubicReg) NC → dim+? ; default
-   65c1: A = dim ; SUB 2 ; PUSH AF
+        CP 1c/25/19/9 → dim=4
+        CP 5 (CubicReg) NC → dim+?
+        default
+   65c1: A = dim
+         SUB 2
+         PUSH AF
 65cd: set up x/y element pointers (84d5/84d7/84db)
 65f0: ---- per-element accumulator init ----
-   LD DE,8a3a ; … CALL 1a92  ; StatN slot
+   LD DE,8a3a
+   … CALL 1a92              ; StatN slot
    LD DE,8a94                ; YMean/Σy slots
    CALL 110f                 ; allocate the sums matrix (84d9 = base)
 6646..66fe: ---- per-element loop ----
    6f6a  : fetch next x (and y) list element, advance ptr
    28e4/2297 : loop bound (RST FPSub / compare)
-   6567  : helper = (RST 8: OP1→OP2) ; LD HL,(84af) ; CALL 6f7d ; _FPMult (238b)
+   6567  : helper = (RST 8: OP1→OP2)
+           LD HL,(84af)
+           CALL 6f7d
+           _FPMult (238b)
            → forms the running power x^k · freq
    238a  : _FPSquare (Σx²)
    238b  : _FPMult   (Σxy, Σx^(i+j))
@@ -12372,22 +12616,37 @@ power-sums <code>Σxⁱ</code> (i = 0 … 2d) and the right-hand side <code>Σx�
 <code>658a</code>+ checks the command code and, for <code>ExpReg</code>/<code>PwrReg</code> (<code>ln y</code>),
 <code>LnReg</code>/<code>PwrReg</code> (<code>ln x</code>), pre-applies the logarithm to each element before
 accumulating, then exponentiates the resulting linear coefficients off page 0x3A. The
-per-element <code>ln</code> is in the element fetch <code>stat_next_elem</code> (<code>3A:6F6A</code>):
-<code>LD A,(8A36); CP 4; RET NC</code> then <code>bcall _LnX</code> at <code>3A:6F72</code> for model codes <code>&lt; 4</code> (<code>ExpReg</code>/<code>LnReg</code>/<code>PwrReg</code>); the
+per-element <code>ln</code> is in the element fetch <code>stat_next_elem</code> (<code>3A:6F6A</code>):</p>
+<pre><code class="language-z80">LD A,(8A36)
+CP 4
+RET NC
+</code></pre>
+<p>This is followed by <code>bcall _LnX</code> at <code>3A:6F72</code> for model codes <code>&lt; 4</code>
+(<code>ExpReg</code>/<code>LnReg</code>/<code>PwrReg</code>); the
 back-transform <code>_EToX</code>/<code>_TenX</code> lives on page <code>02</code>; see <a href="#transcendentals">Transcendentals</a>. This is the standard
 “linearize, fit a line, transform back” method; <code>r</code> is the correlation of the
 <em>transformed</em> data.</p>
 <h3 id="mean-and-standard-deviation-confirmed"><a class="header" href="#mean-and-standard-deviation-confirmed">Mean and standard deviation [confirmed]</a></h3>
 <p>After the pass, <code>_OneVar</code> finalizes the moments (<code>3A:6762</code>+):</p>
-<pre><code class="language-z80">6762: LD DE,8a67 ; CALL 6984   ; σx  (population) from Σx², Σx, n
-6786: LD DE,8a5e ; CALL 6989   ; Sx  (sample), via _Minus1 (n→n-1) at 677c
-6798: LD DE,8a55 ; CALL 6998   ; Σx² slot
-67a7: LD DE,8aa6 ; CALL 6998   ; Σy²   (2-Var)
+<pre><code class="language-z80">6762: LD DE,8a67
+      CALL 6984               ; σx  (population) from Σx², Σx, n
+6786: LD DE,8a5e
+      CALL 6989               ; Sx  (sample), via _Minus1 (n→n-1) at 677c
+6798: LD DE,8a55
+      CALL 6998               ; Σx² slot
+67a7: LD DE,8aa6
+      CALL 6998               ; Σy²   (2-Var)
 </code></pre>
 <p>The variance helpers (<code>3A:6984</code>/<code>6989</code>/<code>6998</code>) implement the one-pass formula
 <code>var = (Σx² − n·x̄²)/N</code> then <code>√</code>:</p>
-<pre><code class="language-z80">6998: _FPSquare(x̄) ; recall Σx² (15da) ; _FPMult ; (RST 30 _FPAdd / subtract) ; …
-6989: CALL _FPDiv (2541) ; CALL 3939 (_SqRoot wrapper) ; store
+<pre><code class="language-z80">6998: _FPSquare(x̄)
+      recall Σx² (15da)
+      _FPMult
+      RST 30                 ; _FPAdd / subtract
+      …
+6989: CALL _FPDiv (2541)
+      CALL 3939              ; _SqRoot wrapper
+      store
 </code></pre>
 <p>The <em>only</em> difference between σx (population) and Sx (sample) is the divisor:
 the population path divides by <code>n</code>, the sample path first does <code>_Minus1</code>
@@ -12397,17 +12656,25 @@ the population path divides by <code>n</code>, the sample path first does <code>
 <p>For a polynomial fit the moment matrix from the <a href="#accumulation-pass-confirmed">accumulation pass</a> is the augmented normal-equations
 matrix <code>[ M | Σxⁱy ]</code>. <code>_OneVar</code> solves it in place by Gauss-Jordan elimination
 (not a closed-form determinant), then writes the coefficients to <code>QuadA…QuartE</code>.</p>
-<pre><code class="language-z80">67c6: build/copy the augmented matrix; 84d9 = base
+<pre><code class="language-z80">67c6: build/copy the augmented matrix
+      84d9 = base
 67d4..67e3: scale the pivot row
-67ec: LD BC,0202 ; CALL 3aad        ; pivot element (2,2)
+67ec: LD BC,0202
+      CALL 3aad                     ; pivot element (2,2)
 67f7: CALL 212d                     ; _ErrD check (zero pivot → SINGULAR MAT 0x83)
-67fa: RST 8 ; …                     ; pivot reciprocal
+67fa: RST 8                         ; pivot reciprocal
+      …
 6804: CALL 2541 (_FPDiv)            ; divide row by pivot
 680d..6815: elimination loop
-6845: CALL 3939 (_SqRoot) ; 6849 ; CALL 2541 (_FPDiv)  ; (forms r²/r from the fit)
-684f: LD A,12 ; CALL 213d           ; r-related store/guard
+6845: CALL 3939                     ; _SqRoot forms r²/r from the fit
+6849: CALL 2541                     ; _FPDiv
+684f: LD A,12
+      CALL 213d                     ; r-related store/guard
 6859..6876: row-reduce all other rows (3aa7 get, 238b _FPMult, RST 30 _FPAdd)
-6880: CALL 2541 (_FPDiv) ; CP 2 ; LD A,0x35/0x36 ; CALL 213d  ; *** _Sto_StatVar stores into the
+6880: CALL 2541                     ; _FPDiv
+      CP 2
+      LD A,0x35/0x36
+      CALL 213d                     ; *** _Sto_StatVar stores into the
                                                               ; statVar slots id 0x35/0x36 — NOT a SingularMat raise.
                                                               ; the zero-pivot guard is the 67F7→212D path → 0x83.
 68d6..6953: back-substitution — each coeff = (rhs − Σ known·M) / pivot
@@ -12433,7 +12700,11 @@ centred sums:</p>
 <p>$$r=\frac{\sum (x-\bar x)(y-\bar y)}{\sqrt{\sum (x-\bar x)^2\,\sum (y-\bar y)^2}}=\frac{n\sum xy-\sum x\sum y}{\sqrt{\big(n\sum x^2-(\sum x)^2\big)\big(n\sum y^2-(\sum y)^2\big)}}$$</p>
 <p>assembled with <code>_FPMult</code>/<code>_FPSub</code>/<code>_SqRoot</code>/
 <code>_FPDiv</code> (the <code>6845</code>/<code>684c</code> cluster) and stored to <code>Corr</code> (<code>8ACA</code>). The store offset is
-pinned: at <code>3A:684F</code> the code does <code>LD A,0x12 ; CALL 0x213D</code>, and <code>0x213D</code> is
+pinned at <code>3A:684F</code>:</p>
+<pre><code class="language-z80">LD A,0x12
+CALL 0x213D
+</code></pre>
+<p><code>0x213D</code> is
 <code>_Sto_StatVar</code> (the store counterpart of <code>_Rcl_StatVar 00:2149</code> — both funnel through the
 <code>0x3E07</code> statVar dispatcher with the name id in <code>A</code>). Id <code>0x12</code> = <code>tCorr</code> = the <code>Corr</code>
 slot, so this single sequence is exactly <code>r → Corr (8ACA)</code>. The preceding <code>3A:6845</code>
@@ -12577,22 +12848,33 @@ equations, depositing every output as a named <code>TIFloat</code> in the <code>
 =<code>_SqRoot</code>, <code>24BD</code>=<code>_InvOP1S</code>.</p>
 <h2 id="remaining-questions"><a class="header" href="#remaining-questions">Remaining questions</a></h2>
 <ul>
-<li><strong><code>r</code> store offset.</strong> <code>3A:684F</code> does <code>LD A,0x12 ; CALL 0x213D</code>
-(<code>_Sto_StatVar</code>, id <code>0x12</code> = <code>tCorr</code>), i.e. <code>r → Corr (8ACA)</code>; <code>r²</code>/<code>R²</code> is the
+<li>
+<p><strong><code>r</code> store offset.</strong> <code>3A:684F</code> does:</p>
+<pre><code class="language-z80">LD A,0x12
+CALL 0x213D
+</code></pre>
+<p>(<code>_Sto_StatVar</code>, id <code>0x12</code> = <code>tCorr</code>), i.e. <code>r → Corr (8ACA)</code>; <code>r²</code>/<code>R²</code> is the
 <code>r·r</code>/coefficient-of-determination from the same <code>6845</code> <code>_SqRoot</code>/<code>_FPDiv</code> cluster, surfaced
 through the same <code>Corr</code> slot in the <a href="#regression-solver-confirmed">regression solver</a>. (Residual: the <code>6845-6891</code> region is unanalyzed code in the
-DB, so only the <code>A=0x12</code> store sequence was byte-pinned, not every intermediate.)</li>
-<li><strong>DISTR numerical cores</strong> (erf/incomplete-gamma/incomplete-beta) are
+DB, so only the <code>A=0x12</code> store sequence was byte-pinned, not every intermediate.)</p>
+</li>
+<li>
+<p><strong>DISTR numerical cores</strong> (erf/incomplete-gamma/incomplete-beta) are
 <em>outside</em> the STAT-CALC engine: no distribution core is a named routine in this DB; they sit
-behind the parser’s 2-byte DISTR-token function table described under <a href="#distr-functions-confirmed">DISTR functions</a>. Exact address [hypothesis].</li>
-<li><strong>STAT-TESTS</strong> (Z/T/χ²/F/ANOVA) that fill <code>PStat…SStat</code>/<code>anovaf_vars</code> are
+behind the parser’s 2-byte DISTR-token function table described under <a href="#distr-functions-confirmed">DISTR functions</a>. Exact address [hypothesis].</p>
+</li>
+<li>
+<p><strong>STAT-TESTS</strong> (Z/T/χ²/F/ANOVA) that fill <code>PStat…SStat</code>/<code>anovaf_vars</code> are
 <em>separate command handlers</em>, not reached through <code>_OneVar</code> (whose tokens are only <code>F2</code>–<code>FF</code>);
-no <code>PStat</code>-writing routine is among the page-<code>3A</code> <code>stat_*</code> symbols in the <a href="#statvars-result-block-confirmed"><code>statVars</code> result block</a>. Per-test addresses [hypothesis].</li>
-<li><code>stat_sort</code> (<code>3A:7935</code>) is a 49-byte setup that validates/counts the elements
+no <code>PStat</code>-writing routine is among the page-<code>3A</code> <code>stat_*</code> symbols in the <a href="#statvars-result-block-confirmed"><code>statVars</code> result block</a>. Per-test addresses [hypothesis].</p>
+</li>
+<li>
+<p><code>stat_sort</code> (<code>3A:7935</code>) is a 49-byte setup that validates/counts the elements
 then dispatches the compare-swap via <code>rst 28h</code> (the bcall site isn’t fully
 analyzed in the DB). The <code>SortA(</code>/<code>SortD(</code> <em>command</em> sort is a different routine
 (page 0x02, comparator <code>_CpOP1OP2</code>) — its complex-list ordering is documented in
-<a href="#sorta-and-sortd-list-sorting-confirmed">Matrices and lists</a>.</li>
+<a href="#sorta-and-sortd-list-sorting-confirmed">Matrices and lists</a>.</p>
+</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="matrices-and-lists"><a class="header" href="#matrices-and-lists">Matrices and lists</a></h1>
@@ -12613,7 +12895,7 @@ not reduce reliably.</p>
 lives at $\mathrm{addr}(L_i)=\mathrm{data}+2+(i-1)\cdot 9$.</p>
 </li>
 <li>
-<p>A matrix is <code>byte dim0; byte dim1;</code> (two 1-byte dimensions) followed by
+<p>A matrix starts with the one-byte fields <code>dim0</code> and <code>dim1</code>, in that order, followed by
 <code>dim0*dim1</code> × 9-byte <code>TIFloat</code>, stored column-major. The element offset from the start
 of the data area (after the 2 dim bytes) is</p>
 <p>$$\mathrm{offset}=\big((\mathit{idx}_0-1)\cdot \mathit{dim}_0+(\mathit{idx}_1-1)\big)\times 9$$</p>
@@ -12651,18 +12933,28 @@ flag and 18-byte elements.</p>
   header: LD (HL),C ; INC HL ; LD (HL),B   ; writes dim0 then dim1
 </code></pre>
 <ul>
-<li><code>_HTimesL</code> (<code>00:1EF6</code>) computes <code>result = H * L</code> (<code>B=H; HL=Σ L</code>, a <code>DJNZ</code> add loop) —
-it computes the element count from the two dimension bytes. [confirmed]</li>
+<li><code>_HTimesL</code> (<code>00:1EF6</code>) computes <code>result = H * L</code>. It initializes <code>B=H</code>, then
+accumulates <code>HL=Σ L</code> with a <code>DJNZ</code> add loop. This computes the element count
+from the two dimension bytes. [confirmed]</li>
 <li>Header = two bytes <code>dim0,dim1</code>; data is <code>dim0*dim1</code> floats column-major.</li>
 </ul>
 <blockquote>
 <p><strong>Dimension naming.</strong> [confirmed] Settled by disassembly. <code>_AdrMEle</code> (<code>02:4002</code>) reads the header’s
-first byte (<code>LD A,(DE); LD L,A</code>) and uses it as the major stride, looping <code>(B−1)</code>
-adds of it and then <code>+(C−1)</code> <em>within</em> a column (column-major). The major stride of a
+first byte and copies it into <code>L</code>:</p>
+<pre><code class="language-z80">LD A,(DE)
+LD L,A
+</code></pre>
+<p>It uses that byte as the major stride, looping <code>(B−1)</code> adds of it and then
+<code>+(C−1)</code> <em>within</em> a column (column-major). The major stride of a
 column-major array is the number of rows, so the first header byte (<code>dim0</code>) = #rows,
 and <code>_AdrMEle</code>’s <code>B = idx0 = column</code>, <code>C = idx1 = row</code>. <code>_CreateRMat</code> (<code>ram:1115</code>) confirms
-the layout: it is <code>PUSH HL ; CALL _HTimesL (1EF6) ; LD A,2 ; JR 10DD</code> — <code>_HTimesL</code> returns
-<code>H·L</code> (the element count) and <code>A=2</code> is the 2-byte dim header; the two dimension bytes are
+the layout:</p>
+<pre><code class="language-z80">PUSH HL
+CALL _HTimesL ; 1EF6
+LD A,2
+JR 10DD
+</code></pre>
+<p><code>_HTimesL</code> returns <code>H·L</code> (the element count), and <code>A=2</code> is the 2-byte dim header; the two dimension bytes are
 stored <code>dim0</code> (rows) then <code>dim1</code> (cols). The byte-confirmed index arithmetic
 <code>((idx0−1)·dim0 + (idx1−1))·9</code> is therefore a (column, row) register convention with a row-count stride.</p>
 </blockquote>
@@ -12672,7 +12964,8 @@ stored <code>dim0</code> (rows) then <code>dim1</code> (cols). The byte-confirme
 pointer, then a 9-byte move shuttles the <code>TIFloat</code> to/from <code>OP1</code>.</p>
 <h3 id="list-element-address--_adrlele-0247c5"><a class="header" href="#list-element-address--_adrlele-0247c5">List element address — <code>_AdrLEle</code> (<code>02:47C5</code>)</a></h3>
 <pre><code class="language-z80">_AdrLEle(index, listDataPtr):           ; HL=index, DE=listDataPtr
-  INC DE ; INC DE                        ; skip the 2-byte count header
+  INC DE
+  INC DE                                 ; skip the 2-byte count header
   A = (DE) &amp; 0x1F                         ; element type (low 5 bits); 0x0C ⇒ complex
   CALL 21C4                               ; classify real vs complex element width
   HL = (index − 1)                        ; _HLTimes9(index-1)
@@ -12696,7 +12989,8 @@ bounds (loads <code>A=0x15</code> = <code>E_Stat</code> and jumps to the error v
 </ul>
 <h3 id="matrix-element-address--_adrmele-024002-confirmed"><a class="header" href="#matrix-element-address--_adrmele-024002-confirmed">Matrix element address — <code>_AdrMEle</code> (<code>02:4002</code>) [confirmed]</a></h3>
 <pre><code class="language-z80">_AdrMEle:                                 ; B=column idx0, C=row idx1, DE=matrixDataPtr
-  if B==0 or C==0 -&gt; LD A,0x78 ; JP 0x2793 ; 0-index rejected (error vector)
+  if B==0 or C==0 -&gt; LD A,0x78
+                       JP 0x2793         ; 0-index rejected (error vector)
   A = (DE)        ; A = dim0 (rows)        ; first header byte
   HL = 0
   repeat (B − 1) times:  HL += dim0        ; (idx0-1) * dim0     (column stride)
@@ -12712,23 +13006,55 @@ multiplied byte is <code>dim0</code> and that is the row count (column-major maj
 is the column index and <code>C=idx1</code> is the row index; see <a href="#data-layouts-and-creator-routines-confirmed">Data layouts and creator routines</a>. [confirmed]</p>
 <p>Matrix element wrappers: [confirmed]</p>
 <ul>
-<li><code>_AdrMRow</code> (<code>02:4000</code>) — address of the <em>start of column idx0</em> in the column-major buffer
-(loops <code>(idx0−1)</code> × dim0, no <code>+(idx1-1)</code>); whole-row operations layer their own iteration on top.</li>
-<li><code>_GetMToOP1</code> (<code>02:4044</code>) — <code>[M](r,c)</code> → OP1 (<code>_AdrMEle</code> then <code>RST4</code> = load 9 bytes).</li>
-<li><code>_PutToMat</code> (<code>02:406C</code>) = <code>mele_store_ckvalid</code> (<code>02:4068</code>): <code>_AdrMEle ; _CkValidNum ; _MovFrOP1</code> — OP1 →
-<code>[M](r,c)</code> with validation.</li>
-<li><code>_StMatEl</code> (<code>38:6C8F</code>) — high-level “store into <code>[M](r,c)</code>” used by the parser: resolves
+<li>
+<p><code>_AdrMRow</code> (<code>02:4000</code>) — address of the <em>start of column idx0</em> in the column-major buffer
+(loops <code>(idx0−1)</code> × dim0, no <code>+(idx1-1)</code>); whole-row operations layer their own iteration on top.</p>
+</li>
+<li>
+<p><code>_GetMToOP1</code> (<code>02:4044</code>) — <code>[M](r,c)</code> → OP1 (<code>_AdrMEle</code> then <code>RST4</code> = load 9 bytes).</p>
+</li>
+<li>
+<p><code>_PutToMat</code> (<code>02:406C</code>) = <code>mele_store_ckvalid</code> (<code>02:4068</code>):</p>
+<pre><code class="language-z80">_AdrMEle
+_CkValidNum
+_MovFrOP1
+</code></pre>
+<p>This stores OP1 in <code>[M](r,c)</code> with validation.</p>
+</li>
+<li>
+<p><code>_StMatEl</code> (<code>38:6C8F</code>) — high-level “store into <code>[M](r,c)</code>” used by the parser: resolves
 the matrix name (<code>5F45</code>), bounds-checks indices against the dims (<code>r≤rows &amp;&amp; c≤cols</code>, else
-<code>_JError 0x8C</code> = <code>E_Dimension</code>), unarchives if needed, then <code>_PutToMat</code>. [standard]</li>
+<code>_JError 0x8C</code> = <code>E_Dimension</code>), unarchives if needed, then <code>_PutToMat</code>. [standard]</p>
+</li>
 </ul>
 <h3 id="internal-index-helpers-reused-by-the-algorithms-confirmed"><a class="header" href="#internal-index-helpers-reused-by-the-algorithms-confirmed">Internal index helpers reused by the algorithms [confirmed]</a></h3>
 <ul>
-<li><code>mele_adr_af_jp</code> (<code>02:403C</code>) = <code>_AdrMEle(currentIJ) ; RST4</code> — “load <code>[M](i,j)</code> to OP1” (the elimination
-inner-loop read). Indices come from the loop state at <code>84AF/84B3/84B4</code>.</li>
-<li><code>mele_adr_to8483</code> (<code>02:4051</code>) = <code>_AdrMEle ; _Mov9B(→OP2@8483)</code> — load element to OP2.</li>
-<li><code>mele_put_af</code> (<code>02:405A</code>) / <code>mele_put_d3</code> (<code>02:405E</code>) = <code>_AdrMEle ; _CkValidNum ; _MovFrOP1</code> — store OP1 back to <code>[M](i,j)</code>.</li>
-<li><code>list_idx_times9</code> (<code>35:79E9</code>) = <code>_HLTimes9(idx)</code> then a small dispatch (<code>RST4</code>) — the list
-analogue used in a few list-builder paths.</li>
+<li>
+<p><code>mele_adr_af_jp</code> (<code>02:403C</code>) loads <code>[M](i,j)</code> to OP1:</p>
+<pre><code class="language-z80">_AdrMEle(currentIJ)
+RST4
+</code></pre>
+<p>This is the elimination inner-loop read. Indices come from the loop state at
+<code>84AF/84B3/84B4</code>.</p>
+</li>
+<li>
+<p><code>mele_adr_to8483</code> (<code>02:4051</code>) loads an element to OP2:</p>
+<pre><code class="language-z80">_AdrMEle
+_Mov9B ; destination OP2 at 0x8483
+</code></pre>
+</li>
+<li>
+<p><code>mele_put_af</code> (<code>02:405A</code>) and <code>mele_put_d3</code> (<code>02:405E</code>) store OP1 back to
+<code>[M](i,j)</code>:</p>
+<pre><code class="language-z80">_AdrMEle
+_CkValidNum
+_MovFrOP1
+</code></pre>
+</li>
+<li>
+<p><code>list_idx_times9</code> (<code>35:79E9</code>) = <code>_HLTimes9(idx)</code> then a small dispatch (<code>RST4</code>) — the list
+analogue used in a few list-builder paths.</p>
+</li>
 </ul>
 <hr>
 <h2 id="list-operations-standard"><a class="header" href="#list-operations-standard">List operations [standard]</a></h2>
@@ -12829,7 +13155,8 @@ reallocates via <code>_RedimMat</code> (<code>07:4D3B</code>), preserving overla
 ones. [standard]</li>
 <li><code>identity(n)</code> (token <code>0xB4</code> → <code>identity_build</code> (<code>02:4108</code>)) [confirmed]: allocate <code>n×n</code>, then walk every cell
 writing <code>1.0</code> when <code>row==col</code> (the <code>exp==type</code> test) and <code>0</code> otherwise:
-<pre><code class="language-z80">_OP1Set1 ; for each (i,j): if i==j -&gt; store 1.0 (mantissa[0]=0x10) else 0
+<pre><code class="language-z80">_OP1Set1
+for each (i,j): if i==j -&gt; store 1.0 (mantissa[0]=0x10) else 0
 </code></pre>
 </li>
 <li><code>Fill(value,[M])</code> / <code>randM(</code> stamp a constant / random values across all cells via a
@@ -12838,12 +13165,19 @@ per-cell loop over the whole matrix. The <code>02:62D4</code> branch (<code>CP 0
 (<code>631B</code>/<code>631C</code>/<code>4825</code>) but performs no fill. <code>randM(</code> itself is a separate 2-byte token
 (<code>tRandM</code> = <code>0x20</code>, <code>0xBB</code>-prefix group); its per-cell random fill is the one residual still
 open in <a href="#matrix-operations-confirmed">Matrix operations</a> — it does not use the <code>_Random</code> bcall (<code>0x4B79</code>): a ROM-wide scan finds
-zero <code>RST 28h; .dw 0x4B79</code> sites, so randM’s randomness comes from some other path. [standard]</li>
+no <code>RST 28h</code> followed by <code>.dw 0x4B79</code>, so randM’s randomness comes from some other path. [standard]</li>
 <li>Matrix copy/reshape = <code>_DataSize</code>-counted byte copy of the float payload
 (<code>mele_copy9_d3</code> (<code>02:4539</code>)/<code>mele_copy9_loop</code> (<code>02:453F</code>)). [confirmed]</li>
 </ul>
 <h3 id="a--b-a---b-scalara--element-wise-standard"><a class="header" href="#a--b-a---b-scalara--element-wise-standard"><code>[A] + [B]</code>, <code>[A] - [B]</code>, scalar·[A] — element-wise [standard]</a></h3>
-<p>Binary matrix add/sub apply the FP op per cell with a nested <code>for col { for row { load [M](r,c)→OP1; op; store } }</code> walk and require equal dims (<code>_ErrDimMismatch 0x8B</code>). The nested two-counter cell
+<p>Binary matrix add/sub apply the FP op per cell with a nested walk:</p>
+<pre><code class="language-pseudocode">for each column:
+  for each row:
+    load [M](r,c) -&gt; OP1
+    apply the FP operation
+    store the result
+</code></pre>
+<p>The operation requires equal dims (<code>_ErrDimMismatch 0x8B</code>). The nested two-counter cell
 walk at <code>02:412A</code> is the transpose copy (§ transpose); the add/sub element-loop driver is a
 sibling in the same <code>412A</code>–<code>414E</code> family and is inferred here. [standard]</p>
 <h3 id="a--b--matrix-multiply-confirmed"><a class="header" href="#a--b--matrix-multiply-confirmed"><code>[A] * [B]</code> — matrix multiply [confirmed]</a></h3>
@@ -12868,18 +13202,35 @@ from direct <code>rom.bin</code> decoding; callers <code>02:5FFF</code>, <code>0
 are byte-verified.</p>
 <h3 id="transpose-aᵀ--02412a-dispatched-from-the-ᵀ-token-0x0e-confirmed"><a class="header" href="#transpose-aᵀ--02412a-dispatched-from-the-ᵀ-token-0x0e-confirmed">Transpose <code>[A]ᵀ</code> — <code>02:412A</code>, dispatched from the <code>ᵀ</code> token <code>0x0E</code> [confirmed]</a></h3>
 <p>The transpose operator <code>ᵀ</code> is the postfix token <code>tTrnspos</code> = <code>0x0E</code>. The page-02 command
-dispatcher handles it at <code>02:60E9</code> (<code>CP 0x0E</code>): it requires one matrix operand (<code>CP 0x02 ; JR NZ</code>), swaps the two dimension bytes for the result header (<code>60F5: LD A,H ; LD H,L ; LD L,A</code>),
-allocates the transposed-shape matrix (<code>5DBB</code>/<code>5DE0</code>), runs the per-cell copy body at <code>02:412A</code>,
+dispatcher handles it at <code>02:60E9</code> (<code>CP 0x0E</code>): it requires one matrix operand:</p>
+<pre><code class="language-z80">CP 0x02
+JR NZ
+</code></pre>
+<p>It swaps the two dimension bytes for the result header:</p>
+<pre><code class="language-z80">60F5: LD A,H
+      LD H,L
+      LD L,A
+</code></pre>
+<p>The handler allocates the transposed-shape matrix (<code>5DBB</code>/<code>5DE0</code>), runs the per-cell copy body at <code>02:412A</code>,
 then stores via <code>JP 0x5F89</code>. <code>02:412A</code> has exactly one caller, <code>02:60FE</code> (byte-verified <code>CD 2A 41</code>).</p>
 <p><code>02:412A</code> is the transpose copy [confirmed]. It walks every source cell and writes the value into the
 destination whose <code>_AdrMEle</code> stride is the <em>swapped</em> dimension, so <code>dst(c,r) = src(r,c)</code>:</p>
 <pre><code class="language-z80">412A: LD HL,(84AF)              ; loop counters = dims
 412E: CALL 403C                 ; load src [M] (B=col,C=row) from (84D3) → OP1
-4131: LD HL,(84AF) ; LD B,L ; LD C,H
+4131: LD HL,(84AF)
+      LD B,L
+      LD C,H
 4136: CALL 4068                 ; store OP1 → dst [M] via dest ptr (84D7)
-4139: DEC (84AF) ; JR NZ,412E   ; inner counter
-4141: LD (HL),C ; INC HL ; DEC (HL) ; JR NZ,412E  ; outer counter
-4146: POP HL ; LD B,L ; LD C,H ; RET
+4139: DEC (84AF)
+      JR NZ,412E                ; inner counter
+4141: LD (HL),C
+      INC HL
+      DEC (HL)
+      JR NZ,412E                ; outer counter
+4146: POP HL
+      LD B,L
+      LD C,H
+      RET
 </code></pre>
 <p><code>403C</code> reads from the source data pointer <code>(84D3)</code>; <code>4068</code> writes to the destination pointer
 <code>(84D7)</code>. Because the destination header carries the dims swapped (the <code>60F5</code> swap), <code>_AdrMEle</code>
@@ -12890,7 +13241,7 @@ walk lands element <code>src(r,c)</code> at <code>dst(c,r)</code> — a true tra
 not the transpose body. [confirmed]</p>
 <h3 id="augment-dim-listmatr-matrlist--per-function-drivers-standard"><a class="header" href="#augment-dim-listmatr-matrlist--per-function-drivers-standard"><code>augment(</code>, <code>dim(</code>, <code>List►matr(</code>, <code>Matr►list(</code> — per-function drivers [standard]</a></h3>
 <p>These are dispatched from the page-02 function-token evaluator (<code>list_fold_dispatch</code>, the
-<code>CP imm ; JR/JP</code> chain that runs <code>5E46</code>/<code>60C8</code>–<code>63xx</code>, keyed on the token byte). Each command’s
+<code>CP imm</code> chain followed by <code>JR</code> or <code>JP</code> that runs <code>5E46</code>/<code>60C8</code>–<code>63xx</code>, keyed on the token byte). Each command’s
 body and its single caller are byte-verified below.</p>
 <div class="table-wrapper">
 <table>
@@ -12898,10 +13249,10 @@ body and its single caller are byte-verified below.</p>
 <tr><th>Command</th><th>dispatch site</th><th>body</th><th>what the disassembly shows</th></tr>
 </thead>
 <tbody>
-<tr><td><code>Matr►list(</code></td><td><code>0x8D</code> @ <code>6388</code></td><td><code>02:4773</code> (2-arg), <code>02:49E3</code> (1-arg list copy)</td><td>[confirmed] The <code>0x8D</code> branch splits on argument count (<code>638D: CP 0x02</code>). The column-extract engine is <code>02:4773</code> (2-arg path: <code>639D: CALL 5DD8 ; CALL 4773</code>; only caller <code>63A0</code>, byte-verified <code>CD 73 47</code>): it nests a per-row loop (<code>477B: LD B,1 …</code>, reading via <code>4040</code> <code>_AdrMRow</code>/<code>4068</code> <code>mele_store_ckvalid</code>) inside a column loop over <code>(84AF)</code>, copying matrix columns into list element(s) (<code>4051</code>/<code>479F</code>). The 1-arg/list path uses <code>02:49E3</code> (<code>6397: CALL 0x49E3</code>), a list-element copy-until-length-match (<code>47E6</code> recall, <code>4825</code> store, <code>21BB</code> compare vs <code>(84AF)</code>, <code>RET Z</code>).</td></tr>
+<tr><td><code>Matr►list(</code></td><td><code>0x8D</code> @ <code>6388</code></td><td><code>02:4773</code> (2-arg), <code>02:49E3</code> (1-arg list copy)</td><td>[confirmed] The <code>0x8D</code> branch splits on argument count (<code>638D: CP 0x02</code>). The column-extract engine is <code>02:4773</code> (2-arg path: <code>639D: CALL 5DD8</code><br><code>CALL 4773</code>; only caller <code>63A0</code>, byte-verified <code>CD 73 47</code>): it nests a per-row loop (<code>477B: LD B,1 …</code>, reading via <code>4040</code> <code>_AdrMRow</code>/<code>4068</code> <code>mele_store_ckvalid</code>) inside a column loop over <code>(84AF)</code>, copying matrix columns into list element(s) (<code>4051</code>/<code>479F</code>). The 1-arg/list path uses <code>02:49E3</code> (<code>6397: CALL 0x49E3</code>), a list-element copy-until-length-match (<code>47E6</code> recall, <code>4825</code> store, <code>21BB</code> compare vs <code>(84AF)</code>, <code>RET Z</code>).</td></tr>
 <tr><td>transpose <code>ᵀ</code></td><td><code>0x0E</code> @ <code>60E9</code></td><td><code>02:412A</code></td><td>[confirmed] Swaps the dim header (<code>60F5</code>), allocates the transposed shape, then <code>412A</code> copies <code>dst(c,r)=src(r,c)</code> over every cell (<code>403C</code> read from <code>(84D3)</code>, <code>4068</code> write to <code>(84D7)</code>); only caller <code>60FE</code>. See the transpose subsection above.</td></tr>
-<tr><td><code>augment(</code></td><td><code>0x91</code> @ <code>635B</code></td><td><code>02:6238</code> copy [confirmed]; <code>02:4663</code> engine [standard]</td><td>The <code>0x91</code> branch requires two operands (<code>CP 0x02</code>), reads the dims (<code>5D98</code>), and checks the two row counts with <code>LD A,H ; CP L</code>: equal rows fall through (<code>JR Z</code>) and <code>H&gt;L</code> raises <code>E_Dimension</code> (<code>JP NC,2719</code>). It then runs the column-concatenation copy at <code>02:6238</code> [confirmed]: <code>6238</code> allocates the result (<code>5DE0</code> → <code>5DE6</code> → <code>_CreateRMat 110F</code>) and bulk-copies the float payload with <code>02:4539</code> (<code>mele_copy9_d3</code> — skip the 2 dim bytes, <code>LDIR</code> the column-major data), re-pointing <code>84D3←84D7</code>. The branch then calls <code>02:4663</code> (<code>6379</code>, only caller; byte-verified <code>CD 63 46</code>), a partial-pivoting elimination engine: it computes <code>min(H,L)</code> (<code>4672: LD A,H ; CP L ; JR C ; LD L,H</code>), inits via <code>475E</code>, and iterates from <code>BC=0x0101</code> calling <code>461C</code> (max-abs), <code>41D0</code> (pivot-column scan), <code>198D</code> (compare), <code>471C</code> (permutation swap) and <code>405E</code> (store). The column-concat copy (<code>6238</code>/<code>4539</code>) is confirmed augment behaviour [confirmed]; <code>4663</code>’s elimination pass on the concatenated result is byte-confirmed but its role for plain <code>augment(</code> is left open [standard]. (<code>augment(L1,L2)</code> list-concat is the <code>0x92</code> sibling at <code>637F</code>, sharing the <code>6362</code> setup.)</td></tr>
-<tr><td><code>dim(</code> (matrix create/set-dims)</td><td><code>0xB5</code> @ <code>62D4</code></td><td>create + dim setup (<code>5DBB</code>/<code>5DEB</code>) [confirmed]</td><td>The compare at <code>62D4</code> is <code>CP 0xB5</code>, and <code>0xB5</code> = <code>tDim</code> (<code>dim(</code>), not <code>randM(</code> — so this is the <code>→dim(</code> matrix create/resize handler. It splits on argument count (<code>62D9: CP 0x02</code>): a 2-arg path (<code>62DD</code>) and a 1-arg path (<code>630A</code>). Both create the result and set its dims through <code>02:5DBB</code> (<code>CALL 5CEB</code> registers the variable by name, stores the data pointer to <code>84D3</code>, reads and zero-rejects the dim bytes <code>OR L ; JP Z,2719</code>, stores dims to <code>84AF</code>) and <code>02:5DEB</code>/<code>02:631E</code>. There is no per-cell fill loop here — consistent with <code>dim(</code>, which only sets dimensions. <code>02:5264</code> (<code>cplx_swap_dispatch</code>) is reached only from the <code>0xBD</code> complex-operand branch (<code>62D0</code>), not here. <code>randM(</code> is a separate 2-byte token (<code>tRandM</code> = <code>0x20</code>, <code>0xBB</code>-prefix group) routed through the <code>0xBB</code> dispatcher; its cell-fill body is unidentified — it uses no <code>_Random</code> bcall (<code>0x4B79</code>: a ROM-wide scan finds no <code>RST 28h; .dw 0x4B79</code> site). [standard]</td></tr>
+<tr><td><code>augment(</code></td><td><code>0x91</code> @ <code>635B</code></td><td><code>02:6238</code> copy [confirmed]; <code>02:4663</code> engine [standard]</td><td>The <code>0x91</code> branch requires two operands (<code>CP 0x02</code>), reads the dims (<code>5D98</code>), and checks the two row counts with <code>LD A,H</code><br><code>CP L</code>. Equal rows fall through (<code>JR Z</code>) and <code>H&gt;L</code> raises <code>E_Dimension</code> (<code>JP NC,2719</code>). It then runs the column-concatenation copy at <code>02:6238</code> [confirmed]: <code>6238</code> allocates the result (<code>5DE0</code> → <code>5DE6</code> → <code>_CreateRMat 110F</code>) and bulk-copies the float payload with <code>02:4539</code> (<code>mele_copy9_d3</code> — skip the 2 dim bytes, <code>LDIR</code> the column-major data), re-pointing <code>84D3←84D7</code>. The branch then calls <code>02:4663</code> (<code>6379</code>, only caller; byte-verified <code>CD 63 46</code>), a partial-pivoting elimination engine. It computes <code>min(H,L)</code> with <code>4672: LD A,H</code><br><code>CP L</code><br><code>JR C</code><br><code>LD L,H</code>, initializes through <code>475E</code>, and iterates from <code>BC=0x0101</code> calling <code>461C</code> (max-abs), <code>41D0</code> (pivot-column scan), <code>198D</code> (compare), <code>471C</code> (permutation swap), and <code>405E</code> (store). The column-concat copy (<code>6238</code>/<code>4539</code>) is confirmed augment behavior [confirmed]; <code>4663</code>’s elimination pass on the concatenated result is byte-confirmed but its role for plain <code>augment(</code> is left open [standard]. (<code>augment(L1,L2)</code> list-concat is the <code>0x92</code> sibling at <code>637F</code>, sharing the <code>6362</code> setup.)</td></tr>
+<tr><td><code>dim(</code> (matrix create/set-dims)</td><td><code>0xB5</code> @ <code>62D4</code></td><td>create + dim setup (<code>5DBB</code>/<code>5DEB</code>) [confirmed]</td><td>The compare at <code>62D4</code> is <code>CP 0xB5</code>, and <code>0xB5</code> = <code>tDim</code> (<code>dim(</code>), not <code>randM(</code> — so this is the <code>→dim(</code> matrix create/resize handler. It splits on argument count (<code>62D9: CP 0x02</code>): a 2-arg path (<code>62DD</code>) and a 1-arg path (<code>630A</code>). Both create the result and set its dims through <code>02:5DBB</code> (<code>CALL 5CEB</code> registers the variable by name, stores the data pointer to <code>84D3</code>, reads and zero-rejects the dim bytes with <code>OR L</code><br><code>JP Z,2719</code>, and stores dims to <code>84AF</code>) and <code>02:5DEB</code>/<code>02:631E</code>. There is no per-cell fill loop here — consistent with <code>dim(</code>, which only sets dimensions. <code>02:5264</code> (<code>cplx_swap_dispatch</code>) is reached only from the <code>0xBD</code> complex-operand branch (<code>62D0</code>), not here. <code>randM(</code> is a separate 2-byte token (<code>tRandM</code> = <code>0x20</code>, <code>0xBB</code>-prefix group) routed through the <code>0xBB</code> dispatcher; its cell-fill body is unidentified. It uses no <code>_Random</code> bcall (<code>0x4B79</code>): a ROM-wide scan finds no <code>RST 28h</code> followed by <code>.dw 0x4B79</code>. [standard]</td></tr>
 <tr><td><code>List►matr(</code></td><td><code>0x8E</code> @ <code>61C1</code></td><td><code>02:7D19</code> + copy</td><td>reshapes the argument lists into a matrix (<code>_DataSize</code>-counted float copy <code>4539</code>/<code>453F</code>). [standard]</td></tr>
 </tbody>
 </table>
@@ -12930,7 +13281,10 @@ separate driver and do not call <code>42A6</code> (see below):</p>
 </div>
 <p><code>det(</code>’s handler at <code>02:5FA3</code> (not a defined function in the disassembly; address
 unverified) first type-checks the operand is a matrix (<code>chk_op_is_matrix</code> (<code>02:69B7</code>):
-<code>type==2 else E_DataType 0x89</code>), then <code>LD A,0x40 ; CALL 0x42A6</code>.</p>
+<code>type==2 else E_DataType 0x89</code>), then:</p>
+<pre><code class="language-z80">LD A,0x40
+CALL 0x42A6
+</code></pre>
 <h3 id="the-engine-42a6-confirmed"><a class="header" href="#the-engine-42a6-confirmed">The engine (<code>42A6</code>) [confirmed]</a></h3>
 <pre><code class="language-pseudocode">matrix_gauss_engine(A = mode flags):
   HL = dims (84AF); if H != L -&gt; _JError(0x8C)   ; must be square (det/inverse)
@@ -12949,25 +13303,45 @@ unverified) first type-checks the operand is a matrix (<code>chk_op_is_matrix</c
                  back-substitution accumulate with _FPMult + RST6 _FPAdd)
      accumulate determinant = product of pivots (× sign from swaps)
   SINGULAR handling (43A5): if a pivot is ~0:
-        BIT 6,A ; JP Z, 0x26F0 (_ErrSingularMat, E_SingularMat 0x83)
+        BIT 6,A
+        JP Z, 0x26F0 (_ErrSingularMat, E_SingularMat 0x83)
         -&gt; inverse (flag 0, bit6=0) ERRORS;  det (flag 0x40, bit6=1) returns 0
 </code></pre>
 <p>Key sub-routines (all <code>page_02</code>; names are the live Ghidra DB labels): [confirmed]</p>
 <ul>
-<li><code>461C</code> <code>mat_max_abs</code> — compute the matrix’s max-abs element (numeric scale for the
-near-zero pivot test).</li>
-<li><code>41C1</code> <code>abs_cmp_op1op2</code> — <code>|OP1|</code> vs <code>|pivot|</code> compare (<code>1A0F</code>/<code>1987</code> abs+compare);
+<li>
+<p><code>461C</code> <code>mat_max_abs</code> — compute the matrix’s max-abs element (numeric scale for the
+near-zero pivot test).</p>
+</li>
+<li>
+<p><code>41C1</code> <code>abs_cmp_op1op2</code> — <code>|OP1|</code> vs <code>|pivot|</code> compare (<code>1A0F</code>/<code>1987</code> abs+compare);
 <code>41D0</code> — scan a column for the largest-magnitude pivot (partial pivoting), calling
-<code>43B9</code> to swap rows as it goes.</li>
-<li><code>43B9</code> / <code>414E</code> <code>mrow_swap_loop</code> / <code>_AdrMRow</code> — physical row swap / row scale
+<code>43B9</code> to swap rows as it goes.</p>
+</li>
+<li>
+<p><code>43B9</code> / <code>414E</code> <code>mrow_swap_loop</code> / <code>_AdrMRow</code> — physical row swap / row scale
 (whole-row moves; <code>414E</code> loads the <code>dim0</code> stride and swaps two whole rows via <code>_AdrMRow</code>×2 +
-<code>1DDA</code>).</li>
-<li><code>4259</code> — swap two entries in the permutation vector at <code>84D5</code>.</li>
-<li><code>4473</code> <code>ele_sub_ref</code> — the elimination element step (<code>[M](i,k) − factor*[M](pivot,k)</code>:
-<code>RST8 ; CALL 403C ; JP 2297</code> = load + <code>_FPSub</code>).</li>
-<li><code>426D</code> <code>col_dot_accum</code> / <code>426F</code> <code>col_dot_accum_from</code> — column dot-product / back-
-substitution accumulate (<code>_FPMult</code> + <code>RST6</code>).</li>
-<li>Pivot normalize uses <code>_FPRecip</code> / <code>_FPDiv</code>; sign/inverse use <code>_InvOP1S</code>.</li>
+<code>1DDA</code>).</p>
+</li>
+<li>
+<p><code>4259</code> — swap two entries in the permutation vector at <code>84D5</code>.</p>
+</li>
+<li>
+<p><code>4473</code> <code>ele_sub_ref</code> — the elimination element step
+(<code>[M](i,k) − factor*[M](pivot,k)</code>):</p>
+<pre><code class="language-z80">RST8
+CALL 403C
+JP 2297
+</code></pre>
+<p>This is the load plus <code>_FPSub</code> path.</p>
+</li>
+<li>
+<p><code>426D</code> <code>col_dot_accum</code> / <code>426F</code> <code>col_dot_accum_from</code> — column dot-product / back-
+substitution accumulate (<code>_FPMult</code> + <code>RST6</code>).</p>
+</li>
+<li>
+<p>Pivot normalize uses <code>_FPRecip</code> / <code>_FPDiv</code>; sign/inverse use <code>_InvOP1S</code>.</p>
+</li>
 </ul>
 <p><code>det(</code> therefore = forward elimination with partial pivoting, return the signed product
 of the pivots (each row swap flips the sign); a zero pivot ⇒ <code>det = 0</code> (no error).
@@ -12981,10 +13355,15 @@ formed during back-elimination. The tail that closes the det/inverse pass:</p>
 <pre><code class="language-z80">43D8 (det branch, bit6 = det):
   43D9: BIT 6,A           ; det mode?
   43DE: CALL 151B         ; pop pivot
-  43E3..43F6: PUSH AF ; (RST 8 _CpyToOP2) ; CALL 403c (load [M](i,j)) ;
-              CALL 238b (_FPMult) ; DEC pivot/row counters (84B0)  ; loop
+  43E3..43F6: PUSH AF
+              RST 8                 ; _CpyToOP2
+              CALL 403c             ; load [M](i,j)
+              CALL 238b             ; _FPMult
+              DEC pivot/row counters (84B0)  ; loop
               → multiply the running determinant by each pivot
-  43F8: POP AF ; AND 1 ; JP NZ,24bd    ;  *** DET SIGN ***  low bit of the
+  43F8: POP AF
+        AND 1
+        JP NZ,24bd                 ; *** DET SIGN *** low bit of the
               ; permutation-swap count → conditional _InvOP1S (negate)
 43FF (inverse branch): re-walk for the augmented-identity columns,
   4410..446F: per-column back-substitution (4428/445B = _FPMult-accumulate,
@@ -13103,7 +13482,7 @@ and the routine and condition that triggers it.</p>
 <tr><td><code>02:5FC0</code></td><td><code>det_entry</code></td><td><code>det(</code>: flag 0x40 → <code>matrix_gauss_engine</code> [confirmed]</td></tr>
 <tr><td><code>02:6104</code></td><td><code>list_fold_dispatch</code></td><td><code>sum(</code>/<code>prod(</code> higher-order list fold [confirmed]</td></tr>
 <tr><td><code>02:69B7</code></td><td><code>chk_op_is_matrix</code></td><td>require operand type==2 else E_DataType [confirmed]</td></tr>
-<tr><td><code>ram:21C4</code></td><td><code>chk_type_lt_1a</code></td><td>classify element type width: <code>AND 0x1F ; CP 0x1A ; CP 0x18 ; CCF</code> — real-vs-complex (0x0C) element width [confirmed]</td></tr>
+<tr><td><code>ram:21C4</code></td><td><code>chk_type_lt_1a</code></td><td>classify element type width:<br><code>AND 0x1F</code><br><code>CP 0x1A</code><br><code>CP 0x18</code><br><code>CCF</code><br>real-vs-complex (<code>0x0C</code>) element width [confirmed]</td></tr>
 <tr><td><code>35:79E9</code></td><td><code>list_idx_times9</code></td><td>list index ×9 + dispatch [confirmed]</td></tr>
 <tr><td><code>07:4D3B</code></td><td><code>_RedimMat</code></td><td>re-dimension matrix/list [confirmed]</td></tr>
 <tr><td><code>07:4F07</code></td><td><code>_InsertList</code>/<code>_IncLstSize</code></td><td>grow a list in place [confirmed]</td></tr>
@@ -13139,7 +13518,7 @@ swapped (<code>60F5</code>) and <code>412A</code> copies <code>dst(c,r)=src(r,c)
 single-counter fill/apply, not transpose. [confirmed]</li>
 <li><code>Matr►list(</code> (<code>0x8D</code> @ <code>6388</code>) → <code>02:4773</code> (2-arg column-extract engine, only caller <code>63A0</code>)
 with <code>02:49E3</code> as the 1-arg/list inner copy. [confirmed]</li>
-<li><code>augment(</code> (<code>0x91</code> @ <code>635B</code>) → equal-rows guard (<code>CP L ; JP NC,2719</code>) + column-concat copy at
+<li><code>augment(</code> (<code>0x91</code> @ <code>635B</code>) → equal-rows guard (<code>CP L</code>, then <code>JP NC,2719</code>) + column-concat copy at
 <code>02:6238</code> (<code>5DE0</code> allocate + <code>02:4539</code> <code>LDIR</code> payload copy). [confirmed]</li>
 <li><code>dim(</code> (<code>0xB5</code> @ <code>62D4</code>; <code>0xB5</code> = <code>tDim</code>, not <code>randM(</code>) → creates the result and sets its
 dims (<code>5DBB</code>/<code>5DEB</code>). <code>02:5264</code> (<code>cplx_swap_dispatch</code>, only caller <code>62D0</code> in the <code>0xBD</code> branch)
@@ -13156,7 +13535,8 @@ unchanged [standard].</li>
 <li><code>randM(</code>’s per-cell random fill body is unidentified. <code>randM(</code> is a 2-byte token
 (<code>tRandM</code> = <code>0x20</code>, <code>0xBB</code>-prefix group), distinct from the <code>0xB5</code>/<code>dim(</code> branch; the visible
 matrix-create/dim-convert code is <code>dim(</code>’s, not randM’s. randM does not go through the
-<code>_Random</code> bcall (<code>0x4B79</code>) — a ROM-wide scan finds no <code>RST 28h; .dw 0x4B79</code> site. [standard]</li>
+<code>_Random</code> bcall (<code>0x4B79</code>) — a ROM-wide scan finds no <code>RST 28h</code> followed by
+<code>.dw 0x4B79</code>. [standard]</li>
 </ul>
 </li>
 <li><code>seq(</code>/<code>SortA(</code>/<code>SortD(</code>/stats list-builders: confirm the collect-then-<code>_CreateRList</code> loop
@@ -13208,22 +13588,34 @@ root-finding engine living on flash page <code>0x39</code>. (The Solver app’s 
 <p>A callback, given the trial value in <code>OP1</code>, returns <code>f(x) = left − right</code>
 of the equation. Located around <code>39:468F</code>:</p>
 <ol>
-<li><code>_CkValidNum</code> (<code>ram:1E9B</code>), then <code>_MovFrOP1</code> (<code>ram:1B0C</code>) stores the current guess into
+<li>
+<p><code>_CkValidNum</code> (<code>ram:1E9B</code>), then <code>_MovFrOP1</code> (<code>ram:1B0C</code>) stores the current guess into
 the solve variable (its data pointer is loaded from <code>(9306)</code>, in the expression-stack
-region — the bytes are <code>ED 5B 06 93</code> = <code>LD DE,(9306)</code>).</li>
-<li>It installs the error handler at <code>39:46C7</code>, then re-evaluates the stored
+region — the bytes are <code>ED 5B 06 93</code> = <code>LD DE,(9306)</code>).</p>
+</li>
+<li>
+<p>It installs the error handler at <code>39:46C7</code>, then re-evaluates the stored
 equation through <code>parse_inp_current_state_bjump</code> (<code>ram:391B</code>). The stub’s
 inline descriptor targets <code>parse_inp_current_state</code> (<code>38:5992</code>), an interior
-entry in <code>_ParseInp</code> that preserves the already selected parser state.</li>
-<li>The error filter at <code>39:46C7</code> inspects the error code in <code>A</code>: codes below <code>0x86</code>
+entry in <code>_ParseInp</code> that preserves the already selected parser state.</p>
+</li>
+<li>
+<p>The error filter at <code>39:46C7</code> inspects the error code in <code>A</code>: codes below <code>0x86</code>
 (<code>OVERFLOW</code>/<code>DIV BY 0</code>/<code>SINGULAR MAT</code>/<code>DOMAIN</code>) and <code>0x87</code> (<code>NONREAL ANS</code>) are
-swallowed (<code>CP 0x87; JR Z</code> then <code>CP 0x86; JP NC,0x2799</code> — this <code>x</code> is treated as a
-point where <code>f</code> is undefined, so the solver can step past it) while <code>0x86</code> (<code>BREAK</code>) and
+swallowed by these comparisons:</p>
+<pre><code class="language-z80">CP 0x87
+JR Z
+CP 0x86
+JP NC,0x2799
+</code></pre>
+<p>This <code>x</code> is treated as a point where <code>f</code> is undefined, so the solver can step
+past it, while <code>0x86</code> (<code>BREAK</code>) and
 codes <code>≥ 0x88</code> are
 re-raised via <code>_JErrorNo</code> (<code>JP 2799</code>). Before returning a swallowed error,
 <code>fix_temp_count_bjump</code> (<code>ram:327F</code>) dispatches to <code>_FixTempCnt</code> (<code>07:4FEC</code>)
 to repair temporary-object accounting. This is why <code>solve(</code> can skip
-singularities inside the bracket without aborting. [confirmed]</li>
+singularities inside the bracket without aborting. [confirmed]</p>
+</li>
 </ol>
 <p>The sign test <code>39:463A</code> reads <code>OP1.value.type</code> (<code>8478</code>) and <code>OP2.value.type</code> (<code>8483</code>), masks <code>0x80</code>
 and XORs them: Z = same sign, NZ = opposite sign — the bracket sign-change predicate. [confirmed]</p>
@@ -13320,15 +13712,26 @@ power/exp helpers. [standard]</p>
 <p>Solving for <code>I%</code> (the only variable with no closed form) uses Newton’s method on the
 rate:</p>
 <ul>
-<li>Iteration state is allocated as a small FPS frame (<code>LD HL,0x0005; _AllocFPS</code> at
-<code>3A:70A2</code>) and the loop counter is <code>B = 0x40</code> (= <code>64</code> iterations max), <code>3A:70AB</code>.</li>
-<li>Each pass recomputes the TVM residual and its derivative, takes a Newton step, and tests
+<li>
+<p>Iteration state is allocated as a small FPS frame at <code>3A:70A2</code>:</p>
+<pre><code class="language-z80">LD HL,0x0005
+bcall(_AllocFPS)
+</code></pre>
+<p>The loop counter is <code>B = 0x40</code> (= <code>64</code> iterations max), <code>3A:70AB</code>.</p>
+</li>
+<li>
+<p>Each pass recomputes the TVM residual and its derivative, takes a Newton step, and tests
 the exponent of the correction against <code>CP 0x74</code> (<code>3A:71F4</code>) — i.e. converged when the
 update is ≤ ~10⁻¹². The new estimate is written back via <code>(84D9)→(84D3)</code>
-(<code>3A:71F9…71FE</code>). [confirmed]</li>
+(<code>3A:71F9…71FE</code>). [confirmed]</p>
+</li>
 </ul>
 <h3 id="_sinh-call-in-the-tvm-rate-loop-confirmed"><a class="header" href="#_sinh-call-in-the-tvm-rate-loop-confirmed"><code>_SinH</code> call in the TVM rate loop [confirmed]</a></h3>
-<p>At <code>3A:710B</code> the TVM body contains <code>EF CF 40</code> = <code>RST 0x28; .dw 0x40CF</code>, and the bcall
+<p>At <code>3A:710B</code> the TVM body contains <code>EF CF 40</code>:</p>
+<pre><code class="language-z80">RST 0x28
+.dw 0x40CF
+</code></pre>
+<p>The bcall
 table maps <code>0x40CF</code> to <code>_SinH</code> (<code>_SinHCosH</code>=<code>0x40C6</code>, <code>_SinH</code>=<code>0x40CF</code>, <code>_ASinH</code>=<code>0x40ED</code>
 are three consecutive distinct entries). A scan of the whole loop body (<code>3A:70A0…7210</code>) finds
 three bcalls: <code>_SinH</code> (<code>0x40CF</code>, <code>3A:710B</code>), an unmapped helper <code>0x462A</code> (adjacent to
@@ -13366,26 +13769,40 @@ and variable save/restore flow is [confirmed]. The default <code>ε</code> is [s
 <p><code>fnInt(expr, var, a, b [,tol])</code> is an adaptive iterative quadrature. The body is the
 Ghidra function <code>fnint_body</code> at <code>33:4D00</code> (extent <code>33:4D00…4E91</code>):</p>
 <ul>
-<li>builds interval midpoints and half-widths: <code>_FPSub</code> (<code>2297</code>), <code>_TimesPt5</code> (<code>2382</code>, ×0.5),
+<li>
+<p>builds interval midpoints and half-widths: <code>_FPSub</code> (<code>2297</code>), <code>_TimesPt5</code> (<code>2382</code>, ×0.5),
 <code>_FPDiv</code> (<code>2541</code>). The bytes at <code>33:4D18</code> are executable code — <code>33:4D18 21 83 84</code>
 (<code>LD HL,0x8483</code>), <code>33:4D1B 3E 60</code> (<code>LD A,0x60</code>), <code>33:4D1D CD 65 1B</code> (<code>CALL fp_set_digit</code> <code>1B65</code>; not <code>_OP2SetA</code>, whose body is <code>1B24</code>) — loading the
 scalar <code>0x60 = 96</code>
-(a working digit/scale count), not a quadrature weight. [confirmed]</li>
-<li>maintains a working set of partial sums in an FPS frame (<code>_AllocFPS 1534</code>,
+(a working digit/scale count), not a quadrature weight. [confirmed]</p>
+</li>
+<li>
+<p>maintains a working set of partial sums in an FPS frame (<code>_AllocFPS 1534</code>,
 <code>_PopRealOx 14F6/150F/1505</code>, <code>_DeallocFPS 1526</code>, with slot offsets <code>DE=0x15/0x1B/0x24</code>)
 — endpoint values, the running estimate, and the previous estimate for the error test.
-[confirmed]</li>
-<li>iterates, refining the partition by interval bisection (the ×0.5 <code>_TimesPt5</code> halving;
-the <code>97E7</code>/<code>84AF</code> depth counters track subdivision depth; the loop tail is
-<code>33:4E81 LD DE,0x0024 … C3 CB 45</code> and <code>33:4E8C 3D F5 C2 57 4D</code> = <code>DEC A; …; JP NZ,0x4D57</code>),
-and converges when the change in the estimate has exponent <code>≤ CP 0x74</code> (~10⁻¹²,
+[confirmed]</p>
+</li>
+<li>
+<p>iterates, refining the partition by interval bisection. The ×0.5 <code>_TimesPt5</code> halving
+refines the interval, the <code>97E7</code>/<code>84AF</code> depth counters track subdivision depth, and the loop tail includes
+<code>33:4E81 LD DE,0x0024 … C3 CB 45</code>, while <code>33:4E8C 3D F5 C2 57 4D</code> decodes as:</p>
+<pre><code class="language-z80">DEC A
+PUSH AF
+JP NZ,0x4D57
+</code></pre>
+<p>It converges when the change in the estimate has exponent <code>≤ CP 0x74</code> (~10⁻¹²,
 <code>33:4E74</code>). Exhausting the refinement budget falls through to <code>33:4E8F JP 274D</code> =
-ITERATIONS (0x99). [confirmed]</li>
+ITERATIONS (0x99). [confirmed]</p>
+</li>
 </ul>
 <p><strong>Quadrature rule.</strong> A full byte scan of <code>33:4D00…4F00</code> finds exactly one
 floating-point constant in the body: <code>const_ln10x100</code> (<code>33:4E92</code>)
 (<code>00 82 23 02 58 50 92 99 40</code> = 2.30258509…×10², i.e. <code>ln(10)·100</code>). It is referenced at
-<code>33:4E5D</code> (<code>LD HL,0x4E92; CALL 0x1982</code>), immediately after the only transcendental bcall in
+<code>33:4E5D</code>:</p>
+<pre><code class="language-z80">LD HL,0x4E92
+CALL 0x1982
+</code></pre>
+<p>This is immediately after the only transcendental bcall in
 the body, <code>33:4E56 EF AB 40</code> = bcall <code>_LnX</code> (0x40AB). So <code>ln(10)·100</code> is used purely to
 convert the requested significant-digit tolerance into a decimal error bound via
 <code>ln</code> — it is a tolerance scaler, not a quadrature node or weight. There is no node/weight table anywhere in
@@ -13425,20 +13842,30 @@ adaptive partition can parse it thousands of times — the dominant cost.</p>
 <code>BB 22</code> / <code>BB 24</code> / <code>BB 25</code>. The routing is a generic paged command call, not an inline
 bjump, and goes through the page-0x02 command-execution layer:</p>
 <ol>
-<li>The evaluator hands the operand token to the page-0x02 dispatcher, which recognises the
+<li>
+<p>The evaluator hands the operand token to the page-0x02 dispatcher, which recognises the
 <code>0xBB</code> group and the second byte: <code>tFnInt</code> at <code>02:68F3</code> (<code>CP 0x24</code>), <code>tNDeriv</code> at
-<code>02:6904</code> (<code>CP 0x25</code>), <code>tRoot</code> at <code>02:58AD</code>/<code>02:69BC</code> (<code>CP 0x22</code>). [confirmed]</li>
-<li>The page-0x02 handler parses the comma-separated argument list and sets defaults — e.g.
-the <code>nDeriv</code>/<code>fnInt</code> prologue at <code>02:6AF6</code> does <code>LD A,0x7D; LD (8479),A</code>, seeding the
+<code>02:6904</code> (<code>CP 0x25</code>), <code>tRoot</code> at <code>02:58AD</code>/<code>02:69BC</code> (<code>CP 0x22</code>). [confirmed]</p>
+</li>
+<li>
+<p>The page-0x02 handler parses the comma-separated argument list and sets defaults. For
+example, the <code>nDeriv</code>/<code>fnInt</code> prologue at <code>02:6AF6</code> does:</p>
+<pre><code class="language-z80">LD A,0x7D
+LD (0x8479),A
+</code></pre>
+<p>This seeds the
 default tolerance exponent <code>0x7D</code> (= <code>1e-3</code>, the documented nDeriv ε) before the call.
-[confirmed]</li>
-<li>It then performs a paged call into page 0x33. The page-0x33 entry re-validates the token
+[confirmed]</p>
+</li>
+<li>
+<p>It then performs a paged call into page 0x33. The page-0x33 entry re-validates the token
 through the <code>33:504E</code> <code>bb_token_scanner</code> (<code>CP 0xBB</code>, then <code>CP 0x68 / 0xCF / 0xDB / 0xF6</code>
 to assign a small class index in <code>C</code> and <code>CALL 0x50AC</code>) and dispatches into the numeric
 bodies <code>nderiv_body</code> (<code>33:4C80</code>) / <code>fnint_body</code> (<code>33:4D00</code>). Because the call crosses
 pages through the bcall/app-call trampoline, no static xref to these bodies survives
 in the Ghidra database — the mark of a generic paged call rather than an inline bjump.
-[confirmed]</li>
+[confirmed]</p>
+</li>
 </ol>
 <hr>
 <h2 id="routine-index-confirmed"><a class="header" href="#routine-index-confirmed">Routine index [confirmed]</a></h2>
@@ -13497,21 +13924,32 @@ Parser entries (page 0x38): <code>_ParseInp 5987</code>, <code>parse_eval_expr 5
 <h2 id="resolved-behavior-and-remaining-questions-1"><a class="header" href="#resolved-behavior-and-remaining-questions-1">Resolved behavior and remaining questions</a></h2>
 <p>Summary of the four sub-results:</p>
 <ul>
-<li><strong><code>fnInt(</code> quadrature rule.</strong> Not Gauss–Kronrod. The <a href="#fnint-adaptive-numeric-integration-confirmed">body</a> has no node or
+<li>
+<p><strong><code>fnInt(</code> quadrature rule.</strong> Not Gauss–Kronrod. The <a href="#fnint-adaptive-numeric-integration-confirmed">body</a> has no node or
 weight table; its sole FP constant is <code>const_ln10x100</code>, used with bcall <code>_LnX</code>
 to convert digit-tolerance to a decimal error bound. With explicit ×0.5 interval bisection
 and a coarse-vs-fine estimate comparison, it is an adaptive Newton–Cotes / Simpson-class
-bisection integrator. <code>33:4D1B</code> is executable code (<code>LD A,0x60; CALL fp_set_digit</code>).</li>
-<li><strong>TVM <code>_SinH</code> (id <code>0x40CF</code>).</strong> The <a href="#_sinh-call-in-the-tvm-rate-loop-confirmed">TVM rate loop</a> calls <code>_SinH</code> at
+bisection integrator. <code>33:4D1B</code> is executable code:</p>
+<pre><code class="language-z80">LD A,0x60
+CALL fp_set_digit
+</code></pre>
+</li>
+<li>
+<p><strong>TVM <code>_SinH</code> (id <code>0x40CF</code>).</strong> The <a href="#_sinh-call-in-the-tvm-rate-loop-confirmed">TVM rate loop</a> calls <code>_SinH</code> at
 <code>3A:710B</code> (<code>0x40C6/0x40CF/0x40ED</code> are three distinct hyperbolic bcalls); it evaluates the
-annuity / compound factor in hyperbolic form for numerical stability at small rates.</li>
-<li><strong>Class-3 routing of <code>tFnInt</code>, <code>tNDeriv</code>, and <code>tRoot</code>.</strong> The <a href="#parser-routing-for-tfnint-tnderiv-and-troot-confirmed">parser route</a> is
+annuity / compound factor in hyperbolic form for numerical stability at small rates.</p>
+</li>
+<li>
+<p><strong>Class-3 routing of <code>tFnInt</code>, <code>tNDeriv</code>, and <code>tRoot</code>.</strong> The <a href="#parser-routing-for-tfnint-tnderiv-and-troot-confirmed">parser route</a> is
 <code>BB-token → page-0x02 dispatcher (02:68F3/6904/58AD) → arg-parse + default-tol (02:6AF6, exp 0x7D = 1e-3) → paged call → page-0x33 bodies</code>, re-validated by <code>bb_token_scanner</code>
-(<code>33:504E</code>). The trampoline hides the static xref, confirming it is a generic paged call.</li>
-<li><strong>Page-0 helper cluster.</strong> The <a href="#routine-index-confirmed">routine index</a> identifies generic FPS slot save/restore (9-byte
+(<code>33:504E</code>). The trampoline hides the static xref, confirming it is a generic paged call.</p>
+</li>
+<li>
+<p><strong>Page-0 helper cluster.</strong> The <a href="#routine-index-confirmed">routine index</a> identifies generic FPS slot save/restore (9-byte
 TIFloat slots at <code>-(9*slot)</code> from frame base <code>(9302)</code>) plus the active-frame swapper at
 <code>ram:2800</code>, renamed <code>fps_swap_active_frame</code>; the store/load stubs are
-<code>fp_st_slotN_opX</code> / <code>fp_ld_op1_slotN</code>.</li>
+<code>fp_st_slotN_opX</code> / <code>fp_ld_op1_slotN</code>.</p>
+</li>
 </ul>
 <p>Residual (genuinely unverified, would need deeper paged tracing):</p>
 <ul>
@@ -15822,7 +16260,8 @@ is 95 columns wide (0..94) and 63 tall (0..62), hence the /94 and /62. [standard
 <p><code>_XftoI</code> (<code>37:41EB</code>) and <code>_YftoI</code> (<code>37:41DF</code>) convert an OP1 real coordinate to a
 pixel index. Both are thin shims around the shared engine at <code>37:41F2</code>: [confirmed]</p>
 <pre><code class="language-z80">_XftoI (37:41EB):  BC = 0x8E6A (X working float),  HL = shortX (0x9164),  SCF  → 41F2
-_YftoI (37:41DF):  BC = Ymin   (0x8F6B),            HL = shortY (0x916D),  OR A → 41F2; INC A
+_YftoI (37:41DF):  BC = Ymin   (0x8F6B),            HL = shortY (0x916D),  OR A → 41F2
+                    INC A
 </code></pre>
 <p>Shared engine <code>37:41F2</code> computes $\mathrm{pixel}=\dfrac{\mathrm{value}-\mathrm{min}}{\mathrm{pixelDelta}}$:</p>
 <ul>
@@ -16198,13 +16637,17 @@ paint_grid(...)                                                  ; 05:7771
 <p>So on every entry to the TABLE the editor checks <code>reTable</code>: if dirty it runs the
 recompute driver, otherwise it repaints from the cached values. [confirmed]</p>
 <h3 id="recompute-driver--table_recompute-055dd7-confirmed"><a class="header" href="#recompute-driver--table_recompute-055dd7-confirmed">Recompute driver — <code>table_recompute</code> (<code>05:5DD7</code>) [confirmed]</a></h3>
-<pre><code class="language-z80">05:5DD7  XOR A ; LD (0x8E63),A           ; reset table column/row state
-         CALL 0x3411 ; RET Z             ; (window/mode gate)
+<pre><code class="language-z80">05:5DD7  XOR A
+         LD (0x8E63),A                   ; reset table column/row state
+         CALL 0x3411
+         RET Z                           ; window/mode gate
          CALL 0x7704                     ; init column descriptors (see below)
          CALL 0x774B                     ; seed running-X = TblMin
-         CALL 0x65D2 ; CALL 0x65C8       ; clear per-column flags
+         CALL 0x65D2
+         CALL 0x65C8                     ; clear per-column flags
          CALL 0x5EE1                     ; FILL the value cache (the row loop)
-         CALL 0x6014 ; CALL 0x5FFC       ; lay out / size the columns
+         CALL 0x6014
+         CALL 0x5FFC                     ; lay out / size the columns
          RES 6,(IY+0x13)                 ; reTable = 0  (cache now valid)
          CALL 0x76BA
 </code></pre>
@@ -16214,15 +16657,28 @@ the cache until something marks it dirty again. [confirmed]</p>
 <p><code>05:774B</code> initialises the two-float <code>table_x_work</code> array. It first clears
 <code>table_x_work[0]</code> (<code>0x8622</code>), then at <code>05:7751</code> copies <code>TblMin</code> into
 <code>table_x_work[1]</code>, the running-X slot:</p>
-<pre><code class="language-z80">05:7751  LD HL,0x92B3 (TblMin) ; LD DE,0x862B ; JP 0x1A92   ; running-X (0x862B) ← TblMin
+<pre><code class="language-z80">05:7751  LD HL,0x92B3                  ; TblMin
+         LD DE,0x862B                  ; running-X destination
+         JP 0x1A92
 </code></pre>
 <p>i.e. the first row’s independent value is <code>TblStart</code>. The row index is bounds-checked at
-<code>05:65DC</code> (<code>LD A,(0x91E0); LD HL,CurTableRow; CP (HL); RET</code> — current row vs the last
-row), and the per-row X is computed as <code>TblStart + k·TblStep</code> rather than by an
+<code>05:65DC</code> by comparing the current row with the last row:</p>
+<pre><code class="language-z80">LD A,(0x91E0)
+LD HL,CurTableRow
+CP (HL)
+RET
+</code></pre>
+<p>The per-row X is computed as <code>TblStart + k·TblStep</code> rather than by an
 incremental add:</p>
-<pre><code class="language-z80">05:65DC  LD A,(0x91E0) ; LD HL,0x91DC ; CP (HL) ; RET   ; row-index bound check
+<pre><code class="language-z80">05:65DC  LD A,(0x91E0)
+         LD HL,0x91DC
+         CP (HL)
+         RET                            ; row-index bound check
 05:6359  LD A,(0x91DD) … LD DE,0x9221 / 0x91E2 (cell buffers)
-         LD HL,(0x91DC /* row idx */) ; ADD ; CALL _LdHLind ; ADD HL,DE
+         LD HL,(0x91DC /* row idx */)
+         ADD
+         CALL _LdHLind
+         ADD HL,DE
 </code></pre>
 <p>So row $k$ uses $X=\mathrm{TblMin}+k\cdot\mathrm{TblStep}$. (In <strong>Indpnt = Ask</strong> mode this driver is
 bypassed and the user types each X; see <a href="#auto-and-ask-modes-confirmed">Auto and Ask modes</a>.) [confirmed]</p>
@@ -16275,15 +16731,26 @@ typedef struct {
 <p>Thus <code>0x9221</code> is <code>table_value_cache.band[1]</code>, and <code>0x9260</code> is
 <code>table_value_cache.band[2]</code>. This notation captures both the 9-byte element
 stride and the 63-byte scroll-copy stride. [confirmed]</p>
-<p><code>05:6014</code> performs the scroll: <code>LD HL,0x9221 ; LD DE,0x9260 ; LDIR</code> copies
+<p><code>05:6014</code> performs the scroll:</p>
+<pre><code class="language-z80">LD HL,0x9221
+LD DE,0x9260
+LDIR
+</code></pre>
+<p>This copies
 <code>table_value_cache.band[1]</code> to <code>band[2]</code> (a <code>0x3F</code>-byte block) and performs an
 <code>LDDR</code> shift of a <code>0xB4</code>-byte region. When the cursor moves above or below the
 cached window, it slides the cache and computes only the one new row
 (or recomputes if <code>reTable</code>). [confirmed]</p>
 <h3 id="auto-and-ask-modes-confirmed"><a class="header" href="#auto-and-ask-modes-confirmed">Auto and Ask modes [confirmed]</a></h3>
 <p><code>05:6D40</code>/<code>05:6D51</code> read the mode bits to branch:</p>
-<pre><code class="language-z80">05:6D40  … CALL 0x74BE ; JR NZ ; BIT 4,(IY+0x13) ; RET   ; Indpnt (autoFill) test
-         … CALL 0x74BE ; JR NZ ; BIT 5,(IY+0x13) ; RET   ; Depend (autoCalc) test
+<pre><code class="language-z80">05:6D40  … CALL 0x74BE
+         JR NZ
+         BIT 4,(IY+0x13)
+         RET                             ; Indpnt (autoFill) test
+         … CALL 0x74BE
+         JR NZ
+         BIT 5,(IY+0x13)
+         RET                             ; Depend (autoCalc) test
          LD A,(0x91DB) … LD A,(0x91DC) …                  ; Ask-mode row state
 </code></pre>
 <ul>
@@ -16305,9 +16772,12 @@ columns, drawn with the large font through the home-screen text primitives
            CALL 0x7E9D
            LD DE,(0x9192 YOutDat) ; the Y-column value pointer
            CP 2 / CP 5            ; column-kind dispatch (X col vs Y col vs input)
-           CALL 0x7E7C ; CALL 0x7E98   ; render the cached value into the cell
+           CALL 0x7E7C
+           CALL 0x7E98             ; render the cached value into the cell
            CALL 0x65DC            ; row-index bound check (current row vs last)
-           INC row ; … ; LD (0x91DC),A
+           INC row
+           …
+           LD (0x91DC),A
 </code></pre>
 <p><code>05:7E7C</code> chooses the destination cache band (<code>table_value_cache.band[1]</code> at
 <code>0x9221</code> versus <code>band[0]</code> at <code>0x91E2</code>) based on the
@@ -16785,8 +17255,11 @@ passes through <code>39:5447</code> and <code>39:52A2</code>. [confirmed]</p>
 <p>The mapper at <code>39:683D</code> converts a descriptor cell to pixels. Its index names
 are transposed relative to conventional screen coordinates: the descriptor
 row advances LCD $x$, while the descriptor column advances $y$. The <code>+7</code> loop
-(<code>DEC B; ADD A,7</code>) builds the packed high byte, and the
-<code>rowHeight + 2</code> loop builds the low byte. The caller stores <code>HL</code> to <code>penCol</code>
+builds the packed high byte:</p>
+<pre><code class="language-z80">DEC B
+ADD A,7
+</code></pre>
+<p>The <code>rowHeight + 2</code> loop builds the low byte. The caller stores <code>HL</code> to <code>penCol</code>
 (<code>0x86D7</code>, low to $x$) and <code>penRow</code> (<code>0x86D8</code>, high to $y$):</p>
 <p>$$
 \begin{aligned}
@@ -16813,9 +17286,16 @@ $$</p>
 </table>
 </div>
 <p>For kind nibbles <code>3</code> and above, <code>39:69C8</code> adds <code>0x10</code> and calls
-<code>ram:025E</code> (<code>BIT 6,(IY+2); RET</code>). A set bit selects <code>39:689C</code>. Otherwise it
-adds <code>0x10</code> again and calls <code>ram:0254</code> (<code>BIT 5,(IY+2); RET</code>); a set bit selects
-<code>39:68A5</code>, and a clear result selects <code>39:6893</code>. The JavaScript
+<code>ram:025E</code>:</p>
+<pre><code class="language-z80">BIT 6,(IY+2)
+RET
+</code></pre>
+<p>A set bit selects <code>39:689C</code>. Otherwise it adds <code>0x10</code> again and calls
+<code>ram:0254</code>:</p>
+<pre><code class="language-z80">BIT 5,(IY+2)
+RET
+</code></pre>
+<p>A set bit selects <code>39:68A5</code>, and a clear result selects <code>39:6893</code>. The JavaScript
 <code>selectDescriptor</code> translation takes this caller-owned <code>flag02</code> byte explicitly
 for the family branches and reports the byte that <code>39:69FC</code> stores back at
 <code>0x85E8</code>. [confirmed]</p>
@@ -17920,8 +18400,15 @@ handler. [confirmed]</p>
 <p><code>eqdisp_draw_marker_primitive</code> has two distinct entry ABIs. Render-table row 0
 in <code>eqdisp_render_handler_table</code> (<code>34:6119</code>) contains
 the bytes <code>43 61</code>, the pointer <code>6143h</code>. <code>_LdHLind</code> at <code>00:0033</code> executes
-<code>LD A,(HL); INC HL; LD H,(HL); LD L,A; RET</code>. Its low-byte load therefore makes
-a type-<code>0x1F</code> table dispatch enter <code>eqdisp_draw_marker_primitive</code> with <code>A=0x43</code>. That value follows
+the following sequence:</p>
+<pre><code class="language-z80">LD A,(HL)
+INC HL
+LD H,(HL)
+LD L,A
+RET
+</code></pre>
+<p>Its low-byte load therefore makes a type-<code>0x1F</code> table dispatch enter
+<code>eqdisp_draw_marker_primitive</code> with <code>A=0x43</code>. That value follows
 the fixed default path to the seven-row bitmap at <code>34:61BE</code>; <code>(IY+44h).3</code> and
 <code>0x8520</code> do not affect this ABI. [confirmed]</p>
 <h2 id="shared-marker-rendering"><a class="header" href="#shared-marker-rendering">Shared marker rendering</a></h2>
@@ -20028,7 +20515,7 @@ join <code>poweroff_shared_tail</code> at <code>ram:0A24</code>. The final hardw
 <tr><td><code>ram:0A51</code></td><td>clear <code>shift2nd</code></td><td>discard the power-off modifier</td></tr>
 <tr><td><code>ram:0A55</code></td><td>clear <code>onRunning</code></td><td>mark the OS powered down</td></tr>
 <tr><td><code>ram:0A5B</code></td><td><code>EI</code></td><td>accept a selected wake interrupt</td></tr>
-<tr><td><code>poweroff_halt_loop</code> at <code>ram:0A5C</code></td><td><code>HALT; JR ram:0A5C</code></td><td>remain in the low-power loop</td></tr>
+<tr><td><code>poweroff_halt_loop</code> at <code>ram:0A5C</code></td><td><code>HALT</code><br><code>JR ram:0A5C</code></td><td>remain in the low-power loop</td></tr>
 </tbody>
 </table>
 </div>
@@ -20914,29 +21401,50 @@ save, <code>IY+0x3E</code> bit0 / <code>IY+0x3D</code> bit5 USB-presence.</p>
 <h2 id="byte-layer-confirmed"><a class="header" href="#byte-layer-confirmed">Byte layer [confirmed]</a></h2>
 <p><a href="#two-wire-link-port-hardware">Two-wire link port hardware</a> covers the complete raw port-<code>0x00</code> send and receive handshakes. This section records how the byte entries select and report the hardware-assist path.</p>
 <h3 id="hardware-assist-send-confirmed"><a class="header" href="#hardware-assist-send-confirmed">Hardware-assist send [confirmed]</a></h3>
-<p><code>_SendAByte</code> (<code>3C:420D</code>) starts <code>CALL probe_hw_model_keep_a ; JP Z,0x6BB2</code> — if the model probe sets Z (the
-84+ link-assist hardware is present), it jumps to <code>3C:6BB2</code>:</p>
+<p><code>_SendAByte</code> (<code>3C:420D</code>) starts:</p>
+<pre><code class="language-z80">CALL probe_hw_model_keep_a
+JP Z,0x6BB2
+</code></pre>
+<p>If the model probe sets Z, the 84+ link-assist hardware is present, and the
+routine jumps to <code>3C:6BB2</code>:</p>
 <pre><code class="language-z80">6BB2: setup line / 2× short delay (6BD2 seeds 9CAC from port 0x20 = CPU speed)
-6BBB: LD A,0xFA ; (9C86)=A           ; reload inner timeout
-      IN A,(0x9) ; BIT 5,A           ; port 0x09 bit5 = TX buffer empty/ready
-      JR Z,6BCA                       ; not ready → spin
-      LD A,C ; OUT (0x0D),A ; RET     ; *** write the byte to port 0x0D (assist FIFO) ***
-6BCA: CALL 6BE4 (decrement 9CAC) ; JR Z,6BBB (retry) ; else JP 4434 (timeout)
+6BBB: LD A,0xFA
+      LD (0x9C86),A            ; reload inner timeout
+      IN A,(0x09)
+      BIT 5,A                  ; port 0x09 bit 5 = TX buffer empty/ready
+      JR Z,6BCA                ; not ready → spin
+      LD A,C
+      OUT (0x0D),A             ; write the byte to the assist FIFO
+      RET
+6BCA: CALL 6BE4                ; decrement 0x9CAC
+      JR Z,6BBB                ; retry
+      JP 4434                  ; timeout
 </code></pre>
 <p>So the assist path is: poll port 0x09 bit 5, then <code>OUT (0x0D),byte</code>, with a CPU-speed-scaled timeout. The legacy fall-through writes port <code>0x00</code> directly; see <a href="#two-wire-link-port-hardware">Two-wire link port hardware</a> for its two-read polling loop and four-transition handshake.</p>
 <h3 id="receive-path-and-decoder-confirmed"><a class="header" href="#receive-path-and-decoder-confirmed">Receive path and decoder [confirmed]</a></h3>
-<pre><code class="language-z80">443F: DI ; CALL 447E (arm/clock the line) ; CALL 444A (get-status) ; RET C/NZ ; loop if Z
-444A:  CP 1                              ; status 1 selects the error-status path
-       LD A,C                            ; A = candidate byte/status marker
-       JR NZ,4456                        ; other status: normal byte or marker
-       CP 0xE0 ; JP NZ,_ErrLinkXmit
-       JR 4470
-4456:  CP 0xE0 ; RET NZ                  ; return an ordinary byte from C
-       IN A,(0x2) ; AND 0x80             ; port 0x02 bit7 set = non-83+-Basic (has assist HW on 84+)
-       JR Z,4469                         ;   legacy:  6CC1 polls the bit-bang lines
-       IN A,(0x9) ; BIT 6,A ; JR NZ,4470 ; port 0x09 bit6 = transmission error → abort
-       AND 0x19 ; JR NZ,4475             ; port 0x09 bits 0x19 = link error/active flags
-4470:  CALL 6D17 ; XOR A ; RET           ; error/no byte → return 0
+<pre><code class="language-z80">443F: DI
+      CALL 447E                  ; arm/clock the line
+      CALL 444A                  ; get status
+      RET C/NZ                   ; loop if Z
+444A: CP 1                       ; status 1 selects the error-status path
+      LD A,C                     ; A = candidate byte/status marker
+      JR NZ,4456                 ; other status: normal byte or marker
+      CP 0xE0
+      JP NZ,_ErrLinkXmit
+      JR 4470
+4456: CP 0xE0
+      RET NZ                     ; return an ordinary byte from C
+      IN A,(0x02)
+      AND 0x80                   ; port 0x02 bit 7 set = non-83+-Basic
+      JR Z,4469                  ; legacy path: 6CC1 polls the bit-bang lines
+      IN A,(0x09)
+      BIT 6,A
+      JR NZ,4470                 ; transmission error → abort
+      AND 0x19
+      JR NZ,4475                 ; link error/active flags
+4470: CALL 6D17
+      XOR A
+      RET                        ; error/no byte → return 0
 </code></pre>
 <p>Key port semantics (84+ assist): port 0x09 bit 5 = TX ready, bit 6 = transmission error,
 bit 4 = byte received, bits 0x19 = error/active; port 0x0D = data FIFO; port 0x02
@@ -20980,33 +21488,54 @@ of an incoming packet (peer may be idle for a long time).</p>
 and <code>header.data_length</code>; the disassembly below retains the concrete addresses
 that establish those fields. [confirmed]</p>
 <h3 id="sending-a-header-confirmed"><a class="header" href="#sending-a-header-confirmed">Sending a header [confirmed]</a></h3>
-<pre><code class="language-z80">41C3: 6D4B (drive line) ; short delay ; CALL probe_hw_model_keep_a (model probe)
-      … (HW handshake on 84+, or bit-bang line-idle wait; failure → _ErrLinkXmit) …
-41F2: (8678)=0                              ; reset checksum accumulator
-      LD A,(8674) ; CALL _SendAByte         ; machine-ID
-      LD A,(8675) ; CALL _SendAByte         ; command-ID
-      LD A,(8676) ; CALL _SendAByte         ; length lo
-      LD A,(8677) ; CALL _SendAByte         ; length hi
+<pre><code class="language-z80">41C3: 6D4B (drive line)
+      short delay
+      CALL probe_hw_model_keep_a (model probe)
+      … (HW handshake on 84+, or bit-bang line-idle wait, with failure reaching _ErrLinkXmit) …
+41F2: (8678)=0                       ; reset checksum accumulator
+      LD A,(8674)
+      CALL _SendAByte                ; machine-ID
+      LD A,(8675)
+      CALL _SendAByte                ; command-ID
+      LD A,(8676)
+      CALL _SendAByte                ; length lo
+      LD A,(8677)
+      CALL _SendAByte                ; length hi
 </code></pre>
 <p><code>419B</code> is the generic “send a 0-length control packet”: it sets the local machine-ID (<code>620A</code>),
 stores the command from <code>H</code>, and calls <code>41C3</code>. Convenience entries: <code>4195</code> H=0x92 (EOT),
 <code>4199</code> H=0x09 (CTS), <code>41BC</code> ID=0x73/cmd=0x68 (RTS).</p>
 <h3 id="receiving-a-header-confirmed"><a class="header" href="#receiving-a-header-confirmed">Receiving a header [confirmed]</a></h3>
-<pre><code class="language-z80">4338: CALL _RecAByteIO ; (8674)=A           ; machine-ID, validated against the known set:
+<pre><code class="language-z80">4338: CALL _RecAByteIO
+      (8674)=A                       ; machine-ID, validated against the known set:
       0x95 0x73 0x23 0x74 0x82 0x02 0x12 0x83 0x03 0x13 0x08   (else fall to 2nd-byte machine list)
-4370: CALL _RecAByteIO ; (8675)=A           ; command-ID, validated: 0x68 0x47 0x74 0x2D … else _JErrorNo
-438F: CALL _RecAByteIO ; (8675)=A  (cmd)     ; (on the validated path)
-4392: CALL _RecAByteIO ; (8676)=A           ; length lo
-4395: CALL _RecAByteIO ; (8677)=A           ; length hi ; RET
+4370: CALL _RecAByteIO
+      (8675)=A                       ; command-ID, validated: 0x68 0x47 0x74 0x2D … else _JErrorNo
+438F: CALL _RecAByteIO
+      (8675)=A                       ; command ID on the validated path
+4392: CALL _RecAByteIO
+      (8676)=A                       ; length lo
+4395: CALL _RecAByteIO
+      (8677)=A                       ; length hi
+      RET
 </code></pre>
 <p>An unrecognised machine-ID or command-ID byte aborts via <code>_JErrorNo</code> (→ <code>E_LnkErr</code> 0x9F).</p>
 <h3 id="machine-id-selector-confirmed"><a class="header" href="#machine-id-selector-confirmed">Machine-ID selector [confirmed]</a></h3>
 <p>The <em>local</em> machine-ID advertised in outgoing packets depends on the peer-type bits in <code>IY+0x1B</code>:</p>
-<pre><code class="language-z80">620A: L=0x82 ; BIT 2,(IY+0x1B) ; RET NZ     ; 0x82 = default / TI-84+ silent
-      L=0x95 ; BIT 1,(IY+0x1B) ; RET NZ     ; 0x95 = computer / TI-Connect (USB host)
-      L=0x83 ; BIT 3,(IY+0x1B) ; RET NZ
-      L=0x03 ; BIT 4,(IY+0x1B) ; RET NZ     ; 0x03 = TI-83
-      L=0x73 ; RET                          ; 0x73 = TI-73 / fallback
+<pre><code class="language-z80">620A: LD L,0x82                     ; default / TI-84+ silent
+      BIT 2,(IY+0x1B)
+      RET NZ
+      LD L,0x95                     ; computer / TI-Connect USB host
+      BIT 1,(IY+0x1B)
+      RET NZ
+      LD L,0x83
+      BIT 3,(IY+0x1B)
+      RET NZ
+      LD L,0x03                     ; TI-83
+      BIT 4,(IY+0x1B)
+      RET NZ
+      LD L,0x73                     ; TI-73 / fallback
+      RET
 </code></pre>
 <h3 id="command-id-byte-reference-hypothesis"><a class="header" href="#command-id-byte-reference-hypothesis">Command-ID byte reference [hypothesis]</a></h3>
 <p>Confirmed in the code; semantics are the standard TI link protocol:</p>
@@ -21031,13 +21560,26 @@ stores the command from <code>H</code>, and calls <code>41C3</code>. Convenience
 </div>
 <h3 id="checksum-and-acknowledgement-tail-confirmed"><a class="header" href="#checksum-and-acknowledgement-tail-confirmed">Checksum and acknowledgement tail [confirmed]</a></h3>
 <p>After the data payload, the sender appends the 16-bit sum and waits for the ACK:</p>
-<pre><code class="language-z80">4167 (send tail): LD HL,(8678) ; A=L ; CALL _SendAByte ; A=H ; CALL _SendAByte   ; chk lo, hi
-4178:  CALL 4318 (save hdr→bakHeader) ; CALL 4338 (recv reply header)
-417E:  LD A,(8675) ; … CALL 430F (compare/store) ; CP 0x56 ; RET Z ; JP _JErrorNo
+<pre><code class="language-z80">4167: LD HL,(8678)
+      LD A,L
+      CALL _SendAByte               ; checksum lo
+      LD A,H
+      CALL _SendAByte               ; checksum hi
+4178: CALL 4318 (save hdr→bakHeader)
+      CALL 4338 (recv reply header)
+417E: LD A,(8675)
+      … CALL 430F (compare/store)
+      CP 0x56
+      RET Z
+      JP _JErrorNo
 </code></pre>
 <p>On the <em>receive</em> side the matching check is <code>6356</code>: after streaming the payload it compares the
 accumulated checksum <code>8678</code> against the received 16-bit checksum; on mismatch it sends a <code>0x5A</code> ERR
-packet (<code>6385: LD H,0x5A ; CALL 419B</code>) and raises <code>_JErrorNo</code>. The ACK-builder <code>42FB</code> saves the
+packet:</p>
+<pre><code class="language-z80">6385: LD H,0x5A
+      CALL 419B
+</code></pre>
+<p>It then raises <code>_JErrorNo</code>. The ACK-builder <code>42FB</code> saves the
 caller’s header to <code>868B bakHeader</code>, then builds an ACK with a fresh local machine-ID (<code>CALL 620A</code>),
 command = <code>0x56</code>, length = 0, sends it, and <code>_Mov9B</code> restores the saved header.</p>
 <hr>
@@ -21052,16 +21594,25 @@ loop increments <code>HL</code> after each byte.</li>
 <code>3C:42CF</code> flushes each full 16-byte block through <code>3C:6AB1</code>, and <code>3C:42EC</code>
 flushes a nonzero remainder.</li>
 </ul>
-<pre><code class="language-z80">4292: BC=(8676) len ; (8678)=0
+<pre><code class="language-z80">4292: BC=(8676) len
+      (8678)=0
       if BC==0 → checksum tail
-      pagedGetPtr=983A ; pagedCount=0 ; HL=(84DB) dest
-      loop: 1FD6 (break check) ; _RecAByteIO → A
-            if BIT 7,H: (HL)=A ; INC HL
-            else: store A via pagedGetPtr ; INC pagedCount
+      pagedGetPtr=983A
+      pagedCount=0
+      HL=(84DB) dest
+      loop: 1FD6 (break check)
+            _RecAByteIO → A
+            if BIT 7,H: (HL)=A
+                        INC HL
+            else: store A via pagedGetPtr
+                  INC pagedCount
                   when pagedCount==0x10 → CALL 6AB1
-            (8678) += received_byte ; DEC BC ; loop while BC
+            (8678) += received_byte
+            DEC BC
+            loop while BC
       if pagedCount!=0 → CALL 6AB1
-42EF: _RecAByteIO ×2 → received checksum ; CALL 6356 (verify len/sum, NAK 0x5A on mismatch)
+42EF: _RecAByteIO ×2 → received checksum
+      CALL 6356 (verify len/sum, NAK 0x5A on mismatch)
 42FB: send ACK (cmd 0x56)
 </code></pre>
 <h3 id="flash-window-staging-flush--3c6ab1-confirmed"><a class="header" href="#flash-window-staging-flush--3c6ab1-confirmed">Flash-window staging flush — <code>3C:6AB1</code> [confirmed]</a></h3>
@@ -21126,10 +21677,15 @@ caller sets. Its importable model also reports page classification, RAM-direct
 versus Flash-buffered routing, block counts, destination crossing, and the
 equality quirk.</p>
 <p>The header-classifier <code>6994</code> shows the receive-and-store sequence a var-receive runs:</p>
-<pre><code class="language-z80">6994: 4255 (reset chk) ; 6298 (machine-ID re-validate) ; RST4 on (867F) (classify var header)
-      6D4B/4338 recv header ; expect (8675)==0x09 (VAR/CTS) else _JErrorNo
-      4338 recv DATA header ; expect (8675)==0x15 (DATA) else _JErrorNo
-      BC=(8676) len ; RST5 → store the variable into the VAT (creates RAM/Flash entry)
+<pre><code class="language-z80">6994: 4255 (reset chk)
+      6298 (machine-ID re-validate)
+      RST4 on (867F) (classify var header)
+      6D4B/4338 recv header
+      expect (8675)==0x09 (VAR/CTS) else _JErrorNo
+      4338 recv DATA header
+      expect (8675)==0x15 (DATA) else _JErrorNo
+      BC=(8676) len
+      RST5 → store the variable into the VAT (creates RAM/Flash entry)
 </code></pre>
 <p>i.e. the receiver reproduces the VAT-create / <code>_InsertMem</code> path from <a href="#variables-archive-and-unarchive">sub-vat-archive.md</a>.</p>
 <hr>
@@ -21137,25 +21693,35 @@ equality quirk.</p>
 <p>This is the path a “Send” hits (TI-Connect pulls a var, or a calc-to-calc send).
 OP1 = the variable name. It negotiates, sends the VAR header, waits for CTS, then streams the DATA.</p>
 <pre><code class="language-z80">link_xfer_op (3C:4DD2):
-  CALL probe_hw_model_keep_a        ; model/HW probe; spin on port 0x20 if assist busy
+  CALL probe_hw_model_keep_a        ; model/HW probe, spin on port 0x20 if assist busy
   SET 1,(IY+0x24)                   ; mark "transfer active"
-  RES 3,(IY+0x1B) ; save IY+0xC (APD) ; install cleanup handler 4F3E via 27DA
+  RES 3,(IY+0x1B)
+  save IY+0xC (APD)
+  install cleanup handler 4F3E via 27DA
   CALL _OP1ToOP6                    ; preserve the var name
   (build the var header into 867F) :
-      LD DE,0x867F ; CALL _MovFrOP1 ; *** header = var type byte + name token(s) ***
+      LD DE,0x867F
+      CALL _MovFrOP1                ; header = var type byte + name token(s)
   decide request command:
-      LD A,(8672) sndRecState ; CP 0x15 ;  A = 0xA2 (DATA-type)  else  0xB7
+      LD A,(8672) sndRecState
+      CP 0x15
+      A = 0xA2 (DATA-type) else 0xB7
       CALL 6971 (set "cmd in progress")
   USB negotiation (when IY+0x1B bit0 &amp; bit5/6 set): poll port 0x4D bits 5/6, cross_page 2E0B
   CALL 4055 (send the VAR/request header via 40DA→41C3)
   CALL 6184 → _Rec1stByteNC (wait for peer reply)
-      CP 0x36 (SKIP/EXIT) → 427E ; _JErrorNo            ; peer refused
+      CP 0x36 (SKIP/EXIT) → 427E
+      _JErrorNo                     ; peer refused
       CP 0x06 (VAR/CTS ok) → continue, else 4D45 _JErrorNo
-  CALL 4255 ; CALL 687A (check transfer state 8688==0x07)
+  CALL 4255
+  CALL 687A (check transfer state 8688==0x07)
   if sndRecState==0x15 (DATA):
-      CALL 4763 (resolve var data: type/size/ptr, archive-aware) ; CALL ... send DATA
+      CALL 4763 (resolve var data: type/size/ptr, archive-aware)
+      CALL ... send DATA
   else: send the symbol-table/listing payload (4261)
-  RES 1,(IY+0x24) ; FUN_ram_2800 (restore) ; JP 4F3E (cleanup)
+  RES 1,(IY+0x24)
+  FUN_ram_2800 (restore)
+  JP 4F3E (cleanup)
 </code></pre>
 <h3 id="resolving-the-variable-for-sending-confirmed"><a class="header" href="#resolving-the-variable-for-sending-confirmed">Resolving the variable for sending [confirmed]</a></h3>
 <p><code>lnk_resolve_var</code> (<code>3C:4763</code>) reads the var-header type byte at <code>0x867F</code> and
@@ -21167,17 +21733,32 @@ where <code>_Chk_Batt_Low</code> saves <code>arcInfo.size</code> at <code>0x83F7
 supplies the data pointer, page, and length inside the DATA sender.</p>
 <h3 id="sending-the-data-payload-confirmed"><a class="header" href="#sending-the-data-payload-confirmed">Sending the DATA payload [confirmed]</a></h3>
 <pre><code class="language-z80">40DA: CALL _SetupPagedPtr (17AC)            ; initialize the paged source from HL, DE, and B
-      (84DB)=ptr ; (8676)=len               ; iMathPtr5, packet length
-      6971 ; 620A (machine-ID) ; (8674)=ID
+      (84DB)=ptr                            ; iMathPtr5
+      (8676)=len                            ; packet length
+      6971
+      620A (machine-ID)
+      (8674)=ID
       if sndRecState == 0x08 and varClass == 0x0A and len &gt; 0x037D:
-          (8676)=0x037D ; send header
-          checksum=0 ; send 0x63,0x00
-          DE=0x037B ; HL=data ptr+2
+          (8676)=0x037D
+          send header
+          checksum=0
+          send 0x63,0x00
+          DE=0x037B
+          HL=data ptr+2
 413D: CALL 41C3 (send DATA header, cmd already 0x15 from 4055)
-      HL=(84DB) ptr ; DE=(8676) len ; (8678)=0
-      loop 4150: 1FD6 (clock) ; _PagedGet (17BB) the next byte (handles Flash page-cross) ;
-                 41AB → _SendAByte ; accumulate (8678) ; DEC DE ; loop
-4167: send 2-byte checksum (8678 lo,hi) ; recv reply header ; CP 0x56 (ACK) ; else _JErrorNo
+      HL=(84DB) ptr
+      DE=(8676) len
+      (8678)=0
+      loop 4150: 1FD6 (clock)
+                 _PagedGet (17BB) the next byte (handles Flash page-cross)
+                 41AB → _SendAByte
+                 accumulate (8678)
+                 DEC DE
+                 loop
+4167: send 2-byte checksum (8678 lo,hi)
+      recv reply header
+      CP 0x56 (ACK)
+      else _JErrorNo
 </code></pre>
 <p>The comparison at <code>3C:410A</code> computes <code>0x037D - len</code>. An equal length takes the
 ordinary path; only a larger source enters the backup branch. The resulting
@@ -21265,13 +21846,21 @@ exactly like <a href="#reading-archived-data-with-_flashtoram-confirmed"><code>_
 <h2 id="_sendvarcmd-confirmed"><a class="header" href="#_sendvarcmd-confirmed"><code>_SendVarCmd</code> [confirmed]</a></h2>
 <p>The bcall most code/TI-BASIC reaches for to silent-send. It is a thin DI-wrapped front for the same
 machinery:</p>
-<pre><code class="language-z80">4EDD: DI ; save IY+0xC (APD) ; RES 2,(IY+0xC)
+<pre><code class="language-z80">4EDD: DI
+      save IY+0xC (APD)
+      RES 2,(IY+0xC)
       install cleanup 4F3E via 27DA
-      LD A,0x0B ; (8672)=A          ; sndRecState = request/directory
-      LD A,0xC9 ; CALL 6971         ; command setup
-      CALL 62B0 (clear link sub-state in 8A0B) ; SET 2,(IY+0x1B)
-      CALL 58ED (→ SET 1,(IY+0x24) ; _ChkFindSym)  ; locate the var
-      JR 4EAD (shared tail with link_xfer_op: RES 1,(IY+0x24); 2800; JP 4F3E)
+      LD A,0x0B
+      LD (8672),A                   ; sndRecState = request/directory
+      LD A,0xC9
+      CALL 6971                     ; command setup
+      CALL 62B0                     ; clear link sub-state in 8A0B
+      SET 2,(IY+0x1B)
+      CALL 58ED                     ; sets IY+0x24 bit 1 and calls _ChkFindSym
+      JR 4EAD                       ; shared tail with link_xfer_op
+4EAD: RES 1,(IY+0x24)
+      2800 (restore)
+      JP 4F3E
 </code></pre>
 <p>Note <code>4EDD</code> physically overlaps / shares the tail (<code>4EAD</code>) with <code>link_xfer_op</code>; they are two
 entry points into one routine body. <code>_SendVarCmd</code> is the “send by name from the running context”
@@ -21279,17 +21868,32 @@ door; <code>link_xfer_op</code> is the “OP1 already set up, do the silent tran
 <hr>
 <h2 id="apd-cleanup-and-idle-line-wait-confirmed"><a class="header" href="#apd-cleanup-and-idle-line-wait-confirmed">APD, cleanup, and idle-line wait [confirmed]</a></h2>
 <ul>
-<li><code>27DA</code> (<code>FUN_ram_27da</code>) installs an error callback. <code>link_xfer_op</code> and <code>_SendVarCmd</code> install
-<code>3C:4F3E</code>, which restores link state, the APD timer, and <code>IY+0xC</code> bit 2 after <code>_JError</code>.
-<code>4F3E: POP AF ; BIT 2,A ; (restore IY+0xC bit2) ; → 4F31 (RES 2,(IY+0x12); re-enable timers; EI)</code>.</li>
-<li>Six other transfer paths install page-0 stub <code>2D51</code>, which bjumps to <code>3C:6136</code>. That callback
+<li>
+<p><code>27DA</code> (<code>FUN_ram_27da</code>) installs an error callback. <code>link_xfer_op</code> and <code>_SendVarCmd</code> install
+<code>3C:4F3E</code>, which restores link state, the APD timer, and <code>IY+0xC</code> bit 2 after <code>_JError</code>:</p>
+<pre><code class="language-z80">4F3E: POP AF
+      BIT 2,A
+      restore IY+0xC bit 2
+      continue at 4F31
+4F31: RES 2,(IY+0x12)
+      re-enable timers
+      EI
+</code></pre>
+</li>
+<li>
+<p>Six other transfer paths install page-0 stub <code>2D51</code>, which bjumps to <code>3C:6136</code>. That callback
 dispatches on <code>sndRecState</code>; for the applicable non-DATA states it calls the raw/USB-aware abort
 cleanup at <code>3C:618D</code>, then records <code>ioErrState=1</code> through stub <code>2F31</code> → <code>07:7AC3</code>. The raw branch
 drives both port-<code>0x00</code> lines low for an exact software delay before releasing them. See
-<a href="#error-cleanup-and-the-both-low-abort-pulse">Two-wire link port hardware</a>.</li>
-<li><code>_ApdSetup</code> (<code>00:03AE</code>) is called before any long blocking receive (<code>6177</code>, <code>6184</code>) so the calc
-doesn’t auto-power-down mid-transfer.</li>
-<li><code>62B0</code>/<code>62BB</code> clear the link error sub-state byte (<code>8A0B</code>, the low bits of <code>IY+0x1B</code>-area flags).</li>
+<a href="#error-cleanup-and-the-both-low-abort-pulse">Two-wire link port hardware</a>.</p>
+</li>
+<li>
+<p><code>_ApdSetup</code> (<code>00:03AE</code>) is called before any long blocking receive (<code>6177</code>, <code>6184</code>) so the calc
+doesn’t auto-power-down mid-transfer.</p>
+</li>
+<li>
+<p><code>62B0</code>/<code>62BB</code> clear the link error sub-state byte (<code>8A0B</code>, the low bits of <code>IY+0x1B</code>-area flags).</p>
+</li>
 </ul>
 <hr>
 <h2 id="flash-object-dispatch-and-error-handling"><a class="header" href="#flash-object-dispatch-and-error-handling">Flash-object dispatch and error handling</a></h2>
@@ -21805,7 +22409,12 @@ bjumps resolve as:</p>
 </div>
 <p>Both paths are [confirmed].</p>
 <p>The timer/idle side of the same handler also bridges to the assist path. At <code>ram:01B1</code> it calls
-<code>ram:1837</code> (<code>IN A,(0x2); AND 0x80; XOR 0x80</code>), the same hardware-model gate used elsewhere before assist-port access. On the legacy path it checks <code>port 0x00 &amp; 0x03</code>; on the assist
+<code>ram:1837</code>:</p>
+<pre><code class="language-z80">IN A,(0x2)
+AND 0x80
+XOR 0x80
+</code></pre>
+<p>This is the same hardware-model gate used elsewhere before assist-port access. On the legacy path it checks <code>port 0x00 &amp; 0x03</code>; on the assist
 path it checks <code>port 0x09 &amp; 0x18</code>. If either assist bit is set, it reloads <code>0x9C86 = 0xFA</code>, pulses
 port <code>0x08</code> with <code>0x80</code> then <code>0x00</code>, sets <code>IY+0x3E</code> bit 0, and calls the common link activity hook
 at <code>ram:3FD5</code>. [confirmed]</p>
@@ -21885,7 +22494,11 @@ LD A,08h
 OUT (4Ch),A
 </code></pre>
 <p>The reset helper at <code>2F:59C3</code> drives port <code>0x4B</code>, pulses port <code>0x54</code>, and uses programmable timer 3 through ports <code>0x36</code>–<code>0x38</code> for a delay. <code>_InitUSB</code> then waits for port <code>0x4C</code> to equal <code>0x1A</code> or <code>0x5A</code>. Each poll decrements a 16-bit <code>DE</code> timeout through <code>2F:5313</code>. [confirmed]</p>
-<p>After the handshake, the routine writes <code>0xFF</code> to port <code>0x87</code>, zero to <code>0x92</code>, reads <code>0x87</code>, writes <code>0x0E</code> to <code>0x89</code>, clears <code>0x9C26</code> and <code>0x9C27</code>, and writes <code>0x21</code> to <code>0x8B</code>. The tail at <code>2F:52F6</code> gives port <code>0x8C</code> five timeout windows to become nonzero. Success executes <code>OR A; RET</code>, which clears carry. Failure calls <code>_USBErrorCleanup</code> through <code>2F:5B87</code>, sets carry, and returns. [confirmed]</p>
+<p>After the handshake, the routine writes <code>0xFF</code> to port <code>0x87</code>, zero to <code>0x92</code>, reads <code>0x87</code>, writes <code>0x0E</code> to <code>0x89</code>, clears <code>0x9C26</code> and <code>0x9C27</code>, and writes <code>0x21</code> to <code>0x8B</code>. The tail at <code>2F:52F6</code> gives port <code>0x8C</code> five timeout windows to become nonzero. Success clears carry with:</p>
+<pre><code class="language-z80">OR A
+RET
+</code></pre>
+<p>Failure calls <code>_USBErrorCleanup</code> through <code>2F:5B87</code>, sets carry, and returns. [confirmed]</p>
 <p>The unnamed bcall <code>810B</code> reads port <code>0x81</code>, ORs mask <code>0x01</code>, writes the result back, and jumps to the timer-3 delay at <code>2F:5A06</code>. The <code>ti83plus.inc</code> comment calls this bit 1, while mask <code>0x01</code> sets bit 0. No controller-state poll occurs in this entry itself. [confirmed]</p>
 <h3 id="receive-and-cleanup-boundaries"><a class="header" href="#receive-and-cleanup-boundaries">Receive and cleanup boundaries</a></h3>
 <p><code>_ReceiveOS_USB</code> disables interrupts, enters the record-transfer helpers, and feeds the values <code>0</code>, <code>8</code>, <code>3</code>, <code>0</code>, <code>0x0104</code>, <code>0</code>, and <code>0</code> through <code>2F:42AA</code>. It then sets port <code>0x20</code> to 1, clears receive state at <code>0x8271</code>, <code>0x822F</code>, and <code>0x83A4</code>, and uses <code>0x86EC</code> as a <code>0x0104</code>-byte record workspace. Later branches subtract a four-byte framing size, validate record fields, and program Flash through port <code>0x14</code>. [confirmed]</p>

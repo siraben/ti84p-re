@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0e592f65.js";
+            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -296,10 +296,13 @@ value before continuing. An interrupt or reset between those writes could
 leave one byte complemented; the routine executes with interrupts disabled.
 [confirmed]</p>
 <p>The disable wrapper saves <code>AF</code>, clears <code>A</code>, emits the protected instruction
-sequence, and writes port <code>0x14</code>. It then executes <code>OR A; JP NZ,0x0000</code> before
-restoring <code>AF</code>. The test is necessarily zero when normal sequential execution
-reaches it. It detects a control-flow or instruction-corruption error rather
-than reading the write back. [confirmed]</p>
+sequence, and writes port <code>0x14</code>. It then executes:</p>
+<pre><code class="language-z80">OR A
+JP NZ,0x0000
+</code></pre>
+<p>The wrapper restores <code>AF</code> afterward. The test is necessarily zero when normal
+sequential execution reaches it. It detects a control-flow or
+instruction-corruption error rather than reading the write back. [confirmed]</p>
 <h2 id="ordered-hardware-programming"><a class="header" href="#ordered-hardware-programming">Ordered hardware programming</a></h2>
 <p>The first guarded enable is followed by the complete initialization sequence
 below. The order includes the call from <code>3F:41BA</code> into

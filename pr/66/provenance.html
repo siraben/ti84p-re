@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0e592f65.js";
+            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -294,9 +294,8 @@ auditing retail boot and USB pages. [confirmed]</p>
 <h2 id="community-assembly-archive-snapshot"><a class="header" href="#community-assembly-archive-snapshot">Community assembly archive snapshot</a></h2>
 <p>The community-source audit uses a 2026-08-24 mirror of the
 <a href="https://www.ticalc.org/pub/83plus/asm/">ticalc.org TI-83/84 Plus assembly archive</a>.
-The mirror remains outside this repository under
-<code>~/src/ticalc-83plus-asm-archive</code>; the repository contains hashes and analysis
-tools, not the contributed programs. [confirmed]</p>
+The archive was cloned outside this repository. This repository contains
+hashes and analysis tools, not the contributed programs. [confirmed]</p>
 <p><code>tools/data/community-archive-inventory.csv</code> records every mirrored ZIP path,
 its SHA-256, compressed and expanded sizes, member count, source-member count,
 and the number of paths with byte-identical archive contents. The snapshot has
@@ -306,10 +305,10 @@ ZIPs, 897 contain at least one such member. [confirmed]</p>
 <p>Run the same inventory and safe extraction process from the development
 environment:</p>
 <pre><code class="language-sh">nix develop -c python3 tools/community_archive.py \
-  ~/src/ticalc-83plus-asm-archive/mirror/pub/83plus/asm \
+  "$COMMUNITY_ARCHIVE/mirror/pub/83plus/asm" \
   --archive-csv tools/data/community-archive-inventory.csv \
   --member-csv /tmp/community-archive-members.csv \
-  --extract-to ~/src/ticalc-83plus-asm-archive/extracted
+  --extract-to "$COMMUNITY_ARCHIVE/extracted"
 </code></pre>
 <p>The extractor validates paths before writing, keeps each ZIP in a separate
 directory, preserves duplicate member revisions under an explicit namespace,

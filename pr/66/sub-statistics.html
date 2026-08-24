@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0e592f65.js";
+            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -274,24 +274,35 @@ list arguments; the <a href="#stat-command-token-map-confirmed">command token</a
 <pre><code class="language-z80">_OneVar (3A:6420):
   SET 5,(IY+9)            ; statFlags: "stat computation active"
   LD B,0                  ; arg counter
-  RES 1,(IY+0)  ; RES 1,(IY+1a)
+  RES 1,(IY+0)
+  RES 1,(IY+1a)
   LD (9817),0             ; clear a status byte
-  LD HL,8499 ; CALL 1b33  ; stage the parsed arg descriptor at 8499
-  LD A,0FF ; LD (84af),A
+  LD HL,8499
+  CALL 1b33               ; stage the parsed arg descriptor at 8499
+  LD A,0FF
+  LD (84af),A
   CALL _CkOP1Real (1942-ish) / arg-class checks …
   ; ---- argument parsing (6442..64de) ----
   ;   walks the parser argument list, accepting list-name tokens (0x24 list,
   ;   0x2A list-element, 0x1C/0x25/0x19 = freq/list variants); validates count;
   ;   _JError(0x8A) ARGUMENT / 0x88 SYNTAX on a bad arg list.
   ; ---- set up the data pointers (64e1..6503) ----
-  LD HL,847a ; LD DE,8d2a ; CALL 1a9a  ; resolve the x-list (and y/freq) → 84D3..84DB
-  POP AF ; LD (8a36),A          ; *** save the command code → model discriminator ***
-  LD HL,6352 ; CALL 27da        ; install an on-error cleanup frame
+  LD HL,847a
+  LD DE,8d2a
+  CALL 1a9a                     ; resolve the x-list (and y/freq) → 84D3..84DB
+  POP AF
+  LD (8a36),A                   ; *** save the command code → model discriminator ***
+  LD HL,6352
+  CALL 27da                     ; install an on-error cleanup frame
   CALL 6572                     ; accumulation pass
-  CALL 2800 ; CALL 6345         ; tear down frame
+  CALL 2800
+  CALL 6345                     ; tear down frame
   ; ---- regression coefficient region select (6506..652f) ----
-  LD A,(8a36) ; CP 4 ; JR NC,..  ; A&lt;4 ⇒ polynomial regression
-       LD A,16 ; LD HL,8aee      ; coeff dest = QuadA block; … solve
+  LD A,(8a36)
+  CP 4
+  JR NC,..                     ; A&lt;4 ⇒ polynomial regression
+       LD A,16
+       LD HL,8aee              ; coeff dest = QuadA block, then solve
   …
   SET 7,(IY+9)                  ; mark results valid
   CALL 67c1 …                   ; finalize / median
@@ -349,21 +360,29 @@ mean, variance, and least-squares normal equations. Read from disassembly:</p>
 <pre><code class="language-z80">6572: CALL 6f90/6f7d         ; default freq = 1 if no freq list given
 6584: CALL 21bb              ; if freq list present, length-check vs x-list
                              ;   → _ErrDimMismatch (2715) on mismatch
-658a: LD HL,(84d3)          ; HL = first element ptr; DE = element count
+658a: LD HL,(84d3)          ; HL = first element ptr, DE = element count
 6590: LD A,(8a36)           ; dispatch on command:
    CP 8 (Med-Med) → jump to the resistant-line path (760f/75e4 → 79b9)
    else compute the matrix dimension from the degree:
-        CP 1c/25/19/9 → dim=4 ; CP 5 (CubicReg) NC → dim+? ; default
-   65c1: A = dim ; SUB 2 ; PUSH AF
+        CP 1c/25/19/9 → dim=4
+        CP 5 (CubicReg) NC → dim+?
+        default
+   65c1: A = dim
+         SUB 2
+         PUSH AF
 65cd: set up x/y element pointers (84d5/84d7/84db)
 65f0: ---- per-element accumulator init ----
-   LD DE,8a3a ; … CALL 1a92  ; StatN slot
+   LD DE,8a3a
+   … CALL 1a92              ; StatN slot
    LD DE,8a94                ; YMean/Σy slots
    CALL 110f                 ; allocate the sums matrix (84d9 = base)
 6646..66fe: ---- per-element loop ----
    6f6a  : fetch next x (and y) list element, advance ptr
    28e4/2297 : loop bound (RST FPSub / compare)
-   6567  : helper = (RST 8: OP1→OP2) ; LD HL,(84af) ; CALL 6f7d ; _FPMult (238b)
+   6567  : helper = (RST 8: OP1→OP2)
+           LD HL,(84af)
+           CALL 6f7d
+           _FPMult (238b)
            → forms the running power x^k · freq
    238a  : _FPSquare (Σx²)
    238b  : _FPMult   (Σxy, Σx^(i+j))
@@ -380,22 +399,37 @@ power-sums <code>Σxⁱ</code> (i = 0 … 2d) and the right-hand side <code>Σx�
 <code>658a</code>+ checks the command code and, for <code>ExpReg</code>/<code>PwrReg</code> (<code>ln y</code>),
 <code>LnReg</code>/<code>PwrReg</code> (<code>ln x</code>), pre-applies the logarithm to each element before
 accumulating, then exponentiates the resulting linear coefficients off page 0x3A. The
-per-element <code>ln</code> is in the element fetch <code>stat_next_elem</code> (<code>3A:6F6A</code>):
-<code>LD A,(8A36); CP 4; RET NC</code> then <code>bcall _LnX</code> at <code>3A:6F72</code> for model codes <code>&lt; 4</code> (<code>ExpReg</code>/<code>LnReg</code>/<code>PwrReg</code>); the
+per-element <code>ln</code> is in the element fetch <code>stat_next_elem</code> (<code>3A:6F6A</code>):</p>
+<pre><code class="language-z80">LD A,(8A36)
+CP 4
+RET NC
+</code></pre>
+<p>This is followed by <code>bcall _LnX</code> at <code>3A:6F72</code> for model codes <code>&lt; 4</code>
+(<code>ExpReg</code>/<code>LnReg</code>/<code>PwrReg</code>); the
 back-transform <code>_EToX</code>/<code>_TenX</code> lives on page <code>02</code>; see <a href="sub-calculation.html#transcendentals">Transcendentals</a>. This is the standard
 “linearize, fit a line, transform back” method; <code>r</code> is the correlation of the
 <em>transformed</em> data.</p>
 <h3 id="mean-and-standard-deviation-confirmed"><a class="header" href="#mean-and-standard-deviation-confirmed">Mean and standard deviation [confirmed]</a></h3>
 <p>After the pass, <code>_OneVar</code> finalizes the moments (<code>3A:6762</code>+):</p>
-<pre><code class="language-z80">6762: LD DE,8a67 ; CALL 6984   ; σx  (population) from Σx², Σx, n
-6786: LD DE,8a5e ; CALL 6989   ; Sx  (sample), via _Minus1 (n→n-1) at 677c
-6798: LD DE,8a55 ; CALL 6998   ; Σx² slot
-67a7: LD DE,8aa6 ; CALL 6998   ; Σy²   (2-Var)
+<pre><code class="language-z80">6762: LD DE,8a67
+      CALL 6984               ; σx  (population) from Σx², Σx, n
+6786: LD DE,8a5e
+      CALL 6989               ; Sx  (sample), via _Minus1 (n→n-1) at 677c
+6798: LD DE,8a55
+      CALL 6998               ; Σx² slot
+67a7: LD DE,8aa6
+      CALL 6998               ; Σy²   (2-Var)
 </code></pre>
 <p>The variance helpers (<code>3A:6984</code>/<code>6989</code>/<code>6998</code>) implement the one-pass formula
 <code>var = (Σx² − n·x̄²)/N</code> then <code>√</code>:</p>
-<pre><code class="language-z80">6998: _FPSquare(x̄) ; recall Σx² (15da) ; _FPMult ; (RST 30 _FPAdd / subtract) ; …
-6989: CALL _FPDiv (2541) ; CALL 3939 (_SqRoot wrapper) ; store
+<pre><code class="language-z80">6998: _FPSquare(x̄)
+      recall Σx² (15da)
+      _FPMult
+      RST 30                 ; _FPAdd / subtract
+      …
+6989: CALL _FPDiv (2541)
+      CALL 3939              ; _SqRoot wrapper
+      store
 </code></pre>
 <p>The <em>only</em> difference between σx (population) and Sx (sample) is the divisor:
 the population path divides by <code>n</code>, the sample path first does <code>_Minus1</code>
@@ -405,17 +439,25 @@ the population path divides by <code>n</code>, the sample path first does <code>
 <p>For a polynomial fit the moment matrix from the <a href="#accumulation-pass-confirmed">accumulation pass</a> is the augmented normal-equations
 matrix <code>[ M | Σxⁱy ]</code>. <code>_OneVar</code> solves it in place by Gauss-Jordan elimination
 (not a closed-form determinant), then writes the coefficients to <code>QuadA…QuartE</code>.</p>
-<pre><code class="language-z80">67c6: build/copy the augmented matrix; 84d9 = base
+<pre><code class="language-z80">67c6: build/copy the augmented matrix
+      84d9 = base
 67d4..67e3: scale the pivot row
-67ec: LD BC,0202 ; CALL 3aad        ; pivot element (2,2)
+67ec: LD BC,0202
+      CALL 3aad                     ; pivot element (2,2)
 67f7: CALL 212d                     ; _ErrD check (zero pivot → SINGULAR MAT 0x83)
-67fa: RST 8 ; …                     ; pivot reciprocal
+67fa: RST 8                         ; pivot reciprocal
+      …
 6804: CALL 2541 (_FPDiv)            ; divide row by pivot
 680d..6815: elimination loop
-6845: CALL 3939 (_SqRoot) ; 6849 ; CALL 2541 (_FPDiv)  ; (forms r²/r from the fit)
-684f: LD A,12 ; CALL 213d           ; r-related store/guard
+6845: CALL 3939                     ; _SqRoot forms r²/r from the fit
+6849: CALL 2541                     ; _FPDiv
+684f: LD A,12
+      CALL 213d                     ; r-related store/guard
 6859..6876: row-reduce all other rows (3aa7 get, 238b _FPMult, RST 30 _FPAdd)
-6880: CALL 2541 (_FPDiv) ; CP 2 ; LD A,0x35/0x36 ; CALL 213d  ; *** _Sto_StatVar stores into the
+6880: CALL 2541                     ; _FPDiv
+      CP 2
+      LD A,0x35/0x36
+      CALL 213d                     ; *** _Sto_StatVar stores into the
                                                               ; statVar slots id 0x35/0x36 — NOT a SingularMat raise.
                                                               ; the zero-pivot guard is the 67F7→212D path → 0x83.
 68d6..6953: back-substitution — each coeff = (rhs − Σ known·M) / pivot
@@ -441,7 +483,11 @@ centred sums:</p>
 <p>$$r=\frac{\sum (x-\bar x)(y-\bar y)}{\sqrt{\sum (x-\bar x)^2\,\sum (y-\bar y)^2}}=\frac{n\sum xy-\sum x\sum y}{\sqrt{\big(n\sum x^2-(\sum x)^2\big)\big(n\sum y^2-(\sum y)^2\big)}}$$</p>
 <p>assembled with <code>_FPMult</code>/<code>_FPSub</code>/<code>_SqRoot</code>/
 <code>_FPDiv</code> (the <code>6845</code>/<code>684c</code> cluster) and stored to <code>Corr</code> (<code>8ACA</code>). The store offset is
-pinned: at <code>3A:684F</code> the code does <code>LD A,0x12 ; CALL 0x213D</code>, and <code>0x213D</code> is
+pinned at <code>3A:684F</code>:</p>
+<pre><code class="language-z80">LD A,0x12
+CALL 0x213D
+</code></pre>
+<p><code>0x213D</code> is
 <code>_Sto_StatVar</code> (the store counterpart of <code>_Rcl_StatVar 00:2149</code> — both funnel through the
 <code>0x3E07</code> statVar dispatcher with the name id in <code>A</code>). Id <code>0x12</code> = <code>tCorr</code> = the <code>Corr</code>
 slot, so this single sequence is exactly <code>r → Corr (8ACA)</code>. The preceding <code>3A:6845</code>
@@ -585,22 +631,33 @@ equations, depositing every output as a named <code>TIFloat</code> in the <code>
 =<code>_SqRoot</code>, <code>24BD</code>=<code>_InvOP1S</code>.</p>
 <h2 id="remaining-questions"><a class="header" href="#remaining-questions">Remaining questions</a></h2>
 <ul>
-<li><strong><code>r</code> store offset.</strong> <code>3A:684F</code> does <code>LD A,0x12 ; CALL 0x213D</code>
-(<code>_Sto_StatVar</code>, id <code>0x12</code> = <code>tCorr</code>), i.e. <code>r → Corr (8ACA)</code>; <code>r²</code>/<code>R²</code> is the
+<li>
+<p><strong><code>r</code> store offset.</strong> <code>3A:684F</code> does:</p>
+<pre><code class="language-z80">LD A,0x12
+CALL 0x213D
+</code></pre>
+<p>(<code>_Sto_StatVar</code>, id <code>0x12</code> = <code>tCorr</code>), i.e. <code>r → Corr (8ACA)</code>; <code>r²</code>/<code>R²</code> is the
 <code>r·r</code>/coefficient-of-determination from the same <code>6845</code> <code>_SqRoot</code>/<code>_FPDiv</code> cluster, surfaced
 through the same <code>Corr</code> slot in the <a href="#regression-solver-confirmed">regression solver</a>. (Residual: the <code>6845-6891</code> region is unanalyzed code in the
-DB, so only the <code>A=0x12</code> store sequence was byte-pinned, not every intermediate.)</li>
-<li><strong>DISTR numerical cores</strong> (erf/incomplete-gamma/incomplete-beta) are
+DB, so only the <code>A=0x12</code> store sequence was byte-pinned, not every intermediate.)</p>
+</li>
+<li>
+<p><strong>DISTR numerical cores</strong> (erf/incomplete-gamma/incomplete-beta) are
 <em>outside</em> the STAT-CALC engine: no distribution core is a named routine in this DB; they sit
-behind the parser’s 2-byte DISTR-token function table described under <a href="#distr-functions-confirmed">DISTR functions</a>. Exact address [hypothesis].</li>
-<li><strong>STAT-TESTS</strong> (Z/T/χ²/F/ANOVA) that fill <code>PStat…SStat</code>/<code>anovaf_vars</code> are
+behind the parser’s 2-byte DISTR-token function table described under <a href="#distr-functions-confirmed">DISTR functions</a>. Exact address [hypothesis].</p>
+</li>
+<li>
+<p><strong>STAT-TESTS</strong> (Z/T/χ²/F/ANOVA) that fill <code>PStat…SStat</code>/<code>anovaf_vars</code> are
 <em>separate command handlers</em>, not reached through <code>_OneVar</code> (whose tokens are only <code>F2</code>–<code>FF</code>);
-no <code>PStat</code>-writing routine is among the page-<code>3A</code> <code>stat_*</code> symbols in the <a href="#statvars-result-block-confirmed"><code>statVars</code> result block</a>. Per-test addresses [hypothesis].</li>
-<li><code>stat_sort</code> (<code>3A:7935</code>) is a 49-byte setup that validates/counts the elements
+no <code>PStat</code>-writing routine is among the page-<code>3A</code> <code>stat_*</code> symbols in the <a href="#statvars-result-block-confirmed"><code>statVars</code> result block</a>. Per-test addresses [hypothesis].</p>
+</li>
+<li>
+<p><code>stat_sort</code> (<code>3A:7935</code>) is a 49-byte setup that validates/counts the elements
 then dispatches the compare-swap via <code>rst 28h</code> (the bcall site isn’t fully
 analyzed in the DB). The <code>SortA(</code>/<code>SortD(</code> <em>command</em> sort is a different routine
 (page 0x02, comparator <code>_CpOP1OP2</code>) — its complex-list ordering is documented in
-<a href="sub-matrix-list.html#sorta-and-sortd-list-sorting-confirmed">Matrices and lists</a>.</li>
+<a href="sub-matrix-list.html#sorta-and-sortd-list-sorting-confirmed">Matrices and lists</a>.</p>
+</li>
 </ul>
 
                     </main>

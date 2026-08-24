@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0e592f65.js";
+            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -254,29 +254,50 @@ save, <code>IY+0x3E</code> bit0 / <code>IY+0x3D</code> bit5 USB-presence.</p>
 <h2 id="byte-layer-confirmed"><a class="header" href="#byte-layer-confirmed">Byte layer [confirmed]</a></h2>
 <p><a href="link-port-hardware.html">Two-wire link port hardware</a> covers the complete raw port-<code>0x00</code> send and receive handshakes. This section records how the byte entries select and report the hardware-assist path.</p>
 <h3 id="hardware-assist-send-confirmed"><a class="header" href="#hardware-assist-send-confirmed">Hardware-assist send [confirmed]</a></h3>
-<p><code>_SendAByte</code> (<code>3C:420D</code>) starts <code>CALL probe_hw_model_keep_a ; JP Z,0x6BB2</code> — if the model probe sets Z (the
-84+ link-assist hardware is present), it jumps to <code>3C:6BB2</code>:</p>
+<p><code>_SendAByte</code> (<code>3C:420D</code>) starts:</p>
+<pre><code class="language-z80">CALL probe_hw_model_keep_a
+JP Z,0x6BB2
+</code></pre>
+<p>If the model probe sets Z, the 84+ link-assist hardware is present, and the
+routine jumps to <code>3C:6BB2</code>:</p>
 <pre><code class="language-z80">6BB2: setup line / 2× short delay (6BD2 seeds 9CAC from port 0x20 = CPU speed)
-6BBB: LD A,0xFA ; (9C86)=A           ; reload inner timeout
-      IN A,(0x9) ; BIT 5,A           ; port 0x09 bit5 = TX buffer empty/ready
-      JR Z,6BCA                       ; not ready → spin
-      LD A,C ; OUT (0x0D),A ; RET     ; *** write the byte to port 0x0D (assist FIFO) ***
-6BCA: CALL 6BE4 (decrement 9CAC) ; JR Z,6BBB (retry) ; else JP 4434 (timeout)
+6BBB: LD A,0xFA
+      LD (0x9C86),A            ; reload inner timeout
+      IN A,(0x09)
+      BIT 5,A                  ; port 0x09 bit 5 = TX buffer empty/ready
+      JR Z,6BCA                ; not ready → spin
+      LD A,C
+      OUT (0x0D),A             ; write the byte to the assist FIFO
+      RET
+6BCA: CALL 6BE4                ; decrement 0x9CAC
+      JR Z,6BBB                ; retry
+      JP 4434                  ; timeout
 </code></pre>
 <p>So the assist path is: poll port 0x09 bit 5, then <code>OUT (0x0D),byte</code>, with a CPU-speed-scaled timeout. The legacy fall-through writes port <code>0x00</code> directly; see <a href="link-port-hardware.html">Two-wire link port hardware</a> for its two-read polling loop and four-transition handshake.</p>
 <h3 id="receive-path-and-decoder-confirmed"><a class="header" href="#receive-path-and-decoder-confirmed">Receive path and decoder [confirmed]</a></h3>
-<pre><code class="language-z80">443F: DI ; CALL 447E (arm/clock the line) ; CALL 444A (get-status) ; RET C/NZ ; loop if Z
-444A:  CP 1                              ; status 1 selects the error-status path
-       LD A,C                            ; A = candidate byte/status marker
-       JR NZ,4456                        ; other status: normal byte or marker
-       CP 0xE0 ; JP NZ,_ErrLinkXmit
-       JR 4470
-4456:  CP 0xE0 ; RET NZ                  ; return an ordinary byte from C
-       IN A,(0x2) ; AND 0x80             ; port 0x02 bit7 set = non-83+-Basic (has assist HW on 84+)
-       JR Z,4469                         ;   legacy:  6CC1 polls the bit-bang lines
-       IN A,(0x9) ; BIT 6,A ; JR NZ,4470 ; port 0x09 bit6 = transmission error → abort
-       AND 0x19 ; JR NZ,4475             ; port 0x09 bits 0x19 = link error/active flags
-4470:  CALL 6D17 ; XOR A ; RET           ; error/no byte → return 0
+<pre><code class="language-z80">443F: DI
+      CALL 447E                  ; arm/clock the line
+      CALL 444A                  ; get status
+      RET C/NZ                   ; loop if Z
+444A: CP 1                       ; status 1 selects the error-status path
+      LD A,C                     ; A = candidate byte/status marker
+      JR NZ,4456                 ; other status: normal byte or marker
+      CP 0xE0
+      JP NZ,_ErrLinkXmit
+      JR 4470
+4456: CP 0xE0
+      RET NZ                     ; return an ordinary byte from C
+      IN A,(0x02)
+      AND 0x80                   ; port 0x02 bit 7 set = non-83+-Basic
+      JR Z,4469                  ; legacy path: 6CC1 polls the bit-bang lines
+      IN A,(0x09)
+      BIT 6,A
+      JR NZ,4470                 ; transmission error → abort
+      AND 0x19
+      JR NZ,4475                 ; link error/active flags
+4470: CALL 6D17
+      XOR A
+      RET                        ; error/no byte → return 0
 </code></pre>
 <p>Key port semantics (84+ assist): port 0x09 bit 5 = TX ready, bit 6 = transmission error,
 bit 4 = byte received, bits 0x19 = error/active; port 0x0D = data FIFO; port 0x02
@@ -320,33 +341,54 @@ of an incoming packet (peer may be idle for a long time).</p>
 and <code>header.data_length</code>; the disassembly below retains the concrete addresses
 that establish those fields. [confirmed]</p>
 <h3 id="sending-a-header-confirmed"><a class="header" href="#sending-a-header-confirmed">Sending a header [confirmed]</a></h3>
-<pre><code class="language-z80">41C3: 6D4B (drive line) ; short delay ; CALL probe_hw_model_keep_a (model probe)
-      … (HW handshake on 84+, or bit-bang line-idle wait; failure → _ErrLinkXmit) …
-41F2: (8678)=0                              ; reset checksum accumulator
-      LD A,(8674) ; CALL _SendAByte         ; machine-ID
-      LD A,(8675) ; CALL _SendAByte         ; command-ID
-      LD A,(8676) ; CALL _SendAByte         ; length lo
-      LD A,(8677) ; CALL _SendAByte         ; length hi
+<pre><code class="language-z80">41C3: 6D4B (drive line)
+      short delay
+      CALL probe_hw_model_keep_a (model probe)
+      … (HW handshake on 84+, or bit-bang line-idle wait, with failure reaching _ErrLinkXmit) …
+41F2: (8678)=0                       ; reset checksum accumulator
+      LD A,(8674)
+      CALL _SendAByte                ; machine-ID
+      LD A,(8675)
+      CALL _SendAByte                ; command-ID
+      LD A,(8676)
+      CALL _SendAByte                ; length lo
+      LD A,(8677)
+      CALL _SendAByte                ; length hi
 </code></pre>
 <p><code>419B</code> is the generic “send a 0-length control packet”: it sets the local machine-ID (<code>620A</code>),
 stores the command from <code>H</code>, and calls <code>41C3</code>. Convenience entries: <code>4195</code> H=0x92 (EOT),
 <code>4199</code> H=0x09 (CTS), <code>41BC</code> ID=0x73/cmd=0x68 (RTS).</p>
 <h3 id="receiving-a-header-confirmed"><a class="header" href="#receiving-a-header-confirmed">Receiving a header [confirmed]</a></h3>
-<pre><code class="language-z80">4338: CALL _RecAByteIO ; (8674)=A           ; machine-ID, validated against the known set:
+<pre><code class="language-z80">4338: CALL _RecAByteIO
+      (8674)=A                       ; machine-ID, validated against the known set:
       0x95 0x73 0x23 0x74 0x82 0x02 0x12 0x83 0x03 0x13 0x08   (else fall to 2nd-byte machine list)
-4370: CALL _RecAByteIO ; (8675)=A           ; command-ID, validated: 0x68 0x47 0x74 0x2D … else _JErrorNo
-438F: CALL _RecAByteIO ; (8675)=A  (cmd)     ; (on the validated path)
-4392: CALL _RecAByteIO ; (8676)=A           ; length lo
-4395: CALL _RecAByteIO ; (8677)=A           ; length hi ; RET
+4370: CALL _RecAByteIO
+      (8675)=A                       ; command-ID, validated: 0x68 0x47 0x74 0x2D … else _JErrorNo
+438F: CALL _RecAByteIO
+      (8675)=A                       ; command ID on the validated path
+4392: CALL _RecAByteIO
+      (8676)=A                       ; length lo
+4395: CALL _RecAByteIO
+      (8677)=A                       ; length hi
+      RET
 </code></pre>
 <p>An unrecognised machine-ID or command-ID byte aborts via <code>_JErrorNo</code> (→ <code>E_LnkErr</code> 0x9F).</p>
 <h3 id="machine-id-selector-confirmed"><a class="header" href="#machine-id-selector-confirmed">Machine-ID selector [confirmed]</a></h3>
 <p>The <em>local</em> machine-ID advertised in outgoing packets depends on the peer-type bits in <code>IY+0x1B</code>:</p>
-<pre><code class="language-z80">620A: L=0x82 ; BIT 2,(IY+0x1B) ; RET NZ     ; 0x82 = default / TI-84+ silent
-      L=0x95 ; BIT 1,(IY+0x1B) ; RET NZ     ; 0x95 = computer / TI-Connect (USB host)
-      L=0x83 ; BIT 3,(IY+0x1B) ; RET NZ
-      L=0x03 ; BIT 4,(IY+0x1B) ; RET NZ     ; 0x03 = TI-83
-      L=0x73 ; RET                          ; 0x73 = TI-73 / fallback
+<pre><code class="language-z80">620A: LD L,0x82                     ; default / TI-84+ silent
+      BIT 2,(IY+0x1B)
+      RET NZ
+      LD L,0x95                     ; computer / TI-Connect USB host
+      BIT 1,(IY+0x1B)
+      RET NZ
+      LD L,0x83
+      BIT 3,(IY+0x1B)
+      RET NZ
+      LD L,0x03                     ; TI-83
+      BIT 4,(IY+0x1B)
+      RET NZ
+      LD L,0x73                     ; TI-73 / fallback
+      RET
 </code></pre>
 <h3 id="command-id-byte-reference-hypothesis"><a class="header" href="#command-id-byte-reference-hypothesis">Command-ID byte reference [hypothesis]</a></h3>
 <p>Confirmed in the code; semantics are the standard TI link protocol:</p>
@@ -371,13 +413,26 @@ stores the command from <code>H</code>, and calls <code>41C3</code>. Convenience
 </div>
 <h3 id="checksum-and-acknowledgement-tail-confirmed"><a class="header" href="#checksum-and-acknowledgement-tail-confirmed">Checksum and acknowledgement tail [confirmed]</a></h3>
 <p>After the data payload, the sender appends the 16-bit sum and waits for the ACK:</p>
-<pre><code class="language-z80">4167 (send tail): LD HL,(8678) ; A=L ; CALL _SendAByte ; A=H ; CALL _SendAByte   ; chk lo, hi
-4178:  CALL 4318 (save hdr→bakHeader) ; CALL 4338 (recv reply header)
-417E:  LD A,(8675) ; … CALL 430F (compare/store) ; CP 0x56 ; RET Z ; JP _JErrorNo
+<pre><code class="language-z80">4167: LD HL,(8678)
+      LD A,L
+      CALL _SendAByte               ; checksum lo
+      LD A,H
+      CALL _SendAByte               ; checksum hi
+4178: CALL 4318 (save hdr→bakHeader)
+      CALL 4338 (recv reply header)
+417E: LD A,(8675)
+      … CALL 430F (compare/store)
+      CP 0x56
+      RET Z
+      JP _JErrorNo
 </code></pre>
 <p>On the <em>receive</em> side the matching check is <code>6356</code>: after streaming the payload it compares the
 accumulated checksum <code>8678</code> against the received 16-bit checksum; on mismatch it sends a <code>0x5A</code> ERR
-packet (<code>6385: LD H,0x5A ; CALL 419B</code>) and raises <code>_JErrorNo</code>. The ACK-builder <code>42FB</code> saves the
+packet:</p>
+<pre><code class="language-z80">6385: LD H,0x5A
+      CALL 419B
+</code></pre>
+<p>It then raises <code>_JErrorNo</code>. The ACK-builder <code>42FB</code> saves the
 caller’s header to <code>868B bakHeader</code>, then builds an ACK with a fresh local machine-ID (<code>CALL 620A</code>),
 command = <code>0x56</code>, length = 0, sends it, and <code>_Mov9B</code> restores the saved header.</p>
 <hr>
@@ -392,16 +447,25 @@ loop increments <code>HL</code> after each byte.</li>
 <code>3C:42CF</code> flushes each full 16-byte block through <code>3C:6AB1</code>, and <code>3C:42EC</code>
 flushes a nonzero remainder.</li>
 </ul>
-<pre><code class="language-z80">4292: BC=(8676) len ; (8678)=0
+<pre><code class="language-z80">4292: BC=(8676) len
+      (8678)=0
       if BC==0 → checksum tail
-      pagedGetPtr=983A ; pagedCount=0 ; HL=(84DB) dest
-      loop: 1FD6 (break check) ; _RecAByteIO → A
-            if BIT 7,H: (HL)=A ; INC HL
-            else: store A via pagedGetPtr ; INC pagedCount
+      pagedGetPtr=983A
+      pagedCount=0
+      HL=(84DB) dest
+      loop: 1FD6 (break check)
+            _RecAByteIO → A
+            if BIT 7,H: (HL)=A
+                        INC HL
+            else: store A via pagedGetPtr
+                  INC pagedCount
                   when pagedCount==0x10 → CALL 6AB1
-            (8678) += received_byte ; DEC BC ; loop while BC
+            (8678) += received_byte
+            DEC BC
+            loop while BC
       if pagedCount!=0 → CALL 6AB1
-42EF: _RecAByteIO ×2 → received checksum ; CALL 6356 (verify len/sum, NAK 0x5A on mismatch)
+42EF: _RecAByteIO ×2 → received checksum
+      CALL 6356 (verify len/sum, NAK 0x5A on mismatch)
 42FB: send ACK (cmd 0x56)
 </code></pre>
 <h3 id="flash-window-staging-flush--3c6ab1-confirmed"><a class="header" href="#flash-window-staging-flush--3c6ab1-confirmed">Flash-window staging flush — <code>3C:6AB1</code> [confirmed]</a></h3>
@@ -466,10 +530,15 @@ caller sets. Its importable model also reports page classification, RAM-direct
 versus Flash-buffered routing, block counts, destination crossing, and the
 equality quirk.</p>
 <p>The header-classifier <code>6994</code> shows the receive-and-store sequence a var-receive runs:</p>
-<pre><code class="language-z80">6994: 4255 (reset chk) ; 6298 (machine-ID re-validate) ; RST4 on (867F) (classify var header)
-      6D4B/4338 recv header ; expect (8675)==0x09 (VAR/CTS) else _JErrorNo
-      4338 recv DATA header ; expect (8675)==0x15 (DATA) else _JErrorNo
-      BC=(8676) len ; RST5 → store the variable into the VAT (creates RAM/Flash entry)
+<pre><code class="language-z80">6994: 4255 (reset chk)
+      6298 (machine-ID re-validate)
+      RST4 on (867F) (classify var header)
+      6D4B/4338 recv header
+      expect (8675)==0x09 (VAR/CTS) else _JErrorNo
+      4338 recv DATA header
+      expect (8675)==0x15 (DATA) else _JErrorNo
+      BC=(8676) len
+      RST5 → store the variable into the VAT (creates RAM/Flash entry)
 </code></pre>
 <p>i.e. the receiver reproduces the VAT-create / <code>_InsertMem</code> path from <a href="sub-vat-archive.html">sub-vat-archive.md</a>.</p>
 <hr>
@@ -477,25 +546,35 @@ equality quirk.</p>
 <p>This is the path a “Send” hits (TI-Connect pulls a var, or a calc-to-calc send).
 OP1 = the variable name. It negotiates, sends the VAR header, waits for CTS, then streams the DATA.</p>
 <pre><code class="language-z80">link_xfer_op (3C:4DD2):
-  CALL probe_hw_model_keep_a        ; model/HW probe; spin on port 0x20 if assist busy
+  CALL probe_hw_model_keep_a        ; model/HW probe, spin on port 0x20 if assist busy
   SET 1,(IY+0x24)                   ; mark "transfer active"
-  RES 3,(IY+0x1B) ; save IY+0xC (APD) ; install cleanup handler 4F3E via 27DA
+  RES 3,(IY+0x1B)
+  save IY+0xC (APD)
+  install cleanup handler 4F3E via 27DA
   CALL _OP1ToOP6                    ; preserve the var name
   (build the var header into 867F) :
-      LD DE,0x867F ; CALL _MovFrOP1 ; *** header = var type byte + name token(s) ***
+      LD DE,0x867F
+      CALL _MovFrOP1                ; header = var type byte + name token(s)
   decide request command:
-      LD A,(8672) sndRecState ; CP 0x15 ;  A = 0xA2 (DATA-type)  else  0xB7
+      LD A,(8672) sndRecState
+      CP 0x15
+      A = 0xA2 (DATA-type) else 0xB7
       CALL 6971 (set "cmd in progress")
   USB negotiation (when IY+0x1B bit0 &amp; bit5/6 set): poll port 0x4D bits 5/6, cross_page 2E0B
   CALL 4055 (send the VAR/request header via 40DA→41C3)
   CALL 6184 → _Rec1stByteNC (wait for peer reply)
-      CP 0x36 (SKIP/EXIT) → 427E ; _JErrorNo            ; peer refused
+      CP 0x36 (SKIP/EXIT) → 427E
+      _JErrorNo                     ; peer refused
       CP 0x06 (VAR/CTS ok) → continue, else 4D45 _JErrorNo
-  CALL 4255 ; CALL 687A (check transfer state 8688==0x07)
+  CALL 4255
+  CALL 687A (check transfer state 8688==0x07)
   if sndRecState==0x15 (DATA):
-      CALL 4763 (resolve var data: type/size/ptr, archive-aware) ; CALL ... send DATA
+      CALL 4763 (resolve var data: type/size/ptr, archive-aware)
+      CALL ... send DATA
   else: send the symbol-table/listing payload (4261)
-  RES 1,(IY+0x24) ; FUN_ram_2800 (restore) ; JP 4F3E (cleanup)
+  RES 1,(IY+0x24)
+  FUN_ram_2800 (restore)
+  JP 4F3E (cleanup)
 </code></pre>
 <h3 id="resolving-the-variable-for-sending-confirmed"><a class="header" href="#resolving-the-variable-for-sending-confirmed">Resolving the variable for sending [confirmed]</a></h3>
 <p><code>lnk_resolve_var</code> (<code>3C:4763</code>) reads the var-header type byte at <code>0x867F</code> and
@@ -507,17 +586,32 @@ where <code>_Chk_Batt_Low</code> saves <code>arcInfo.size</code> at <code>0x83F7
 supplies the data pointer, page, and length inside the DATA sender.</p>
 <h3 id="sending-the-data-payload-confirmed"><a class="header" href="#sending-the-data-payload-confirmed">Sending the DATA payload [confirmed]</a></h3>
 <pre><code class="language-z80">40DA: CALL _SetupPagedPtr (17AC)            ; initialize the paged source from HL, DE, and B
-      (84DB)=ptr ; (8676)=len               ; iMathPtr5, packet length
-      6971 ; 620A (machine-ID) ; (8674)=ID
+      (84DB)=ptr                            ; iMathPtr5
+      (8676)=len                            ; packet length
+      6971
+      620A (machine-ID)
+      (8674)=ID
       if sndRecState == 0x08 and varClass == 0x0A and len &gt; 0x037D:
-          (8676)=0x037D ; send header
-          checksum=0 ; send 0x63,0x00
-          DE=0x037B ; HL=data ptr+2
+          (8676)=0x037D
+          send header
+          checksum=0
+          send 0x63,0x00
+          DE=0x037B
+          HL=data ptr+2
 413D: CALL 41C3 (send DATA header, cmd already 0x15 from 4055)
-      HL=(84DB) ptr ; DE=(8676) len ; (8678)=0
-      loop 4150: 1FD6 (clock) ; _PagedGet (17BB) the next byte (handles Flash page-cross) ;
-                 41AB → _SendAByte ; accumulate (8678) ; DEC DE ; loop
-4167: send 2-byte checksum (8678 lo,hi) ; recv reply header ; CP 0x56 (ACK) ; else _JErrorNo
+      HL=(84DB) ptr
+      DE=(8676) len
+      (8678)=0
+      loop 4150: 1FD6 (clock)
+                 _PagedGet (17BB) the next byte (handles Flash page-cross)
+                 41AB → _SendAByte
+                 accumulate (8678)
+                 DEC DE
+                 loop
+4167: send 2-byte checksum (8678 lo,hi)
+      recv reply header
+      CP 0x56 (ACK)
+      else _JErrorNo
 </code></pre>
 <p>The comparison at <code>3C:410A</code> computes <code>0x037D - len</code>. An equal length takes the
 ordinary path; only a larger source enters the backup branch. The resulting
@@ -605,13 +699,21 @@ exactly like <a href="sub-vat-archive.html#reading-archived-data-with-_flashtora
 <h2 id="_sendvarcmd-confirmed"><a class="header" href="#_sendvarcmd-confirmed"><code>_SendVarCmd</code> [confirmed]</a></h2>
 <p>The bcall most code/TI-BASIC reaches for to silent-send. It is a thin DI-wrapped front for the same
 machinery:</p>
-<pre><code class="language-z80">4EDD: DI ; save IY+0xC (APD) ; RES 2,(IY+0xC)
+<pre><code class="language-z80">4EDD: DI
+      save IY+0xC (APD)
+      RES 2,(IY+0xC)
       install cleanup 4F3E via 27DA
-      LD A,0x0B ; (8672)=A          ; sndRecState = request/directory
-      LD A,0xC9 ; CALL 6971         ; command setup
-      CALL 62B0 (clear link sub-state in 8A0B) ; SET 2,(IY+0x1B)
-      CALL 58ED (→ SET 1,(IY+0x24) ; _ChkFindSym)  ; locate the var
-      JR 4EAD (shared tail with link_xfer_op: RES 1,(IY+0x24); 2800; JP 4F3E)
+      LD A,0x0B
+      LD (8672),A                   ; sndRecState = request/directory
+      LD A,0xC9
+      CALL 6971                     ; command setup
+      CALL 62B0                     ; clear link sub-state in 8A0B
+      SET 2,(IY+0x1B)
+      CALL 58ED                     ; sets IY+0x24 bit 1 and calls _ChkFindSym
+      JR 4EAD                       ; shared tail with link_xfer_op
+4EAD: RES 1,(IY+0x24)
+      2800 (restore)
+      JP 4F3E
 </code></pre>
 <p>Note <code>4EDD</code> physically overlaps / shares the tail (<code>4EAD</code>) with <code>link_xfer_op</code>; they are two
 entry points into one routine body. <code>_SendVarCmd</code> is the “send by name from the running context”
@@ -619,17 +721,32 @@ door; <code>link_xfer_op</code> is the “OP1 already set up, do the silent tran
 <hr>
 <h2 id="apd-cleanup-and-idle-line-wait-confirmed"><a class="header" href="#apd-cleanup-and-idle-line-wait-confirmed">APD, cleanup, and idle-line wait [confirmed]</a></h2>
 <ul>
-<li><code>27DA</code> (<code>FUN_ram_27da</code>) installs an error callback. <code>link_xfer_op</code> and <code>_SendVarCmd</code> install
-<code>3C:4F3E</code>, which restores link state, the APD timer, and <code>IY+0xC</code> bit 2 after <code>_JError</code>.
-<code>4F3E: POP AF ; BIT 2,A ; (restore IY+0xC bit2) ; → 4F31 (RES 2,(IY+0x12); re-enable timers; EI)</code>.</li>
-<li>Six other transfer paths install page-0 stub <code>2D51</code>, which bjumps to <code>3C:6136</code>. That callback
+<li>
+<p><code>27DA</code> (<code>FUN_ram_27da</code>) installs an error callback. <code>link_xfer_op</code> and <code>_SendVarCmd</code> install
+<code>3C:4F3E</code>, which restores link state, the APD timer, and <code>IY+0xC</code> bit 2 after <code>_JError</code>:</p>
+<pre><code class="language-z80">4F3E: POP AF
+      BIT 2,A
+      restore IY+0xC bit 2
+      continue at 4F31
+4F31: RES 2,(IY+0x12)
+      re-enable timers
+      EI
+</code></pre>
+</li>
+<li>
+<p>Six other transfer paths install page-0 stub <code>2D51</code>, which bjumps to <code>3C:6136</code>. That callback
 dispatches on <code>sndRecState</code>; for the applicable non-DATA states it calls the raw/USB-aware abort
 cleanup at <code>3C:618D</code>, then records <code>ioErrState=1</code> through stub <code>2F31</code> → <code>07:7AC3</code>. The raw branch
 drives both port-<code>0x00</code> lines low for an exact software delay before releasing them. See
-<a href="link-port-hardware.html#error-cleanup-and-the-both-low-abort-pulse">Two-wire link port hardware</a>.</li>
-<li><code>_ApdSetup</code> (<code>00:03AE</code>) is called before any long blocking receive (<code>6177</code>, <code>6184</code>) so the calc
-doesn’t auto-power-down mid-transfer.</li>
-<li><code>62B0</code>/<code>62BB</code> clear the link error sub-state byte (<code>8A0B</code>, the low bits of <code>IY+0x1B</code>-area flags).</li>
+<a href="link-port-hardware.html#error-cleanup-and-the-both-low-abort-pulse">Two-wire link port hardware</a>.</p>
+</li>
+<li>
+<p><code>_ApdSetup</code> (<code>00:03AE</code>) is called before any long blocking receive (<code>6177</code>, <code>6184</code>) so the calc
+doesn’t auto-power-down mid-transfer.</p>
+</li>
+<li>
+<p><code>62B0</code>/<code>62BB</code> clear the link error sub-state byte (<code>8A0B</code>, the low bits of <code>IY+0x1B</code>-area flags).</p>
+</li>
 </ul>
 <hr>
 <h2 id="flash-object-dispatch-and-error-handling"><a class="header" href="#flash-object-dispatch-and-error-handling">Flash-object dispatch and error handling</a></h2>

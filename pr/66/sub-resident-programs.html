@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0e592f65.js";
+            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -365,6 +365,21 @@ naming the running program, calls <code>_ChkFindSym</code>, and increments two B
 bytes through the returned source pointer. It performs a second lookup before
 converting the counter to <code>Ans</code>. [confirmed] for the identified community
 source.</p>
+<p>Viewed from the data-size pointer returned in <code>DE</code>, RUNCOUNT’s fixed prefix is:</p>
+<pre><code class="language-c">#pragma pack(push, 1)
+typedef struct {
+    uint16_t data_size;       /* +0x00 */
+    uint8_t asm_marker[2];    /* +0x02, BB 6D */
+    uint8_t entry_jump[3];    /* +0x04, JP start */
+    uint8_t count_msb_bcd;    /* +0x07 */
+    uint8_t count_lsb_bcd;    /* +0x08 */
+    uint8_t code[];           /* +0x09 */
+} RunCountVariablePrefix;     /* 9-byte fixed prefix */
+#pragma pack(pop)
+</code></pre>
+<p>The first lookup increments <code>count_lsb_bcd</code> and carries into
+<code>count_msb_bcd</code>. The second lookup passes the address of <code>count_msb_bcd</code> to
+the BCD-to-<code>Ans</code> conversion. [confirmed]</p>
 <p>The raw 136-byte source build is SHA-256
 <code>3e506c4330cd5499a031ae56c73d0487f811278b5fc3d52949bc0f56a69b2f05</code>.
 The packaged program body is exactly <code>BB 6D</code> followed by that build, so this
@@ -612,8 +627,18 @@ kernel source returns version 1.6. The combined label records that release
 inconsistency. [confirmed]</p>
 <p><code>starttask</code> appends the program’s requested external-data area followed by a
 62-byte state tail. The tail contains a saved <code>SP</code> word and 60 bytes copied
-from <code>flags</code> at <code>0x89F0</code>. It also records the initial code address and stack
-pointer. [confirmed]</p>
+from <code>flags</code> at <code>0x89F0</code>. Its packed layout is:</p>
+<pre><code class="language-c">#pragma pack(push, 1)
+typedef struct {
+    uint16_t saved_sp;       /* +0x00 */
+    uint8_t flags[60];       /* +0x02, copy of 0x89F0-0x8A2B */
+} TSETaskStateTail;          /* 62 bytes */
+#pragma pack(pop)
+</code></pre>
+<p>The tail begins immediately after the requested external-data area. TSE writes
+the initial code address into the last two bytes of that area as the first
+stack return address, while <code>saved_sp</code> records the resulting stack pointer.
+[confirmed]</p>
 <p><code>cpy_prgm_in</code> reduces the stored variable to its three-byte <code>BB 6D C9</code> header,
 then moves the remaining body and task state to <code>userMem</code> in chunks no larger
 than <code>0x100</code>. Each chunk opens the destination with <code>_InsertMem</code>, copies the

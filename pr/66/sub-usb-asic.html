@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0e592f65.js";
+            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -557,7 +557,12 @@ bjumps resolve as:</p>
 </div>
 <p>Both paths are [confirmed].</p>
 <p>The timer/idle side of the same handler also bridges to the assist path. At <code>ram:01B1</code> it calls
-<code>ram:1837</code> (<code>IN A,(0x2); AND 0x80; XOR 0x80</code>), the same hardware-model gate used elsewhere before assist-port access. On the legacy path it checks <code>port 0x00 &amp; 0x03</code>; on the assist
+<code>ram:1837</code>:</p>
+<pre><code class="language-z80">IN A,(0x2)
+AND 0x80
+XOR 0x80
+</code></pre>
+<p>This is the same hardware-model gate used elsewhere before assist-port access. On the legacy path it checks <code>port 0x00 &amp; 0x03</code>; on the assist
 path it checks <code>port 0x09 &amp; 0x18</code>. If either assist bit is set, it reloads <code>0x9C86 = 0xFA</code>, pulses
 port <code>0x08</code> with <code>0x80</code> then <code>0x00</code>, sets <code>IY+0x3E</code> bit 0, and calls the common link activity hook
 at <code>ram:3FD5</code>. [confirmed]</p>
@@ -637,7 +642,11 @@ LD A,08h
 OUT (4Ch),A
 </code></pre>
 <p>The reset helper at <code>2F:59C3</code> drives port <code>0x4B</code>, pulses port <code>0x54</code>, and uses programmable timer 3 through ports <code>0x36</code>–<code>0x38</code> for a delay. <code>_InitUSB</code> then waits for port <code>0x4C</code> to equal <code>0x1A</code> or <code>0x5A</code>. Each poll decrements a 16-bit <code>DE</code> timeout through <code>2F:5313</code>. [confirmed]</p>
-<p>After the handshake, the routine writes <code>0xFF</code> to port <code>0x87</code>, zero to <code>0x92</code>, reads <code>0x87</code>, writes <code>0x0E</code> to <code>0x89</code>, clears <code>0x9C26</code> and <code>0x9C27</code>, and writes <code>0x21</code> to <code>0x8B</code>. The tail at <code>2F:52F6</code> gives port <code>0x8C</code> five timeout windows to become nonzero. Success executes <code>OR A; RET</code>, which clears carry. Failure calls <code>_USBErrorCleanup</code> through <code>2F:5B87</code>, sets carry, and returns. [confirmed]</p>
+<p>After the handshake, the routine writes <code>0xFF</code> to port <code>0x87</code>, zero to <code>0x92</code>, reads <code>0x87</code>, writes <code>0x0E</code> to <code>0x89</code>, clears <code>0x9C26</code> and <code>0x9C27</code>, and writes <code>0x21</code> to <code>0x8B</code>. The tail at <code>2F:52F6</code> gives port <code>0x8C</code> five timeout windows to become nonzero. Success clears carry with:</p>
+<pre><code class="language-z80">OR A
+RET
+</code></pre>
+<p>Failure calls <code>_USBErrorCleanup</code> through <code>2F:5B87</code>, sets carry, and returns. [confirmed]</p>
 <p>The unnamed bcall <code>810B</code> reads port <code>0x81</code>, ORs mask <code>0x01</code>, writes the result back, and jumps to the timer-3 delay at <code>2F:5A06</code>. The <code>ti83plus.inc</code> comment calls this bit 1, while mask <code>0x01</code> sets bit 0. No controller-state poll occurs in this entry itself. [confirmed]</p>
 <h3 id="receive-and-cleanup-boundaries"><a class="header" href="#receive-and-cleanup-boundaries">Receive and cleanup boundaries</a></h3>
 <p><code>_ReceiveOS_USB</code> disables interrupts, enters the record-transfer helpers, and feeds the values <code>0</code>, <code>8</code>, <code>3</code>, <code>0</code>, <code>0x0104</code>, <code>0</code>, and <code>0</code> through <code>2F:42AA</code>. It then sets port <code>0x20</code> to 1, clears receive state at <code>0x8271</code>, <code>0x822F</code>, and <code>0x83A4</code>, and uses <code>0x86EC</code> as a <code>0x0104</code>-byte record workspace. Later branches subtract a four-byte framing size, validate record fields, and program Flash through port <code>0x14</code>. [confirmed]</p>
