@@ -26,6 +26,28 @@ The target ROM runs on a TI-84 Plus with 64 Flash pages and eight RAM page
 selectors. Family members with more Flash need the extended selector bits in
 ports `0x0E` and `0x0F`.
 
+Page selection and execution permission are separate. The mapper can expose a
+RAM page in a CPU window while the execution-protection logic rejects an opcode
+fetch from the corresponding physical chunk. See [Execution
+protection](execution-protection.md). [standard]
+
+## OS and analysis use
+
+The bcall dispatcher maps a paged body through port `0x06`, executes it in
+window A, then restores the previous page. A bcall whose body resides on fixed
+page 0 executes below `0x4000` without changing bank A. The page-set helper at
+`ram:181C` implements the dispatcher write. [confirmed]
+
+`cross_page_jump` at `ram:2B09` consumes an inline address-and-page payload and
+transfers control across Flash pages. Banked routines are position-fixed for
+window A because their logical addresses remain in `0x4000`–`0x7FFF` regardless
+of the selected physical page. [confirmed]
+
+Ghidra models physical Flash pages 1–63 as overlay blocks based at `0x4000`.
+This makes every banked body statically visible while preserving its logical
+address. Runtime traces still need the active port-`0x06` value to identify the
+physical page. [standard]
+
 ## The four logical windows
 
 The Z80 supplies a 16-bit address. The top two address bits choose a logical

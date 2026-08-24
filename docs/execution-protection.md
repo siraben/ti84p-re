@@ -717,7 +717,7 @@ TI-83+SE/TI-84+/SE family it does not rewrite ports `0x25` or `0x26`. With
 interrupts disabled, it swaps all `0x4000` bytes between physical RAM pages
 `0x80` and `0x83`, then maps page `0x83` into bank C. Code above `0xC000`
 remains at the same CPU address while residing on an executable odd physical
-page. [confirmed from source]
+page. [standard]
 
 The TI-84-family cleanup restores port `0x05` to an assumed normal value,
 unconditionally enables interrupts, and has no error handler around the swap.
@@ -728,7 +728,7 @@ zStart 1.3.013 implements its `Execute >C000` option as a persistent policy.
 After its Flash-unlock path it writes `0x00` to port `0x25` and `0xFF` to port
 `0x26`; disabling the option writes the assumed retail values `0x10` and
 `0x20`. Its ON script reapplies the enabled policy during startup. This is not
-a per-launch save/restore wrapper. [confirmed from source]
+a per-launch save/restore wrapper. [standard]
 
 Contemporary descriptions identify Fullrene as an Axe Axiom for executable
 space beyond the normal limit. Its original binary or source was not recovered
