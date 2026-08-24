@@ -127,6 +127,45 @@ Ghidra version. Its `rom_sha256` field can be checked with
 `tools/rom_provenance.py verify`; use a separately rebuilt retail project when
 auditing retail boot and USB pages. [confirmed]
 
+## Community assembly archive snapshot
+
+The community-source audit uses a 2026-08-24 mirror of the
+[ticalc.org TI-83/84 Plus assembly archive](https://www.ticalc.org/pub/83plus/asm/).
+The archive was cloned outside this repository. This repository contains
+hashes and analysis tools, not the contributed programs. [confirmed]
+
+`tools/data/community-archive-inventory.csv` records every mirrored ZIP path,
+its SHA-256, compressed and expanded sizes, member count, source-member count,
+and the number of paths with byte-identical archive contents. The snapshot has
+2,770 ZIP paths, 2,649 unique archive identities, 19,323 members, and 4,241
+members with recognized assembly or implementation-source suffixes. Of the
+ZIPs, 897 contain at least one such member. [confirmed]
+
+Run the same inventory and safe extraction process from the development
+environment:
+
+```sh
+nix develop -c python3 tools/community_archive.py \
+  "$COMMUNITY_ARCHIVE/mirror/pub/83plus/asm" \
+  --archive-csv tools/data/community-archive-inventory.csv \
+  --member-csv /tmp/community-archive-members.csv \
+  --extract-to "$COMMUNITY_ARCHIVE/extracted"
+```
+
+The extractor validates paths before writing, keeps each ZIP in a separate
+directory, preserves duplicate member revisions under an explicit namespace,
+and stores archived symbolic links as inert metadata. It uses the system
+`unzip` only for compression methods that Python cannot decode, after rejecting
+links and duplicate paths and before checking every resulting file against the
+ZIP size and CRC records. The audit does not execute contributed host or
+calculator binaries. [confirmed]
+
+An archive description or readme is a community claim. Source establishes the
+instructions present in that member, but does not prove that the distributed
+calculator variable was assembled from it or that the code works on physical
+hardware. Cite both archive and member hashes for a source finding, and retain
+the wiki's existing hardware or ROM evidence boundary. [confirmed]
+
 ## Evidence limit
 
 A matching hash proves byte identity, not how the image was obtained. The
