@@ -1,0 +1,30 @@
+# Run a TI-BASIC wrapper named ASCRATCH whose body is Asm(prgmSCRPROBE).
+# Load the wrapper first and scratch_guard_probe.8xp second. The current
+# automated attempt reaches a TI-OS error before fixture execution; this macro
+# is a follow-up fixture, not confirmed evidence.
+# The first ON press exercises ON-key handling while _GetKey waits with APD
+# disabled. CLEAR lets the fixture check both guards. The result screen prints
+# SAVE STAT followed by 1 for an intact range or 0 for a modified range.
+set key_hold 0.20s
+set key_delay 0.10s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.6s
+key ENTER
+wait 0.8s
+key ENTER
+wait 3s
+key ON
+wait 2s
+memdump /tmp/scratch-guard-on-logical.ram ram-logical
+memdump /tmp/scratch-guard-on-physical.ram ram
+key CLEAR
+wait 2s
+screenshot /tmp/scratch-guard-result.png
+memdump /tmp/scratch-guard-result-logical.ram ram-logical
+memdump /tmp/scratch-guard-result-physical.ram ram

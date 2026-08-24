@@ -24,6 +24,7 @@
 - [Memory management](memory-management.md)
     - [Variables, archive and unarchive](sub-vat-archive.md)
     - [Resident assembly programs](sub-resident-programs.md)
+    - [Resident scratch RAM](sub-resident-scratch.md)
     - [Apps, memory reset, and settings](sub-apps-mem-settings.md)
 - [Flash memory](flash-memory.md)
 - [MD5 accelerator and boot API](md5-hardware.md)

@@ -4,6 +4,8 @@ The TI-84 Plus maps banked RAM behind the Z80's 16 KiB windows. This page
 separates selector values from physical backing, reconciles the reported
 128 KiB and 48 KiB revisions, traces OS use of selectors `80`–`83`, and gives
 restoration rules for programs that borrow banked RAM.
+Resident-program traces and the safe mapping protocol are summarized in
+[Resident scratch RAM](sub-resident-scratch.md).
 
 ## Physical integration and capacity revisions
 
