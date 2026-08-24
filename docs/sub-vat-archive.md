@@ -125,10 +125,13 @@ TI-BASIC execution API. These sites accept, normalize, or reject a type before
 using the common size-word payload. [confirmed]
 
 An archived-source reader therefore uses the same mapping, `_FlashToRam`, and
-cross-page rules for both program types after lookup. It must retain the actual
-type when it constructs OP1 for a later lookup. This conclusion covers TI-84
-Plus OS 2.55MP; shell-specific loading and writeback policies remain separate.
-[confirmed]
+cross-page rules for both program types after lookup. `_ChkFindSym` accepts
+either program class as a named-object query, and `findsym_scan` matches the
+name before replacing the OP1 type with the stored VAT type. A caller therefore
+does not need to retain the stored type merely to find the program again, but
+it must inspect the type returned by lookup before applying type-specific
+policy. This conclusion covers TI-84 Plus OS 2.55MP; shell-specific loading
+and writeback policies remain separate. [confirmed]
 
 ---
 
@@ -241,7 +244,7 @@ at `3D:6440` shares the page-3D flash-control prologue
 
 ## Reading archived data with `_FlashToRam` [confirmed]
 
-`bcall(_FlashToRam)` (id 0x5017 → real body `3D:6745`). Copies `BC` bytes from a Flash page:addr to
+`bcall(_FlashToRam)` (ID `5017h`, body `3D:6745`) copies `BC` bytes from a Flash page:addr to
 a RAM destination, transparently advancing the Flash page when the read crosses the `0x8000`
 window boundary:
 ```z80
@@ -275,7 +278,7 @@ The archive manager chooses a free record and then calls the boot-page Flash API
 
 The bounds checks at `3D:6B6D` and `3D:6B9B` reject pages below `08` and pages at or above the dynamic App boundary from `3D:6413`. Both require the Flash destination to be at least `0x4000`; the block form at `3D:6B6D` also requires `HL >= 0x4000`. Carry reports rejection to the caller, which raises `E_ArchFull`. [confirmed]
 
-A generated 17,000-byte program makes the record data span pages. The traced record writer passes its 17,002-byte `[size][body]` field to one `_WriteFlashUnsafe` invocation, which programs physical `0x20013` through `0x2427C` continuously across `08:7FFF` to `09:4000`. The copied worker increments port `0x06` from `0x08` to `0x09`, resets `DE` to `0x4000`, and finishes with its `0xF0` reset at the final target. This is direct TilEm evidence for the ordinary archive page-crossing path, not a physical-calculator measurement. [confirmed]
+A generated 17,000-byte program makes the record data span pages. The traced record writer passes its 17,002-byte `[size][body]` field to one `_WriteFlashUnsafe` invocation, which programs physical `0x20013`–`0x2427C` continuously, crossing from `08:7FFF` to `09:4000`. The copied worker increments port `0x06` from `0x08` to `0x09`, resets `DE` to `0x4000`, and finishes with its `0xF0` reset at the final target. This is direct TilEm evidence for the ordinary archive page-crossing path, not a physical-calculator measurement. [confirmed]
 
 ### Record-status byte [confirmed]
 
@@ -441,9 +444,9 @@ for 94 and 12 sector-state bytes respectively. [confirmed]
 The mode-`4` certificate rebuild path at `3D:4274` copies `0x66` bytes from
 `0x82A5`, two more than the TI-84 Plus initializer erases. Offsets `+0x64` and
 `+0x65` are therefore retained from the previously loaded certificate block;
-they are not initialized sector states. No direct semantic accessor for those
-two bytes has been found. [confirmed] for the load, initialization, and rebuild
-bounds; [hypothesis] for the trailing bytes' semantic owner.
+they are not initialized sector states. The load, initialization, and rebuild
+bounds are confirmed. [confirmed] No direct semantic accessor for the trailing
+bytes has been found. [hypothesis]
 
 `3C:7DA9` indexes the sector-state array as
 `(archive_page >> 2) - 2`. Page `08` maps to slot `0`, page `0C` maps to slot
@@ -489,7 +492,7 @@ Every transition only clears bits. The complete ROM-reachable progression is
 The `GCFLASH` trace takes a short path. The master byte at `3E:7DED` receives
 `0xFE` at clock `334587331` and `0xE0` at clock `338262732`. Slot `0` at
 `3E:7DF0`, which maps page `08`, receives `0xFE` at clock `335222873` and
-`0xFC` at clock `338237430`. [confirmed] for the decoded TilEm trace.
+`0xFC` at clock `338237430` in the decoded TilEm trace. [confirmed]
 
 The rebuild worker also issues program commands with data `0xFF` while copying
 the block. Those commands cannot clear NOR bits and are not phase transitions.
@@ -518,9 +521,10 @@ This replay treats the command-shaped CPU writes as accepted device commands.
 The fixture supports that assumption in three independent ways: all 62 ordinary
 program invocations and all six certificate invocations end at OS success
 resets, the decoder finds no unmatched writes, and later trace reads use the
-programmed archive state. TLMT does not directly record ASIC or Flash-device
-acceptance, so the CLI requires `--accept-command-shapes`. [confirmed] for this
-fixture; [hypothesis] for an arbitrary trace.
+programmed archive state. This supports the assumption for this fixture, and
+the CLI requires `--accept-command-shapes`. [confirmed] TLMT does not directly
+record ASIC or Flash-device acceptance, so applying the assumption to an
+arbitrary trace remains unverified. [hypothesis]
 
 The active journal has flags `0xFB`, archive limit `0x2A`, selected sector page
 `0x08`, and active half base `0xFA000`. The `0xFF` snapshot begins only when
@@ -538,7 +542,7 @@ Each input image boots with a fresh RAM reset under the pinned TilEm build. The
 `0xFF` and `0xFE` paths erase the page-`08` archive sector and both certificate
 halves while completing the sector move. The `0xE0` path programs the page-`0C`
 sector header to `0xF0` and performs certificate cleanup without erasing page
-`08`. [confirmed] for TilEm.
+`08` under TilEm. [confirmed]
 
 Replaying each recovery trace over its input image produces SHA-256
 `8c857701d7da118d5c5f4c240ee21af91a10b95539059e74fb5e423368a683f9`.
@@ -562,8 +566,8 @@ controlled: 788b3c088e2954be5e53689afa7ac07d80159086a45d213a53f88952a65dd2e1
 
 The starting topology is synthetic, but the unmodified ROM writes the journal
 and all later archive state. Its `GCFLASH` trace reaches `3C:7801` and writes
-active `0xFC` and `0xF8` phases. Fresh-RAM cold boots visit the statically
-decoded recovery branches: [confirmed] for TilEm.
+active `0xFC` and `0xF8` phases. Fresh-RAM cold boots under TilEm visit the
+statically decoded recovery branches: [confirmed]
 
 | Input phase | Original-trace trigger | Input image SHA-256 | Recovery branch | Recovery command shapes |
 |------------:|-----------------------:|--------------------|-----------------|-------------------------|
@@ -589,8 +593,8 @@ name/size pairs. [confirmed]
 Running `GCFLASH` from the reconstructed input puts its dead record in page
 `10`; page `08` and page `0C` remain occupied when
 `gc_check_archive_consistency` runs. An unmodified-ROM recapture takes the
-direct `0xFE → 0xF0` transition and reproduces the phase image hash below.
-[confirmed] for TilEm.
+direct `0xFE → 0xF0` transition and reproduces the phase image hash below under
+TilEm. [confirmed]
 
 | Phase | Reference trigger clock | Input image SHA-256 | Recovery branch |
 |------:|------------------------:|--------------------|-----------------|
@@ -609,11 +613,11 @@ both certificate halves and produces the recovered SHA-256
 `39113ee67921340b8817e35576a8f8fda467122af7713b099f399512d65d9bc3`.
 Cold-booting the recovered output produces no Flash commands. Thus the `0xF0`
 case converges to the same stable Flash image after deferred `0xE0` cleanup,
-not at the first trace endpoint. [confirmed] for TilEm.
+not at the first trace endpoint under TilEm. [confirmed]
 
 TilEm and Wabbitemu exercise all six phase boundaries after successful command
-boundaries. Cuts during busy commands and physical power loss remain untested.
-[confirmed] for the emulator runs; [hypothesis] for the remaining cases.
+boundaries. [confirmed] Cuts during busy commands and physical power loss
+remain untested. [hypothesis]
 
 ### Wabbitemu restart at six journal boundaries
 
@@ -648,8 +652,8 @@ image. It executes 20,000,000 instructions and 231,942,592 t-states before
 reaching ten unchanged Flash samples. Its complete 1 MiB output equals both the
 TilEm recovery and the normalized uninterrupted result.
 `tools/compare_flash_images.py` enforces the input hashes and complete-image
-equality. [confirmed] for all six Wabbitemu command-boundary runs;
-[hypothesis] for cuts during busy commands and physical power loss.
+equality for all six Wabbitemu command-boundary runs. [confirmed] Cuts during
+busy commands and physical power loss remain untested. [hypothesis]
 
 The cold-start caller at `00:0D73` reaches the wrapper at `3D:6098` through
 the bjump stub at `00:3EEB`. Wabbitemu accepts the protected `OUT (0x14),A`
@@ -730,7 +734,7 @@ archive operation at `3C:7F1C`. [confirmed]
 | `38:62A9` | `_StoOther` | store value into named var |
 | `38:67B1` | `_RclVarSym` | recall var by symbol |
 | `3A:5D07` | `rcl_var_push` | recall var, push to FPS |
-| `3D:6745` | `_FlashToRam` | copy archived data Flash→RAM (page-aware); `ti83plus.inc` sibling `_FlashToRam2` (id 8054) is named but its body is unmapped in the disassembly |
+| `3D:6745` | `_FlashToRam` | copy archived data Flash→RAM (page-aware); `ti83plus.inc` sibling `_FlashToRam2` (ID `8054h`) maps to `3F:4888` |
 | `3D:678C` | `ram_worker_launcher` | copy a length-prefixed worker to `0x8100` and execute it; used by `_FlashToRam` and certificate-page programming |
 | `3D:61AF` | `archive_prepare_scan` | prepare archive accounting and scan state |
 | `3D:64AA` | `archive_write_record` | program a complete archive record; executed in the archive trace |

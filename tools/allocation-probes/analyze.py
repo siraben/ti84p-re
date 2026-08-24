@@ -140,7 +140,9 @@ def main() -> None:
         row["rom_sha256"] = rom_sha256
         row["trace_sha256"] = trace_sha256
     with args.output.open("w", newline="", encoding="ascii") as stream:
-        writer = csv.DictWriter(stream, fieldnames=rows[0].keys())
+        writer = csv.DictWriter(
+            stream, fieldnames=rows[0].keys(), lineterminator="\n"
+        )
         writer.writeheader()
         writer.writerows(rows)
     print("routine_hits " + " ".join(f"{key}={value}" for key, value in hits.items()))

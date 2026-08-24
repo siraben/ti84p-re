@@ -1,0 +1,15 @@
+# Reach the TI-OS division-by-zero dialog from a cold boot.
+set key_hold 0.15s
+set key_delay 0.10s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key 1
+key DIV
+key 0
+key ENTER
+wait 4s
+screenshot /tmp/page83-error-divzero.png

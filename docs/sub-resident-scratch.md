@@ -21,6 +21,17 @@ The initial selectors matter when a trace starts after TI-OS established its
 normal mapping. A zero result means only that the scenario did not write the
 range; it is not evidence that the range is safe.
 
+The launch and interactive trace SHA-256 values are
+`e61293d420f92b37dfa0d118f14896287735989c9292210933f1abca4ef6b0fa`
+and `23338cdef33bc3f47988a3bf48089f25405205109b83421c3c1a9219f2e90505`.
+The recorded rows identify the emulator only as `emulator-unspecified`; the
+trace contents are pinned, but the emulator binary and source revision are not.
+Each TLMT initial snapshot has fixed Flash page `0x00` SHA-256
+`bfc698e445d98d6d0905589ec34a88c9372a90cb0ed2d1fe9aa9b6fca0962fc1`.
+That hash matches page `0x00` in both known OS 2.55MP images. [confirmed]
+Neither trace has a complete-ROM sidecar, so the hash does not identify the
+boot pages or the complete image.
+
 ## Observed clobbers [confirmed]
 
 Both scenarios are direct compiled `Asm(` launches of the local `ti84-forth`
@@ -65,9 +76,14 @@ later statistics commands or third-party interrupt handlers. [standard]
 
 The guarded direct-launch fixture calls `_DisableApd` and `_DelRes`, fills all
 768 bytes of `saveSScreen` with `0xA5` and all 531 bytes of `statVars` with
-`0x5A`, polls `_GetCSC`, blocks in `_GetKey`, and receives one injected ON
+`0x5A`, polls `_GetCSC`, blocks in `_GetKey`, and receives one injected **ON**
 event. Both complete checks pass, and the fixture displays `SAVE STAT 1 1`.
-This result is limited to TI-OS 2.55MP in the pinned TilEm x4 run. [confirmed]
+This result is limited to TI-OS 2.55MP in one TilEm x4 run. Its trace SHA-256
+is `716fe78c274536d2d486d53c2d1b89606c0aafee101c5562202d658250b52508`.
+Its TLMT Flash page `0x00` hash matches the launch traces, but it also lacks a
+complete-ROM sidecar. The recorded capture context and trace content establish
+this emulator result; the trace does not independently identify every ROM page.
+[confirmed]
 
 Build the TI-BASIC `Asm(prgmSCRPROBE)` wrapper with
 `tools/build_scratch_probe_wrapper.py`; then assemble
@@ -75,7 +91,7 @@ Build the TI-BASIC `Asm(prgmSCRPROBE)` wrapper with
 `tools/macros/scratch-guard-probe.macro`. The full trace executes 14,736
 instructions in the payload range, including the 767- and 530-byte fill
 `LDIR`s and the complete 768- and 531-byte comparison loops. The fixture halts
-after rendering the result so a held ON key cannot enter another `_GetKey`.
+after rendering the result so a held **ON** key cannot enter another `_GetKey`.
 
 This confirms the documented `saveSScreen` condition for that direct emulator
 scenario. It does not cover an APD timeout, error unwinding, physical hardware,
@@ -84,8 +100,9 @@ or statistics code after `_DelRes`.
 ### Shell-owned `statVars` ranges
 
 Common shells do not share one `statVars` contract. The table separates static
-shell ownership from the direct dynamic guard. [confirmed] for the identified
-release source or binary; untraced runtime cells remain open.
+shell ownership from the direct dynamic guard. Identified owned ranges come
+from the release source or binary. [confirmed] Untraced runtime cells remain
+open.
 
 | Context | Result | Evidence and boundary |
 |---|---|---|
@@ -103,7 +120,7 @@ MirageOS's tasker setup at mapped `0x7176`–`0x71E9` writes these ranges:
 | `0x8A3A`–`0x8A3E` | three timer counters and two reload values |
 | `0x8A4F`–`0x8A88` | relocated interrupt code |
 | `0x8A8A`–`0x8AFE` | relocated interrupt dispatcher |
-| `0x8B00`–`0x8C00` | 257-byte IM2 vector table built by `_MemSet = 4C33` |
+| `0x8B00`–`0x8C00` | 257-byte IM2 vector table built by `_MemSet = 4C33h` |
 | `0x8C01`–`0x8C1B` | relocated timer worker |
 
 The timer worker at mapped `0x7140`–`0x715A` updates the first five bytes. The
@@ -135,6 +152,7 @@ add the following observations to the boot and expression traces documented in
 |---|---:|---|
 | Direct resident launch | 2,304 | `83:5A7E`–`83:5D7D` |
 | Interactive resident input | 3,840 | `83:5A7E`–`83:5D7D` |
+| Guarded `_GetKey` wait interrupted by **ON** | 3,893 | `83:4373`–`83:4390`, `83:577E`–`83:5794`, and `83:5A7E`–`83:5D7D` |
 
 The range is the LCD/home-display capture area. Combining these runs with ROM,
 boot, and expression evidence gives these known owners:
@@ -149,9 +167,12 @@ boot, and expression evidence gives these known owners:
 | `83:5A7E`–`83:5D7D` | LCD/home-display capture [confirmed] |
 | `83:5D7E`–`83:5DF2` | Additional boot/home writes in the measured scenario [confirmed] |
 
-All holes are candidates, not safe ranges. Current coverage omits USB receive,
-archive garbage collection, statistics, the program editor, app transitions,
-APD, error dialogs, and third-party interrupts.
+All holes are candidates, not safe ranges. A separate direct-TI-OS trace covers
+one division-by-zero dialog without adding a range beyond the boot baseline.
+Current coverage still omits USB receive, archive garbage collection,
+statistics, the program editor, app transitions, APD timeout, and third-party
+interrupts. The `_GetKey` guard called `_DisableApd`, so its **ON** event does not
+cover APD. [confirmed]
 
 Selectors `0x82`–`0x87` alias one physical RAM page on 48 KiB ASICs. Pages
 `0x84`–`0x87` still need forced read/write/hash probes on 128 KiB calculators;
@@ -198,3 +219,17 @@ stream. Keep interrupts disabled for the entire nonstandard mapping unless the
 interrupt handler is proven independent of normal bank-A ROM. Restore both
 ports even though port `0x0E` is ignored by TI-84 Plus and TI-84 Plus SE
 hardware; doing so keeps the helper transparent and portable to related models.
+
+## Sources
+
+| Source | Use here |
+|--------|----------|
+| OS 2.55MP ROM and `tools/analyze_scratch_trace.py` | ROM ownership and trace write attribution |
+| `tools/data/scratch-ram-observations.csv` | launch scenarios, selector assumptions, and write counts |
+| `tools/data/scratch-guard-results.csv` | guard trace identity, shell-owned ranges, and evidence limits |
+| [TI-83 Plus Developer Guide](https://education.ti.com/download/en/ed-tech/830D08FF31804AEAA2F03B8F5E89AD14/672891A1E98349CAB91C11B4928C253C/sdk83pguide.pdf) | documented `saveSScreen`, `statVars`, `_DisableApd`, and `_DelRes` conditions |
+| [WikiTI RAM pages, revision 11670](https://wikiti.brandonw.net/index.php?title=83Plus:OS:Ram_Pages&oldid=11670) | public page-`0x83` owners and `0x82`–`0x87` alias behavior |
+| [MirageOS 1.2 release archive](https://www.ticalc.org/pub/83plus/flash/shells/mirageos.zip), SHA-256 `38dc70173818972de8c5eb78099e8870c7acb9ad4c62d290f6c6f5840c71d43b` | tasker setup and client-launch control flow |
+| [Doors CS source at `33af4f5`](https://github.com/KermMartian/Doors_CS_7/tree/33af4f5ede199eee77cf2f89b5463a0a6ec9a1af) | shell state, ALE vectors, and Mirage-compatible interrupt ownership |
+| [Ion 1.6 release archive](https://www.ticalc.org/pub/83plus/asm/shells/ion.zip), SHA-256 `b5a5ba97f325f8779aa35cda23e38152087930298ff8b7b8573905710230e6e6` | source review for the unresolved Ion row |
+| [zStart 1.3.013 release archive](https://www.ticalc.org/pub/83plus/flash/shells/zstart.zip), SHA-256 `7a1b7c69c85030b412bb6ea11ae71ac608b9882a9de3ab7dbef1faf69519c5e9` | source review for the unresolved zStart row |

@@ -11,8 +11,8 @@ two-byte size word and VAT entry.
 
 ## Build and run
 
-SPASM-ng must have `ti83plus.inc` in its include directory. `TILEM` names the
-patched headless TilEm described in
+Set `SPASM` to SPASM-ng with `ti83plus.inc` in its include directory. Set
+`TILEM` to the patched headless TilEm described in
 [`tools/dynamic-tracing.md`](../dynamic-tracing.md).
 
 ```sh
@@ -61,3 +61,9 @@ overhead before its own `_EnoughMem` call. [confirmed]
 The reference run is emulator evidence, not a physical-calculator measurement.
 It does not cover shell move-loaders, Flash Apps, archived launch paths, or a
 representative user-variable population. [confirmed]
+
+The run uses TilEm x4 and the BootFree 11.259 complete image with SHA-256
+`dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09`.
+The allocator bytes on Flash page `0x00` are identical to the canonical retail
+analysis image, but the measurement does not establish retail-boot state.
+[confirmed]

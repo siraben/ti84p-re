@@ -4,9 +4,11 @@ This page traces Flash App launch, the **MEM → Reset** paths, and the format a
 graph flags controlled by the **MODE** screen. Addresses and confidence flags
 follow [Conventions and methodology](conventions.md).
 
-Cross-references: [Boot contexts & errors](boot-contexts-errors.md) (contexts, `_AppInit`, event router), [Memory management](memory-management.md) (RAM heap,
-`_CleanAll`), [Flash page map](flash-page-map.md) (flash page map). Flag bits use the `ti83plus.inc` equates; the
-SystemFlags base is `IY = flags = 0x89F0`, so e.g. `(IY+0x0A)` = `flags + fmtFlags`.
+Cross-references: [Boot, contexts, and errors](boot-contexts-errors.md)
+(contexts, `_AppInit`, event router), [Memory management](memory-management.md)
+(RAM heap, `_CleanAll`), and [Flash page map](flash-page-map.md) (Flash page
+map). Flag bits use the `ti83plus.inc` equates; the SystemFlags base is
+`IY = flags = 0x89F0`, so, for example, `(IY+0x0A)` = `flags + fmtFlags`.
 
 Long-running App design is covered separately in
 [Flash Apps as resident runtimes](sub-flash-app-runtime.md), including RAM
@@ -23,11 +25,12 @@ run of 16 KiB flash pages whose first page begins with a TLV app header.
 
 An app header is a sequence of type-length-value fields starting at offset 0 of the
 app's first page. Each field begins with two bytes in WikiTI's `TT TS` notation: the high
-12 bits are the field number, and the low nibble of the second byte encodes the payload
-length. The decoder bytes are at `init_flash_page_counter+0x08`
+12 bits are the field number. A low size nibble from `0` through `C` is the
+payload length; `D`, `E`, and `F` instead select one, two, or four following
+length bytes. The decoder bytes are at `init_flash_page_counter+0x08`
 (`3D:7285`), but the disassembly does not expose a separate function there:
 
-| size nibble | field payload size |
+| size nibble | following length bytes |
 |-------------|--------------------|
 | `0xD` | 1 byte  |
 | `0xE` | 2 bytes |
@@ -62,7 +65,7 @@ Common app-header fields in the sample corpus:
 | `808` | page count | one byte; matches the decoded page count for Axe and CtlgHelp's two-page apps |
 | `809` | disable TI splash screen | usually zero-length when present; zStart uses a 15-byte app-owned payload |
 | `80C` | lowest basecode | usb8x uses `02 1E`, decoded as basecode `2.30` |
-| `032` | date stamp | six bytes; bytes 1-4 decode as seconds since 1997-01-01 |
+| `032` | date stamp | six-byte payload: nested `09 04`, then a four-byte count of seconds since 1997-01-01 |
 | `020` | date-stamp signature / unchecked payload | usually 64 bytes; Axe stores executable helper bytes here |
 | `807` | final field | terminates the parsed header; the `807F` length bytes are ignored |
 
@@ -134,13 +137,13 @@ apps end the parsed header at `4029`, `4070`, or exactly `4080`, and all remain 
 because the `807` final field terminates the header.
 
 The public entry points for walking these fields are bcalls in `ti83plus.inc`:
-`_FindAppHeaderSubField` (bcall `0x80AB`) locates a field in an app header, and
-`_FindOSHeaderSubField` (bcall `0x8075`) does the same for the OS header. Both build on the
-generic walkers `_FindSubField` (bcall `0x805D`), `_FindGroupedField` (bcall `0x8030`), and
-`_GetFieldSize` (bcall `0x805A`), which decode the TLV length nibble shown above. These IDs
-sit in the boot-page bcall range (`0x8000`+); the `0x8040`/`0x8070`/`0x8080` helpers the OS
-also reaches are a distinct group in the same range and are not these field walkers. The body
-addresses behind these public entry points are not defined functions in the disassembly.
+`_FindAppHeaderSubField` (ID `80ABh`, body `3F:500A`) locates a field in an App
+header, and `_FindOSHeaderSubField` (ID `8075h`, body `3F:5018`) does the same
+for the OS header. Both build on `_FindSubField` (ID `805Dh`, body `3F:4DFB`),
+`_FindGroupedField` (ID `8030h`, body `3F:4E8C`), and `_GetFieldSize` (ID
+`805Ah`, body `3F:4DB8`), which decode the TLV length nibble shown above. These
+retail targets are recorded in `tools/data/boot-page-comparison.csv`.
+[confirmed]
 
 ### `_FindApp`, `_FindAppUp`, and `_FindAppDn` [confirmed]
 
@@ -157,10 +160,11 @@ addresses behind these public entry points are not defined functions in the disa
 - `app_find_next_page` (`3D:5FB1`) — `appSearchPage (0x82A3) -= 1`; stops at page 7
   (low boundary of the app region); bjumps `appSearchPage:0x4000` to inspect the header.
 - `init_flash_page_counter` (`3D:727D` → `model_app_top_page` at `3D:726E`) — initializes `appSearchPage` at `0x82A3` to the model-selected top App page plus one.
-- `_FindAppUp` (`5DDA`) / `_FindAppDn` (`5DE6`) — enumerate the previous / next app
-  in flash (for the APPS-menu list), both wrapping the common walker `app_5de7` (`5DE7`).
+- `_FindAppUp` (`3D:5DDA`) / `_FindAppDn` (`3D:5DE6`) — enumerate the previous / next app
+  in flash (for the APPS-menu list), both wrapping the common walker `app_5de7` (`3D:5DE7`).
   `app_5de7` keeps two counts in BC (apps before/after) and tracks the current name in OP3.
-- `_FindAppNumPages` is present in the bcall table (`3D:4AA3`), but the disassembly has no function record at that address.
+- `_FindAppNumPages` (ID `509Bh`) maps to `3D:4AA3`; the current Ghidra
+  database has no function record at that body address.
 
 State variables: `appSearchPage` = `0x82A3`, `0x8497`/`0x8481`/`0x9C87` are search-mode
 scratch (`0x9C87`='i' selects the in-RAM "temp app" search variant).
@@ -181,7 +185,7 @@ default app vectors live at `3B:7571`:
 3E 75 | 4B 75 | 9F 74 | 4B 75 | 4B 75 | 4B 75 | 0A
 cxMain=753E cxPPutAway=754B cxPutAway=749F cxRedisp=754B cxErrorEP=754B cxSizeWind=754B appFlags=0A
 ```
-`_ReloadAppEntryVecs` (`3B:73E4`, bcall `0x4C36`) calls `_AppInit` on that block, then
+`_ReloadAppEntryVecs` (`3B:73E4`, ID `4C36h`) calls `_AppInit` on that block, then
 overrides `cxErrorEP (0x8595)=0x27D9`. After `_AppInit`, the main event loop runs the app
 through `call_context_main` (pages in `cxPage`, jumps `(cxMain)` — [Boot contexts & errors](boot-contexts-errors.md)).
 
@@ -209,7 +213,7 @@ re-init lands in page-0 boot code.
 | `01:4109` | `Resetting All...` |
 | `01:4126`+`412E` | `Garbage` + `Collecting...` |
 | `01:4234` | `Resetting...` |
-| `01:7425..746E` | menu titles: `RESET MEMORY`, `RESET DEFAULTS`, `RESET ARC VARS`, `RESET ARC APPS`, `RESET ARC BOTH`, `RESET RAM` |
+| `01:7425`–`01:746E` | menu titles: `RESET MEMORY`, `RESET DEFAULTS`, `RESET ARC VARS`, `RESET ARC APPS`, `RESET ARC BOTH`, `RESET RAM` |
 | `01:747E` | the long "Resetting ALL / RAM / Vars / Apps / Both …" warning help text |
 
 ### Reset dispatcher (`mem_reset_dispatch` at `35:7180`) [confirmed]
@@ -248,9 +252,10 @@ So a RAM reset clears two blocks to 0:
 The first interval contains OS scratch, the context block, and system buffers.
 The second contains the VAT and user variables and programs. [confirmed]
 
-A handful of flag bits are explicitly preserved across the wipe (`IY+0x3F` bit7,
-`IY+0x34` bit6, `IY+0x35` bits0/1, and the word at `0x9B73`) so the calculator knows it is
-mid-reset. It then `JP 0x0BD9`, the RAM-init entry (`OUT (0)` page select, `LD SP,0xFFF7`,
+A small amount of state survives the wipe. The path restores bits 0–6 of
+`IY+0x3F` and clears bit 7. It conditionally restores `IY+0x34` bit 6 and
+`IY+0x35` bit 0, sets `IY+0x35` bit 1, and restores `localLanguage` at
+`0x9B73`. It then `JP 0x0BD9`, the RAM-init entry (`OUT (0)` page select, `LD SP,0xFFF7`,
 then `CALL 0x3EC1` — the cross-page trampoline that rebuilds the VAT, system vars, and LCD; see [Boot contexts & errors](boot-contexts-errors.md)), which rebuilds a
 clean default VAT and system state and re-enters the homescreen. The Flash archive is not
 touched by a plain RAM reset.
@@ -349,11 +354,11 @@ Float vs Fix N is not in `fmtFlags` — it is the separate byte `fmtDigits` =
 
 The MODE screen is a menu context (`cxMode`/`kMode`=0x45) reached via the event/key router
 ([Boot contexts & errors](boot-contexts-errors.md)). Its row strings live as token names on page 0x01 (`RadianN`/`DegreeO`/`NormalP`/
-`Float` at `01:49E4..4A06`; trailing letters are token-id bytes) and full-caps menu
-labels on page 0x37 (`DEGREE` `4A85`, `RADIAN` `4A8C`). Selecting a row writes the flag bits
-documented above directly (`SET/RES (IY+…)`, or stores into `fmtDigits`). [hypothesis] (partial) —
-the per-row write table itself is reached through the menu dispatcher and was not traced
-line-by-line, but every target bit/byte is confirmed from the setters and inc equates.
+`Float` at `01:49E4`–`01:4A06`; trailing letters are token-id bytes) and full-caps menu
+labels on page 0x37 (`DEGREE` `4A85`, `RADIAN` `4A8C`). The setters and inc
+equates confirm the target bits and bytes. [confirmed] The per-row path through
+the menu dispatcher to the corresponding `SET`/`RES` or `fmtDigits` store has
+not been traced line by line. [hypothesis]
 
 ---
 

@@ -117,21 +117,25 @@ def main() -> None:
         copied = 0x578D in pcs
         handed_off = 0x57B4 in pcs
         executed = 0x9D95 in pcs
-        rejected = 0x2729 in pcs
-        if accepted and not (copied and handed_off and executed and not rejected):
+        invalid_error = 0x2729 in pcs
+        if accepted and not (copied and handed_off and executed and not invalid_error):
             raise SystemExit(
                 f"{suffix}: expected acceptance, got copy={copied} "
-                f"handoff={handed_off} execute={executed} reject={rejected}"
+                f"handoff={handed_off} execute={executed} "
+                f"invalid_error={invalid_error}"
             )
-        if not accepted and not (rejected and not copied and not handed_off and not executed):
+        if not accepted and not (
+            invalid_error and not copied and not handed_off and not executed
+        ):
             raise SystemExit(
                 f"{suffix}: expected rejection, got copy={copied} "
-                f"handoff={handed_off} execute={executed} reject={rejected}"
+                f"handoff={handed_off} execute={executed} "
+                f"invalid_error={invalid_error}"
             )
         result = "accepted" if accepted else "rejected"
         print(
             f"{suffix}: {result}; copy={copied} handoff={handed_off} "
-            f"execute={executed} memory_error={rejected}"
+            f"execute={executed} invalid_error={invalid_error}"
         )
         if not args.keep_trace:
             trace.unlink()

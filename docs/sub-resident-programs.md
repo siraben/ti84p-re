@@ -53,9 +53,10 @@ data. Those bytes occupy the final two bytes of the execution allocation.
 record their exact values at `ram:BD93` and `ram:BD94`.
 
 The builders and TilEm runner in `tools/launch-fixtures/` exercise the three
-actual boundary sizes. Each accepted trace reaches `_ExecutePrgm`, the limit
-test, `_InsertMem`, the payload handoff, and `ram:9D95`; the rejected trace
-reaches `ram:2729` before insertion. [confirmed]
+adjacent boundary sizes. Each accepted trace reaches `_ExecutePrgm`, the limit
+test, the `_InsertMem` call site, the payload handoff, and `ram:9D95`. The
+rejected trace reaches the `E_Invalid` shim at `ram:2729` before insertion.
+[confirmed]
 
 `tools/data/launch-boundary-results.csv` records the ROM, fixture, and trace
 hashes together with instruction counts and reached checkpoints. [confirmed]
@@ -64,11 +65,10 @@ hashes together with instruction counts and reached checkpoints. [confirmed]
 |---:|---:|---|
 | `0x1FFF` | 8,189 | Accepted |
 | `0x2000` | 8,190 | Accepted |
-| `0x2001` | 8,191 | Rejected with memory error |
+| `0x2001` | 8,191 | Rejected with `ERR:INVALID` |
 
-The previously suggested 8,808–8,814-byte variables are all above this ROM
-limit, so they cannot distinguish the boundary. The fixture uses the adjacent
-sizes instead.
+Internal sizes of 8,808–8,814 bytes are all above this ROM limit, so they cannot
+distinguish the boundary. The fixture uses adjacent sizes instead.
 
 ## Text `AsmPrgm` launch
 
@@ -98,11 +98,12 @@ also assumes that the copy still begins at `ram:9D95`. [confirmed]
 
 A headless TilEm trace of `Asm(prgmASMRET)` on a TI-84 Plus with OS 2.55MP
 reaches `asm_payload_handoff` at `07:57B4`, then executes `RET` at logical
-`0x9D95`. The handoff has `SP=0xFFCB`; the payload instruction has the same
-value because `CALL 07:57FD` and its `JP ram:9D95` leave the return address on
-the stack. [confirmed]
+`0x9D95`. TLMT instruction records contain the register state after the named
+instruction. The `CALL 07:57FD` record at `07:57B4` and the `JP ram:9D95`
+record at `07:57FD` both report payload-entry `SP=0xFFC9`. The `RET` record at
+`ram:9D95` reports `SP=0xFFCB` after popping the launcher return. [confirmed]
 
-| Register | First instruction at `ram:9D95` |
+| Register | Post-instruction `RET` record at `ram:9D95` |
 |---|---:|
 | `AF` | `0x01BB` |
 | `BC` | `0xFCCD` |
@@ -139,7 +140,7 @@ claim. [confirmed]
 | `_ExecutePrgm` entry | `0x9FFA` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFFD7` | `0x5CC1` |
 | First payload instruction | `0xA171` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFFC9` | `0x5B4A` |
 | Nested `_MemChk` entry | `0xA171` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFFC3` | `0x5B4A` |
-| Payload return | `0xA171` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFFCB` | `0x5B4A` |
+| Final payload `RET` (post-instruction) | `0xA171` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFFCB` | `0x5B4A` |
 | Cleanup entry | `0xA171` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFFD7` | `0x5B4A` |
 | Cleanup return | `0x9FFA` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFFD9` | `0x5CC1` |
 
@@ -218,8 +219,8 @@ The hardware stack remains at `SP=0xFFC9`; the creator does not include that
 remaining stack-to-VAT distance in its capacity decision. [confirmed]
 
 `tools/data/resident-allocation.csv` records the checkpoints, ROM and trace
-hashes, model, and OS version. This run fixes the direct-`Asm(` reset-state
-case. It does not measure representative user-variable populations, shell
+hashes, model, and OS version. This run covers the direct-`Asm(` reset state.
+It does not measure representative user-variable populations, shell
 move-loaders, Flash Apps, or physical hardware. [confirmed]
 
 ## Stable RAM AppVar protocol
@@ -238,10 +239,10 @@ the VAT lookup as a handle operation:
 6. If a stored image contains absolute pointers, relocate every pointer after
    reacquisition and before use.
 
-This protocol prevents pointer invalidation; it does not make an update
-transactional. Persistent data needs a version, length, checksum, and commit
-marker. A two-record or copy-on-write design is required to recover from a
-reset during an update. [standard]
+This protocol keeps no data pointer across a moving operation; it does not make
+an update transactional. A reset-tolerant format can add a version, length,
+checksum, and commit marker. Two records or copy-on-write storage can preserve
+the last committed generation during an interrupted update.
 
 ## Archived lookup contract
 

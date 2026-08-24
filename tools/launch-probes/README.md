@@ -49,7 +49,7 @@ The reference trace's complete-image SHA-256 is
 `dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09`,
 the BootFree 11.259 variant. The measured launcher on Flash page `0x07` is
 byte-identical to the canonical retail analysis image; the trace does not
-establish retail-boot behavior.
+establish retail-boot behavior. [confirmed]
 
 ## Reference result
 
@@ -79,7 +79,7 @@ large raw trace. [confirmed]
 | `_ExecutePrgm` entry | `0x9FFA` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFE66` | `0xFFD7` | `0x5CC1` |
 | first payload instruction | `0xA171` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFE66` | `0xFFC9` | `0x5B4A` |
 | nested `_MemChk` | `0xA171` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFE66` | `0xFFC3` | `0x5B4A` |
-| immediately after payload `RET` | `0xA171` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFE66` | `0xFFCB` | `0x5B4A` |
+| final payload `RET` (post-instruction) | `0xA171` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFE66` | `0xFFCB` | `0x5B4A` |
 | cleanup entry | `0xA171` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFE66` | `0xFFD7` | `0x5B4A` |
 | cleanup return | `0x9FFA` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFE66` | `0xFFD9` | `0x5CC1` |
 

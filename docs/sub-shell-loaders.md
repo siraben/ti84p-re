@@ -10,15 +10,15 @@ contract using identified original releases.
 | Launcher | RAM-resident input | Archived input | Archive writeback | Error cleanup |
 |---|---|---|---|---|
 | Ion 1.6 | Moves the original body | Unarchives the original, then moves its body | Always rearchives | No Ion-owned error handler |
-| MirageOS 1.2 | Uses a symmetric move loader | Keeps an archived source and a RAM execution form [hypothesis] | Rewrites only if changed | Installs an OS error handler |
-| Doors CS 7.4 | Moves the original body | Creates a complete, uniquely named RAM temporary variable | Compares the temporary variable with the archive; replaces the archive only if changed | Routes OS errors through reverse-swap cleanup |
+| MirageOS 1.2 | Uses a symmetric move loader | Creates a named `TempProgObj` RAM copy, then moves its body | Rewrites only if changed | Installs an OS error handler |
+| Doors CS 7.4 | Moves the original body | Creates a complete RAM variable under a derived temporary name | Compares the temporary variable with the archive; replaces the archive only if changed | Routes OS errors through reverse-swap cleanup |
 | zStart 1.3.013 | Moves the original body | Copies the body into a raw `userMem` allocation | Uses a 16-bit checksum; replaces the archive only if changed | Routes OS errors through local cleanup |
 
-The three source-available launchers confirm that “run at `userMem`” does not
+The three source-available launchers show that “run at `userMem`” does not
 imply “make a second complete copy.” Their RAM-resident paths move the body in
 chunks through a 768-byte shuttle. Archived inputs differ more substantially:
-Ion first unarchives the original, Doors CS builds a named temporary variable,
-and zStart builds an unnamed execution allocation. [confirmed]
+Ion first unarchives the original, MirageOS and Doors CS build named temporary
+variables, and zStart builds an unnamed execution allocation. [confirmed]
 
 The source identity, execution strategy, and open evidence boundary for each
 row are also recorded in `tools/data/shell-loader-observations.csv`.
@@ -62,17 +62,23 @@ source therefore provides no cleanup path for an OS error or nonlocal exit
 that bypasses the normal return. The resulting calculator state still needs a
 dynamic trace; it is not inferred here. [confirmed]
 
-The loader stages code in `appBackupScreen` (`0x9872`) and `cmdShadow`
-(`0x966E`) and uses `plotSScreen` during both the forward and reverse moves. A
-client may reuse the graph buffer after entry only if it restores any state
-required before normal return. [confirmed]
+The loader stages its preloader in `appBackUpScreen` (`0x9872`) and its move
+routine in `cmdShadow` (`0x966E`). It uses `plotSScreen` during the forward and
+reverse moves. The client may reuse `plotSScreen` while it runs; the reverse
+move overwrites that buffer before Ion redraws its interface. [confirmed]
 
 ## MirageOS 1.2
 
 MirageOS 1.2 is a one-page, binary-only Flash App. Static disassembly of the
-original App shows a symmetric loader at mapped addresses `0x75CF`–`0x76C0`. It
+original App shows a symmetric loader at App addresses `0x75CF`–`0x76C0`. It
 uses `saveSScreen` as a 768-byte shuttle, calls `_DelMem` and `_InsertMem`, and
 moves the client to `0x9D95`. [confirmed]
+
+For archived input, `0x7899`–`0x78FD` creates a program named `Z,1.`, changes
+its VAT type to `TempProgObj` (`0x16`), and copies the archived object into it
+with `_FlashToRam`. The original name continues to identify the archived
+object while the temporary object's body is moved to `0x9D95`. Before creating
+the temporary, the loader deletes any existing `Z,1.` program. [confirmed]
 
 The writeback path at mapped addresses `0x77D5`–`0x7870` compares RAM bytes with
 archive bytes through a temporary page-read thunk. It replaces and rearchives
@@ -81,31 +87,31 @@ the same smart-writeback policy. [confirmed]
 
 The launch wrapper installs an OS error handler and conditionally prepares the
 MirageOS tasker before calling the client. With tasker flag bit 6 at `0x9689`
-set, mapped `0x7176`–`0x71E9` installs IM2 and writes timers, code, and a vector
-table across `0x8A3A`–`0x8C1B`. The wrapper selects IM1 after the client
-returns. It uses `0x966F` as the custom-interrupt entry when that option is
-enabled. These `statVars` ranges are not client scratch while the tasker or
+set, `0x7176`–`0x71E9` installs IM2. It writes tasker state beginning at
+`0x8A3A`, code at `0x8A4F`–`0x8A88` and `0x8A8A`–`0x8AFE`, and an IM2 handler
+at `0x8C01`–`0x8C1B`. It also builds the 257-byte IM2 vector table at
+`0x8B00`–`0x8C00`. It uses the word at `0x966F` as an optional custom interrupt
+target. These `statVars` ranges are not client scratch while the tasker or
 custom interrupt is active. [confirmed]
 
-The changelog also states that ON+`^` quits immediately without writeback.
-Whether that path restores every intermediate body and mapping, and what
-`_ChkFindSym` returns for the archived program name while the client runs,
-remain dynamic-trace questions. The archive-plus-RAM staging description in
-the comparison table is therefore marked `[hypothesis]` even though the move
-and compare routines themselves are confirmed.
+The changelog states that **ON**+**^** quits immediately without writeback.
+Whether that path restores every intermediate body and mapping remains a
+dynamic-trace question. [confirmed]
 
 ## Doors CS 7.4
 
 Doors CS classifies TI-OS assembly, Ion, MirageOS, Doors CS assembly, BASIC,
 and associated program types in `runprog.asm`. For a RAM-resident assembly
-program, `hook1` and the `swap1` through `swap4` routines move its body between
+program, `hook1` and the `swap1`–`swap4` routines move its body between
 the variable and `0x9D95` through `plotSScreen`. [confirmed]
 
 For an archived assembly program, `initTmpASM` checks available memory,
-creates a complete RAM temporary variable under a unique name, and calls
-`_FlashToRAM` before invoking the same move loader. This path needs space for
-one complete RAM variable plus loader state; it does not retain another
-complete execution copy after the move. [confirmed]
+creates a complete RAM temporary variable under a derived name, and calls
+`_FlashToRam` before invoking the same move loader. The name is made by adding
+the program-chain size to the original name's first byte. `initTmpASM` deletes
+an existing variable on collision, so the name is not globally unique. This
+path needs space for one complete RAM variable plus loader state; it does not
+retain another complete execution copy after the move. [confirmed]
 
 The `asmcheckwriteback` path behaves differently according to the original
 storage class:
@@ -153,19 +159,21 @@ Self-lookup has three distinct outcomes across these loaders:
 
 - A RAM-resident input can remain named in the VAT while its body is moved and
   is not a valid contiguous self-image.
-- A Doors CS archived input has an immutable archived original plus a named
-  temporary variable whose body is moved during execution.
+- A MirageOS archived input keeps the archived original name and uses the
+  `TempProgObj` named `Z,1.` for the RAM body that is moved during execution.
+- A Doors CS archived input has an immutable archived original plus a
+  derived-name temporary variable whose body is moved during execution. A
+  collision with that derived name is deleted during setup.
 - A zStart archived input has an immutable archived original plus an unnamed
   execution allocation.
 
-MirageOS's exact name-to-image contract is still unmeasured. Code that needs
-its running image should use a shell-defined pointer or a position-independent
-scheme rather than assume that `_ChkFindSym` returns it.
+Code that needs its running image should use a shell-defined pointer or a
+position-independent scheme rather than assume that `_ChkFindSym` returns it.
 
 Writeback also changes the persistence guarantee. Ion writes every originally
 archived input back to Flash; MirageOS, Doors CS, and zStart avoid a Flash
 rewrite on their confirmed unchanged paths. Forced shell exits can bypass
-writeback under at least the documented MirageOS ON+`^` path, and nonlocal
+writeback under at least the documented MirageOS **ON**+**^** path, and nonlocal
 exit behavior remains launcher-specific.
 
 ## Evidence limits
@@ -181,7 +189,7 @@ four launchers:
 
 - the exact peak RAM cost for RAM-resident and archived inputs;
 - `_ChkFindSym` results and pointed-to bytes while each client is running;
-- self-modification persistence on normal return, OS error, ON+`^`, and
+- self-modification persistence on normal return, OS error, **ON**+**^**, and
   shell-to-shell exit;
 - restoration of the stack, interrupt mode, page mapping, and scratch RAM on
   every abnormal path.
