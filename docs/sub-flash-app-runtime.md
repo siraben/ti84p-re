@@ -1,9 +1,9 @@
 # Flash Apps as resident runtimes
 
-A Flash App keeps its kernel in Flash instead of copying it to `userMem`.
-This removes the normal assembly-program execution copy, but it does not turn
-`ram:9D95`–`ram:BFFF` into private storage. The OS still owns that range
-as part of the user heap.
+A Flash App can keep its runtime in Flash instead of copying it to `userMem`.
+Some Apps instead use Flash as a launcher for generated RAM code. Neither
+design turns `ram:9D95`–`ram:BFFF` into private storage; the OS still owns that
+range as part of the user heap.
 
 This page describes long-running App runtimes. See
 [Apps, memory reset, and settings](sub-apps-mem-settings.md) for App discovery
@@ -35,6 +35,31 @@ See [RAM execution protection](execution-protection.md). A threaded bytecode or
 data image does not require executable RAM, although its interpreter still
 does. The map is confirmed. [confirmed] The physical hardware boundary remains
 untested. [hypothesis]
+
+## Community RAM-core launcher
+
+The TruVid App build uses Flash as a wrapper around a RAM playback core. Its
+source calls `_InsertMem` for `programEnd - program` bytes at `ram:9D95`, copies
+`program` into that allocation, and calls `ram:9D95`. After the RAM core
+returns, the Flash wrapper exits through `_JForceCmdNoChar`. App packaging
+therefore does not establish that all executable code stays in Flash.
+[confirmed] for the identified community source.
+
+The RAM core finds its two-byte settings AppVar through `_ChkFindSym`. It reads
+a RAM payload directly. For an archived payload, it normalizes a wrapped
+bank-A pointer and page before calling `_LoadCIndPaged` and
+`_LoadDEIndPaged`. This is a concrete page-aware archived-data reader, not a
+general guarantee that an archived pointer remains valid across memory-moving
+calls. [confirmed] for the identified community source.
+
+The normal **CLEAR** quit path restores IM 1, the saved stack pointer, mapped
+page, display state, several hardware ports, and the OS base-page table. When
+the settings are dirty, it deletes any old AppVar, creates a two-byte
+replacement, and archives it before returning to the Flash wrapper. No error
+frame appears in this source, so it does not establish cleanup after a reset or
+an unhandled OS error. The distributed App was not executed during this audit.
+[confirmed] for the static source path; reset and error cleanup remain
+[hypothesis].
 
 ## Cross-page code and data
 
@@ -173,6 +198,7 @@ confirmed. [confirmed] Physical launch remains untested. [hypothesis]
 | Artifact | Exact identity | Source |
 |---|---|---|
 | RPN83P source | Commit `e2ad0bff98c94a13f34ae461b13f79384a75c17f` | [RPN83P commit](https://github.com/bxparks/rpn83p/tree/e2ad0bff98c94a13f34ae461b13f79384a75c17f) |
+| TruVid release archive | Archive SHA-256 `ea61474625bc56ef1397fd67f978e29e8bd026ffd4ffc9c2f17c3bdc17f25ca9`; member `TruVid/source/truVid.z80`, SHA-256 `2a9a042177197583dae5af51367cfe906e2d7e84f0d15d1e5859a5dd20ee7953` | [truvid.zip](https://www.ticalc.org/pub/83plus/asm/media/sound/truvid.zip) |
 | SPASM-ng used for the reference build | Commit `5f0786d38f064835be674d4b7df42969967bb73c` | [SPASM-ng commit](https://github.com/alberthdev/spasm-ng/tree/5f0786d38f064835be674d4b7df42969967bb73c) |
 
 ## Remaining measurements
