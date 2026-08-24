@@ -54,6 +54,13 @@ and FP-stack pointers before registering the variable in the VAT. This path is
 distinct from the public `_InsertMem`. See [Variables & the VAT](variables-vat.md).
 [confirmed]
 
+Resident assembly programs need an additional rule: OS pointer repair does not
+relocate program counters or runtime-owned pointers. The compiled `Asm(` path
+also caps its internal program-data size at `0x2000`, below the full
+`ram:9D95`–`ram:BFFF` span. See [Resident assembly programs](sub-resident-programs.md)
+for the launch copy, cleanup, AppVar handle protocol, and archived streaming
+contract. [confirmed]
+
 ## Flash archive [confirmed]
 
 To save scarce RAM, variables can be archived to Flash. The archive entry point is on `flash page 0x07`, while the low-level flash read/write/erase workers are on `page 0x3D`:
