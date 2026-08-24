@@ -58,8 +58,17 @@ of the equation. Located around `39:468F`:
    entry in `_ParseInp` that preserves the already selected parser state.
 3. The error filter at `39:46C7` inspects the error code in `A`: codes below `0x86`
    (`OVERFLOW`/`DIV BY 0`/`SINGULAR MAT`/`DOMAIN`) and `0x87` (`NONREAL ANS`) are
-   swallowed (`CP 0x87; JR Z` then `CP 0x86; JP NC,0x2799` — this `x` is treated as a
-   point where `f` is undefined, so the solver can step past it) while `0x86` (`BREAK`) and
+   swallowed by these comparisons:
+
+   ```z80
+   CP 0x87
+   JR Z
+   CP 0x86
+   JP NC,0x2799
+   ```
+
+   This `x` is treated as a point where `f` is undefined, so the solver can step
+   past it, while `0x86` (`BREAK`) and
    codes `≥ 0x88` are
    re-raised via `_JErrorNo` (`JP 2799`). Before returning a swallowed error,
    `fix_temp_count_bjump` (`ram:327F`) dispatches to `_FixTempCnt` (`07:4FEC`)
@@ -169,8 +178,14 @@ power/exp helpers. [standard]
 Solving for `I%` (the only variable with no closed form) uses Newton's method on the
 rate:
 
-- Iteration state is allocated as a small FPS frame (`LD HL,0x0005; _AllocFPS` at
-  `3A:70A2`) and the loop counter is `B = 0x40` (= `64` iterations max), `3A:70AB`.
+- Iteration state is allocated as a small FPS frame at `3A:70A2`:
+
+  ```z80
+  LD HL,0x0005
+  bcall(_AllocFPS)
+  ```
+
+  The loop counter is `B = 0x40` (= `64` iterations max), `3A:70AB`.
 - Each pass recomputes the TVM residual and its derivative, takes a Newton step, and tests
   the exponent of the correction against `CP 0x74` (`3A:71F4`) — i.e. converged when the
   update is ≤ ~10⁻¹². The new estimate is written back via `(84D9)→(84D3)`
@@ -178,7 +193,14 @@ rate:
 
 ### `_SinH` call in the TVM rate loop [confirmed]
 
-At `3A:710B` the TVM body contains `EF CF 40` = `RST 0x28; .dw 0x40CF`, and the bcall
+At `3A:710B` the TVM body contains `EF CF 40`:
+
+```z80
+RST 0x28
+.dw 0x40CF
+```
+
+The bcall
 table maps `0x40CF` to `_SinH` (`_SinHCosH`=`0x40C6`, `_SinH`=`0x40CF`, `_ASinH`=`0x40ED`
 are three consecutive distinct entries). A scan of the whole loop body (`3A:70A0…7210`) finds
 three bcalls: `_SinH` (`0x40CF`, `3A:710B`), an unmapped helper `0x462A` (adjacent to
@@ -231,17 +253,31 @@ Ghidra function `fnint_body` at `33:4D00` (extent `33:4D00…4E91`):
   `_PopRealOx 14F6/150F/1505`, `_DeallocFPS 1526`, with slot offsets `DE=0x15/0x1B/0x24`)
   — endpoint values, the running estimate, and the previous estimate for the error test.
   [confirmed]
-- iterates, refining the partition by interval bisection (the ×0.5 `_TimesPt5` halving;
-  the `97E7`/`84AF` depth counters track subdivision depth; the loop tail is
-  `33:4E81 LD DE,0x0024 … C3 CB 45` and `33:4E8C 3D F5 C2 57 4D` = `DEC A; …; JP NZ,0x4D57`),
-  and converges when the change in the estimate has exponent `≤ CP 0x74` (~10⁻¹²,
+- iterates, refining the partition by interval bisection. The ×0.5 `_TimesPt5` halving
+  refines the interval, the `97E7`/`84AF` depth counters track subdivision depth, and the loop tail includes
+  `33:4E81 LD DE,0x0024 … C3 CB 45`, while `33:4E8C 3D F5 C2 57 4D` decodes as:
+
+  ```z80
+  DEC A
+  PUSH AF
+  JP NZ,0x4D57
+  ```
+
+  It converges when the change in the estimate has exponent `≤ CP 0x74` (~10⁻¹²,
   `33:4E74`). Exhausting the refinement budget falls through to `33:4E8F JP 274D` =
   ITERATIONS (0x99). [confirmed]
 
 **Quadrature rule.** A full byte scan of `33:4D00…4F00` finds exactly one
 floating-point constant in the body: `const_ln10x100` (`33:4E92`)
 (`00 82 23 02 58 50 92 99 40` = 2.30258509…×10², i.e. `ln(10)·100`). It is referenced at
-`33:4E5D` (`LD HL,0x4E92; CALL 0x1982`), immediately after the only transcendental bcall in
+`33:4E5D`:
+
+```z80
+LD HL,0x4E92
+CALL 0x1982
+```
+
+This is immediately after the only transcendental bcall in
 the body, `33:4E56 EF AB 40` = bcall `_LnX` (0x40AB). So `ln(10)·100` is used purely to
 convert the requested significant-digit tolerance into a decimal error bound via
 `ln` — it is a tolerance scaler, not a quadrature node or weight. There is no node/weight table anywhere in
@@ -290,8 +326,15 @@ bjump, and goes through the page-0x02 command-execution layer:
 1. The evaluator hands the operand token to the page-0x02 dispatcher, which recognises the
    `0xBB` group and the second byte: `tFnInt` at `02:68F3` (`CP 0x24`), `tNDeriv` at
    `02:6904` (`CP 0x25`), `tRoot` at `02:58AD`/`02:69BC` (`CP 0x22`). [confirmed]
-2. The page-0x02 handler parses the comma-separated argument list and sets defaults — e.g.
-   the `nDeriv`/`fnInt` prologue at `02:6AF6` does `LD A,0x7D; LD (8479),A`, seeding the
+2. The page-0x02 handler parses the comma-separated argument list and sets defaults. For
+   example, the `nDeriv`/`fnInt` prologue at `02:6AF6` does:
+
+   ```z80
+   LD A,0x7D
+   LD (0x8479),A
+   ```
+
+   This seeds the
    default tolerance exponent `0x7D` (= `1e-3`, the documented nDeriv ε) before the call.
    [confirmed]
 3. It then performs a paged call into page 0x33. The page-0x33 entry re-validates the token
@@ -378,7 +421,12 @@ Summary of the four sub-results:
   weight table; its sole FP constant is `const_ln10x100`, used with bcall `_LnX`
   to convert digit-tolerance to a decimal error bound. With explicit ×0.5 interval bisection
   and a coarse-vs-fine estimate comparison, it is an adaptive Newton–Cotes / Simpson-class
-  bisection integrator. `33:4D1B` is executable code (`LD A,0x60; CALL fp_set_digit`).
+  bisection integrator. `33:4D1B` is executable code:
+
+  ```z80
+  LD A,0x60
+  CALL fp_set_digit
+  ```
 - **TVM `_SinH` (id `0x40CF`).** The [TVM rate loop](#_sinh-call-in-the-tvm-rate-loop-confirmed) calls `_SinH` at
   `3A:710B` (`0x40C6/0x40CF/0x40ED` are three distinct hyperbolic bcalls); it evaluates the
   annuity / compound factor in hyperbolic form for numerical stability at small rates.

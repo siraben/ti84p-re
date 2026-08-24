@@ -377,7 +377,15 @@ bjumps resolve as:
 Both paths are [confirmed].
 
 The timer/idle side of the same handler also bridges to the assist path. At `ram:01B1` it calls
-`ram:1837` (`IN A,(0x2); AND 0x80; XOR 0x80`), the same hardware-model gate used elsewhere before assist-port access. On the legacy path it checks `port 0x00 & 0x03`; on the assist
+`ram:1837`:
+
+```z80
+IN A,(0x2)
+AND 0x80
+XOR 0x80
+```
+
+This is the same hardware-model gate used elsewhere before assist-port access. On the legacy path it checks `port 0x00 & 0x03`; on the assist
 path it checks `port 0x09 & 0x18`. If either assist bit is set, it reloads `0x9C86 = 0xFA`, pulses
 port `0x08` with `0x80` then `0x00`, sets `IY+0x3E` bit 0, and calls the common link activity hook
 at `ram:3FD5`. [confirmed]
@@ -464,7 +472,14 @@ OUT (4Ch),A
 
 The reset helper at `2F:59C3` drives port `0x4B`, pulses port `0x54`, and uses programmable timer 3 through ports `0x36`–`0x38` for a delay. `_InitUSB` then waits for port `0x4C` to equal `0x1A` or `0x5A`. Each poll decrements a 16-bit `DE` timeout through `2F:5313`. [confirmed]
 
-After the handshake, the routine writes `0xFF` to port `0x87`, zero to `0x92`, reads `0x87`, writes `0x0E` to `0x89`, clears `0x9C26` and `0x9C27`, and writes `0x21` to `0x8B`. The tail at `2F:52F6` gives port `0x8C` five timeout windows to become nonzero. Success executes `OR A; RET`, which clears carry. Failure calls `_USBErrorCleanup` through `2F:5B87`, sets carry, and returns. [confirmed]
+After the handshake, the routine writes `0xFF` to port `0x87`, zero to `0x92`, reads `0x87`, writes `0x0E` to `0x89`, clears `0x9C26` and `0x9C27`, and writes `0x21` to `0x8B`. The tail at `2F:52F6` gives port `0x8C` five timeout windows to become nonzero. Success clears carry with:
+
+```z80
+OR A
+RET
+```
+
+Failure calls `_USBErrorCleanup` through `2F:5B87`, sets carry, and returns. [confirmed]
 
 The unnamed bcall `810B` reads port `0x81`, ORs mask `0x01`, writes the result back, and jumps to the timer-3 delay at `2F:5A06`. The `ti83plus.inc` comment calls this bit 1, while mask `0x01` sets bit 0. No controller-state poll occurs in this entry itself. [confirmed]
 

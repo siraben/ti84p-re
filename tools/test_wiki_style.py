@@ -25,6 +25,14 @@ PROVENANCE_PHRASES = re.compile(
     re.IGNORECASE,
 )
 VAGUE_HEADING = re.compile(r"^(?:TL;DR|Takeaway|Findings|Notes|Summary)$", re.IGNORECASE)
+INLINE_CODE = re.compile(r"(?<!`)`([^`]+)`(?!`)")
+Z80_INSTRUCTION_AFTER_SEMICOLON = re.compile(
+    r";\s*(?:ADC|ADD|AND|BIT|CALL|CCF|CP|CPD|CPDR|CPI|CPIR|CPL|DAA|DEC|DI|"
+    r"DJNZ|EI|EX|EXX|HALT|IM|IN|INC|IND|INDR|INI|INIR|JP|JR|LD|LDD|LDDR|"
+    r"LDI|LDIR|NEG|NOP|OR|OTDR|OTIR|OUT|OUTD|OUTI|POP|PUSH|RES|RET|RETI|"
+    r"RETN|RL|RLA|RLC|RLCA|RLD|RR|RRA|RRC|RRCA|RRD|RST|SBC|SCF|SET|SLA|"
+    r"SLL|SRA|SRL|SUB|XOR|\.db|\.dw|\.byte|\.word)\b"
+)
 
 
 def prose_lines(path: Path) -> list[tuple[int, str]]:
@@ -112,6 +120,30 @@ class WikiStyleTests(unittest.TestCase):
 
     def test_reader_prose_omits_tool_provenance(self) -> None:
         problems = findings(PROVENANCE_PHRASES, MARKDOWN_FILES)
+        self.assertEqual([], problems, "\n" + "\n".join(problems))
+
+    def test_z80_sequences_use_one_instruction_per_line(self) -> None:
+        problems: list[str] = []
+        for path in MARKDOWN_FILES:
+            text = path.read_text(encoding="utf-8")
+            for code in INLINE_CODE.finditer(text):
+                if ";" in code.group(1) and code.group(1) != ";":
+                    number = text.count("\n", 0, code.start()) + 1
+                    problems.append(
+                        f"{path.relative_to(ROOT)}:{number}: semicolon-chained inline code"
+                    )
+
+            fence_language: str | None = None
+            for number, line in enumerate(text.splitlines(), 1):
+                fence = re.match(r"^\s*(?:>\s*)?```(.*)$", line)
+                if fence is not None:
+                    fence_language = None if fence_language is not None else fence.group(1).strip()
+                    continue
+                if fence_language == "z80" and Z80_INSTRUCTION_AFTER_SEMICOLON.search(line):
+                    problems.append(
+                        f"{path.relative_to(ROOT)}:{number}: instruction follows Z80 comment marker"
+                    )
+
         self.assertEqual([], problems, "\n" + "\n".join(problems))
 
     def test_summary_targets_exist(self) -> None:

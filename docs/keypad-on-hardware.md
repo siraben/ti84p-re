@@ -378,7 +378,7 @@ join `poweroff_shared_tail` at `ram:0A24`. The final hardware operations are:
 | `ram:0A51` | clear `shift2nd` | discard the power-off modifier |
 | `ram:0A55` | clear `onRunning` | mark the OS powered down |
 | `ram:0A5B` | `EI` | accept a selected wake interrupt |
-| `poweroff_halt_loop` at `ram:0A5C` | `HALT; JR ram:0A5C` | remain in the low-power loop |
+| `poweroff_halt_loop` at `ram:0A5C` | `HALT`<br>`JR ram:0A5C` | remain in the low-power loop |
 
 Port-`0x03` bit 3 being clear selects low power only when the Z80 executes `HALT`. The `0x11` write alone does not complete shutdown. ON and link activity remain wake sources. [standard]
 

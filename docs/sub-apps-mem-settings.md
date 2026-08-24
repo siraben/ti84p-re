@@ -34,7 +34,10 @@ length bytes. The decoder bytes are at `init_flash_page_counter+0x08`
 | `0xF` | 4 bytes |
 
 ```z80
-3D:7285  AND 0x0F; CP 0x0F -> B=4 ; CP 0x0E -> B=2 ; CP 0x0D -> B=1
+3D:7285  AND 0x0F
+         CP 0x0F              ; B=4
+         CP 0x0E              ; B=2
+         CP 0x0D              ; B=1
 ```
 The master field at offset 0 is usually `80 0F …` (`field 800`, size nibble `F`, followed
 by a 4-byte size) — this is what the page-scan keys on to recognise an app. Fields carry
@@ -104,15 +107,30 @@ the local decode below uses that lead and verifies it against the extracted `Axe
 ```
 
 `RST 20h` is `_Mov9ToOP1`, so the helper copies the thunk at `4065` into OP1
-(`0x8478`) and jumps to OP1. That makes `OUT (6),A; RET` run from RAM after `A`
-has been set to the current bank-A page minus one. The preceding `CPIR` searches
+(`0x8478`) and jumps to OP1. That makes the following thunk run from RAM after
+`A` has been set to the current bank-A page minus one:
+
+```z80
+OUT (6),A
+RET
+```
+
+The preceding `CPIR` searches
 from `HL` for a `RET` byte (`0xC9`) and pushes the byte after it as the return
 address. The first half preserves the popped registers while it probes caller-owned
 bytes and can return early; the later page switch and RAM-thunk behavior are directly
 decoded from the sample bytes.
 
-The same sample's conventional entry area at `4080` starts `NOP; JR 408C; JP 4097;
-JP 4548`. `tools/app_header_re.py` reproduces this pass: `--fetch-known` downloads a
+The same sample's conventional entry area at `4080` starts:
+
+```z80
+NOP
+JR 408C
+JP 4097
+JP 4548
+```
+
+`tools/app_header_re.py` reproduces this pass: `--fetch-known` downloads a
 local corpus from ticalc.org into ignored `tools/app-samples/`, and `--markdown` prints
 the decoded header table. The corpus keeps the same parser boundary rule:
 
@@ -127,7 +145,7 @@ the decoded header table. The corpus keeps the same parser boundary rule:
 | BatLib-modified Celtic 3 / Grammer / Omnicalc | 1 / 1 | `4070` | app-specific jump/vector bytes | same boundary; nonzero `807F` size bytes are ignored |
 | zStart 1.3.013 / zStart83 | 1 / 1 | `4080` | `18 11 83 C3 ...` | `809D0F` carries a 15-byte Z80 helper at `406B` |
 | CtlgHelp / zChem from zStart | 2 / 2 or 1 / 1 | `4070` | app-specific bytes | padding to `4080` |
-| usb8x | 1 / 1 | `4029` | `00 00 00 00 00 00 00 96` | mostly zero padding, plus `JP 4180h; JP 42EAh` at `4049` |
+| usb8x | 1 / 1 | `4029` | `00 00 00 00 00 00 00 96` | mostly zero padding, plus `JP 4180h`<br>`JP 42EAh` at `4049` |
 
 So `4080` is a common app-entry convention, not the OS's header parser boundary. Some
 apps end the parsed header at `4029`, `4070`, or exactly `4080`, and all remain valid
@@ -152,7 +170,8 @@ retail targets are recorded in `tools/data/boot-page-comparison.csv`.
   5EE6 CALL 5FB1            ; step to next candidate page (DEC appSearchPage)
   5EE9 RET C                ; ran off the end -> not found
   5EEA CALL 5EB2            ; read/compare this page's header
-  5EED BIT 3,C; JR Z,5EE6   ; not a match -> keep scanning
+  5EED BIT 3,C
+       JR Z,5EE6            ; not a match -> keep scanning
   ```
 - `app_find_next_page` (`3D:5FB1`) — `appSearchPage (0x82A3) -= 1`; stops at page 7
   (low boundary of the app region); bjumps `appSearchPage:0x4000` to inspect the header.
@@ -446,14 +465,24 @@ Dispatch is on the selected reset item held in `keyExtend` (`0x8446`):
 
 The RAM-reset path (`35:719F`):
 ```z80
-719F BIT 1,(IY+0x35); JP Z,0x0B2F          ; first-stage vs full path select
+719F BIT 1,(IY+0x35)
+     JP Z,0x0B2F                           ; first-stage vs full path select
 71A6 LD HL,(0x9B73)                         ; preserve a saved word
-71B4 LD A,(IY+0x3F); AND 0x7F               ; keep low 7 bits (clear bit 7) of flag byte 0x3F
+71B4 LD A,(IY+0x3F)
+     AND 0x7F                              ; keep low 7 bits (clear bit 7) of flag byte 0x3F
 71B9 DI
-71BA LD HL,0x8000; LD DE,0x8001; LD BC,0x1BC3; LD (HL),0; LDIR   ; *** zero system RAM 0x8000-0x9BC3 ***
+71BA LD HL,0x8000
+     LD DE,0x8001
+     LD BC,0x1BC3
+     LD (HL),0
+     LDIR                                  ; *** zero system RAM 0x8000-0x9BC3 ***
 71C7 LD (IY+0x3F),A                         ; restore the saved low 7 bits
 ...   (restore IY+0x34 bit6, IY+0x35 bit0 from the preserved state)
-71E0 LD HL,0x9BD0; LD DE,0x9BD1; LD BC,0x642F; LD (HL),0; LDIR   ; *** zero user RAM 0x9BD0-0xFFFF ***
+71E0 LD HL,0x9BD0
+     LD DE,0x9BD1
+     LD BC,0x642F
+     LD (HL),0
+     LDIR                                  ; *** zero user RAM 0x9BD0-0xFFFF ***
 71ED JP 0x0BD9                              ; re-init RAM (page-0 boot init)
 ```
 So a RAM reset clears two blocks to 0:
@@ -478,9 +507,18 @@ touched by a plain RAM reset.
 
 The harder reset (RESET ALL / power-on cold start) is at `ram:0B27`:
 ```z80
-0B27 LD SP,0; ... 0B37 DI; OUT (0),0xC0
-0B41 LD HL,0x8000; LD DE,0x8001; LD BC,0x7FFF; LD (HL),0; LDIR   ; zero ALL of 0x8000-0xFFFF (32 KiB)
-0B4E ... preserve/inspect IY+0x3F; select sub-path; JP 0x3EA9/0x3EAF
+0B27 LD SP,0
+     ...
+0B37 DI
+     OUT (0),0xC0
+0B41 LD HL,0x8000
+     LD DE,0x8001
+     LD BC,0x7FFF
+     LD (HL),0
+     LDIR                                  ; zero ALL of 0x8000-0xFFFF (32 KiB)
+0B4E ... preserve/inspect IY+0x3F
+     ... select sub-path
+     JP 0x3EA9/0x3EAF
 ```
 This zeroes the *entire* 32 KiB RAM and does the deepest re-init.
 
