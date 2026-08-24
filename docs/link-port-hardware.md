@@ -70,6 +70,27 @@ code is historical corroboration for port usage, not a reliable electrical
 description. [confirmed] for the source instructions; [standard] for the
 open-collector correction.
 
+The archive's two shipped calculator files are not TI-83 Plus link files:
+`example.8xp` and `EXAMPLE.83P` both begin with the TI-83 container signature
+`2A 2A 54 49 38 33 2A 2A 1A 0A 00`. Their SHA-256 values are
+`fdc5d25fd21abd1d6f06a4e4e3bfb7d562b2c5964e34c6cf0a7d5c1d6b7c3e2b`
+and `396e9c499cafaccb30b39bf6d44bd726e07064f961d7e9926a85e2d8f97096a5`.
+A headless TI-84 Plus run transferred those files, invoked a valid
+`Asm(prgmEXAMPLE)` wrapper, reached the `E_Invalid` shim at `ram:2729` once,
+and never reached the compiled-program handoff at `07:57B4` or `ram:9D95`.
+The result is therefore a release-packaging inconsistency, not a runtime test
+of the source's `TI83P` branch. [confirmed]
+
+A separate 40-byte TI-83+ fixture transcribes the source's initial one-sided
+wait loop. On TilEm x4 with no peer, it entered at `ram:9D95`, first read
+`0x03` from port `0x00`, wrote `0xD1` once to port `0x00`, selected keypad row
+`0xBF` 214,766 times, observed injected MODE value `0xBF`, and returned through
+`07:57D1`. This confirms the source-level port sequence in that bounded
+emulator scenario. It does not test a peer exchange, the rest of the tutorial,
+physical voltage, or electrical polarity. Compact results and exact trace
+identities are in `tools/data/community-link-wait.csv` and
+`tools/data/community-linktutorial-release.csv`. [confirmed]
+
 The tutorial archive `source/linktutorial83plus.zip` has SHA-256
 `7a0917379bd1b46b45e802b44c9bdc129ac5db42f94c979fae01c29c6b5ca8fe`.
 Members `link tutorial.txt` and `example.z80` have SHA-256
