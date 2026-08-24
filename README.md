@@ -20,6 +20,12 @@ flake.nix · book.toml  mdBook build/serve + vendored KaTeX/Mermaid/pseudocode a
 
 The ROM and Ghidra project (`*.gpr`/`*.rep`) are gitignored. Put the three pinned local inputs under `tools/roms/`, then run `python3 tools/assemble_local_rom.py --check` to validate them without writing or `python3 tools/assemble_local_rom.py` to create `tools/rom.bin` plus the 16 KiB page-0 slice at `tools/ti84_page00.bin`. The validator decodes the two TI AppVar containers, checks their internal lengths and checksums, and requires the exact hashes recorded in `tools/rom_signatures.py`.
 
+Generate a result manifest with `nix develop -c python3
+tools/rom_provenance.py manifest --rom tools/rom.bin`; use its `verify`
+subcommand to reject CSV or JSON evidence produced from a different ROM. The
+[provenance page](docs/provenance.md) distinguishes the canonical retail image
+from the BootFree runtime-trace variant.
+
 ## Browse the wiki
 
 The `docs/` are also a rendered [mdBook](https://rust-lang.github.io/mdBook/) wiki (sidebar nav + full-text search):

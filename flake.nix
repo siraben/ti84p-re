@@ -74,7 +74,8 @@
             python3 tools/test_symbol_tables.py
             PYTHONPATH=tools python3 -m unittest \
               tools.test_tibasic_coverage tools.test_tibasic_for_paren \
-              tools.test_tibasic_saturation tools.test_tibasic_numeric_errors
+              tools.test_tibasic_saturation tools.test_tibasic_numeric_errors \
+              tools.test_rom_provenance tools.test_compare_boot_pages
           '';
           dontInstall = true;
           dontFixup = true;

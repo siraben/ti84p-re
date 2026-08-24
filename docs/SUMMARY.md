@@ -6,6 +6,7 @@
 
 - [Subsystem map](subsystem-map.md)
 - [Conventions and evidence](conventions.md)
+- [Build and evidence provenance](provenance.md)
 - [Glossary](glossary.md)
 
 # Architecture and memory
