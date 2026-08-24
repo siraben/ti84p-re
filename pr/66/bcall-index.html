@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
+            window.path_to_searchindex_js = "searchindex-ff900fe6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -278,7 +278,7 @@
 <tr><td><code>_BufClear</code></td><td><code>4936</code></td><td><code>00:222E</code></td></tr>
 <tr><td><code>_BufClr</code></td><td><code>5074</code></td><td><code>04:6074</code></td></tr>
 <tr><td><code>_BufCpy</code></td><td><code>5071</code></td><td><code>04:60A6</code></td></tr>
-<tr><td><code>_BufInsert</code></td><td><code>4909</code></td><td><code>06:42E5</code></td></tr>
+<tr><td><code>_bufInsert</code></td><td><code>4909</code></td><td><code>06:42E5</code></td></tr>
 <tr><td><code>_CAbs</code></td><td><code>4E97</code></td><td><code>02:6C47</code></td></tr>
 <tr><td><code>_CAdd</code></td><td><code>4E88</code></td><td><code>02:6BA5</code></td></tr>
 <tr><td><code>_CanAlphIns</code></td><td><code>4C69</code></td><td><code>00:04C6</code></td></tr>
@@ -841,13 +841,17 @@ numeric bcall macros, raw <code>rst 28h</code> plus word sequences, and complete
 <code>EF low high</code> instruction bytes. The pinned snapshot contains 112 such uses of
 56 IDs. Three uses encode <code>_CursorOn</code>, <code>_KeyToString</code>, and <code>_CursorOff</code> as raw
 bytes; the other 109 use macro or <code>rst 28h</code> forms. Exact archive and source
-hashes are in <code>tools/data/community-bcall-uses.csv</code>.</p>
+hashes are in <code>tools/data/community-bcall-uses.csv</code>. [confirmed] for the
+checked scan output.</p>
 <p>Sixteen used main-table IDs were absent from the generated map. Decoding their
 three-byte entries on ROM page <code>0x3B</code> resolves every target: [confirmed]</p>
+<p>These rows establish the ROM table mapping and the static source call site.
+They do not, by themselves, establish every runtime side effect named in the
+source comment.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>ID</th><th>Include name</th><th>Body</th><th>Community use</th></tr>
+<tr><th>ID</th><th>Include name</th><th>Body</th><th>Source call-site context</th></tr>
 </thead>
 <tbody>
 <tr><td><code>4030</code></td><td><code>_newContext</code></td><td><code>00:077E</code></td><td>Plasma home-context restore</td></tr>
@@ -883,7 +887,7 @@ extracted archive before classifying its use. Five active IDs add valid OS
 </thead>
 <tbody>
 <tr><td style="text-align: right"><code>4051</code></td><td><code>_lcd_busy</code></td><td><code>00:0CC3</code></td><td>Letter waits before writing an LCD control byte.</td></tr>
-<tr><td style="text-align: right"><code>4909</code></td><td><code>_BufInsert</code></td><td><code>06:42E5</code></td><td>Plasma inserts <code>Asm</code> and program-name tokens into the edit buffer.</td></tr>
+<tr><td style="text-align: right"><code>4909</code></td><td><code>_bufInsert</code></td><td><code>06:42E5</code></td><td>Plasma inserts <code>Asm</code> and program-name tokens into the edit buffer.</td></tr>
 <tr><td style="text-align: right"><code>4936</code></td><td><code>_BufClear</code></td><td><code>00:222E</code></td><td>Plasma clears the edit buffer before inserting a launch command.</td></tr>
 <tr><td style="text-align: right"><code>500B</code></td><td><code>_GetKeyRetOff</code></td><td><code>06:491A</code></td><td>Balltrix, Nukewar, and CalClock request the <strong>ON</strong> return code.</td></tr>
 <tr><td style="text-align: right"><code>50E0</code></td><td><code>_NZIf83Plus</code></td><td><code>00:1837</code></td><td>ZMegaMan branches on the calculator model before masking a Flash page.</td></tr>

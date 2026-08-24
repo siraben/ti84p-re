@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
+            window.path_to_searchindex_js = "searchindex-ff900fe6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -3105,10 +3105,10 @@ emulator agreement is only a test oracle for emulator behavior.</p>
 <ul>
 <li>Located at the start of physical flash page <code>0x3B</code> (file offset <code>0x3B*0x4000 = 0xEC000</code>).</li>
 <li><strong>3-byte entries</strong>: <code>addr_lo, addr_hi, page</code>. IDs step by 3 from <code>0x4000</code>, so entry for ID <em>X</em> is at table offset <code>X-0x4000</code>.</li>
-<li>Resolution method (<code>tools/</code> Python): scored all 64 pages by how many named IDs produced a valid <code>(addr∈4000..7FFF or page-0, page&lt;0x40)</code> entry; page <code>0x3B</code> scored highest (the page-selection heuristic uses a conservative validity filter chosen only to pick the table). Once <code>0x3B</code> is selected and applied, 621 entries resolve and are live-confirmed. Of those IDs, 599 also appear in the included SDK equates and 22 are project-inferred additions.</li>
+<li>Resolution method (<code>tools/</code> Python): scored all 64 pages by how many named IDs produced a valid <code>(addr∈4000..7FFF or page-0, page&lt;0x40)</code> entry; page <code>0x3B</code> scored highest (the page-selection heuristic uses a conservative validity filter chosen only to pick the table). Once <code>0x3B</code> is selected and applied, 645 entries resolve and are live-confirmed. Of those IDs, 623 also appear in the included SDK equates and 22 are project-inferred additions.</li>
 <li>Validation: known bcalls land exactly where expected — <code>_PutS</code>→<code>01:5C39</code>, <code>_GetKey</code>→<code>06:491E</code>, <code>_ClrLCDFull</code>→<code>01:60E4</code>, <code>_GetCSC</code>→<code>00:04B2</code>, <code>_CreateReal</code>→<code>00:10B8</code>.</li>
 </ul>
-<p><code>tools/bcall_targets.txt</code> holds 621 resolved main-table bcall rows.
+<p><code>tools/bcall_targets.txt</code> holds 645 resolved main-table bcall rows.
 The retail boot table has 87 populated entries. <code>tools/bcalls8x_targets.txt</code>
 holds the 83 rows with official SDK names; four populated slots have only
 project-inferred names in the <a href="#retail-boot-0x8xxx-bcalls">bcall index</a>.
@@ -3119,7 +3119,7 @@ BootFree guard otherwise leaves only diagnostic comments.
 <h2 id="jump-table-id-ranges"><a class="header" href="#jump-table-id-ranges">Jump-table ID ranges</a></h2>
 <p>The dispatcher (<code>bcall_dispatcher</code>) decodes the ID’s top two bits to pick the table page: bit 15 set → page-byte <code>0x7F</code> (masked <code>&amp; 0x3F</code> → page <code>0x3F</code>); bit 14 set → <code>0x7B</code> (→ page <code>0x3B</code>); with <em>neither</em> bit set it falls through to <code>lookup_bcall_table_page</code> (<code>ram:2ADA</code>). The two tables real bcall IDs use:</p>
 <ul>
-<li><code>0x4xxx</code>–<code>0x7FFF</code> (bit 14 set): the main table on flash page <code>0x3B</code>, entry at offset <code>ID − 0x4000</code> (621 live-confirmed bcalls: 599 IDs also present in the included SDK equates and 22 project-inferred additions).</li>
+<li><code>0x4xxx</code>–<code>0x7FFF</code> (bit 14 set): the main table on flash page <code>0x3B</code>, entry at offset <code>ID − 0x4000</code> (645 live-confirmed bcalls: 623 IDs also present in the included SDK equates and 22 project-inferred additions).</li>
 <li><code>0x8xxx</code> (bit 15 set): the retail boot table is on physical page <code>3F</code>, indexed by <code>ID &amp; 0x7FFF</code>. Its real entries occupy IDs <code>0x8018</code>–<code>0x80D2</code> and <code>0x80E4</code>–<code>0x8129</code>; bytes <code>3F:40D5</code>–<code>3F:40E3</code> between those ranges are executable dispatch-stub bytes, not five table entries. <code>D84PBE1.8Xv</code> supplies the retail page <code>3F</code>; <code>D84PBE2.8Xv</code> supplies the companion USB boot support page <code>2F</code>. Most entries resolve to <code>3F:addr</code>; USB entries such as <code>_AttemptUSBOSReceive</code> (<code>80E4</code>) and <code>_InitUSB</code> (<code>8108</code>) resolve to <code>2F:addr</code>. <code>tools/resolve_bcalls.py</code> refuses to emit these targets from a BootFree-substituted page. [confirmed]</li>
 </ul>
 <p>Both resolved table formats are 3-byte entries: target address (little endian) plus page byte masked with <code>&amp; 0x3F</code>.</p>
@@ -4452,8 +4452,16 @@ ram_init_after_reset (ram:0BD9):
 </code></pre>
 <p>The destination <code>0x858D</code> and length <code>0x000C</code> pin the six 2-byte handler slots <code>cxMain</code>(+0) <code>cxPPutAway</code>(+2) <code>cxPutAway</code>(+4) <code>cxRedisp</code>(+6) <code>cxErrorEP</code>(+8) <code>cxSizeWind</code>(+10), and the explicit <code>LD (0x8599),A</code> writes <code>cxPage</code> at +12 from port 6. <code>_AppInit</code> installs a context, but it is not the only writer: <code>_POPCX</code> (bcall <code>0x49E1</code>, body <code>07:6D1C</code>) restores a suspended context by <code>LDIR</code>ing 14 bytes <code>cxPrev</code>→<code>cxMain</code> (<code>0x859B</code>→<code>0x858D</code>) and copying a 15th byte into the app-flags, and a matching save path (the <code>LDIR</code> at <code>07:5A8C</code>) copies <code>cxMain</code>→<code>cxPrev</code>. <code>cxCurApp</code>(+13, <code>0x859A</code>) is the current context id (a key code); the shadow at <code>cxPrev</code>(<code>0x859B</code>) holds the suspended context.</p>
 <h3 id="how-a-context-handler-is-invoked-confirmed"><a class="header" href="#how-a-context-handler-is-invoked-confirmed">How a context handler is invoked [confirmed]</a></h3>
-<pre><code class="language-pseudocode">call_context_main (ram:08fa):   set_bankA_page(cxPage); call (cxMain) via jp_hl; ret   ; run handler on its page, control returns here
-call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; restore port6
+<pre><code class="language-pseudocode">call_context_main (ram:08fa):
+  set_bankA_page(cxPage)
+  call (cxMain) via jp_hl
+  ret                            # control returns here after the paged handler
+
+call_context_savepage (ram:08e9):
+  save port6
+  set_bankA_page(cxPage)
+  jp_hl
+  restore port6
 </code></pre>
 <p>Primitives: <code>set_bankA_page</code> (<code>ram:078c</code>, <code>port6 = page</code>) and <code>jp_hl</code> (<code>ram:090b</code>, <code>jp (hl)</code> dynamic dispatch). The OS pages the handler in, runs it, and (for the savepage variant) restores the caller’s page.</p>
 <h2 id="error-handling-confirmed"><a class="header" href="#error-handling-confirmed">Error handling [confirmed]</a></h2>
@@ -4479,20 +4487,24 @@ bytes plus its null terminator. <code>_ErrCustom1</code> takes the same non-loca
 <a href="https://www.ticalc.org/pub/83plus/asm/programs/generateerror.zip"><code>programs/generateerror.zip</code></a>
 (SHA-256
 <code>1731b2b2cf7580855f7007478d55299e12b1ec4b7430d371feedea764c9139cf</code>)
-copies the <code>Ans</code> string payload into <code>appErr1</code> and invokes bcall <code>4D41</code>. Its
+copies the <code>Ans</code> string payload into <code>appErr1</code> and invokes bcall <code>4D41h</code>. Its
 <code>generr.z80</code> member (SHA-256
 <code>5f28fca2dec72dc4d495aff18a8d6b076f02d34b8cafcdbd78c11c05f364386d</code>)
 does not bound the copy to 13 bytes or write an explicit null terminator.
 This static source is evidence of community usage, not evidence that arbitrary
 <code>Ans</code> strings are safe. [confirmed]</p>
 <p>The bounded <code>ERRPROBE</code> fixture copies <code>COMMTRACE\0</code> into <code>appErr1</code> and invokes
-the same bcall under TilEm x4. Its 3,623,530-instruction trace reaches
+the same <code>4D41h</code> bcall under TilEm x4. Its 3,634,222-instruction trace reaches
 <code>ram:2771</code>, <code>_JError</code> at <code>ram:2793</code>, and the display path at <code>07:6A72</code> once
 each. The rendered error is <code>ERR:COMMTRACE</code>; control does not reach the
 fixture’s post-bcall halt. The trace SHA-256 is
-<code>393141d8f68e400a9cb7a845e1bab1430ccbd41a64f3a75755e6f9d20e514067</code>.
-<code>tools/data/community-custom-error.csv</code> records the ROM identity and hit
-counts. This confirms the nonlocal path in the identified emulator scenario;
+<code>1c9dbb368b74258ab3b82dc46f9fbb23710b23e343455415dddcef4d37a959eb</code>.
+The patched TilEm executable SHA-256 is
+<code>b8ee505483c79732a4ca21efb8b904de0792477795f6fc717874dcd5addaed09</code>.
+<code>tools/data/community-custom-error.csv</code> records both executable identities,
+the fixture, macro, recording, and hit counts. It also records zero visits to
+the fixture’s unexpected-return path. This confirms the nonlocal path in the
+identified emulator scenario;
 it is not a physical-hardware result. [confirmed]</p>
 <h3 id="error-message-table-confirmed"><a class="header" href="#error-message-table-confirmed">Error-message table [confirmed]</a></h3>
 <p>The error screen shows <code>ERR:&lt;MESSAGE&gt;</code>; the <code>ERR:</code> prefix is at <code>01:4008</code>. The handler at <code>07:6A72</code> masks the code with <code>0x7F</code>, then indexes a little-endian pointer table at <code>07:6ACC</code> by <code>(code) − 1</code> for codes below <code>0x3A</code>. It fetches the pointer through <code>_LdHLind</code> and copies the selected null-terminated string. Codes <code>0x36</code>, <code>0x37</code>, <code>0x39</code>, and values at least <code>0x3A</code> bypass the table and select <code>?</code> at <code>07:6C5A</code>. [confirmed]</p>
@@ -5327,7 +5339,7 @@ for that untraced interaction.</p>
 snapshot, input-ROM, output-ROM, and emulator hashes. The ROM hash is
 <code>dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09</code>;
 the patched TilEm executable hash is
-<code>f0f0703e8658f8146c4dcd43dbb1b1dc858f4617baf33eaa16878bf2e35399c6</code>.</p>
+<code>b8ee505483c79732a4ca21efb8b904de0792477795f6fc717874dcd5addaed09</code>.</p>
 <h3 id="numeric-community-bcalls"><a class="header" href="#numeric-community-bcalls">Numeric community bcalls</a></h3>
 <p>The same source audit found manually defined or numeric bcalls that were not
 reliably named in older include sets:</p>
@@ -5345,11 +5357,13 @@ reliably named in older include sets:</p>
 </tbody>
 </table>
 </div>
-<p>PRGMHIDE dynamically reaches <code>500Bh</code> and <code>509Eh</code>. A separate source-built
-probe reaches <code>5011h</code> and <code>5014h</code> once each and returns normally after saving
-the <code>_ArcChk</code> words. <code>50C8h</code> was not called without an authentic group object
-and caller state. These tests confirm the first four ID-to-target mappings and
-safe return paths, not every side effect implied by the community comments.
+<p>PRGMHIDE dynamically reaches <code>500Bh</code> and <code>509Eh</code>. In a separate source-built
+probe, the <code>5011h</code> and <code>5014h</code> fixture call sites each execute once, both OS
+bodies are reached, and the final marker proves that both calls return after
+saving the <code>_ArcChk</code> words. Other OS activity may reach the same body addresses.
+<code>50C8h</code> was not called without an authentic group object and caller state.
+These tests confirm the first four ID-to-target mappings and safe return paths,
+not every side effect implied by the community comments.
 [confirmed]</p>
 <div class="table-wrapper">
 <table>
@@ -6305,10 +6319,11 @@ and <code>RUNCOUNT.8xp</code> has SHA-256
 [confirmed]</p>
 <p>An instrumented TI-84 Plus OS 2.55MP direct <code>Asm(</code> run executes this packaged
 program twice. Both passes reach the store at <code>ram:9DAC</code>; <code>_ChkFindSym</code> returns
-the named RAM source at <code>ram:9EC5</code>, and the attributed writes store <code>1</code>, then
-<code>2</code>, there. The result dynamically confirms explicit source writeback for this
-unarchived route rather than mutation of the separate execution copy. The ROM,
-program, wrapper, macro, emulator, and trace hashes are pinned in
+the named variable’s data-size pointer at <code>ram:9EBD</code>, and the program advances
+to <code>count_lsb_bcd</code> at <code>ram:9EC5</code>. The attributed writes store <code>1</code>, then <code>2</code>, at
+that source field. The result dynamically confirms explicit source writeback
+for this unarchived route rather than mutation of the separate execution copy.
+The ROM, program, wrapper, macro, emulator, and trace hashes are pinned in
 <code>tools/data/community-loader-traces.csv</code>. [confirmed]</p>
 <p>The source does not test the returned page byte in <code>B</code>. Its direct store is
 therefore supported only when lookup returns a RAM source. An archived source
@@ -6427,18 +6442,21 @@ cleanup contract using identified original releases.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Launcher</th><th>RAM-resident input</th><th>Archived input</th><th>Archive writeback</th><th>Error cleanup</th></tr>
+<tr><th>Launcher</th><th>RAM-resident input</th><th>Archived input</th><th>Archive writeback</th><th>Error cleanup</th><th>Evidence</th></tr>
 </thead>
 <tbody>
-<tr><td>Ion 1.6</td><td>Moves the original body</td><td>Unarchives the original, then moves its body</td><td>Always rearchives</td><td>No Ion-owned error handler</td></tr>
-<tr><td>Plasma 1.4</td><td>Copies the body into the current <code>userMem</code> execution allocation</td><td>Copies the body from Flash with <code>_FlashToRam</code></td><td>None; clients can save to an AppVar</td><td>No Plasma-owned error handler</td></tr>
-<tr><td>TSE 1.5/1.6</td><td>Moves the active body and task state between the variable and <code>userMem</code></td><td>Unarchives the original, then uses the RAM task path</td><td>Leaves the program in RAM</td><td>Cooperative switch and exit paths only</td></tr>
-<tr><td>MirageOS 1.2</td><td>Uses a symmetric move loader</td><td>Creates a named <code>TempProgObj</code> RAM copy, then moves its body</td><td>Rewrites only if changed</td><td>Installs an OS error handler</td></tr>
-<tr><td>Doors CS 7.4</td><td>Moves the original body</td><td>Creates a complete RAM variable under a derived temporary name</td><td>Compares the temporary variable with the archive; replaces the archive only if changed</td><td>Routes OS errors through reverse-swap cleanup</td></tr>
-<tr><td>zStart 1.3.013</td><td>Moves the original body</td><td>Copies the body into a raw <code>userMem</code> allocation</td><td>Uses a 16-bit checksum; replaces the archive only if changed</td><td>Routes OS errors through local cleanup</td></tr>
+<tr><td>Ion 1.6</td><td>Moves the original body</td><td>Unarchives the original, then moves its body</td><td>Always rearchives</td><td>No Ion-owned error handler</td><td>Identified original source; runtime untraced</td></tr>
+<tr><td>Plasma 1.4</td><td>Copies the body into the current <code>userMem</code> execution allocation</td><td>Copies the body from Flash with <code>_FlashToRam</code></td><td>None; clients can save to an AppVar</td><td>No Plasma-owned error handler</td><td>Byte-matched release source; release entry traced, client paths untraced</td></tr>
+<tr><td>TSE 1.5/1.6</td><td>Moves the active body and task state between the variable and <code>userMem</code></td><td>Unarchives the original, then uses the RAM task path</td><td>Leaves the program in RAM</td><td>Cooperative switch and exit paths only</td><td>Byte-matched release source; infrastructure loader traced, task switching untraced</td></tr>
+<tr><td>MirageOS 1.2</td><td>Uses a symmetric move loader</td><td>Creates a named <code>TempProgObj</code> RAM copy, then moves its body</td><td>Rewrites only if changed</td><td>Installs an OS error handler</td><td>Identified release-binary disassembly; runtime untraced</td></tr>
+<tr><td>Doors CS 7.4</td><td>Moves the original body</td><td>Creates a complete RAM variable under a derived temporary name</td><td>Compares the temporary variable with the archive; replaces the archive only if changed</td><td>Routes OS errors through reverse-swap cleanup</td><td>Identified source commit; runtime untraced</td></tr>
+<tr><td>zStart 1.3.013</td><td>Moves the original body</td><td>Copies the body into a raw <code>userMem</code> allocation</td><td>Uses a 16-bit checksum; replaces the archive only if changed</td><td>Routes OS errors through local cleanup</td><td>Identified source commit; runtime untraced</td></tr>
 </tbody>
 </table>
 </div>
+<p>Unless a trace is stated explicitly below, <code>[confirmed]</code> in these launcher
+subsections refers to the identified source or release-binary control flow,
+not a replicated runtime outcome.</p>
 <p>The three source-available move loaders show that “run at <code>userMem</code>” does not
 imply “make a second complete copy.” Ion, Doors CS, and zStart move a
 RAM-resident body in chunks through a 768-byte shuttle. Plasma copies the body
@@ -6446,7 +6464,8 @@ and relocates its shell tail around it. TSE moves the body together with an
 appended task-state area. Archived inputs also differ: Ion and TSE first
 unarchive the original, MirageOS and Doors CS build named temporary variables,
 Plasma copies from Flash into its current execution allocation, and zStart
-builds an unnamed execution allocation. [confirmed]</p>
+builds an unnamed execution allocation. [confirmed] for the identified source
+and release-binary control flow.</p>
 <p>The source identity, execution strategy, and open evidence boundary for the
 original four comparison rows are also recorded in
 <code>tools/data/shell-loader-observations.csv</code>. Plasma and TSE are pinned below by
@@ -6481,8 +6500,8 @@ calls <code>_Arc_Unarc</code> again, so modified bytes persist but an archive wr
 even when the program did not change. [confirmed]</p>
 <p>Ion calls the client without installing an Ion-owned OS error handler. The
 source therefore provides no cleanup path for an OS error or nonlocal exit
-that bypasses the normal return. The resulting calculator state still needs a
-dynamic trace; it is not inferred here. [confirmed]</p>
+that bypasses the normal return. [confirmed] The resulting calculator state
+still needs a dynamic trace. [hypothesis]</p>
 <p>The loader stages its preloader in <code>appBackUpScreen</code> (<code>0x9872</code>) and its move
 routine in <code>cmdShadow</code> (<code>0x966E</code>). It uses <code>plotSScreen</code> during the forward and
 reverse moves. The client may reuse <code>plotSScreen</code> while it runs; the reverse
@@ -6511,8 +6530,8 @@ exports <code>savedata</code> and <code>fetchdata</code>: the first replaces a n
 <code>_CreateAppVar</code>, and the second reads a RAM or archived AppVar through
 <code>_FlashToRam</code>. A client that needs persistent data must use an explicit storage
 path such as this one. [confirmed]</p>
-<p>No Plasma-owned OS error handler appears in the release source. The state after
-an OS error or nonlocal exit remains a dynamic-trace question. [confirmed]</p>
+<p>No Plasma-owned OS error handler appears in the release source. [confirmed]
+The state after an OS error or nonlocal exit remains [hypothesis].</p>
 <p>The release archive has SHA-256
 <code>62965a41fe071902043ebcbbd1254f710d29729bf86a78f20b6f14d6974f5d5a</code>.
 Within it, <code>Plasma/plasma.asm</code> has SHA-256
@@ -6550,7 +6569,8 @@ typedef struct {
 <p>The tail begins immediately after the requested external-data area. TSE writes
 the initial code address into the last two bytes of that area as the first
 stack return address, while <code>saved_sp</code> records the resulting stack pointer.
-[confirmed]</p>
+[confirmed] for the byte-matched source layout; live save and restore remain
+untraced.</p>
 <p><code>cpy_prgm_in</code> reduces the stored variable to its three-byte <code>BB 6D C9</code> header,
 then moves the remaining body and task state to <code>userMem</code> in chunks no larger
 than <code>0x100</code>. Each chunk opens the destination with <code>_InsertMem</code>, copies the
@@ -6561,7 +6581,9 @@ three-byte dormant header while its task is active. [confirmed]</p>
 task block. The reverse move writes the complete active image back to its RAM
 variable, including client modifications. TSE then moves the selected task to
 <code>userMem</code>, restores its flags and <code>SP</code>, and resumes it with <code>RET</code>. Ending a task
-removes the external-data area and 62-byte state tail. [confirmed]</p>
+removes the external-data area and 62-byte state tail. [confirmed] for the
+byte-matched source control flow; a live task switch and writeback remain
+untraced.</p>
 <p>Utopia handles an archived TSE program by calling <code>_Arc_Unarc</code> before
 <code>_tseStartTask</code>. It does not rearchive that program when the task ends. The
 separate <code>LOADTSE</code> program can stream the archived <code>TSEKRNL</code> and <code>TSELIBS</code>
@@ -6607,29 +6629,33 @@ remain static results. Hashes and counts are in
 <code>tools/data/community-loader-traces.csv</code>. [confirmed]</p>
 <h3 id="mirageos-12"><a class="header" href="#mirageos-12">MirageOS 1.2</a></h3>
 <p>MirageOS 1.2 is a one-page, binary-only Flash App. Static disassembly of the
-original App shows a symmetric loader at App addresses <code>0x75CF</code>–<code>0x76C0</code>. It
-uses <code>saveSScreen</code> as a 768-byte shuttle, calls <code>_DelMem</code> and <code>_InsertMem</code>, and
+original App shows a symmetric loader at mapped bank-A logical addresses
+<code>0x75CF</code>–<code>0x76C0</code>. It uses <code>saveSScreen</code> as a 768-byte shuttle, calls <code>_DelMem</code>
+and <code>_InsertMem</code>, and
 moves the client to <code>0x9D95</code>. [confirmed]</p>
-<p>For archived input, <code>0x7899</code>–<code>0x78FD</code> creates a program named <code>Z,1.</code>, changes
-its VAT type to <code>TempProgObj</code> (<code>0x16</code>), and copies the archived object into it
+<p>For archived input, mapped bank-A logical addresses <code>0x7899</code>–<code>0x78FD</code> create a
+program named <code>Z,1.</code>, change its VAT type to <code>TempProgObj</code> (<code>0x16</code>), and copy
+the archived object into it
 with <code>_FlashToRam</code>. The original name continues to identify the archived
 object while the temporary object’s body is moved to <code>0x9D95</code>. Before creating
 the temporary, the loader deletes any existing <code>Z,1.</code> program. [confirmed]</p>
-<p>The writeback path at mapped addresses <code>0x77D5</code>–<code>0x7870</code> compares RAM bytes with
-archive bytes through a temporary page-read thunk. It replaces and rearchives
+<p>The writeback path at mapped bank-A logical addresses <code>0x77D5</code>–<code>0x7870</code>
+compares RAM bytes with archive bytes through a temporary page-read thunk. It
+replaces and rearchives
 the program only when the comparison differs. The release changelog describes
 the same smart-writeback policy. [confirmed]</p>
 <p>The launch wrapper installs an OS error handler and conditionally prepares the
 MirageOS tasker before calling the client. With tasker flag bit 6 at <code>0x9689</code>
-set, <code>0x7176</code>–<code>0x71E9</code> installs IM2. It writes tasker state beginning at
-<code>0x8A3A</code>, code at <code>0x8A4F</code>–<code>0x8A88</code> and <code>0x8A8A</code>–<code>0x8AFE</code>, and an IM2 handler
+set, mapped bank-A logical addresses <code>0x7176</code>–<code>0x71E9</code> install IM2. The path
+writes tasker state beginning at <code>0x8A3A</code>, code at <code>0x8A4F</code>–<code>0x8A88</code> and
+<code>0x8A8A</code>–<code>0x8AFE</code>, and an IM2 handler
 at <code>0x8C01</code>–<code>0x8C1B</code>. It also builds the 257-byte IM2 vector table at
 <code>0x8B00</code>–<code>0x8C00</code>. It uses the word at <code>0x966F</code> as an optional custom interrupt
 target. These <code>statVars</code> ranges are not client scratch while the tasker or
 custom interrupt is active. [confirmed]</p>
 <p>The changelog states that <strong>ON</strong>+<strong>^</strong> quits immediately without writeback.
-Whether that path restores every intermediate body and mapping remains a
-dynamic-trace question. [confirmed]</p>
+[confirmed] for the identified changelog text. Whether that path restores
+every intermediate body and mapping remains [hypothesis].</p>
 <h3 id="doors-cs-74"><a class="header" href="#doors-cs-74">Doors CS 7.4</a></h3>
 <p>Doors CS classifies TI-OS assembly, Ion, MirageOS, Doors CS assembly, BASIC,
 and associated program types in <code>runprog.asm</code>. For a RAM-resident assembly
@@ -6996,7 +7022,7 @@ add the following observations to the boot and expression traces documented in
 </thead>
 <tbody>
 <tr><td>Direct resident launch</td><td style="text-align: right">2,304</td><td><code>83:5A7E</code>–<code>83:5D7D</code></td></tr>
-<tr><td>Interactive resident input</td><td style="text-align: right">3,840</td><td><code>83:5A7E</code>–<code>83:5D7D</code></td></tr>
+<tr><td>Interactive resident input</td><td style="text-align: right">3,072</td><td><code>83:5A7E</code>–<code>83:5D7D</code></td></tr>
 <tr><td>Guarded <code>_GetKey</code> wait interrupted by <strong>ON</strong></td><td style="text-align: right">3,893</td><td><code>83:4373</code>–<code>83:4390</code>, <code>83:577E</code>–<code>83:5794</code>, and <code>83:5A7E</code>–<code>83:5D7D</code></td></tr>
 </tbody>
 </table>
@@ -7272,10 +7298,10 @@ database has no function record at that body address.</li>
 scratch (<code>0x9C87</code>=‘i’ selects the in-RAM “temp app” search variant).</p>
 <h3 id="launching-an-app-as-a-context-confirmed"><a class="header" href="#launching-an-app-as-a-context-confirmed">Launching an app as a context [confirmed]</a></h3>
 <p><code>_AppInit</code> (<code>ram:0936</code>, ID <code>404Bh</code>) installs a context from an app header:</p>
-<pre><code class="language-pseudocode">_AppInit(byte *hdr):                 ; HL -&gt; 13-byte vector block in the header
-  copy 12 bytes hdr[0..11] -&gt; cxMain (0x858D)   ; the 6 context vectors
-  flags.appFlags (IY+0x0D) = hdr[12]            ; appFlags byte
-  cxPage (0x8599) = port_mapBankA               ; the flash page the handlers run from
+<pre><code class="language-pseudocode">_AppInit(byte *hdr):                 # HL -&gt; 13-byte vector block in the header
+  copy 12 bytes hdr[0..11] -&gt; cxMain (0x858D)   # the 6 context vectors
+  flags.appFlags (IY+0x0D) = hdr[12]            # appFlags byte
+  cxPage (0x8599) = port_mapBankA               # the flash page the handlers run from
 </code></pre>
 <p>The 12 bytes are the 6 little-endian handler pointers (<code>cxMain</code>, <code>cxPPutAway</code>, <code>cxPutAway</code>,
 <code>cxRedisp</code>, <code>cxErrorEP</code>, <code>cxSizeWind</code> — see <a href="#boot-contexts-and-errors">Boot contexts &amp; errors</a> §Context block). Example: the OS’s own
@@ -7608,7 +7634,7 @@ radians; the degree paths convert first).</p>
 <p>The four graph-mode setters on <code>page 0x36</code> are mutually exclusive: each first clears
 all four bits via <code>clr_grfmode (36:7D00)</code>, then ORs in its own bit, then calls
 <code>_SetTblGraphDraw</code>. <code>param_1</code> is <code>IY</code>, so <code>*(param_1+2)</code> = <code>grfModeFlags</code>.</p>
-<pre><code class="language-pseudocode">clr_grfmode (36:7D00):  grfModeFlags &amp;= 0xEF &amp; 0xDF &amp; 0xBF &amp; 0x7F   ; clear bits 4,5,6,7
+<pre><code class="language-pseudocode">clr_grfmode (36:7D00):  grfModeFlags &amp;= 0xEF &amp; 0xDF &amp; 0xBF &amp; 0x7F   # clear bits 4,5,6,7
 </code></pre>
 <div class="table-wrapper">
 <table>
@@ -10565,8 +10591,9 @@ result. Its readme says pages <code>84</code>–<code>87</code> can buffer a Fla
 saves port <code>0x06</code>, maps selected pages through it, and uses the extra selectors
 during edit and sector operations. It records no calculator identity, alias
 matrix, or hardware trace, so the claim does not establish which selectors are
-independent on any identified unit. [confirmed] for the source instructions;
-[standard] for the community claim; [hypothesis] for physical topology.</p>
+independent on any identified unit. The source instructions and identified
+readme wording are [confirmed]; the claimed physical topology remains
+[hypothesis].</p>
 <p>The exact release is <code>programs/flashed.zip</code>, SHA-256
 <code>b99e56f11084f473c34bc2d7679d37b407764a698aee95f9ef8b6f663d7c8463</code>.
 Members <code>flashed.asm</code>, <code>routines.asm</code>, and <code>flashed.txt</code> have SHA-256
@@ -11899,7 +11926,8 @@ the primary accumulator; binary operations use <code>OP2</code> and return in <c
 \IF{$\mathrm{sign}(OP1) = \mathrm{sign}(OP2)$}
     \STATE $\mathrm{mantissa} \gets$ BCD-add
 \ELSE
-    \STATE $\mathrm{mantissa} \gets$ BCD-subtract; fix result sign \COMMENT{\texttt{fp\_sub\_mantissa}}
+    \STATE $\mathrm{mantissa} \gets$ BCD-subtract
+    \STATE fix result sign \COMMENT{\texttt{fp\_sub\_mantissa}}
 \ENDIF
 \STATE round via the guard digits, renormalize, store exp/type in $OP1$
 \RETURN $OP1$
@@ -11985,7 +12013,7 @@ separate the accumulator entries: <code>_EToX</code> uses <code>fp_add_mantissa<
         \STATE $L \gets L + c_k$ \COMMENT{add count = the $k$-th digit of the answer}
     \ENDWHILE
 \ENDFOR
-\RETURN $\log_{10}x = 1 - L$ \COMMENT{$x$ driven up to $10$; then $\ln x = \log_{10}x \cdot \ln 10$}
+\RETURN $\log_{10}x = 1 - L$ \COMMENT{$x$ driven up to $10$, then $\ln x = \log_{10}x \cdot \ln 10$}
 \end{algorithmic}
 \end{algorithm}
 </code></pre>
@@ -12919,18 +12947,20 @@ the same elimination family.</p>
 <h2 id="data-layouts-and-creator-routines-confirmed"><a class="header" href="#data-layouts-and-creator-routines-confirmed">Data layouts and creator routines [confirmed]</a></h2>
 <h3 id="list--_createrlist-0010c4-_createclist-001109"><a class="header" href="#list--_createrlist-0010c4-_createclist-001109">List — <code>_CreateRList</code> (<code>00:10C4</code>), <code>_CreateCList</code> (<code>00:1109</code>)</a></h3>
 <pre><code class="language-pseudocode">_CreateRList(count, dataPtrOut):
-  reject unless OP1 name token (8478.exp) ∈ {0x5D, 0x24, 0x3A, 0x72}  ; list-name classes
-  var_alloc(1)                  ; carve  count*9 + 2  bytes via _InsertMem
+  reject unless OP1 name token (8478.exp) ∈ {0x5D, 0x24, 0x3A, 0x72}  # list-name classes
+  var_alloc(1)                  # carve count*9 + 2 bytes via _InsertMem
   store count word at data[0..1]
-  if list is complex (8499.type &amp; 8): data[2] = 0x0C   ; element-size flag
+  if list is complex (8499.type &amp; 8): data[2] = 0x0C   # element-size flag
 </code></pre>
 <p>Layout: <code>[countLo countHi] [TIFloat e1] [TIFloat e2] …</code>. A complex list keeps a <code>0x0C</code>
 flag and 18-byte elements.</p>
 <h3 id="matrix--_creatermat-001115"><a class="header" href="#matrix--_creatermat-001115">Matrix — <code>_CreateRMat</code> (<code>00:1115</code>)</a></h3>
 <pre><code class="language-pseudocode">_CreateRMat(dimWord, dataPtrOut):
-  _HTimesL()                    ; element count = H * L  (the two dims multiplied)
-  var_alloc(2)                  ; carve  H*L*9 + 2  bytes
-  header: LD (HL),C ; INC HL ; LD (HL),B   ; writes dim0 then dim1
+  _HTimesL()                    # element count = H * L
+  var_alloc(2)                  # carve H*L*9 + 2 bytes
+  LD (HL),C                     # write dim0
+  INC HL
+  LD (HL),B                     # write dim1
 </code></pre>
 <ul>
 <li><code>_HTimesL</code> (<code>00:1EF6</code>) computes <code>result = H * L</code>. It initializes <code>B=H</code>, then
@@ -13088,7 +13118,9 @@ and matrix→list (<code>List►matr(</code>, <code>Matr►list(</code>) reshape
 list (dispatcher <code>02:6104</code>):</p>
 <pre><code class="language-pseudocode">sum(  : HL = 0x3A83 (cross-page → FP add-accumulate),  seed via _OP1Set0
 prod( : HL = 0x49B9 (seed accumulator = 1.0, _PushOP1), combine with _FPMult
-        CALL 0x64B7 ; ... ; JP (HL)   ; apply the combiner across e1..eN
+        CALL 0x64B7
+        ...
+        JP (HL)                        # apply the combiner across e1..eN
 </code></pre>
 <p>The fold seeds the accumulator (0 for sum, 1 for prod), then for each element does
 <code>acc = combine(acc, L[i])</code> through OP1/OP2. Works on real and complex lists (<code>type 1</code>/<code>0xD</code>
@@ -13188,8 +13220,8 @@ cross-checked against a routine Ghidra <em>does</em> define. The body is called 
 is also the <code>_SinCosRad</code> bcall ID in ti83plus.inc — a hex coincidence, unrelated to this page-02
 address.)</p>
 <p><code>40BA</code> is a classic O(n³) triple loop with an FP accumulator:</p>
-<pre><code class="language-pseudocode">for each result cell (i,j):                  ; counters at 84B7, 84B4
-    for k = 1 .. inner:                       ; inner counter at 84AF
+<pre><code class="language-pseudocode">for each result cell (i,j):                  # counters at 84B7, 84B4
+    for k = 1 .. inner:                      # inner counter at 84AF
         load [A](i,k)          (403C mele_adr_af_jp)
         multiply by [B](k,j)   (47B9 / 0166F  FP multiply)
         accumulate             (479F)
@@ -13287,25 +13319,28 @@ CALL 0x42A6
 </code></pre>
 <h3 id="the-engine-42a6-confirmed"><a class="header" href="#the-engine-42a6-confirmed">The engine (<code>42A6</code>) [confirmed]</a></h3>
 <pre><code class="language-pseudocode">matrix_gauss_engine(A = mode flags):
-  HL = dims (84AF); if H != L -&gt; _JError(0x8C)   ; must be square (det/inverse)
+  HL = dims (84AF)
+  if H != L -&gt; _JError(0x8C)                # must be square for det/inverse
   if 1x1: handle scalar directly (inverse = _FPRecip)
   461C: scan |all elements| -&gt; max magnitude (pivot-tolerance baseline)
-  init permutation/pivot vector at (84D5): perm[k] = k          ; identity permutation
+  init permutation/pivot vector at (84D5): perm[k] = k          # identity permutation
   for each pivot column 'col' (84AF loop):
      41D0/41C1: PARTIAL PIVOT — scan the column for the largest |element|,
-                comparing |OP1| vs |best| via _AbsO1O2Cp; remember the row
-     43B9 -&gt; 414E: SWAP the pivot row into place (full physical row swap);
+                compare |OP1| vs |best| via _AbsO1O2Cp
+                remember the row
+     43B9 -&gt; 414E: SWAP the pivot row into place (full physical row swap)
                 4259 swaps the matching entries in the permutation vector,
                 and (for det) toggles the running sign
      normalize pivot row: load pivot, _FPRecip / _FPDiv so pivot -&gt; 1
      4473 / 426D: ELIMINATE — for every other row, row_r -= factor * pivot_row
-                (4473 = load-load-_FPSub element step; 426D/426F = dot-product /
+                (4473 = load-load-_FPSub element step, 426D/426F = dot-product /
                  back-substitution accumulate with _FPMult + RST6 _FPAdd)
      accumulate determinant = product of pivots (× sign from swaps)
   SINGULAR handling (43A5): if a pivot is ~0:
         BIT 6,A
         JP Z, 0x26F0 (_ErrSingularMat, E_SingularMat 0x83)
-        -&gt; inverse (flag 0, bit6=0) ERRORS;  det (flag 0x40, bit6=1) returns 0
+        -&gt; inverse (flag 0, bit6=0) ERRORS
+        -&gt; det (flag 0x40, bit6=1) returns 0
 </code></pre>
 <p>Key sub-routines (all <code>page_02</code>; names are the live Ghidra DB labels): [confirmed]</p>
 <ul>
@@ -13669,7 +13704,7 @@ on other convergence sub-paths. [confirmed]</li>
         \STATE $b \gets x$
     \ENDIF
     \IF{$|b-a| &lt; 10^{-13}$}
-        \RETURN $x$ \COMMENT{converged; exits via 39:4540 -&gt; 4553}
+        \RETURN $x$ \COMMENT{converged, exits via 39:4540 -&gt; 4553}
     \ENDIF
 \ENDFOR
 \STATE \textbf{raise} \textsc{iterations} (0x99) / \textsc{bad guess} (0x9A)
@@ -16300,9 +16335,9 @@ a menu covers it). [confirmed]</li>
 <p><code>_GrBufClr</code> (<code>04:6071</code>): clears the whole 0x300-byte buffer to 0 (a
 <code>LD (HL),0</code> + 0x2FF-byte propagate copy). [confirmed]</p>
 <p><code>_IOffset</code> (<code>04:42B5</code>) computes the LCD controller address bytes for a pixel (inputs <code>B</code>=x, <code>C</code>=y):</p>
-<pre><code class="language-pseudocode">(0x844F) = (x &gt;&gt; 3) | 0x20     ; LCD byte-column command for the horizontal group
-(0x8451) = (0x3F - y) | 0x80   ; LCD row command, vertically mirrored
-returns (table_42E4)[x &amp; 7]    ; the 1-of-8 bit mask within the byte (bit = x mod 8)
+<pre><code class="language-pseudocode">(0x844F) = (x &gt;&gt; 3) | 0x20     # LCD byte-column command for the horizontal group
+(0x8451) = (0x3F - y) | 0x80   # LCD row command, vertically mirrored
+returns (table_42E4)[x &amp; 7]    # the 1-of-8 bit mask within the byte (bit = x mod 8)
 HL = 3 * ((4 * display_row) &amp; 0xFF) + (x &gt;&gt; 3)
 </code></pre>
 <p>This maps a <code>(x,y)</code> pixel to a byte+bit in the buffer and produces the matching LCD
@@ -20817,8 +20852,8 @@ no identified unit, load, instrument, or measurement procedure. The archive
 and member <code>stopwatch.txt</code> has SHA-256
 <code>eb944f2bdc93dfb76ca244a39218d52424c9edf1ed0c6fe2587732b2b301a710</code>.
 That claim does not replace the still-open voltage, pull-up, threshold, or load
-measurements. [standard] for the community claim; [hypothesis] for unmeasured
-physical values.</p>
+measurements. The identified readme wording is [confirmed]; the physical values
+remain [hypothesis].</p>
 <h3 id="differential-audio-output"><a class="header" href="#differential-audio-output">Differential audio output</a></h3>
 <p>Software can use the two output controls as a three-level differential source.
 If the peer releases both lines and $V_0$ and $V_1$ denote the resulting
@@ -22941,7 +22976,7 @@ levels, or reset retention.</li>
 <tr><td><code>_BufClear</code></td><td><code>4936</code></td><td><code>00:222E</code></td></tr>
 <tr><td><code>_BufClr</code></td><td><code>5074</code></td><td><code>04:6074</code></td></tr>
 <tr><td><code>_BufCpy</code></td><td><code>5071</code></td><td><code>04:60A6</code></td></tr>
-<tr><td><code>_BufInsert</code></td><td><code>4909</code></td><td><code>06:42E5</code></td></tr>
+<tr><td><code>_bufInsert</code></td><td><code>4909</code></td><td><code>06:42E5</code></td></tr>
 <tr><td><code>_CAbs</code></td><td><code>4E97</code></td><td><code>02:6C47</code></td></tr>
 <tr><td><code>_CAdd</code></td><td><code>4E88</code></td><td><code>02:6BA5</code></td></tr>
 <tr><td><code>_CanAlphIns</code></td><td><code>4C69</code></td><td><code>00:04C6</code></td></tr>
@@ -23504,13 +23539,17 @@ numeric bcall macros, raw <code>rst 28h</code> plus word sequences, and complete
 <code>EF low high</code> instruction bytes. The pinned snapshot contains 112 such uses of
 56 IDs. Three uses encode <code>_CursorOn</code>, <code>_KeyToString</code>, and <code>_CursorOff</code> as raw
 bytes; the other 109 use macro or <code>rst 28h</code> forms. Exact archive and source
-hashes are in <code>tools/data/community-bcall-uses.csv</code>.</p>
+hashes are in <code>tools/data/community-bcall-uses.csv</code>. [confirmed] for the
+checked scan output.</p>
 <p>Sixteen used main-table IDs were absent from the generated map. Decoding their
 three-byte entries on ROM page <code>0x3B</code> resolves every target: [confirmed]</p>
+<p>These rows establish the ROM table mapping and the static source call site.
+They do not, by themselves, establish every runtime side effect named in the
+source comment.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>ID</th><th>Include name</th><th>Body</th><th>Community use</th></tr>
+<tr><th>ID</th><th>Include name</th><th>Body</th><th>Source call-site context</th></tr>
 </thead>
 <tbody>
 <tr><td><code>4030</code></td><td><code>_newContext</code></td><td><code>00:077E</code></td><td>Plasma home-context restore</td></tr>
@@ -23546,7 +23585,7 @@ extracted archive before classifying its use. Five active IDs add valid OS
 </thead>
 <tbody>
 <tr><td style="text-align: right"><code>4051</code></td><td><code>_lcd_busy</code></td><td><code>00:0CC3</code></td><td>Letter waits before writing an LCD control byte.</td></tr>
-<tr><td style="text-align: right"><code>4909</code></td><td><code>_BufInsert</code></td><td><code>06:42E5</code></td><td>Plasma inserts <code>Asm</code> and program-name tokens into the edit buffer.</td></tr>
+<tr><td style="text-align: right"><code>4909</code></td><td><code>_bufInsert</code></td><td><code>06:42E5</code></td><td>Plasma inserts <code>Asm</code> and program-name tokens into the edit buffer.</td></tr>
 <tr><td style="text-align: right"><code>4936</code></td><td><code>_BufClear</code></td><td><code>00:222E</code></td><td>Plasma clears the edit buffer before inserting a launch command.</td></tr>
 <tr><td style="text-align: right"><code>500B</code></td><td><code>_GetKeyRetOff</code></td><td><code>06:491A</code></td><td>Balltrix, Nukewar, and CalClock request the <strong>ON</strong> return code.</td></tr>
 <tr><td style="text-align: right"><code>50E0</code></td><td><code>_NZIf83Plus</code></td><td><code>00:1837</code></td><td>ZMegaMan branches on the calculator model before masking a Flash page.</td></tr>

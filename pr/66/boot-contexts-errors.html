@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
+            window.path_to_searchindex_js = "searchindex-ff900fe6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -308,8 +308,16 @@ ram_init_after_reset (ram:0BD9):
 </code></pre>
 <p>The destination <code>0x858D</code> and length <code>0x000C</code> pin the six 2-byte handler slots <code>cxMain</code>(+0) <code>cxPPutAway</code>(+2) <code>cxPutAway</code>(+4) <code>cxRedisp</code>(+6) <code>cxErrorEP</code>(+8) <code>cxSizeWind</code>(+10), and the explicit <code>LD (0x8599),A</code> writes <code>cxPage</code> at +12 from port 6. <code>_AppInit</code> installs a context, but it is not the only writer: <code>_POPCX</code> (bcall <code>0x49E1</code>, body <code>07:6D1C</code>) restores a suspended context by <code>LDIR</code>ing 14 bytes <code>cxPrev</code>→<code>cxMain</code> (<code>0x859B</code>→<code>0x858D</code>) and copying a 15th byte into the app-flags, and a matching save path (the <code>LDIR</code> at <code>07:5A8C</code>) copies <code>cxMain</code>→<code>cxPrev</code>. <code>cxCurApp</code>(+13, <code>0x859A</code>) is the current context id (a key code); the shadow at <code>cxPrev</code>(<code>0x859B</code>) holds the suspended context.</p>
 <h3 id="how-a-context-handler-is-invoked-confirmed"><a class="header" href="#how-a-context-handler-is-invoked-confirmed">How a context handler is invoked [confirmed]</a></h3>
-<pre><code class="language-pseudocode">call_context_main (ram:08fa):   set_bankA_page(cxPage); call (cxMain) via jp_hl; ret   ; run handler on its page, control returns here
-call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; restore port6
+<pre><code class="language-pseudocode">call_context_main (ram:08fa):
+  set_bankA_page(cxPage)
+  call (cxMain) via jp_hl
+  ret                            # control returns here after the paged handler
+
+call_context_savepage (ram:08e9):
+  save port6
+  set_bankA_page(cxPage)
+  jp_hl
+  restore port6
 </code></pre>
 <p>Primitives: <code>set_bankA_page</code> (<code>ram:078c</code>, <code>port6 = page</code>) and <code>jp_hl</code> (<code>ram:090b</code>, <code>jp (hl)</code> dynamic dispatch). The OS pages the handler in, runs it, and (for the savepage variant) restores the caller’s page.</p>
 <h2 id="error-handling-confirmed"><a class="header" href="#error-handling-confirmed">Error handling [confirmed]</a></h2>
@@ -335,20 +343,24 @@ bytes plus its null terminator. <code>_ErrCustom1</code> takes the same non-loca
 <a href="https://www.ticalc.org/pub/83plus/asm/programs/generateerror.zip"><code>programs/generateerror.zip</code></a>
 (SHA-256
 <code>1731b2b2cf7580855f7007478d55299e12b1ec4b7430d371feedea764c9139cf</code>)
-copies the <code>Ans</code> string payload into <code>appErr1</code> and invokes bcall <code>4D41</code>. Its
+copies the <code>Ans</code> string payload into <code>appErr1</code> and invokes bcall <code>4D41h</code>. Its
 <code>generr.z80</code> member (SHA-256
 <code>5f28fca2dec72dc4d495aff18a8d6b076f02d34b8cafcdbd78c11c05f364386d</code>)
 does not bound the copy to 13 bytes or write an explicit null terminator.
 This static source is evidence of community usage, not evidence that arbitrary
 <code>Ans</code> strings are safe. [confirmed]</p>
 <p>The bounded <code>ERRPROBE</code> fixture copies <code>COMMTRACE\0</code> into <code>appErr1</code> and invokes
-the same bcall under TilEm x4. Its 3,623,530-instruction trace reaches
+the same <code>4D41h</code> bcall under TilEm x4. Its 3,634,222-instruction trace reaches
 <code>ram:2771</code>, <code>_JError</code> at <code>ram:2793</code>, and the display path at <code>07:6A72</code> once
 each. The rendered error is <code>ERR:COMMTRACE</code>; control does not reach the
 fixture’s post-bcall halt. The trace SHA-256 is
-<code>393141d8f68e400a9cb7a845e1bab1430ccbd41a64f3a75755e6f9d20e514067</code>.
-<code>tools/data/community-custom-error.csv</code> records the ROM identity and hit
-counts. This confirms the nonlocal path in the identified emulator scenario;
+<code>1c9dbb368b74258ab3b82dc46f9fbb23710b23e343455415dddcef4d37a959eb</code>.
+The patched TilEm executable SHA-256 is
+<code>b8ee505483c79732a4ca21efb8b904de0792477795f6fc717874dcd5addaed09</code>.
+<code>tools/data/community-custom-error.csv</code> records both executable identities,
+the fixture, macro, recording, and hit counts. It also records zero visits to
+the fixture’s unexpected-return path. This confirms the nonlocal path in the
+identified emulator scenario;
 it is not a physical-hardware result. [confirmed]</p>
 <h3 id="error-message-table-confirmed"><a class="header" href="#error-message-table-confirmed">Error-message table [confirmed]</a></h3>
 <p>The error screen shows <code>ERR:&lt;MESSAGE&gt;</code>; the <code>ERR:</code> prefix is at <code>01:4008</code>. The handler at <code>07:6A72</code> masks the code with <code>0x7F</code>, then indexes a little-endian pointer table at <code>07:6ACC</code> by <code>(code) − 1</code> for codes below <code>0x3A</code>. It fetches the pointer through <code>_LdHLind</code> and copies the selected null-terminated string. Codes <code>0x36</code>, <code>0x37</code>, <code>0x39</code>, and values at least <code>0x3A</code> bypass the table and select <code>?</code> at <code>07:6C5A</code>. [confirmed]</p>

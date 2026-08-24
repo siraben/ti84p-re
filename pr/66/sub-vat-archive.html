@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
+            window.path_to_searchindex_js = "searchindex-ff900fe6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -361,7 +361,7 @@ for that untraced interaction.</p>
 snapshot, input-ROM, output-ROM, and emulator hashes. The ROM hash is
 <code>dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09</code>;
 the patched TilEm executable hash is
-<code>f0f0703e8658f8146c4dcd43dbb1b1dc858f4617baf33eaa16878bf2e35399c6</code>.</p>
+<code>b8ee505483c79732a4ca21efb8b904de0792477795f6fc717874dcd5addaed09</code>.</p>
 <h3 id="numeric-community-bcalls"><a class="header" href="#numeric-community-bcalls">Numeric community bcalls</a></h3>
 <p>The same source audit found manually defined or numeric bcalls that were not
 reliably named in older include sets:</p>
@@ -379,11 +379,13 @@ reliably named in older include sets:</p>
 </tbody>
 </table>
 </div>
-<p>PRGMHIDE dynamically reaches <code>500Bh</code> and <code>509Eh</code>. A separate source-built
-probe reaches <code>5011h</code> and <code>5014h</code> once each and returns normally after saving
-the <code>_ArcChk</code> words. <code>50C8h</code> was not called without an authentic group object
-and caller state. These tests confirm the first four ID-to-target mappings and
-safe return paths, not every side effect implied by the community comments.
+<p>PRGMHIDE dynamically reaches <code>500Bh</code> and <code>509Eh</code>. In a separate source-built
+probe, the <code>5011h</code> and <code>5014h</code> fixture call sites each execute once, both OS
+bodies are reached, and the final marker proves that both calls return after
+saving the <code>_ArcChk</code> words. Other OS activity may reach the same body addresses.
+<code>50C8h</code> was not called without an authentic group object and caller state.
+These tests confirm the first four ID-to-target mappings and safe return paths,
+not every side effect implied by the community comments.
 [confirmed]</p>
 <div class="table-wrapper">
 <table>

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
+            window.path_to_searchindex_js = "searchindex-ff900fe6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -257,7 +257,8 @@ the primary accumulator; binary operations use <code>OP2</code> and return in <c
 \IF{$\mathrm{sign}(OP1) = \mathrm{sign}(OP2)$}
     \STATE $\mathrm{mantissa} \gets$ BCD-add
 \ELSE
-    \STATE $\mathrm{mantissa} \gets$ BCD-subtract; fix result sign \COMMENT{\texttt{fp\_sub\_mantissa}}
+    \STATE $\mathrm{mantissa} \gets$ BCD-subtract
+    \STATE fix result sign \COMMENT{\texttt{fp\_sub\_mantissa}}
 \ENDIF
 \STATE round via the guard digits, renormalize, store exp/type in $OP1$
 \RETURN $OP1$
@@ -343,7 +344,7 @@ separate the accumulator entries: <code>_EToX</code> uses <code>fp_add_mantissa<
         \STATE $L \gets L + c_k$ \COMMENT{add count = the $k$-th digit of the answer}
     \ENDWHILE
 \ENDFOR
-\RETURN $\log_{10}x = 1 - L$ \COMMENT{$x$ driven up to $10$; then $\ln x = \log_{10}x \cdot \ln 10$}
+\RETURN $\log_{10}x = 1 - L$ \COMMENT{$x$ driven up to $10$, then $\ln x = \log_{10}x \cdot \ln 10$}
 \end{algorithmic}
 \end{algorithm}
 </code></pre>

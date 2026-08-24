@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
+            window.path_to_searchindex_js = "searchindex-ff900fe6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -221,18 +221,20 @@ the same elimination family.</p>
 <h2 id="data-layouts-and-creator-routines-confirmed"><a class="header" href="#data-layouts-and-creator-routines-confirmed">Data layouts and creator routines [confirmed]</a></h2>
 <h3 id="list--_createrlist-0010c4-_createclist-001109"><a class="header" href="#list--_createrlist-0010c4-_createclist-001109">List — <code>_CreateRList</code> (<code>00:10C4</code>), <code>_CreateCList</code> (<code>00:1109</code>)</a></h3>
 <pre><code class="language-pseudocode">_CreateRList(count, dataPtrOut):
-  reject unless OP1 name token (8478.exp) ∈ {0x5D, 0x24, 0x3A, 0x72}  ; list-name classes
-  var_alloc(1)                  ; carve  count*9 + 2  bytes via _InsertMem
+  reject unless OP1 name token (8478.exp) ∈ {0x5D, 0x24, 0x3A, 0x72}  # list-name classes
+  var_alloc(1)                  # carve count*9 + 2 bytes via _InsertMem
   store count word at data[0..1]
-  if list is complex (8499.type &amp; 8): data[2] = 0x0C   ; element-size flag
+  if list is complex (8499.type &amp; 8): data[2] = 0x0C   # element-size flag
 </code></pre>
 <p>Layout: <code>[countLo countHi] [TIFloat e1] [TIFloat e2] …</code>. A complex list keeps a <code>0x0C</code>
 flag and 18-byte elements.</p>
 <h3 id="matrix--_creatermat-001115"><a class="header" href="#matrix--_creatermat-001115">Matrix — <code>_CreateRMat</code> (<code>00:1115</code>)</a></h3>
 <pre><code class="language-pseudocode">_CreateRMat(dimWord, dataPtrOut):
-  _HTimesL()                    ; element count = H * L  (the two dims multiplied)
-  var_alloc(2)                  ; carve  H*L*9 + 2  bytes
-  header: LD (HL),C ; INC HL ; LD (HL),B   ; writes dim0 then dim1
+  _HTimesL()                    # element count = H * L
+  var_alloc(2)                  # carve H*L*9 + 2 bytes
+  LD (HL),C                     # write dim0
+  INC HL
+  LD (HL),B                     # write dim1
 </code></pre>
 <ul>
 <li><code>_HTimesL</code> (<code>00:1EF6</code>) computes <code>result = H * L</code>. It initializes <code>B=H</code>, then
@@ -390,7 +392,9 @@ and matrix→list (<code>List►matr(</code>, <code>Matr►list(</code>) reshape
 list (dispatcher <code>02:6104</code>):</p>
 <pre><code class="language-pseudocode">sum(  : HL = 0x3A83 (cross-page → FP add-accumulate),  seed via _OP1Set0
 prod( : HL = 0x49B9 (seed accumulator = 1.0, _PushOP1), combine with _FPMult
-        CALL 0x64B7 ; ... ; JP (HL)   ; apply the combiner across e1..eN
+        CALL 0x64B7
+        ...
+        JP (HL)                        # apply the combiner across e1..eN
 </code></pre>
 <p>The fold seeds the accumulator (0 for sum, 1 for prod), then for each element does
 <code>acc = combine(acc, L[i])</code> through OP1/OP2. Works on real and complex lists (<code>type 1</code>/<code>0xD</code>
@@ -490,8 +494,8 @@ cross-checked against a routine Ghidra <em>does</em> define. The body is called 
 is also the <code>_SinCosRad</code> bcall ID in ti83plus.inc — a hex coincidence, unrelated to this page-02
 address.)</p>
 <p><code>40BA</code> is a classic O(n³) triple loop with an FP accumulator:</p>
-<pre><code class="language-pseudocode">for each result cell (i,j):                  ; counters at 84B7, 84B4
-    for k = 1 .. inner:                       ; inner counter at 84AF
+<pre><code class="language-pseudocode">for each result cell (i,j):                  # counters at 84B7, 84B4
+    for k = 1 .. inner:                      # inner counter at 84AF
         load [A](i,k)          (403C mele_adr_af_jp)
         multiply by [B](k,j)   (47B9 / 0166F  FP multiply)
         accumulate             (479F)
@@ -589,25 +593,28 @@ CALL 0x42A6
 </code></pre>
 <h3 id="the-engine-42a6-confirmed"><a class="header" href="#the-engine-42a6-confirmed">The engine (<code>42A6</code>) [confirmed]</a></h3>
 <pre><code class="language-pseudocode">matrix_gauss_engine(A = mode flags):
-  HL = dims (84AF); if H != L -&gt; _JError(0x8C)   ; must be square (det/inverse)
+  HL = dims (84AF)
+  if H != L -&gt; _JError(0x8C)                # must be square for det/inverse
   if 1x1: handle scalar directly (inverse = _FPRecip)
   461C: scan |all elements| -&gt; max magnitude (pivot-tolerance baseline)
-  init permutation/pivot vector at (84D5): perm[k] = k          ; identity permutation
+  init permutation/pivot vector at (84D5): perm[k] = k          # identity permutation
   for each pivot column 'col' (84AF loop):
      41D0/41C1: PARTIAL PIVOT — scan the column for the largest |element|,
-                comparing |OP1| vs |best| via _AbsO1O2Cp; remember the row
-     43B9 -&gt; 414E: SWAP the pivot row into place (full physical row swap);
+                compare |OP1| vs |best| via _AbsO1O2Cp
+                remember the row
+     43B9 -&gt; 414E: SWAP the pivot row into place (full physical row swap)
                 4259 swaps the matching entries in the permutation vector,
                 and (for det) toggles the running sign
      normalize pivot row: load pivot, _FPRecip / _FPDiv so pivot -&gt; 1
      4473 / 426D: ELIMINATE — for every other row, row_r -= factor * pivot_row
-                (4473 = load-load-_FPSub element step; 426D/426F = dot-product /
+                (4473 = load-load-_FPSub element step, 426D/426F = dot-product /
                  back-substitution accumulate with _FPMult + RST6 _FPAdd)
      accumulate determinant = product of pivots (× sign from swaps)
   SINGULAR handling (43A5): if a pivot is ~0:
         BIT 6,A
         JP Z, 0x26F0 (_ErrSingularMat, E_SingularMat 0x83)
-        -&gt; inverse (flag 0, bit6=0) ERRORS;  det (flag 0x40, bit6=1) returns 0
+        -&gt; inverse (flag 0, bit6=0) ERRORS
+        -&gt; det (flag 0x40, bit6=1) returns 0
 </code></pre>
 <p>Key sub-routines (all <code>page_02</code>; names are the live Ghidra DB labels): [confirmed]</p>
 <ul>

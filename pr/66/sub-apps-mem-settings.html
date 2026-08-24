@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-99ab20ed.js";
+            window.path_to_searchindex_js = "searchindex-ff900fe6.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -359,10 +359,10 @@ database has no function record at that body address.</li>
 scratch (<code>0x9C87</code>=‘i’ selects the in-RAM “temp app” search variant).</p>
 <h3 id="launching-an-app-as-a-context-confirmed"><a class="header" href="#launching-an-app-as-a-context-confirmed">Launching an app as a context [confirmed]</a></h3>
 <p><code>_AppInit</code> (<code>ram:0936</code>, ID <code>404Bh</code>) installs a context from an app header:</p>
-<pre><code class="language-pseudocode">_AppInit(byte *hdr):                 ; HL -&gt; 13-byte vector block in the header
-  copy 12 bytes hdr[0..11] -&gt; cxMain (0x858D)   ; the 6 context vectors
-  flags.appFlags (IY+0x0D) = hdr[12]            ; appFlags byte
-  cxPage (0x8599) = port_mapBankA               ; the flash page the handlers run from
+<pre><code class="language-pseudocode">_AppInit(byte *hdr):                 # HL -&gt; 13-byte vector block in the header
+  copy 12 bytes hdr[0..11] -&gt; cxMain (0x858D)   # the 6 context vectors
+  flags.appFlags (IY+0x0D) = hdr[12]            # appFlags byte
+  cxPage (0x8599) = port_mapBankA               # the flash page the handlers run from
 </code></pre>
 <p>The 12 bytes are the 6 little-endian handler pointers (<code>cxMain</code>, <code>cxPPutAway</code>, <code>cxPutAway</code>,
 <code>cxRedisp</code>, <code>cxErrorEP</code>, <code>cxSizeWind</code> — see <a href="boot-contexts-errors.html">Boot contexts &amp; errors</a> §Context block). Example: the OS’s own
@@ -695,7 +695,7 @@ radians; the degree paths convert first).</p>
 <p>The four graph-mode setters on <code>page 0x36</code> are mutually exclusive: each first clears
 all four bits via <code>clr_grfmode (36:7D00)</code>, then ORs in its own bit, then calls
 <code>_SetTblGraphDraw</code>. <code>param_1</code> is <code>IY</code>, so <code>*(param_1+2)</code> = <code>grfModeFlags</code>.</p>
-<pre><code class="language-pseudocode">clr_grfmode (36:7D00):  grfModeFlags &amp;= 0xEF &amp; 0xDF &amp; 0xBF &amp; 0x7F   ; clear bits 4,5,6,7
+<pre><code class="language-pseudocode">clr_grfmode (36:7D00):  grfModeFlags &amp;= 0xEF &amp; 0xDF &amp; 0xBF &amp; 0x7F   # clear bits 4,5,6,7
 </code></pre>
 <div class="table-wrapper">
 <table>
