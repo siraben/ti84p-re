@@ -1,0 +1,20 @@
+# Run AARUN = Asm(prgmPLASMA), exit its foreground GUI, and capture the hook
+# installed before its optional loader lookup. The loader program is omitted.
+set key_hold 0.18s
+set key_delay 0.10s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.6s
+key ENTER
+wait 0.8s
+key ENTER
+wait 1s
+key MODE
+wait 3s
+memdump /tmp/community-plasma-install.ram ram-logical
+screenshot /tmp/community-plasma-install.png

@@ -1,0 +1,20 @@
+# Launch the source-derived TruVid App, execute its RAM playback core, and use
+# CLEAR to reach the source's normal cleanup path.
+set key_hold 0.18s
+set key_delay 0.10s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key APPS
+wait 1s
+key DOWN
+wait 0.8s
+key ENTER
+wait 3s
+key CLEAR
+wait 3s
+memdump /tmp/community-truvid-cleanup.ram ram-logical
+screenshot /tmp/community-truvid-cleanup.png

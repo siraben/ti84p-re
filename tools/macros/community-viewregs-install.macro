@@ -1,0 +1,20 @@
+# Run AARUN = Asm(prgmVIEWREGS) and capture its installed IM2 resident before
+# requesting a normal exit from the foreground viewer.
+set key_hold 0.18s
+set key_delay 0.10s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.6s
+key ENTER
+wait 0.8s
+key ENTER
+wait 4s
+memdump /tmp/community-viewregs-install.ram ram-logical
+screenshot /tmp/community-viewregs-install.png
+key CLEAR
+wait 2s
