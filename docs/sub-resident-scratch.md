@@ -97,6 +97,21 @@ pointer `0x9872`, while Plasma stores pointer `0x9872` with its supplied page
 byte `0x41`. These runs stop before invoking Remote Control's link sender.
 [confirmed]
 
+The ROM installers store each callback as a packed three-byte target:
+
+```c
+#pragma pack(push, 1)
+typedef struct {
+    uint16_t callback_addr;  /* +0x00, little-endian */
+    uint8_t page;            /* +0x02 */
+} OSHookTarget;              /* 3 bytes */
+#pragma pack(pop)
+```
+
+The raw-key target begins at `0x9B84`, and the parser target begins at
+`0x9BAC`. Their active bits at `IY + 0x34` and `IY + 0x36` are separate OS
+state, not fields in this record. [confirmed]
+
 After the selected NoExec removal sequence, the resident reaches
 `_ClrRawKeyHook` at `3B:7B88` and `_ClearParserHook` at `3B:7C3B`; the two
 active bytes at `IY + 0x34` and `IY + 0x36` become zero. Remote Control's
