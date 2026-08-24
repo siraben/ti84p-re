@@ -1,0 +1,17 @@
+# Run the generated numeric-bcall fixture and capture its result words.
+set key_hold 0.15s
+set key_delay 0.10s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.6s
+key ENTER
+wait 0.8s
+key ENTER
+wait 8s
+memdump /tmp/community-numeric-bcalls.ram ram-logical
+screenshot /tmp/community-numeric-bcalls.png

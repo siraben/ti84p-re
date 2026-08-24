@@ -1,0 +1,28 @@
+# Run packaged PRGMHIDE, toggle the sole non-self program's first-name bit,
+# archive it through PRGMHIDE, and capture the final logical RAM.
+set key_hold 0.15s
+set key_delay 0.10s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.6s
+key ENTER
+wait 0.8s
+key ENTER
+wait 3s
+screenshot /tmp/community-prgmhide-list.png
+key CHS
+wait 1s
+memdump /tmp/community-prgmhide-toggle.ram ram-logical
+screenshot /tmp/community-prgmhide-toggle.png
+key ENTER
+wait 12s
+key CLEAR
+wait 2s
+memdump /tmp/community-prgmhide-archive.ram ram-logical
+memdump /tmp/community-prgmhide-archive.rom rom
+screenshot /tmp/community-prgmhide-archive.png

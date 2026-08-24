@@ -1,0 +1,37 @@
+# Recover the deleted record at 08:4013 as RCVDEAD through packaged Archive Utility.
+set key_hold 0.15s
+set key_delay 0.10s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.6s
+key ENTER
+wait 0.8s
+key ENTER
+wait 3s
+key MUL
+wait 1s
+type 084013
+wait 1s
+key MUL
+wait 0.2s
+key PRGM
+wait 0.2s
+key 6
+wait 0.2s
+key RECIP
+wait 0.2s
+key SIN
+wait 0.2s
+key MATH
+wait 0.2s
+key RECIP
+key ENTER
+wait 5s
+memdump /tmp/community-archive-extract-dead.ram ram-logical
+memdump /tmp/community-archive-extract-dead.rom rom
+screenshot /tmp/community-archive-extract-dead.png

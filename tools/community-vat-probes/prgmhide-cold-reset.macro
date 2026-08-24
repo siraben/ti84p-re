@@ -1,0 +1,14 @@
+# Cold-boot the Flash image produced by prgmhide-archive.macro, then capture
+# the rebuilt VAT and ordinary program menu without transferring variables.
+set key_hold 0.15s
+set key_delay 0.10s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 2s
+memdump /tmp/community-prgmhide-cold-reset.ram ram-logical
+screenshot /tmp/community-prgmhide-cold-reset.png
