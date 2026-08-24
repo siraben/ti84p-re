@@ -67,10 +67,12 @@ defining the excluded calls and contexts as part of its ABI.
 
 ### Third-party hook ownership of `appBackUpScreen`
 
-Archived community source identifies persistent raw-key and parser hooks as
-additional owners of `appBackUpScreen`. These are static source findings. The
-distributed binaries were not installed or traced, and the source does not
-establish behavior on physical hardware.
+Archived community source and complete TilEm traces identify persistent
+raw-key, parser, and IM2 residents as additional owners of
+`appBackUpScreen`. The runs use OS 2.55MP image SHA-256
+`dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09`
+and patched TilEm commit `d1bdc58dd321ae462a701e556fcb62bb925a78b1`.
+They establish emulator execution, not physical-hardware behavior. [confirmed]
 
 - NoExec copies a raw-key hook to `appBackUpScreen` and a parser hook to
   `appBackUpScreen + 500`. It calls `_EnRawKeyHook` and `_EnParserHook`, then
@@ -85,6 +87,26 @@ establish behavior on physical hardware.
   `0x9A9A`, selects IM2, and returns while both ranges remain live inside
   `appBackUpScreen`. Its handler clears port-`0x03` bit 0 before calling the
   TI-OS IM1 entry at `ram:003A`.
+
+**Dynamic confirmation.** NoExec writes `0x83` at both `ram:9872` and
+`ram:9A66`. `_SetGetKeyHook` at `3B:7D00` then stores pointer
+`0x9872`, page `0x07`, and sets bit 5 of `IY + 0x34`.
+`_SetParserHook` at `3B:7D6E` stores pointer `0x9A66`, page `0x07`, and sets
+bit 1 of `IY + 0x36`. Remote Control reaches the same raw-key installer with
+pointer `0x9872`, while Plasma stores pointer `0x9872` with its supplied page
+byte `0x41`. These runs stop before invoking Remote Control's link sender.
+[confirmed]
+
+After the selected NoExec removal sequence, the resident reaches
+`_ClrRawKeyHook` at `3B:7B88` and `_ClearParserHook` at `3B:7C3B`; the two
+active bytes at `IY + 0x34` and `IY + 0x36` become zero. Remote Control's
+resident removal path was not exercised because its ordinary hook events send
+link bytes. [confirmed] for NoExec; [hypothesis] for Remote Control removal.
+
+The ONBLOCK trace writes `0x9A` at `ram:9900` and `ram:9901`, copies byte
+`0x08` to its handler entry at `ram:9A9A`, and subsequently executes that
+entry 1,303 times. The source handler tail calls the TI-OS IM1 entry at
+`ram:003A`. [confirmed]
 
 An assembly runtime must therefore exclude or explicitly remove installed
 raw-key, parser, and shell hooks and persistent IM2 residents before borrowing
@@ -131,8 +153,8 @@ or statistics code after `_DelRes`.
 ### Additional third-party `saveSScreen` owners
 
 Three older community sources deliberately execute from or overlap
-`saveSScreen`. These are static source findings; none of the distributed
-binaries was run. [confirmed]
+`saveSScreen`. Weird and LCD2 have complete OS 2.55MP emulator traces; GPP
+remains a static source finding. [confirmed]
 
 - GPP 1.1 builds IM2 tables at `ram:8600` and `ram:8700`, places interrupt
   code at `ram:8686` and `ram:8787`, and alternates display buffers from the
@@ -142,6 +164,16 @@ binaries was run. [confirmed]
   through ports `0x10` and `0x11`.
 - LCD2 emits a timing routine into `saveSScreen`, calls the buffer as code,
   and uses direct LCD reads to adjust its delay.
+
+The source-built Weird fixture writes its `0xFF` signature at `ram:86EC`,
+copies an ISR beginning with `0xF3` to `ram:8888`, fills its table at
+`ram:8700` with `0x88`, and executes the ISR entry seven times. LCD2 rewrites
+the timing entry at `ram:86EC` during calibration and executes that address
+141 times before reaching its result screen. [confirmed]
+
+GPP's distributed examples require the legacy Ion client environment. No
+byte-matched direct-client run is recorded, so execution at `ram:8686` and
+`ram:8787` remains unmeasured. [hypothesis]
 
 These examples are evidence of additional third-party ownership, not evidence
 that the range is safe on current OS or shell combinations.
@@ -159,7 +191,7 @@ Untraced runtime cells remain open.
 | MirageOS 1.2 with tasker disabled | Candidate only | The setup routine returns while tasker flag bit 6 at `0x9689` is clear; no client guard run |
 | MirageOS 1.2 with tasker or custom interrupt active | Unsafe | The original binary installs timers, handler code, and an IM2 vector table inside `statVars` before client execution |
 | Doors CS 7.4 | Unsafe as general client storage | Source reserves the block for shell state; its Mirage-compatible interrupt also installs code and vectors there |
-| ViewRegs interrupt installed | Unsafe | Source relocates IM2 code and a vector table into `saveSScreen` and `statVars`; no dynamic or physical run |
+| ViewRegs interrupt installed | Unsafe | The release binary dynamically copies code to `ram:8790`, `statVars`, and `ram:8C01`, fills `ram:8B00` with `0x8A`, and executes `ram:8790` 656 times in TilEm; no physical run |
 | Ion 1.6 | Unresolved | Source review pins no Ion-owned interrupt in this block; no client guard run |
 | zStart 1.3.013 | Unresolved | The launcher selects IM1 for the client and pins no explicit shell owner in this block; no client guard run |
 
@@ -191,15 +223,18 @@ ViewRegs calls `_DelRes`, then copies a 603-byte interrupt block to
 `IntAddress = saveSScreen + 767 - 603`. It copies another block to the start of
 `statVars`, builds an IM2 vector table at `0x8B00`–`0x8C00`, and places another
 handler block at `0x8C01`. Its readme warns that `statVars` must not be accessed
-and statistics must not run while the interrupt is active. This is static
-release-source evidence, not a runtime observation. It shows that `_DelRes`
-does not reserve either buffer against a subsequently installed third-party
-interrupt.
+and statistics must not run while the interrupt is active. The trace observes
+first writes at `ram:8790`, `ram:8A3A`, `ram:8B00`, and `ram:8C01`, followed
+by 656 executions of the resident entry. `_DelRes` therefore does not reserve
+either buffer against a subsequently installed third-party interrupt.
+[confirmed]
 
 `tools/data/scratch-guard-results.csv` records the direct trace, the exact
 MirageOS and Doors CS owned ranges, and explicit `not-run` rows for Ion and
 zStart. Dynamic guards under all four shells and physical-calculator runs
 remain required before the checklist's common-shell requirement is complete.
+The community-program trace identities and exact write observations are in
+`tools/data/community-runtime-observations.csv`.
 
 ## Page `0x83` during resident execution
 

@@ -27,7 +27,6 @@
     - [Resident assembly programs](sub-resident-programs.md)
     - [Resident scratch RAM](sub-resident-scratch.md)
     - [Apps, memory reset, and settings](sub-apps-mem-settings.md)
-        - [Flash Apps as resident runtimes](sub-flash-app-runtime.md)
 - [Flash memory](flash-memory.md)
 - [MD5 accelerator and boot API](md5-hardware.md)
 - [Flash page map](flash-page-map.md)
