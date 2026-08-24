@@ -7,7 +7,8 @@ anonymous memory while continuing to call arbitrary OS routines. Two OS
 have subsystem owners that make them conditional, even where these traces did
 not touch them. [confirmed]
 
-The measurements are in `tools/data/scratch-ram-observations.csv`.
+The measurements are in `tools/data/scratch-ram-observations.csv` and
+`tools/data/scratch-guard-results.csv`.
 Regenerate a row set from a full-range TilEm trace with:
 
 ```sh
@@ -60,13 +61,25 @@ permits `statVars` after `_DelRes` when statistics code is excluded. A shell
 interrupt, especially MirageOS's interrupt, adds another owner of `statVars`.
 [standard]
 
-Those conditions are not yet locally confirmed across `_GetKey`, the ON key,
-error unwinding, and shell interrupts. The source fixture
-`tools/fixtures/scratch_guard_probe.asm` and its TilEm macro
-`tools/macros/scratch-guard-probe.macro` fill both
-ranges, enter `_GetKey`, and check the guards. Its first automated launch
-reached a TI-OS error before the fixture executed, so it supplies no result.
-[hypothesis fixture]
+The guarded direct-launch fixture calls `_DisableApd` and `_DelRes`, fills all
+768 bytes of `saveSScreen` with `0xA5` and all 531 bytes of `statVars` with
+`0x5A`, polls `_GetCSC`, blocks in `_GetKey`, and receives one injected ON
+event. Both complete checks pass, and the fixture displays `SAVE STAT 1 1`.
+[confirmed for TI-OS 2.55MP in the pinned TilEm x4 run]
+
+Build the TI-BASIC `Asm(prgmSCRPROBE)` wrapper with
+`tools/build_scratch_probe_wrapper.py`; then assemble
+`tools/fixtures/scratch_guard_probe.asm` and run
+`tools/macros/scratch-guard-probe.macro`. The full trace executes 14,736
+instructions in the payload range, including the 767- and 530-byte fill
+`LDIR`s and the complete 768- and 531-byte comparison loops. An earlier version
+entered a second `_GetKey` while ON was still held and raised `ERR:BREAK`; the
+current fixture halts after rendering the result.
+
+This confirms the documented `saveSScreen` condition for that direct emulator
+scenario. It does not cover an APD timeout, error unwinding, physical hardware,
+statistics code after `_DelRes`, or the MirageOS interrupt. `statVars` remains
+conditional under those untested owners.
 
 ## Page `0x83` during resident execution
 
