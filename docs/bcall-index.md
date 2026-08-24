@@ -275,6 +275,7 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_ErrArgument` | `44AD` | `00:2711` |
 | `_ErrBadGuess` | `44CB` | `00:2751` |
 | `_ErrBreak` | `44BF` | `00:273D` |
+| `_ErrCustom1` | `4D41` | `00:2771` |
 | `_ErrDataType` | `44AA` | `00:2708` |
 | `_ErrDimension` | `44B3` | `00:2719` |
 | `_ErrDimMismatch` | `44B0` | `00:2715` |
@@ -547,11 +548,13 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_setDate` | `516A` | `37:536E` |
 | `_SetExSpeed` | `50BF` | `00:0DCA` |
 | `_SetFuncM` | `4840` | `36:7D11` |
+| `_SetGetKeyHook` | `4F66` | `3B:7D00` |
 | `_SetNorm_Vals` | `49FC` | `00:220F` |
 | `_SetParM` | `4849` | `36:7D39` |
 | `_SetPolM` | `4846` | `36:7D2C` |
 | `_SetSeqM` | `4843` | `36:7D1F` |
 | `_SetTblGraphDraw` | `4C00` | `00:00F5` |
+| `_SetTokenHook` | `4F99` | `3B:7D0B` |
 | `_setTime` | `5170` | `37:540D` |
 | `_SetupPagedPtr` | `5020` | `00:17AC` |
 | `_SetXXOP1` | `478C` | `33:5F7E` |

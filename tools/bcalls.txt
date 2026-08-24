@@ -473,6 +473,7 @@
 4CB1	_LoadPattern
 4CB4	_SStringLength
 4CED	_ClearRow
+4D41	_ErrCustom1
 4D5C	_ClearRect
 4D5F	_InvertRect
 4D62	_FillRect
@@ -512,6 +513,8 @@
 4F0F	_SrchVLstUp
 4F12	_SrchVLstDn
 4F45	_Disp
+4F66	_SetGetKeyHook
+4F99	_SetTokenHook
 4FA8	_Bit_VertSplit
 4FC6	_DelVarArc
 4FC9	_DelVarNoArc

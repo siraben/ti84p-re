@@ -501,6 +501,7 @@ _LoadPattern	4CB1	6267	01
 _SStringLength	4CB4	61A6	3B
 _ClearRow	4CED	6934	01
 lcd_blit_region	4D26	5431	07
+_ErrCustom1	4D41	2771	00
 _ClearRect	4D5C	6935	3B
 _InvertRect	4D5F	693D	3B
 _FillRect	4D62	6939	3B
@@ -541,6 +542,8 @@ _RecAByteIO	4F03	443F	3C
 _SrchVLstUp	4F0F	707F	07
 _SrchVLstDn	4F12	71D7	07
 _Disp	4F45	51D3	37
+_SetGetKeyHook	4F66	7D00	3B
+_SetTokenHook	4F99	7D0B	3B
 _Bit_VertSplit	4FA8	215D	00
 _DelVarArc	4FC6	12D9	00
 _DelVarNoArc	4FC9	130E	00
