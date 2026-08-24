@@ -58,6 +58,35 @@ The archived TI Link Protocol Guide calls line 0 red/tip and line 1 white/ring. 
 
 OS 2.55MP sends a zero bit with write `1` and a one bit with write `2`. That agrees with the guide's rule that zero pulls red/tip first and one pulls white/ring first. [confirmed] for the write values; [standard] for the physical contact names.
 
+### Community terminology traps
+
+The archived TI-83 Plus link tutorial uses the familiar `0xD0`–`0xD3` writes,
+masks reads with `AND 3`, and implements the same two-line acknowledgement
+sequence. Its prose labels write `0xD0` as “both lines low” and `0xD3` as
+“both lines high,” however, while its read table uses the opposite numeric
+sense. Those electrical labels invert the open-collector action in the table
+above: low write bits clear release the lines, and set bits pull them low. The
+code is historical corroboration for port usage, not a reliable electrical
+description. [confirmed] for the source instructions; [standard] for the
+open-collector correction.
+
+The tutorial archive `source/linktutorial83plus.zip` has SHA-256
+`7a0917379bd1b46b45e802b44c9bdc129ac5db42f94c979fae01c29c6b5ca8fe`.
+Members `link tutorial.txt` and `example.z80` have SHA-256
+`1dcbf9ae6fc658546ab18138f68cce6f7187cf1e7b1339b60cfcce6a24abbb13`
+and `108f13b42dfbc61ff51adca1ea3ea8557d8a79a9cd06602a2b5bb6d82aac5f9c`,
+respectively. [confirmed]
+
+Stopwatch's readme separately calls the link port nominally `+5VDC`. It gives
+no identified unit, load, instrument, or measurement procedure. The archive
+`programs/stopwatch.zip` has SHA-256
+`232728ba0d3ce38f07fe78f249a7da412e79861195347c7eb93053128bf22f04`,
+and member `stopwatch.txt` has SHA-256
+`eb944f2bdc93dfb76ca244a39218d52424c9edf1ed0c6fe2587732b2b301a710`.
+That claim does not replace the still-open voltage, pull-up, threshold, or load
+measurements. [standard] for the community claim; [hypothesis] for unmeasured
+physical values.
+
 ### Differential audio output
 
 Software can use the two output controls as a three-level differential source.
