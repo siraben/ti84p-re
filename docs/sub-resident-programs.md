@@ -192,6 +192,25 @@ bytes through the returned source pointer. It performs a second lookup before
 converting the counter to `Ans`. [confirmed] for the identified community
 source.
 
+Viewed from the data-size pointer returned in `DE`, RUNCOUNT's fixed prefix is:
+
+```c
+#pragma pack(push, 1)
+typedef struct {
+    uint16_t data_size;       /* +0x00 */
+    uint8_t asm_marker[2];    /* +0x02, BB 6D */
+    uint8_t entry_jump[3];    /* +0x04, JP start */
+    uint8_t count_msb_bcd;    /* +0x07 */
+    uint8_t count_lsb_bcd;    /* +0x08 */
+    uint8_t code[];           /* +0x09 */
+} RunCountVariablePrefix;     /* 9-byte fixed prefix */
+#pragma pack(pop)
+```
+
+The first lookup increments `count_lsb_bcd` and carries into
+`count_msb_bcd`. The second lookup passes the address of `count_msb_bcd` to
+the BCD-to-`Ans` conversion. [confirmed]
+
 The raw 136-byte source build is SHA-256
 `3e506c4330cd5499a031ae56c73d0487f811278b5fc3d52949bc0f56a69b2f05`.
 The packaged program body is exactly `BB 6D` followed by that build, so this
@@ -465,8 +484,21 @@ inconsistency. [confirmed]
 
 `starttask` appends the program's requested external-data area followed by a
 62-byte state tail. The tail contains a saved `SP` word and 60 bytes copied
-from `flags` at `0x89F0`. It also records the initial code address and stack
-pointer. [confirmed]
+from `flags` at `0x89F0`. Its packed layout is:
+
+```c
+#pragma pack(push, 1)
+typedef struct {
+    uint16_t saved_sp;       /* +0x00 */
+    uint8_t flags[60];       /* +0x02, copy of 0x89F0-0x8A2B */
+} TSETaskStateTail;          /* 62 bytes */
+#pragma pack(pop)
+```
+
+The tail begins immediately after the requested external-data area. TSE writes
+the initial code address into the last two bytes of that area as the first
+stack return address, while `saved_sp` records the resulting stack pointer.
+[confirmed]
 
 `cpy_prgm_in` reduces the stored variable to its three-byte `BB 6D C9` header,
 then moves the remaining body and task state to `userMem` in chunks no larger

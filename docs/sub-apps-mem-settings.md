@@ -261,6 +261,22 @@ bank-A pointer and page before calling `_LoadCIndPaged` and
 general guarantee that an archived pointer remains valid across memory-moving
 calls. [confirmed] for the identified community source.
 
+The AppVar payload has this packed layout:
+
+```c
+#pragma pack(push, 1)
+typedef struct {
+    uint8_t contrast;         /* +0x00 */
+    uint8_t delay;            /* +0x01 */
+} TruVidSettings;             /* 2 bytes */
+#pragma pack(pop)
+```
+
+The missing-settings path seeds `contrast` from the OS contrast byte and sets
+`delay` to `178`. The save path copies these two bytes from `curContrast` and
+`delayValue` into the replacement AppVar. [confirmed] for the identified
+community source.
+
 The normal **CLEAR** quit path restores IM 1, the saved stack pointer, mapped
 page, display state, several hardware ports, and the OS base-page table. When
 the settings are dirty, it deletes any old AppVar, creates a two-byte
