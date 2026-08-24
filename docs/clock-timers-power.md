@@ -472,7 +472,7 @@ The final writes are: [confirmed]
 | `ram:0A51` | clear `shift2nd` | remove the **[2nd]** modifier |
 | `ram:0A55` | clear `onRunning` | mark the OS as powered down |
 | `ram:0A5B` | `EI` | allow the selected wake interrupt |
-| `poweroff_halt_loop` | `HALT; JR ram:0A5C` | remain in the ASIC low-power loop |
+| `poweroff_halt_loop` | `HALT`<br>`JR ram:0A5C` | remain in the ASIC low-power loop |
 
 The low-power request is port-`0x03` bit 3 clear combined with Z80 `HALT`;
 writing `0x11` by itself does not finish the transition. ON and link activity

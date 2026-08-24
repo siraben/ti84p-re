@@ -187,13 +187,17 @@ recompute driver, otherwise it repaints from the cached values. [confirmed]
 ### Recompute driver — `table_recompute` (`05:5DD7`) [confirmed]
 
 ```z80
-05:5DD7  XOR A ; LD (0x8E63),A           ; reset table column/row state
-         CALL 0x3411 ; RET Z             ; (window/mode gate)
+05:5DD7  XOR A
+         LD (0x8E63),A                   ; reset table column/row state
+         CALL 0x3411
+         RET Z                           ; window/mode gate
          CALL 0x7704                     ; init column descriptors (see below)
          CALL 0x774B                     ; seed running-X = TblMin
-         CALL 0x65D2 ; CALL 0x65C8       ; clear per-column flags
+         CALL 0x65D2
+         CALL 0x65C8                     ; clear per-column flags
          CALL 0x5EE1                     ; FILL the value cache (the row loop)
-         CALL 0x6014 ; CALL 0x5FFC       ; lay out / size the columns
+         CALL 0x6014
+         CALL 0x5FFC                     ; lay out / size the columns
          RES 6,(IY+0x13)                 ; reTable = 0  (cache now valid)
          CALL 0x76BA
 ```
@@ -208,18 +212,34 @@ the cache until something marks it dirty again. [confirmed]
 `table_x_work[1]`, the running-X slot:
 
 ```z80
-05:7751  LD HL,0x92B3 (TblMin) ; LD DE,0x862B ; JP 0x1A92   ; running-X (0x862B) ← TblMin
+05:7751  LD HL,0x92B3                  ; TblMin
+         LD DE,0x862B                  ; running-X destination
+         JP 0x1A92
 ```
 
 i.e. the first row's independent value is `TblStart`. The row index is bounds-checked at
-`05:65DC` (`LD A,(0x91E0); LD HL,CurTableRow; CP (HL); RET` — current row vs the last
-row), and the per-row X is computed as `TblStart + k·TblStep` rather than by an
+`05:65DC` by comparing the current row with the last row:
+
+```z80
+LD A,(0x91E0)
+LD HL,CurTableRow
+CP (HL)
+RET
+```
+
+The per-row X is computed as `TblStart + k·TblStep` rather than by an
 incremental add:
 
 ```z80
-05:65DC  LD A,(0x91E0) ; LD HL,0x91DC ; CP (HL) ; RET   ; row-index bound check
+05:65DC  LD A,(0x91E0)
+         LD HL,0x91DC
+         CP (HL)
+         RET                            ; row-index bound check
 05:6359  LD A,(0x91DD) … LD DE,0x9221 / 0x91E2 (cell buffers)
-         LD HL,(0x91DC /* row idx */) ; ADD ; CALL _LdHLind ; ADD HL,DE
+         LD HL,(0x91DC /* row idx */)
+         ADD
+         CALL _LdHLind
+         ADD HL,DE
 ```
 
 So row $k$ uses $X=\mathrm{TblMin}+k\cdot\mathrm{TblStep}$. (In **Indpnt = Ask** mode this driver is
@@ -285,7 +305,15 @@ Thus `0x9221` is `table_value_cache.band[1]`, and `0x9260` is
 `table_value_cache.band[2]`. This notation captures both the 9-byte element
 stride and the 63-byte scroll-copy stride. [confirmed]
 
-`05:6014` performs the scroll: `LD HL,0x9221 ; LD DE,0x9260 ; LDIR` copies
+`05:6014` performs the scroll:
+
+```z80
+LD HL,0x9221
+LD DE,0x9260
+LDIR
+```
+
+This copies
 `table_value_cache.band[1]` to `band[2]` (a `0x3F`-byte block) and performs an
 `LDDR` shift of a `0xB4`-byte region. When the cursor moves above or below the
 cached window, it slides the cache and computes only the one new row
@@ -296,8 +324,14 @@ cached window, it slides the cache and computes only the one new row
 `05:6D40`/`05:6D51` read the mode bits to branch:
 
 ```z80
-05:6D40  … CALL 0x74BE ; JR NZ ; BIT 4,(IY+0x13) ; RET   ; Indpnt (autoFill) test
-         … CALL 0x74BE ; JR NZ ; BIT 5,(IY+0x13) ; RET   ; Depend (autoCalc) test
+05:6D40  … CALL 0x74BE
+         JR NZ
+         BIT 4,(IY+0x13)
+         RET                             ; Indpnt (autoFill) test
+         … CALL 0x74BE
+         JR NZ
+         BIT 5,(IY+0x13)
+         RET                             ; Depend (autoCalc) test
          LD A,(0x91DB) … LD A,(0x91DC) …                  ; Ask-mode row state
 ```
 
@@ -332,9 +366,12 @@ columns, drawn with the large font through the home-screen text primitives
            CALL 0x7E9D
            LD DE,(0x9192 YOutDat) ; the Y-column value pointer
            CP 2 / CP 5            ; column-kind dispatch (X col vs Y col vs input)
-           CALL 0x7E7C ; CALL 0x7E98   ; render the cached value into the cell
+           CALL 0x7E7C
+           CALL 0x7E98             ; render the cached value into the cell
            CALL 0x65DC            ; row-index bound check (current row vs last)
-           INC row ; … ; LD (0x91DC),A
+           INC row
+           …
+           LD (0x91DC),A
 ```
 
 `05:7E7C` chooses the destination cache band (`table_value_cache.band[1]` at

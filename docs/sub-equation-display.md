@@ -422,8 +422,14 @@ typedef struct {
 The mapper at `39:683D` converts a descriptor cell to pixels. Its index names
 are transposed relative to conventional screen coordinates: the descriptor
 row advances LCD $x$, while the descriptor column advances $y$. The `+7` loop
-(`DEC B; ADD A,7`) builds the packed high byte, and the
-`rowHeight + 2` loop builds the low byte. The caller stores `HL` to `penCol`
+builds the packed high byte:
+
+```z80
+DEC B
+ADD A,7
+```
+
+The `rowHeight + 2` loop builds the low byte. The caller stores `HL` to `penCol`
 (`0x86D7`, low to $x$) and `penRow` (`0x86D8`, high to $y$):
 
 $$
@@ -448,9 +454,22 @@ The known descriptors are:
 | `39:68A5` | descriptor family | Two-row, three-column descriptor. |
 
 For kind nibbles `3` and above, `39:69C8` adds `0x10` and calls
-`ram:025E` (`BIT 6,(IY+2); RET`). A set bit selects `39:689C`. Otherwise it
-adds `0x10` again and calls `ram:0254` (`BIT 5,(IY+2); RET`); a set bit selects
-`39:68A5`, and a clear result selects `39:6893`. The JavaScript
+`ram:025E`:
+
+```z80
+BIT 6,(IY+2)
+RET
+```
+
+A set bit selects `39:689C`. Otherwise it adds `0x10` again and calls
+`ram:0254`:
+
+```z80
+BIT 5,(IY+2)
+RET
+```
+
+A set bit selects `39:68A5`, and a clear result selects `39:6893`. The JavaScript
 `selectDescriptor` translation takes this caller-owned `flag02` byte explicitly
 for the family branches and reports the byte that `39:69FC` stores back at
 `0x85E8`. [confirmed]
@@ -1656,8 +1675,18 @@ handler. [confirmed]
 `eqdisp_draw_marker_primitive` has two distinct entry ABIs. Render-table row 0
 in `eqdisp_render_handler_table` (`34:6119`) contains
 the bytes `43 61`, the pointer `6143h`. `_LdHLind` at `00:0033` executes
-`LD A,(HL); INC HL; LD H,(HL); LD L,A; RET`. Its low-byte load therefore makes
-a type-`0x1F` table dispatch enter `eqdisp_draw_marker_primitive` with `A=0x43`. That value follows
+the following sequence:
+
+```z80
+LD A,(HL)
+INC HL
+LD H,(HL)
+LD L,A
+RET
+```
+
+Its low-byte load therefore makes a type-`0x1F` table dispatch enter
+`eqdisp_draw_marker_primitive` with `A=0x43`. That value follows
 the fixed default path to the seven-row bitmap at `34:61BE`; `(IY+44h).3` and
 `0x8520` do not affect this ABI. [confirmed]
 

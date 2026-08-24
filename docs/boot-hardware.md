@@ -135,10 +135,16 @@ leave one byte complemented; the routine executes with interrupts disabled.
 [confirmed]
 
 The disable wrapper saves `AF`, clears `A`, emits the protected instruction
-sequence, and writes port `0x14`. It then executes `OR A; JP NZ,0x0000` before
-restoring `AF`. The test is necessarily zero when normal sequential execution
-reaches it. It detects a control-flow or instruction-corruption error rather
-than reading the write back. [confirmed]
+sequence, and writes port `0x14`. It then executes:
+
+```z80
+OR A
+JP NZ,0x0000
+```
+
+The wrapper restores `AF` afterward. The test is necessarily zero when normal
+sequential execution reaches it. It detects a control-flow or
+instruction-corruption error rather than reading the write back. [confirmed]
 
 ## Ordered hardware programming
 

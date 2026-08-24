@@ -6,9 +6,12 @@ switching, and error unwinding.
 ## Boot [confirmed]
 
 ```z80
-3F:4000:     LD A,0x07; OUT (0x04),A           ; paired mapping
-             LD A,0x7F; OUT (0x06),A           ; pages 3E/3F in 4000/8000
-             LD A,0x03; OUT (0x0E),A           ; extended Flash bits
+3F:4000:     LD A,0x07
+             OUT (0x04),A                      ; paired mapping
+             LD A,0x7F
+             OUT (0x06),A                      ; pages 3E/3F in 4000/8000
+             LD A,0x03
+             OUT (0x0E),A                      ; extended Flash bits
              JP 0x812C                         ; page 3F in the 8000 window
 ```
 
@@ -30,9 +33,16 @@ diagnostic. It also reconciles standard Z80 timing with the pinned TilEm trace.
 
 The assembled `rom.bin` validates and installs the retail `D84PBE1.8Xv`
 payload at page `3F`; the pinned base already contains the same 16 KiB page, so
-the installation changes no bytes. The continuation begins
-`IM 1; LD B,0; LD SP,0xFDFA; …`. The boot page eventually initializes RAM, the
-VAT, system flags, the LCD, and enters the main context (the homescreen).
+the installation changes no bytes. The continuation begins:
+
+```z80
+IM 1
+LD B,0
+LD SP,0xFDFA
+```
+
+The boot page eventually initializes RAM, the VAT, system flags, the LCD, and
+enters the main context (the homescreen).
 [confirmed]
 
 The boot page (`3F`) and its version queries are exposed to the OS through `ti83plus.inc` bcalls: `_getBootVer` (bcall `0x80B7` → `3F:477C`) and `_getHardwareVersion` (bcall `0x80BA` → `3F:4781`). The USB boot support entry points route through the same table but land on page `2F`, for example `_AttemptUSBOSReceive` (`0x80E4` → `2F:4145`) and `_InitUSB` (`0x8108` → `2F:52A4`).
@@ -45,30 +55,44 @@ The RAM-init proper is `ram_reset_wipe` (`35:719F`, reached on a full reset; the
 ram_reset_wipe (35:719f):
   ; save flags to preserve: (9B73), (IY+34).6, (IY+35).0, (IY+35).1, (IY+3F)&0x7F
   DI
-  LD HL,0x8000 ; LD DE,0x8001 ; LD BC,0x1BC3 ; LD (HL),0 ; LDIR   ; clear 8000..9BC3
+  LD HL,0x8000
+  LD DE,0x8001
+  LD BC,0x1BC3
+  LD (HL),0
+  LDIR                          ; clear 8000..9BC3
   ... restore the saved flag bits ...
-  LD HL,0x9BD0 ; LD DE,0x9BD1 ; LD BC,0x642F ; LD (HL),0 ; LDIR   ; clear 9BD0..FFFF
+  LD HL,0x9BD0
+  LD DE,0x9BD1
+  LD BC,0x642F
+  LD (HL),0
+  LDIR                          ; clear 9BD0..FFFF
   JP 0x0BD9
 ram_init_after_reset (ram:0BD9):
-  LD A,0xC0 ; OUT (0),A        ; port 0 = memory-map control
+  LD A,0xC0
+  OUT (0),A                    ; port 0 = memory-map control
   LD SP,0xFFF7                 ; reset stack to top of RAM
   CALL 0x3EC1                  ; continue init (page-0 kernel): VAT, sysflags, LCD …
 ```
 
-So RAM is wiped in two LDIR runs (`0x8000`–`0x9BC3`, then `0x9BD0`–`0xFFFF`, leaving the `0x9BC4`–`0x9BCF` window and the explicitly-saved flag bytes intact), then `ram:0BD9` resets the memory map (port 0) and the stack and hands off through `ram:3EC1`. This `ram:0BD9` entry is the same RAM re-init point cross-referenced from [Memory management](memory-management.md). The `ram:3EC1` continuation (VAT/sysflag/LCD bring-up) is page-0 kernel code and is statically present (`ram:3EC1` = `CALL 0x2B09; …`). The reset jump to `boot_os_entry` is also present in the assembled database, so the page-0 and retail boot portions can be followed in one project.
+So RAM is wiped in two LDIR runs (`0x8000`–`0x9BC3`, then `0x9BD0`–`0xFFFF`, leaving the `0x9BC4`–`0x9BCF` window and the explicitly-saved flag bytes intact), then `ram:0BD9` resets the memory map (port 0) and the stack and hands off through `ram:3EC1`. This `ram:0BD9` entry is the same RAM re-init point cross-referenced from [Memory management](memory-management.md). The `ram:3EC1` continuation (VAT/sysflag/LCD bring-up) is page-0 kernel code and begins with `CALL 0x2B09`. The reset jump to `boot_os_entry` is also present in the assembled database, so the page-0 and retail boot portions can be followed in one project.
 
 ### The main event loop [confirmed]
 
 `main_event_loop` @ `ram:05e6` (page 0) is the OS root dispatcher. Structure:
 ```z80
-05e6: LD B,8;  LD HL,0x84BE        ; iterate an 8-entry event/context stack
+05e6: LD B,8
+      LD HL,0x84BE                 ; iterate an 8-entry event/context stack
 05eb: INC HL                       ; first slot is 0x84BF
-05ec: LD A,(HL); OR A; JR Z,...    ; skip empty slots
+05ec: LD A,(HL)
+      OR A
+      JR Z,...                     ; skip empty slots
 05f5: CALL 0x3f3f                  ; per-entry dispatch (event/key router)
 0601: CP 0x7F / 0xFE / 0xFC / 0xFB ; branch on the handler's return code
 ...
-0690: LD A,0x7F; CALL call_context_main   ; run the active context's handler
-0699: POP AF; JP Z,0x05e6                 ; loop
+0690: LD A,0x7F
+      CALL call_context_main       ; run the active context's handler
+0699: POP AF
+      JP Z,0x05e6                 ; loop
 ```
 So the loop pumps an event/context stack (8 slots from `0x84BF`, after the `INC HL`), routes each via the dispatcher at `ram:3F3F`, and ultimately runs the active context's `cxMain` handler through `call_context_main`, looping forever.
 

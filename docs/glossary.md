@@ -8,7 +8,7 @@ the wiki.
 | Term | Meaning |
 |------|---------|
 | **bcall** | "branch call" — the OS system-call mechanism: `rst 28h` + a 2-byte ID, dispatched through a jump table to a routine on any flash page. See [The bcall Mechanism](bcall-mechanism.md). |
-| **bjump** | OS-internal cross-page *jump*: `CALL cross_page_jump; .dw addr; .db page` (a tail-jump). The sibling of bcall for the OS's own use. |
+| **bjump** | OS-internal cross-page *jump*: `CALL cross_page_jump`<br>`.dw addr`<br>`.db page` (a tail-jump). The sibling of bcall for the OS's own use. |
 | **RST shortcut** | A 1-byte `rst NN` vector that fast-paths a hot routine (`rst 10h`=`_FindSym`, `rst 30h`=`_FPAdd`, `rst 28h`=the bcall dispatcher). |
 | **context** | The active "mode" (homescreen, Y= editor, graph, an app…). A block of handler vectors at `cxMain` (`0x858D`); the main loop runs the current context's handlers. See [Boot, Contexts & Errors](boot-contexts-errors.md). |
 | **paging / banking** | The Z80 sees 64 KiB; ports 6/7 swap which 16 KiB flash/RAM page is visible in the two middle slots. See [Paging](paging.md). |

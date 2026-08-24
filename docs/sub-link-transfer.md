@@ -80,33 +80,58 @@ save, `IY+0x3E` bit0 / `IY+0x3D` bit5 USB-presence.
 
 ### Hardware-assist send [confirmed]
 
-`_SendAByte` (`3C:420D`) starts `CALL probe_hw_model_keep_a ; JP Z,0x6BB2` — if the model probe sets Z (the
-84+ link-assist hardware is present), it jumps to `3C:6BB2`:
+`_SendAByte` (`3C:420D`) starts:
+
+```z80
+CALL probe_hw_model_keep_a
+JP Z,0x6BB2
+```
+
+If the model probe sets Z, the 84+ link-assist hardware is present, and the
+routine jumps to `3C:6BB2`:
+
 ```z80
 6BB2: setup line / 2× short delay (6BD2 seeds 9CAC from port 0x20 = CPU speed)
-6BBB: LD A,0xFA ; (9C86)=A           ; reload inner timeout
-      IN A,(0x9) ; BIT 5,A           ; port 0x09 bit5 = TX buffer empty/ready
-      JR Z,6BCA                       ; not ready → spin
-      LD A,C ; OUT (0x0D),A ; RET     ; *** write the byte to port 0x0D (assist FIFO) ***
-6BCA: CALL 6BE4 (decrement 9CAC) ; JR Z,6BBB (retry) ; else JP 4434 (timeout)
+6BBB: LD A,0xFA
+      LD (0x9C86),A            ; reload inner timeout
+      IN A,(0x09)
+      BIT 5,A                  ; port 0x09 bit 5 = TX buffer empty/ready
+      JR Z,6BCA                ; not ready → spin
+      LD A,C
+      OUT (0x0D),A             ; write the byte to the assist FIFO
+      RET
+6BCA: CALL 6BE4                ; decrement 0x9CAC
+      JR Z,6BBB                ; retry
+      JP 4434                  ; timeout
 ```
 So the assist path is: poll port 0x09 bit 5, then `OUT (0x0D),byte`, with a CPU-speed-scaled timeout. The legacy fall-through writes port `0x00` directly; see [Two-wire link port hardware](link-port-hardware.md) for its two-read polling loop and four-transition handshake.
 
 ### Receive path and decoder [confirmed]
 
 ```z80
-443F: DI ; CALL 447E (arm/clock the line) ; CALL 444A (get-status) ; RET C/NZ ; loop if Z
-444A:  CP 1                              ; status 1 selects the error-status path
-       LD A,C                            ; A = candidate byte/status marker
-       JR NZ,4456                        ; other status: normal byte or marker
-       CP 0xE0 ; JP NZ,_ErrLinkXmit
-       JR 4470
-4456:  CP 0xE0 ; RET NZ                  ; return an ordinary byte from C
-       IN A,(0x2) ; AND 0x80             ; port 0x02 bit7 set = non-83+-Basic (has assist HW on 84+)
-       JR Z,4469                         ;   legacy:  6CC1 polls the bit-bang lines
-       IN A,(0x9) ; BIT 6,A ; JR NZ,4470 ; port 0x09 bit6 = transmission error → abort
-       AND 0x19 ; JR NZ,4475             ; port 0x09 bits 0x19 = link error/active flags
-4470:  CALL 6D17 ; XOR A ; RET           ; error/no byte → return 0
+443F: DI
+      CALL 447E                  ; arm/clock the line
+      CALL 444A                  ; get status
+      RET C/NZ                   ; loop if Z
+444A: CP 1                       ; status 1 selects the error-status path
+      LD A,C                     ; A = candidate byte/status marker
+      JR NZ,4456                 ; other status: normal byte or marker
+      CP 0xE0
+      JP NZ,_ErrLinkXmit
+      JR 4470
+4456: CP 0xE0
+      RET NZ                     ; return an ordinary byte from C
+      IN A,(0x02)
+      AND 0x80                   ; port 0x02 bit 7 set = non-83+-Basic
+      JR Z,4469                  ; legacy path: 6CC1 polls the bit-bang lines
+      IN A,(0x09)
+      BIT 6,A
+      JR NZ,4470                 ; transmission error → abort
+      AND 0x19
+      JR NZ,4475                 ; link error/active flags
+4470: CALL 6D17
+      XOR A
+      RET                        ; error/no byte → return 0
 ```
 Key port semantics (84+ assist): port 0x09 bit 5 = TX ready, bit 6 = transmission error,
 bit 4 = byte received, bits 0x19 = error/active; port 0x0D = data FIFO; port 0x02
@@ -163,13 +188,19 @@ that establish those fields. [confirmed]
 ### Sending a header [confirmed]
 
 ```z80
-41C3: 6D4B (drive line) ; short delay ; CALL probe_hw_model_keep_a (model probe)
-      … (HW handshake on 84+, or bit-bang line-idle wait; failure → _ErrLinkXmit) …
-41F2: (8678)=0                              ; reset checksum accumulator
-      LD A,(8674) ; CALL _SendAByte         ; machine-ID
-      LD A,(8675) ; CALL _SendAByte         ; command-ID
-      LD A,(8676) ; CALL _SendAByte         ; length lo
-      LD A,(8677) ; CALL _SendAByte         ; length hi
+41C3: 6D4B (drive line)
+      short delay
+      CALL probe_hw_model_keep_a (model probe)
+      … (HW handshake on 84+, or bit-bang line-idle wait, with failure reaching _ErrLinkXmit) …
+41F2: (8678)=0                       ; reset checksum accumulator
+      LD A,(8674)
+      CALL _SendAByte                ; machine-ID
+      LD A,(8675)
+      CALL _SendAByte                ; command-ID
+      LD A,(8676)
+      CALL _SendAByte                ; length lo
+      LD A,(8677)
+      CALL _SendAByte                ; length hi
 ```
 `419B` is the generic "send a 0-length control packet": it sets the local machine-ID (`620A`),
 stores the command from `H`, and calls `41C3`. Convenience entries: `4195` H=0x92 (EOT),
@@ -178,12 +209,18 @@ stores the command from `H`, and calls `41C3`. Convenience entries: `4195` H=0x9
 ### Receiving a header [confirmed]
 
 ```z80
-4338: CALL _RecAByteIO ; (8674)=A           ; machine-ID, validated against the known set:
+4338: CALL _RecAByteIO
+      (8674)=A                       ; machine-ID, validated against the known set:
       0x95 0x73 0x23 0x74 0x82 0x02 0x12 0x83 0x03 0x13 0x08   (else fall to 2nd-byte machine list)
-4370: CALL _RecAByteIO ; (8675)=A           ; command-ID, validated: 0x68 0x47 0x74 0x2D … else _JErrorNo
-438F: CALL _RecAByteIO ; (8675)=A  (cmd)     ; (on the validated path)
-4392: CALL _RecAByteIO ; (8676)=A           ; length lo
-4395: CALL _RecAByteIO ; (8677)=A           ; length hi ; RET
+4370: CALL _RecAByteIO
+      (8675)=A                       ; command-ID, validated: 0x68 0x47 0x74 0x2D … else _JErrorNo
+438F: CALL _RecAByteIO
+      (8675)=A                       ; command ID on the validated path
+4392: CALL _RecAByteIO
+      (8676)=A                       ; length lo
+4395: CALL _RecAByteIO
+      (8677)=A                       ; length hi
+      RET
 ```
 An unrecognised machine-ID or command-ID byte aborts via `_JErrorNo` (→ `E_LnkErr` 0x9F).
 
@@ -191,11 +228,20 @@ An unrecognised machine-ID or command-ID byte aborts via `_JErrorNo` (→ `E_Lnk
 
 The *local* machine-ID advertised in outgoing packets depends on the peer-type bits in `IY+0x1B`:
 ```z80
-620A: L=0x82 ; BIT 2,(IY+0x1B) ; RET NZ     ; 0x82 = default / TI-84+ silent
-      L=0x95 ; BIT 1,(IY+0x1B) ; RET NZ     ; 0x95 = computer / TI-Connect (USB host)
-      L=0x83 ; BIT 3,(IY+0x1B) ; RET NZ
-      L=0x03 ; BIT 4,(IY+0x1B) ; RET NZ     ; 0x03 = TI-83
-      L=0x73 ; RET                          ; 0x73 = TI-73 / fallback
+620A: LD L,0x82                     ; default / TI-84+ silent
+      BIT 2,(IY+0x1B)
+      RET NZ
+      LD L,0x95                     ; computer / TI-Connect USB host
+      BIT 1,(IY+0x1B)
+      RET NZ
+      LD L,0x83
+      BIT 3,(IY+0x1B)
+      RET NZ
+      LD L,0x03                     ; TI-83
+      BIT 4,(IY+0x1B)
+      RET NZ
+      LD L,0x73                     ; TI-73 / fallback
+      RET
 ```
 
 ### Command-ID byte reference [hypothesis]
@@ -219,13 +265,29 @@ Confirmed in the code; semantics are the standard TI link protocol:
 
 After the data payload, the sender appends the 16-bit sum and waits for the ACK:
 ```z80
-4167 (send tail): LD HL,(8678) ; A=L ; CALL _SendAByte ; A=H ; CALL _SendAByte   ; chk lo, hi
-4178:  CALL 4318 (save hdr→bakHeader) ; CALL 4338 (recv reply header)
-417E:  LD A,(8675) ; … CALL 430F (compare/store) ; CP 0x56 ; RET Z ; JP _JErrorNo
+4167: LD HL,(8678)
+      LD A,L
+      CALL _SendAByte               ; checksum lo
+      LD A,H
+      CALL _SendAByte               ; checksum hi
+4178: CALL 4318 (save hdr→bakHeader)
+      CALL 4338 (recv reply header)
+417E: LD A,(8675)
+      … CALL 430F (compare/store)
+      CP 0x56
+      RET Z
+      JP _JErrorNo
 ```
 On the *receive* side the matching check is `6356`: after streaming the payload it compares the
 accumulated checksum `8678` against the received 16-bit checksum; on mismatch it sends a `0x5A` ERR
-packet (`6385: LD H,0x5A ; CALL 419B`) and raises `_JErrorNo`. The ACK-builder `42FB` saves the
+packet:
+
+```z80
+6385: LD H,0x5A
+      CALL 419B
+```
+
+It then raises `_JErrorNo`. The ACK-builder `42FB` saves the
 caller's header to `868B bakHeader`, then builds an ACK with a fresh local machine-ID (`CALL 620A`),
 command = `0x56`, length = 0, sends it, and `_Mov9B` restores the saved header.
 
@@ -244,16 +306,25 @@ header, and enters `3C:4292`. The payload loop loads the destination once at
   flushes a nonzero remainder.
 
 ```z80
-4292: BC=(8676) len ; (8678)=0
+4292: BC=(8676) len
+      (8678)=0
       if BC==0 → checksum tail
-      pagedGetPtr=983A ; pagedCount=0 ; HL=(84DB) dest
-      loop: 1FD6 (break check) ; _RecAByteIO → A
-            if BIT 7,H: (HL)=A ; INC HL
-            else: store A via pagedGetPtr ; INC pagedCount
+      pagedGetPtr=983A
+      pagedCount=0
+      HL=(84DB) dest
+      loop: 1FD6 (break check)
+            _RecAByteIO → A
+            if BIT 7,H: (HL)=A
+                        INC HL
+            else: store A via pagedGetPtr
+                  INC pagedCount
                   when pagedCount==0x10 → CALL 6AB1
-            (8678) += received_byte ; DEC BC ; loop while BC
+            (8678) += received_byte
+            DEC BC
+            loop while BC
       if pagedCount!=0 → CALL 6AB1
-42EF: _RecAByteIO ×2 → received checksum ; CALL 6356 (verify len/sum, NAK 0x5A on mismatch)
+42EF: _RecAByteIO ×2 → received checksum
+      CALL 6356 (verify len/sum, NAK 0x5A on mismatch)
 42FB: send ACK (cmd 0x56)
 ```
 
@@ -317,10 +388,15 @@ equality quirk.
 
 The header-classifier `6994` shows the receive-and-store sequence a var-receive runs:
 ```z80
-6994: 4255 (reset chk) ; 6298 (machine-ID re-validate) ; RST4 on (867F) (classify var header)
-      6D4B/4338 recv header ; expect (8675)==0x09 (VAR/CTS) else _JErrorNo
-      4338 recv DATA header ; expect (8675)==0x15 (DATA) else _JErrorNo
-      BC=(8676) len ; RST5 → store the variable into the VAT (creates RAM/Flash entry)
+6994: 4255 (reset chk)
+      6298 (machine-ID re-validate)
+      RST4 on (867F) (classify var header)
+      6D4B/4338 recv header
+      expect (8675)==0x09 (VAR/CTS) else _JErrorNo
+      4338 recv DATA header
+      expect (8675)==0x15 (DATA) else _JErrorNo
+      BC=(8676) len
+      RST5 → store the variable into the VAT (creates RAM/Flash entry)
 ```
 i.e. the receiver reproduces the VAT-create / `_InsertMem` path from [sub-vat-archive.md](sub-vat-archive.md).
 
@@ -333,25 +409,35 @@ OP1 = the variable name. It negotiates, sends the VAR header, waits for CTS, the
 
 ```z80
 link_xfer_op (3C:4DD2):
-  CALL probe_hw_model_keep_a        ; model/HW probe; spin on port 0x20 if assist busy
+  CALL probe_hw_model_keep_a        ; model/HW probe, spin on port 0x20 if assist busy
   SET 1,(IY+0x24)                   ; mark "transfer active"
-  RES 3,(IY+0x1B) ; save IY+0xC (APD) ; install cleanup handler 4F3E via 27DA
+  RES 3,(IY+0x1B)
+  save IY+0xC (APD)
+  install cleanup handler 4F3E via 27DA
   CALL _OP1ToOP6                    ; preserve the var name
   (build the var header into 867F) :
-      LD DE,0x867F ; CALL _MovFrOP1 ; *** header = var type byte + name token(s) ***
+      LD DE,0x867F
+      CALL _MovFrOP1                ; header = var type byte + name token(s)
   decide request command:
-      LD A,(8672) sndRecState ; CP 0x15 ;  A = 0xA2 (DATA-type)  else  0xB7
+      LD A,(8672) sndRecState
+      CP 0x15
+      A = 0xA2 (DATA-type) else 0xB7
       CALL 6971 (set "cmd in progress")
   USB negotiation (when IY+0x1B bit0 & bit5/6 set): poll port 0x4D bits 5/6, cross_page 2E0B
   CALL 4055 (send the VAR/request header via 40DA→41C3)
   CALL 6184 → _Rec1stByteNC (wait for peer reply)
-      CP 0x36 (SKIP/EXIT) → 427E ; _JErrorNo            ; peer refused
+      CP 0x36 (SKIP/EXIT) → 427E
+      _JErrorNo                     ; peer refused
       CP 0x06 (VAR/CTS ok) → continue, else 4D45 _JErrorNo
-  CALL 4255 ; CALL 687A (check transfer state 8688==0x07)
+  CALL 4255
+  CALL 687A (check transfer state 8688==0x07)
   if sndRecState==0x15 (DATA):
-      CALL 4763 (resolve var data: type/size/ptr, archive-aware) ; CALL ... send DATA
+      CALL 4763 (resolve var data: type/size/ptr, archive-aware)
+      CALL ... send DATA
   else: send the symbol-table/listing payload (4261)
-  RES 1,(IY+0x24) ; FUN_ram_2800 (restore) ; JP 4F3E (cleanup)
+  RES 1,(IY+0x24)
+  FUN_ram_2800 (restore)
+  JP 4F3E (cleanup)
 ```
 
 ### Resolving the variable for sending [confirmed]
@@ -368,17 +454,32 @@ supplies the data pointer, page, and length inside the DATA sender.
 
 ```z80
 40DA: CALL _SetupPagedPtr (17AC)            ; initialize the paged source from HL, DE, and B
-      (84DB)=ptr ; (8676)=len               ; iMathPtr5, packet length
-      6971 ; 620A (machine-ID) ; (8674)=ID
+      (84DB)=ptr                            ; iMathPtr5
+      (8676)=len                            ; packet length
+      6971
+      620A (machine-ID)
+      (8674)=ID
       if sndRecState == 0x08 and varClass == 0x0A and len > 0x037D:
-          (8676)=0x037D ; send header
-          checksum=0 ; send 0x63,0x00
-          DE=0x037B ; HL=data ptr+2
+          (8676)=0x037D
+          send header
+          checksum=0
+          send 0x63,0x00
+          DE=0x037B
+          HL=data ptr+2
 413D: CALL 41C3 (send DATA header, cmd already 0x15 from 4055)
-      HL=(84DB) ptr ; DE=(8676) len ; (8678)=0
-      loop 4150: 1FD6 (clock) ; _PagedGet (17BB) the next byte (handles Flash page-cross) ;
-                 41AB → _SendAByte ; accumulate (8678) ; DEC DE ; loop
-4167: send 2-byte checksum (8678 lo,hi) ; recv reply header ; CP 0x56 (ACK) ; else _JErrorNo
+      HL=(84DB) ptr
+      DE=(8676) len
+      (8678)=0
+      loop 4150: 1FD6 (clock)
+                 _PagedGet (17BB) the next byte (handles Flash page-cross)
+                 41AB → _SendAByte
+                 accumulate (8678)
+                 DEC DE
+                 loop
+4167: send 2-byte checksum (8678 lo,hi)
+      recv reply header
+      CP 0x56 (ACK)
+      else _JErrorNo
 ```
 
 The comparison at `3C:410A` computes `0x037D - len`. An equal length takes the
@@ -469,13 +570,21 @@ exactly like [`_FlashToRam`](sub-vat-archive.md#reading-archived-data-with-_flas
 The bcall most code/TI-BASIC reaches for to silent-send. It is a thin DI-wrapped front for the same
 machinery:
 ```z80
-4EDD: DI ; save IY+0xC (APD) ; RES 2,(IY+0xC)
+4EDD: DI
+      save IY+0xC (APD)
+      RES 2,(IY+0xC)
       install cleanup 4F3E via 27DA
-      LD A,0x0B ; (8672)=A          ; sndRecState = request/directory
-      LD A,0xC9 ; CALL 6971         ; command setup
-      CALL 62B0 (clear link sub-state in 8A0B) ; SET 2,(IY+0x1B)
-      CALL 58ED (→ SET 1,(IY+0x24) ; _ChkFindSym)  ; locate the var
-      JR 4EAD (shared tail with link_xfer_op: RES 1,(IY+0x24); 2800; JP 4F3E)
+      LD A,0x0B
+      LD (8672),A                   ; sndRecState = request/directory
+      LD A,0xC9
+      CALL 6971                     ; command setup
+      CALL 62B0                     ; clear link sub-state in 8A0B
+      SET 2,(IY+0x1B)
+      CALL 58ED                     ; sets IY+0x24 bit 1 and calls _ChkFindSym
+      JR 4EAD                       ; shared tail with link_xfer_op
+4EAD: RES 1,(IY+0x24)
+      2800 (restore)
+      JP 4F3E
 ```
 Note `4EDD` physically overlaps / shares the tail (`4EAD`) with `link_xfer_op`; they are two
 entry points into one routine body. `_SendVarCmd` is the "send by name from the running context"
@@ -486,8 +595,17 @@ door; `link_xfer_op` is the "OP1 already set up, do the silent transfer" door.
 ## APD, cleanup, and idle-line wait [confirmed]
 
 - `27DA` (`FUN_ram_27da`) installs an error callback. `link_xfer_op` and `_SendVarCmd` install
-  `3C:4F3E`, which restores link state, the APD timer, and `IY+0xC` bit 2 after `_JError`.
-  `4F3E: POP AF ; BIT 2,A ; (restore IY+0xC bit2) ; → 4F31 (RES 2,(IY+0x12); re-enable timers; EI)`.
+  `3C:4F3E`, which restores link state, the APD timer, and `IY+0xC` bit 2 after `_JError`:
+
+  ```z80
+  4F3E: POP AF
+        BIT 2,A
+        restore IY+0xC bit 2
+        continue at 4F31
+  4F31: RES 2,(IY+0x12)
+        re-enable timers
+        EI
+  ```
 - Six other transfer paths install page-0 stub `2D51`, which bjumps to `3C:6136`. That callback
   dispatches on `sndRecState`; for the applicable non-DATA states it calls the raw/USB-aware abort
   cleanup at `3C:618D`, then records `ioErrState=1` through stub `2F31` → `07:7AC3`. The raw branch

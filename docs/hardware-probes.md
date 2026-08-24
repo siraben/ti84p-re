@@ -188,7 +188,13 @@ The packaged 508-byte `HWPRAM.8xp` has SHA-256
 
 Probe ID 4 tests one bank-A selector per program. It scans the configured range
 through data reads for an existing `RET` byte. It creates a result AppVar with a
-pending outcome, remaps and verifies that byte, and performs `PUSH DE; JP (HL)`.
+pending outcome, remaps and verifies that byte, and performs:
+
+```z80
+PUSH DE
+JP (HL)
+```
+
 A successful fetch executes `RET`, returns to the probe, and changes the AppVar
 outcome to `returned`. The program never writes the selected RAM or Flash page.
 [confirmed] for the assembled instruction sequence.
@@ -315,7 +321,7 @@ return early instead. [confirmed] from the assembled probe and the ROM path at
 
 After each sequence, the probe reproduces the cleanup at `33:4EEB`–`33:4F00`:
 it sets port-`0x39` bit 4, pulses port-`0x3A` bit 4 around
-`A=0x40; CALL 00:0CED`, and clears port-`0x3A` bits 4 and 7. The common 30-byte
+`CALL 00:0CED` with `A = 0x40`, and clears port-`0x3A` bits 4 and 7. The common 30-byte
 state layout matches the battery-level probe, with raw masks at offsets
 `4`–`19` and post-sequence state at offsets `20`–`24`. The decoder rejects
 masks above `0x0F`. It reports a 16-bin histogram, a stable mask only when all

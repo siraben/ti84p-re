@@ -1372,7 +1372,14 @@ writes. [confirmed] for the fixture and TilEm execution.
 
 The page rejection returns at `3F:4C25`. The direct call returns at
 `3F:4C2E`. The invalid certificate address branches from `3F:4E4E` to the
-common `POP AF; RET` tail at `3F:4E55`–`3F:4E56`. [confirmed]
+common tail at `3F:4E55`–`3F:4E56`:
+
+```z80
+POP AF
+RET
+```
+
+[confirmed]
 
 The erase worker issues the six-cycle AMD sector-erase command: [confirmed]
 
@@ -1425,10 +1432,18 @@ push/pop pairs at `3F:486E`–`3F:4884`. This path therefore transports archive
 and OS-header metadata through the erase call; it does not establish a Flash
 reset pointer. [confirmed]
 
-The `3D:60EE` entry is similarly caller-controlled. Its page-0 thunk is a raw
-`CALL 2B09; .dw 6098; .db 7D` descriptor at `00:3EEB`; masking the raw page
-selects physical page `3D`. The reset caller initializes `HL`, `SP`, and `IY`
-at `00:0D65`–`00:0D6F` but not `DE` before calling the thunk. The page-`3D`
+The `3D:60EE` entry is similarly caller-controlled. Its page-0 thunk at
+`00:3EEB` contains this raw descriptor:
+
+```z80
+CALL 2B09
+.dw 6098
+.db 7D
+```
+
+Masking the raw page selects physical page `3D`. The reset caller initializes
+`HL`, `SP`, and `IY` at `00:0D65`–`00:0D6F` but not `DE` before calling the
+thunk. The page-`3D`
 body and its Flash-byte reader preserve that inherited value through the erase
 at `3D:60EE`. [confirmed]
 
