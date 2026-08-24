@@ -25,7 +25,6 @@
 - [Memory management](memory-management.md)
     - [Variables, archive and unarchive](sub-vat-archive.md)
     - [Resident assembly programs](sub-resident-programs.md)
-        - [Shell loaders and writeback](sub-shell-loaders.md)
     - [Resident scratch RAM](sub-resident-scratch.md)
     - [Apps, memory reset, and settings](sub-apps-mem-settings.md)
         - [Flash Apps as resident runtimes](sub-flash-app-runtime.md)

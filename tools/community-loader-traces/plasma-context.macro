@@ -1,0 +1,21 @@
+# Run APLASMA = Asm(prgmPLASMA), leave its GUI, then exercise the raw ON hook.
+set key_hold 0.15s
+set key_delay 0.08s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.6s
+key ENTER
+wait 1.5s
+key ENTER
+wait 6s
+key MODE
+wait 2s
+key ON
+wait 1s
+key ENTER
+wait 4s
