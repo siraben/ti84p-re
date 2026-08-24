@@ -9,6 +9,7 @@ _JForceCmd	402A	0747	00
 _newContext	4030	077E	00
 _PutAway	4039	08AF	00
 _AppInit	404B	0936	00
+_lcd_busy	4051	0CC3	00
 _Min	4054	2244	00
 _Max	4057	224D	00
 _AbsO1PAbsO2	405A	225B	00
@@ -411,7 +412,9 @@ _DrawCmd	48C1	7B8B	04
 _InvCmd	48C7	7D6A	04
 _CloseEditBuf	48D3	5675	05
 vert_split_draw	48DC	5D88	05
+_BufInsert	4909	42E5	06
 _IsEditEmpty	492D	21A7	00
+_BufClear	4936	222E	00
 _PutTokString	4960	46FD	06
 _CloseEditEqu	496C	4771	06
 _GetKey	4972	491E	06
@@ -561,6 +564,7 @@ _Arc_Unarc	4FD8	6248	07
 _JForceGraphNoKey	5002	6BFB	01
 _JForceGraphKey	5005	6BFD	01
 _PowerOff	5008	09E6	00
+_GetKeyRetOff	500B	491A	06
 _FillBasePageTable	5011	2692	00
 _ArcChk	5014	61AF	3D
 _FlashToRam	5017	6745	3D
@@ -581,6 +585,7 @@ _SetExSpeed	50BF	0DCA	00
 _UngroupVar	50C8	764A	39
 _SetSilentLinkHook	50CE	7DBB	3B
 _GetSysInfo	50DD	7345	07
+_NZIf83Plus	50E0	1837	00
 link_xfer_op	50FB	4DD2	3C
 c_log_prep	50FE	6F1B	02
 fpx_7069	5101	7069	02
