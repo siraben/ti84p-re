@@ -100,6 +100,23 @@ original, patterned, and restored bytes for selectors `82`–`87`. No physical
 result has been recorded. [standard] for the sources; [confirmed] for the probe
 bytes; [hypothesis] for an unmeasured calculator's topology.
 
+Flash Editor is historical community corroboration, not the missing physical
+result. Its readme says pages `84`–`87` can buffer a Flash sector on older
+128 KiB calculators and cannot do so on newer 48 KiB units. The included source
+saves port `0x06`, maps selected pages through it, and uses the extra selectors
+during edit and sector operations. It records no calculator identity, alias
+matrix, or hardware trace, so the claim does not establish which selectors are
+independent on any identified unit. [confirmed] for the source instructions;
+[standard] for the community claim; [hypothesis] for physical topology.
+
+The exact release is `programs/flashed.zip`, SHA-256
+`b99e56f11084f473c34bc2d7679d37b407764a698aee95f9ef8b6f663d7c8463`.
+Members `flashed.asm`, `routines.asm`, and `flashed.txt` have SHA-256
+`046f76fcfb173dcb80e3634adba5f804f0a961e6ba1efac48fcbe7bb9dc8781a`,
+`8669a0c6c50f8870a59d1b6d13ef567c5d5b255fcf6985e2026763adf6bc2a9c`,
+and `5580d4e0d096a2ee4c6ab0b0e08ba9703a3b961fcc72c31dc770a82cfc4d69b7`,
+respectively. [confirmed]
+
 ## Emulator implementations
 
 The pinned source revisions implement different RAM backing rules. These results
