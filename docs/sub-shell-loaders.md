@@ -79,11 +79,13 @@ archive bytes through a temporary page-read thunk. It replaces and rearchives
 the program only when the comparison differs. The release changelog describes
 the same smart-writeback policy. [confirmed]
 
-The launch wrapper selects IM1 for the client, installs an OS error handler,
-and restores MirageOS's IM2 tasker state afterward. MirageOS itself reserves
-the first five bytes of `statVars` (`0x8A3A`–`0x8A3E`) for tasker timers and
-uses `0x966F` for its custom-interrupt entry. Those bytes are not general client
-scratch while the tasker or custom interrupt is active. [confirmed]
+The launch wrapper installs an OS error handler and conditionally prepares the
+MirageOS tasker before calling the client. With tasker flag bit 6 at `0x9689`
+set, mapped `0x7176`–`0x71E9` installs IM2 and writes timers, code, and a vector
+table across `0x8A3A`–`0x8C1B`. The wrapper selects IM1 after the client
+returns. It uses `0x966F` as the custom-interrupt entry when that option is
+enabled. These `statVars` ranges are not client scratch while the tasker or
+custom interrupt is active. [confirmed]
 
 The changelog also states that ON+`^` quits immediately without writeback.
 Whether that path restores every intermediate body and mapping, and what
