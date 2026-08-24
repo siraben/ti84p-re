@@ -80,8 +80,13 @@ stat_done:
     ld a,(stat_result)
     add a,'0'
     bcall(_PutC)
-    bcall(_GetKey)
-    ret
+
+    ; Leave the checked result visible without entering another ON-sensitive
+    ; _GetKey. The headless macro ends the emulator after its dumps.
+    di
+result_halt:
+    halt
+    jr result_halt
 
 ; A = fill byte, HL = start, BC = size. Returns Z if every byte matches.
 check_fill:
