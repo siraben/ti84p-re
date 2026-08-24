@@ -153,6 +153,35 @@ page-byte guard to `ERR:ARCHIVED`. See
 [Variables, archive and unarchive](sub-vat-archive.md#resolved-behavior-and-open-items).
 [confirmed]
 
+## Resident-runtime experiments
+
+The compiled `Asm(` launcher, its `0x2000` internal-size cap, pointer repair,
+archived lookup, scratch-buffer observations, and normal bank-A bcall restore
+are documented. These boundaries still need dynamic or physical evidence:
+
+- Capture heap pointers, `_MemChk`, and `SP` before insertion, at payload entry,
+  inside a nested bcall, and after cleanup. Repeat `_ExecAsm`, archived OS
+  paths, and shell paths with boundary-size programs.
+- Isolate scratch-buffer writes by bcall. Complete a successful
+  `_DisableApd`/`_DelRes` guard run through `_GetKey`, ON-key handling, an OS
+  error, APD, archive collection, link/USB, and shell interrupts.
+- Run page-`0x83` guards through editor, graph, table, statistics, App,
+  archive-GC, and transfer contexts. Probe selectors `0x84`–`0x87` on
+  identified 48 KiB and 128 KiB calculators.
+- Measure execution-protection ports and reset behavior on each ASIC. Recover
+  Fullrene from an original artifact and test instruction fetch, operand read,
+  stack access, and block copy at the same physical addresses.
+- Measure maximum AppVar allocations for direct `Asm(`, shell move loaders, and
+  one- and multi-page Flash Apps with clean and representative VAT states.
+- Force Flash-page, sector, and garbage-collection crossings while streaming an
+  archived object. Reacquire its VAT result after each moving operation.
+- Run one instrumented self-modifying payload under Ion, MirageOS, Doors CS, and
+  zStart. Record peak RAM, self-lookup bytes, normal/error/forced-exit writeback,
+  interrupt state, page selectors, and scratch restoration.
+- Interrupt a two-slot AppVar update at each create, write, archive,
+  garbage-collection, and delete boundary. Verify that startup selects the last
+  committed generation.
+
 ## Physical-hardware work
 
 The emulator pages distinguish ROM behavior from TilEm, Wabbitemu, and MAME
