@@ -57,9 +57,11 @@ defining the excluded calls and contexts as part of its ABI.
 ## Conditional `saveSScreen` and `statVars` claims
 
 Public TI-83 Plus documentation permits `saveSScreen` after `_DisableApd`, and
-permits `statVars` after `_DelRes` when statistics code is excluded. A shell
-interrupt, especially MirageOS's interrupt, adds another owner of `statVars`.
-[standard]
+permits `statVars` after `_DelRes` when statistics code is excluded. `_DelRes`
+invalidates existing statistics results; it does not reserve the block against
+later statistics commands or third-party interrupt handlers. [standard]
+
+### Direct TI-OS guard
 
 The guarded direct-launch fixture calls `_DisableApd` and `_DelRes`, fills all
 768 bytes of `saveSScreen` with `0xA5` and all 531 bytes of `statVars` with
@@ -72,14 +74,56 @@ Build the TI-BASIC `Asm(prgmSCRPROBE)` wrapper with
 `tools/fixtures/scratch_guard_probe.asm` and run
 `tools/macros/scratch-guard-probe.macro`. The full trace executes 14,736
 instructions in the payload range, including the 767- and 530-byte fill
-`LDIR`s and the complete 768- and 531-byte comparison loops. An earlier version
-entered a second `_GetKey` while ON was still held and raised `ERR:BREAK`; the
-current fixture halts after rendering the result.
+`LDIR`s and the complete 768- and 531-byte comparison loops. The fixture halts
+after rendering the result so a held ON key cannot enter another `_GetKey`.
 
 This confirms the documented `saveSScreen` condition for that direct emulator
 scenario. It does not cover an APD timeout, error unwinding, physical hardware,
-statistics code after `_DelRes`, or the MirageOS interrupt. `statVars` remains
-conditional under those untested owners.
+or statistics code after `_DelRes`.
+
+### Shell-owned `statVars` ranges
+
+Common shells do not share one `statVars` contract. The table separates static
+shell ownership from the direct dynamic guard. [confirmed] for the identified
+release source or binary; untraced runtime cells remain open.
+
+| Context | Result | Evidence and boundary |
+|---|---|---|
+| Direct TI-OS 2.55MP | All 531 bytes pass | One TilEm x4 guard with `_DelRes`, statistics excluded, and IM1; no physical run |
+| MirageOS 1.2 with tasker disabled | Candidate only | The setup routine returns while tasker flag bit 6 at `0x9689` is clear; no client guard run |
+| MirageOS 1.2 with tasker or custom interrupt active | Unsafe | The original binary installs timers, handler code, and an IM2 vector table inside `statVars` before client execution |
+| Doors CS 7.4 | Unsafe as general client storage | Source reserves the block for shell state; its Mirage-compatible interrupt also installs code and vectors there |
+| Ion 1.6 | Unresolved | Source review pins no Ion-owned interrupt in this block; no client guard run |
+| zStart 1.3.013 | Unresolved | The launcher selects IM1 for the client and pins no explicit shell owner in this block; no client guard run |
+
+MirageOS's tasker setup at mapped `0x7176`–`0x71E9` writes these ranges:
+
+| Range | MirageOS owner |
+|---|---|
+| `0x8A3A`–`0x8A3E` | three timer counters and two reload values |
+| `0x8A4F`–`0x8A88` | relocated interrupt code |
+| `0x8A8A`–`0x8AFE` | relocated interrupt dispatcher |
+| `0x8B00`–`0x8C00` | 257-byte IM2 vector table built by `_MemSet = 4C33` |
+| `0x8C01`–`0x8C1B` | relocated timer worker |
+
+The timer worker at mapped `0x7140`–`0x715A` updates the first five bytes. The
+launch paths call the setup routine before calling the client at `0x9680` or
+`0x9D96`; they select IM1 only after that call returns at mapped `0x7584` or
+`0x75A3`. A client can therefore run while the MirageOS IM2 owner is active.
+[confirmed]
+
+Doors CS source defines `pendfile = 0x8A3A` and places up to 48 bytes of ALE
+vectors after its ten-byte record, occupying `0x8A3A`–`0x8A73`. Its source
+also declares the complete 531-byte `statVars`/`anovaf_vars` span as internal
+storage. The Mirage-compatible `mos_setupint` routine installs its handler at
+`0x8A8A`, its vector table at `0x8B00`–`0x8C00`, and optional timers at
+`0x8A3A`–`0x8A3E`. `_DelRes` does not release these shell-owned objects.
+[confirmed]
+
+`tools/data/scratch-guard-results.csv` records the direct trace, the exact
+MirageOS and Doors CS owned ranges, and explicit `not-run` rows for Ion and
+zStart. Dynamic guards under all four shells and physical-calculator runs
+remain required before the checklist's common-shell requirement is complete.
 
 ## Page `0x83` during resident execution
 
