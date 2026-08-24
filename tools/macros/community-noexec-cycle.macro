@@ -1,0 +1,30 @@
+# Install NoExec with 1/2/3 as its removal sequence, then type that sequence
+# after return so the resident raw-key hook clears both installed hooks.
+set key_hold 0.18s
+set key_delay 0.10s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.6s
+key ENTER
+wait 0.8s
+key ENTER
+wait 2s
+key 1
+wait 1s
+key 2
+wait 1s
+key 3
+wait 3s
+key 1
+wait 0.8s
+key 2
+wait 0.8s
+key 3
+wait 3s
+memdump /tmp/community-noexec-cycle.ram ram-logical
+screenshot /tmp/community-noexec-cycle.png

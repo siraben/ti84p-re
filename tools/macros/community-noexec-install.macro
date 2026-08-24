@@ -1,0 +1,24 @@
+# Run AARUN = Asm(prgmNOEXEC), choose a three-key sequence, and stop after
+# both persistent hooks have been installed.
+set key_hold 0.18s
+set key_delay 0.10s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.6s
+key ENTER
+wait 0.8s
+key ENTER
+wait 2s
+key 1
+wait 1s
+key 2
+wait 1s
+key 3
+wait 4s
+memdump /tmp/community-noexec-install.ram ram-logical
+screenshot /tmp/community-noexec-install.png

@@ -1,0 +1,19 @@
+# Run AARUN = Asm(prgmWEIRD) and let its installed IM2 handler execute. This
+# fixture is assembled from the pinned standalone source with the pinned
+# project include; it does not execute any contributed host assembler.
+set key_hold 0.18s
+set key_delay 0.10s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.6s
+key ENTER
+wait 0.8s
+key ENTER
+wait 4s
+memdump /tmp/community-weird-install.ram ram-logical
+screenshot /tmp/community-weird-install.png

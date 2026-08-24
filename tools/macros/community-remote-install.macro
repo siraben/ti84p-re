@@ -1,0 +1,20 @@
+# Run AARUN = Asm(prgmRemoteC), select installer option 1, and stop before
+# invoking the installed key hook on the Y= key.
+set key_hold 0.18s
+set key_delay 0.10s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.6s
+key ENTER
+wait 0.8s
+key ENTER
+wait 2s
+key 1
+wait 3s
+memdump /tmp/community-remote-install.ram ram-logical
+screenshot /tmp/community-remote-install.png
