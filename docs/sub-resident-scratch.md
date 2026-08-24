@@ -81,11 +81,15 @@ establish behavior on physical hardware.
 - Remote Control copies a key hook to its `KEYLOC` equate at
   `appBackUpScreen`, installs it with bcall ID `4F66h`, and returns. The hook
   sends bytes through `_SendAByte` when TI-OS invokes it.
+- ONBLOCK fills `0x9900`–`0x99FF` with an IM2 vector, copies its handler to
+  `0x9A9A`, selects IM2, and returns while both ranges remain live inside
+  `appBackUpScreen`. Its handler clears port-`0x03` bit 0 before calling the
+  TI-OS IM1 entry at `ram:003A`.
 
 An assembly runtime must therefore exclude or explicitly remove installed
-raw-key, parser, and shell hooks before borrowing this buffer. The documented
-`_DisableApd` and `_DelRes` conditions for other buffers do not establish that
-`appBackUpScreen` is unowned.
+raw-key, parser, and shell hooks and persistent IM2 residents before borrowing
+this buffer. The documented `_DisableApd` and `_DelRes` conditions for other
+buffers do not establish that `appBackUpScreen` is unowned.
 
 ## Conditional `saveSScreen` and `statVars` claims
 
@@ -268,4 +272,5 @@ hardware; doing so keeps the helper transparent and portable to related models.
 | [NoExec release archive](https://www.ticalc.org/pub/83plus/asm/programs/noexec.zip), SHA-256 `dc3ddf2dd4de8a802a2862d6aaf671a4ff5e618eb98377844eb711b90a443a84`; member `noexec.z80`, SHA-256 `de323ead58eea7b9590865da2694905b775b8f900c798fa438b4aa9b035d58b5` | static raw-key and parser hook placement in `appBackUpScreen` |
 | [Plasma 1.4.1 release archive](https://www.ticalc.org/pub/83plus/asm/shells/plasma141.zip), SHA-256 `62965a41fe071902043ebcbbd1254f710d29729bf86a78f20b6f14d6974f5d5a`; member `Plasma/plasma.asm`, SHA-256 `b424980285adf3f16225239c3ba3f133a42efb38d0666d968eee4b1fe24b810f` | static raw-key hook placement in `appBackUpScreen` |
 | [Remote Control release archive](https://www.ticalc.org/pub/83plus/asm/programs/remotecontrol.zip), SHA-256 `9eb1d4bb9beabe0ae31e49756c2a23938c6301a27f3d553a5d3381651262e591`; member `RemoteC.z80`, SHA-256 `19eb8c5b8b20a1f9139ac89c8603727f76977ddb9548c8ff318ef5eec07285c4` | static key-hook placement and link-send behavior |
+| [ONBLOCK release archive](https://www.ticalc.org/pub/83plus/asm/programs/onblock.zip), SHA-256 `40a5139d378608a303691fb34f3edf79ae4968bf39801b75bc311371b66f69d2`; member `ONBLOCK.asm`, SHA-256 `3023dc7654db87f8f2ea60f54a4b61beba1ca1252cc3fff975409631384ed750` | static persistent IM2 vector and handler placement in `appBackUpScreen` |
 | [ViewRegs release archive](https://www.ticalc.org/pub/83plus/asm/programs/viewregs.zip), SHA-256 `84837e779315f799b53f8115e8c4e9563babc5add0541f52d72117d93a68e2b2`; member `ViewRegs/ViewRegs.z80`, SHA-256 `120d8a7845a0f0f7a4f3c32f4f53b1e1f1d5efd210af542e64e1408546bba13b`; member `ViewRegs/readme.txt`, SHA-256 `a4f66bc84f2f7d17e2dbfa5603fb3b65ed57f311e20dbb7143ad95bde20d2cf7` | static IM2 ownership of `saveSScreen` and `statVars`, plus the statistics warning |
