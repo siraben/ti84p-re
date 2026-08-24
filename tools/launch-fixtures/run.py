@@ -99,6 +99,7 @@ def main() -> None:
                 sys.executable,
                 str(RESOLVER),
                 str(trace),
+                "--initial-mapping", "ti84p-reset",
                 "--coverage",
                 "--sort", "addr",
                 "--names", str(NAMES),

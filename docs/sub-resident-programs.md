@@ -57,6 +57,9 @@ actual boundary sizes. Each accepted trace reaches `_ExecutePrgm`, the limit
 test, `_InsertMem`, the payload handoff, and `ram:9D95`; the rejected trace
 reaches `ram:2729` before insertion. [confirmed]
 
+`tools/data/launch-boundary-results.csv` records the ROM, fixture, and trace
+hashes together with instruction counts and reached checkpoints. [confirmed]
+
 | Internal size | Bytes after marker | TilEm result |
 |---:|---:|---|
 | `0x1FFF` | 8,189 | Accepted |
