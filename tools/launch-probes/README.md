@@ -45,6 +45,12 @@ nix develop -c python3 tools/launch-probes/analyze_launch_trace.py \
 The reference payload is 373 bytes, so the compiled program's internal size is
 `0x0177`: two marker bytes plus the payload.
 
+The reference trace's complete-image SHA-256 is
+`dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09`,
+the BootFree 11.259 variant. The measured launcher on Flash page `0x07` is
+byte-identical to the canonical retail analysis image; the trace does not
+establish retail-boot behavior.
+
 ## Reference result
 
 The four source-variable records agree:

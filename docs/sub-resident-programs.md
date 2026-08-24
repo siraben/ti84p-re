@@ -127,6 +127,13 @@ compiled program launched by `Asm(prgmRTSNAP)`, and the ROM with SHA-256
 `dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09`.
 [confirmed]
 
+That complete-image identity is the BootFree 11.259 variant, not the canonical
+retail-boot image. The launch implementation on Flash page `0x07` is
+byte-identical in both images; page `0x07` has SHA-256
+`6335c5f15cb5d534423b8d018dd412d21905e5ca448cc3f84d6c53d15b3aa60e`.
+The trace therefore supports the page-`0x07` launch result, but no retail-boot
+claim. [confirmed]
+
 | Checkpoint | `FPS` | `OPS` | `pTemp` | `progPtr` | `SP` | `_MemChk` |
 |---|---:|---:|---:|---:|---:|---:|
 | `_ExecutePrgm` entry | `0x9FFA` | `0xFCBA` | `0xFCCE` | `0xFD34` | `0xFFD7` | `0x5CC1` |

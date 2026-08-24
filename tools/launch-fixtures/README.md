@@ -60,4 +60,8 @@ rejected case reaches logical `0x2729` without those three addresses.
 Machine-readable fixture and trace hashes are in
 `tools/data/launch-boundary-results.csv`. [confirmed]
 
+The complete-image hash identifies the BootFree 11.259 variant. Flash page
+`0x07`, which contains the measured launcher, is byte-identical to the
+canonical retail analysis image. These traces make no retail-boot claim.
+
 Dynamic acceptance still depends on enough free RAM for the execution copy.
