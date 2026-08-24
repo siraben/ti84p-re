@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6f06b547.js";
+            window.path_to_searchindex_js = "searchindex-fef03c08.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-34eae533.js"></script>
@@ -234,9 +234,10 @@ data. Those bytes occupy the final two bytes of the execution allocation.
 [confirmed] A boundary fixture should place guard bytes after the variable to
 record their exact values at <code>ram:BD93</code> and <code>ram:BD94</code>.</p>
 <p>The builders and TilEm runner in <code>tools/launch-fixtures/</code> exercise the three
-actual boundary sizes. Each accepted trace reaches <code>_ExecutePrgm</code>, the limit
-test, <code>_InsertMem</code>, the payload handoff, and <code>ram:9D95</code>; the rejected trace
-reaches <code>ram:2729</code> before insertion. [confirmed]</p>
+adjacent boundary sizes. Each accepted trace reaches <code>_ExecutePrgm</code>, the limit
+test, the <code>_InsertMem</code> call site, the payload handoff, and <code>ram:9D95</code>. The
+rejected trace reaches the <code>E_Invalid</code> shim at <code>ram:2729</code> before insertion.
+[confirmed]</p>
 <p><code>tools/data/launch-boundary-results.csv</code> records the ROM, fixture, and trace
 hashes together with instruction counts and reached checkpoints. [confirmed]</p>
 <div class="table-wrapper">
@@ -247,13 +248,12 @@ hashes together with instruction counts and reached checkpoints. [confirmed]</p>
 <tbody>
 <tr><td style="text-align: right"><code>0x1FFF</code></td><td style="text-align: right">8,189</td><td>Accepted</td></tr>
 <tr><td style="text-align: right"><code>0x2000</code></td><td style="text-align: right">8,190</td><td>Accepted</td></tr>
-<tr><td style="text-align: right"><code>0x2001</code></td><td style="text-align: right">8,191</td><td>Rejected with memory error</td></tr>
+<tr><td style="text-align: right"><code>0x2001</code></td><td style="text-align: right">8,191</td><td>Rejected with <code>ERR:INVALID</code></td></tr>
 </tbody>
 </table>
 </div>
-<p>The previously suggested 8,808–8,814-byte variables are all above this ROM
-limit, so they cannot distinguish the boundary. The fixture uses the adjacent
-sizes instead.</p>
+<p>Internal sizes of 8,808–8,814 bytes are all above this ROM limit, so they cannot
+distinguish the boundary. The fixture uses adjacent sizes instead.</p>
 <h2 id="text-asmprgm-launch"><a class="header" href="#text-asmprgm-launch">Text <code>AsmPrgm</code> launch</a></h2>
 <p>The <code>BB 6C</code> text path begins at <code>07:57D4</code>. <code>07:5717</code>–<code>07:5731</code> counts decoded
 hex-byte pairs while ignoring <code>?</code> separators, then applies the same <code>0x2000</code>
@@ -275,13 +275,14 @@ also assumes that the copy still begins at <code>ram:9D95</code>. [confirmed]</p
 <h2 id="observed-handoff-state"><a class="header" href="#observed-handoff-state">Observed handoff state</a></h2>
 <p>A headless TilEm trace of <code>Asm(prgmASMRET)</code> on a TI-84 Plus with OS 2.55MP
 reaches <code>asm_payload_handoff</code> at <code>07:57B4</code>, then executes <code>RET</code> at logical
-<code>0x9D95</code>. The handoff has <code>SP=0xFFCB</code>; the payload instruction has the same
-value because <code>CALL 07:57FD</code> and its <code>JP ram:9D95</code> leave the return address on
-the stack. [confirmed]</p>
+<code>0x9D95</code>. TLMT instruction records contain the register state after the named
+instruction. The <code>CALL 07:57FD</code> record at <code>07:57B4</code> and the <code>JP ram:9D95</code>
+record at <code>07:57FD</code> both report payload-entry <code>SP=0xFFC9</code>. The <code>RET</code> record at
+<code>ram:9D95</code> reports <code>SP=0xFFCB</code> after popping the launcher return. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Register</th><th style="text-align: right">First instruction at <code>ram:9D95</code></th></tr>
+<tr><th>Register</th><th style="text-align: right">Post-instruction <code>RET</code> record at <code>ram:9D95</code></th></tr>
 </thead>
 <tbody>
 <tr><td><code>AF</code></td><td style="text-align: right"><code>0x01BB</code></td></tr>
@@ -320,7 +321,7 @@ claim. [confirmed]</p>
 <tr><td><code>_ExecutePrgm</code> entry</td><td style="text-align: right"><code>0x9FFA</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFD7</code></td><td style="text-align: right"><code>0x5CC1</code></td></tr>
 <tr><td>First payload instruction</td><td style="text-align: right"><code>0xA171</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFC9</code></td><td style="text-align: right"><code>0x5B4A</code></td></tr>
 <tr><td>Nested <code>_MemChk</code> entry</td><td style="text-align: right"><code>0xA171</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFC3</code></td><td style="text-align: right"><code>0x5B4A</code></td></tr>
-<tr><td>Payload return</td><td style="text-align: right"><code>0xA171</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFCB</code></td><td style="text-align: right"><code>0x5B4A</code></td></tr>
+<tr><td>Final payload <code>RET</code> (post-instruction)</td><td style="text-align: right"><code>0xA171</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFCB</code></td><td style="text-align: right"><code>0x5B4A</code></td></tr>
 <tr><td>Cleanup entry</td><td style="text-align: right"><code>0xA171</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFD7</code></td><td style="text-align: right"><code>0x5B4A</code></td></tr>
 <tr><td>Cleanup return</td><td style="text-align: right"><code>0x9FFA</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFD9</code></td><td style="text-align: right"><code>0x5CC1</code></td></tr>
 </tbody>
@@ -357,6 +358,39 @@ RAM-relocated. [confirmed]</p>
 absolute pointer into a program, AppVar, or workspace can become stale after a
 create, delete, resize, archive, unarchive, temporary cleanup, variable receive,
 or archive garbage collection. [confirmed]</p>
+<h2 id="resident-allocation-trace"><a class="header" href="#resident-allocation-trace">Resident allocation trace</a></h2>
+<p>The fixture under <code>tools/allocation-probes/</code> calls <code>_EnoughMem</code>,
+<code>_CreateAppVar</code>, <code>_DelVar</code>, <code>_CreateProg</code>, <code>_InsertMem</code>, and <code>_DelMem</code> from a
+compiled program at <code>ram:9D95</code>. Its trace replays RAM writes at ten timed
+checkpoints. [confirmed]</p>
+<p>A 32-byte AppVar or program moves <code>FPS</code> from <code>0xA076</code> to <code>0xA098</code> and <code>OPS</code>,
+<code>OPBase</code>, and <code>pTemp</code> downward by 12 bytes. <code>_MemChk</code> falls from <code>0x5C44</code> to
+<code>0x5C16</code>. Deleting either object restores all recorded heap pointers.
+[confirmed]</p>
+<p>The direct <code>_InsertMem</code> probe opens 16 bytes at the source variable’s data
+pointer. <code>_ChkFindSym</code> then returns <code>0x9F3B</code> instead of <code>0x9F2B</code>. <code>_DelMem</code>
+restores <code>0x9F2B</code>. An eight-byte guard in the execution copy remains unchanged,
+and every payload checkpoint remains at its assembled <code>ram:9D95</code>-relative
+address. TI-OS repairs the source VAT pointer; it does not move the executing
+copy. [confirmed]</p>
+<p>The ROM repair pass at <code>ram:11E8</code>–<code>ram:128A</code> conditionally adjusts 24 OS pointer
+slots. Named slots include <code>iMathPtr1</code>–<code>iMathPtr5</code>, <code>asm_data_ptr1</code>,
+<code>asm_data_ptr2</code>, <code>fmtMatMem</code>, <code>newDataPtr</code>, <code>EQS</code>, <code>insDelPtr</code>, <code>editDat</code>,
+<code>chkDelPtr1</code>, <code>chkDelPtr2</code>, <code>XOutDat</code>, <code>YOutDat</code>, <code>fOutDat</code>, and <code>inputDat</code>.
+The adjacent pass at <code>ram:11C7</code> repairs <code>basic_start</code>, <code>nextParseByte</code>, and
+<code>basic_end</code>. The VAT scan at <code>ram:139D</code> repairs each affected RAM entry’s data
+pointer. [confirmed]</p>
+<p>The reset-state run, with only the required wrapper and probe variables,
+measures <code>_MemChk=0x5C44</code> before its maximum AppVar.
+For the five-character name <code>ALMAX</code>, <code>_CreateAppVar</code> consumes a 14-byte
+overhead: two data-size bytes plus a 12-byte VAT entry. A payload request of
+<code>0x5C36</code> succeeds, producing <code>FPS=0xFCAE</code>, <code>OPS=0xFCAD</code>, and <code>_MemChk=0</code>.
+The hardware stack remains at <code>SP=0xFFC9</code>; the creator does not include that
+remaining stack-to-VAT distance in its capacity decision. [confirmed]</p>
+<p><code>tools/data/resident-allocation.csv</code> records the checkpoints, ROM and trace
+hashes, model, and OS version. This run covers the direct-<code>Asm(</code> reset state.
+It does not measure representative user-variable populations, shell
+move-loaders, Flash Apps, or physical hardware. [confirmed]</p>
 <h2 id="stable-ram-appvar-protocol"><a class="header" href="#stable-ram-appvar-protocol">Stable RAM AppVar protocol</a></h2>
 <p>A long-running runtime can use a RAM AppVar as a movable workspace if it treats
 the VAT lookup as a handle operation:</p>
@@ -372,10 +406,10 @@ payload base.</li>
 <li>If a stored image contains absolute pointers, relocate every pointer after
 reacquisition and before use.</li>
 </ol>
-<p>This protocol prevents pointer invalidation; it does not make an update
-transactional. Persistent data needs a version, length, checksum, and commit
-marker. A two-record or copy-on-write design is required to recover from a
-reset during an update. [standard]</p>
+<p>This protocol keeps no data pointer across a moving operation; it does not make
+an update transactional. A reset-tolerant format can add a version, length,
+checksum, and commit marker. Two records or copy-on-write storage can preserve
+the last committed generation during an interrupted update.</p>
 <h2 id="archived-lookup-contract"><a class="header" href="#archived-lookup-contract">Archived lookup contract</a></h2>
 <p>The VAT scanner reached through <code>_ChkFindSym</code> returns the archive page in <code>B</code>
 and the data pointer in <code>DE</code>. [confirmed]</p>

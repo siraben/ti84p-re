@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6f06b547.js";
+            window.path_to_searchindex_js = "searchindex-fef03c08.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-34eae533.js"></script>
@@ -183,9 +183,11 @@
 <p>This page traces Flash App launch, the <strong>MEM → Reset</strong> paths, and the format and
 graph flags controlled by the <strong>MODE</strong> screen. Addresses and confidence flags
 follow <a href="conventions.html">Conventions and methodology</a>.</p>
-<p>Cross-references: <a href="boot-contexts-errors.html">Boot contexts &amp; errors</a> (contexts, <code>_AppInit</code>, event router), <a href="memory-management.html">Memory management</a> (RAM heap,
-<code>_CleanAll</code>), <a href="flash-page-map.html">Flash page map</a> (flash page map). Flag bits use the <code>ti83plus.inc</code> equates; the
-SystemFlags base is <code>IY = flags = 0x89F0</code>, so e.g. <code>(IY+0x0A)</code> = <code>flags + fmtFlags</code>.</p>
+<p>Cross-references: <a href="boot-contexts-errors.html">Boot, contexts, and errors</a>
+(contexts, <code>_AppInit</code>, event router), <a href="memory-management.html">Memory management</a>
+(RAM heap, <code>_CleanAll</code>), and <a href="flash-page-map.html">Flash page map</a> (Flash page
+map). Flag bits use the <code>ti83plus.inc</code> equates; the SystemFlags base is
+<code>IY = flags = 0x89F0</code>, so, for example, <code>(IY+0x0A)</code> = <code>flags + fmtFlags</code>.</p>
 <p>Long-running App design is covered separately in
 <a href="sub-flash-app-runtime.html">Flash Apps as resident runtimes</a>, including RAM
 allocation, cross-page calls, contexts, cleanup, and persistent AppVars.</p>
@@ -197,13 +199,14 @@ run of 16 KiB flash pages whose first page begins with a TLV app header.</p>
 <h3 id="app-header-format-tlv-confirmed"><a class="header" href="#app-header-format-tlv-confirmed">App header format (TLV) [confirmed]</a></h3>
 <p>An app header is a sequence of type-length-value fields starting at offset 0 of the
 app’s first page. Each field begins with two bytes in WikiTI’s <code>TT TS</code> notation: the high
-12 bits are the field number, and the low nibble of the second byte encodes the payload
-length. The decoder bytes are at <code>init_flash_page_counter+0x08</code>
+12 bits are the field number. A low size nibble from <code>0</code> through <code>C</code> is the
+payload length; <code>D</code>, <code>E</code>, and <code>F</code> instead select one, two, or four following
+length bytes. The decoder bytes are at <code>init_flash_page_counter+0x08</code>
 (<code>3D:7285</code>), but the disassembly does not expose a separate function there:</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>size nibble</th><th>field payload size</th></tr>
+<tr><th>size nibble</th><th>following length bytes</th></tr>
 </thead>
 <tbody>
 <tr><td><code>0xD</code></td><td>1 byte</td></tr>
@@ -241,7 +244,7 @@ after field <code>807</code>.</p>
 <tr><td><code>808</code></td><td>page count</td><td>one byte; matches the decoded page count for Axe and CtlgHelp’s two-page apps</td></tr>
 <tr><td><code>809</code></td><td>disable TI splash screen</td><td>usually zero-length when present; zStart uses a 15-byte app-owned payload</td></tr>
 <tr><td><code>80C</code></td><td>lowest basecode</td><td>usb8x uses <code>02 1E</code>, decoded as basecode <code>2.30</code></td></tr>
-<tr><td><code>032</code></td><td>date stamp</td><td>six bytes; bytes 1-4 decode as seconds since 1997-01-01</td></tr>
+<tr><td><code>032</code></td><td>date stamp</td><td>six-byte payload: nested <code>09 04</code>, then a four-byte count of seconds since 1997-01-01</td></tr>
 <tr><td><code>020</code></td><td>date-stamp signature / unchecked payload</td><td>usually 64 bytes; Axe stores executable helper bytes here</td></tr>
 <tr><td><code>807</code></td><td>final field</td><td>terminates the parsed header; the <code>807F</code> length bytes are ignored</td></tr>
 </tbody>
@@ -312,13 +315,13 @@ the decoded header table. The corpus keeps the same parser boundary rule:</p>
 apps end the parsed header at <code>4029</code>, <code>4070</code>, or exactly <code>4080</code>, and all remain valid
 because the <code>807</code> final field terminates the header.</p>
 <p>The public entry points for walking these fields are bcalls in <code>ti83plus.inc</code>:
-<code>_FindAppHeaderSubField</code> (bcall <code>0x80AB</code>) locates a field in an app header, and
-<code>_FindOSHeaderSubField</code> (bcall <code>0x8075</code>) does the same for the OS header. Both build on the
-generic walkers <code>_FindSubField</code> (bcall <code>0x805D</code>), <code>_FindGroupedField</code> (bcall <code>0x8030</code>), and
-<code>_GetFieldSize</code> (bcall <code>0x805A</code>), which decode the TLV length nibble shown above. These IDs
-sit in the boot-page bcall range (<code>0x8000</code>+); the <code>0x8040</code>/<code>0x8070</code>/<code>0x8080</code> helpers the OS
-also reaches are a distinct group in the same range and are not these field walkers. The body
-addresses behind these public entry points are not defined functions in the disassembly.</p>
+<code>_FindAppHeaderSubField</code> (ID <code>80ABh</code>, body <code>3F:500A</code>) locates a field in an App
+header, and <code>_FindOSHeaderSubField</code> (ID <code>8075h</code>, body <code>3F:5018</code>) does the same
+for the OS header. Both build on <code>_FindSubField</code> (ID <code>805Dh</code>, body <code>3F:4DFB</code>),
+<code>_FindGroupedField</code> (ID <code>8030h</code>, body <code>3F:4E8C</code>), and <code>_GetFieldSize</code> (ID
+<code>805Ah</code>, body <code>3F:4DB8</code>), which decode the TLV length nibble shown above. These
+retail targets are recorded in <code>tools/data/boot-page-comparison.csv</code>.
+[confirmed]</p>
 <h3 id="_findapp-_findappup-and-_findappdn-confirmed"><a class="header" href="#_findapp-_findappup-and-_findappdn-confirmed"><code>_FindApp</code>, <code>_FindAppUp</code>, and <code>_FindAppDn</code> [confirmed]</a></h3>
 <ul>
 <li><code>_FindApp</code> (<code>3D:5EE3</code>) — locate an app by name (OP1). Inits the search page,
@@ -334,15 +337,16 @@ start page and a found/not-found flag via <code>RST 28</code> (bcall) into RAM f
 <li><code>app_find_next_page</code> (<code>3D:5FB1</code>) — <code>appSearchPage (0x82A3) -= 1</code>; stops at page 7
 (low boundary of the app region); bjumps <code>appSearchPage:0x4000</code> to inspect the header.</li>
 <li><code>init_flash_page_counter</code> (<code>3D:727D</code> → <code>model_app_top_page</code> at <code>3D:726E</code>) — initializes <code>appSearchPage</code> at <code>0x82A3</code> to the model-selected top App page plus one.</li>
-<li><code>_FindAppUp</code> (<code>5DDA</code>) / <code>_FindAppDn</code> (<code>5DE6</code>) — enumerate the previous / next app
-in flash (for the APPS-menu list), both wrapping the common walker <code>app_5de7</code> (<code>5DE7</code>).
+<li><code>_FindAppUp</code> (<code>3D:5DDA</code>) / <code>_FindAppDn</code> (<code>3D:5DE6</code>) — enumerate the previous / next app
+in flash (for the APPS-menu list), both wrapping the common walker <code>app_5de7</code> (<code>3D:5DE7</code>).
 <code>app_5de7</code> keeps two counts in BC (apps before/after) and tracks the current name in OP3.</li>
-<li><code>_FindAppNumPages</code> is present in the bcall table (<code>3D:4AA3</code>), but the disassembly has no function record at that address.</li>
+<li><code>_FindAppNumPages</code> (ID <code>509Bh</code>) maps to <code>3D:4AA3</code>; the current Ghidra
+database has no function record at that body address.</li>
 </ul>
 <p>State variables: <code>appSearchPage</code> = <code>0x82A3</code>, <code>0x8497</code>/<code>0x8481</code>/<code>0x9C87</code> are search-mode
 scratch (<code>0x9C87</code>=‘i’ selects the in-RAM “temp app” search variant).</p>
 <h3 id="launching-an-app-as-a-context-confirmed"><a class="header" href="#launching-an-app-as-a-context-confirmed">Launching an app as a context [confirmed]</a></h3>
-<p><code>_AppInit</code> (<code>ram:0936</code>, bcall <code>0x404B</code>) installs a context from an app header:</p>
+<p><code>_AppInit</code> (<code>ram:0936</code>, ID <code>404Bh</code>) installs a context from an app header:</p>
 <pre><code class="language-pseudocode">_AppInit(byte *hdr):                 ; HL -&gt; 13-byte vector block in the header
   copy 12 bytes hdr[0..11] -&gt; cxMain (0x858D)   ; the 6 context vectors
   flags.appFlags (IY+0x0D) = hdr[12]            ; appFlags byte
@@ -354,7 +358,7 @@ default app vectors live at <code>3B:7571</code>:</p>
 <pre><code class="language-text">3E 75 | 4B 75 | 9F 74 | 4B 75 | 4B 75 | 4B 75 | 0A
 cxMain=753E cxPPutAway=754B cxPutAway=749F cxRedisp=754B cxErrorEP=754B cxSizeWind=754B appFlags=0A
 </code></pre>
-<p><code>_ReloadAppEntryVecs</code> (<code>3B:73E4</code>, bcall <code>0x4C36</code>) calls <code>_AppInit</code> on that block, then
+<p><code>_ReloadAppEntryVecs</code> (<code>3B:73E4</code>, ID <code>4C36h</code>) calls <code>_AppInit</code> on that block, then
 overrides <code>cxErrorEP (0x8595)=0x27D9</code>. After <code>_AppInit</code>, the main event loop runs the app
 through <code>call_context_main</code> (pages in <code>cxPage</code>, jumps <code>(cxMain)</code> — <a href="boot-contexts-errors.html">Boot contexts &amp; errors</a>).</p>
 <p>Because <code>cxCurApp</code> (<code>0x859A</code>) is a key code, pressing a mode key selects the context to
@@ -380,7 +384,7 @@ re-init lands in page-0 boot code.</p>
 <tr><td><code>01:4109</code></td><td><code>Resetting All...</code></td></tr>
 <tr><td><code>01:4126</code>+<code>412E</code></td><td><code>Garbage</code> + <code>Collecting...</code></td></tr>
 <tr><td><code>01:4234</code></td><td><code>Resetting...</code></td></tr>
-<tr><td><code>01:7425..746E</code></td><td>menu titles: <code>RESET MEMORY</code>, <code>RESET DEFAULTS</code>, <code>RESET ARC VARS</code>, <code>RESET ARC APPS</code>, <code>RESET ARC BOTH</code>, <code>RESET RAM</code></td></tr>
+<tr><td><code>01:7425</code>–<code>01:746E</code></td><td>menu titles: <code>RESET MEMORY</code>, <code>RESET DEFAULTS</code>, <code>RESET ARC VARS</code>, <code>RESET ARC APPS</code>, <code>RESET ARC BOTH</code>, <code>RESET RAM</code></td></tr>
 <tr><td><code>01:747E</code></td><td>the long “Resetting ALL / RAM / Vars / Apps / Both …” warning help text</td></tr>
 </tbody>
 </table>
@@ -422,9 +426,10 @@ to <code>0x8000</code>–<code>0x9BC3</code>.</li>
 </ol>
 <p>The first interval contains OS scratch, the context block, and system buffers.
 The second contains the VAT and user variables and programs. [confirmed]</p>
-<p>A handful of flag bits are explicitly preserved across the wipe (<code>IY+0x3F</code> bit7,
-<code>IY+0x34</code> bit6, <code>IY+0x35</code> bits0/1, and the word at <code>0x9B73</code>) so the calculator knows it is
-mid-reset. It then <code>JP 0x0BD9</code>, the RAM-init entry (<code>OUT (0)</code> page select, <code>LD SP,0xFFF7</code>,
+<p>A small amount of state survives the wipe. The path restores bits 0–6 of
+<code>IY+0x3F</code> and clears bit 7. It conditionally restores <code>IY+0x34</code> bit 6 and
+<code>IY+0x35</code> bit 0, sets <code>IY+0x35</code> bit 1, and restores <code>localLanguage</code> at
+<code>0x9B73</code>. It then <code>JP 0x0BD9</code>, the RAM-init entry (<code>OUT (0)</code> page select, <code>LD SP,0xFFF7</code>,
 then <code>CALL 0x3EC1</code> — the cross-page trampoline that rebuilds the VAT, system vars, and LCD; see <a href="boot-contexts-errors.html">Boot contexts &amp; errors</a>), which rebuilds a
 clean default VAT and system state and re-enters the homescreen. The Flash archive is not
 touched by a plain RAM reset.</p>
@@ -509,11 +514,11 @@ bit5 <code>grfNoAxis</code>; <code>seqFlags</code> (<code>IY+0x0F</code>).</p>
 <h3 id="mode-screen-plumbing"><a class="header" href="#mode-screen-plumbing">MODE screen plumbing</a></h3>
 <p>The MODE screen is a menu context (<code>cxMode</code>/<code>kMode</code>=0x45) reached via the event/key router
 (<a href="boot-contexts-errors.html">Boot contexts &amp; errors</a>). Its row strings live as token names on page 0x01 (<code>RadianN</code>/<code>DegreeO</code>/<code>NormalP</code>/
-<code>Float</code> at <code>01:49E4..4A06</code>; trailing letters are token-id bytes) and full-caps menu
-labels on page 0x37 (<code>DEGREE</code> <code>4A85</code>, <code>RADIAN</code> <code>4A8C</code>). Selecting a row writes the flag bits
-documented above directly (<code>SET/RES (IY+…)</code>, or stores into <code>fmtDigits</code>). [hypothesis] (partial) —
-the per-row write table itself is reached through the menu dispatcher and was not traced
-line-by-line, but every target bit/byte is confirmed from the setters and inc equates.</p>
+<code>Float</code> at <code>01:49E4</code>–<code>01:4A06</code>; trailing letters are token-id bytes) and full-caps menu
+labels on page 0x37 (<code>DEGREE</code> <code>4A85</code>, <code>RADIAN</code> <code>4A8C</code>). The setters and inc
+equates confirm the target bits and bytes. [confirmed] The per-row path through
+the menu dispatcher to the corresponding <code>SET</code>/<code>RES</code> or <code>fmtDigits</code> store has
+not been traced line by line. [hypothesis]</p>
 <hr>
 <h2 id="routine-index"><a class="header" href="#routine-index">Routine index</a></h2>
 <pre><code class="language-text">3D:5EE3   _FindApp

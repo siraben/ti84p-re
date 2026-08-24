@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6f06b547.js";
+            window.path_to_searchindex_js = "searchindex-fef03c08.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-34eae533.js"></script>
@@ -232,16 +232,16 @@ everything above the resized object. [confirmed]</p>
 and FP-stack pointers before registering the variable in the VAT. This path is
 distinct from the public <code>_InsertMem</code>. See <a href="variables-vat.html">Variables &amp; the VAT</a>.
 [confirmed]</p>
-<p>Resident assembly programs need an additional rule: OS pointer repair does not
-relocate program counters or runtime-owned pointers. The compiled <code>Asm(</code> path
-also caps its internal program-data size at <code>0x2000</code>, below the full
-<code>ram:9D95</code>–<code>ram:BFFF</code> span. See <a href="sub-resident-programs.html">Resident assembly programs</a>
-for the launch copy, cleanup, AppVar handle protocol, and archived streaming
-contract. [confirmed]</p>
+<p>Resident assembly programs need an additional rule: OS pointer repair updates
+OS-owned pointer slots, not program counters or runtime-owned pointers. The
+compiled <code>Asm(</code> path also caps its internal program-data size at <code>0x2000</code>, below
+the full <code>ram:9D95</code>–<code>ram:BFFF</code> span. See
+<a href="sub-resident-programs.html">Resident assembly programs</a> for the launch copy,
+cleanup, AppVar handle protocol, and archived streaming contract. [confirmed]</p>
 <p>The familiar OP, display, graph, statistics, and context buffers are not one
-pool of universally safe scratch space. See <a href="sub-resident-scratch.html">Resident scratch RAM</a>
-for direct clobber measurements, conditional ownership, and the bank-A page
-mapping protocol. [confirmed]</p>
+pool of universally safe scratch space. See
+<a href="sub-resident-scratch.html">Resident scratch RAM</a> for direct clobber measurements,
+conditional ownership, and the bank-A page-mapping protocol. [confirmed]</p>
 <h2 id="flash-archive-confirmed"><a class="header" href="#flash-archive-confirmed">Flash archive [confirmed]</a></h2>
 <p>To save scarce RAM, variables can be archived to Flash. The archive entry point is on <code>flash page 0x07</code>, while the low-level flash read/write/erase workers are on <code>page 0x3D</code>:</p>
 <ul>

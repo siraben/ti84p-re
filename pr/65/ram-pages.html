@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6f06b547.js";
+            window.path_to_searchindex_js = "searchindex-fef03c08.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-34eae533.js"></script>
@@ -320,14 +320,17 @@ python tools/describe_ram_topology.py \
 <code>82</code>/<code>83</code>, <code>84</code>/<code>85</code>, <code>86</code>, and <code>87</code>. This is a decoder test case, not a
 reported hardware revision. [confirmed]</p>
 <h2 id="per-page-trace-coverage"><a class="header" href="#per-page-trace-coverage">Per-page trace coverage</a></h2>
-<p>The boot/home and <code>2+3 ENTER</code> traces exercise startup, homescreen initialization,
-display capture, parsing, evaluation, and previous-entry storage. They do not exercise
-app launch, USB transfer, graph drawing, archive cleanup, or a 48 KiB ASIC. Within
-that scope, physical RAM-page writes for the executed selectors are:</p>
+<p>The boot/home and <code>2+3</code> <strong>ENTER</strong> traces exercise startup, homescreen
+initialization, display capture, parsing, evaluation, and previous-entry
+storage. Separate traces cover graph drawing, a resident <code>_GetKey</code> wait
+interrupted by <strong>ON</strong>, and an OS error dialog. They do not exercise APD timeout,
+app launch, USB transfer, variable receive, archive cleanup,
+table/statistics/program editors, or a 48 KiB ASIC. Within the baseline scope,
+physical RAM-page writes for the executed selectors are:</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>RAM selector</th><th>Idle trace writes</th><th><code>2+3 ENTER</code> trace writes</th><th>Interpretation</th></tr>
+<tr><th>RAM selector</th><th>Idle trace writes</th><th><code>2+3</code> <strong>ENTER</strong> trace writes</th><th>Interpretation</th></tr>
 </thead>
 <tbody>
 <tr><td><code>80</code></td><td><code>256227</code> writes, all page addresses touched</td><td><code>345702</code> writes, all page addresses touched</td><td>Normal high RAM selected by port <code>0x05</code>; contains stack, system, and user RAM activity in <code>C000-FFFF</code>. [confirmed]</td></tr>
@@ -344,6 +347,29 @@ not establish how the selectors behave. Under the public 48 KiB contract, select
 still only writes pages <code>80</code>, <code>81</code>, and <code>83</code>. It increases normal page-<code>80</code>/<code>81</code>
 activity but leaves page-<code>83</code> at the same confirmed ranges as the idle trace.
 It does not write through selector <code>82</code> or select <code>84</code>–<code>87</code>. [confirmed]</p>
+<p>Two longer direct-TI-OS scenarios add coverage without establishing a borrowable
+range:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Scenario</th><th>Page-<code>83</code> result</th><th>Limit</th></tr>
+</thead>
+<tbody>
+<tr><td>Resident guard, <code>_DisableApd</code>, <code>_DelRes</code>, <code>_GetKey</code>, then <strong>ON</strong></td><td><code>3,893</code> writes to <code>83:4373</code>–<code>83:4390</code>, <code>83:577E</code>–<code>83:5794</code>, and <code>83:5A7E</code>–<code>83:5D7D</code></td><td>The trace starts after reset with port <code>0x06</code> unknown. The analyzer recovers each page-<code>83</code> selection, but skips unrelated writes whose initial mapping is unresolved. APD is disabled, so this is ON handling during a wait, not an APD-timeout test. [confirmed]</td></tr>
+<tr><td>Cold boot, then <code>1/0</code> <strong>ENTER</strong> error dialog</td><td><code>3,418</code> writes to <code>83:43D9</code>–<code>83:44BD</code> and <code>83:5A7E</code>–<code>83:5DF2</code></td><td>The complete trace includes boot. The error path adds no page-<code>83</code> range beyond the idle baseline; this does not prove that every error path behaves alike. [confirmed]</td></tr>
+</tbody>
+</table>
+</div>
+<p>The guarded resident run also rechecks <code>saveSScreen</code> and <code>statVars</code> after the <strong>ON</strong>
+event; both sentinels remained intact in this emulator run. That narrow result does
+not make the other page-<code>83</code> holes safe and is not physical-calculator evidence.
+The trace SHA-256 values and initial-mapping assumptions are recorded in
+<code>tools/data/ram-page-observations.csv</code>.
+These trace files do not have complete-ROM sidecars. Their TLMT initial
+Flash page <code>0x00</code> SHA-256 is
+<code>bfc698e445d98d6d0905589ec34a88c9372a90cb0ed2d1fe9aa9b6fca0962fc1</code>,
+which matches page <code>0x00</code> in both known OS 2.55MP images. [confirmed] That
+page hash does not identify the boot pages or the complete image.</p>
 <h2 id="how-to-hit-the-confirmed-paths"><a class="header" href="#how-to-hit-the-confirmed-paths">How to hit the confirmed paths</a></h2>
 <p>The useful distinction is between “page number can be selected” and “the OS uses it
 in a normal workflow.” These paths are confirmed or have a concrete next scenario:</p>
@@ -386,9 +412,9 @@ more than anonymous free RAM. Keep the evidence classes separate:</p>
 <tr><th>Range</th><th>Use</th><th>Evidence</th></tr>
 </thead>
 <tbody>
-<tr><td><code>4373-4390</code></td><td>Expression-path page-<code>83</code> scratch copy</td><td>Added by the <code>2+3 ENTER</code> trace. <code>flash_copy_block+0x16</code> (<code>ram:187E</code>) performs the <code>LDIR</code>; <code>flash_copy_block+0x14</code> (<code>ram:187C</code>) maps page <code>83</code>. The caller is still unlabeled. [confirmed]</td></tr>
+<tr><td><code>4373-4390</code></td><td>Expression-path page-<code>83</code> scratch copy</td><td>Added by the <code>2+3</code> <strong>ENTER</strong> trace. <code>flash_copy_block+0x16</code> (<code>ram:187E</code>) performs the <code>LDIR</code>; <code>flash_copy_block+0x14</code> (<code>ram:187C</code>) maps page <code>83</code>. The caller is still unlabeled. [confirmed]</td></tr>
 <tr><td><code>43D9-44BD</code></td><td>Boot/home page-<code>83</code> scratch copy</td><td>Present in the idle trace. <code>flash_copy_block+0x16</code> performs the <code>LDIR</code>, and <code>37:44D8</code> stores one additional byte. [confirmed]</td></tr>
-<tr><td><code>577E-5A7D</code></td><td>Homescreen previous-entry history</td><td>Page <code>33</code> references <code>577E</code>, the <code>5A7E</code> upper bound, <code>lastEntryPTR</code> (<code>0x8DA7</code>), and <code>numLastEntries</code> (<code>0x8E29</code>). The <code>2+3 ENTER</code> trace writes <code>577E-5790</code>, advances <code>lastEntryPTR</code> to <code>5791</code>, and sets <code>numLastEntries</code> to <code>01</code>. [confirmed]</td></tr>
+<tr><td><code>577E-5A7D</code></td><td>Homescreen previous-entry history</td><td>Page <code>33</code> references <code>577E</code>, the <code>5A7E</code> upper bound, <code>lastEntryPTR</code> (<code>0x8DA7</code>), and <code>numLastEntries</code> (<code>0x8E29</code>). The <code>2+3</code> <strong>ENTER</strong> trace writes <code>577E-5790</code>, advances <code>lastEntryPTR</code> to <code>5791</code>, and sets <code>numLastEntries</code> to <code>01</code>. [confirmed]</td></tr>
 <tr><td><code>5A7E-5DF2</code></td><td>LCD/home display capture area</td><td>Present in the idle trace. The <code>_SaveDisp</code> LCD capture (<code>ram:1890</code>) fills the first <code>0x300</code> bytes, <code>5A7E-5D7D</code> (the 96×64 framebuffer); the <code>5D7E-5DF2</code> tail is additional page-<code>83</code> writes in the same scenario. Ghidra decompiles <code>ram:1890</code> as an LCD-read helper that maps page <code>83</code> through port <code>6</code> and stores bytes read from LCD port <code>11</code>. [confirmed]</td></tr>
 <tr><td><code>4000-4080</code></td><td>App base-page staging before app execution</td><td>WikiTI public note; the two traces on this page do not launch an app. [standard]</td></tr>
 <tr><td><code>4100-433A</code></td><td>USB communication buffers</td><td>WikiTI public note; the two traces on this page do not exercise USB transfer. [standard]</td></tr>
@@ -457,9 +483,14 @@ tilem2 --headless --rom "$ROM" --model ti84p --normal-speed --reset \
 tilem2 --headless --rom "$ROM" --model ti84p --normal-speed --reset \
   --macro tools/macros/graph-y1-x2.macro \
   --trace /tmp/page83-graph.trace --trace-range all
+tilem2 --headless --rom "$ROM" --model ti84p --normal-speed --reset \
+  --macro tools/macros/page83-error-divzero.macro \
+  --trace /tmp/page83-error-divzero.trace --trace-range all
 python3 tools/analyze_ram_page_trace.py /tmp/page83-idle.trace --page 0x83
 python3 tools/analyze_ram_page_trace.py /tmp/page83-2plus3.trace --page 0x83
 python3 tools/analyze_ram_page_trace.py /tmp/page83-graph.trace --page 0x83
+python3 tools/analyze_ram_page_trace.py /tmp/page83-error-divzero.trace \
+  --page 0x83 --initial-mapping ti84p-reset
 </code></pre>
 <p>The baseline idle trace writes:</p>
 <pre><code class="language-text">RAM page 0x83 writes: 1882
@@ -467,12 +498,18 @@ unique page addresses: 1114
 range 43D9-44BD
 range 5A7E-5DF2
 </code></pre>
-<p>The <code>2+3 ENTER</code> trace writes:</p>
+<p>The <code>2+3</code> <strong>ENTER</strong> trace writes:</p>
 <pre><code class="language-text">RAM page 0x83 writes: 3467
 unique page addresses: 1163
 range 4373-4390
 range 43D9-44BD
 range 577E-5790
+range 5A7E-5DF2
+</code></pre>
+<p>The division-by-zero dialog trace writes:</p>
+<pre><code class="language-text">RAM page 0x83 writes: 3418
+unique page addresses: 1114
+range 43D9-44BD
 range 5A7E-5DF2
 </code></pre>
 <p>The before/after RAM variables line up with the previous-entry write:</p>
@@ -483,7 +520,7 @@ range 5A7E-5DF2
 </thead>
 <tbody>
 <tr><td>Idle home screen</td><td><code>577E</code></td><td><code>00</code></td></tr>
-<tr><td>After <code>2+3 ENTER</code></td><td><code>5791</code></td><td><code>01</code></td></tr>
+<tr><td>After <code>2+3</code> <strong>ENTER</strong></td><td><code>5791</code></td><td><code>01</code></td></tr>
 </tbody>
 </table>
 </div>

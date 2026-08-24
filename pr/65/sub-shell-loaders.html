@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6f06b547.js";
+            window.path_to_searchindex_js = "searchindex-fef03c08.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-34eae533.js"></script>
@@ -192,17 +192,17 @@ contract using identified original releases.</p>
 </thead>
 <tbody>
 <tr><td>Ion 1.6</td><td>Moves the original body</td><td>Unarchives the original, then moves its body</td><td>Always rearchives</td><td>No Ion-owned error handler</td></tr>
-<tr><td>MirageOS 1.2</td><td>Uses a symmetric move loader</td><td>Keeps an archived source and a RAM execution form [hypothesis]</td><td>Rewrites only if changed</td><td>Installs an OS error handler</td></tr>
-<tr><td>Doors CS 7.4</td><td>Moves the original body</td><td>Creates a complete, uniquely named RAM temporary variable</td><td>Compares the temporary variable with the archive; replaces the archive only if changed</td><td>Routes OS errors through reverse-swap cleanup</td></tr>
+<tr><td>MirageOS 1.2</td><td>Uses a symmetric move loader</td><td>Creates a named <code>TempProgObj</code> RAM copy, then moves its body</td><td>Rewrites only if changed</td><td>Installs an OS error handler</td></tr>
+<tr><td>Doors CS 7.4</td><td>Moves the original body</td><td>Creates a complete RAM variable under a derived temporary name</td><td>Compares the temporary variable with the archive; replaces the archive only if changed</td><td>Routes OS errors through reverse-swap cleanup</td></tr>
 <tr><td>zStart 1.3.013</td><td>Moves the original body</td><td>Copies the body into a raw <code>userMem</code> allocation</td><td>Uses a 16-bit checksum; replaces the archive only if changed</td><td>Routes OS errors through local cleanup</td></tr>
 </tbody>
 </table>
 </div>
-<p>The three source-available launchers confirm that “run at <code>userMem</code>” does not
+<p>The three source-available launchers show that “run at <code>userMem</code>” does not
 imply “make a second complete copy.” Their RAM-resident paths move the body in
 chunks through a 768-byte shuttle. Archived inputs differ more substantially:
-Ion first unarchives the original, Doors CS builds a named temporary variable,
-and zStart builds an unnamed execution allocation. [confirmed]</p>
+Ion first unarchives the original, MirageOS and Doors CS build named temporary
+variables, and zStart builds an unnamed execution allocation. [confirmed]</p>
 <p>The source identity, execution strategy, and open evidence boundary for each
 row are also recorded in <code>tools/data/shell-loader-observations.csv</code>.</p>
 <h2 id="the-move-loader-pattern"><a class="header" href="#the-move-loader-pattern">The move-loader pattern</a></h2>
@@ -237,42 +237,47 @@ even when the program did not change. [confirmed]</p>
 source therefore provides no cleanup path for an OS error or nonlocal exit
 that bypasses the normal return. The resulting calculator state still needs a
 dynamic trace; it is not inferred here. [confirmed]</p>
-<p>The loader stages code in <code>appBackupScreen</code> (<code>0x9872</code>) and <code>cmdShadow</code>
-(<code>0x966E</code>) and uses <code>plotSScreen</code> during both the forward and reverse moves. A
-client may reuse the graph buffer after entry only if it restores any state
-required before normal return. [confirmed]</p>
+<p>The loader stages its preloader in <code>appBackUpScreen</code> (<code>0x9872</code>) and its move
+routine in <code>cmdShadow</code> (<code>0x966E</code>). It uses <code>plotSScreen</code> during the forward and
+reverse moves. The client may reuse <code>plotSScreen</code> while it runs; the reverse
+move overwrites that buffer before Ion redraws its interface. [confirmed]</p>
 <h2 id="mirageos-12"><a class="header" href="#mirageos-12">MirageOS 1.2</a></h2>
 <p>MirageOS 1.2 is a one-page, binary-only Flash App. Static disassembly of the
-original App shows a symmetric loader at mapped addresses <code>0x75CF</code>–<code>0x76C0</code>. It
+original App shows a symmetric loader at App addresses <code>0x75CF</code>–<code>0x76C0</code>. It
 uses <code>saveSScreen</code> as a 768-byte shuttle, calls <code>_DelMem</code> and <code>_InsertMem</code>, and
 moves the client to <code>0x9D95</code>. [confirmed]</p>
+<p>For archived input, <code>0x7899</code>–<code>0x78FD</code> creates a program named <code>Z,1.</code>, changes
+its VAT type to <code>TempProgObj</code> (<code>0x16</code>), and copies the archived object into it
+with <code>_FlashToRam</code>. The original name continues to identify the archived
+object while the temporary object’s body is moved to <code>0x9D95</code>. Before creating
+the temporary, the loader deletes any existing <code>Z,1.</code> program. [confirmed]</p>
 <p>The writeback path at mapped addresses <code>0x77D5</code>–<code>0x7870</code> compares RAM bytes with
 archive bytes through a temporary page-read thunk. It replaces and rearchives
 the program only when the comparison differs. The release changelog describes
 the same smart-writeback policy. [confirmed]</p>
 <p>The launch wrapper installs an OS error handler and conditionally prepares the
 MirageOS tasker before calling the client. With tasker flag bit 6 at <code>0x9689</code>
-set, mapped <code>0x7176</code>–<code>0x71E9</code> installs IM2 and writes timers, code, and a vector
-table across <code>0x8A3A</code>–<code>0x8C1B</code>. The wrapper selects IM1 after the client
-returns. It uses <code>0x966F</code> as the custom-interrupt entry when that option is
-enabled. These <code>statVars</code> ranges are not client scratch while the tasker or
+set, <code>0x7176</code>–<code>0x71E9</code> installs IM2. It writes tasker state beginning at
+<code>0x8A3A</code>, code at <code>0x8A4F</code>–<code>0x8A88</code> and <code>0x8A8A</code>–<code>0x8AFE</code>, and an IM2 handler
+at <code>0x8C01</code>–<code>0x8C1B</code>. It also builds the 257-byte IM2 vector table at
+<code>0x8B00</code>–<code>0x8C00</code>. It uses the word at <code>0x966F</code> as an optional custom interrupt
+target. These <code>statVars</code> ranges are not client scratch while the tasker or
 custom interrupt is active. [confirmed]</p>
-<p>The changelog also states that ON+<code>^</code> quits immediately without writeback.
-Whether that path restores every intermediate body and mapping, and what
-<code>_ChkFindSym</code> returns for the archived program name while the client runs,
-remain dynamic-trace questions. The archive-plus-RAM staging description in
-the comparison table is therefore marked <code>[hypothesis]</code> even though the move
-and compare routines themselves are confirmed.</p>
+<p>The changelog states that <strong>ON</strong>+<strong>^</strong> quits immediately without writeback.
+Whether that path restores every intermediate body and mapping remains a
+dynamic-trace question. [confirmed]</p>
 <h2 id="doors-cs-74"><a class="header" href="#doors-cs-74">Doors CS 7.4</a></h2>
 <p>Doors CS classifies TI-OS assembly, Ion, MirageOS, Doors CS assembly, BASIC,
 and associated program types in <code>runprog.asm</code>. For a RAM-resident assembly
-program, <code>hook1</code> and the <code>swap1</code> through <code>swap4</code> routines move its body between
+program, <code>hook1</code> and the <code>swap1</code>–<code>swap4</code> routines move its body between
 the variable and <code>0x9D95</code> through <code>plotSScreen</code>. [confirmed]</p>
 <p>For an archived assembly program, <code>initTmpASM</code> checks available memory,
-creates a complete RAM temporary variable under a unique name, and calls
-<code>_FlashToRAM</code> before invoking the same move loader. This path needs space for
-one complete RAM variable plus loader state; it does not retain another
-complete execution copy after the move. [confirmed]</p>
+creates a complete RAM temporary variable under a derived name, and calls
+<code>_FlashToRam</code> before invoking the same move loader. The name is made by adding
+the program-chain size to the original name’s first byte. <code>initTmpASM</code> deletes
+an existing variable on collision, so the name is not globally unique. This
+path needs space for one complete RAM variable plus loader state; it does not
+retain another complete execution copy after the move. [confirmed]</p>
 <p>The <code>asmcheckwriteback</code> path behaves differently according to the original
 storage class:</p>
 <ul>
@@ -311,18 +316,20 @@ another shell can bypass the local error frame; that path remains untraced.
 <ul>
 <li>A RAM-resident input can remain named in the VAT while its body is moved and
 is not a valid contiguous self-image.</li>
-<li>A Doors CS archived input has an immutable archived original plus a named
-temporary variable whose body is moved during execution.</li>
+<li>A MirageOS archived input keeps the archived original name and uses the
+<code>TempProgObj</code> named <code>Z,1.</code> for the RAM body that is moved during execution.</li>
+<li>A Doors CS archived input has an immutable archived original plus a
+derived-name temporary variable whose body is moved during execution. A
+collision with that derived name is deleted during setup.</li>
 <li>A zStart archived input has an immutable archived original plus an unnamed
 execution allocation.</li>
 </ul>
-<p>MirageOS’s exact name-to-image contract is still unmeasured. Code that needs
-its running image should use a shell-defined pointer or a position-independent
-scheme rather than assume that <code>_ChkFindSym</code> returns it.</p>
+<p>Code that needs its running image should use a shell-defined pointer or a
+position-independent scheme rather than assume that <code>_ChkFindSym</code> returns it.</p>
 <p>Writeback also changes the persistence guarantee. Ion writes every originally
 archived input back to Flash; MirageOS, Doors CS, and zStart avoid a Flash
 rewrite on their confirmed unchanged paths. Forced shell exits can bypass
-writeback under at least the documented MirageOS ON+<code>^</code> path, and nonlocal
+writeback under at least the documented MirageOS <strong>ON</strong>+<strong>^</strong> path, and nonlocal
 exit behavior remains launcher-specific.</p>
 <h2 id="evidence-limits"><a class="header" href="#evidence-limits">Evidence limits</a></h2>
 <p>The Ion, Doors CS, and zStart results above come from source included in an
@@ -335,7 +342,7 @@ four launchers:</p>
 <ul>
 <li>the exact peak RAM cost for RAM-resident and archived inputs;</li>
 <li><code>_ChkFindSym</code> results and pointed-to bytes while each client is running;</li>
-<li>self-modification persistence on normal return, OS error, ON+<code>^</code>, and
+<li>self-modification persistence on normal return, OS error, <strong>ON</strong>+<strong>^</strong>, and
 shell-to-shell exit;</li>
 <li>restoration of the stack, interrupt mode, page mapping, and scratch RAM on
 every abnormal path.</li>
