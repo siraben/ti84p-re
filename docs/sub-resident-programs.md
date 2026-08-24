@@ -182,6 +182,46 @@ absolute pointer into a program, AppVar, or workspace can become stale after a
 create, delete, resize, archive, unarchive, temporary cleanup, variable receive,
 or archive garbage collection. [confirmed]
 
+## Resident allocation trace
+
+The fixture under `tools/allocation-probes/` calls `_EnoughMem`,
+`_CreateAppVar`, `_DelVar`, `_CreateProg`, `_InsertMem`, and `_DelMem` from a
+compiled program at `ram:9D95`. Its trace replays RAM writes at ten timed
+checkpoints. [confirmed]
+
+A 32-byte AppVar or program moves `FPS` from `0xA076` to `0xA098` and `OPS`,
+`OPBase`, and `pTemp` downward by 12 bytes. `_MemChk` falls from `0x5C44` to
+`0x5C16`. Deleting either object restores all recorded heap pointers.
+[confirmed]
+
+The direct `_InsertMem` probe opens 16 bytes at the source variable's data
+pointer. `_ChkFindSym` then returns `0x9F3B` instead of `0x9F2B`. `_DelMem`
+restores `0x9F2B`. An eight-byte guard in the execution copy remains unchanged,
+and every payload checkpoint remains at its assembled `ram:9D95`-relative
+address. TI-OS repairs the source VAT pointer; it does not move the executing
+copy. [confirmed]
+
+The ROM repair pass at `ram:11E8`–`ram:128A` conditionally adjusts 24 OS pointer
+slots. Named slots include `iMathPtr1`–`iMathPtr5`, `asm_data_ptr1`,
+`asm_data_ptr2`, `fmtMatMem`, `newDataPtr`, `EQS`, `insDelPtr`, `editDat`,
+`chkDelPtr1`, `chkDelPtr2`, `XOutDat`, `YOutDat`, `fOutDat`, and `inputDat`.
+The adjacent pass at `ram:11C7` repairs `basic_start`, `nextParseByte`, and
+`basic_end`. The VAT scan at `ram:139D` repairs each affected RAM entry's data
+pointer. [confirmed]
+
+The reset-state run, with only the required wrapper and probe variables,
+measures `_MemChk=0x5C44` before its maximum AppVar.
+For the five-character name `ALMAX`, `_CreateAppVar` consumes a 14-byte
+overhead: two data-size bytes plus a 12-byte VAT entry. A payload request of
+`0x5C36` succeeds, producing `FPS=0xFCAE`, `OPS=0xFCAD`, and `_MemChk=0`.
+The hardware stack remains at `SP=0xFFC9`; the creator does not include that
+remaining stack-to-VAT distance in its capacity decision. [confirmed]
+
+`tools/data/resident-allocation.csv` records the checkpoints, ROM and trace
+hashes, model, and OS version. This run fixes the direct-`Asm(` reset-state
+case. It does not measure representative user-variable populations, shell
+move-loaders, Flash Apps, or physical hardware. [confirmed]
+
 ## Stable RAM AppVar protocol
 
 A long-running runtime can use a RAM AppVar as a movable workspace if it treats
