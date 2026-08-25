@@ -1,0 +1,23 @@
+# Run AKEYOFF = Asm(prgmKEYOFF), then inject ON into _GetKeyRetOff.
+set key_hold 0.15s
+set key_delay 0.10s
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key PRGM
+wait 0.6s
+key ENTER
+wait 0.8s
+key ENTER
+wait 2s
+key ENTER
+wait 2s
+key 2ND
+wait 0.5s
+key ON
+wait 5s
+memdump /tmp/community-getkey-ret-off.ram ram-logical
+screenshot /tmp/community-getkey-ret-off.png

@@ -66,6 +66,31 @@ resolved OS targets, and the final return marker. The full symbolic-source
 classification, including inactive target-platform branches, is in
 `tools/data/community-symbolic-bcall-triage.csv`.
 
+Four additional fixtures separate safe return paths from interactive and error
+paths:
+
+| Fixture | Builder | Macro | Analyzer | Reduced result |
+|---|---|---|---|---|
+| `semantics-safe.asm` | `build_semantics.py` | `semantics-safe.macro` | `analyze_semantics.py` | `tools/data/community-bcall-semantics.csv` |
+| `getkey-ret-off.asm` | `build_getkey_ret_off.py` | `getkey-ret-off.macro` | `analyze_getkey_ret_off.py` | `tools/data/community-getkey-ret-off.csv` |
+| `string-input.asm` | `build_string_input.py` | `string-input.macro` | `analyze_string_input.py` | `tools/data/community-string-input.csv` |
+| `send-packet.asm` | `build_send_packet.py` | `send-packet.macro` | `analyze_send_packet.py` | `tools/data/community-send-packet.csv` |
+
+Build each assembly file with `nix develop -c spasm -N -I .`, pass the raw
+machine file to its builder, run the generated wrapper and payload with the
+listed macro, and pass the trace, logical-RAM dump, raw machine file, generated
+files, ROM, emulator, and macro to the matching analyzer. Each analyzer derives
+the fixture-local bcall address from the assembled bytes and rejects missing
+ROM bodies or result markers.
+
+The safe fixture saves and restores hook target records and active flag bytes
+before halting. The `_GetKeyRetOff` fixture drains an explicit **ENTER**, then
+injects **2nd**+**ON**. The string-input fixture reconstructs Elite's
+`ioPrompt`/`cleanTmp` setup and submits numeric input. The packet fixture
+installs a calculator error handler and deliberately runs without a peer; its
+accepted result stops at the header-send error and does not claim payload or
+ACK success.
+
 The Cool release supplies the negative case. Build `ACOOL = Asm(prgmCOOL)`,
 then capture and reduce the packaged calculator program:
 
