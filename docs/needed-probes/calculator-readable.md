@@ -61,13 +61,15 @@ size word, `HWP1` magic, version, probe ID, and payload length. [confirmed]
 
 ## Display and persistence
 
-Every normal-return probe creates an AppVar after restoring interrupts and the
-ports named by its contract. The result can therefore be viewed indirectly by
-exporting and decoding it.
+Every normal-return probe creates or finalizes its AppVar after restoring the
+ports named by its contract. It then prints a labeled decimal CRC-16
+verification code over the AppVar-resident `HWP1` frame. The shared routine
+skips display and key bcalls when interrupts were disabled on entry. The
+decoder reports the same number as `verification_code_decimal`. Record the
+displayed number before pressing a key, then compare it with the exported
+AppVar. The AppVar remains the canonical evidence because the screen does not
+survive a reset.
 
-`HWPRTC`, `HWPMAP`, `HWPLCD`, and `HWPIRQ` print a decimal CRC-16 verification
-code only after cleanup and AppVar creation. `HWPRTC` skips the display when
-entry interrupts were disabled. The decoder reports the same number as
-`verification_code_decimal`. Record the displayed number before pressing a
-key, then compare it with the exported AppVar. The AppVar remains the
-canonical evidence because the screen does not survive a reset.
+An execution-fetch protection reset cannot reach the display path. A normal
+return prints the CRC after updating the resident outcome to `returned`; a
+reset-capable run leaves its pending AppVar as the recovery record.

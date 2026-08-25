@@ -156,6 +156,9 @@ interrupts_restored:
     ld hl,frame
     ld bc,frame_end-frame
     call create_probe_appvar
+    ld bc,frame_end-frame
+    ld hl,display_label
+    call display_created_probe_code
     ret
 
 ; Compare source 0x41 against the agreed 2,048 Hz source 0x45. Four trials
@@ -379,6 +382,10 @@ restore_state:
     ld a,(payload_pre_port20)
     out ($20),a
     ret
+
+display_label:
+    .db "HWTMR CODE ",0
+#include "display.inc"
 
 appvar_name:
     .db AppVarObj,"HWTMR001"
