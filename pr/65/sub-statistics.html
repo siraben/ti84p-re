@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-fef03c08.js";
+            window.path_to_searchindex_js = "searchindex-f09341ee.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-34eae533.js"></script>
@@ -247,12 +247,11 @@ menu) and are written by the test commands, not by 1/2-Var Stats. An ANOVA block
 <p><strong>STAT-TESTS are separate command handlers.</strong> [confirmed] <code>Z-Test</code>/<code>T-Test</code>/<code>χ²-Test</code>/
 <code>2-SampFTest</code>/<code>ANOVA(</code> etc. come in as their own 2-byte <code>t2ByteTok</code> (<code>0xBB</code>)-prefixed command tokens — e.g.
 <code>LinRegTTest=34h</code> in the <a href="#stat-command-token-map-confirmed">STAT command token map</a> — and are not dispatched through <code>_OneVar</code> (whose token map is
-only <code>F2</code>–<code>FF</code>). They fill the <code>PStat…SStat</code>/<code>anovaf_vars</code> block above directly. No
-<code>PStat</code>/<code>ZStat</code>-writing routine appears among the page-0x3A <code>stat_*</code> symbols (all of which are
-the <code>_OneVar</code> accumulate/variance/median/regression engine), confirming the tests live in their
-own command handlers reached from the parser’s command dispatch, separate from the STAT-CALC
-engine documented here. The exact per-test handler addresses are not exposed as
-named routines in this database and remain [hypothesis].</p>
+only <code>F2</code>–<code>FF</code>). They fill the <code>PStat…SStat</code>/<code>anovaf_vars</code> block above directly. Test
+handlers appear on both sides of the named <code>stat_*</code> accumulation, variance,
+median, and regression routines within <code>3A:4A00</code>–<code>3A:7E60</code>. See
+<a href="#stat-tests-engine-on-page-3a-confirmed">STAT-TESTS engine</a>. The per-test entry addresses are
+not exposed as named routines and remain [hypothesis].</p>
 <p>A scratch byte <code>stat_calc_command</code> (<code>0x8A36</code>, immediately below <code>statVars</code>) holds the stat-command
 discriminator (the model index set from the <a href="#stat-command-token-map-confirmed">command token</a>) for the
 duration of the computation. Working list/element pointers used by the loop live
@@ -412,13 +411,35 @@ matrix <code>[ M | Σxⁱy ]</code>. <code>_OneVar</code> solves it in place by 
 67fa: RST 8 ; …                     ; pivot reciprocal
 6804: CALL 2541 (_FPDiv)            ; divide row by pivot
 680d..6815: elimination loop
-6845: CALL 3939 (_SqRoot) ; 6849 ; CALL 2541 (_FPDiv)  ; (forms r²/r from the fit)
-684f: LD A,12 ; CALL 213d           ; r-related store/guard
-6859..6876: row-reduce all other rows (3aa7 get, 238b _FPMult, RST 30 _FPAdd)
-6880: CALL 2541 (_FPDiv) ; CP 2 ; LD A,0x35/0x36 ; CALL 213d  ; *** _Sto_StatVar stores into the
-                                                              ; statVar slots id 0x35/0x36 — NOT a SingularMat raise.
-                                                              ; the zero-pivot guard is the 67F7→212D path → 0x83.
-68d6..6953: back-substitution — each coeff = (rhs − Σ known·M) / pivot
+</code></pre>
+<p>The <code>3A:6845</code>–<code>6891</code> cluster, byte by byte:</p>
+<pre><code class="language-text">6845  CALL 3939  (cross_page_jump)   ; OP1 = √OP1 (page-39 _SqRoot body)
+6848  RST 08h   (_OP1ToOP2)          ; OP2 = √…
+6849  CALL 1674  (_CpyTo1FPST)       ; OP1 ← FPS−9 (the saved numerator sum)
+684C  CALL 2541  (_FPDiv)            ; OP1 = numerator/denominator = r
+684F  LD A,0x12 ; CALL 213D          ; _Sto_StatVar(tCorr): Corr (8ACA) ← r
+6854  CALL 1BA4  (_OP1Set0)          ; accumulator = 0
+6857  POP BC / PUSH BC               ; BC = augmented-matrix row count
+685B  LD B,2                         ; start at row 2 (first data column)
+685D  loop:
+        CALL 19EC (_OP1ToOP4); CALL 150A (_PopRealO2)   ; OP2 ← popped FPS value
+        CALL 3AA7 (cross_page_jump)  ; matrix element (col B) → OP1
+        CALL 238B (_FPMult)          ; element · value
+        CALL 19FE; RST 30h (_FPAdd)  ; accumulate into OP4/OP1
+        INC B until B = H            ; walk the column
+6878  CALL 2903 (fp_st_slot7_op3)    ; stash the column sum
+687B  CALL 1DEE  (_CkOP2FP0)         ; denominator zero?
+687E  JR Z,6891                      ; yes → skip r² store
+6880  CALL 2541  (_FPDiv)            ; ratio for r²/R²
+6885  LD A,B; CP 2                   ; model order == 2 (linear)?
+6888  LD A,0x35 / 0x36               ; id 0x35 = r² (slot 8C05), 0x36 = R² (8C0E)
+688E  CALL 213D  (_Sto_StatVar)
+</code></pre>
+<p>The region forms <code>r = num/den</code> and stores it to <code>Corr</code> at <code>0x8ACA</code>. It then
+accumulates a column-weighted residual sum over the augmented matrix. When the
+denominator is nonzero, it stores <code>r²</code> for linear fits or <code>R²</code> for higher-order
+fits in separate statVar slots at <code>0x8C05</code> and <code>0x8C0E</code>. [confirmed]</p>
+<pre><code class="language-z80">68d6..6953: back-substitution — each coeff = (rhs − Σ known·M) / pivot
    (3aa7/3aa1 matrix access, 238b _FPMult, RST 30/RST 8 accumulate,
     24bd _InvOP1S to subtract, 2541 _FPDiv)
    each solved coefficient is stored via 69af → CALL 3ab9 (matrix set)
@@ -426,9 +447,11 @@ matrix <code>[ M | Σxⁱy ]</code>. <code>_OneVar</code> solves it in place by 
 </code></pre>
 <ul>
 <li>
-<p>A zero/near-zero pivot raises <code>_ErrSingularMat</code> (0x83) “SINGULAR MAT”
-(e.g. all x equal, or too few distinct points for the degree). The <code>LD A,0x35</code>/
-<code>0x36</code> and <code>CALL 0x213d</code> are the in-solver guards. [confirmed]</p>
+<p>A zero/near-zero pivot raises <code>_ErrSingularMat</code> (<code>0x83</code>, <code>SINGULAR MAT</code>),
+for example when all x values are equal or the degree exceeds the number of
+distinct points. The guard is the <code>3A:67F7</code> call to <code>ram:212D</code>; the
+<code>0x35</code>/<code>0x36</code> calls at <code>3A:6888</code>–<code>3A:688E</code> are stat-variable stores.
+[confirmed]</p>
 </li>
 <li>
 <p>The solver is dimension-generic: <code>LinReg</code> (2×2) → <code>a,b</code>; <code>QuadReg</code> (3×3) →
@@ -437,8 +460,8 @@ coefficients land in <code>QuadA</code>(<code>8AEE</code>) downward. [confirmed]
 </li>
 <li>
 <p>Correlation <code>r</code> and <code>r²</code> are computed for the linear models from the
-centred sums:</p>
-<p>$$r=\frac{\sum (x-\bar x)(y-\bar y)}{\sqrt{\sum (x-\bar x)^2\,\sum (y-\bar y)^2}}=\frac{n\sum xy-\sum x\sum y}{\sqrt{\big(n\sum x^2-(\sum x)^2\big)\big(n\sum y^2-(\sum y)^2\big)}}$$</p>
+centred sums:
+$$r=\frac{\sum (x-\bar x)(y-\bar y)}{\sqrt{\sum (x-\bar x)^2\,\sum (y-\bar y)^2}}=\frac{n\sum xy-\sum x\sum y}{\sqrt{\big(n\sum x^2-(\sum x)^2\big)\big(n\sum y^2-(\sum y)^2\big)}}$$</p>
 <p>assembled with <code>_FPMult</code>/<code>_FPSub</code>/<code>_SqRoot</code>/
 <code>_FPDiv</code> (the <code>6845</code>/<code>684c</code> cluster) and stored to <code>Corr</code> (<code>8ACA</code>). The store offset is
 pinned: at <code>3A:684F</code> the code does <code>LD A,0x12 ; CALL 0x213D</code>, and <code>0x213D</code> is
@@ -446,8 +469,9 @@ pinned: at <code>3A:684F</code> the code does <code>LD A,0x12 ; CALL 0x213D</cod
 <code>0x3E07</code> statVar dispatcher with the name id in <code>A</code>). Id <code>0x12</code> = <code>tCorr</code> = the <code>Corr</code>
 slot, so this single sequence is exactly <code>r → Corr (8ACA)</code>. The preceding <code>3A:6845</code>
 <code>_SqRoot</code>/<code>_FPDiv</code> cluster forms the ratio; <code>r²</code> (and <code>R²</code> for higher-order fits) is the
-<code>r·r</code> / coefficient-of-determination derived from the same cluster and surfaced through the
-same <code>Corr</code> slot. [standard]</p>
+coefficient of determination derived by the following column-weighted pass. It is stored
+separately through IDs <code>0x35</code> and <code>0x36</code>, at <code>0x8C05</code> and <code>0x8C0E</code> respectively.
+[confirmed]</p>
 </li>
 <li>
 <p>The fitted equation is also written to <code>RegEQ</code> (the <code>Y=</code>-style regression
@@ -521,10 +545,69 @@ cores returns no <code>normalcdf</code>/<code>erf</code>/incomplete-gamma/incomp
 <code>fp_normalize</code>/<code>fp_norm_left</code> (mantissa normalisation), <code>cplx_norm_*</code> (complex modulus) and the
 <code>eqdisp_setnorm_split</code> layout helpers — none is a distribution. Likewise every <code>stat_*</code>
 symbol on page 0x3A is part of the <code>_OneVar</code> STAT-CALC engine (accumulate / variance / median /
-sort / regression), not a DISTR core. So the erf / incomplete-gamma / incomplete-beta continued
-fractions are [hypothesis] — outside the STAT-CALC engine, sitting behind the parser’s 2-byte
-(<code>0xBB</code>-prefixed) DISTR-token function table; their exact page/address is not exposed as a
-named routine in this DB. [hypothesis]</p>
+sort / regression), not a DISTR core. The <code>normalcdf(</code> evaluation path runs in the
+page <code>39</code> FP core described below. The STAT-TESTS p-value approximation carries
+its coefficients in a table on page <code>3A</code>
+(<a href="#stat-tests-engine-on-page-3a-confirmed">STAT-TESTS engine</a>). The erf / incomplete-gamma /
+incomplete-beta continued fractions behind the remaining DISTR tokens remain
+[hypothesis]. The parser’s two-byte, <code>0xBB</code>-prefixed DISTR-token function table does
+not expose them as named routines in this database.</p>
+<p><strong>Traced <code>normalcdf(</code> path.</strong> [confirmed] A headless TilEm trace of
+<code>normalcdf(0,1)</code> through the OS 2.55 interactive prompt identifies the evaluation
+path (<code>tools/macros/distr-normalcdf.macro</code>). Coverage against <code>boot-idle.macro</code>
+shows the parser collecting the fields on the FP stack. A <code>cross_page_jump</code> chain
+through <code>ram:2B09</code> reaches page <code>39</code> through page <code>01</code> glue. The numerical core
+occupies <code>39:4A02</code>–<code>39:4F5B</code>, with helpers at <code>39:5D2D</code>–<code>39:5E41</code>,
+<code>39:6C63</code>–<code>39:6D31</code>, and <code>39:57CF</code>–<code>39:57FC</code>. The trace does not execute the
+page <code>38</code> slot suggested by a raw token-index read (<code>38:459F</code> for <code>tDNormal</code>).
+The table at <code>38:4000</code> contains parse-side argument-class stubs such as
+<code>LD B,0x29 ; JR 4A44</code>; it is not the execution dispatch.</p>
+<hr>
+<h2 id="stat-tests-engine-on-page-3a-confirmed"><a class="header" href="#stat-tests-engine-on-page-3a-confirmed">STAT-TESTS engine on page 3A [confirmed]</a></h2>
+<p>The inferential-statistics commands execute in their own engine on page <code>3A</code>, sharing the bank
+with <code>_OneVar</code> but distinct from it. Three byte-pinned structures locate it:</p>
+<p><strong>Candidate <code>PStat</code>–<code>SStat</code> references.</strong> A ROM-wide byte-pattern scan
+(<code>tools/scan_stat_writers.py</code>, immediate or absolute operands landing in
+<code>0x8B5A</code>–<code>0x8C37</code>) finds about 50 opcode-shaped candidates on page <code>3A</code>
+(<code>3A:4B15</code>–<code>3A:6BDC</code>) plus candidates on pages <code>06</code>, <code>35</code>, <code>37</code>, and <code>39</code>.
+Because the scan does not recover instruction boundaries, these hits locate a
+search cluster but do not by themselves establish a writer count or exclude
+references on other pages. [hypothesis]</p>
+<p><strong>A T-Test output stage at <code>3A:5500</code>.</strong> [confirmed] The routine multiplies <code>OP1</code> through
+<code>fp_mult_const</code> (<code>ram:2385</code>), scales by <code>StdPX</code> (<code>0x8A67</code>), divides through <code>fp_div_const</code>
+(<code>ram:2532</code>) against <code>SStat</code> (<code>0x8BFC</code>), then stores the result with
+<code>LD A,0x24 ; CALL _Sto_StatVar</code>. ID <code>0x24</code> is <code>tStatT</code>, the <code>TStat</code> slot. The
+routine then references <code>DF</code> at <code>0x8B87</code>. The surrounding code reads and clears
+<code>statFlags</code> bits and dispatches on the stored model ID.</p>
+<p><strong>The normal p-value coefficient table at <code>3A:554F</code>.</strong> [confirmed] Nine-byte <code>TIFloat</code>
+constants, byte-verified in sequence:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Addr</th><th>Value</th><th>Role</th></tr>
+</thead>
+<tbody>
+<tr><td><code>3A:554F</code></td><td><code>0.2316419</code></td><td>threshold <code>p</code></td></tr>
+<tr><td><code>3A:5558</code></td><td><code>1.330274429</code></td><td>coefficient <code>b5</code></td></tr>
+<tr><td><code>3A:5561</code></td><td><code>-1.821255978</code></td><td>coefficient <code>b4</code></td></tr>
+<tr><td><code>3A:556A</code></td><td><code>1.781477937</code></td><td>coefficient <code>b3</code></td></tr>
+<tr><td><code>3A:5573</code></td><td><code>-0.356563782</code></td><td>coefficient <code>b2</code></td></tr>
+<tr><td><code>3A:557C</code></td><td><code>0.319381530</code></td><td>coefficient <code>b1</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>This coefficient set matches the Zelen–Severo approximation of the standard normal tail,
+$\Phi(z)\approx 1-\varphi(z),(b_1t+b_2t^2+b_3t^3+b_4t^4+b_5t^5)$ with
+$t=1/(1+pz)$. The loop at <code>3A:551F</code> evaluates the five coefficients in descending order by
+Horner steps; <code>LD HL,554Fh</code> at <code>3A:550E</code> pins the table start. The type bytes at <code>3A:5561</code>
+and <code>3A:5573</code> are <code>0x80</code>, which supplies the negative signs on <code>b4</code> and <code>b2</code>.
+The STAT-TESTS handlers use the result to form <code>PStat</code>. [confirmed]</p>
+<p><strong>UI descriptor tables at <code>3A:7D00</code>–<code>3A:7E60</code>.</strong> [confirmed] The same bank carries
+the test editor’s data. It includes alternative-hypothesis strings for the
+1-PropZTest and 2-PropZTest menus, plus the <code>F</code>-test tail strings. It also contains
+SinReg and Logistic formula templates, three-byte dispatch stubs into fixed page 0
+vectors, and an ascending handler-pointer array at <code>3A:7DF4</code>–<code>3A:7E1E</code>. The mapping
+from array slots to menu items remains open.</p>
 <hr>
 <h2 id="subsystem-integration"><a class="header" href="#subsystem-integration">Subsystem integration</a></h2>
 <pre><code class="language-text">  L1..L6 lists (VAT data)                 statVars (0x8A3A)  ← results, recall-by-name
@@ -568,6 +651,11 @@ equations, depositing every output as a named <code>TIFloat</code> in the <code>
 <tr><td><code>3A:7935</code></td><td><code>stat_sort</code></td><td>stat-internal data sort (median/quartile, Med-Med)</td></tr>
 <tr><td><code>3A:79B9</code></td><td><code>stat_median_quartile</code></td><td>median/Q1/Q3 + Med-Med medians</td></tr>
 <tr><td><code>3A:760F</code>/<code>75E4</code></td><td><code>medmed_partition</code></td><td>Med-Med 3-partition setup</td></tr>
+<tr><td><code>3A:5500</code></td><td><code>ttest_output_stage</code></td><td>T-Test result store: ×<code>StdPX</code>, ÷<code>SStat</code>, <code>_Sto_StatVar</code> ID <code>0x24</code> (<code>TStat</code>)</td></tr>
+<tr><td><code>3A:554F</code></td><td><code>normal_tail_coef_tbl</code></td><td>Zelen–Severo coefficients (<code>p</code>, <code>b5</code>…<code>b1</code>) for <code>PStat</code> p-values</td></tr>
+<tr><td><code>00:2385</code></td><td><code>fp_mult_const</code></td><td>OP1 ×= (HL)-pointed float constant</td></tr>
+<tr><td><code>00:2532</code></td><td><code>fp_div_const</code></td><td>OP1 ÷= (HL)-pointed float constant</td></tr>
+<tr><td><code>39:4A02</code>–<code>39:4F5B</code></td><td><code>distr_normal_core</code> (unnamed)</td><td>traced <code>normalcdf(</code> evaluation core on page 39</td></tr>
 <tr><td><code>00:2149</code></td><td><code>_Rcl_StatVar</code></td><td>recall a named statVar into OP1, id 0x42DC</td></tr>
 <tr><td><code>00:2741</code></td><td><code>_ErrStat</code></td><td>raise STAT error (code 0x15), id 0x44C2</td></tr>
 <tr><td><code>00:2759</code></td><td><code>_ErrStatPlot</code></td><td>raise STAT PLOT error (0x1B), id 0x44D1</td></tr>
@@ -577,7 +665,7 @@ equations, depositing every output as a named <code>TIFloat</code> in the <code>
 </tbody>
 </table>
 </div>
-<p><strong>RAM:</strong> <code>statVars=0x8A3A</code>, <code>stat_calc_command=0x8A36</code>, work ptrs <code>0x84AF-0x84DB</code>
+<p><strong>RAM:</strong> <code>statVars=0x8A3A</code>, <code>stat_calc_command=0x8A36</code>, work pointers <code>0x84AF</code>–<code>0x84DB</code>
 (<code>84D3</code> x/median ptr, <code>84D5/84D7</code> element ptrs, <code>84D9</code> sums-matrix base,
 <code>84DB</code> freq ptr, <code>84B1/84B2</code> loop counters, <code>84B3</code> element count).
 <strong>FP engine reused:</strong> <code>RST 30h</code>=<code>_FPAdd</code>, <code>RST 08h</code>=OP1→OP2, <code>00:238B</code>=<code>_FPMult</code>,
@@ -585,17 +673,28 @@ equations, depositing every output as a named <code>TIFloat</code> in the <code>
 =<code>_SqRoot</code>, <code>24BD</code>=<code>_InvOP1S</code>.</p>
 <h2 id="remaining-questions"><a class="header" href="#remaining-questions">Remaining questions</a></h2>
 <ul>
-<li><strong><code>r</code> store offset.</strong> <code>3A:684F</code> does <code>LD A,0x12 ; CALL 0x213D</code>
-(<code>_Sto_StatVar</code>, id <code>0x12</code> = <code>tCorr</code>), i.e. <code>r → Corr (8ACA)</code>; <code>r²</code>/<code>R²</code> is the
-<code>r·r</code>/coefficient-of-determination from the same <code>6845</code> <code>_SqRoot</code>/<code>_FPDiv</code> cluster, surfaced
-through the same <code>Corr</code> slot in the <a href="#regression-solver-confirmed">regression solver</a>. (Residual: the <code>6845-6891</code> region is unanalyzed code in the
-DB, so only the <code>A=0x12</code> store sequence was byte-pinned, not every intermediate.)</li>
-<li><strong>DISTR numerical cores</strong> (erf/incomplete-gamma/incomplete-beta) are
-<em>outside</em> the STAT-CALC engine: no distribution core is a named routine in this DB; they sit
-behind the parser’s 2-byte DISTR-token function table described under <a href="#distr-functions-confirmed">DISTR functions</a>. Exact address [hypothesis].</li>
-<li><strong>STAT-TESTS</strong> (Z/T/χ²/F/ANOVA) that fill <code>PStat…SStat</code>/<code>anovaf_vars</code> are
-<em>separate command handlers</em>, not reached through <code>_OneVar</code> (whose tokens are only <code>F2</code>–<code>FF</code>);
-no <code>PStat</code>-writing routine is among the page-<code>3A</code> <code>stat_*</code> symbols in the <a href="#statvars-result-block-confirmed"><code>statVars</code> result block</a>. Per-test addresses [hypothesis].</li>
+<li><strong>Correlation stores.</strong> <code>3A:684F</code> does <code>LD A,0x12 ; CALL 0x213D</code>
+(<code>_Sto_StatVar</code>, ID <code>0x12</code> = <code>tCorr</code>), i.e. <code>r → Corr (0x8ACA)</code>; <code>r²</code>/<code>R²</code> is the
+coefficient of determination from the following column-weighted pass, stored through IDs
+<code>0x35</code>/<code>0x36</code> at <code>0x8C05</code>/<code>0x8C0E</code>. See the annotated <code>3A:6845</code>–<code>3A:6891</code>
+listing under <a href="#regression-solver-confirmed">Regression solver</a>. [confirmed]</li>
+<li><strong>DISTR numerical cores.</strong> The <code>normalcdf(</code> evaluation path is traced to the
+page <code>39</code> FP core (<code>39:4A02</code>–<code>39:4F5B</code> and helpers) — see
+<a href="#distr-functions-confirmed">DISTR functions</a>. The erf / incomplete-gamma /
+incomplete-beta continued fractions behind the remaining DISTR tokens are unnamed and
+untraced; the page <code>38</code> parse-side table is not the execution dispatch. The exact algorithm in
+the page <code>39</code> core (continued fraction versus polynomial or rational fit) remains
+[hypothesis].</li>
+<li><strong>STAT-TESTS</strong> (Z/T/χ²/F/ANOVA) fill <code>PStat…SStat</code>/<code>anovaf_vars</code> from their own engine on
+page <code>3A</code>. A pinned T-Test output stage, the normal-tail coefficient table, and
+the UI descriptor area locate the engine. See
+<a href="#stat-tests-engine-on-page-3a-confirmed">STAT-TESTS engine</a>. The per-test entry
+addresses and the slot-to-menu mapping for the <code>3A:7DF4</code> pointer array remain
+[hypothesis].
+The <code>_Sto_StatVar</code>/<code>_Rcl_StatVar</code> stubs (<code>ram:213D</code>/<code>ram:2149</code>) funnel through the
+cross-page-jump table at <code>ram:3E07</code> (one <code>CALL 2B09</code> + inline <code>addr,page</code>
+descriptor per ID); resolving those descriptors gives the per-ID bodies
+without needing a live trace.</li>
 <li><code>stat_sort</code> (<code>3A:7935</code>) is a 49-byte setup that validates/counts the elements
 then dispatches the compare-swap via <code>rst 28h</code> (the bcall site isn’t fully
 analyzed in the DB). The <code>SortA(</code>/<code>SortD(</code> <em>command</em> sort is a different routine
@@ -655,13 +754,13 @@ analyzed in the DB). The <code>SortA(</code>/<code>SortD(</code> <em>command</em
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>
-        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
         <script src="hljs-z80-e93ac716.js"></script>
         <script src="katex-5e4f3b03.min.js"></script>
         <script src="katex-auto-render-bb53eb95.min.js"></script>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
-        <script src="pseudocode-init-5fa46c0a.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
 
 
 

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-fef03c08.js";
+            window.path_to_searchindex_js = "searchindex-f09341ee.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-34eae533.js"></script>
@@ -181,52 +181,130 @@
                     <main>
                         <h1 id="open-questions-and-roadmap"><a class="header" href="#open-questions-and-roadmap">Open questions and roadmap</a></h1>
 <p>The major ROM and hardware subsystems are mapped well enough to support focused
-follow-up work. This page lists only unresolved behavior and the evidence needed
-to resolve it. Completed reconstructions and emulator comparisons remain on the
-subsystem pages linked below.</p>
+follow-up work. This page records the audit boundary and the evidence needed to
+resolve the remaining behavior. Detailed reconstructions and emulator
+comparisons remain on the subsystem pages linked below.</p>
 <h2 id="static-analysis-work"><a class="header" href="#static-analysis-work">Static-analysis work</a></h2>
 <h3 id="symbol-types"><a class="header" href="#symbol-types">Symbol types</a></h3>
-<p>Apply <code>TIKeyCode</code>, <code>TIError</code>, and <code>TIVarType</code> to scalar operands in the handlers
-that consume them. Keep the changes scoped to operands whose domains are already
-established.</p>
+<p>The Ghidra model assigns <code>TIKeyCode</code> to <code>kbdKey</code>, <code>kbdGetKy</code>, and <code>keyExtend</code>
+(<code>0x8444</code>–<code>0x8446</code>), and <code>TIError</code> to <code>errNo</code> (<code>0x86DD</code>). <code>TIVarType</code> remains
+on <code>curType</code> and <code>varType</code>. <code>stat_calc_command</code> remains inside the typed
+<code>SystemFlags</code> span. [confirmed]</p>
 <h3 id="floating-point-table-semantics"><a class="header" href="#floating-point-table-semantics">Floating-point table semantics</a></h3>
-<p>The <code>_SinCosRad</code> range reduction and table-driven recurrence are byte-pinned.
-The exact rotation identity represented by each row at <code>02:7201</code> and <code>02:7281</code>
-is still unknown. [confirmed]</p>
-<p>Reduce the rows to their mathematical identities and reconcile them with the
-recurrence in <a href="floating-point.html#_sincosrad-sine-and-cosine-in-radians-02733e-confirmed">Floating point</a>.</p>
+<p>The <code>_SinCosRad</code> recurrence is mechanically reconstructed. Phase 1 extracts one
+redundant BCD digit per row of <code>02:7201</code> by non-restoring modulo-1 subtraction
+or addition of the row aligned at $10^{-(k+1)}$. Phase 2 builds
+$b_0\cdot\prod_k(1+10^{-2k})^{\lfloor(11-d_k)/2\rfloor}$ from the digits. The
+row values approach $1 - s^2/3$ for the aligned scale $s = 10^{-(k+1)}$, but
+they do not reduce to a clean rotation identity. This suggests tuned or
+truncated constants. [confirmed]</p>
+<p>Remaining: the closed-form interpretation of the phase-1 digit map — which
+function of the reduced argument the digit string represents, and how phase 3
+combines it with the phase-2 product and the residual to assemble the result.
+A second traced input (e.g. <code>sin(0.5)</code>, digits <code>3,9,9,3,8,4,4,2</code>, residual
+$3.81\times10^{-9}$) is available to constrain the fit. See
+<a href="floating-point.html#_sincosrad-sine-and-cosine-in-radians-02733e-confirmed">Floating point</a>.</p>
 <h3 id="graph-raster-details"><a class="header" href="#graph-raster-details">Graph raster details</a></h3>
-<p>Decode the rounding and sentinel handling at <code>37:4229</code>. Then trace <code>_DrawCirc2</code>
-at <code>3B:7171</code> to recover its parametric stepping. The coordinate transforms and
-circle setup are already pinned in <a href="sub-graphing.html#evidence-summary-and-open-items">Graphing</a>.</p>
+<p>Find a natural flag state that routes <code>Circle(</code> through <code>_DrawCirc2</code>, then
+compare its 60 emitted segments with the statically decoded schedule. Separately,
+find and trace a natural caller of <code>_GrphCirc</code>, adding a direct-call interval
+boundary to the current <code>_CircCmd</code> trace reducer. Extend the function-mode
+traces to thick, shade, animate, and dotted styles; <code>Xres&gt;1</code>; multiple selected
+equations; and polar, parametric, and sequence modes. The coordinate rounding,
+two ordinary function witnesses, and the clear-flag page-33 Circle path are
+pinned in <a href="sub-graphing.html#evidence-summary-and-open-items">Graphing</a>.</p>
 <h3 id="table-evaluation"><a class="header" href="#table-evaluation">TABLE evaluation</a></h3>
-<p>Trace the per-row <code>_StoX</code> call and each selected-Y evaluation in the page-<code>05</code>
-fill loop. The Depend:Ask prompt path and the <code>TblRng</code> special case in
-<code>_Find_Parse_Formula</code> also need end-to-end traces. See <a href="sub-table-yvars.html#evidence-summary-and-open-items">Table and Y= variables</a>.</p>
+<p>Driver <code>05:6205</code> loops over seven visible rows and calls bcall ID <code>4741h</code> →
+<code>35:7C7C</code> for each row. The <code>_ParseInp</code> region executes once per row; <code>_StoX</code>
+does not execute during the fill. The Ask-mode bodies are also decoded.
+<code>Indpnt=Ask</code> prompts through the editor at <code>05:7303</code>, with an OPS continuation
+at <code>05:7329</code>, and finalizes the row through the value-cache shift at <code>05:6032</code>.
+<code>Depend=Ask</code> evaluates one requested cell through <code>05:637C</code>, with an OPS
+continuation at <code>05:644E</code>. Both mode tests honor an override check at <code>05:74BE</code>.
+The <code>TblRng</code> validation at <code>38:72DA</code> and <code>38:7260</code> reduces to parse-boundary
+checking: the range variable must be followed by a legal statement delimiter.
+[confirmed]</p>
+<p>No remaining items for this subsystem.</p>
 <h3 id="statistics-command-families"><a class="header" href="#statistics-command-families">Statistics command families</a></h3>
-<p>Locate and decode the DISTR numerical cores and each STAT-TEST handler that
-writes <code>PStat</code> through <code>SStat</code>. Complete the byte trace of <code>3A:6845</code>–<code>3A:6891</code>,
-where the regression path derives <code>r</code> and <code>r²</code>. See <a href="sub-statistics.html#remaining-questions">Statistics</a>.</p>
+<p>The regression <code>r</code>/<code>r²</code> cluster is byte-pinned: <code>3A:6845</code>–<code>3A:6891</code> forms
+<code>r = num/den</code>, stores it to <code>Corr</code> (<code>_Sto_StatVar</code> id <code>0x12</code>), accumulates a
+column-weighted residual sum over the augmented matrix, and — when the
+denominator is nonzero — stores <code>r²</code> (id <code>0x35</code>, slot <code>0x8C05</code>) or <code>R²</code>
+(id <code>0x36</code>, slot <code>0x8C0E</code>). [confirmed]</p>
+<p>The STAT-TESTS engine occupies <code>3A:4A00</code>–<code>3A:7E60</code>. A raw operand scan finds
+about 50 candidate <code>PStat</code>–<code>SStat</code> references in that window. Byte-pinned
+evidence includes a T-Test output stage at <code>3A:5500</code> that stores <code>TStat</code> (id
+<code>0x24</code>), the Zelen–Severo normal-tail coefficient table at
+<code>3A:554F</code>–<code>3A:5584</code>, and the test-editor descriptor tables at
+<code>3A:7D00</code>–<code>3A:7E60</code>. The <code>normalcdf(</code> evaluation reaches the page-<code>39</code>
+floating-point core at <code>39:4A02</code>–<code>39:4F5B</code> and its helpers. [confirmed]</p>
+<p>Remaining: the per-test entry addresses (the parser’s execution dispatch into
+the page-<code>3A</code> engine — the page-<code>38</code> table is parse-side only), the
+menu-slot mapping of the <code>3A:7DF4</code> pointer array, and the algorithm identity
+of the page-<code>39</code> core. See <a href="sub-statistics.html#remaining-questions">Statistics</a>.</p>
 <h3 id="mathprint-runtime-paths"><a class="header" href="#mathprint-runtime-paths">MathPrint runtime paths</a></h3>
-<p>Existing traces cover a filled integral and an integral containing a stacked
-fraction. Both reach <code>39:4CA4</code>, but neither reaches the static compositor entry
-at <code>39:5167</code>. [confirmed]</p>
-<p>Find an expression and cursor state that selects <code>39:5167</code>, then trace the
-row-step and saved-operand callees at <code>39:5949</code>, <code>39:5B10</code>, and <code>39:5B1D</code>. A
-MathPrint-side witness must continue through <code>39:59E0</code> or <code>39:59F9</code> to
-<code>_FindAlphaUp</code> or <code>_FindAlphaDn</code>. Arbitrary VAT sequences and the two extension
+<p>The action byte entering <code>eqdisp_layout_main</code> (<code>39:4F9A</code>) is a raw TI key code:
+<code>kLeft</code> opens the backward-walk path (<code>CP 2</code> at <code>39:5048</code>) and <code>kAlphaDown</code>
+opens window advance (<code>CP 8</code> at <code>39:507C</code>), which loops <code>CALL 39:5167</code>. The
+<code>kAlphaUp</code>/<code>kAlphaDown</code> codes come from a translator at <code>39:53A1</code> — get-key
+variant bcall ID <code>4A68h</code>, compare against <code>0xFB</code>, state byte <code>0x8446</code> selects up
+vs down. In-slot character scrolling bypasses <code>eqdisp_layout_main</code> entirely, as
+does nested-template insertion. [confirmed]</p>
+<p>Remaining: make get-key return <code>0xFB</code> inside a template editor state — neither
+sequential ALPHA-then-arrow keystrokes nor overlapping press/release chords do.
+Once it does, <code>39:5167</code>, its callees <code>39:5949</code>/<code>39:5B10</code>/<code>39:5B1D</code>, and the
+saved-operand dispatch through <code>39:59E0</code>/<code>39:59F9</code> to <code>_FindAlphaUp</code>/
+<code>_FindAlphaDn</code> become traceable; arbitrary VAT sequences and the two extension
 bytes in the page-<code>07</code> 11-byte OP scratch registers also remain open. See
 <a href="sub-equation-display.html#from-live-editor-state-to-settled-drawing">Equation display</a>.</p>
 <h3 id="matrix-and-list-paths"><a class="header" href="#matrix-and-list-paths">Matrix and list paths</a></h3>
-<p>Explain why plain <code>augment(</code> calls the partial-pivoting engine at <code>02:4663</code>.
-Locate the <code>randM(</code> cell-fill path and the separate <code>rref(</code>/<code>ref(</code> driver. Finish
-the collection and element-load traces for <code>seq(</code>, <code>SortA(</code>, and <code>SortD(</code>. See
-<a href="sub-matrix-list.html#resolved-behavior-and-remaining-questions">Matrices and lists</a>.</p>
+<p>Plain <code>augment(</code> enters the partial-pivoting engine at <code>02:4663</code> but never
+eliminates: the <code>0x91</code> branch sets carry (<code>02:6361 SCF</code>, restored by the
+<code>POP AF</code> at <code>02:6378</code>), and the engine gates its elimination body on that flag
+(<code>46DA POP AF ; JR C,46EF</code>). The elimination pass belongs to the statistics
+regression path, which enters the same dispatcher through <code>3A:6398</code>. [confirmed]</p>
+<p>The <code>randM(</code> fill is decoded: <code>02:5CC1</code>–<code>02:5CE6</code> computes <code>int(19·rand)−9</code> per
+cell, drawing from <code>_Random</code> (<code>36:7DC9</code>) through the page 0 banked-call stub
+at <code>ram:392D</code>. The <code>ref(</code> driver dispatches at <code>02:609A</code> via bcall ID <code>4B85h</code>
+→ <code>35:7995</code>; the <code>rref(</code> executor runs through bcall ID <code>4B88h</code> → <code>02:7C23</code>
+from page-38 stubs at <code>38:514F</code>/<code>38:5157</code>; <code>SortA(</code>/<code>SortD(</code> share one body at
+<code>02:652F</code> with direction discriminators <code>0x0E</code>/<code>0x10</code>. The <code>seq(</code> collection is
+traced per element: entry <code>37:6E87</code>, expression eval through the standard
+parser, element append via <code>02:69BC</code> → <code>37:4260</code>–<code>37:4285</code>, list growth via page-<code>07</code>
+VAT routines, final <code>_CreateRList</code> through <code>37:70DC</code>. [confirmed]</p>
+<p>No remaining items for this subsystem.</p>
 <h3 id="parser-and-archive-residuals"><a class="header" href="#parser-and-archive-residuals">Parser and archive residuals</a></h3>
-<p>Map the FPS loop-frame bytes used by <code>For(</code>, <code>While</code>, and <code>Repeat</code>. Recover the
-direct assembly-to-TI-BASIC program-call entry beyond VAT lookup and the
-cooperative <code>Ans</code> callback. Trace the group-archive member walk after
-<code>_Arc_Unarc</code> rejects type <code>0x17</code>.</p>
+<p>The <code>Asm(</code>/<code>AsmPrgm</code> setup before the <code>ram:9D95</code> payload handoff is
+byte-pinned at <code>07:5762</code>–<code>57D4</code>: <code>_ChkFindSym</code>, size checks against <code>0x2000</code>,
+<code>_InsertMem</code> growth of <code>userMem</code>, <code>LDIR</code> payload copy, USB port-<code>0x20</code> state
+save, cleanup handler <code>0x5800</code>, and the <code>07:57FD</code> jump to <code>0x9D95</code>. The entry
+gate compares the second body byte to <code>6D</code> (<code>07:5772</code>, <code>FE 6D</code>), while working
+fixtures emit <code>AsmPrgm</code> as <code>BB 6C</code> and still reach the payload — reconciling
+the gate byte remains open. [confirmed]</p>
+<p>Remaining: the meaning of the loop-record state word (it varies per fixture:
+<code>0012h</code> in one trace, <code>0007h</code> in another) and the per-iteration split between
+<code>parse_end_ops_record</code> re-entry and direct continuation jumps for <code>While</code>/
+<code>Repeat</code>. The record shapes themselves are pinned: all three loops share the
+5-byte form <code>00 | continuation word | state word</code>, with <code>For(</code> continuations
+<code>38:5836</code>/<code>38:587D</code> and the <code>While</code>/<code>Repeat</code> runtime continuation <code>38:57E7</code>.
+[confirmed]</p>
+<p>Also open: a direct assembly-to-TI-BASIC program-call entry beyond VAT lookup
+and the cooperative <code>Ans</code> callback. The generated <code>ZZRUN</code> negative probe
+resolves <code>prgmOO</code>, sets the observed parser interval, and enters <code>38:6910</code>, but
+the carry-guarded run terminates at <code>_ErrSyntax</code> (<code>ram:2700</code>) with the cursor
+inside the target body. An 80-byte layout of the same probe ended at
+<code>_ErrArgument</code> (<code>ram:2711</code>), so the terminal error depends on state outside the
+copied name and cursor interval. The remaining gap is the native caller’s
+stack, error-handler, FPS/OPS, and run-state setup around that private entry.
+[confirmed]</p>
+<p>The group receive path is resolved. Receiving a <code>.8xg</code> stores each member as an
+individual variable through the standard link variable-receive loop; no
+<code>0x17</code> object or page-<code>07</code> guard is involved. A mixed group confirms that the
+receiver honors the archive attribute per member. <code>HELLO</code> lands on Flash page
+<code>08</code>, while <code>FACTOR</code> remains in RAM. Invoking the archived program takes the
+page-byte guard to <code>ERR:ARCHIVED</code>. See
+<a href="sub-vat-archive.html#resolved-behavior-and-open-items">Variables, archive and unarchive</a>.
+[confirmed]</p>
 <h2 id="resident-runtime-experiments"><a class="header" href="#resident-runtime-experiments">Resident-runtime experiments</a></h2>
 <p>The compiled <code>Asm(</code> launcher, its <code>0x2000</code> internal-size cap, pointer repair,
 archived lookup, scratch-buffer observations, and normal bank-A bcall restore
@@ -410,13 +488,13 @@ calculator revision, PCB date, and ASIC marking with each result.</p>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>
-        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
         <script src="hljs-z80-e93ac716.js"></script>
         <script src="katex-5e4f3b03.min.js"></script>
         <script src="katex-auto-render-bb53eb95.min.js"></script>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
-        <script src="pseudocode-init-5fa46c0a.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
 
 
 
