@@ -32,9 +32,12 @@ columns outside command range `0x20`–`0x2B` and never writes a hidden column.
 Its only data value is the byte already read from the guarded visible cell.
 It verifies that byte after the same-value write and restores it again.
 
-The hidden-column LCD tools are emulator-only model tests. Do not transplant
-their sentinel writes into a physical artifact without a separate recovery
-protocol and an explicit operator gate.
+`lcd-hidden-lab.asm` is a separate laboratory artifact. It is excluded from
+the default build. Its builder requires a matching backup file and SHA-256,
+an identified controller or test unit, recovery notes, an expected ASIC byte,
+and a literal risk acknowledgement. Unknown controller aliasing can still
+reach a cell outside the saved set, so this artifact belongs only on an
+identified, repairable test calculator.
 
 The SPASM-ng workflow was cross-checked against
 [`siraben/ti84-forth`](https://github.com/siraben/ti84-forth): both use a Nix
