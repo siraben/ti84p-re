@@ -1,0 +1,25 @@
+id,name,body,rom_status,dynamic_status,dynamic_result,evidence_file,documentation,evidence_limit
+0x4030,_newContext,ram:077E,decoded,traced,"A=0x40 clears kbdKey and preserves port 0x06",community-bcall-semantics.csv,docs/boot-contexts-errors.md,one context selector under TilEm
+0x4051,_lcd_busy,ram:0CC3,decoded,return-traced,fixture entered body and returned,community-manual-bcall-traces.csv,docs/display-lcd.md,LCD timing branch not forced
+0x41D4,_ShRAcc,ram:1BCB,decoded,traced,A=0xAB returns A=0x0A F=0x1C,community-bcall-semantics.csv,docs/floating-point.md,controlled scalar input
+0x4744,_GetK,37:746D,decoded,traced,kbdGetKy 0x01 maps table byte 0x22 to OP2 real 34,community-bcall-semantics.csv,docs/keypad-on-hardware.md,one table index under TilEm
+0x4909,_bufInsert,06:42E5,decoded,return-traced,fixture called with DE=0xBB6A and returned,community-manual-bcall-traces.csv,docs/tokenizer-basic.md,buffer mutation is ROM control-flow evidence
+0x4936,_BufClear,ram:222E,decoded,return-traced,fixture entered body twice and returned,community-manual-bcall-traces.csv,docs/tokenizer-basic.md,pointer writes are ROM control-flow evidence
+0x4A02,_ConvKeyToTok,07:44DE,decoded,traced,A=0x05 returns DE=0x003F,community-bcall-semantics.csv,docs/tokenizer-basic.md,special FB/FC/FE tables are static-only
+0x4D41,_ErrCustom1,ram:2771,decoded,traced,nonlocal ERR:COMMTRACE path,community-custom-error.csv,docs/boot-contexts-errors.md,bounded custom message under TilEm
+0x4E61,_GetStringInput2,37:5194,decoded,traced,input 1 ENTER returns OP1 real 1,community-string-input.csv,docs/boot-contexts-errors.md,cancel and invalid input untraced
+0x4ED6,_SendPacket,3C:4139,decoded,partial-trace,no-peer header error reached installed handler,community-send-packet.csv,docs/sub-link-transfer.md,payload checksum and ACK success need a peer
+0x4F3C,_FlashWriteDisable,3C:66D5,decoded,traced,"returned after OUT (0x14),0",community-bcall-semantics.csv,docs/execution-protection.md,no physical Flash write
+0x4F66,_SetGetKeyHook,3B:7D00,decoded,traced,raw-key target and active bit written,community-runtime-observations.csv,docs/sub-resident-scratch.md,installer paths only
+0x4F69,_ClrCursorHook,3B:7AEA,decoded,traced,IY+0x34 bit 7 cleared,community-bcall-semantics.csv,docs/sub-resident-scratch.md,no cursor callback invocation
+0x4F6F,_ClrRawKeyHook,3B:7B88,decoded,traced,raw-key active bit cleared,community-runtime-observations.csv,docs/sub-resident-scratch.md,NoExec removal path
+0x4F99,_SetTokenHook,3B:7D0B,decoded,traced,token target and IY+0x35 bit 0 written,community-bcall-semantics.csv,docs/sub-resident-scratch.md,callback not invoked
+0x500B,_GetKeyRetOff,06:491A,decoded,traced,2nd+ON returns A=0x3F without _PowerOff,community-getkey-ret-off.csv,docs/keypad-on-hardware.md,no physical ON timing
+0x5011,_FillBasePageTable,ram:2692,decoded,return-traced,fixture returned after model-selected table repair,community-vat-dynamic-observations.csv,docs/sub-vat-archive.md,live table not deliberately corrupted
+0x5014,_ArcChk,3D:61AF,decoded,traced,returned with four accounting bytes captured,community-vat-dynamic-observations.csv,docs/sub-vat-archive.md,one emulator archive state
+0x5026,_SetParserHook,3B:7D6E,decoded,traced,parser target and active bit written,community-runtime-observations.csv,docs/sub-resident-scratch.md,NoExec installation path
+0x5029,_ClearParserHook,3B:7C3B,decoded,traced,parser active bit cleared,community-runtime-observations.csv,docs/sub-resident-scratch.md,NoExec removal path
+0x50C8,_UngroupVar,39:764A,decoded,not-run,requires authentic GroupObj and mutates variables,,docs/sub-vat-archive.md,successful extraction and errors remain static-only
+0x50CE,_SetSilentLinkHook,3B:7DBB,decoded,traced,silent-link target and IY+0x36 bit 7 written,community-bcall-semantics.csv,docs/sub-resident-scratch.md,callback not invoked
+0x50E0,_NZIf83Plus,ram:1837,decoded,traced,A=0xA5 preserved and Z returned,community-manual-bcall-traces.csv,docs/asic-status-gpio.md,TilEm TI-84 Plus model
+0x5221,_Chk_Batt_Level,33:4E9B,decoded,model-probed,emulator comparator sweep models levels 0 1 and 3,,docs/asic-status-gpio.md,ROM body decoded but the sweep does not execute it; physical thresholds unmeasured
