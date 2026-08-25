@@ -32,32 +32,41 @@ the TI-84 Plus CE and is outside this monochrome calculator's hardware scope.
 
 ## Exact assembled results
 
-Two generic runners now execute identical `HWPMAP`, `HWPLCD`, and `HWPIRQ`
-machine images. Wabbitemu boots the retail ROM before injection. TilEm loads
-the exact ROM and establishes the guarded direct-`Asm(` core baseline. Both
-redirect `_CreateAppVar` to a private RAM buffer, execute the assembly CRC
-routine, require that buffer to match the staging frame byte for byte, and stop
-at the first display bcall. The measurement, cleanup, frame
-update, and verification-number computation are therefore exact; OS variable
-allocation and rendered screen pixels are not. [confirmed]
+Two generic runners accept all 25 physical-probe definitions. Wabbitemu boots
+the retail ROM before injection. TilEm loads the exact ROM and establishes the
+guarded direct-`Asm(` core baseline. Both redirect `_CreateAppVar` to a private
+RAM buffer, execute the assembly CRC routine, and stop at the first display
+bcall. Ordinary probes require the resident buffer to match the staging frame
+byte for byte. Execution-fetch probes instead require the immutable header and
+configuration to match and validate the resident outcome transition. Their
+displayed CRC is checked against that resident frame. The measurement,
+cleanup, frame update, and verification-number computation are therefore
+exact; OS variable allocation and rendered screen pixels are not. [confirmed]
 
 | Probe | TilEm result and code | Wabbitemu result and code |
 |-------|-----------------------|---------------------------|
 | `HWPMAP` | `tilem`; all restore flags set; `58756` | `wabbitemu`; all restore flags set; `21062` |
 | `HWPLCD` | `tilem-16-column`; restore true; `43477` | `wabbitemu-15-column-wrap`; restore true; `61237` |
 | `HWPIRQ` | programmable-timer wake; restore true; `44737` | standard-timer-watchdog wake; restore true; `19672` |
+| `HWEF07` | returned; resident-frame code `26515` | returned; resident-frame code `38818` |
+| `HWTMR` | completed after 16,855,833 clocks; restore fields pass; `3397` | completed; restore fields pass; `41549` |
+
+The TilEm adapter runs in 10,000,000-clock slices until it reaches a display
+breakpoint, an exception, an unexpected stop reason, or its 100,000,000-clock
+runner limit. An ordinary zero stop reason ends one slice, not the probe. A
+runner-limit failure is distinct from the probe's bounded polling outcome.
 
 The exact-runner builds are separate from the older fixed-mode Wabbitemu
 adapter, so extending the matrix does not change that evidence binary. The
 locally reproduced generic runner hashes are:
 
 - TilEm `f56ad637` runner:
-  `a3dfa724f5b56cdc4a0920fe821915adfc82770b7e556fedda061f8a99711aa1`;
+  `ac280251dcda1cda083196abf88032502420351732cb689cac38d20348126408`;
 - Wabbitemu `48c2dc0` runner:
-  `6ab24b1c31d7655426e059c06d511cec12cf0fedf9ad1d0bc87eaa28627defc2`.
+  `0f4cb971b3ff1475f2293c2e50db4c6207af92f69e670c0cf0c053901be90569`.
 
-Build either runner from its guarded source tree, then run one or all three
-probe names through the normalized CLI:
+Build either runner from its guarded source tree, then run any probe name
+through the normalized CLI:
 
 ```sh
 nix develop -c python3 -m ti84re.emulators.tilem.build_exact_probe \
@@ -69,11 +78,12 @@ nix develop -c python3 -m ti84re.emulators.wabbitemu.build_exact_probe \
 nix develop -c python3 -m ti84re.hardware.run_exact_probe \
   --backend tilem --binary /tmp/tilem-exact \
   --expected-binary-sha256 \
-    a3dfa724f5b56cdc4a0920fe821915adfc82770b7e556fedda061f8a99711aa1 \
+    ac280251dcda1cda083196abf88032502420351732cb689cac38d20348126408 \
   --probe lcd-controller --output-dir /tmp/tilem-hwplcd --json
 ```
 
-The older exact `HWTMR` and `HWPFX` paths use a pinned Wabbitemu binary with
+The older exact `HWTMR` and `HWPFX` paths provide independent prior evidence
+through a pinned Wabbitemu binary with
 SHA-256
 `3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e`:
 

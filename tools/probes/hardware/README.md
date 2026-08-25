@@ -18,9 +18,14 @@ size shifts every probe entry and invalidates exact-emulator runners and
 artifact hashes. A probe that displays a completion message must do so after
 state restoration and AppVar creation.
 
-`display.inc` implements the post-cleanup display used by `HWPRTC`, `HWPMAP`,
-`HWPLCD`, and `HWPIRQ`. It prints a decimal CRC-16/CCITT-FALSE code over the complete
-`HWP1` frame. The host decoder reports the same code for comparison.
+`display.inc` implements every probe's post-cleanup display. It prints a
+labeled decimal CRC-16/CCITT-FALSE code over the complete AppVar-resident
+`HWP1` frame. The host decoder reports the same code for comparison. The
+display and key bcalls run only when interrupts were enabled on entry.
+
+Execution-fetch probes create their AppVar before the guarded fetch. A normal
+return updates the resident outcome and prints its CRC. A protection reset
+cannot reach the display path; export the pending AppVar after recovery.
 
 The SPASM-ng workflow was cross-checked against
 [`siraben/ti84-forth`](https://github.com/siraben/ti84-forth): both use a Nix
