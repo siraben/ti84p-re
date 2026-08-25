@@ -32,7 +32,7 @@ result AppVar is decoded and tied to a calculator and ASIC revision.
 | Programmable-timer edges | `HWTMR` | `HWTMR001` | Not run on a recorded unit |
 | RTC rollover coherence | `HWPRTC` | `HWPRTC01` | Not run on a recorded unit |
 | Mapper overlay routing | `HWPMAP` | `HWPMAP01` | Not run on a recorded unit |
-| LCD controller edges | `HWPLCD` | `HWPLCD01` | Not run on a recorded unit |
+| LCD ready and status | `HWPLCD` | `HWPLCD02` | Not run on a recorded unit |
 | Programmable-timer `HALT` wake | `HWPIRQ` | `HWPIRQ01` | Not run on a recorded unit |
 | USB control snapshot | `HWPUSB` | `HWPUSB01` | Not run on a recorded unit |
 | Flash execution boundaries | `HWEF07`–`HWEF2A` | matching `HWEF...01` names | Not run on a recorded unit |
@@ -87,7 +87,7 @@ a calculator backup before the first run. Then:
 13. Run `Asm(prgmHWPMAP)` only on the guarded OS 2.55MP direct-`Asm(` path.
     Export `HWPMAP01` immediately.
 14. Run `Asm(prgmHWPLCD)` on an identified, backed-up test calculator. Export
-    `HWPLCD01` immediately.
+    `HWPLCD02` immediately.
 15. Run `Asm(prgmHWPIRQ)` only through direct `Asm(` on unmodified OS 2.55MP.
     Record its code if it returns; export pending `HWPIRQ01` after a reset.
 16. Run `Asm(prgmHWPRAM)` for the RAM probe only after the earlier transfer and
@@ -114,7 +114,7 @@ python3 -m ti84re.hardware.decode_probe HWPMD511.8xv
 python3 -m ti84re.hardware.decode_probe --json \
   HWPASIC1.8xv HWBATT01.8xv HWBRAW01.8xv HWPUSB01.8xv \
   HWLINK01.8xv HWKEYS01.8xv HWBUS001.8xv HWPFX001.8xv HWTMR001.8xv \
-  HWPRTC01.8xv HWPMAP01.8xv HWPLCD01.8xv HWPIRQ01.8xv \
+  HWPRTC01.8xv HWPMAP01.8xv HWPLCD02.8xv HWPIRQ01.8xv \
   HWPMD511.8xv HWPRAM21.8xv
 ```
 
@@ -854,6 +854,14 @@ TilEm selected its active-paired-overlay profile and printed verification code
 `21062`. Every marker and readable selector restoration check passed in both
 runs. These are emulator results, not physical mapper conclusions. [confirmed]
 
+The portable run record is
+`tools/oracles/hardware/mapper-overlays-emulators.json`. It retains the exact machine
+image, ROM, emulator, runner, frame, and source hashes. MAME 0.287 completed
+only the guarded Lua device-handler profile: exact execution of the `HWPMAP`
+machine image is unsupported because no guarded MAME injection adapter exists.
+The absent overlay ports in that profile are not a zero-valued `HWPMAP`
+result. [confirmed]
+
 The pinned build produces 1,348 machine-code bytes with SHA-256
 `b8486d223aa48a336fc5d245d98abcf9cd875542c3c0def5cbdf6ed760d7d3ef`.
 The packaged 2,776-byte `HWPMAP.8xp` has SHA-256
@@ -863,36 +871,52 @@ The packaged 2,776-byte `HWPMAP.8xp` has SHA-256
 ## LCD-controller probe
 
 Probe ID 15 measures port-`0x02` ready intervals after a command write, data
-read, and data write. It then writes three sentinels beginning at row 0,
-column 14 and reads a seven-cell alias union plus read-only column-16 and
-column-31 cases. The decoder distinguishes a 16-column row, 15-column wrap,
-and 15-byte linear spill. [confirmed]
+read, and data write. Separate immediate port-`0x10` samples expose the
+controller busy bit after each access. [confirmed]
 
 The entry guard requires eight-bit controller mode, no controller reset, and
-valid TI-OS tracked row and column commands. All polls and delays are bounded.
-The measurement issues no power, test, contrast, row-shift, display-enable, or
-OPA command and does not write the wait registers. It backs up the entire cell
-union before its first sentinel, restores and verifies every byte, returns to
-eight-bit normal movement, and restores the OS-tracked address before creating
-`HWPLCD01`.
+valid TI-OS tracked row and column commands. It accepts only the visible byte
+columns `0x20`–`0x2B` and rows `0x80`–`0xBF`. [confirmed]
 
-Outcome 4 means the ASIC ready condition timed out. Outcome 6 or a false
-`restore_ok` means the touched display-RAM union did not restore and the run
-must not be used as normal evidence. The controller's entry pointer and output
-latch are not generally readable, so the program restores the OS-tracked
-address rather than claiming an unknowable controller-internal snapshot.
+The transferable artifact never issues a hidden-column command or writes a
+sentinel. It reads one visible cell and rewrites the same value. It then
+rereads that cell and restores the value again. [confirmed]
 
-The identical assembled bytes completed in pinned TilEm as
-`tilem-16-column`, verification `43477`, and in Wabbitemu as
-`wabbitemu-15-column-wrap`, verification `61237`. Cell restoration and wait
-register comparisons passed in both. The guarded MAME 0.287 direct-handler
-case separately selected a 15-byte linear spill; MAME did not execute this
-assembly image. [confirmed]
+All ready polls and delays are bounded. A timeout suppresses the pending LCD
+transfer. The probe sends no power, test, contrast, row-shift, display-enable,
+or OPA command. It does not write ports `0x02`, `0x03`, `0x20`, or
+`0x29`–`0x2F`. [confirmed]
 
-The pinned build produces 849 machine-code bytes with SHA-256
-`64d0265cee502a17a182f17bdb79bb8182fc39ae82b8ad679d7f0cd35803afd7`.
-The packaged 1,778-byte `HWPLCD.8xp` has SHA-256
-`55908f9bee45ac0447b55d6e17e4a5812888ed7c8d854dc0afc4112e782022d0`.
+The probe reconstructs the entry movement command from status bits 0–1. It
+restores that command and the guarded TI-OS pointer before creating
+`HWPLCD02`. Some replacement controllers move the pointer on a status read,
+so cleanup restores the pointer again after the post-status sample.
+[confirmed]
+
+Outcome 4 means the ASIC-ready condition timed out. Outcome 5 means the saved
+TI-OS pointer selected a hidden column, so the probe performed no data write.
+Outcome 6 or a false `restore_ok` means the visible cell did not restore.
+Discard those runs as normal evidence. [confirmed]
+
+The entry pointer and output latch are not generally readable. The program
+therefore restores the TI-OS tracked address. It does not claim an exact
+controller-internal snapshot. [confirmed]
+
+The identical assembled bytes completed in pinned TilEm and Wabbitemu. TilEm
+reported ready counts 2, 2, and 2, with all three busy samples set. Its decimal
+verification code was `21731`. Wabbitemu reported 4, 0, and 3, with busy set,
+clear, and set. Its code was `23959`. Visible-cell, movement, and wait-register
+restoration checks passed in both. [confirmed]
+
+MAME 0.287 separately completed the guarded direct-handler cases. It reports
+permanent busy-clear status, constant ASIC-ready state, and absent wait ports.
+MAME did not execute the assembly image. Its hidden-column model is emulator
+evidence only. [confirmed]
+
+The pinned build produces 803 machine-code bytes with SHA-256
+`fa59b12a0a1e329e23ffc9b84acbd6fc78f4bfbcb83d54813fc1cb3e8da9ec21`.
+The packaged 1,686-byte `HWPLCD.8xp` has SHA-256
+`34ba8a8349fa0faba1dde74fdfb618030c8e71729cc0df50b5b35453ae058b1b`.
 [confirmed]
 
 ## Interrupt-`HALT` probe
@@ -980,7 +1004,7 @@ physical execution and reset retention.
 | `tools/probes/hardware/timer-physical.asm` | guarded programmable-timer divisor, prescaler, zero-counter, and expiry matrix |
 | `tools/probes/hardware/rtc-rollover.asm` | read-only natural RTC low-byte rollover-coherence measurement |
 | `tools/probes/hardware/mapper-overlays.asm` | guarded restoring overlay and paired-mapper matrix |
-| `tools/probes/hardware/lcd-controller.asm` | guarded ready-trigger and hidden-column alias matrix |
+| `tools/probes/hardware/lcd-controller.asm` | guarded ready-trigger and visible-cell status measurement |
 | `tools/probes/hardware/interrupt-halt.asm` | guarded programmable-timer `HALT` wake with watchdog |
 | `tools/probes/hardware/display.inc` | post-cleanup CRC-16 verification-number display |
 | `tools/probes/hardware/usb-snapshot.asm` | read-only low-USB control and status snapshot |
@@ -994,6 +1018,7 @@ physical execution and reset retention.
 | `tools/ti84re/emulators/describe_prefix_fetch_models.py` | text and JSON prefix-fetch comparison CLI |
 | `tools/ti84re/emulators/wabbitemu/run_prefix_m1_probe.py` | exact-ROM guarded assembled-probe execution CLI |
 | `tools/ti84re/emulators/wabbitemu/run_timer_physical_probe.py` | exact-ROM guarded assembled timer-probe execution CLI |
+| `tools/ti84re/hardware/mapper_probe_evidence.py` | deterministic exact-run normalization and freshness checks for `HWPMAP` |
 | `tools/ti84re/emulators/tilem/build_exact_probe.py` | pinned TilEm generic exact-probe runner build CLI |
 | `tools/ti84re/emulators/wabbitemu/build_exact_probe.py` | pinned Wabbitemu generic exact-probe runner build CLI |
 | `tools/ti84re/hardware/run_exact_probe.py` | normalized exact-byte runner for every displayed physical probe |

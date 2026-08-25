@@ -864,9 +864,48 @@ def decode_probe_measurements(frame: ProbeFrame) -> dict[str, object]:
             "readable_ports_restored": post[0] == pre[0] and post[2:] == pre[2:],
         }
     if frame.probe_id == 15:
-        if len(frame.payload) != 43:
+        if len(frame.payload) == 43:
+            outcome_names = {
+                0: "completed",
+                1: "controller-in-reset",
+                2: "not-in-eight-bit-mode",
+                3: "invalid-os-pointer-state",
+                4: "asic-ready-timeout",
+                6: "cell-restoration-failed",
+            }
+            ready = {
+                "command_write": int.from_bytes(frame.payload[14:16], "little"),
+                "data_read": int.from_bytes(frame.payload[16:18], "little"),
+                "data_write": int.from_bytes(frame.payload[18:20], "little"),
+            }
+            cells = list(frame.payload[22:29])
+            row_model = "mixed-or-physical"
+            if cells[0] == 0xA6 and cells[2:4] == [0xA4, 0xA5]:
+                row_model = "tilem-16-column"
+            elif cells[0:3] == [0xA5, 0xA6, 0xA4]:
+                row_model = "wabbitemu-15-column-wrap"
+            elif cells[2] == 0xA4 and cells[4:6] == [0xA5, 0xA6]:
+                row_model = "mame-15-byte-spill"
+            pre_waits = frame.payload[4:11]
+            post_waits = frame.payload[36:43]
+            outcome_code = frame.payload[13]
+            return {
+                "schema": "legacy-hidden-column-v1",
+                "outcome_code": outcome_code,
+                "outcome": outcome_names.get(outcome_code, f"unknown-{outcome_code}"),
+                "ready_zero_sample_counts": ready,
+                "immediate_port_0x02": f"0x{frame.payload[20]:02X}",
+                "immediate_status_0x10": f"0x{frame.payload[21]:02X}",
+                "observed_cells": [f"0x{value:02X}" for value in cells],
+                "direct_column_16": f"0x{frame.payload[29]:02X}",
+                "direct_column_31": f"0x{frame.payload[30]:02X}",
+                "row_model": row_model,
+                "restore_ok": frame.payload[31] == 1,
+                "wait_registers_unchanged": post_waits == pre_waits,
+            }
+        if len(frame.payload) != 42:
             raise ProbeFormatError(
-                "LCD-controller payload must contain 43 bytes, "
+                "LCD-controller payload must contain 42 or 43 bytes, "
                 f"got {len(frame.payload)}"
             )
         outcome_names = {
@@ -875,6 +914,7 @@ def decode_probe_measurements(frame: ProbeFrame) -> dict[str, object]:
             2: "not-in-eight-bit-mode",
             3: "invalid-os-pointer-state",
             4: "asic-ready-timeout",
+            5: "hidden-column-pointer-rejected",
             6: "cell-restoration-failed",
         }
         ready = {
@@ -882,28 +922,45 @@ def decode_probe_measurements(frame: ProbeFrame) -> dict[str, object]:
             "data_read": int.from_bytes(frame.payload[16:18], "little"),
             "data_write": int.from_bytes(frame.payload[18:20], "little"),
         }
-        cells = list(frame.payload[22:29])
-        row_model = "mixed-or-physical"
-        if cells[0] == 0xA6 and cells[2:4] == [0xA4, 0xA5]:
-            row_model = "tilem-16-column"
-        elif cells[0:3] == [0xA5, 0xA6, 0xA4]:
-            row_model = "wabbitemu-15-column-wrap"
-        elif cells[2] == 0xA4 and cells[4:6] == [0xA5, 0xA6]:
-            row_model = "mame-15-byte-spill"
         pre_waits = frame.payload[4:11]
-        post_waits = frame.payload[36:43]
+        post_waits = frame.payload[35:42]
         outcome_code = frame.payload[13]
+        immediate = {
+            "command_write": {
+                "port_0x02": f"0x{frame.payload[20]:02X}",
+                "status_0x10": f"0x{frame.payload[21]:02X}",
+            },
+            "data_read": {
+                "port_0x02": f"0x{frame.payload[22]:02X}",
+                "status_0x10": f"0x{frame.payload[23]:02X}",
+            },
+            "data_write": {
+                "port_0x02": f"0x{frame.payload[24]:02X}",
+                "status_0x10": f"0x{frame.payload[25]:02X}",
+            },
+        }
         return {
+            "schema": "visible-cell-v2",
             "outcome_code": outcome_code,
             "outcome": outcome_names.get(outcome_code, f"unknown-{outcome_code}"),
             "ready_zero_sample_counts": ready,
-            "immediate_port_0x02": f"0x{frame.payload[20]:02X}",
-            "immediate_status_0x10": f"0x{frame.payload[21]:02X}",
-            "observed_cells": [f"0x{value:02X}" for value in cells],
-            "direct_column_16": f"0x{frame.payload[29]:02X}",
-            "direct_column_31": f"0x{frame.payload[30]:02X}",
-            "row_model": row_model,
-            "restore_ok": frame.payload[31] == 1,
+            "immediate_samples": immediate,
+            "controller_busy_samples": {
+                name: bool(frame.payload[offset] & 0x80)
+                for name, offset in (("command_write", 21), ("data_read", 23),
+                                     ("data_write", 25))
+            },
+            "visible_cell": {
+                "before": f"0x{frame.payload[26]:02X}",
+                "after_same_value_write": f"0x{frame.payload[27]:02X}",
+                "after_restore": f"0x{frame.payload[28]:02X}",
+                "matches": frame.payload[26] == frame.payload[27] == frame.payload[28],
+            },
+            "entry_movement_command": f"0x{frame.payload[29]:02X}",
+            "restore_ok": frame.payload[30] == 1,
+            "movement_status_restored": (
+                frame.payload[29] == 0x04 + (frame.payload[33] & 0x03)
+            ),
             "wait_registers_unchanged": post_waits == pre_waits,
         }
     if frame.probe_id == 16:

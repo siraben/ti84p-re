@@ -655,11 +655,14 @@ class WabbitemuHeadlessTests(unittest.TestCase):
             "flash_step=read flash_error=0 flash_toggle=0x40 "
             "return_af=0x3F2C return_bc=0x0000 return_de=0x4100 "
             "return_hl=0x9D99 port06=0x3F bank1_page=3F "
+            "flash_changed_bytes=1 target_sector_changed_bytes=1 "
+            "protected_changed_bytes=0 outside_target_changed_bytes=0 "
             "final_pc=0x9D98 classification=failure\n"
         )
 
         self.assertEqual((0x20, 0x50), report.poll_reads)
         self.assertEqual(0x3F2C, report.return_af)
+        self.assertEqual(0, report.protected_changed_bytes)
         self.assertEqual("failure", report.classification)
 
     def test_rejects_incomplete_flash_worker_status(self):

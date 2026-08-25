@@ -26,7 +26,7 @@ records their machine-code and transfer-file hashes. [confirmed]
 | Programmable-timer divisor, prescaler, zero, and expiry edges | `timer-physical.asm` | `HWTMR` | `HWTMR001` | physical discriminator result by ASIC revision |
 | RTC high-to-low rollover coherence | `rtc-rollover.asm` | `HWPRTC` | `HWPRTC01` | natural low-byte carry result on TA2 and TA3 |
 | Mapper overlay read/write routing | `mapper-overlays.asm` | `HWPMAP` | `HWPMAP01` | independent/paired routing and port-`0x27` cutoff by ASIC revision |
-| LCD hidden columns and ASIC-ready triggers | `lcd-controller.asm` | `HWPLCD` | `HWPLCD01` | controller row width, aliases, and ready counts by module revision |
+| LCD ready and busy triggers | `lcd-controller.asm` | `HWPLCD` | `HWPLCD02` | ready and busy timing by module revision; hidden geometry needs a separately gated probe |
 | Programmable-timer wake from powered `HALT` | `interrupt-halt.asm` | `HWPIRQ` | `HWPIRQ01` | programmable wake versus standard-timer watchdog by ASIC revision |
 | Flash and RAM fetch boundaries | `execution-fetch.asm` | `HWEF07`, `HWEF08`, `HWEF09`, `HWEF29`, `HWEF2A`, `HWER81`, `HWER820`, `HWER821`, `HWER83`, `HWER84` | `HWEF0701`, `HWEF0801`, `HWEF0901`, `HWEF2901`, `HWEF2A01`, `HWER8101`, `HWER82A1`, `HWER82B1`, `HWER8301`, `HWER8401` | return/reset result and result retention |
 
