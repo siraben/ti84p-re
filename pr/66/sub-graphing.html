@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ff900fe6.js";
+            window.path_to_searchindex_js = "searchindex-6bba9488.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -184,6 +184,9 @@
 <code>plotSScreen</code>, and copies that buffer to the LCD. This page connects the
 <strong>Y=</strong>, <strong>WINDOW</strong>, <strong>GRAPH</strong>, <strong>TRACE</strong>, and <strong>DRAW</strong> paths to their window
 state, equation storage, and drawing primitives.</p>
+<p>The <a href="graphing/">interactive demo</a> shows the confirmed sampling, coordinate
+mapping, discontinuity break, and <code>Circle(</code> schedule while labeling its
+browser-arithmetic boundary.</p>
 <h2 id="window-variables-confirmed"><a class="header" href="#window-variables-confirmed">Window variables [confirmed]</a></h2>
 <p>All graph window state lives in a contiguous block of 9-byte <code>TIFloat</code>s starting at <code>0x8F50</code>.
 These are the values the WINDOW editor writes and the grapher reads.</p>
@@ -204,8 +207,8 @@ These are the values the WINDOW editor writes and the grapher reads.</p>
 <tr><td><code>0x9151</code></td><td><code>Xres_int</code></td><td>integer copy of Xres</td></tr>
 <tr><td><code>0x9152</code></td><td><code>deltaX</code></td><td><code>(Xmax−Xmin)/94</code> — real width of one pixel column</td></tr>
 <tr><td><code>0x915B</code></td><td><code>deltaY</code></td><td><code>(Ymax−Ymin)/62</code> — real height of one pixel row</td></tr>
-<tr><td><code>0x9164</code></td><td><code>shortX</code></td><td>scratch/divisor float for the X transform (per-pixel ΔX)</td></tr>
-<tr><td><code>0x916D</code></td><td><code>shortY</code></td><td>scratch/divisor float for the Y transform (per-pixel ΔY)</td></tr>
+<tr><td><code>0x9164</code></td><td><code>shortX</code></td><td>reciprocal X scale used as a multiplier</td></tr>
+<tr><td><code>0x916D</code></td><td><code>shortY</code></td><td>reciprocal Y scale used as a multiplier</td></tr>
 <tr><td><code>0x913F</code></td><td><code>XFact</code> / <code>0x9148</code> <code>YFact</code></td><td>ZOOM IN/OUT factors</td></tr>
 </tbody>
 </table>
@@ -227,33 +230,48 @@ float pair around <code>0x8E6A</code>/<code>0x8E73</code> used by the transform 
 <code>0x8F50</code>, while <code>userWindow.x_min</code> is <code>uXmin</code> at <code>0x8E7E</code>. This member
 notation distinguishes which window copy a routine uses without dropping the
 official RAM labels. [confirmed]</p>
-<p><code>deltaX</code>/<code>deltaY</code> are derived from <code>activeWindow.x_min</code> through
-<code>activeWindow.y_scale</code> when the graph is set up and feed both the
-forward (real→pixel) and the circle/draw routines. The LCD is <code>96×64</code>, but the graph area
-is 95 columns wide (0..94) and 63 tall (0..62), hence the /94 and /62. [standard]</p>
+<p><code>deltaX</code> and <code>deltaY</code> are the per-pixel steps used by graph sampling and DRAW
+routines. The forward transform instead multiplies by <code>shortX</code> or <code>shortY</code>.
+The LCD is 96×64, but the full graph scale spans columns 0–94 and 62 vertical
+intervals; <code>_YftoI</code> represents those as bottom-up coordinates 1–63. Hence the
+window setup’s divisions by 94 and 62. [confirmed]</p>
 <hr>
 <h2 id="coordinate-to-pixel-transforms"><a class="header" href="#coordinate-to-pixel-transforms">Coordinate-to-pixel transforms</a></h2>
 <h3 id="forward-real-coordinate--pixel-index"><a class="header" href="#forward-real-coordinate--pixel-index">Forward: real coordinate → pixel index</a></h3>
-<p><code>_XftoI</code> (<code>37:41EB</code>) and <code>_YftoI</code> (<code>37:41DF</code>) convert an OP1 real coordinate to a
-pixel index. Both are thin shims around the shared engine at <code>37:41F2</code>: [confirmed]</p>
-<pre><code class="language-z80">_XftoI (37:41EB):  BC = 0x8E6A (X working float),  HL = shortX (0x9164),  SCF  → 41F2
-_YftoI (37:41DF):  BC = Ymin   (0x8F6B),            HL = shortY (0x916D),  OR A → 41F2
-                    INC A
+<p><code>_XftoI</code> (<code>37:41EB</code>) and <code>_YftoI</code> (<code>37:41DF</code>) take a pointer in <code>DE</code> to a
+9-byte <code>TIFloat</code> and return a pixel index in <code>A</code>. Both select operands for the
+shared engine at <code>37:41F2</code>: [confirmed]</p>
+<pre><code class="language-z80">_XftoI (37:41EB):  BC = 0x8E6A, HL = shortX (0x9164), SCF  → 37:41F2
+_YftoI (37:41DF):  BC = Ymin,   HL = shortY (0x916D), OR A → 37:41F2
+INC A
 </code></pre>
-<p>Shared engine <code>37:41F2</code> computes $\mathrm{pixel}=\dfrac{\mathrm{value}-\mathrm{min}}{\mathrm{pixelDelta}}$:</p>
-<ul>
-<li><code>RST 20h</code> pushes/loads OP1 (the input value),</li>
-<li><code>CALL 228F</code> moves the <code>min</code> operand in and subtracts it (<code>value − min</code>),</li>
-<li><code>CALL 2385</code> divides by the per-pixel delta (<code>shortX</code>/<code>shortY</code>),</li>
-<li>the X path additionally adds the <code>0x8E73</code> X-origin term, the Y path negates so that
-larger Y maps to a <em>smaller</em> row (screen Y grows downward),</li>
-<li><code>CALL 4229</code> clamps/handles the float→integer exponent (reads <code>OP1.value.exp</code> at <code>0x8479</code>,
-bias <code>0x7F</code>) and rounds to an integer pixel; out-of-range loads ±large sentinel.
-<code>_YftoI</code> returns pixel row +1 (<code>INC A</code>) so callers get a 1-based / inverted row. [confirmed]</li>
-</ul>
-<p>A function value <code>y</code> at sample <code>x</code> becomes a <code>(col,row)</code> pair via two
-subtract-then-divide float ops against the window. This conversion drives both plotting and
-the TRACE coordinate readout.</p>
+<p>The core loads <code>*DE</code>, subtracts the selected base through <code>ram:228F</code>, and
+multiplies by the selected reciprocal through <code>ram:2385</code>. The X path then adds
+the origin term at <code>0x8E73</code>. In compact form: [confirmed]</p>
+<pre><code class="language-text">scaled = (*DE - *base) * *reciprocal_scale
+if axis == X:
+    scaled += *0x8E73
+A = graph_round_coordinate_magnitude(scaled)
+if axis == Y:
+    A = (A + 1) &amp; 0xFF
+</code></pre>
+<p>The finishing routine at <code>37:4229</code> is sign-agnostic. Magnitudes below 0.5
+become zero; values from 0.5 through the two-digit range round half upward by
+packed-BCD addition. Three- and four-digit values receive an out-of-frame bias
+before conversion. A mantissa carry writes the canonical <code>10 00</code> prefix and
+increments the exponent. <code>_ConvOP1</code> (<code>38:7433</code>) then converts up to four
+integer digits into <code>DE</code>, returns <code>E</code> in <code>A</code>, and raises a dimension error for
+an exponent above <code>0x83</code>. [confirmed]</p>
+<p><code>tools/graph-coordinate.js</code> translates this operand order and finishing path.
+Its test pins the three ROM spans and compares 220,000 packed-BCD OP1 states
+against an independent transcription. [confirmed]</p>
+<p>The Y result is a 1-based, bottom-up graph coordinate. A reset-origin <code>Y1=X²</code>
+trace maps $y=8.872793118$ to <code>A=60</code> with <code>Ymin=-10</code> and <code>shortY=3.1</code>.
+<code>_IOffset</code> later mirrors it for the LCD controller with <code>0x3F - y</code>.
+[confirmed]</p>
+<p>A function value <code>y</code> at sample <code>x</code> becomes a <code>(column, row)</code> pair through these
+subtract-and-multiply transforms. The same conversion serves graph plotting
+and TRACE coordinate display. [confirmed]</p>
 <h3 id="inverse-pixel-index--real-coordinate"><a class="header" href="#inverse-pixel-index--real-coordinate">Inverse: pixel index → real coordinate</a></h3>
 <p><code>_SetXXOP1</code> (<code>33:5F7E</code>) and <code>_SetXXOP2</code> (<code>33:5F83</code>) take an integer pixel value in A
 and build a real <code>TIFloat</code> in OP1 / OP2 (<code>0x8478</code> / <code>0x8483</code>). [confirmed]</p>
@@ -277,7 +295,7 @@ a menu covers it). [confirmed]</li>
 <p><code>_GrBufClr</code> (<code>04:6071</code>): clears the whole 0x300-byte buffer to 0 (a
 <code>LD (HL),0</code> + 0x2FF-byte propagate copy). [confirmed]</p>
 <p><code>_IOffset</code> (<code>04:42B5</code>) computes the LCD controller address bytes for a pixel (inputs <code>B</code>=x, <code>C</code>=y):</p>
-<pre><code class="language-pseudocode">(0x844F) = (x &gt;&gt; 3) | 0x20     # LCD byte-column command for the horizontal group
+<pre><code class="language-text">(0x844F) = (x &gt;&gt; 3) | 0x20     # LCD byte-column command for the horizontal group
 (0x8451) = (0x3F - y) | 0x80   # LCD row command, vertically mirrored
 returns (table_42E4)[x &amp; 7]    # the 1-of-8 bit mask within the byte (bit = x mod 8)
 HL = 3 * ((4 * display_row) &amp; 0xFF) + (x &gt;&gt; 3)
@@ -317,14 +335,35 @@ mode bit comes from <code>(IY+0x35) &amp; 0x80</code> (<code>hookflags3</code> b
 not a split-screen flag). These back the <code>Line(</code>
 DRAW command at the math layer. [confirmed]</p>
 <h3 id="circle"><a class="header" href="#circle">Circle</a></h3>
-<p><code>_GrphCirc</code> (<code>33:758D</code>) — draws a circle in real coordinates. [confirmed]
-Allocates a 0x5A-byte FPS scratch frame (<code>EQS</code>), snapshots the working float and the window
-(<code>Xmin</code>, <code>Ymin</code>, <code>deltaX</code>), zeroes accumulators, seeds the X/Y center and the radius-stepped
-parametric state, then iterates plotting points via the integer line/point primitives
-(cross-page into the page-3B <code>_DrawCirc2</code> plotter at <code>3B:7171</code>). It accounts for the X/Y
-pixel-aspect via <code>deltaX</code>/<code>deltaY</code> so a <code>Circle(</code> looks round only after a ZSquare. [confirmed]
-<code>_CircCmd</code> (<code>33:74CE</code>) is the parser-facing <code>Circle(</code> command wrapper (cross-page jump
-into the argument grabber). [confirmed]</p>
+<p><code>_CircCmd</code> (<code>33:74CE</code>) is the parser-facing <code>Circle(</code> command wrapper. Its
+dispatch at <code>33:74DF</code> tests <code>(IY+0x3C).4</code> and selects one of two segment
+generators. [confirmed]</p>
+<p>A reset-origin TilEm trace of <code>Circle(0,0,5)</code> observed the flag clear at
+<code>0x8A2C</code>. That state selected the page-33 generator at <code>33:74E9</code>; its loop at
+<code>33:7506</code> ran 61 times and its emit point at <code>33:7561</code> called <code>_CLine</code> exactly
+60 times. All 59 adjacent endpoint pairs matched byte for byte. The first
+segment went from $(5,0)$ to approximately
+$(4.9726094768414,0.52264231633825)$, a six-degree step. The final
+<code>plotSScreen</code> contained 306 set pixels. [confirmed]</p>
+<p>The trace did not enter <code>_GrphCirc</code> (<code>33:758D</code>), <code>_DrawCirc2</code>
+(<code>3B:7171</code>), or the coefficient lookup at <code>35:79E9</code>. It therefore establishes
+the clear-flag page-33 path only. [confirmed]</p>
+<p>The <code>_GrphCirc</code> body allocates a <code>0x5A</code>-byte floating-point frame. It preserves
+the working coordinate and window values, prepares the circle state, and calls
+the same dispatch at <code>33:74DF</code>. The user-visible state that sets the tested
+flag and selects <code>_DrawCirc2</code> remains open. [confirmed]</p>
+<p>The separate <code>_DrawCirc2</code> body allocates <code>0xA2</code> bytes, or 18 <code>TIFloat</code>s. Its
+seven-iteration loop makes eight calls per iteration to the point-pair helper
+at <code>3B:72F3</code>, followed by four closing calls at <code>3B:730E</code>: 60 <code>_CLine</code> calls
+in total. The helper preserves the old point in OP3/OP4, stores the new OP1/OP2
+point into the frame, calls <code>_CLine</code> at <code>33:6028</code>, and advances the frame
+pointer by 18 bytes. [confirmed]</p>
+<p>The loop consumes seven consecutive constants at <code>35:79F5</code>, alternating sine
+and cosine values for 6°, 12°, 18°, and finally sine 24°. The adjacent
+cosine 24° constant is present but is not consumed by this loop. The static
+schedule and helper ABI are checked in <code>tools/graph_circle.py</code>; the latter is
+compared with the pinned helper bytes for all 65,536 16-bit test seeds.
+[confirmed]</p>
 <h3 id="draw-menu-commands-page-0x04-handlers"><a class="header" href="#draw-menu-commands-page-0x04-handlers">DRAW menu commands (page 0x04 handlers)</a></h3>
 <p>Each DRAW menu command has a page-04 bcall handler that draws into <code>plotSScreen</code>:</p>
 <div class="table-wrapper">
@@ -369,10 +408,33 @@ column region 0x2F), sets normal display vals, and walks the rows. [confirmed]</
 issues the row and byte-column LCD commands, then streams pixel bytes to <code>port_lcdData</code> (<code>0x11</code>)
 through <code>lcd_wait</code>, and pokes <code>port_lcdCmd</code> (0x10). This is where the buffer physically
 reaches the panel. [confirmed]</p>
-<p><code>_Regraph</code> (<code>04:6764</code>) re-evaluates and re-plots every selected Y= equation from scratch
-(cross-page jump into the plot driver). This is what runs when you change a window var or
-turn SmartGraph off; SmartGraph (<code>grfModeFlags</code> bit <code>smartGraph</code>) lets the OS skip the
-re-plot and <code>_GrBufCpy</code> the existing buffer when nothing changed. [confirmed]</p>
+<p><code>_Regraph</code> (<code>04:6764</code>) begins by enabling interrupts and calling the relocated
+bjump thunk at <code>ram:3F27</code>. Its observed bytes, <code>CD 09 2B 18 65 01</code>, target
+<code>_RunIndicOn</code> at <code>01:6518</code>. <code>_Regraph</code> then prepares the window state, clears
+<code>plotSScreen</code>, dispatches the active graph mode, and finishes at <code>04:6985</code>.
+SmartGraph (<code>grfModeFlags.smartGraph</code>) can bypass this work and copy the
+existing buffer when the graph state is still valid. [confirmed]</p>
+<p>The function-mode path has this observed shape:</p>
+<pre class="mermaid">flowchart LR
+    A[Regraph setup] --&gt; B[Clear plotSScreen]
+    B --&gt; C[Select equation]
+    C --&gt; D[Prepare sample X]
+    D --&gt; E[Parse and evaluate Y]
+    E --&gt; F{Point is drawable?}
+    F --&gt;|yes| G[X/Y transforms]
+    G --&gt; H[ILine or IPoint]
+    F --&gt;|no| I[Break the segment]
+    H --&gt; J[Advance curInc by Xres]
+    I --&gt; J
+    J --&gt;|more columns| D
+    J --&gt;|done| K[Next selected equation]
+    K --&gt;|done| L[Return with plotSScreen]
+</pre>
+
+<p><code>graph_advance_sample_column</code> (<code>04:69CF</code>) compares <code>curInc</code> (<code>0x8E67</code>) with
+<code>pixWide_m_2</code> (<code>0x8DA6</code>). It returns without carry at the edge; otherwise it
+adds <code>Xres_int</code> (<code>0x9151</code>), stores the next column, and returns with carry.
+[confirmed]</p>
 <hr>
 <h2 id="y-equation-storage-and-evaluation"><a class="header" href="#y-equation-storage-and-evaluation">Y= equation storage and evaluation</a></h2>
 <h3 id="storage-confirmed"><a class="header" href="#storage-confirmed">Storage [confirmed]</a></h3>
@@ -385,34 +447,57 @@ the selection bit is bit 5 (<code>0x20</code>). The per-equation style byte hold
 (<code>curGStyle</code> <code>0x8D17</code> is the current-equation copy). [confirmed] The
 selection/style byte values also match the
 <a href="https://merthsoft.com/linkguide/ti83+/vars.html#style">TI link-protocol guide</a>.</p>
-<h3 id="parsing-and-pre-scan"><a class="header" href="#parsing-and-pre-scan">Parsing and pre-scan</a></h3>
-<p><code>graph_parse_tok</code> (<code>33:5023</code>) walks an equation’s token stream to classify it before
-plotting: it reads tokens via the paged-pointer reader (<code>_SetupPagedPtr</code>/<code>_PagedGet</code>),
-recognizes 2-byte tokens (<code>_IsA2ByteTok</code>), and sets feature bits (e.g. token <code>0xEF…</code>
-ranges → returns a category in A) used to decide draw mode and whether the equation is
-graphable. [confirmed]</p>
+<h3 id="variable-version-scan"><a class="header" href="#variable-version-scan">Variable-version scan</a></h3>
+<p><code>_GetVarVersion</code> (<code>33:5023</code>) walks a tokenized variable through
+<code>_SetupPagedPtr</code>/<code>_PagedGet</code>, recognizes two-byte tokens with <code>_IsA2ByteTok</code>,
+and raises the returned compatibility tier for particular <code>0xBB</code> and <code>0xEF</code>
+token ranges. This compatibility scan is not evidence for a graph-mode
+graphability pre-scan. [confirmed]</p>
 <h3 id="evaluation--points"><a class="header" href="#evaluation--points">Evaluation → points</a></h3>
-<p>Plotting (driven by <code>_Regraph</code> → the page-04/38 plot loop) walks pixel columns left→right:</p>
-<ol>
-<li>compute the real <code>X</code> for the column from <code>Xmin + col*deltaX</code> (the inverse of <code>_XftoI</code>),</li>
-<li>store it into the <code>X</code> system variable,</li>
-<li><code>_ParseInp</code> (<code>38:5987</code>) parses+evaluates the selected equation’s tokens against the
-current <code>X</code> (it resets the parser state, clears a status bit at <code>(IY+0x1F)</code>, and runs
-the formula evaluator <code>_ChkFindSym</code>/<code>Find_Parse_Formula</code>), leaving the result <code>Y</code> in OP1,</li>
-<li><code>_YftoI</code> maps that <code>Y</code> to a pixel row,</li>
-<li><code>_ILine</code> connects this point to the previous column’s point (or <code>_IPoint</code> for dotted
-style), drawing into <code>plotSScreen</code>.
-<code>Xres</code> (<code>XresO</code>/<code>Xres_int</code>) controls the column step: Xres=1 evaluates every pixel column,
-higher Xres skips columns (faster, coarser). [confirmed]</li>
-</ol>
+<p>The function-mode loop prepares each sample at <code>04:710F</code>. Its traced parser
+entry is <code>parse_init_findsym</code> (<code>38:5975</code>), which initializes parser state and
+joins the shared evaluator tail at <code>38:59A4</code>. Evaluation passes through
+<code>eval_eqn_recursive</code> (<code>38:778F</code>) and <code>eval_eqn_finish_typecheck</code> (<code>38:77C2</code>).
+Official <code>_ParseInp</code> at <code>38:5987</code> is a sibling entry with additional state
+cleanup; neither graph trace executes it. [confirmed]</p>
+<p><code>tools/graph-regraph.json</code> records ROM and TilEm provenance, raw-trace hashes,
+and final-buffer hashes for two reset-origin TilEm traces: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Function-mode observation</th><th style="text-align: right"><code>Y1=X²</code></th><th style="text-align: right"><code>Y1=X⁻¹</code></th></tr>
+</thead>
+<tbody>
+<tr><td>post-entry <code>_Regraph</code> instruction span</td><td style="text-align: right">3,951,185</td><td style="text-align: right">4,316,730</td></tr>
+<tr><td>sample advances, <code>curInc=0</code>–<code>94</code></td><td style="text-align: right">95</td><td style="text-align: right">95</td></tr>
+<tr><td><code>parse_init_findsym</code> entries</td><td style="text-align: right">190</td><td style="text-align: right">190</td></tr>
+<tr><td>completed recursive evaluations</td><td style="text-align: right">190</td><td style="text-align: right">188</td></tr>
+<tr><td>divide-by-zero entries at <code>ram:26EC</code></td><td style="text-align: right">0</td><td style="text-align: right">2</td></tr>
+<tr><td>post-dispatch <code>_ILine</code> calls</td><td style="text-align: right">30</td><td style="text-align: right">94</td></tr>
+<tr><td>pixel-byte writes after the 768-byte clear</td><td style="text-align: right">296</td><td style="text-align: right">402</td></tr>
+<tr><td>set pixels in final <code>plotSScreen</code></td><td style="text-align: right">261</td><td style="text-align: right">266</td></tr>
+</tbody>
+</table>
+</div>
+<p>The reciprocal trace reaches the divide-by-zero entry with <code>curInc=46</code> and
+again with <code>curInc=47</code>. The left segment ends at column 46; drawing restarts
+with a zero-length seed at column 48, and no <code>_ILine</code> call bridges column 47.
+The two missing evaluator completions therefore correspond to a visible break,
+not a line across the asymptote. [confirmed]</p>
+<p>These traces cover line style 0, <code>Xres=1</code>, and one selected equation. They do
+not establish the thick, shade, trace, animate, or dotted paths; <code>Xres&gt;1</code>;
+multiple selected equations; or other graph modes. <code>tools/analyze_graph_regraph.py</code>
+regenerates the compact report from raw TLMT traces, which remain outside the
+repository.</p>
 <h3 id="graph-databases-gdb-confirmed"><a class="header" href="#graph-databases-gdb-confirmed">Graph databases (GDB) [confirmed]</a></h3>
 <p><code>_StoGDB2</code> (<code>33:71AC</code>) / <code>_RclGDB2</code> (<code>33:72D9</code>) store/recall a GraphDataBase
 (<code>GDBObj</code>, type/exp marker <code>0x61</code>) — the bundle of window vars + mode + selected equations
 that the <code>StoreGDB</code>/<code>RecallGDB</code> commands save. <code>_JError(0x89)</code> on a type mismatch.</p>
-<h3 id="graph-table-confirmed"><a class="header" href="#graph-table-confirmed">Graph table [confirmed]</a></h3>
-<p><code>graph_tbl_find</code> (<code>33:7097</code>) / <code>graph_tbl_next</code> (<code>33:707A</code>) index the in-RAM table of
-equation pointers (<code>iMathPtr4</code>-based, 2 bytes/entry) used to iterate the selected functions
-during a regraph or TABLE build.</p>
+<h3 id="indexed-pointer-helpers-confirmed"><a class="header" href="#indexed-pointer-helpers-confirmed">Indexed pointer helpers [confirmed]</a></h3>
+<p><code>_PUT_INDEX_LST</code> (<code>33:7066</code>) and <code>_GET_INDEX_LST</code> (<code>33:707A</code>) store and load
+2-byte slots at <code>iMathPtr4 + 2n</code>; <code>_HEAP_SORT</code> (<code>33:7097</code>) sorts a
+caller-supplied indexed range. Their bodies do not establish a selected-equation
+list or show that Regraph and TABLE share one iterator.</p>
 <hr>
 <h2 id="graph-home-screen-and-trace-paths"><a class="header" href="#graph-home-screen-and-trace-paths">Graph, home-screen, and TRACE paths</a></h2>
 <ul>
@@ -421,9 +506,10 @@ during a regraph or TABLE build.</p>
 the routines above; small-font labels (coords, TRACE readout) go through
 <code>_VPutMap</code>/<code>penCol</code>(0x86D7)/<code>penRow</code>(0x86D8). [confirmed]</li>
 <li><strong>TRACE</strong> moves a cursor along a selected function: it steps the column, evaluates the
-function (<code>_ParseInp</code>) for that X, maps the point with <code>_XftoI</code>/<code>_YftoI</code>, draws the
+function for that X, maps the point with <code>_XftoI</code>/<code>_YftoI</code>, draws the
 cross-cursor, and uses <code>_SetXXOP1</code>/<code>_SetXXOP2</code> to convert the cursor pixel back to the real
-X/Y it prints at the bottom. [confirmed]</li>
+X/Y it prints at the bottom. The exact TRACE-side evaluator entry has not yet
+been traced. [confirmed]</li>
 <li>A <code>DRAW</code> command (<code>_DrawCmd</code>) or <code>Line(</code>/<code>Circle(</code>/<code>Pt-On(</code> draws straight into
 <code>plotSScreen</code> over the current plot and persists across a SmartGraph redraw (it is not
 re-evaluated) until <code>ClrDraw</code> is issued. [confirmed]</li>
@@ -431,16 +517,22 @@ re-evaluated) until <code>ClrDraw</code> is issued. [confirmed]</li>
 <hr>
 <h2 id="evidence-summary-and-open-items"><a class="header" href="#evidence-summary-and-open-items">Evidence summary and open items</a></h2>
 <ul>
-<li>Forward transform <code>(value−min)/pixelDelta</code>: structure [confirmed] from the
-<code>37:41F2</code> disassembly (subtract <code>228F</code>, divide <code>2385</code>); the exact rounding in <code>4229</code> is
-read but the ±sentinel constants are summarized, not exhaustively byte-traced.</li>
-<li><code>_HorizCmd</code>/<code>_VertCmd</code> endpoint build: <code>7933</code> allocates a 0x24-byte FPS frame, and
-the commands <code>_Mov9B</code> the window edges (<code>Xmin</code>/<code>Xmax</code> or <code>Ymin</code>/<code>Ymax</code>) plus <code>_MovFrOP1</code> the line’s
-coordinate (<code>OP1</code>) into that frame, reading the live window variables only.</li>
-<li>Circle parametric stepping in <code>3B:7171</code> (<code>_DrawCirc2</code>) not decompiled here (lives on
-page 3B); the <code>_GrphCirc</code> setup is confirmed.</li>
-<li>Y= selection bit (<code>0x20</code>; flags byte <code>0x23</code> selected / <code>0x03</code> deselected) and the style byte
-values (<code>0</code>–<code>6</code>) are [confirmed] against the <a href="https://merthsoft.com/linkguide/ti83+/vars.html#style">TI link-protocol var guide</a>.</li>
+<li>The forward transforms, coordinate rounding, and <code>_ConvOP1</code> boundary are
+byte-pinned and differentially tested. Reset-origin X and Y witnesses
+confirm the pointer ABI and returned indices. [confirmed]</li>
+<li>Reset-origin function-mode traces cover <code>Y1=X²</code> and <code>Y1=X⁻¹</code> with line style 0,
+<code>Xres=1</code>, and one selected equation. They do not cover the other styles,
+<code>Xres&gt;1</code>, multiple selected equations, or alternate graph modes. [confirmed]</li>
+<li>The page-33 <code>Circle(</code> generator is dynamically observed. <code>_DrawCirc2</code> has a
+byte-pinned static schedule, but no reset-origin trace has selected it.
+[confirmed]</li>
+<li><code>_HorizCmd</code> and <code>_VertCmd</code> build their endpoints from the live window edges
+and the command coordinate; they do not modify the window variables.
+[confirmed]</li>
+<li>The Y= selection bit (<code>0x20</code>; flags byte <code>0x23</code> selected / <code>0x03</code> deselected)
+and style values <code>0</code>–<code>6</code> agree with the
+<a href="https://merthsoft.com/linkguide/ti83+/vars.html#style">TI link-protocol variable guide</a>.
+[confirmed]</li>
 </ul>
 
                     </main>
@@ -495,13 +587,13 @@ values (<code>0</code>–<code>6</code>) are [confirmed] against the <a href="ht
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>
-        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
         <script src="hljs-z80-e93ac716.js"></script>
         <script src="katex-5e4f3b03.min.js"></script>
         <script src="katex-auto-render-bb53eb95.min.js"></script>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
-        <script src="pseudocode-init-5fa46c0a.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
 
 
 

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ff900fe6.js";
+            window.path_to_searchindex_js = "searchindex-6bba9488.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -308,7 +308,7 @@ ram_init_after_reset (ram:0BD9):
 </code></pre>
 <p>The destination <code>0x858D</code> and length <code>0x000C</code> pin the six 2-byte handler slots <code>cxMain</code>(+0) <code>cxPPutAway</code>(+2) <code>cxPutAway</code>(+4) <code>cxRedisp</code>(+6) <code>cxErrorEP</code>(+8) <code>cxSizeWind</code>(+10), and the explicit <code>LD (0x8599),A</code> writes <code>cxPage</code> at +12 from port 6. <code>_AppInit</code> installs a context, but it is not the only writer: <code>_POPCX</code> (bcall <code>0x49E1</code>, body <code>07:6D1C</code>) restores a suspended context by <code>LDIR</code>ing 14 bytes <code>cxPrev</code>→<code>cxMain</code> (<code>0x859B</code>→<code>0x858D</code>) and copying a 15th byte into the app-flags, and a matching save path (the <code>LDIR</code> at <code>07:5A8C</code>) copies <code>cxMain</code>→<code>cxPrev</code>. <code>cxCurApp</code>(+13, <code>0x859A</code>) is the current context id (a key code); the shadow at <code>cxPrev</code>(<code>0x859B</code>) holds the suspended context.</p>
 <h3 id="how-a-context-handler-is-invoked-confirmed"><a class="header" href="#how-a-context-handler-is-invoked-confirmed">How a context handler is invoked [confirmed]</a></h3>
-<pre><code class="language-pseudocode">call_context_main (ram:08fa):
+<pre><code class="language-text">call_context_main (ram:08fa):
   set_bankA_page(cxPage)
   call (cxMain) via jp_hl
   ret                            # control returns here after the paged handler
@@ -454,13 +454,13 @@ open. [confirmed]</p>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>
-        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
         <script src="hljs-z80-e93ac716.js"></script>
         <script src="katex-5e4f3b03.min.js"></script>
         <script src="katex-auto-render-bb53eb95.min.js"></script>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
-        <script src="pseudocode-init-5fa46c0a.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
 
 
 

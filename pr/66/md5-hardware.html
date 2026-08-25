@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ff900fe6.js";
+            window.path_to_searchindex_js = "searchindex-6bba9488.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -243,7 +243,7 @@ $$</p>
 </div>
 <p>The ROM writes every operand on every step. It does not depend on power-on contents or persistence from a previous operation. It writes the mode first, then <code>A</code> through <code>T</code>, then the rotate count, and immediately reads the result. There is no busy-bit poll or delay loop. [confirmed]</p>
 <p>Both TilEm and Wabbitemu model each operand port as a four-byte sliding register: [standard]</p>
-<pre><code class="language-pseudocode">on write byte v to operand register r:
+<pre><code class="language-text">on write byte v to operand register r:
     r = (r &gt;&gt; 8) | (v &lt;&lt; 24)
 </code></pre>
 <p>Four writes <code>b0</code>, <code>b1</code>, <code>b2</code>, <code>b3</code> therefore leave <code>r = b0 + 2^8 b1 + 2^16 b2 + 2^24 b3</code>. A fifth write discards the oldest low byte in both emulators. Physical behavior after fewer or more than four writes has not been measured. [standard] for emulator behavior; [hypothesis] for the physical sliding-register implementation.</p>
@@ -729,13 +729,13 @@ probe bytes; [hypothesis] for all pending hardware results.</p>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>
-        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
         <script src="hljs-z80-e93ac716.js"></script>
         <script src="katex-5e4f3b03.min.js"></script>
         <script src="katex-auto-render-bb53eb95.min.js"></script>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
-        <script src="pseudocode-init-5fa46c0a.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
 
 
 
