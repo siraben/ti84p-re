@@ -1,0 +1,111 @@
+# Guarded mapper, LCD, and interrupt probes
+
+The three previously missing digital experiments now have SPASM-ng sources,
+builder validators, result decoders, and exact-byte emulator runners. Their
+AppVars remain physical measurements only after export from an identified
+calculator. [confirmed] for the assembled artifacts and emulator executions;
+[hypothesis] for physical behavior.
+
+All three programs print `PROGRAM CODE nnnnn` only after cleanup and result
+creation. The number is CRC-16/CCITT-FALSE over the complete `HWP1` frame. The
+host decoder prints the same decimal value as `verification_code_decimal`.
+Matching the two values detects a transcription or file-selection error; it
+does not replace the exported AppVar or artifact hashes.
+
+## Mapper overlays — `HWPMAP`
+
+`mapper-overlays.asm` tests port-`0x28 = 1` at `0x8000`, `0x803F`, and
+`0x8040`, and port-`0x27 = 0x13` at `0xFB3F`, `0xFB40`, `0xFB63`,
+`0xFB64`, `0xFFBF`, and `0xFFC0`. The port-`0x27` values distinguish the
+documented/TilEm `0xFB40` boundary from Wabbitemu's additional `0xFB64`
+clamp. It repeats reads and writes in independent and paired mapper modes and
+records an even-Flash paired-window discriminator. [confirmed]
+
+The entry guard requires the OS 2.55MP direct-`Asm(` mapping: ports `0x05`,
+`0x06`, `0x07`, `0x0E`, `0x0F`, `0x27`, and `0x28` must read `0x00`,
+`0x3F`, `0x81`, `0x00`, `0x00`, `0x00`, and `0x00`. It also verifies the
+fixed-page helper at
+`00:0CE6`. Port `0x04` readback is interrupt status, not mapper-mode
+readback, so the program does not pretend to save mode from that port. It
+normalizes independent mode with port `0x04 = 0x06` during cleanup.
+
+Before any marker write, the program creates a pending `HWPMAP01` AppVar and
+repeats every mapping guard. The worker runs through a physical-page-1 alias,
+uses no stack instruction while window C is remapped, and keeps either window
+B or window C mapped to RAM while changing mapper mode. It backs up every byte
+it seeds across RAM pages 0–3, restores them, verifies the restores, restores
+every selector, and sets restore flags. A reset between a marker write and
+cleanup can still leave changed RAM, so use stable power and a backed-up test
+unit.
+
+The 47-byte payload contains nine entry-port bytes, an outcome, independent
+read/write rows, paired read/write rows, the even-Flash discriminator, restore
+flags, and nine exit-port bytes. The decoder names the closest emulator
+profile and separately reports marker and readable-port restoration.
+
+## LCD controller edges — `HWPLCD`
+
+`lcd-controller.asm` measures whether command writes, data reads, and data
+writes restart the ASIC port-`0x02` ready interval. It writes three sentinels
+from row 0, column 14 and reads the seven-cell alias union needed to
+distinguish a 16-column row, 15-column wrap, and MAME's 15-byte linear spill.
+Direct column-16 and column-31 cases are read-only. [confirmed]
+
+The entry guard rejects controller reset, six-bit mode, and invalid TI-OS
+tracked row or column variables. Every ready poll and measurement counter is
+bounded. The measurement sends no display-enable, power, test, contrast,
+row-shift, or OPA command and does not write ports `0x29`–`0x2F`. It backs up
+the complete seven-cell write/alias union before the first sentinel, restores
+and rereads every cell, returns to eight-bit mode with normal movement, and
+restores the OS-tracked row and column commands before creating `HWPLCD01`.
+
+The controller's exact entry pointer, output latch, contrast, and row shift
+are not readable through this interface. The probe therefore restores the
+documented OS pointer state rather than claiming an unknowable byte-for-byte
+controller snapshot. A reset during the short write window can alter several
+display-RAM cells, but it does not issue a Flash command or deliberately write
+user-variable RAM beyond the result AppVar.
+
+The 43-byte payload records entry status and wait registers, three ready
+counts, immediate status, observed alias cells, direct hidden-column reads, a
+restore byte, and exit status and wait registers. Outcome 6 or
+`restore_ok = false` invalidates a physical run.
+
+## Interrupt and `HALT` policy — `HWPIRQ`
+
+`interrupt-halt.asm` asks whether programmable timer 1 can wake powered
+`HALT`. It arms source `0x45`, interrupt mode `0x02`, and count 1. Standard
+timer 1 is enabled simultaneously as a bounded watchdog. The private handler
+records port `0x04`, timer mode, timer count, and handler count, then disables
+both sources. The decoder classifies the first wake as programmable timer or
+standard-timer watchdog. [confirmed]
+
+A Z80 program cannot read the current interrupt mode. This artifact therefore
+requires direct `Asm(` on unmodified OS 2.55MP in IM1; do not launch it through
+a shell, hook, or resident interrupt replacement. It guards `IY = 0x89F0`,
+the six-byte IM1 vector signature at `00:0038`, enabled entry interrupts, an
+unheld ON key, idle programmable timer 1, no pending legacy/completion source,
+and an inactive USB interrupt gate.
+
+The program creates pending `HWPIRQ01` before changing interrupt mode and
+repeats the live-source guards afterward. Its 257-byte uniform IM2 table makes
+every possible data-bus vector resolve to the private handler. Cleanup runs
+with interrupts disabled, disarms both timers, and reconstructs the canonical
+OS port-`0x03` mask from `(IY+0x16)` bit 0. It does not trust undocumented
+bit-3 readback. It then returns to IM1, restores `I`, verifies the documented
+readable mask bits, updates the pending frame, and only then restores entry
+interrupt enable state.
+
+The watchdog bounds emulator and expected physical runs, but an ASIC that
+wakes for neither source can remain halted until reset. In that case the
+pending AppVar is the recovery witness and no screen code appears. Export it
+before another attempt. Switch bounce, ON waveform, and link-line electrical
+edges still need the external measurements described on the next page.
+
+## Remaining RTC mutation
+
+The read-only [`HWPRTC` rollover probe](../hardware-probes.md#rtc-rollover-coherence-probe)
+covers natural low-byte carry. Forced `0x00FFFFFF` → `0x01000000` rollover,
+disabled-clock reads, staged-register retention, and reset retention still
+need a separate guarded mutating artifact because they change or outlive the
+user clock state.
