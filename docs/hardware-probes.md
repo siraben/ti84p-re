@@ -118,8 +118,10 @@ python tools/decode_hardware_probe.py --json \
   HWPMD511.8xv HWPRAM21.8xv
 ```
 
-The JSON form keeps the raw payload and adds named fields. Preserve the
-original exported AppVar even when a report has been generated.
+The JSON form keeps the raw payload and complete `HWP1` frame, then adds named
+fields. It reports SHA-256 identities for both the frame and original `.8xv`
+container. Preserve the original exported AppVar even when a report has been
+generated.
 
 Every normal-return probe prints a labeled decimal verification number after
 cleanup and result creation or finalization. The shared routine skips display
@@ -129,6 +131,9 @@ labels the same value `verification`; JSON output uses
 `HWP1` frame, initialized to `0xFFFF`. Record the screen value before pressing
 a key and compare it with the exported AppVar. A match verifies that the file
 and visible run agree, but the AppVar and manifest remain the evidence record.
+CRC-16 is a human-readable run fingerprint rather than a collision-proof
+identity. `frame_sha256` and `appvar_file_sha256` provide the strong identities;
+`frame_hex` retains every calculator-observable result bit.
 The display routine reads the AppVar-resident frame rather than the staging
 copy. [confirmed] by exact assembly execution and an independent host
 computation.
@@ -137,6 +142,12 @@ Execution-fetch programs create the AppVar before the guarded opcode fetch.
 Their normal-return path updates the resident outcome and computes the CRC
 from that updated frame. A protection reset does not return to the display
 path; the pending AppVar and visible reset form the recovery record.
+
+Use `tools/physical_probe_evidence.py` to combine the original AppVar, exact
+build manifest, physical metadata, and instrument captures. The tool requires
+the context fields relevant to that probe and embeds every input byte. The
+[physical-result recording contract](needed-probes/recording-results.md)
+defines the metadata and verification command.
 
 ## Result frame
 

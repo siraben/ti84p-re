@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import binascii
+import hashlib
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -1082,10 +1083,18 @@ def probe_appvar_report(blob: bytes, *, path: str | None = None) -> dict[str, ob
     """Return a JSON-serializable report for one exported probe AppVar."""
 
     variable, frame = decode_probe_appvar(blob)
+    frame_bytes = frame.encode()
     report: dict[str, object] = {
         "variable_name": variable.name,
+        "variable_version": variable.version,
         "archived": variable.archived,
+        "container_comment": variable.comment,
+        "appvar_file_size": len(blob),
+        "appvar_file_sha256": hashlib.sha256(blob).hexdigest(),
         "format_version": frame.format_version,
+        "frame_size": len(frame_bytes),
+        "frame_hex": frame_bytes.hex().upper(),
+        "frame_sha256": hashlib.sha256(frame_bytes).hexdigest(),
         "probe_id": frame.probe_id,
         "probe_name": PROBE_NAMES.get(frame.probe_id, "unknown"),
         "asic_id": frame.asic_id,
