@@ -37,6 +37,15 @@ USER_MEM = 0x9D95
 PROGRAM_LIMIT = 0xC000
 PROBE_START = 0x9DB5
 CREATE_APPVAR_COPY = b"\xEF\x6A\x4E\xE1\xC1\x13\x13\xED\xB0"
+DISPLAY_IFF_GUARD = bytes.fromhex("ED57E0")
+DISPLAY_CRC_SIGNATURE = bytes.fromhex("11FFFF78B1C8DD7E00AA572608")
+DISPLAY_BCALLS = (
+    bytes.fromhex("EF4045"),
+    bytes.fromhex("EF5845"),
+    bytes.fromhex("EF0A45"),
+    bytes.fromhex("EF0745"),
+    bytes.fromhex("EF7249"),
+)
 TIMING_PROBE_EXPECTED_INPUTS = {
     0x02: 2,
     0x03: 2,
@@ -286,6 +295,17 @@ def validate_machine_code(probe_name: str, machine_code: bytes) -> None:
         raise ValueError(
             f"{probe_name} does not end with its {probe.payload_size}-byte result frame"
         )
+    display_name = probe.appvar if probe.probe_id == 4 else probe.program
+    display_label = f"{display_name} CODE \0".encode("ascii")
+    if machine_code.count(display_label) != 1:
+        raise ValueError(f"{probe_name} must contain its labeled verification display")
+    if machine_code.count(DISPLAY_IFF_GUARD) != 1:
+        raise ValueError(f"{probe_name} must guard display bcalls with entry IFF")
+    for bcall in DISPLAY_BCALLS:
+        if machine_code.count(bcall) != 1:
+            raise ValueError(f"{probe_name} must contain its verification display bcalls")
+    if machine_code.count(DISPLAY_CRC_SIGNATURE) != 1:
+        raise ValueError(f"{probe_name} must contain its frame CRC loop")
     if probe.probe_id == 4:
         configuration = dict(probe.defines)
         selector = configuration["TARGET_SELECTOR"]
@@ -311,6 +331,16 @@ def validate_machine_code(probe_name: str, machine_code: bytes) -> None:
             or machine_code.index(create_call) > machine_code.index(guarded_fetch)
         ):
             raise ValueError(f"{probe_name} must create its result before the fetch")
+        frame_pointer_prefix = bytes.fromhex("EB11E6FF1922")
+        pointer_index = machine_code.find(frame_pointer_prefix)
+        if (
+            pointer_index < 0
+            or machine_code[pointer_index + 8 : pointer_index + 13]
+            != bytes.fromhex("1112001922")
+        ):
+            raise ValueError(
+                f"{probe_name} must derive its resident frame and outcome pointers"
+            )
     if probe.probe_id == 5:
         for port in USB_SNAPSHOT_PORTS:
             direct_input = bytes((0xDB, port))

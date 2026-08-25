@@ -64,6 +64,8 @@ Transfer the `.8xp` files with TI Connect CE or another link program. Make
 a calculator backup before the first run. Then:
 
 1. Delete the probe's result AppVar if it already exists.
+   After any probe returns normally, record its labeled decimal code before
+   pressing a key.
 2. Run `Asm(prgmHWASIC)` for the read-only register snapshot.
 3. Disconnect the 2.5 mm link port, then run `Asm(prgmHWLINK)` for the raw-link
    sample with release-to-idle cleanup.
@@ -83,15 +85,16 @@ a calculator backup before the first run. Then:
 12. Run `Asm(prgmHWPRTC)` for the read-only RTC rollover measurement. It can
     wait up to 256 seconds for the required low-byte boundary.
 13. Run `Asm(prgmHWPMAP)` only on the guarded OS 2.55MP direct-`Asm(` path.
-    Record its decimal verification code and export `HWPMAP01` immediately.
-14. Run `Asm(prgmHWPLCD)` on an identified, backed-up test calculator. Record
-    its decimal verification code and export `HWPLCD01` immediately.
+    Export `HWPMAP01` immediately.
+14. Run `Asm(prgmHWPLCD)` on an identified, backed-up test calculator. Export
+    `HWPLCD01` immediately.
 15. Run `Asm(prgmHWPIRQ)` only through direct `Asm(` on unmodified OS 2.55MP.
     Record its code if it returns; export pending `HWPIRQ01` after a reset.
 16. Run `Asm(prgmHWPRAM)` for the RAM probe only after the earlier transfer and
     run path works on that unit.
 17. Run at most one `HWEF...` or `HWER...` execution probe before exporting its
-    result. A denied fetch may reset the calculator.
+    result. Record the code if it returns. A denied fetch may reset the
+    calculator before the display path.
 18. Export the new result AppVar to the host.
 19. Record the calculator model, PCB or ASIC revision, boot version, OS version,
     exact held keys, and artifact hashes with the exported file.
@@ -118,16 +121,22 @@ python3 -m ti84re.hardware.decode_probe --json \
 The JSON form keeps the raw payload and adds named fields. Preserve the
 original exported AppVar even when a report has been generated.
 
-`HWPRTC`, `HWPMAP`, `HWPLCD`, and `HWPIRQ` also print a decimal verification
-number after their cleanup and result creation; `HWPRTC` skips display bcalls
-when entry interrupts were disabled. The decoder's text output labels the same
-value `verification`; JSON output uses `verification_code_decimal`. It is a
-CRC-16/CCITT-FALSE over the complete `HWP1` frame, initialized to `0xFFFF`.
-Record the screen value before pressing a key and compare it with the exported
-AppVar. A match verifies that the file and visible run agree, but the AppVar
-and manifest remain the evidence record. The display routine reads the
-AppVar-resident frame rather than the staging copy. [confirmed] by exact assembly
-execution and an independent host computation.
+Every normal-return probe prints a labeled decimal verification number after
+cleanup and result creation or finalization. The shared routine skips display
+and key bcalls when entry interrupts were disabled. The decoder's text output
+labels the same value `verification`; JSON output uses
+`verification_code_decimal`. It is a CRC-16/CCITT-FALSE over the complete
+`HWP1` frame, initialized to `0xFFFF`. Record the screen value before pressing
+a key and compare it with the exported AppVar. A match verifies that the file
+and visible run agree, but the AppVar and manifest remain the evidence record.
+The display routine reads the AppVar-resident frame rather than the staging
+copy. [confirmed] by exact assembly execution and an independent host
+computation.
+
+Execution-fetch programs create the AppVar before the guarded opcode fetch.
+Their normal-return path updates the resident outcome and computes the CRC
+from that updated frame. A protection reset does not return to the display
+path; the pending AppVar and visible reset form the recovery record.
 
 ## Result frame
 
@@ -203,10 +212,10 @@ python3 -m ti84re.hardware.describe_ram_topology \
   --simulate-backings 0,0,1,1,2,3 --json
 ```
 
-The pinned SPASM-ng build produces 214 machine-code bytes with SHA-256
-`be8e1dc12060cda657cf076196e9f27302822cf7307935b5bf4056b0c55c548d`.
-The packaged 508-byte `HWPRAM.8xp` has SHA-256
-`72da5a412b596161b50f03fa5d5f2018d88b26c51207208bdf63335a9c67f6e3`.
+The pinned SPASM-ng build produces 311 machine-code bytes with SHA-256
+`ebb3a0b483d3ac2ef7f3a60067c901f39a079d9042d828eff65367d4aac2c728`.
+The packaged 702-byte `HWPRAM.8xp` has SHA-256
+`f1ab6e2466a60f46944aaaacf77e478fef1ed76d07f07fa0827135d29b69b667`.
 [confirmed]
 
 ## Execution-protection fetch probes
@@ -317,10 +326,10 @@ An upward and downward sweep can locate OS-visible transitions and hysteresis.
 The result is the retail bcall's level, not a direct voltage measurement or a
 raw comparator-bit trace. [hypothesis] for pending physical results.
 
-The pinned SPASM-ng build produces 304 machine-code bytes with SHA-256
-`4fcb9e9052fcccad350cd3b7901235a4cb87390eeb764e78e7be0686d0da99ea`.
-The packaged 688-byte `HWBATT.8xp` has SHA-256
-`9d075837dc399ec0771e563c747e7498b4c260fe6f4fee128f17a57ba238fea0`.
+The pinned SPASM-ng build produces 401 machine-code bytes with SHA-256
+`6894e59e772dc7ad81dba7e82a65cf832a22e2f9c0314c4f167b3c1a971d579d`.
+The packaged 882-byte `HWBATT.8xp` has SHA-256
+`e2acf9ca54324f070b4967a071855f65526d26274161564d1414ebbe29ab973c`.
 [confirmed]
 
 ## Raw battery-selector probe
@@ -364,10 +373,10 @@ reset before cleanup can leave the selection state changed. Use a backed-up
 test calculator, stable externally current-limited power, and an independently
 verified voltage before running it. Do not run it as the first probe on a unit.
 
-The pinned SPASM-ng build produces 397 machine-code bytes with SHA-256
-`d28548e32a53189f32c6ba7f2a4aba85278453ebcf8d1fba8f788f735f24b57c`.
-The packaged 874-byte `HWBRAW.8xp` has SHA-256
-`c0316a51a5262a32143fa72fe11c8ba510ee9aee1f87f8e28466777c54057586`.
+The pinned SPASM-ng build produces 494 machine-code bytes with SHA-256
+`9bab70611592bee37f90a9e66c02729bddec3a12928ee5f0e84b45261d194d9a`.
+The packaged 1,068-byte `HWBRAW.8xp` has SHA-256
+`854b7087875b4c798da3e0b383b09a7ffcf0face75956007663fe1a92ef6c381`.
 [confirmed]
 
 ## USB control snapshot
@@ -384,10 +393,10 @@ result AppVar. The builder verifies one direct `IN` instruction for every
 listed port. [confirmed] for source and assembled bytes; [hypothesis] for
 physical read values.
 
-The pinned SPASM-ng build produces 174 machine-code bytes with SHA-256
-`8a720e21077a9cad678b20228b5f66c8c7f54a83651989da0fe75b9807dc7e7f`.
-The packaged 428-byte `HWPUSB.8xp` has SHA-256
-`dc2f769c4b6fc98a9b47f66b7f6acdd9523810956de131aa42079c4cfa25027c`.
+The pinned SPASM-ng build produces 271 machine-code bytes with SHA-256
+`e0c3a1649ef7c51754827bf0bc9e4841e67726ece2ab822d553f32e27c1873a2`.
+The packaged 622-byte `HWPUSB.8xp` has SHA-256
+`653e8e39c312e5838c9800647622655423c482fbb36a400a0cda42e3b7f63524`.
 [confirmed]
 
 Ports `0x49`, `0x51`, and `0x52` test historical transceiver and enable-timer
@@ -438,10 +447,10 @@ readback. A reset or interruption before cleanup can leave a line asserted. Use
 a backed-up test calculator. Do not attach another calculator, Graph Link,
 TI-Keyboard, speaker, or other peripheral.
 
-The pinned SPASM-ng build produces 482 machine-code bytes with SHA-256
-`394b2bc9560f277c293d7257f324439619298d5f12c3a2a16cce00cd5f28a8b2`.
-The packaged 1,044-byte `HWLINK.8xp` has SHA-256
-`8eb8c9e16899044384efd43a01c29d8eef4ff43c92ce106f04419089a1481025`.
+The pinned SPASM-ng build produces 579 machine-code bytes with SHA-256
+`6c687665e8584bc789d85d092f6917bd2043b3f2f73fe964bf4995906b42a223`.
+The packaged 1,238-byte `HWLINK.8xp` has SHA-256
+`64d8cb0be4c9c7aee378570bc45a43596affda66303a39aec433b07e17088454`.
 [confirmed]
 
 ## Keypad settling probe
@@ -488,10 +497,10 @@ groups before restoring the caller's interrupt state, and records adjacent
 status, interrupt, and speed ports before and after. It does not measure switch
 bounce, analog voltage, or a logic-analyzer waveform.
 
-The pinned SPASM-ng build produces 822 machine-code bytes with SHA-256
-`33936def9f7844131f77b970804e7fd8af79610cc93a041afcfb9fd507555e8e`.
-The packaged 1,724-byte `HWKEYS.8xp` has SHA-256
-`3479ac8eb426977d088c7587da816bc88a67ded0625962334a0a723ce3424d23`.
+The pinned SPASM-ng build produces 919 machine-code bytes with SHA-256
+`7f8974964af78dd12c2f9e95c0c301e22cbb74da38d6a27d2313b4c00c21b639`.
+The packaged 1,918-byte `HWKEYS.8xp` has SHA-256
+`583c93f47f2a220e52bd80406c3e4d70478226ac6c5bcc6a63ec9a753396f94d`.
 [confirmed]
 
 ## Memory-bus timing probe
@@ -568,10 +577,10 @@ restores the idle counter byte and the caller's interrupt state. A reset during
 measurement can leave port `0x2E` or timer 2 changed. Use a backed-up OS 2.55MP
 calculator with stable power.
 
-The pinned SPASM-ng build produces 636 machine-code bytes with SHA-256
-`46c5f64f5ba720a129a4f889af5757dfb34dbc037a60172669c9ad5dcfb76017`.
-The packaged 1,352-byte `HWBUS.8xp` has SHA-256
-`b9f66cf6cdc3564c6a4d412c36a9a768be388f45b1eeee558d3351c3a0a4a874`.
+The pinned SPASM-ng build produces 732 machine-code bytes with SHA-256
+`9a8084f7852b5ba7f951878f941dc2bb98c81d6671c6bc0c5f75ed3565e9c75a`.
+The packaged 1,544-byte `HWBUS.8xp` has SHA-256
+`9e8a796b96db15b34fe9e91b5268efd630ee61980d6916acf575201e89ef49c7`.
 [confirmed]
 
 ## Prefix-M1 timing probe
@@ -655,10 +664,10 @@ state. A complete nominal-6-MHz run masks interrupts for about one second.
 Delete `HWPFX001` before running `Asm(prgmHWPFX)`. Retain the exported AppVar,
 probe manifest, calculator model, PCB or ASIC revision, and OS version together.
 
-The pinned SPASM-ng build produces 587 machine-code bytes with SHA-256
-`5e58ddfb1df820b79446fc10c79b681d0c58f7f16b252d18f1fef44d576a045b`.
-The packaged 1,254-byte `HWPFX.8xp` has SHA-256
-`724a43e82e81de096025931a1aff052de270185f4c3d7ef856f8efeae76bbc77`.
+The pinned SPASM-ng build produces 683 machine-code bytes with SHA-256
+`d124d7657a9ae1cb5322559bd6600133df1ebf642513f98dd5b0bbcaef52cbad`.
+The packaged 1,446-byte `HWPFX.8xp` has SHA-256
+`4a97a4c4def1a2fb2fd3a4e00e3ee0aaf1b4056c459a92c27f2ac2fbf636e255`.
 [confirmed]
 
 ## Programmable-timer physical probe
@@ -765,10 +774,10 @@ cleanup, and decoder against one emulator implementation. It does not execute
 AppVar creation, measure wall time or crystal accuracy, or establish physical
 ASIC behavior. No `HWTMR001` result from a calculator is available.
 
-The pinned SPASM-ng build produces 835 machine-code bytes with SHA-256
-`6767caf1d714bc15e642de2f791151a060015fa0d9faebe1ebddd92d184df68a`.
-The packaged 1,750-byte `HWTMR.8xp` has SHA-256
-`2182a69520ad1e82e0c7b94ef96c5910ca50727b58c77173c4f428ba95cc329c`.
+The pinned SPASM-ng build produces 931 machine-code bytes with SHA-256
+`00891ce4ac0fb89a79f0b6251eccec7bb9f4d9c34f29411da407b5cf9443fe19`.
+The packaged 1,942-byte `HWTMR.8xp` has SHA-256
+`6a28ce4a13d9a24db6bcae95e2dedcb602cfe530e039c66b4a1da5fd82ed499c`.
 [confirmed]
 
 ## RTC rollover-coherence probe
@@ -812,10 +821,10 @@ user's clock and requires a separate mutating probe with staged-register and
 time-restoration guards. [hypothesis] for physical coherence until an exported
 result is recorded.
 
-The pinned build produces 361 machine-code bytes with SHA-256
-`779c3b8f66a56e18908802f9c30780a9ec25dcce9242b1e3bb6c66b03c8a6729`.
-The packaged 802-byte `HWPRTC.8xp` has SHA-256
-`270448cdb6ff08f421fe6fc956c3b443294567608c5ad1b44cbd64307ed538c9`.
+The pinned build produces 376 machine-code bytes with SHA-256
+`07f2d73464c8666d89550081d50c6b76e3618ccd4d719d0210aea2a653ce071d`.
+The packaged 832-byte `HWPRTC.8xp` has SHA-256
+`6bcb62a520ae46e912da1df5484af769705736a49ccf663ea5367c97852ffa24`.
 [confirmed]
 
 ## Mapper-overlay probe
@@ -845,10 +854,10 @@ TilEm selected its active-paired-overlay profile and printed verification code
 `21062`. Every marker and readable selector restoration check passed in both
 runs. These are emulator results, not physical mapper conclusions. [confirmed]
 
-The pinned build produces 1,333 machine-code bytes with SHA-256
-`a04156733e59717d4f73ec16646c74cd80f2e074a07c273cf68378b107429ee8`.
-The packaged 2,746-byte `HWPMAP.8xp` has SHA-256
-`f5c6d0bd67caa7655f3e345c8939994f854bedcab0a9ee6a8c42c59bafdeed77`.
+The pinned build produces 1,348 machine-code bytes with SHA-256
+`b8486d223aa48a336fc5d245d98abcf9cd875542c3c0def5cbdf6ed760d7d3ef`.
+The packaged 2,776-byte `HWPMAP.8xp` has SHA-256
+`e613c552450eff7698b59748cd8ef492a71271bef86bad5707e0fd398904b840`.
 [confirmed]
 
 ## LCD-controller probe
@@ -880,10 +889,10 @@ register comparisons passed in both. The guarded MAME 0.287 direct-handler
 case separately selected a 15-byte linear spill; MAME did not execute this
 assembly image. [confirmed]
 
-The pinned build produces 834 machine-code bytes with SHA-256
-`d53f55fafda06a46eb51164c5becf7c8a8744207cc8c5b8f0a9090720e41657a`.
-The packaged 1,748-byte `HWPLCD.8xp` has SHA-256
-`5e3196a1c5b4d6698f7b2dbe435471e73e5e35a419250318c4ed88c8b7189fa3`.
+The pinned build produces 849 machine-code bytes with SHA-256
+`64d0265cee502a17a182f17bdb79bb8182fc39ae82b8ad679d7f0cd35803afd7`.
+The packaged 1,778-byte `HWPLCD.8xp` has SHA-256
+`55908f9bee45ac0447b55d6e17e4a5812888ed7c8d854dc0afc4112e782022d0`.
 [confirmed]
 
 ## Interrupt-`HALT` probe
@@ -914,9 +923,9 @@ standard-timer watchdog and verification `19672`. Handler count, `I`, timer,
 and interrupt-mask restoration passed in both. [confirmed]
 
 The pinned build produces 1,593 machine-code bytes with SHA-256
-`7d9311c14aeb9d55df4011539c8090e54698b1e9b600e1f9b364a858f623fd7c`.
+`4c0aedd8fbe2bd2619dae01433b546e0ce74a9d67cea45fb1d7e479f11b66738`.
 The packaged 3,266-byte `HWPIRQ.8xp` has SHA-256
-`75cdedda1a63d49ff4a1b1c36f519d2dd0a477b9d67413fe73b6b010da066ebd`.
+`c31b199d5a51e99e01431db30373aa828877d10093ce85e053ea469e393f58d0`.
 [confirmed]
 
 ## Safety boundary
@@ -969,6 +978,11 @@ physical execution and reset retention.
 | `tools/probes/hardware/bus-timing.asm` | six-class Flash/RAM wait-state timing matrix |
 | `tools/probes/hardware/prefix-m1.asm` | prefixed-instruction RAM-M1 timing matrix |
 | `tools/probes/hardware/timer-physical.asm` | guarded programmable-timer divisor, prescaler, zero-counter, and expiry matrix |
+| `tools/probes/hardware/rtc-rollover.asm` | read-only natural RTC low-byte rollover-coherence measurement |
+| `tools/probes/hardware/mapper-overlays.asm` | guarded restoring overlay and paired-mapper matrix |
+| `tools/probes/hardware/lcd-controller.asm` | guarded ready-trigger and hidden-column alias matrix |
+| `tools/probes/hardware/interrupt-halt.asm` | guarded programmable-timer `HALT` wake with watchdog |
+| `tools/probes/hardware/display.inc` | post-cleanup CRC-16 verification-number display |
 | `tools/probes/hardware/usb-snapshot.asm` | read-only low-USB control and status snapshot |
 | `tools/probes/hardware/md5-edge.asm` | calculator-side MD5 measurements |
 | `tools/probes/hardware/ram-alias.asm` | calculator-side RAM alias and restoration measurements |
@@ -980,18 +994,13 @@ physical execution and reset retention.
 | `tools/ti84re/emulators/describe_prefix_fetch_models.py` | text and JSON prefix-fetch comparison CLI |
 | `tools/ti84re/emulators/wabbitemu/run_prefix_m1_probe.py` | exact-ROM guarded assembled-probe execution CLI |
 | `tools/ti84re/emulators/wabbitemu/run_timer_physical_probe.py` | exact-ROM guarded assembled timer-probe execution CLI |
+| `tools/ti84re/emulators/tilem/build_exact_probe.py` | pinned TilEm generic exact-probe runner build CLI |
+| `tools/ti84re/emulators/wabbitemu/build_exact_probe.py` | pinned Wabbitemu generic exact-probe runner build CLI |
+| `tools/ti84re/hardware/run_exact_probe.py` | normalized exact-byte runner for every displayed physical probe |
 | `tools/ti84re/hardware/battery.py` | ROM decision tree and emulator threshold-region model |
 | `tools/ti84re/hardware/describe_battery.py` | text and JSON threshold/sample model CLI |
 | `tools/ti84re/hardware/build_probes.py` | SPASM runner, artifact validator, packager, and manifest CLI |
 | `tools/ti84re/hardware/decode_probe.py` | text and JSON result CLI |
-| `tools/probes/hardware/rtc-rollover.asm` | read-only natural RTC low-byte rollover-coherence measurement |
-| `tools/probes/hardware/mapper-overlays.asm` | guarded restoring overlay and paired-mapper matrix |
-| `tools/probes/hardware/lcd-controller.asm` | guarded ready-trigger and hidden-column alias matrix |
-| `tools/probes/hardware/interrupt-halt.asm` | guarded programmable-timer `HALT` wake with watchdog |
-| `tools/probes/hardware/display.inc` | post-cleanup CRC-16 verification-number display |
-| `tools/ti84re/emulators/tilem/build_exact_probe.py` | pinned TilEm generic exact-probe runner build CLI |
-| `tools/ti84re/emulators/wabbitemu/build_exact_probe.py` | pinned Wabbitemu generic exact-probe runner build CLI |
-| `tools/ti84re/hardware/run_exact_probe.py` | normalized exact-byte mapper, LCD, and interrupt runner |
 
 Generated `.8xp` files are build artifacts and are not required in the
 repository. A physical evidence record should retain the exact exported

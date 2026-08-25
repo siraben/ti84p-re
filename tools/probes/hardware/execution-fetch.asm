@@ -78,14 +78,19 @@ create_result:
     ld bc,frame_end-frame
     call create_probe_appvar
 
-    ; create_probe_appvar leaves DE one byte past the copied frame. The
-    ; outcome field is eight bytes before that address.
-    ld hl,$FFF8
+    ; create_probe_appvar leaves DE one byte past the copied frame. Preserve
+    ; both the resident frame start and its outcome-field address.
+    ex de,hl
+    ld de,-(frame_end-frame)
+    add hl,de
+    ld (result_frame_ptr),hl
+    ld de,payload_outcome-frame
     add hl,de
     ld (result_outcome_ptr),hl
 
     ; Record the mapper and protection state after AppVar allocation, directly
     ; before any guarded mapping write.
+    ld hl,(result_outcome_ptr)
     inc hl
     in a,($04)
     ld (hl),a
@@ -152,12 +157,23 @@ finish_without_port_restore:
     jp po,interrupts_restored
     ei
 interrupts_restored:
+    ld ix,(result_frame_ptr)
+    ld bc,frame_end-frame
+    ld hl,display_label
+    call display_probe_code
     ret
 
 saved_port6:
     .db 0
 result_outcome_ptr:
     .dw 0
+result_frame_ptr:
+    .dw 0
+
+display_label:
+    .db APPVAR_0,APPVAR_1,APPVAR_2,APPVAR_3
+    .db APPVAR_4,APPVAR_5,APPVAR_6,APPVAR_7," CODE ",0
+#include "display.inc"
 
 appvar_name:
     .db AppVarObj,APPVAR_0,APPVAR_1,APPVAR_2,APPVAR_3

@@ -21,14 +21,14 @@ artifacts, not physical conclusions. [confirmed]
 
 | Experiment family | Minimum physical setup | Prepared artifact | Remaining output |
 |-------------------|------------------------|-------------------|------------------|
-| ASIC identity and RAM topology | TI-84 Plus with recorded PCB and ASIC marking | `HWASIC`, `HWPRAM` | AppVars |
-| Timer divisors and edge state | TA2 and TA3 calculators | `HWTMR` | AppVar |
-| Bus waits and prefixed M1 placement | TA2 and TA3 calculators running OS 2.55MP | `HWBUS`, `HWPFX` | AppVars |
-| MD5-assist edge behavior | Silver Edition, TA2, and TA3 ASICs where available | `HWPMD5` | AppVar |
-| Execution protection | backed-up test calculator | `HWEF...`, `HWER...` | AppVar plus reset observation |
-| Battery comparison | test calculator, current-limited supply, and DMM | `HWBATT`, `HWBRAW` | AppVars plus voltage and load |
-| Link and keypad digital settling | test calculator and specified key or disconnected link state | `HWLINK`, `HWKEYS` | AppVars |
-| USB control reset state | identified TA2 and TA3 calculators | `HWPUSB` | connected and disconnected AppVars |
+| ASIC identity and RAM topology | TI-84 Plus with recorded PCB and ASIC marking | `HWASIC`, `HWPRAM` | AppVars plus displayed codes |
+| Timer divisors and edge state | TA2 and TA3 calculators | `HWTMR` | AppVar plus displayed code |
+| Bus waits and prefixed M1 placement | TA2 and TA3 calculators running OS 2.55MP | `HWBUS`, `HWPFX` | AppVars plus displayed codes |
+| MD5-assist edge behavior | Silver Edition, TA2, and TA3 ASICs where available | `HWPMD5` | AppVar plus displayed code |
+| Execution protection | backed-up test calculator | `HWEF...`, `HWER...` | AppVar, normal-return code, plus reset observation |
+| Battery comparison | test calculator, current-limited supply, and DMM | `HWBATT`, `HWBRAW` | AppVars, displayed codes, voltage, and load |
+| Link and keypad digital settling | test calculator and specified key or disconnected link state | `HWLINK`, `HWKEYS` | AppVars plus displayed codes |
+| USB control reset state | identified TA2 and TA3 calculators | `HWPUSB` | connected and disconnected AppVars plus codes |
 | Mapper overlays | backed-up test calculator | `HWPMAP` | AppVar plus displayed verification code |
 | LCD controller edges | identified LCD revision and backed-up test calculator | `HWPLCD` | AppVar plus displayed verification code |
 | RTC rollover coherence | identified TA2 and TA3 calculators | `HWPRTC` | AppVar plus code after a natural low-byte rollover |
@@ -52,8 +52,8 @@ mapped memory:
 3. `HWLINK` and `HWKEYS` collect operator-dependent digital samples.
 4. `HWBATT` precedes `HWBRAW` at every controlled-supply voltage.
 5. One execution-fetch artifact runs between result exports.
-6. `HWPMAP`, `HWPLCD`, and `HWPIRQ` run one at a time on a backed-up test unit;
-   record the displayed number and export the AppVar immediately.
+6. `HWPMAP`, `HWPLCD`, and `HWPIRQ` run one at a time on a backed-up test unit.
+   Record every normal-return code and export each AppVar immediately.
 7. Flash, reset, and power-loss experiments use an expendable unit and their
    experiment-specific fixture.
 

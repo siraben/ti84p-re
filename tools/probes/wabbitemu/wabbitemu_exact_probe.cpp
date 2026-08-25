@@ -19,6 +19,20 @@ bool is_create_call(const std::vector<unsigned char> &probe, unsigned short pc) 
         && probe[offset + 2] == 0x9D;
 }
 
+bool execution_frame_transition_valid(
+    const unsigned char *staging, const unsigned char *resident
+) {
+    if (std::memcmp(staging, resident, 18) != 0) {
+        return false;
+    }
+    const unsigned char before = staging[18];
+    const unsigned char after = resident[18];
+    if (before == 0) {
+        return after == 1 || after == 3 || after == 4;
+    }
+    return (before == 2 && after == 2) || (before == 4 && after == 4);
+}
+
 int run_exact_probe(int argc, char **argv) {
     if (argc < 6 || argc > 8) {
         std::fprintf(
@@ -140,10 +154,15 @@ int run_exact_probe(int argc, char **argv) {
     const bool appvar_matches = std::memcmp(
         memory.ram + fake_physical, frame, frame_size
     ) == 0;
+    const bool frame_valid = probe_id == 4
+        ? execution_frame_transition_valid(
+            frame, memory.ram + fake_physical
+        )
+        : appvar_matches;
     const bool completed = cpu.pc == display_stop
         && execution_violation_resets == 0
         && create_intercepts != 0
-        && appvar_matches;
+        && frame_valid;
     std::printf(
         "mode=exact-probe probe_id=%u payload_size=%zu probe_size=%zu "
         "boot_steps=%" PRIu64 " probe_steps=%" PRIu64 " "

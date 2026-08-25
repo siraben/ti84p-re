@@ -71,8 +71,9 @@ Before using a result as evidence:
 2. Decode the original AppVar without checksum, length, version, or probe-ID
    errors.
 3. Confirm every cleanup or restoration flag required by that probe.
-4. For `HWPRTC`, `HWPMAP`, `HWPLCD`, or `HWPIRQ`, compare any recorded screen
-   number with `verification_code_decimal` from the decoded AppVar.
+4. For every normal-return probe, compare the recorded screen number with
+   `verification_code_decimal` from the decoded AppVar. A reset-capable
+   execution probe can leave a pending AppVar without reaching this display.
 5. Check that the recorded model and OS satisfy the probe's entry guards.
 6. Keep visible reset, timeout, unsupported, and normal-return outcomes
    distinct.
