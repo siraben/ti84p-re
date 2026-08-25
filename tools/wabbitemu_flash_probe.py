@@ -7,16 +7,26 @@ import json
 
 from execution_protection import TI84P_BOOT_PROTECTION
 from flash_hardware import (
+    PAGE_SIZE,
+    flash_sector,
     program_byte,
     simulate_wabbitemu_rom_program_poll,
     wabbitemu_program_error_read,
 )
 from wabbitemu_headless import (
     WabbitemuFlashCommandReport,
+    WabbitemuFlashPreflightReport,
     WabbitemuFlashProgramReport,
     WabbitemuFlashWorkerReport,
     WabbitemuHeadlessError,
 )
+
+ARCHIVE_FLASH_START = 0x08 * PAGE_SIZE
+ARCHIVE_FLASH_END = 0x2A * PAGE_SIZE
+FAILURE_FIXTURE_PAGE = 0x08
+FAILURE_FIXTURE_OFFSET = 0x0100
+FAILURE_FIXTURE_PHYSICAL = 0x20100
+FAILURE_FIXTURE_SECTOR = (0x20000, 0x30000)
 
 
 @dataclass(frozen=True)
@@ -58,6 +68,45 @@ WORKER_PROGRAM_CASES = (
     FlashProgramCase(0x50, 0xD0),
     FlashProgramCase(0x50, 0xD0, 0x40),
 )
+
+
+def validate_failure_fixture_target(
+    page: int,
+    offset: int,
+    physical: int,
+) -> dict[str, object]:
+    """Require the one disposable archive-sector byte allowed by the fixture."""
+
+    expected = (
+        FAILURE_FIXTURE_PAGE,
+        FAILURE_FIXTURE_OFFSET,
+        FAILURE_FIXTURE_PHYSICAL,
+    )
+    if (page, offset, physical) != expected:
+        raise WabbitemuHeadlessError(
+            "Flash failure fixture target is not the fixed disposable archive byte"
+        )
+    if physical != page * PAGE_SIZE + offset:
+        raise WabbitemuHeadlessError(
+            "Flash failure fixture page, offset, and physical address disagree"
+        )
+    sector = flash_sector(physical)
+    if (sector.start, sector.end) != FAILURE_FIXTURE_SECTOR:
+        raise WabbitemuHeadlessError(
+            "Flash failure fixture target is outside its fixed 64 KiB sector"
+        )
+    if sector.start < ARCHIVE_FLASH_START or sector.end > ARCHIVE_FLASH_END:
+        raise WabbitemuHeadlessError(
+            "Flash failure fixture sector overlaps OS, certificate, or boot pages"
+        )
+    return {
+        "target_page": page,
+        "target_offset": offset,
+        "target_physical": physical,
+        "sector": [sector.start, sector.end],
+        "archive_writable_window": [ARCHIVE_FLASH_START, ARCHIVE_FLASH_END],
+        "source_image_written": False,
+    }
 
 
 def parse_flash_program_case(value: str) -> FlashProgramCase:
@@ -242,6 +291,11 @@ def validate_worker_report(
 ) -> dict[str, object]:
     """Check a retail-ROM worker report against byte and source models."""
 
+    target_guard = validate_failure_fixture_target(
+        report.target_page,
+        report.target_offset,
+        report.target_physical,
+    )
     modeled = simulate_wabbitemu_rom_program_poll(
         case.initial,
         case.requested,
@@ -294,6 +348,10 @@ def validate_worker_report(
         "return_hl": 0x9D9A if success else 0x9D99,
         "port06": 0x3F,
         "bank1_page": "3F",
+        "flash_changed_bytes": int(modeled.stored != 0xFF),
+        "target_sector_changed_bytes": int(modeled.stored != 0xFF),
+        "protected_changed_bytes": 0,
+        "outside_target_changed_bytes": 0,
         "final_pc": 0x9D98,
         "classification": modeled.outcome,
     }
@@ -306,10 +364,87 @@ def validate_worker_report(
     return {
         "name": case.name,
         "requested_zero_to_one": modeled.requested_zero_to_one,
+        "target_guard": target_guard,
         "source_model": {
             "stored": modeled.stored,
             "reads": [read.value for read in modeled.reads],
             "outcome": modeled.outcome,
+        },
+        "native": observed,
+    }
+
+
+def validate_flash_preflight_report(
+    report: WabbitemuFlashPreflightReport,
+) -> dict[str, object]:
+    """Check the locked bad-stack reset path and completed retail restart."""
+
+    expected = {
+        "status": 0,
+        "preflight_address": 0x02BF,
+        "failure_address": 0x02CE,
+        "reset_address": 0x0000,
+        "configured_sp": 0xBFFE,
+        "signature_size": 18,
+        "source_signature_match": True,
+        "mapped_signature_match": True,
+        "boot_pc": 0x4223,
+        "boot_page": "3F",
+        "boot_flash_locked": True,
+        "harness_visits": 1,
+        "preflight_visits": 1,
+        "failure_visits": 1,
+        "reset_visits": 1,
+        "return_visits": 0,
+        "violation_resets": 0,
+        "gate_locked_before_restart": True,
+        "step_before_restart": "read",
+        "flash_changed_before_restart": 0,
+        "restart_reset_pc": 0x0000,
+        "restart_pc": 0x4223,
+        "restart_page": "3F",
+        "restart_ready": True,
+        "flash_changed_after_restart": 0,
+    }
+    observed = report.to_dict()
+    disagreements = {
+        name: {"expected": value, "observed": observed[name]}
+        for name, value in expected.items()
+        if observed[name] != value
+    }
+    if report.boot_steps <= 0 or report.boot_tstates <= 0:
+        disagreements["boot_progress"] = {
+            "expected": "positive instruction and T-state counts",
+            "observed": [report.boot_steps, report.boot_tstates],
+        }
+    if report.probe_steps >= report.max_probe_steps:
+        disagreements["probe_step_bound"] = {
+            "expected": f"less than {report.max_probe_steps}",
+            "observed": report.probe_steps,
+        }
+    if not 0 < report.restart_steps < report.max_restart_steps:
+        disagreements["restart_step_bound"] = {
+            "expected": f"between 1 and {report.max_restart_steps - 1}",
+            "observed": report.restart_steps,
+        }
+    if report.restart_tstates <= 0:
+        disagreements["restart_tstates"] = {
+            "expected": "positive",
+            "observed": report.restart_tstates,
+        }
+    if disagreements:
+        raise WabbitemuHeadlessError(
+            "native Flash preflight report disagrees with the guarded path: "
+            + json.dumps(disagreements, sort_keys=True)
+        )
+    return {
+        "numeric_status": report.status,
+        "source_model": {
+            "failure_condition": "saved SP high bits are not 0xC0",
+            "failure_transfer": "00:02CE jumps to 00:0000",
+            "gate_unlocks": 0,
+            "flash_changes": 0,
+            "restart_completed": True,
         },
         "native": observed,
     }

@@ -152,7 +152,7 @@ PROBES = {
         "mapper-overlays.asm", "HWPMAP", "HWPMAP01", 14, 47
     ),
     "lcd-controller": ProbeDefinition(
-        "lcd-controller.asm", "HWPLCD", "HWPLCD01", 15, 43
+        "lcd-controller.asm", "HWPLCD", "HWPLCD02", 15, 42
     ),
     "interrupt-halt": ProbeDefinition(
         "interrupt-halt.asm", "HWPIRQ", "HWPIRQ01", 16, 21
@@ -655,14 +655,36 @@ def validate_machine_code(probe_name: str, machine_code: bytes) -> None:
                 )
         for sequence, label in (
             (bytes.fromhex("01FFFFDB02CB4F"), "bounded ASIC-ready poll"),
-            (bytes.fromhex("3E07"), "column-increment command"),
-            (bytes.fromhex("3E2E"), "column-14 start command"),
-            (bytes.fromhex("0E3F"), "read-only column-31 command"),
+            (bytes.fromhex("FE20DA"), "visible-column lower-bound guard"),
+            (bytes.fromhex("FE2C"), "visible-column upper-bound guard"),
+            (bytes.fromhex("E603C604"), "entry-movement reconstruction"),
             (bytes.fromhex("E5DDE1"), "AppVar-resident verification frame"),
             (bytes.fromhex("EF7249"), "verification-code display"),
         ):
             if sequence not in machine_code:
                 raise ValueError(f"{probe_name} omits its {label}")
+        if machine_code.count(bytes.fromhex("D311")) != 1:
+            raise ValueError(
+                f"{probe_name} must have one shared visible-cell data-write instruction"
+            )
+        source = probe.source.read_text(encoding="utf-8")
+        for forbidden in ("$2E\n    call safe_lcd_command", "$2F\n    call safe_lcd_command",
+                          "$30\n    call safe_lcd_command", "$3F\n    call safe_lcd_command"):
+            if forbidden in source:
+                raise ValueError(f"{probe_name} must not issue a hidden-column command")
+        for required in (
+            "cp $2C\n    jp nc,abort_hidden_column",
+            "ld (pointer_safe),a",
+            "ld a,(pointer_safe)\n    or a\n    jr z,capture_post",
+            "ld a,(payload_cell_before)\n    call safe_lcd_data_write",
+            "call wait_lcd_ready\n    jr c,safe_lcd_command_timeout",
+            "call wait_lcd_ready\n    ret c",
+            "call wait_lcd_ready\n    jr c,safe_lcd_data_write_timeout",
+            "ld a,(lcd_timeout)\n    or a\n    jr nz,lcd_ready_prior_timeout",
+            "A status read can move the pointer on replacement controllers",
+        ):
+            if required not in source:
+                raise ValueError(f"{probe_name} omits a source-level restoration guard")
     if probe.probe_id == 16:
         for sequence, label in (
             (bytes.fromhex("ED5E"), "IM2 installation"),

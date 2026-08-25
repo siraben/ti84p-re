@@ -1,0 +1,403 @@
+{
+  "schema": "ti84p-re.mapper-overlay-emulator-evidence.v1",
+  "probe": {
+    "name": "mapper-overlays",
+    "probe_id": 14,
+    "program": "HWPMAP",
+    "result_appvar": "HWPMAP01",
+    "payload_size": 47
+  },
+  "sources": {
+    "tools/hardware-probes/mapper-overlays.asm": "2842658e4d69f8b9c97a560ff4480b2a6f5c1cf09e9f9ea59dd92a953783f83c",
+    "tools/hardware-probes/common.inc": "22d8adf8be0348eb73e2c51b8ff6411b23ddaf66777ea585b6d530f1bb024ddc",
+    "tools/hardware-probes/display.inc": "9e2a5d73b9f539222e0d8087e5978981f5a975df15534332c04d9c83c8694412",
+    "tools/build_tilem_exact_probe.py": "a0e01a21b8a31dabaa667acecd55a6dbdeacca036bdba89fbad6e760abb6de98",
+    "tools/build_wabbitemu_exact_probe.py": "0e80bb70e885f7d18825280a722b5280b6de1cfe7d4e449f0f286a598c8d1866",
+    "tools/tilem_probe_support.c": "cf9e554bab3cfe90b9faf034bf98003263638a18d276355e1cca16da339bb8a5",
+    "tools/tilem_exact_probe.c": "2131bf5ad38346721b09b6175a7ca667471d8c5c3dc26babe53aeb5ad3894d84",
+    "tools/wabbitemu_exact_probe.cpp": "8e5ddb9a2513829ae47096170305adf6ef363b7597c083a81ee8b9559b6dc9db",
+    "tools/run_exact_hardware_probe.py": "4e451f98685a08f855455b747e900fd5d785a8f8bf96f80e0e3689968edef5d5",
+    "tools/run_mame_mapper_probe.py": "d5d6f5230e34755621c3e864cb82866916541afd2279fe87efcebf393ab80478",
+    "tools/mame_mapper_probe.lua": "90bdbd4be2369ddb085f9d5eae61d2977a4b2068638da429b23aba217dfb32a7"
+  },
+  "artifact": {
+    "machine_code_size": 1348,
+    "machine_code_sha256": "b8486d223aa48a336fc5d245d98abcf9cd875542c3c0def5cbdf6ed760d7d3ef",
+    "program_file_size": 2776,
+    "program_file_sha256": "e613c552450eff7698b59748cd8ef492a71271bef86bad5707e0fd398904b840"
+  },
+  "source_rom_sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d",
+  "emulators": {
+    "tilem": {
+      "emulator": "TilEm",
+      "status": "completed",
+      "execution": "exact-assembled-bytes",
+      "commit": "f56ad637d0524ee841dd381be6ecbaf5b8975600",
+      "git_tree": "58316afe35d69e69353f0f743698144153051d4a",
+      "runner_sha256": "ac280251dcda1cda083196abf88032502420351732cb689cac38d20348126408",
+      "machine_code_size": 1348,
+      "machine_code_sha256": "b8486d223aa48a336fc5d245d98abcf9cd875542c3c0def5cbdf6ed760d7d3ef",
+      "verification_code_decimal": 58756,
+      "frame_hex": "48575031010E2F0045E10B08003F810000000000A1A2B3464445464A48B1C147D1A1A2E3464445464A48E1C241D2670F0B08003F8100000000",
+      "decoded_frame": {
+        "probe_id": 14,
+        "asic_id": 69,
+        "status": 225,
+        "payload_hex": "0B08003F810000000000A1A2B3464445464A48B1C147D1A1A2E3464445464A48E1C241D2670F0B08003F8100000000",
+        "verification_code_decimal": 58756,
+        "measurements": {
+          "outcome_code": 0,
+          "outcome": "completed",
+          "pre_ports_03_04_05_06_07_0e_0f_27_28": [
+            "0x0B",
+            "0x08",
+            "0x00",
+            "0x3F",
+            "0x81",
+            "0x00",
+            "0x00",
+            "0x00",
+            "0x00"
+          ],
+          "independent_reads": [
+            "0xA1",
+            "0xA2",
+            "0xB3",
+            "0x46",
+            "0x44",
+            "0x45",
+            "0x46",
+            "0x4A",
+            "0x48"
+          ],
+          "independent_write_routing": [
+            "0xB1",
+            "0xC1",
+            "0x47",
+            "0xD1"
+          ],
+          "paired_reads": [
+            "0xA1",
+            "0xA2",
+            "0xE3",
+            "0x46",
+            "0x44",
+            "0x45",
+            "0x46",
+            "0x4A",
+            "0x48"
+          ],
+          "paired_write_routing": [
+            "0xE1",
+            "0xC2",
+            "0x41",
+            "0xD2"
+          ],
+          "paired_even_flash_b": "0x67",
+          "closest_emulator_profile": "tilem",
+          "restore_flags": "0x0F",
+          "all_marker_pages_restored": true,
+          "post_ports_03_04_05_06_07_0e_0f_27_28": [
+            "0x0B",
+            "0x08",
+            "0x00",
+            "0x3F",
+            "0x81",
+            "0x00",
+            "0x00",
+            "0x00",
+            "0x00"
+          ],
+          "readable_ports_restored": true
+        }
+      },
+      "native_counts": {
+        "run_clocks": "37490",
+        "create_intercepts": "1",
+        "final_pc": "0xA254"
+      },
+      "launch": "exact ROM load and guarded direct-Asm core baseline",
+      "host_intercepts": "_CreateAppVar is redirected to a private RAM buffer; execution stops at the first display bcall after the assembly CRC routine",
+      "evidence_scope": "exact assembled measurement, cleanup, frame update, and CRC; not TI-OS AppVar allocation, rendered screen pixels, or physical calculator behavior"
+    },
+    "wabbitemu": {
+      "emulator": "Wabbitemu",
+      "status": "completed",
+      "execution": "exact-assembled-bytes",
+      "commit": "48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422",
+      "source_tree_sha256": "a8a4f97fc7952770bed317b4a477f80345894da38d14fad8f0bf0ee60aae71ba",
+      "runner_sha256": "0f4cb971b3ff1475f2293c2e50db4c6207af92f69e670c0cf0c053901be90569",
+      "machine_code_size": 1348,
+      "machine_code_sha256": "b8486d223aa48a336fc5d245d98abcf9cd875542c3c0def5cbdf6ed760d7d3ef",
+      "verification_code_decimal": 21062,
+      "frame_hex": "48575031010E2F0044E10B08003F810000000000A1A2B3464748464A48B1C1D1D1E1E2E3464148494A4BC2C2D2D2180F0B08003F8100000000",
+      "decoded_frame": {
+        "probe_id": 14,
+        "asic_id": 68,
+        "status": 225,
+        "payload_hex": "0B08003F810000000000A1A2B3464748464A48B1C1D1D1E1E2E3464148494A4BC2C2D2D2180F0B08003F8100000000",
+        "verification_code_decimal": 21062,
+        "measurements": {
+          "outcome_code": 0,
+          "outcome": "completed",
+          "pre_ports_03_04_05_06_07_0e_0f_27_28": [
+            "0x0B",
+            "0x08",
+            "0x00",
+            "0x3F",
+            "0x81",
+            "0x00",
+            "0x00",
+            "0x00",
+            "0x00"
+          ],
+          "independent_reads": [
+            "0xA1",
+            "0xA2",
+            "0xB3",
+            "0x46",
+            "0x47",
+            "0x48",
+            "0x46",
+            "0x4A",
+            "0x48"
+          ],
+          "independent_write_routing": [
+            "0xB1",
+            "0xC1",
+            "0xD1",
+            "0xD1"
+          ],
+          "paired_reads": [
+            "0xE1",
+            "0xE2",
+            "0xE3",
+            "0x46",
+            "0x41",
+            "0x48",
+            "0x49",
+            "0x4A",
+            "0x4B"
+          ],
+          "paired_write_routing": [
+            "0xC2",
+            "0xC2",
+            "0xD2",
+            "0xD2"
+          ],
+          "paired_even_flash_b": "0x18",
+          "closest_emulator_profile": "wabbitemu",
+          "restore_flags": "0x0F",
+          "all_marker_pages_restored": true,
+          "post_ports_03_04_05_06_07_0e_0f_27_28": [
+            "0x0B",
+            "0x08",
+            "0x00",
+            "0x3F",
+            "0x81",
+            "0x00",
+            "0x00",
+            "0x00",
+            "0x00"
+          ],
+          "readable_ports_restored": true
+        }
+      },
+      "native_counts": {
+        "boot_steps": "134845",
+        "probe_steps": "4826",
+        "create_intercepts": "1",
+        "final_pc": "0xA254"
+      },
+      "launch": "retail-ROM boot and exact user-RAM injection",
+      "host_intercepts": "_CreateAppVar is redirected to a private RAM buffer; execution stops at the first display bcall after the assembly CRC routine",
+      "evidence_scope": "exact assembled measurement, cleanup, frame update, and CRC; not TI-OS AppVar allocation, rendered screen pixels, or physical calculator behavior"
+    },
+    "mame": {
+      "emulator": "MAME",
+      "version": "0.287",
+      "binary_sha256": "fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91",
+      "machine": "ti84pv3",
+      "exact_execution": {
+        "status": "unsupported",
+        "reason": "No guarded adapter currently injects and executes the exact HWPMAP machine-code image in MAME. The Lua result below is a direct-handler profile and must not be treated as an all-zero probe result."
+      },
+      "direct_handler_profile": {
+        "status": "completed",
+        "execution": "guarded-lua-device-handler-profile",
+        "lua_script_sha256": "90bdbd4be2369ddb085f9d5eae61d2977a4b2068638da429b23aba217dfb32a7",
+        "report": {
+          "source_model": {
+            "mapped_ports": [
+              4,
+              5,
+              6,
+              7
+            ],
+            "unmapped_tested_ports": [
+              14,
+              15,
+              39,
+              40
+            ],
+            "reset_mapping": "Flash 3F/00/01/00 in paired mode",
+            "fixed_page_handoff": "reads from A and paired B clear the latch; independent B does not",
+            "lua_program_reads_have_side_effects": true,
+            "flash_selector_mask": 63,
+            "port5_write_mask": 7,
+            "safe_ram_selectors_executed": [
+              128,
+              129,
+              130,
+              131,
+              133,
+              134
+            ],
+            "unsafe_ram_selector_87_executed": false,
+            "mapped_ram_page_count": 7,
+            "forced_ram_overlays": false,
+            "fetch_discriminator": "RAM page 2 marker 22 executed; RAM page 1 overlay marker 11 did not"
+          },
+          "native": {
+            "machine": "ti84pv3",
+            "version": "0.287",
+            "reset_pc": 0,
+            "reset_ports": [
+              8,
+              0,
+              0,
+              0
+            ],
+            "reset_fixed_before": [
+              62,
+              7
+            ],
+            "reset_a": [
+              219,
+              2
+            ],
+            "reset_b": [
+              68,
+              111
+            ],
+            "reset_c": [
+              219,
+              2
+            ],
+            "reset_fixed_after": [
+              219,
+              2
+            ],
+            "independent_b": {
+              "case": "independent_b",
+              "mode": 0,
+              "bank_a": 1,
+              "bank_b": 2,
+              "address": 32768,
+              "fixed_before": [
+                62,
+                7
+              ],
+              "observed": 14,
+              "fixed_after": [
+                62,
+                7
+              ],
+              "pc": 49160
+            },
+            "window_a": {
+              "case": "window_a",
+              "mode": 0,
+              "bank_a": 1,
+              "bank_b": 2,
+              "address": 16384,
+              "fixed_before": [
+                62,
+                7
+              ],
+              "observed": 68,
+              "fixed_after": [
+                219,
+                2
+              ],
+              "pc": 49160
+            },
+            "paired_b": {
+              "case": "paired_b",
+              "mode": 1,
+              "bank_a": 2,
+              "bank_b": 128,
+              "address": 32769,
+              "fixed_before": [
+                62,
+                7
+              ],
+              "observed": 2,
+              "fixed_after": [
+                219,
+                2
+              ],
+              "pc": 49160
+            },
+            "selector_flash41": [
+              68,
+              111
+            ],
+            "selector_read41": 1,
+            "selector_flash7f": [
+              62,
+              7
+            ],
+            "selector_read7f": 63,
+            "selector_ram80": 160,
+            "selector_read80": 128,
+            "selector_ram86": 166,
+            "selector_read86": 134,
+            "selector_b85": 165,
+            "selector_read85": 133,
+            "selector_cfe": 166,
+            "selector_readfe": 6,
+            "paired_a": [
+              14,
+              1
+            ],
+            "paired_b_bytes": [
+              62,
+              2
+            ],
+            "paired_c": 163,
+            "paired_port5": 6,
+            "paired_port6": 2,
+            "paired_port7": 131,
+            "absent_initial": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "absent_patterned": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "overlay_b_before": 162,
+            "overlay_c_before": 211,
+            "overlay_forced_b_after": 161,
+            "overlay_underlying_b_after": 226,
+            "overlay_forced_c_after": 208,
+            "overlay_underlying_c_after": 227,
+            "fetch_marker": 34,
+            "fetch_pc": 49923
+          }
+        },
+        "launch": "five fresh MAME processes separate reset observation, actual-Z80 A/independent-B/paired-B reads, and direct mapper edge cases",
+        "evidence_scope": "MAME 0.287 TI-84 Plus reset latch, bank arithmetic, mapped ports, safe RAM backing, and absent forced overlays; not TI-OS behavior, physical mapper behavior, or RAM-page-87 execution"
+      }
+    }
+  },
+  "physical_status": {
+    "status": "not-run",
+    "evidence_needed": "Export HWPMAP01 and record the displayed decimal code from a backed-up physical TI-84 Plus under stable power."
+  }
+}

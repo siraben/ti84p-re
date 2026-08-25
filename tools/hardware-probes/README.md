@@ -27,6 +27,15 @@ Execution-fetch probes create their AppVar before the guarded fetch. A normal
 return updates the resident outcome and prints its CRC. A protection reset
 cannot reach the display path; export the pending AppVar after recovery.
 
+`lcd-controller.asm` is a transferable visible-cell probe. It rejects saved
+columns outside command range `0x20`–`0x2B` and never writes a hidden column.
+Its only data value is the byte already read from the guarded visible cell.
+It verifies that byte after the same-value write and restores it again.
+
+The hidden-column LCD tools are emulator-only model tests. Do not transplant
+their sentinel writes into a physical artifact without a separate recovery
+protocol and an explicit operator gate.
+
 The SPASM-ng workflow was cross-checked against
 [`siraben/ti84-forth`](https://github.com/siraben/ti84-forth): both use a Nix
 build environment, direct assembly at user RAM, and explicit register/stack
@@ -37,6 +46,32 @@ contract rather than adopting TI-84 Forth's different container entry.
 The source-to-artifact contract is checked by
 `tools/test_build_hardware_probes.py`. The documentation coverage is checked
 by `tools/test_needed_probe_docs.py`.
+
+The tracked `HWPMAP` emulator record can be checked against the assembly and
+runner sources without changing it:
+
+```sh
+python tools/mapper_probe_evidence.py \
+  --check tools/fixtures/mapper-overlays-emulators.json
+```
+
+To regenerate that record, first build `HWPMAP` and collect fresh manifests
+from both exact-image backends and the guarded MAME mapper adapter. Keep every
+runner's output outside the repository, then pass the four manifests to:
+
+```sh
+python tools/mapper_probe_evidence.py \
+  --build-manifest /tmp/hwp-build/manifest.json \
+  --tilem-manifest /tmp/hwp-tilem/manifest.json \
+  --wabbitemu-manifest /tmp/hwp-wabbitemu/manifest.json \
+  --mame-manifest /tmp/hwp-mame/manifest.json \
+  --output tools/fixtures/mapper-overlays-emulators.json
+```
+
+The generator rejects machine-image mismatches, nonzero outcomes, failed
+marker or port restoration, a mismatched displayed decimal code, and an
+unexpected ROM or emulator revision. It records MAME's Lua result as a direct
+handler profile and labels exact `HWPMAP` execution unsupported.
 
 `rtc-rollover.asm` is the only probe that may wait several minutes. It keeps
 interrupts enabled until current-time port `0x45` reaches `0xFF`, then masks

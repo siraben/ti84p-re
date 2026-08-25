@@ -604,7 +604,7 @@ class HardwareProbeTests(unittest.TestCase):
         self.assertTrue(report["all_marker_pages_restored"])
         self.assertTrue(report["readable_ports_restored"])
 
-    def test_lcd_probe_decodes_three_row_models(self):
+    def test_lcd_probe_decodes_legacy_hidden_column_models(self):
         pre = bytes.fromhex("C308630314272F3B01444B2080")
         post = bytes.fromhex("C308630314272F3B01444B")
         models = {
@@ -628,6 +628,55 @@ class HardwareProbeTests(unittest.TestCase):
                 )
                 self.assertEqual(expected, report["row_model"])
                 self.assertTrue(report["restore_ok"])
+
+    def test_lcd_probe_decodes_visible_cell_and_busy_samples(self):
+        pre = bytes.fromhex("C308630314272F3B01444B2080")
+        post = bytes.fromhex("C308630314272F3B01444B")
+        payload = (
+            pre
+            + b"\0"
+            + bytes.fromhex("010002000300")
+            + bytes.fromhex("00E3006300E3")
+            + bytes.fromhex("AAAAAA0701")
+            + post
+        )
+
+        report = decode_probe_measurements(ProbeFrame(15, 0x45, 0xE3, payload))
+
+        self.assertEqual("visible-cell-v2", report["schema"])
+        self.assertTrue(report["visible_cell"]["matches"])
+        self.assertTrue(report["restore_ok"])
+        self.assertTrue(report["movement_status_restored"])
+        self.assertEqual(
+            {"command_write": True, "data_read": False, "data_write": True},
+            report["controller_busy_samples"],
+        )
+
+    def test_exact_lcd_emulator_frames_keep_displayed_codes_and_restoration(self):
+        cases = {
+            "tilem": (
+                "48575031010F2A0045E1E108430114272F3B01444A20800002000200"
+                "0200E1C3E1C3E1C30000000701E30A430114272F3B01444A",
+                21731,
+            ),
+            "wabbitemu": (
+                "48575031010F2A0044E1E108630117272F3B02454B20800004000000"
+                "0300E180E363E1800000000701E30A630117272F3B02454B",
+                23959,
+            ),
+        }
+
+        for emulator, (frame_hex, expected_code) in cases.items():
+            with self.subTest(emulator=emulator):
+                frame = decode_probe_frame(bytes.fromhex(frame_hex))
+                report = decode_probe_measurements(frame)
+
+                self.assertEqual(expected_code, probe_verification_code(frame))
+                self.assertEqual("completed", report["outcome"])
+                self.assertTrue(report["visible_cell"]["matches"])
+                self.assertTrue(report["restore_ok"])
+                self.assertTrue(report["movement_status_restored"])
+                self.assertTrue(report["wait_registers_unchanged"])
 
     def test_interrupt_probe_classifies_watchdog_wake(self):
         payload = bytes.fromhex(

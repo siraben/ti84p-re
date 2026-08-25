@@ -530,6 +530,26 @@ Four incrementing writes from row 0, column 14 store `A0 A1 A2 A3` at array indi
 
 Ports `0x29`–`0x2F` return seven zero bytes before and after patterned writes. Two isolated runs produce byte-identical native reports with SHA-256 `d6930650a96383710be7ebb772675b5a494cba2450827b12a535c963fa464bfc`. The probe does not execute row 63, column 31; the source-computed index 976 remains an unexecuted unsafe case. [standard]
 
+### Transferable visible-cell probe
+
+The physical `HWPLCD` artifact does not execute the emulator hidden-column
+matrix. It rejects TI-OS tracked columns outside `0x20`–`0x2B`. Its only LCD
+data write repeats the byte read from the selected visible cell. [confirmed]
+
+The probe measures ASIC-ready zero samples after a command, read, and write.
+It also samples controller busy status after each access. Cleanup restores the
+entry movement command and guarded TI-OS pointer. It repeats the pointer
+restore after its final status read. [confirmed]
+
+Exact assembled-byte runs completed on both pinned backends. TilEm reported
+ready counts 2/2/2 and busy set/set/set, then printed `21731`. Wabbitemu
+reported 4/0/3 and busy set/clear/set, then printed `23959`. [confirmed]
+
+Both emulator runs preserved the visible byte, movement bits, and wait-port
+snapshot. They validate the probe path, not physical timing. The guarded MAME
+run remains a direct-handler profile rather than an exact assembly run.
+[confirmed]
+
 ### Reproducing pointer differences
 
 `tools/lcd_controller.py` provides the source-attributed T6K04 specification,
@@ -620,7 +640,8 @@ nix shell nixpkgs#mame --command python tools/run_mame_lcd_probe.py \
 - [hypothesis] TilEm's five-cycle LCD I/O overhead and 50-cycle controller busy period should be compared with bus captures rather than treated as hardware constants.
 - [standard] Wabbitemu's 15-column increment cycle and write-based ready timer, plus MAME's unchecked 15-byte row, are emulator limits rather than hardware results.
 - [standard] A guarded MAME run verifies its startup state, status and command decode, permanent busy-clear state, mirror ports, safe hidden-column aliases, dummy-read latch, 6-bit packing, stored analog fields, constant ASIC-ready bit, and missing delay ports.
-- [hypothesis] Physical tests should sweep hidden columns and time readiness after reads and writes independently.
+- [hypothesis] Physical hidden-column sweeps need a separate operator gate and a recovery protocol that does not assume hidden RAM is readable.
+- [hypothesis] The visible-cell `HWPLCD` result should measure readiness after command, read, and write independently across controller revisions.
 
 ## Sources
 

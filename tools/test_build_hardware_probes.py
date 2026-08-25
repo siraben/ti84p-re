@@ -140,6 +140,35 @@ class HardwareProbeBuilderTests(unittest.TestCase):
                 self.assertIn('#include "display.inc"', text)
                 self.assertIn("call display_", text)
 
+    def test_default_lcd_probe_rejects_hidden_columns_and_restores_after_status(self):
+        text = (
+            Path(__file__).parent / "hardware-probes" / "lcd-controller.asm"
+        ).read_text()
+
+        self.assertIn("cp $2C\n    jp nc,abort_hidden_column", text)
+        self.assertIn("ld (pointer_safe),a", text)
+        self.assertIn(
+            "ld a,(pointer_safe)\n    or a\n    jr z,capture_post", text
+        )
+        self.assertIn("ld a,(payload_cell_before)\n    call safe_lcd_data_write", text)
+        self.assertIn(
+            "call wait_lcd_ready\n    jr c,safe_lcd_command_timeout", text
+        )
+        self.assertIn("call wait_lcd_ready\n    ret c", text)
+        self.assertIn(
+            "call wait_lcd_ready\n    jr c,safe_lcd_data_write_timeout", text
+        )
+        self.assertIn(
+            "ld a,(lcd_timeout)\n    or a\n    jr nz,lcd_ready_prior_timeout", text
+        )
+        self.assertIn(
+            "A status read can move the pointer on replacement controllers", text
+        )
+        self.assertNotIn("probe_cells:", text)
+        self.assertNotIn("payload_direct_column", text)
+        self.assertNotIn("$2E\n    call safe_lcd_command", text)
+        self.assertNotIn("$3F\n    call safe_lcd_command", text)
+
     def test_display_include_guards_bcalls_and_uses_appvar_frame_helper(self):
         text = (Path(__file__).parent / "hardware-probes" / "display.inc").read_text()
 

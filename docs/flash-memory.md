@@ -1958,6 +1958,51 @@ clear. Both illegal DQ7 requests take the failure reset at `ram:8175`,
 regardless of stored DQ5. DQ6 changes the first status byte but not the return
 path. [confirmed] for the pinned native run.
 
+### Guarded preflight failure and restart
+
+`run_wabbitemu_flash_failure_fixture.py` combines a no-write preflight case
+with one legal worker control and one DQ5 worker failure. It requires the exact
+OS 2.55MP image. The adapter reads that file into allocated emulator memory and
+never writes an output ROM. [confirmed]
+
+The preflight case checks the 18 bytes beginning at `00:02BF` in both the input
+image and the mapped page. A four-byte RAM harness calls that unmodified entry
+with `SP=0xBFFE`. The saved stack pointer therefore fails the `0xC000`–`0xFFFF`
+test. Execution visits `00:02BF`, `00:02CE`, and the reset vector at `00:0000`
+once each. It does not return to the harness. [confirmed] for the pinned native
+run.
+
+The Flash gate remains locked and the device remains in array-read state.
+Comparison with the input image finds zero changed Flash bytes before restart.
+The adapter then invokes Wabbitemu's low-level CPU reset and executes 134,845
+instructions until the retail boot reaches `3F:4223` with the expected
+protection bounds restored. A second complete-array comparison still finds
+zero changed bytes. The emitted numeric status is `0`. [confirmed] for pinned
+Wabbitemu commit `48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422` and the exact
+OS 2.55MP image.
+
+The worker cases may alter only byte `0x20100` in Wabbitemu's allocated array.
+The guard requires page `08`, offset `0x0100`, and sector
+`0x20000`–`0x2FFFF`. It also requires that complete sector to lie inside the
+archive window `0x20000`–`0xA7FFF`. A page, offset, physical address, or sector
+outside those constants is rejected before the manifest is written. [confirmed]
+
+For the DQ5 case, the adapter seeds allocated memory with `0x50` and requests
+`0xD0`. The worker reads `0x20` and `0x50`, takes the failure tail at
+`ram:8175`, returns `AF=0x3F2C`, and leaves the stored byte at `0x50`.
+The complete-array counters report one changed byte in the target sector, zero
+changes outside the target byte, and zero changes in protected Flash ranges.
+The source-ROM SHA-256 remains
+`7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d`
+before and after all three cases. The CLI also requires adapter SHA-256
+`aa3abcc50eb4963a280af9d60c09ed2c260f46709383813b638fbef4c589fed7`.
+[confirmed]
+
+Wabbitemu completes byte programming immediately. This fixture cannot cut a
+real busy interval, measure command duration, or establish physical restart
+behavior. Those cases remain external measurements. [standard] for the
+emulator limitation; [hypothesis] for physical behavior.
+
 The cold-recovery runner exercises a separate retail path without opening the
 gate through emulator state. Startup at `00:0D73` calls the bjump stub at
 `00:3EEB`, which resolves to `3D:6098`. The bytes at `3D:609C`–`3D:60A8`

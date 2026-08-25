@@ -195,6 +195,13 @@ certificate-sector journal, and all six ROM-written collector phases are
 reconstructed. Cold TilEm and pinned Wabbitemu restart tests cover each phase,
 but do not establish physical timing or power-loss guarantees. [confirmed]
 
+A separate guarded Wabbitemu fixture exercises the failed stack preflight at
+`00:02BF`, its reset transfer, and the illegal-DQ7 worker failure. It prints
+numeric status `0`, verifies zero source-image changes, and confines the worker
+case to allocated byte `0x20100`. Wabbitemu has no program-busy interval, so
+this does not close the physical interruption question. [confirmed] for pinned
+Wabbitemu; [hypothesis] for physical behavior.
+
 On physical calculators:
 
 - measure legal and illegal `0→1` programming, DQ toggle cadence, program and
