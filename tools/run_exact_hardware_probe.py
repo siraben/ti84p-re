@@ -30,7 +30,7 @@ from tilem_core import TILEM_COMMIT
 from wabbitemu_headless import WABBITEMU_COMMIT
 
 
-DISPLAYED_PROBES = ("mapper-overlays", "lcd-controller", "interrupt-halt")
+DISPLAYED_PROBES = tuple(PROBES)
 FIELD_PATTERN = re.compile(r"(?P<key>[a-z0-9_]+)=(?P<value>\S+)")
 
 
@@ -60,6 +60,43 @@ def parse_exact_output(output: str) -> dict[str, str]:
     if missing:
         raise ValueError("exact runner omitted fields: " + ", ".join(missing))
     return fields
+
+
+def validate_exact_capture(
+    probe_name: str, fields: dict[str, str], machine_code_size: int
+):
+    """Validate one exact runner's frame identity and displayed CRC."""
+
+    probe = PROBES[probe_name]
+    if int(fields["probe_id"], 0) != probe.probe_id:
+        raise ValueError("exact runner returned the wrong probe ID")
+    if int(fields["payload_size"], 0) != probe.payload_size:
+        raise ValueError("exact runner returned the wrong payload size")
+    if int(fields["probe_size"], 0) != machine_code_size:
+        raise ValueError("exact runner executed a different image size")
+    staging_bytes = bytes.fromhex(fields["frame_hex"])
+    resident_bytes = bytes.fromhex(fields["appvar_frame_hex"])
+    staging_frame = decode_probe_frame(staging_bytes)
+    resident_frame = decode_probe_frame(resident_bytes)
+    if probe.probe_id == 4:
+        if staging_bytes[:18] != resident_bytes[:18]:
+            raise ValueError("execution AppVar changed an immutable frame field")
+        before = staging_bytes[18]
+        after = resident_bytes[18]
+        transition_valid = (
+            before == 0 and after in (1, 3, 4)
+        ) or before == after in (2, 4)
+        if not transition_valid:
+            raise ValueError("execution AppVar has an invalid outcome transition")
+        frame = resident_frame
+    else:
+        if fields["appvar_matches"] != "1" or resident_bytes != staging_bytes:
+            raise ValueError("captured AppVar frame does not match probe staging data")
+        frame = staging_frame
+    code = probe_verification_code(frame)
+    if int(fields["display_code"], 0) != code:
+        raise ValueError("assembly display code does not match the captured frame")
+    return frame, code
 
 
 def main() -> None:
@@ -110,20 +147,7 @@ def main() -> None:
         }[args.backend]
         if fields["mode"] != expected_mode or fields["completed"] != "1":
             raise ValueError("exact runner did not report a completed matching backend")
-        if int(fields["probe_id"], 0) != probe.probe_id:
-            raise ValueError("exact runner returned the wrong probe ID")
-        if int(fields["payload_size"], 0) != probe.payload_size:
-            raise ValueError("exact runner returned the wrong payload size")
-        if int(fields["probe_size"], 0) != len(machine_code):
-            raise ValueError("exact runner executed a different image size")
-        frame = decode_probe_frame(bytes.fromhex(fields["frame_hex"]))
-        if fields["appvar_matches"] != "1" or (
-            fields["appvar_frame_hex"] != fields["frame_hex"]
-        ):
-            raise ValueError("captured AppVar frame does not match probe staging data")
-        code = probe_verification_code(frame)
-        if int(fields["display_code"], 0) != code:
-            raise ValueError("assembly display code does not match the captured frame")
+        frame, code = validate_exact_capture(args.probe, fields, len(machine_code))
         emulator = "TilEm" if args.backend == "tilem" else "Wabbitemu"
         commit = TILEM_COMMIT if args.backend == "tilem" else WABBITEMU_COMMIT
         result = {

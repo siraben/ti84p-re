@@ -96,6 +96,9 @@ interrupts_restored:
     ld hl,frame
     ld bc,frame_end-frame
     call create_probe_appvar
+    ld bc,frame_end-frame
+    ld hl,display_label
+    call display_created_probe_code
     ret
 
 ; Record bit 0 for selectors 06, C6, 86, 46 as mask bits 0, 3, 2, 1.
@@ -154,6 +157,10 @@ read_delay:
     in a,($02)
     and 1
     ret
+
+display_label:
+    .db "HWBRAW CODE ",0
+#include "display.inc"
 
 appvar_name:
     .db AppVarObj,"HWBRAW01"

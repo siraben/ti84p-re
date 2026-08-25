@@ -84,6 +84,21 @@ static void write_logical(TilemCalc *calc, word address, byte value) {
     calc->hw.z80_wrmem(calc, address, value);
 }
 
+static int execution_frame_transition_valid(
+    const byte *staging, const byte *resident
+) {
+    byte before, after;
+    if (memcmp(staging, resident, 18) != 0) {
+        return 0;
+    }
+    before = staging[18];
+    after = resident[18];
+    if (before == 0) {
+        return after == 1 || after == 3 || after == 4;
+    }
+    return (before == 2 && after == 2) || (before == 4 && after == 4);
+}
+
 int main(int argc, char **argv) {
     TilemCalc *calc;
     FILE *rom;
@@ -208,6 +223,9 @@ int main(int argc, char **argv) {
         if (reason & TILEM_STOP_EXCEPTION) {
             break;
         }
+        if (reason == 0) {
+            continue;
+        }
         if (!(reason & TILEM_STOP_BREAKPOINT)) {
             break;
         }
@@ -232,7 +250,9 @@ int main(int argc, char **argv) {
 
     completed = calc->z80.r.pc.w.l == display_stop &&
         !(reason & TILEM_STOP_EXCEPTION) && create_intercepts != 0 &&
-        memcmp(fake, frame, frame_size) == 0;
+        (probe_id == 4
+            ? execution_frame_transition_valid(frame, fake)
+            : memcmp(fake, frame, frame_size) == 0);
     printf(
         "mode=tilem-exact-probe probe_id=%lu payload_size=%lu "
         "probe_size=%zu run_clocks=%lu create_intercepts=%lu "

@@ -1,5 +1,6 @@
 ; Display one decimal verification code after the result AppVar is complete.
-; Input: IX = HWP1 frame, BC = frame length, HL = zero-terminated label.
+; OS display and key bcalls run only when the caller entered with interrupts
+; enabled. Input: IX = HWP1 frame, BC = frame length, HL = zero-terminated label.
 
 _ClrLCDFull        .equ $4540
 _HomeUp            .equ $4558
@@ -8,6 +9,8 @@ _DispHL            .equ $4507
 _GetKey            .equ $4972
 
 display_probe_code:
+    ld a,i
+    ret po
     push hl
     call crc16_probe_frame
     push de
@@ -26,6 +29,18 @@ display_probe_code:
     rst $28
     .dw _GetKey
     ret
+
+; Input: DE = first byte after the AppVar-resident HWP1 frame,
+; BC = frame length, HL = zero-terminated label.
+display_created_probe_code:
+    push hl
+    ex de,hl
+    or a
+    sbc hl,bc
+    push hl
+    pop ix
+    pop hl
+    jp display_probe_code
 
 ; CRC-16/CCITT-FALSE over BC bytes at IX. Returns DE.
 crc16_probe_frame:

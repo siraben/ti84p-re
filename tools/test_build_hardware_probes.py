@@ -10,6 +10,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from build_hardware_probes import (
     CREATE_APPVAR_COPY,
+    DISPLAY_BCALLS,
+    DISPLAY_CRC_SIGNATURE,
+    DISPLAY_IFF_GUARD,
     PROBE_START,
     PROBES,
     build_probes,
@@ -41,7 +44,12 @@ def fixture_machine_code(probe_name: str) -> bytes:
     return (
         bytes((0xC3, PROBE_START & 0xFF, PROBE_START >> 8))
         + CREATE_APPVAR_COPY
+        + DISPLAY_IFF_GUARD
+        + DISPLAY_CRC_SIGNATURE
+        + b"".join(DISPLAY_BCALLS)
         + b"\0"
+        + (probe.appvar if probe.probe_id == 4 else probe.program).encode("ascii")
+        + b" CODE \0"
         + bytes((APPVAR_TYPE,))
         + probe.appvar.encode("ascii")
         + b"\0"
@@ -122,6 +130,23 @@ class HardwareProbeBuilderTests(unittest.TestCase):
         self.assertEqual(0x08, execution["exec-flash-08"]["TARGET_SELECTOR"])
         self.assertEqual(0x0400, execution["exec-ram-82-chunk0"]["SCAN_LENGTH"])
         self.assertEqual(0x4400, execution["exec-ram-82-chunk1"]["SCAN_START"])
+
+    def test_every_probe_source_calls_the_shared_display_after_result_creation(self):
+        source_names = {probe.source_name for probe in PROBES.values()}
+
+        for source_name in source_names:
+            with self.subTest(source=source_name):
+                text = (Path(__file__).parent / "hardware-probes" / source_name).read_text()
+                self.assertIn('#include "display.inc"', text)
+                self.assertIn("call display_", text)
+
+    def test_display_include_guards_bcalls_and_uses_appvar_frame_helper(self):
+        text = (Path(__file__).parent / "hardware-probes" / "display.inc").read_text()
+
+        self.assertIn("ld a,i\n    ret po", text)
+        self.assertIn("display_created_probe_code:", text)
+        self.assertIn("sbc hl,bc", text)
+        self.assertIn("pop ix", text)
 
     def test_packaged_program_decodes_to_original_machine_code(self):
         machine_code = fixture_machine_code("md5-edge")
