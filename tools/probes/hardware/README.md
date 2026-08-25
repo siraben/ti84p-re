@@ -22,6 +22,10 @@ state restoration and AppVar creation.
 labeled decimal CRC-16/CCITT-FALSE code over the complete AppVar-resident
 `HWP1` frame. The host decoder reports the same code for comparison. The
 display and key bcalls run only when interrupts were enabled on entry.
+The code identifies a visible run; it is not the sole evidence payload. The
+decoder retains the complete frame and reports SHA-256 identities for the frame
+and exported AppVar. `tools/ti84re/hardware/physical_probe_evidence.py` then binds those bytes
+to the exact build manifest and required physical metadata.
 
 Execution-fetch probes create their AppVar before the guarded fetch. A normal
 return updates the resident outcome and prints its CRC. A protection reset
