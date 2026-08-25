@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6bba9488.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -357,44 +357,46 @@ snapshot, input-ROM, output-ROM, and emulator hashes. The ROM hash is
 <code>dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09</code>;
 the patched TilEm executable hash is
 <code>b8ee505483c79732a4ca21efb8b904de0792477795f6fc717874dcd5addaed09</code>.</p>
-<h3 id="numeric-community-bcalls"><a class="header" href="#numeric-community-bcalls">Numeric community bcalls</a></h3>
-<p>The same source audit found manually defined or numeric bcalls that were not
-reliably named in older include sets:</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th style="text-align: right">ID</th><th>OS 2.55MP target</th><th>Community source and use</th></tr>
-</thead>
-<tbody>
-<tr><td style="text-align: right"><code>500Bh</code></td><td><code>_GetKeyRetOff</code>, <code>06:491A</code></td><td><code>programs/prgmhide.zip:source/Dialog.z80:42</code>; return from the dialog on a key.</td></tr>
-<tr><td style="text-align: right"><code>509Eh</code></td><td><code>_HLMinus5</code>, <code>ram:1785</code></td><td><code>programs/prgmhide.zip:source/RefreshDisplay.z80:68</code>; move a VAT pointer back five bytes.</td></tr>
-<tr><td style="text-align: right"><code>5011h</code></td><td><code>_FillBasePageTable</code>, <code>ram:2692</code></td><td><code>programs/2dca.zip:source/Cherries.z80:35</code>; repair the base-page RAM table before exit.</td></tr>
-<tr><td style="text-align: right"><code>5014h</code></td><td><code>_ArcChk</code>, <code>3D:61AF</code></td><td><code>libs/rage.zip:RAGE/RAGE.asm:71</code>; populate archive-accounting words beginning at <code>0x839F</code>.</td></tr>
-<tr><td style="text-align: right"><code>50C8h</code></td><td><code>_UngroupVar</code>, <code>39:764A</code></td><td><code>libs/c3asm.zip:C3ASM/_CELTIC/CELTIC3.ASM:832</code>; ungroup only after OP1 is confirmed as <code>GroupObj</code>.</td></tr>
-</tbody>
-</table>
-</div>
-<p>PRGMHIDE dynamically reaches <code>500Bh</code> and <code>509Eh</code>. In a separate source-built
-probe, the <code>5011h</code> and <code>5014h</code> fixture call sites each execute once, both OS
-bodies are reached, and the final marker proves that both calls return after
-saving the <code>_ArcChk</code> words. Other OS activity may reach the same body addresses.
-<code>50C8h</code> was not called without an authentic group object and caller state.
-These tests confirm the first four ID-to-target mappings and safe return paths,
-not every side effect implied by the community comments.
-[confirmed]</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Archive</th><th>Archive SHA-256</th><th>Source member SHA-256</th></tr>
-</thead>
-<tbody>
-<tr><td><code>programs/prgmhide.zip</code></td><td><code>6342d57b18a1277aa3ce13ba514d986fc3c485dfc4b747a157972fad61756103</code></td><td><code>source/Dialog.z80</code>: <code>d05696213724cf74fdad5d20af58f6f74833fe541194c795403e8c90ff0fa054</code>; <code>source/RefreshDisplay.z80</code>: <code>bf8c40214695bb28c1c444d16e44635931a399429dd9e004f861fa4d110307bf</code></td></tr>
-<tr><td><code>programs/2dca.zip</code></td><td><code>b8f1f0fdd4f7787b3474e3ddd4af2454a91b5bf50ac10249ff62eb66783d545c</code></td><td><code>source/Cherries.z80</code>: <code>b3ac8ea3d80e3cd62dfc67b5562648ae50fa6c7538603da6f161ff0d83fbddac</code></td></tr>
-<tr><td><code>libs/rage.zip</code></td><td><code>4849830711b0c0ef0cdc6ad93b437dd905cab7ce8b55a5bff9d10e261f6688f4</code></td><td><code>RAGE/RAGE.asm</code>: <code>8882aa3c8f7fdbf9e1155addebd6ed74bc80f913b1d3179bc7e1ecab8563890d</code></td></tr>
-<tr><td><code>libs/c3asm.zip</code></td><td><code>61a7b698bdcbdfba482c24a002b19e4e6b5bb1cab3493413433ee832d0f15e9f</code></td><td><code>C3ASM/_CELTIC/CELTIC3.ASM</code>: <code>14c3084a160fd4f43120efbceef8d045788bc7b389bfe0d5933f83d597734279</code></td></tr>
-</tbody>
-</table>
-</div>
+<h3 id="base-page-table-archive-accounting-and-group-extraction"><a class="header" href="#base-page-table-archive-accounting-and-group-extraction">Base-page table, archive accounting, and group extraction</a></h3>
+<p><code>_FillBasePageTable = 0x5011</code>, body <code>ram:2692</code>, saves port <code>0x06</code> and selects
+a model-specific Flash source and RAM destination. The older path begins with
+page <code>0x15</code> and destination <code>ram:8015</code>; the TI-84 Plus path selects page
+<code>0x29</code> and <code>ram:8029</code>, with a second hardware probe able to select page
+<code>0x69</code> and <code>ram:8069</code>. It maps the source into bank A, walks its descriptor
+data through the inline helpers at <code>ram:3DC5</code> and <code>ram:3DCB</code>, then restores
+port <code>0x06</code>. [confirmed]</p>
+<p>The archived Cherries comment says this “restores first 1087 bytes in RAM.”
+The ROM body is not a fixed 1,087-byte <code>LDIR</code>: its copy count is selected from
+the mapped descriptor and its outer loop continues until selector <code>0x07</code>.
+The fixed-size community wording is therefore not established. A controlled
+fixture reaches <code>ram:2692</code> and returns, but does not corrupt a live base-page
+table to prove every rewritten byte. [confirmed] for the ROM control flow and
+return; [hypothesis] for a universal 1,087-byte extent.</p>
+<p><code>_ArcChk = 0x5014</code>, body <code>3D:61AF</code>, prepares the archive accounting words at
+<code>ram:839F</code>–<code>ram:83A2</code>. Bit 6 of <code>IY + 0x24</code> lazily guards the first Flash scan,
+whose four-byte intermediate result is saved at <code>ram:9C96</code>; bit 7 guards the
+second scan and the intermediate result at <code>ram:9C9A</code>. The tail adds four bytes
+from the temporary result into <code>ram:839F</code>–<code>ram:83A2</code>, restores the caller’s
+<code>HL</code> and <code>AF</code>, and returns. The first scan temporarily enables Flash writing
+through port <code>0x14</code>, runs its archive check, then disables writes and restores
+the prior interrupt-enable state. [confirmed]</p>
+<p>The numeric-bcall fixture reaches <code>_FillBasePageTable</code> and <code>_ArcChk</code>, regains
+control, and snapshots the four accounting bytes. Its accepted trace records
+the fixture-local call sites separately from OS loader calls that also reach
+<code>_ArcChk</code>. Results and artifact hashes are in
+<code>tools/data/community-vat-dynamic-observations.csv</code>. [confirmed] under TilEm.</p>
+<p><code>_UngroupVar = 0x50C8</code>, body <code>39:764A</code>, is not a generic blob unpacker. It
+copies eight bytes from OP1 to <code>ram:85E7</code>, calls the group-state initializer at
+<code>39:765D</code>, sets bit 6 of <code>IY + 0x26</code>, and jumps into the extraction state
+machine at <code>39:6E11</code>. That initializer clears link/group scratch at
+<code>ram:8670</code>, <code>ram:97A5</code>, <code>ram:85D9</code>, and <code>ram:8672</code> before calling the page-7
+group helper. The Celtic III caller first requires <code>OP1.type = GroupObj</code>
+(<code>0x17</code>). [confirmed] for ROM and caller control flow.</p>
+<p>No dynamic call is accepted yet: the fixture set does not contain an authentic
+on-calculator Group object plus the surrounding group state, and calling the
+routine with a fabricated OP1 can create or overwrite variables. The ABI and
+side effects above are static ROM evidence; successful extraction, collisions,
+and error unwinding remain [hypothesis].</p>
 <hr>
 <h2 id="store-and-recall-confirmed"><a class="header" href="#store-and-recall-confirmed">Store and recall [confirmed]</a></h2>
 <p><strong>Store.</strong> <code>_StoOther</code> (<code>38:62A9</code>) and siblings (<code>_StoAns</code>, <code>_StoX</code>, <code>_StoY</code>, … <code>38:6251-62A3</code>):</p>

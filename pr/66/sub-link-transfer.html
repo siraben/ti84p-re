@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6bba9488.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -411,6 +411,27 @@ stores the command from <code>H</code>, and calls <code>41C3</code>. Convenience
 </tbody>
 </table>
 </div>
+<h3 id="_sendpacket-confirmed"><a class="header" href="#_sendpacket-confirmed"><code>_SendPacket</code> [confirmed]</a></h3>
+<p><code>_SendPacket = 0x4ED6</code>, body <code>3C:4139</code>, consumes the shared
+<code>LinkPacketHeader</code> at <code>ram:8674</code>, takes the payload pointer from <code>iMathPtr5</code> at
+<code>ram:84DB</code>, and uses <code>header.data_length</code> as the payload byte count. It clears
+<code>pagedPN</code> at <code>ram:9835</code>, sends the four-byte header through <code>3C:41C3</code>, clears
+the 16-bit checksum at <code>ram:8678</code>, and streams the payload. A zero <code>pagedPN</code>
+reads bytes directly from <code>HL</code>; a nonzero value uses the paged read helper at
+<code>ram:17BB</code>. Each byte is added to the checksum before <code>_SendAByte</code> is called.</p>
+<p>After the last byte, the routine sends checksum low then high, receives a reply
+header, and returns only when its command byte is <code>0x56</code> ACK. A line failure,
+bad reply, or checksum-side failure takes the link error machinery rather than
+returning a status code.</p>
+<p>A one-sided controlled trace supplies a one-byte DATA packet and an installed
+calculator error handler. With no peer, the run reaches <code>_SendPacket</code> once,
+the header helper once, and <code>_SendAByte</code> twice before <code>_ErrLinkXmit</code> and
+<code>_JErrorNo</code> transfer control to the fixture’s handler. It does not reach the
+payload read at <code>3C:4160</code>. This dynamically establishes the no-peer boundary;
+the payload, checksum, and ACK success path above remains ROM control-flow
+evidence until a paired trace is captured. The reduced result is in
+<code>tools/data/community-send-packet.csv</code>. [confirmed] under TilEm for the
+one-sided path.</p>
 <h3 id="checksum-and-acknowledgement-tail-confirmed"><a class="header" href="#checksum-and-acknowledgement-tail-confirmed">Checksum and acknowledgement tail [confirmed]</a></h3>
 <p>After the data payload, the sender appends the 16-bit sum and waits for the ACK:</p>
 <pre><code class="language-z80">4167: LD HL,(8678)

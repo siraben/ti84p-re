@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6bba9488.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -278,9 +278,35 @@ typedef struct {
 } OSHookTarget;              /* 3 bytes */
 #pragma pack(pop)
 </code></pre>
-<p>The raw-key target begins at <code>0x9B84</code>, and the parser target begins at
-<code>0x9BAC</code>. Their active bits at <code>IY + 0x34</code> and <code>IY + 0x36</code> are separate OS
-state, not fields in this record. [confirmed]</p>
+<p>The same packed record is used by these audited setters: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Hook</th><th style="text-align: right">Target record</th><th>Active flag</th><th>Setter</th><th>Clearer</th></tr>
+</thead>
+<tbody>
+<tr><td>raw key</td><td style="text-align: right"><code>ram:9B84</code></td><td>bit 5 of <code>IY + 0x34</code></td><td><code>_SetGetKeyHook = 0x4F66</code>, body <code>3B:7D00</code></td><td><code>_ClrRawKeyHook = 0x4F6F</code>, body <code>3B:7B88</code></td></tr>
+<tr><td>token</td><td style="text-align: right"><code>ram:9BC8</code></td><td>bit 0 of <code>IY + 0x35</code></td><td><code>_SetTokenHook = 0x4F99</code>, body <code>3B:7D0B</code></td><td><code>_ClearTokenHook</code></td></tr>
+<tr><td>parser</td><td style="text-align: right"><code>ram:9BAC</code></td><td>bit 1 of <code>IY + 0x36</code></td><td><code>_SetParserHook = 0x5026</code>, body <code>3B:7D6E</code></td><td><code>_ClearParserHook = 0x5029</code>, body <code>3B:7C3B</code></td></tr>
+<tr><td>silent link</td><td style="text-align: right"><code>ram:9BD0</code></td><td>bit 7 of <code>IY + 0x36</code></td><td><code>_SetSilentLinkHook = 0x50CE</code>, body <code>3B:7DBB</code></td><td><code>_DisableSilentLinkHook</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Each setter stores <code>HL</code> as the callback address, stores <code>A</code> as the page byte,
+sets only its active bit, and returns. The clear bodies at <code>3B:7B88</code> and
+<code>3B:7C3B</code> only reset their respective active bits; they do not wipe the target
+records. A controlled trace additionally installs token target
+<code>{ ram:9872, page 0 }</code> and silent-link target <code>{ ram:9875, page 0 }</code>, observes
+their active bits, and restores both records and all affected flag bytes before
+halting. The result is in <code>tools/data/community-bcall-semantics.csv</code>.
+[confirmed] under TilEm.</p>
+<p><code>_ClrCursorHook = 0x4F69</code>, body <code>3B:7AEA</code>, is not a silent-link clearer. It
+only resets bit 7 of <code>IY + 0x34</code>. The DisLink source first clears the real
+silent-link bit, bit 7 of <code>IY + 0x36</code>, itself and then calls <code>0x4F69</code> under the
+comment “actually uninstall it.” The first instruction disables its silent
+hook; the bcall separately disables any cursor hook. A controlled trace seeds
+bit 7 of <code>IY + 0x34</code>, calls the bcall, observes that bit clear, and restores the
+original flag byte. [confirmed]</p>
 <p>After the selected NoExec removal sequence, the resident reaches
 <code>_ClrRawKeyHook</code> at <code>3B:7B88</code> and <code>_ClearParserHook</code> at <code>3B:7C3B</code>; the two
 active bytes at <code>IY + 0x34</code> and <code>IY + 0x36</code> become zero. Remote Control’s
@@ -294,7 +320,7 @@ entry 1,303 times. The source handler tail calls the TI-OS IM1 entry at
 raw-key, parser, and shell hooks and persistent IM2 residents before borrowing
 this buffer. The documented <code>_DisableApd</code> and <code>_DelRes</code> conditions for other
 buffers do not establish that <code>appBackUpScreen</code> is unowned.</p>
-<p>The pinned include names <code>4F66h</code> <code>_SetGetKeyHook</code>; the Plasma and NoExec
+<p>The pinned include names <code>0x4F66</code> <code>_SetGetKeyHook</code>; the Plasma and NoExec
 sources instead describe raw-key-hook enablement. The ROM target stores the
 supplied pointer and page and sets the active flag, so this page records both
 names as aliases without deriving the callback ABI from either name.</p>

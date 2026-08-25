@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6bba9488.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -320,6 +320,29 @@ call_context_savepage (ram:08e9):
   restore port6
 </code></pre>
 <p>Primitives: <code>set_bankA_page</code> (<code>ram:078c</code>, <code>port6 = page</code>) and <code>jp_hl</code> (<code>ram:090b</code>, <code>jp (hl)</code> dynamic dispatch). The OS pages the handler in, runs it, and (for the savepage variant) restores the caller’s page.</p>
+<h3 id="_newcontext-and-string-input-entry-confirmed"><a class="header" href="#_newcontext-and-string-input-entry-confirmed"><code>_newContext</code> and string-input entry [confirmed]</a></h3>
+<p><code>_newContext = 0x4030</code>, body <code>ram:077E</code>, takes the requested context selector
+in <code>A</code>. It copies that byte to <code>C</code>, clears <code>kbdKey</code> at <code>ram:8444</code>, clears <code>B</code>,
+saves port <code>0x06</code>, calls the shared context/key installer at <code>ram:0791</code>, and
+restores port <code>0x06</code>. The routine therefore preserves the caller’s bank-A
+mapping; the supplied selector can still change context and key state.</p>
+<p>A controlled TilEm call with <code>A = 0x40</code> clears <code>kbdKey</code>, returns, and preserves
+port <code>0x06</code> at <code>0x07</code>. This establishes the callable contract for that input,
+not the broader community description that every call “restores the home
+context.” [confirmed] under TilEm.</p>
+<p><code>_GetStringInput2 = 0x4E61</code>, body <code>37:5194</code>, is a higher-level input-context
+entry. It sets bit 1 of <code>IY + 0x09</code>, saves the byte at <code>ram:9653</code>, sets bit 0 of
+<code>IY + 0x29</code>, calls <code>_newContext</code> with <code>A = 0x50</code>, and enters the shared context
+dispatcher at <code>ram:04F9</code>. A valid caller must prepare <code>ioPrompt</code> at <code>ram:865F</code>
+and protect the temporary-allocation state; the archived Elite caller saves
+<code>cleanTmp</code>, replaces it with <code>pTempCnt</code>, invokes the bcall, then restores it.</p>
+<p>The reconstructed caller follows that sequence with prompt <code>A=?</code>, submits
+<code>1</code> then <strong>ENTER</strong>, and regains control with OP1 equal to the 11-byte real
+encoding of 1 (<code>00 80 10 00 00 00 00 00 00 00 00</code>). The trace reaches
+<code>37:5194</code> once, <code>ram:077E</code> twice, and <code>ram:04F9</code> twice before the caller copies
+OP1. The additional context visits belong to the interactive editor path.
+Cancel and invalid-expression exits remain untraced. The reduced result is in
+<code>tools/data/community-string-input.csv</code>. [confirmed] under TilEm.</p>
 <h2 id="error-handling-confirmed"><a class="header" href="#error-handling-confirmed">Error handling [confirmed]</a></h2>
 <p>Errors use a non-local exit, not return codes:</p>
 <ul>
@@ -329,7 +352,7 @@ call_context_savepage (ram:08e9):
 </ul>
 <p>So <code>errSP</code> + <code>_JError</code> together implement try/catch: a context seeds <code>errSP</code> (from <code>onSP</code>) at entry, and any depth of nested calls can abort straight back to it.</p>
 <h3 id="custom-error-wrapper-confirmed"><a class="header" href="#custom-error-wrapper-confirmed">Custom-error wrapper [confirmed]</a></h3>
-<p><code>_ErrCustom1</code> (bcall <code>4D41</code> → <code>ram:2771</code>) loads <code>A = 0xAB</code> and branches to
+<p><code>_ErrCustom1</code> (bcall <code>0x4D41</code> → <code>ram:2771</code>) loads <code>A = 0xAB</code> and branches to
 <code>_JError</code> at <code>ram:2793</code>. After the error handler masks off <code>E_EDIT</code>, code
 <code>0x2B</code> selects the pointer at <code>07:6B20</code>. That table entry is <code>0x984D</code>, the
 <code>appErr1</code> custom-message buffer. The display path treats the buffer as a
@@ -343,7 +366,7 @@ bytes plus its null terminator. <code>_ErrCustom1</code> takes the same non-loca
 <a href="https://www.ticalc.org/pub/83plus/asm/programs/generateerror.zip"><code>programs/generateerror.zip</code></a>
 (SHA-256
 <code>1731b2b2cf7580855f7007478d55299e12b1ec4b7430d371feedea764c9139cf</code>)
-copies the <code>Ans</code> string payload into <code>appErr1</code> and invokes bcall <code>4D41h</code>. Its
+copies the <code>Ans</code> string payload into <code>appErr1</code> and invokes bcall <code>0x4D41</code>. Its
 <code>generr.z80</code> member (SHA-256
 <code>5f28fca2dec72dc4d495aff18a8d6b076f02d34b8cafcdbd78c11c05f364386d</code>)
 does not bound the copy to 13 bytes or write an explicit null terminator.

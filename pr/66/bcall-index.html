@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6bba9488.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -835,7 +835,7 @@
 </tbody>
 </table>
 </div>
-<h2 id="community-numeric-use-audit"><a class="header" href="#community-numeric-use-audit">Community numeric-use audit</a></h2>
+<h2 id="corpus-coverage-and-map-provenance"><a class="header" href="#corpus-coverage-and-map-provenance">Corpus coverage and map provenance</a></h2>
 <p><code>tools/audit_community_bcalls.py</code> scans the extracted community corpus for
 numeric bcall macros, raw <code>rst 28h</code> plus word sequences, and complete
 <code>EF low high</code> instruction bytes. The pinned snapshot contains 112 such uses of
@@ -843,63 +843,21 @@ numeric bcall macros, raw <code>rst 28h</code> plus word sequences, and complete
 bytes; the other 109 use macro or <code>rst 28h</code> forms. Exact archive and source
 hashes are in <code>tools/data/community-bcall-uses.csv</code>. [confirmed] for the
 checked scan output.</p>
-<p>Sixteen used main-table IDs were absent from the generated map. Decoding their
-three-byte entries on ROM page <code>0x3B</code> resolves every target: [confirmed]</p>
-<p>These rows establish the ROM table mapping and the static source call site.
-They do not, by themselves, establish every runtime side effect named in the
-source comment.</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>ID</th><th>Include name</th><th>Body</th><th>Source call-site context</th></tr>
-</thead>
-<tbody>
-<tr><td><code>4030</code></td><td><code>_newContext</code></td><td><code>00:077E</code></td><td>Plasma home-context restore</td></tr>
-<tr><td><code>41D4</code></td><td><code>_ShRAcc</code></td><td><code>00:1BCB</code></td><td>RLIB nibble conversion</td></tr>
-<tr><td><code>4744</code></td><td><code>_GetK</code></td><td><code>37:746D</code></td><td>AntiNibbles key input</td></tr>
-<tr><td><code>4A02</code></td><td><code>_ConvKeyToTok</code></td><td><code>07:44DE</code></td><td>FlashED editor key conversion</td></tr>
-<tr><td><code>4E61</code></td><td><code>_GetStringInput2</code></td><td><code>37:5194</code></td><td>Elite string input</td></tr>
-<tr><td><code>4ED6</code></td><td><code>_SendPacket</code></td><td><code>3C:4139</code></td><td>Overflow link packet sender</td></tr>
-<tr><td><code>4F3C</code></td><td><code>_FlashWriteDisable</code></td><td><code>3C:66D5</code></td><td>Crabcake protection cleanup</td></tr>
-<tr><td><code>4F69</code></td><td><code>_ClrCursorHook</code></td><td><code>3B:7AEA</code></td><td>DisLink hook removal</td></tr>
-<tr><td><code>4F6F</code></td><td><code>_ClrRawKeyHook</code></td><td><code>3B:7B88</code></td><td>Remote Control and Sentry cleanup</td></tr>
-<tr><td><code>5011</code></td><td><code>_FillBasePageTable</code></td><td><code>00:2692</code></td><td>Cherries App-state repair</td></tr>
-<tr><td><code>5014</code></td><td><code>_ArcChk</code></td><td><code>3D:61AF</code></td><td>RAGE archive check</td></tr>
-<tr><td><code>5026</code></td><td><code>_SetParserHook</code></td><td><code>3B:7D6E</code></td><td>chemistry parser extensions</td></tr>
-<tr><td><code>5029</code></td><td><code>_ClearParserHook</code></td><td><code>3B:7C3B</code></td><td>chemistry parser cleanup</td></tr>
-<tr><td><code>50C8</code></td><td><code>_UngroupVar</code></td><td><code>39:764A</code></td><td>Celtic III group extraction</td></tr>
-<tr><td><code>50CE</code></td><td><code>_SetSilentLinkHook</code></td><td><code>3B:7DBB</code></td><td>DisLink silent-link hook</td></tr>
-<tr><td><code>5221</code></td><td><code>_Chk_Batt_Level</code></td><td><code>33:4E9B</code></td><td>Battery Check display</td></tr>
-</tbody>
-</table>
-</div>
-<p>The table entry proves the body address, not the community comment’s ABI or
-the result under every OS state. Runtime observations therefore remain separate
-from these ROM-resolved rows.</p>
-<h3 id="archive-local-symbolic-equates"><a class="header" href="#archive-local-symbolic-equates">Archive-local symbolic equates</a></h3>
-<p>The scanner’s <code>--symbolic</code> mode resolves an unambiguous equate across each
-extracted archive before classifying its use. Five active IDs add valid OS
-2.55MP table rows: [confirmed]</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th style="text-align: right">ID</th><th>Name</th><th>Body</th><th>Active community use</th></tr>
-</thead>
-<tbody>
-<tr><td style="text-align: right"><code>4051</code></td><td><code>_lcd_busy</code></td><td><code>00:0CC3</code></td><td>Letter waits before writing an LCD control byte.</td></tr>
-<tr><td style="text-align: right"><code>4909</code></td><td><code>_bufInsert</code></td><td><code>06:42E5</code></td><td>Plasma inserts <code>Asm</code> and program-name tokens into the edit buffer.</td></tr>
-<tr><td style="text-align: right"><code>4936</code></td><td><code>_BufClear</code></td><td><code>00:222E</code></td><td>Plasma clears the edit buffer before inserting a launch command.</td></tr>
-<tr><td style="text-align: right"><code>500B</code></td><td><code>_GetKeyRetOff</code></td><td><code>06:491A</code></td><td>Balltrix, Nukewar, and CalClock request the <strong>ON</strong> return code.</td></tr>
-<tr><td style="text-align: right"><code>50E0</code></td><td><code>_NZIf83Plus</code></td><td><code>00:1837</code></td><td>ZMegaMan branches on the calculator model before masking a Flash page.</td></tr>
-</tbody>
-</table>
-</div>
-<p>A source-built trace calls <code>4051</code>, <code>4936</code>, <code>4909</code>, <code>4936</code>, and <code>50E0</code> from
-<code>ram:9D9F</code>, <code>ram:9DA7</code>, <code>ram:9DB2</code>, <code>ram:9DBA</code>, and <code>ram:9DC4</code>. Each call site
-executes once and reaches its resolved body. <code>50E0</code> preserves <code>A = 0xA5</code> and
-returns Z on the TI-84 Plus. PRGMHIDE separately reaches <code>500B</code> in its packaged
-execution trace. <code>tools/data/community-manual-bcall-traces.csv</code> pins the ROM,
-emulator, fixture, trace, and snapshot hashes. [confirmed] under TilEm.</p>
+<p>The scan exposed 24 aligned main-table IDs that the old generated map omitted.
+All 24 were already literal entries in the OS 2.55MP table on page <code>0x3B</code>, and
+all 24 names were already present in the bundled TI include. Adding them changed
+the main map from 621 to 645 rows and the include-backed subset from 599 to 623;
+the 22 project-inferred names did not change. They are therefore new to this
+repository’s resolver input, not new ROM routines or newly invented names.
+[confirmed]</p>
+<p>The main table above is the single address catalog. ABI and side-effect notes
+live with their subsystems: contexts and errors, display, floating point,
+keypad, tokenizer, link transfer, execution protection, resident hooks,
+archive/group handling, and ASIC status. Reduced trace results are kept in the
+<code>tools/data/community-*.csv</code> files. This separation matters because an aligned
+table entry proves only an ID-to-body mapping; neither an include name nor a
+community comment proves the body’s complete behavior.</p>
+<h3 id="malformed-active-call"><a class="header" href="#malformed-active-call">Malformed active call</a></h3>
 <p>The scan also finds one active malformed call. <code>graphics/cool.zip:cool.asm</code>
 defines <code>_copygbuf = 4B9Ch</code> and emits <code>EF 9C 4B</code>; the packaged <code>cool.8xp</code>
 contains the same bytes. <code>4B9Ch</code> is not aligned to a three-byte main-table

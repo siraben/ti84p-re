@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6bba9488.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -293,6 +293,14 @@ subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
 </div>
 <p><code>ram:1d2f</code> and <code>ram:1d37</code> are two entry points into the same BCD-subtract body — <code>1d2f</code> loads <code>HL=0x8481</code> (OP1 guard), <code>DE=0x848C</code> (OP2 guard) and computes <code>OP2 − OP1</code> into OP2 (<code>LD A,(DE)</code><br><code>SUB (HL)</code>), while <code>1d37</code> enters with the pointers swapped for the reverse <code>OP1 − OP2</code>, before joining the common loop — so the caller picks the subtraction direction by choosing the entry. This is what lets <code>_FPAdd</code> produce a non-negative magnitude and then fix the sign.</p>
 <p>Multiply/divide/transcendentals (on page 0x02) reuse the same align/normalize primitives.</p>
+<h3 id="accumulator-high-nibble-helper-confirmed"><a class="header" href="#accumulator-high-nibble-helper-confirmed">Accumulator high-nibble helper [confirmed]</a></h3>
+<p><code>_ShRAcc = 0x41D4</code>, body <code>ram:1BCB</code>, is a six-instruction scalar helper rather
+than an OP-register operation. It executes four <code>RRA</code> instructions, masks with
+<code>0x0F</code>, and returns the original high nibble of <code>A</code> in the low nibble. The
+final <code>AND</code> defines the returned flags; no other register is touched.</p>
+<p>A controlled trace passes <code>A = 0xAB</code> and records <code>A = 0x0A</code>, <code>F = 0x1C</code> after
+the bcall returns. The result is in <code>tools/data/community-bcall-semantics.csv</code>.
+[confirmed] under TilEm.</p>
 <h2 id="floating-point-stack-fps-standard"><a class="header" href="#floating-point-stack-fps-standard">Floating-point stack (FPS) [standard]</a></h2>
 <p><code>FPS</code> (<code>0x9824</code>) is a software stack for temporaries; <code>_PushRealO1</code> (= <code>RST 18h</code>, <code>ram:155C</code>), <code>_PushReal</code>, <code>_PopRealO1</code> through <code>_PopRealO6</code>, <code>_PopReal</code>, <code>_AllocFPS</code>, and <code>_DeallocFPS</code> manage it. Used to spill OP registers during nested expression evaluation.</p>
 <h2 id="multiplication-division-and-transcendentals-confirmed"><a class="header" href="#multiplication-division-and-transcendentals-confirmed">Multiplication, division, and transcendentals [confirmed]</a></h2>

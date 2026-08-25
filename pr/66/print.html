@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6bba9488.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -1800,6 +1800,16 @@ and archive traces return <code>0xE1</code>, <code>0xE3</code>, and <code>0xE7</
 </tbody>
 </table>
 </div>
+<h3 id="_nzif83plus-model-probe-confirmed"><a class="header" href="#_nzif83plus-model-probe-confirmed"><code>_NZIf83Plus</code> model probe [confirmed]</a></h3>
+<p><code>_NZIf83Plus = 0x50E0</code>, body <code>ram:1837</code>, preserves <code>BC</code> and the caller’s <code>A</code>
+while returning its result only in the flags. It reads port <code>0x02</code>, masks bit
+7, and XORs with <code>0x80</code>. Bit 7 set therefore returns Z; bit 7 clear returns NZ.
+The historical name should not be read as “NZ on every TI-83 Plus-family
+calculator.” OS 2.55MP uses the flag to distinguish the advanced TI-84 Plus
+path from the older family path.</p>
+<p>A controlled trace enters with <code>A = 0xA5</code>, returns with the same <code>A</code>, and
+records Z set on the TI-84 Plus model. The reduced result is in
+<code>tools/data/community-manual-bcall-traces.csv</code>. [confirmed] under TilEm.</p>
 <h3 id="complete-direct-consumer-audit"><a class="header" href="#complete-direct-consumer-audit">Complete direct-consumer audit</a></h3>
 <p>The 1 MiB ROM contains exactly 55 raw <code>DB 02</code> byte pairs, the opcode and
 operand for <code>IN A,(0x02)</code>. Every linear-disassembly candidate reaches one of
@@ -2972,6 +2982,19 @@ nix develop -c python tools/run_wabbitemu_protection_port_probe.py \
 <pre><code class="language-console">$ python tools/disassemble_rom.py 0x3f --start 0x41d5 --end 0x4206
 $ python tools/analyze_rom_io.py 0x21 0x22 0x23 0x24 0x25 0x26 --summary
 </code></pre>
+<h2 id="flash-write-disable-bcall-confirmed"><a class="header" href="#flash-write-disable-bcall-confirmed">Flash write-disable bcall [confirmed]</a></h2>
+<p><code>_FlashWriteDisable = 0x4F3C</code>, body <code>3C:66D5</code>, controls Flash programming,
+not the execution-protection bounds described above. After four padding
+<code>NOP</code>s, it saves <code>AF</code>, clears <code>A</code>, executes <code>DI</code>, selects IM 1, writes
+<code>0x00</code> to port <code>0x14</code>, executes another <code>DI</code>, restores <code>AF</code>, and returns. The
+intervening <code>OR A</code> makes its <code>JP NZ,ram:0000</code> unreachable on this path.</p>
+<p>The body restores the caller’s <code>AF</code> but deliberately leaves maskable
+interrupts disabled. Callers that require interrupts must re-enable them after
+the bcall; they must not infer interrupt restoration from the saved <code>AF</code>.
+A controlled trace reaches the body once, observes <code>OUT (0x14),A</code> with
+<code>A = 0x00</code>, returns to the fixture, and then executes an explicit <code>EI</code>. The
+reduced result is in <code>tools/data/community-bcall-semantics.csv</code>. [confirmed]
+under TilEm; the physical Flash gate was not written on hardware in this test.</p>
 <h2 id="community-execution-techniques"><a class="header" href="#community-execution-techniques">Community execution techniques</a></h2>
 <p>Crabcake’s original source uses two model-specific methods. On a 6 MHz
 TI-83 Plus it uses a Flash-unlock exploit, locates a protected
@@ -3115,7 +3138,14 @@ project-inferred names in the <a href="#retail-boot-0x8xxx-bcalls">bcall index</
 <code>tools/resolve_bcalls.py</code> emits the official-name rows only when page <code>3F</code> has
 the retail prefix and page <code>2F</code> contains the companion USB payload; its
 BootFree guard otherwise leaves only diagnostic comments.
-<code>tools/ApplyBcalls.java</code> disassembles and names the confirmed bodies.</p>
+<code>tools/ApplyBcalls.java</code> disassembles and names the confirmed bodies.
+<code>tools/BcallEvidenceStudy.java</code> then provides a read-only listing, reference,
+and decompiler dump for a selected set of IDs. For example:</p>
+<pre><code class="language-sh">nix develop -c ghidra-analyzeHeadless "$PWD" ti84 \
+  -process -noanalysis -readOnly -scriptPath tools \
+  -postScript BcallEvidenceStudy.java tools/bcall_targets.txt \
+  /tmp/bcall-evidence.txt 4030 4ED6 50C8
+</code></pre>
 <h2 id="jump-table-id-ranges"><a class="header" href="#jump-table-id-ranges">Jump-table ID ranges</a></h2>
 <p>The dispatcher (<code>bcall_dispatcher</code>) decodes the ID’s top two bits to pick the table page: bit 15 set → page-byte <code>0x7F</code> (masked <code>&amp; 0x3F</code> → page <code>0x3F</code>); bit 14 set → <code>0x7B</code> (→ page <code>0x3B</code>); with <em>neither</em> bit set it falls through to <code>lookup_bcall_table_page</code> (<code>ram:2ADA</code>). The two tables real bcall IDs use:</p>
 <ul>
@@ -4464,6 +4494,29 @@ call_context_savepage (ram:08e9):
   restore port6
 </code></pre>
 <p>Primitives: <code>set_bankA_page</code> (<code>ram:078c</code>, <code>port6 = page</code>) and <code>jp_hl</code> (<code>ram:090b</code>, <code>jp (hl)</code> dynamic dispatch). The OS pages the handler in, runs it, and (for the savepage variant) restores the caller’s page.</p>
+<h3 id="_newcontext-and-string-input-entry-confirmed"><a class="header" href="#_newcontext-and-string-input-entry-confirmed"><code>_newContext</code> and string-input entry [confirmed]</a></h3>
+<p><code>_newContext = 0x4030</code>, body <code>ram:077E</code>, takes the requested context selector
+in <code>A</code>. It copies that byte to <code>C</code>, clears <code>kbdKey</code> at <code>ram:8444</code>, clears <code>B</code>,
+saves port <code>0x06</code>, calls the shared context/key installer at <code>ram:0791</code>, and
+restores port <code>0x06</code>. The routine therefore preserves the caller’s bank-A
+mapping; the supplied selector can still change context and key state.</p>
+<p>A controlled TilEm call with <code>A = 0x40</code> clears <code>kbdKey</code>, returns, and preserves
+port <code>0x06</code> at <code>0x07</code>. This establishes the callable contract for that input,
+not the broader community description that every call “restores the home
+context.” [confirmed] under TilEm.</p>
+<p><code>_GetStringInput2 = 0x4E61</code>, body <code>37:5194</code>, is a higher-level input-context
+entry. It sets bit 1 of <code>IY + 0x09</code>, saves the byte at <code>ram:9653</code>, sets bit 0 of
+<code>IY + 0x29</code>, calls <code>_newContext</code> with <code>A = 0x50</code>, and enters the shared context
+dispatcher at <code>ram:04F9</code>. A valid caller must prepare <code>ioPrompt</code> at <code>ram:865F</code>
+and protect the temporary-allocation state; the archived Elite caller saves
+<code>cleanTmp</code>, replaces it with <code>pTempCnt</code>, invokes the bcall, then restores it.</p>
+<p>The reconstructed caller follows that sequence with prompt <code>A=?</code>, submits
+<code>1</code> then <strong>ENTER</strong>, and regains control with OP1 equal to the 11-byte real
+encoding of 1 (<code>00 80 10 00 00 00 00 00 00 00 00</code>). The trace reaches
+<code>37:5194</code> once, <code>ram:077E</code> twice, and <code>ram:04F9</code> twice before the caller copies
+OP1. The additional context visits belong to the interactive editor path.
+Cancel and invalid-expression exits remain untraced. The reduced result is in
+<code>tools/data/community-string-input.csv</code>. [confirmed] under TilEm.</p>
 <h2 id="error-handling-confirmed"><a class="header" href="#error-handling-confirmed">Error handling [confirmed]</a></h2>
 <p>Errors use a non-local exit, not return codes:</p>
 <ul>
@@ -4473,7 +4526,7 @@ call_context_savepage (ram:08e9):
 </ul>
 <p>So <code>errSP</code> + <code>_JError</code> together implement try/catch: a context seeds <code>errSP</code> (from <code>onSP</code>) at entry, and any depth of nested calls can abort straight back to it.</p>
 <h3 id="custom-error-wrapper-confirmed"><a class="header" href="#custom-error-wrapper-confirmed">Custom-error wrapper [confirmed]</a></h3>
-<p><code>_ErrCustom1</code> (bcall <code>4D41</code> → <code>ram:2771</code>) loads <code>A = 0xAB</code> and branches to
+<p><code>_ErrCustom1</code> (bcall <code>0x4D41</code> → <code>ram:2771</code>) loads <code>A = 0xAB</code> and branches to
 <code>_JError</code> at <code>ram:2793</code>. After the error handler masks off <code>E_EDIT</code>, code
 <code>0x2B</code> selects the pointer at <code>07:6B20</code>. That table entry is <code>0x984D</code>, the
 <code>appErr1</code> custom-message buffer. The display path treats the buffer as a
@@ -4487,7 +4540,7 @@ bytes plus its null terminator. <code>_ErrCustom1</code> takes the same non-loca
 <a href="https://www.ticalc.org/pub/83plus/asm/programs/generateerror.zip"><code>programs/generateerror.zip</code></a>
 (SHA-256
 <code>1731b2b2cf7580855f7007478d55299e12b1ec4b7430d371feedea764c9139cf</code>)
-copies the <code>Ans</code> string payload into <code>appErr1</code> and invokes bcall <code>4D41h</code>. Its
+copies the <code>Ans</code> string payload into <code>appErr1</code> and invokes bcall <code>0x4D41</code>. Its
 <code>generr.z80</code> member (SHA-256
 <code>5f28fca2dec72dc4d495aff18a8d6b076f02d34b8cafcdbd78c11c05f364386d</code>)
 does not bound the copy to 13 bytes or write an explicit null terminator.
@@ -5335,44 +5388,46 @@ snapshot, input-ROM, output-ROM, and emulator hashes. The ROM hash is
 <code>dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09</code>;
 the patched TilEm executable hash is
 <code>b8ee505483c79732a4ca21efb8b904de0792477795f6fc717874dcd5addaed09</code>.</p>
-<h3 id="numeric-community-bcalls"><a class="header" href="#numeric-community-bcalls">Numeric community bcalls</a></h3>
-<p>The same source audit found manually defined or numeric bcalls that were not
-reliably named in older include sets:</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th style="text-align: right">ID</th><th>OS 2.55MP target</th><th>Community source and use</th></tr>
-</thead>
-<tbody>
-<tr><td style="text-align: right"><code>500Bh</code></td><td><code>_GetKeyRetOff</code>, <code>06:491A</code></td><td><code>programs/prgmhide.zip:source/Dialog.z80:42</code>; return from the dialog on a key.</td></tr>
-<tr><td style="text-align: right"><code>509Eh</code></td><td><code>_HLMinus5</code>, <code>ram:1785</code></td><td><code>programs/prgmhide.zip:source/RefreshDisplay.z80:68</code>; move a VAT pointer back five bytes.</td></tr>
-<tr><td style="text-align: right"><code>5011h</code></td><td><code>_FillBasePageTable</code>, <code>ram:2692</code></td><td><code>programs/2dca.zip:source/Cherries.z80:35</code>; repair the base-page RAM table before exit.</td></tr>
-<tr><td style="text-align: right"><code>5014h</code></td><td><code>_ArcChk</code>, <code>3D:61AF</code></td><td><code>libs/rage.zip:RAGE/RAGE.asm:71</code>; populate archive-accounting words beginning at <code>0x839F</code>.</td></tr>
-<tr><td style="text-align: right"><code>50C8h</code></td><td><code>_UngroupVar</code>, <code>39:764A</code></td><td><code>libs/c3asm.zip:C3ASM/_CELTIC/CELTIC3.ASM:832</code>; ungroup only after OP1 is confirmed as <code>GroupObj</code>.</td></tr>
-</tbody>
-</table>
-</div>
-<p>PRGMHIDE dynamically reaches <code>500Bh</code> and <code>509Eh</code>. In a separate source-built
-probe, the <code>5011h</code> and <code>5014h</code> fixture call sites each execute once, both OS
-bodies are reached, and the final marker proves that both calls return after
-saving the <code>_ArcChk</code> words. Other OS activity may reach the same body addresses.
-<code>50C8h</code> was not called without an authentic group object and caller state.
-These tests confirm the first four ID-to-target mappings and safe return paths,
-not every side effect implied by the community comments.
-[confirmed]</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Archive</th><th>Archive SHA-256</th><th>Source member SHA-256</th></tr>
-</thead>
-<tbody>
-<tr><td><code>programs/prgmhide.zip</code></td><td><code>6342d57b18a1277aa3ce13ba514d986fc3c485dfc4b747a157972fad61756103</code></td><td><code>source/Dialog.z80</code>: <code>d05696213724cf74fdad5d20af58f6f74833fe541194c795403e8c90ff0fa054</code>; <code>source/RefreshDisplay.z80</code>: <code>bf8c40214695bb28c1c444d16e44635931a399429dd9e004f861fa4d110307bf</code></td></tr>
-<tr><td><code>programs/2dca.zip</code></td><td><code>b8f1f0fdd4f7787b3474e3ddd4af2454a91b5bf50ac10249ff62eb66783d545c</code></td><td><code>source/Cherries.z80</code>: <code>b3ac8ea3d80e3cd62dfc67b5562648ae50fa6c7538603da6f161ff0d83fbddac</code></td></tr>
-<tr><td><code>libs/rage.zip</code></td><td><code>4849830711b0c0ef0cdc6ad93b437dd905cab7ce8b55a5bff9d10e261f6688f4</code></td><td><code>RAGE/RAGE.asm</code>: <code>8882aa3c8f7fdbf9e1155addebd6ed74bc80f913b1d3179bc7e1ecab8563890d</code></td></tr>
-<tr><td><code>libs/c3asm.zip</code></td><td><code>61a7b698bdcbdfba482c24a002b19e4e6b5bb1cab3493413433ee832d0f15e9f</code></td><td><code>C3ASM/_CELTIC/CELTIC3.ASM</code>: <code>14c3084a160fd4f43120efbceef8d045788bc7b389bfe0d5933f83d597734279</code></td></tr>
-</tbody>
-</table>
-</div>
+<h3 id="base-page-table-archive-accounting-and-group-extraction"><a class="header" href="#base-page-table-archive-accounting-and-group-extraction">Base-page table, archive accounting, and group extraction</a></h3>
+<p><code>_FillBasePageTable = 0x5011</code>, body <code>ram:2692</code>, saves port <code>0x06</code> and selects
+a model-specific Flash source and RAM destination. The older path begins with
+page <code>0x15</code> and destination <code>ram:8015</code>; the TI-84 Plus path selects page
+<code>0x29</code> and <code>ram:8029</code>, with a second hardware probe able to select page
+<code>0x69</code> and <code>ram:8069</code>. It maps the source into bank A, walks its descriptor
+data through the inline helpers at <code>ram:3DC5</code> and <code>ram:3DCB</code>, then restores
+port <code>0x06</code>. [confirmed]</p>
+<p>The archived Cherries comment says this “restores first 1087 bytes in RAM.”
+The ROM body is not a fixed 1,087-byte <code>LDIR</code>: its copy count is selected from
+the mapped descriptor and its outer loop continues until selector <code>0x07</code>.
+The fixed-size community wording is therefore not established. A controlled
+fixture reaches <code>ram:2692</code> and returns, but does not corrupt a live base-page
+table to prove every rewritten byte. [confirmed] for the ROM control flow and
+return; [hypothesis] for a universal 1,087-byte extent.</p>
+<p><code>_ArcChk = 0x5014</code>, body <code>3D:61AF</code>, prepares the archive accounting words at
+<code>ram:839F</code>–<code>ram:83A2</code>. Bit 6 of <code>IY + 0x24</code> lazily guards the first Flash scan,
+whose four-byte intermediate result is saved at <code>ram:9C96</code>; bit 7 guards the
+second scan and the intermediate result at <code>ram:9C9A</code>. The tail adds four bytes
+from the temporary result into <code>ram:839F</code>–<code>ram:83A2</code>, restores the caller’s
+<code>HL</code> and <code>AF</code>, and returns. The first scan temporarily enables Flash writing
+through port <code>0x14</code>, runs its archive check, then disables writes and restores
+the prior interrupt-enable state. [confirmed]</p>
+<p>The numeric-bcall fixture reaches <code>_FillBasePageTable</code> and <code>_ArcChk</code>, regains
+control, and snapshots the four accounting bytes. Its accepted trace records
+the fixture-local call sites separately from OS loader calls that also reach
+<code>_ArcChk</code>. Results and artifact hashes are in
+<code>tools/data/community-vat-dynamic-observations.csv</code>. [confirmed] under TilEm.</p>
+<p><code>_UngroupVar = 0x50C8</code>, body <code>39:764A</code>, is not a generic blob unpacker. It
+copies eight bytes from OP1 to <code>ram:85E7</code>, calls the group-state initializer at
+<code>39:765D</code>, sets bit 6 of <code>IY + 0x26</code>, and jumps into the extraction state
+machine at <code>39:6E11</code>. That initializer clears link/group scratch at
+<code>ram:8670</code>, <code>ram:97A5</code>, <code>ram:85D9</code>, and <code>ram:8672</code> before calling the page-7
+group helper. The Celtic III caller first requires <code>OP1.type = GroupObj</code>
+(<code>0x17</code>). [confirmed] for ROM and caller control flow.</p>
+<p>No dynamic call is accepted yet: the fixture set does not contain an authentic
+on-calculator Group object plus the surrounding group state, and calling the
+routine with a fabricated OP1 can create or overwrite variables. The ABI and
+side effects above are static ROM evidence; successful extraction, collisions,
+and error unwinding remain [hypothesis].</p>
 <hr>
 <h2 id="store-and-recall-confirmed"><a class="header" href="#store-and-recall-confirmed">Store and recall [confirmed]</a></h2>
 <p><strong>Store.</strong> <code>_StoOther</code> (<code>38:62A9</code>) and siblings (<code>_StoAns</code>, <code>_StoX</code>, <code>_StoY</code>, … <code>38:6251-62A3</code>):</p>
@@ -6907,9 +6962,35 @@ typedef struct {
 } OSHookTarget;              /* 3 bytes */
 #pragma pack(pop)
 </code></pre>
-<p>The raw-key target begins at <code>0x9B84</code>, and the parser target begins at
-<code>0x9BAC</code>. Their active bits at <code>IY + 0x34</code> and <code>IY + 0x36</code> are separate OS
-state, not fields in this record. [confirmed]</p>
+<p>The same packed record is used by these audited setters: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Hook</th><th style="text-align: right">Target record</th><th>Active flag</th><th>Setter</th><th>Clearer</th></tr>
+</thead>
+<tbody>
+<tr><td>raw key</td><td style="text-align: right"><code>ram:9B84</code></td><td>bit 5 of <code>IY + 0x34</code></td><td><code>_SetGetKeyHook = 0x4F66</code>, body <code>3B:7D00</code></td><td><code>_ClrRawKeyHook = 0x4F6F</code>, body <code>3B:7B88</code></td></tr>
+<tr><td>token</td><td style="text-align: right"><code>ram:9BC8</code></td><td>bit 0 of <code>IY + 0x35</code></td><td><code>_SetTokenHook = 0x4F99</code>, body <code>3B:7D0B</code></td><td><code>_ClearTokenHook</code></td></tr>
+<tr><td>parser</td><td style="text-align: right"><code>ram:9BAC</code></td><td>bit 1 of <code>IY + 0x36</code></td><td><code>_SetParserHook = 0x5026</code>, body <code>3B:7D6E</code></td><td><code>_ClearParserHook = 0x5029</code>, body <code>3B:7C3B</code></td></tr>
+<tr><td>silent link</td><td style="text-align: right"><code>ram:9BD0</code></td><td>bit 7 of <code>IY + 0x36</code></td><td><code>_SetSilentLinkHook = 0x50CE</code>, body <code>3B:7DBB</code></td><td><code>_DisableSilentLinkHook</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Each setter stores <code>HL</code> as the callback address, stores <code>A</code> as the page byte,
+sets only its active bit, and returns. The clear bodies at <code>3B:7B88</code> and
+<code>3B:7C3B</code> only reset their respective active bits; they do not wipe the target
+records. A controlled trace additionally installs token target
+<code>{ ram:9872, page 0 }</code> and silent-link target <code>{ ram:9875, page 0 }</code>, observes
+their active bits, and restores both records and all affected flag bytes before
+halting. The result is in <code>tools/data/community-bcall-semantics.csv</code>.
+[confirmed] under TilEm.</p>
+<p><code>_ClrCursorHook = 0x4F69</code>, body <code>3B:7AEA</code>, is not a silent-link clearer. It
+only resets bit 7 of <code>IY + 0x34</code>. The DisLink source first clears the real
+silent-link bit, bit 7 of <code>IY + 0x36</code>, itself and then calls <code>0x4F69</code> under the
+comment “actually uninstall it.” The first instruction disables its silent
+hook; the bcall separately disables any cursor hook. A controlled trace seeds
+bit 7 of <code>IY + 0x34</code>, calls the bcall, observes that bit clear, and restores the
+original flag byte. [confirmed]</p>
 <p>After the selected NoExec removal sequence, the resident reaches
 <code>_ClrRawKeyHook</code> at <code>3B:7B88</code> and <code>_ClearParserHook</code> at <code>3B:7C3B</code>; the two
 active bytes at <code>IY + 0x34</code> and <code>IY + 0x36</code> become zero. Remote Control’s
@@ -6923,7 +7004,7 @@ entry 1,303 times. The source handler tail calls the TI-OS IM1 entry at
 raw-key, parser, and shell hooks and persistent IM2 residents before borrowing
 this buffer. The documented <code>_DisableApd</code> and <code>_DelRes</code> conditions for other
 buffers do not establish that <code>appBackUpScreen</code> is unowned.</p>
-<p>The pinned include names <code>4F66h</code> <code>_SetGetKeyHook</code>; the Plasma and NoExec
+<p>The pinned include names <code>0x4F66</code> <code>_SetGetKeyHook</code>; the Plasma and NoExec
 sources instead describe raw-key-hook enablement. The ROM target stores the
 supplied pointer and page and sets the active flag, so this page records both
 names as aliases without deriving the callback ABI from either name.</p>
@@ -11991,6 +12072,14 @@ subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
 </div>
 <p><code>ram:1d2f</code> and <code>ram:1d37</code> are two entry points into the same BCD-subtract body — <code>1d2f</code> loads <code>HL=0x8481</code> (OP1 guard), <code>DE=0x848C</code> (OP2 guard) and computes <code>OP2 − OP1</code> into OP2 (<code>LD A,(DE)</code><br><code>SUB (HL)</code>), while <code>1d37</code> enters with the pointers swapped for the reverse <code>OP1 − OP2</code>, before joining the common loop — so the caller picks the subtraction direction by choosing the entry. This is what lets <code>_FPAdd</code> produce a non-negative magnitude and then fix the sign.</p>
 <p>Multiply/divide/transcendentals (on page 0x02) reuse the same align/normalize primitives.</p>
+<h3 id="accumulator-high-nibble-helper-confirmed"><a class="header" href="#accumulator-high-nibble-helper-confirmed">Accumulator high-nibble helper [confirmed]</a></h3>
+<p><code>_ShRAcc = 0x41D4</code>, body <code>ram:1BCB</code>, is a six-instruction scalar helper rather
+than an OP-register operation. It executes four <code>RRA</code> instructions, masks with
+<code>0x0F</code>, and returns the original high nibble of <code>A</code> in the low nibble. The
+final <code>AND</code> defines the returned flags; no other register is touched.</p>
+<p>A controlled trace passes <code>A = 0xAB</code> and records <code>A = 0x0A</code>, <code>F = 0x1C</code> after
+the bcall returns. The result is in <code>tools/data/community-bcall-semantics.csv</code>.
+[confirmed] under TilEm.</p>
 <h2 id="floating-point-stack-fps-standard"><a class="header" href="#floating-point-stack-fps-standard">Floating-point stack (FPS) [standard]</a></h2>
 <p><code>FPS</code> (<code>0x9824</code>) is a software stack for temporaries; <code>_PushRealO1</code> (= <code>RST 18h</code>, <code>ram:155C</code>), <code>_PushReal</code>, <code>_PopRealO1</code> through <code>_PopRealO6</code>, <code>_PopReal</code>, <code>_AllocFPS</code>, and <code>_DeallocFPS</code> manage it. Used to spill OP registers during nested expression evaluation.</p>
 <h2 id="multiplication-division-and-transcendentals-confirmed"><a class="header" href="#multiplication-division-and-transcendentals-confirmed">Multiplication, division, and transcendentals [confirmed]</a></h2>
@@ -14109,6 +14198,38 @@ maps are in <a href="#2-byte-token-tables">the token tables</a>. [confirmed]</p>
 <p>The editor uses the latter two operations to paint source. Parser scanners use
 the first operation so they never mistake the second byte for a command or
 delimiter. [confirmed]</p>
+<h2 id="editor-conversion-and-insertion-confirmed"><a class="header" href="#editor-conversion-and-insertion-confirmed">Editor conversion and insertion [confirmed]</a></h2>
+<p>The token editor tracks four little-endian pointers in one fixed block:</p>
+<pre><code class="language-c">#pragma pack(push, 1)
+typedef struct {
+    uint16_t top;      /* +0x00, editTop at 0x96F4 */
+    uint16_t cursor;   /* +0x02, editCursor at 0x96F6 */
+    uint16_t tail;     /* +0x04, editTail at 0x96F8 */
+    uint16_t bottom;   /* +0x06, editBtm at 0x96FA */
+} EditorBufferState;  /* 8 bytes */
+#pragma pack(pop)
+</code></pre>
+<p><code>_BufClear = 0x4936</code>, body <code>ram:222E</code>, sets <code>editCursor = editTop</code> and
+<code>editTail = editBtm</code>. It does not wipe every byte between those pointers.</p>
+<p><code>_bufInsert = 0x4909</code>, body <code>06:42E5</code>, accepts a token in <code>DE</code>. It first checks
+for room at the cursor. When <code>D = 0</code>, it inserts the one-byte token from <code>E</code>;
+when <code>D != 0</code>, it performs a second room check and writes the two bytes in
+<code>D,E</code> order. Success advances <code>editCursor</code> and returns NZ. A full buffer or
+failed second-byte check returns Z without reporting success. A controlled
+trace calls the clear body, calls the insert body with <code>DE = 0xBB6A</code> (<code>Asm(</code>),
+calls the clear body again, and returns from every call. The pointer mutations
+above are confirmed from the ROM body; that return-path reducer does not
+snapshot the transient buffer contents. [confirmed] under TilEm.</p>
+<p><code>_ConvKeyToTok = 0x4A02</code>, body <code>07:44DE</code>, converts a cooked key in <code>A</code> to a
+token in <code>DE</code>. Input <code>0x05</code> has the dedicated result <code>DE = 0x003F</code>. Ordinary
+inputs subtract <code>0x5A</code> and select a byte from the table beginning at
+<code>07:4000</code>; special inputs <code>0xFB</code>, <code>0xFC</code>, and <code>0xFE</code> use <code>keyExtend</code> at
+<code>ram:8446</code> and the tables rooted at <code>07:4426</code>, <code>07:422C</code>, <code>07:4099</code>, or
+<code>07:4102</code>. The latter paths can return two-byte tokens. A controlled trace
+confirms <code>A = 0x05</code> → <code>DE = 0x003F</code>; the special-table cases remain confirmed
+from ROM control flow, not exhaustively traced. Reduced results are in
+<code>tools/data/community-manual-bcall-traces.csv</code> and
+<code>tools/data/community-bcall-semantics.csv</code>.</p>
 <h2 id="one-source-line-three-representations"><a class="header" href="#one-source-line-three-representations">One source line, three representations</a></h2>
 <p>The statement</p>
 <pre><code class="language-ti-basic">cumSum(L1)-&gt;L2
@@ -15764,6 +15885,17 @@ claim that every implicit <code>For(</code> close is slower.</p>
 Controller video RAM is a third image store outside Z80 RAM. Direct text output
 can change it without changing <code>plotSScreen</code>, while graph drawing can change
 <code>plotSScreen</code> without changing the panel until <code>_GrBufCpy</code> runs. [confirmed]</p>
+<h2 id="lcd-ready-wait-confirmed"><a class="header" href="#lcd-ready-wait-confirmed">LCD-ready wait [confirmed]</a></h2>
+<p><code>_lcd_busy = 0x4051</code>, body <code>ram:0CC3</code>, preserves <code>AF</code> while polling port
+<code>0x02</code> bit 1 until the LCD reports ready. If bit 3 of <code>IY + 0x41</code> is set after
+that poll, it calls the short delay helper at <code>ram:0CE6</code> three times before
+restoring <code>AF</code> and returning. The ROM has callers in the fixed page and on
+pages <code>0x01</code>, <code>0x04</code>, <code>0x06</code>, <code>0x07</code>, <code>0x39</code>, and <code>0x3B</code>; it is the common
+serialization point used before direct LCD operations.</p>
+<p>A source-built fixture reaches the body and returns to its marker. That trace
+confirms the callable path in TilEm, while the port-poll latency and optional
+three-delay branch remain dependent on emulator or hardware LCD state. The
+result is pinned in <code>tools/data/community-manual-bcall-traces.csv</code>.</p>
 <h2 id="large-font-text"><a class="header" href="#large-font-text">Large-font text</a></h2>
 <p><code>_PutMap</code> clamps character code zero and codes at or above <code>0xF8</code> to replacement code <code>0xD0</code>. It computes <code>character × 8</code> and bjumps to <code>put_glyph_large</code> at <code>07:4588</code>. [confirmed]</p>
 <p>The page-7 blitter adjusts that offset to a seven-byte packed stride:</p>
@@ -20788,6 +20920,18 @@ ram:04BE  ret
 </tbody>
 </table>
 </div>
+<h3 id="_getk-compatibility-entry-confirmed"><a class="header" href="#_getk-compatibility-entry-confirmed"><code>_GetK</code> compatibility entry [confirmed]</a></h3>
+<p><code>_GetK = 0x4744</code>, body <code>37:746D</code>, combines two otherwise separate results.
+It reads <code>kbdGetKy</code> at <code>ram:8445</code>. A zero byte selects integer zero; a nonzero
+byte is consumed, used as an index into the byte table at <code>37:7487</code>, and
+converted to a real value in OP2 through the inline cross-page call at
+<code>37:7482</code>. The tail jump at <code>37:7484</code> enters <code>_GetCSC</code>, so the returned <code>A</code> is
+the current raw scan mailbox result, not the table result placed in OP2.</p>
+<p>In a controlled trace, <code>kbdGetKy = 0x01</code> selects table byte <code>0x22</code> and leaves
+OP2 as real 34 (<code>00 81 34 00 00 00 00 00 00 00 00</code>). The fixture separately
+clears and restores <code>kbdScanCode</code>; this avoids attributing an old launch key to
+the table conversion. The reduced trace is in
+<code>tools/data/community-bcall-semantics.csv</code>. [confirmed] under TilEm.</p>
 <h3 id="modifier-state"><a class="header" href="#modifier-state">Modifier state</a></h3>
 <p><code>_GetKey</code> stores modifier state in <code>shiftFlags</code> at <code>IY+0x12</code>. [confirmed]</p>
 <div class="table-wrapper">
@@ -20854,6 +20998,15 @@ ram:0980  jr nz,ram:0975
 <p>This debounce is independent of the matrix’s five-sample release filter. It polls <strong>ON</strong> rapidly at forced 6 MHz instead of waiting for timer-1 scans. [confirmed]</p>
 <h2 id="2ndon-apd-and-wake"><a class="header" href="#2ndon-apd-and-wake">2nd+ON, APD, and wake</a></h2>
 <p><code>_GetKey</code> recognizes the ON request as an internal <code>0xFF</code> event at <code>06:4A93</code>. It clears <code>shift2nd</code>. If <code>appRetKeyOff</code> is set, it returns the context key <code>0x3F</code>; otherwise it jumps to <code>_PowerOff</code>, body <code>ram:09E6</code>. [confirmed]</p>
+<p><code>_GetKeyRetOff = 0x500B</code>, body <code>06:491A</code>, consists of <code>SET 7,(IY + 0x28)</code> and
+then falls directly into <code>_GetKey</code> at <code>06:491E</code>. A controlled interactive trace
+drains one explicit <strong>ENTER</strong>, enters <code>_GetKeyRetOff</code>, then injects
+<strong>2nd</strong>+<strong>ON</strong>. It reaches the <code>0xFF</code> comparison at <code>06:4A93</code>, loads
+<code>A = 0x3F</code> at <code>06:4A9B</code>, observes the set flag at <code>06:4A9D</code>, takes the return
+branch at <code>06:4AA1</code>, and records <code>A = 0x3F</code> in the caller. The trace does not
+enter <code>_PowerOff</code>. Its reduced result is in
+<code>tools/data/community-getkey-ret-off.csv</code>. [confirmed] under TilEm; physical
+ON timing remains covered only by the separate hardware probes below.</p>
 <p>Explicit power-off and Auto Power Down (APD) perform different cleanup, then
 join <code>poweroff_shared_tail</code> at <code>ram:0A24</code>. The final hardware operations are:
 [confirmed]</p>
@@ -21912,6 +22065,27 @@ stores the command from <code>H</code>, and calls <code>41C3</code>. Convenience
 </tbody>
 </table>
 </div>
+<h3 id="_sendpacket-confirmed"><a class="header" href="#_sendpacket-confirmed"><code>_SendPacket</code> [confirmed]</a></h3>
+<p><code>_SendPacket = 0x4ED6</code>, body <code>3C:4139</code>, consumes the shared
+<code>LinkPacketHeader</code> at <code>ram:8674</code>, takes the payload pointer from <code>iMathPtr5</code> at
+<code>ram:84DB</code>, and uses <code>header.data_length</code> as the payload byte count. It clears
+<code>pagedPN</code> at <code>ram:9835</code>, sends the four-byte header through <code>3C:41C3</code>, clears
+the 16-bit checksum at <code>ram:8678</code>, and streams the payload. A zero <code>pagedPN</code>
+reads bytes directly from <code>HL</code>; a nonzero value uses the paged read helper at
+<code>ram:17BB</code>. Each byte is added to the checksum before <code>_SendAByte</code> is called.</p>
+<p>After the last byte, the routine sends checksum low then high, receives a reply
+header, and returns only when its command byte is <code>0x56</code> ACK. A line failure,
+bad reply, or checksum-side failure takes the link error machinery rather than
+returning a status code.</p>
+<p>A one-sided controlled trace supplies a one-byte DATA packet and an installed
+calculator error handler. With no peer, the run reaches <code>_SendPacket</code> once,
+the header helper once, and <code>_SendAByte</code> twice before <code>_ErrLinkXmit</code> and
+<code>_JErrorNo</code> transfer control to the fixture’s handler. It does not reach the
+payload read at <code>3C:4160</code>. This dynamically establishes the no-peer boundary;
+the payload, checksum, and ACK success path above remains ROM control-flow
+evidence until a paired trace is captured. The reduced result is in
+<code>tools/data/community-send-packet.csv</code>. [confirmed] under TilEm for the
+one-sided path.</p>
 <h3 id="checksum-and-acknowledgement-tail-confirmed"><a class="header" href="#checksum-and-acknowledgement-tail-confirmed">Checksum and acknowledgement tail [confirmed]</a></h3>
 <p>After the data payload, the sender appends the 16-bit sum and waits for the ACK:</p>
 <pre><code class="language-z80">4167: LD HL,(8678)
@@ -23852,7 +24026,7 @@ levels, or reset retention.</li>
 </tbody>
 </table>
 </div>
-<h2 id="community-numeric-use-audit"><a class="header" href="#community-numeric-use-audit">Community numeric-use audit</a></h2>
+<h2 id="corpus-coverage-and-map-provenance"><a class="header" href="#corpus-coverage-and-map-provenance">Corpus coverage and map provenance</a></h2>
 <p><code>tools/audit_community_bcalls.py</code> scans the extracted community corpus for
 numeric bcall macros, raw <code>rst 28h</code> plus word sequences, and complete
 <code>EF low high</code> instruction bytes. The pinned snapshot contains 112 such uses of
@@ -23860,63 +24034,21 @@ numeric bcall macros, raw <code>rst 28h</code> plus word sequences, and complete
 bytes; the other 109 use macro or <code>rst 28h</code> forms. Exact archive and source
 hashes are in <code>tools/data/community-bcall-uses.csv</code>. [confirmed] for the
 checked scan output.</p>
-<p>Sixteen used main-table IDs were absent from the generated map. Decoding their
-three-byte entries on ROM page <code>0x3B</code> resolves every target: [confirmed]</p>
-<p>These rows establish the ROM table mapping and the static source call site.
-They do not, by themselves, establish every runtime side effect named in the
-source comment.</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>ID</th><th>Include name</th><th>Body</th><th>Source call-site context</th></tr>
-</thead>
-<tbody>
-<tr><td><code>4030</code></td><td><code>_newContext</code></td><td><code>00:077E</code></td><td>Plasma home-context restore</td></tr>
-<tr><td><code>41D4</code></td><td><code>_ShRAcc</code></td><td><code>00:1BCB</code></td><td>RLIB nibble conversion</td></tr>
-<tr><td><code>4744</code></td><td><code>_GetK</code></td><td><code>37:746D</code></td><td>AntiNibbles key input</td></tr>
-<tr><td><code>4A02</code></td><td><code>_ConvKeyToTok</code></td><td><code>07:44DE</code></td><td>FlashED editor key conversion</td></tr>
-<tr><td><code>4E61</code></td><td><code>_GetStringInput2</code></td><td><code>37:5194</code></td><td>Elite string input</td></tr>
-<tr><td><code>4ED6</code></td><td><code>_SendPacket</code></td><td><code>3C:4139</code></td><td>Overflow link packet sender</td></tr>
-<tr><td><code>4F3C</code></td><td><code>_FlashWriteDisable</code></td><td><code>3C:66D5</code></td><td>Crabcake protection cleanup</td></tr>
-<tr><td><code>4F69</code></td><td><code>_ClrCursorHook</code></td><td><code>3B:7AEA</code></td><td>DisLink hook removal</td></tr>
-<tr><td><code>4F6F</code></td><td><code>_ClrRawKeyHook</code></td><td><code>3B:7B88</code></td><td>Remote Control and Sentry cleanup</td></tr>
-<tr><td><code>5011</code></td><td><code>_FillBasePageTable</code></td><td><code>00:2692</code></td><td>Cherries App-state repair</td></tr>
-<tr><td><code>5014</code></td><td><code>_ArcChk</code></td><td><code>3D:61AF</code></td><td>RAGE archive check</td></tr>
-<tr><td><code>5026</code></td><td><code>_SetParserHook</code></td><td><code>3B:7D6E</code></td><td>chemistry parser extensions</td></tr>
-<tr><td><code>5029</code></td><td><code>_ClearParserHook</code></td><td><code>3B:7C3B</code></td><td>chemistry parser cleanup</td></tr>
-<tr><td><code>50C8</code></td><td><code>_UngroupVar</code></td><td><code>39:764A</code></td><td>Celtic III group extraction</td></tr>
-<tr><td><code>50CE</code></td><td><code>_SetSilentLinkHook</code></td><td><code>3B:7DBB</code></td><td>DisLink silent-link hook</td></tr>
-<tr><td><code>5221</code></td><td><code>_Chk_Batt_Level</code></td><td><code>33:4E9B</code></td><td>Battery Check display</td></tr>
-</tbody>
-</table>
-</div>
-<p>The table entry proves the body address, not the community comment’s ABI or
-the result under every OS state. Runtime observations therefore remain separate
-from these ROM-resolved rows.</p>
-<h3 id="archive-local-symbolic-equates"><a class="header" href="#archive-local-symbolic-equates">Archive-local symbolic equates</a></h3>
-<p>The scanner’s <code>--symbolic</code> mode resolves an unambiguous equate across each
-extracted archive before classifying its use. Five active IDs add valid OS
-2.55MP table rows: [confirmed]</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th style="text-align: right">ID</th><th>Name</th><th>Body</th><th>Active community use</th></tr>
-</thead>
-<tbody>
-<tr><td style="text-align: right"><code>4051</code></td><td><code>_lcd_busy</code></td><td><code>00:0CC3</code></td><td>Letter waits before writing an LCD control byte.</td></tr>
-<tr><td style="text-align: right"><code>4909</code></td><td><code>_bufInsert</code></td><td><code>06:42E5</code></td><td>Plasma inserts <code>Asm</code> and program-name tokens into the edit buffer.</td></tr>
-<tr><td style="text-align: right"><code>4936</code></td><td><code>_BufClear</code></td><td><code>00:222E</code></td><td>Plasma clears the edit buffer before inserting a launch command.</td></tr>
-<tr><td style="text-align: right"><code>500B</code></td><td><code>_GetKeyRetOff</code></td><td><code>06:491A</code></td><td>Balltrix, Nukewar, and CalClock request the <strong>ON</strong> return code.</td></tr>
-<tr><td style="text-align: right"><code>50E0</code></td><td><code>_NZIf83Plus</code></td><td><code>00:1837</code></td><td>ZMegaMan branches on the calculator model before masking a Flash page.</td></tr>
-</tbody>
-</table>
-</div>
-<p>A source-built trace calls <code>4051</code>, <code>4936</code>, <code>4909</code>, <code>4936</code>, and <code>50E0</code> from
-<code>ram:9D9F</code>, <code>ram:9DA7</code>, <code>ram:9DB2</code>, <code>ram:9DBA</code>, and <code>ram:9DC4</code>. Each call site
-executes once and reaches its resolved body. <code>50E0</code> preserves <code>A = 0xA5</code> and
-returns Z on the TI-84 Plus. PRGMHIDE separately reaches <code>500B</code> in its packaged
-execution trace. <code>tools/data/community-manual-bcall-traces.csv</code> pins the ROM,
-emulator, fixture, trace, and snapshot hashes. [confirmed] under TilEm.</p>
+<p>The scan exposed 24 aligned main-table IDs that the old generated map omitted.
+All 24 were already literal entries in the OS 2.55MP table on page <code>0x3B</code>, and
+all 24 names were already present in the bundled TI include. Adding them changed
+the main map from 621 to 645 rows and the include-backed subset from 599 to 623;
+the 22 project-inferred names did not change. They are therefore new to this
+repository’s resolver input, not new ROM routines or newly invented names.
+[confirmed]</p>
+<p>The main table above is the single address catalog. ABI and side-effect notes
+live with their subsystems: contexts and errors, display, floating point,
+keypad, tokenizer, link transfer, execution protection, resident hooks,
+archive/group handling, and ASIC status. Reduced trace results are kept in the
+<code>tools/data/community-*.csv</code> files. This separation matters because an aligned
+table entry proves only an ID-to-body mapping; neither an include name nor a
+community comment proves the body’s complete behavior.</p>
+<h3 id="malformed-active-call"><a class="header" href="#malformed-active-call">Malformed active call</a></h3>
 <p>The scan also finds one active malformed call. <code>graphics/cool.zip:cool.asm</code>
 defines <code>_copygbuf = 4B9Ch</code> and emits <code>EF 9C 4B</code>; the packaged <code>cool.8xp</code>
 contains the same bytes. <code>4B9Ch</code> is not aligned to a three-byte main-table
