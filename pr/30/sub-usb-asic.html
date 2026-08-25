@@ -8,15 +8,15 @@
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bba023a5.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-cbaaedfe.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,13 +180,13 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="usb-asic-and-link-assist"><a class="header" href="#usb-asic-and-link-assist">USB ASIC and link assist</a></h1>
-<p><em>TI-84 Plus OS 2.55MP - feature deep dive.</em></p>
-<p>This page covers the OS-visible USB/link-assist hardware interface: the Z80 I/O ports the ROM uses,
-the byte FIFO path used by the link layer, and the places where <code>_LinkXferOP</code> chooses USB before
-falling back to the 2.5 mm link. It complements <a href="sub-link-transfer.html">Link / data transfer</a>, which
-covers the TI link packet protocol and variable-transfer state machine.</p>
+<p>The USB/link-assist interface exposes control, status, interrupt, endpoint, and
+FIFO registers through Z80 I/O ports. This page traces those ports and the
+transport selection that chooses USB or the 2.5 mm link. <a href="sub-link-transfer.html">Link / data
+transfer</a> covers the packet protocol and variable-transfer
+state machine.</p>
 <p>The full USB controller is broader than the variable-transfer path, but OS 2.55MP does expose enough
-of it to map the public USB entry points, the link-assist byte path, and the interrupt/event bridge.
+of it to map the public USB entry points, the link-assist byte path, and the interrupt/event path.
 This page is ROM-grounded: the confirmed claims below come from OS 2.55MP disassembly/decompilation
 and cite the address ranges that show them. External WikiTI names are used only as orientation where
 noted, not as proof.</p>
@@ -198,10 +198,10 @@ noted, not as proof.</p>
 <tr><th>Layer</th><th>Port range</th><th>Role</th></tr>
 </thead>
 <tbody>
-<tr><td>Legacy link</td><td><code>0x00</code></td><td>2.5 mm tip/ring open-collector byte path. [confirmed: <code>3C:6C99</code>, <code>3C:6CF3</code>]</td></tr>
-<tr><td>Link-assist FIFO</td><td><code>0x08</code>-<code>0x0D</code></td><td>Hardware byte send/receive assist used below <code>_SendAByte</code> and <code>_RecAByteIO</code>. [confirmed: <code>3C:6BB1</code>-<code>6D53</code>]</td></tr>
-<tr><td>USB line / interrupt gates</td><td><code>0x4D</code>, <code>0x55</code>, <code>0x56</code></td><td>Line-state and event/status gates used before and during link handling. [confirmed: <code>3C:4E4A</code>, <code>00:006F</code>]</td></tr>
-<tr><td>USB controller / endpoints</td><td><code>0x4A</code>-<code>0x5B</code>, <code>0x80</code>-<code>0xA2</code></td><td>Page-35 USB host/device stack, including setup, endpoint FIFOs, callbacks, and data transfer. [confirmed: <code>35:4031</code>-<code>5B9B</code>]</td></tr>
+<tr><td>Legacy link</td><td><code>0x00</code></td><td>2.5 mm raw bit-banged byte path; see <a href="link-port-hardware.html">Two-wire link port hardware</a>. [confirmed]</td></tr>
+<tr><td>Link-assist FIFO</td><td><code>0x08</code>–<code>0x0D</code></td><td>Hardware byte send/receive assist used below <code>_SendAByte</code> and <code>_RecAByteIO</code>. [confirmed]</td></tr>
+<tr><td>USB line / interrupt gates</td><td><code>0x4D</code>, <code>0x55</code>, <code>0x56</code></td><td>Line-state and event/status gates used before and during link handling. [confirmed]</td></tr>
+<tr><td>USB controller / endpoints</td><td><code>0x4A</code>–<code>0x5B</code>, <code>0x80</code>–<code>0xA2</code></td><td>Page-35 USB host/device stack, including setup, endpoint FIFOs, callbacks, and data transfer. [confirmed]</td></tr>
 </tbody>
 </table>
 </div>
@@ -210,32 +210,204 @@ TI link protocol. The packet layer still sends machine IDs, command bytes, check
 EOT exactly as described in <a href="sub-link-transfer.html">sub-link-transfer.md</a>. The hardware difference is
 below that packet layer: bytes go through the assist FIFO when the ASIC path is enabled, and through
 port <code>0x00</code> bit-banging otherwise. [confirmed]</p>
-<h2 id="observed-port-map-confirmed-unless-marked"><a class="header" href="#observed-port-map-confirmed-unless-marked">Observed port map [confirmed unless marked]</a></h2>
+<h2 id="observed-port-map-confirmed"><a class="header" href="#observed-port-map-confirmed">Observed port map [confirmed]</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>Port</th><th>Observed use in OS 2.55MP</th><th>Evidence</th></tr>
 </thead>
 <tbody>
-<tr><td><code>0x02</code></td><td>Hardware/model gate before using assist paths. The link code tests bit 7 before touching ports <code>0x08</code>-<code>0x0D</code>.</td><td><code>3C:6C82</code>, <code>3C:6CB8</code>, <code>3C:6D15</code></td></tr>
+<tr><td><code>0x02</code></td><td>Hardware/model gate before using assist paths. The link code tests bit 7 before touching ports <code>0x08</code>–<code>0x0D</code>.</td><td><code>3C:6C82</code>, <code>3C:6CB8</code>, <code>3C:6D15</code></td></tr>
 <tr><td><code>0x08</code></td><td>Link-assist control/idle latch. The OS writes <code>0x80</code> when clearing an inactive/error-free assist state, and <code>0x00</code> when marking the assist state active.</td><td><code>OUT (0x08)</code> at <code>3C:6C4D</code>/<code>6C50</code>, <code>3C:6D48</code>, <code>3C:6D5B</code></td></tr>
-<tr><td><code>0x09</code></td><td>Link-assist status on reads. Bit 5 is TX-ready; bit 6 is a transmission/error condition; bit 4 marks a received byte. Masks <code>0x19</code>, <code>0x58</code>, and <code>0x99</code> are used as error/activity predicates. On writes, the OS setup value <code>0x97</code> matches WikiTI’s CPU-speed-0 signaling-rate register.</td><td><code>3C:6BB6</code>-<code>6BC5</code>, <code>3C:444A</code>, <code>3C:6BFA</code>, <code>3C:6CCE</code>, <code>3C:6D33</code>; WikiTI port <code>09</code></td></tr>
-<tr><td><code>0x0A</code></td><td>Assist receive/data register on reads; the confirmed receive path reads the byte here. On writes, the OS setup value <code>0xB4</code> matches WikiTI’s CPU-speed-1 signaling-rate register. Tilem models reads as “last received byte” and stores writes as opaque assist state.</td><td><code>3C:6C20</code>, <code>3C:6C2B</code>, <code>3C:6C39</code>; WikiTI port <code>0A</code>; Tilem <code>x4_io.c</code></td></tr>
-<tr><td><code>0x0B</code>, <code>0x0C</code></td><td>Assist signaling-rate configuration for CPU speed modes 2 and 3, initialized with <code>0xB4</code>. The ROM byte-transfer path writes them during setup but does not read them back. Tilem stores the writes without emulating timing from the values.</td><td><code>3C:6C3D</code>, <code>3C:6C3F</code>; WikiTI ports <code>0B</code>/<code>0C</code>; Tilem <code>x4_io.c</code></td></tr>
-<tr><td><code>0x0D</code></td><td>Assist TX FIFO/data register. <code>_SendAByte</code> writes the outgoing byte here after port <code>0x09</code> bit 5 becomes set.</td><td><code>3C:6BBC</code>-<code>6BBF</code></td></tr>
+<tr><td><code>0x09</code></td><td>Link-assist status on reads. Bit 5 is TX-ready; bit 6 is a transmission/error condition; bit 4 marks a received byte. Masks <code>0x19</code>, <code>0x58</code>, and <code>0x99</code> are used as error/activity predicates. On writes, the OS setup value <code>0x97</code> matches WikiTI’s CPU-speed-0 signaling-rate register.</td><td><code>3C:6BB6</code>–<code>6BC5</code>, <code>3C:444A</code>, <code>3C:6BFA</code>, <code>3C:6CCE</code>, <code>3C:6D33</code>; WikiTI port <code>09</code></td></tr>
+<tr><td><code>0x0A</code></td><td>Assist receive/data register on reads; the confirmed receive path reads the byte here. On writes, the OS setup value <code>0xB4</code> matches WikiTI’s CPU-speed-1 signaling-rate register. TilEm models reads as “last received byte” and stores writes as opaque assist state.</td><td><code>3C:6C20</code>, <code>3C:6C2B</code>, <code>3C:6C39</code>; WikiTI port <code>0A</code>; TilEm <code>x4_io.c</code></td></tr>
+<tr><td><code>0x0B</code>, <code>0x0C</code></td><td>Assist signaling-rate configuration for CPU speed modes 2 and 3, initialized with <code>0xB4</code>. The ROM byte-transfer path writes them during setup but does not read them back. TilEm stores the writes without emulating timing from the values.</td><td><code>3C:6C3D</code>, <code>3C:6C3F</code>; WikiTI ports <code>0B</code>/<code>0C</code>; TilEm <code>x4_io.c</code></td></tr>
+<tr><td><code>0x0D</code></td><td>Assist TX FIFO/data register. <code>_SendAByte</code> writes the outgoing byte here after port <code>0x09</code> bit 5 becomes set.</td><td><code>3C:6BBC</code>–<code>6BBF</code></td></tr>
 <tr><td><code>0x20</code></td><td>CPU speed bit used to select assist/link wait-loop reloads. The send timeout uses <code>0xFFFF</code> when bit 0 is set and <code>0x6800</code> when clear.</td><td><code>3C:6BCC</code>, <code>3C:6C8B</code>, <code>3C:6CC1</code></td></tr>
-<tr><td><code>0x4C</code></td><td>USB controller handshake/status byte. The page-35 stack compares it with <code>0x5A</code>/<code>0x1A</code> and <code>0x12</code>/<code>0x52</code>, and clears or primes it with <code>0x00</code>/<code>0x08</code> during setup. Tilem returns <code>0x22</code> to make the calc see no attached USB peer.</td><td><code>35:42B7</code>, <code>35:42F6</code>, <code>35:403C</code>, <code>35:40E6</code>; Tilem <code>x4_io.c</code></td></tr>
-<tr><td><code>0x4D</code></td><td>USB line-state gate. <code>_LinkXferOP</code> samples bits 5 and 6 before the page-0 bjump at <code>ram:2E0B</code>, which targets <code>35:4280</code>. Page-35 handlers also branch on bits 0, 1, 4, 5, 6, and 7. Tilem returns <code>0xA5</code> to emulate “USB disconnected.”</td><td><code>3C:4E4A</code>-<code>4E6F</code>, <code>35:42BF</code>, <code>35:4B6A</code>-<code>4B9F</code>; Tilem <code>x4_io.c</code></td></tr>
-<tr><td><code>0x55</code></td><td>USB interrupt status, active-low in the low five bits. The IM1 dispatcher tests <code>(in(0x55) ^ 0xFF) &amp; 0x1F</code> first.</td><td><code>00:006F</code>-<code>0075</code></td></tr>
-<tr><td><code>0x56</code></td><td>USB line-event bitmap used by the IM1 dispatcher after port <code>0x55</code> reports USB activity. Bits 4, 5, 6, 7, and 1 dispatch to page-35 handlers through page-0 bjumps.</td><td><code>00:0085</code>-<code>00AE</code>, <code>00:0113</code>-<code>0127</code></td></tr>
-<tr><td><code>0x57</code>, <code>0x5B</code>, <code>0x4A</code>, <code>0x54</code></td><td>USB controller control/ack registers used by page-35 setup and event handlers. The ROM confirms values such as <code>0x10</code>, <code>0x20</code>, <code>0x22</code>, <code>0x50</code>, <code>0x80</code>, <code>0x90</code>, <code>0x93</code> on <code>0x57</code>, <code>0x00</code>/<code>0x01</code> on <code>0x5B</code>, <code>0x20</code> on <code>0x4A</code>, and <code>0x02</code>/<code>0x44</code>/<code>0xC4</code> on <code>0x54</code>.</td><td><code>35:4038</code>-<code>4060</code>, <code>35:42C5</code>-<code>42EA</code>, <code>35:4B6A</code>-<code>4C14</code></td></tr>
-<tr><td><code>0x80</code>-<code>0xA2</code></td><td>Endpoint/status/FIFO region used by the public USB API. Examples: <code>_SendUSBData</code> writes 64-byte chunks to <code>0xA2</code>; <code>_RequestUSBData</code> reads 8-byte records from <code>0xA1</code>; setup/config paths write descriptor bytes through <code>0xA0</code> and use selector/status ports <code>0x8E</code>, <code>0x8F</code>, <code>0x91</code>, <code>0x94</code>, and <code>0x98</code>.</td><td><code>35:4DD3</code>, <code>35:470B</code>, <code>35:48BA</code>, <code>35:48F8</code></td></tr>
+<tr><td><code>0x4B</code></td><td>Controller-side setup control. Reset paths write <code>0x00</code>, then conditionally write <code>0x20</code>; another setup path writes <code>0x20</code> before waiting for port <code>0x4C = 0x5A</code>. WikiTI calls this USB power control, but describes its bit meanings as mostly speculative.</td><td><code>35:4C69</code>, <code>35:4C76</code>–<code>4C80</code>, <code>35:59AB</code>; duplicated at <code>2F:59B6</code>, <code>2F:59C3</code>–<code>59CD</code>; WikiTI port <code>4B</code></td></tr>
+<tr><td><code>0x4C</code></td><td>USB controller handshake/status byte. The page-35 stack compares it with <code>0x5A</code>/<code>0x1A</code> and <code>0x12</code>/<code>0x52</code>, and clears or primes it with <code>0x00</code>/<code>0x08</code> during setup. TilEm returns <code>0x22</code> to make the calc see no attached USB peer.</td><td><code>35:42B7</code>, <code>35:42F6</code>, <code>35:403C</code>, <code>35:40E6</code>; TilEm <code>x4_io.c</code></td></tr>
+<tr><td><code>0x4D</code></td><td>USB line-state gate. <code>link_xfer_op</code> samples bits 5 and 6 before the page-0 bjump at <code>ram:2E0B</code>, which targets <code>35:4280</code>. Page-35 handlers also branch on bits 0, 1, 4, 5, 6, and 7. TilEm returns <code>0xA5</code> to emulate “USB disconnected.”</td><td><code>3C:4E4A</code>–<code>4E6F</code>, <code>35:42BF</code>, <code>35:4B6A</code>–<code>4B9F</code>; TilEm <code>x4_io.c</code></td></tr>
+<tr><td><code>0x4F</code>, <code>0x50</code></td><td>Unnamed setup controls used beside USB GPIO and line-state accesses. The ROM writes <code>0x27</code> to <code>0x50</code>. It then updates <code>0x4F</code> to `(old &amp; 0xBF)</td><td>0x88<code>, waits, and updates it to </code>old &amp; 0x37`. The electrical and PHY effects are unknown.</td></tr>
+<tr><td><code>0x55</code></td><td>USB interrupt status, active-low in the low five bits. The IM1 dispatcher tests <code>(in(0x55) ^ 0xFF) &amp; 0x1F</code> first.</td><td><code>00:006F</code>–<code>0075</code></td></tr>
+<tr><td><code>0x56</code></td><td>USB line-event bitmap used by the IM1 dispatcher after port <code>0x55</code> reports USB activity. Bits 4, 5, 6, 7, and 1 dispatch to page-35 handlers through page-0 bjumps.</td><td><code>00:0085</code>–<code>00AE</code>, <code>00:0113</code>–<code>0127</code></td></tr>
+<tr><td><code>0x57</code>, <code>0x5B</code>, <code>0x4A</code>, <code>0x54</code></td><td>USB controller control/ack registers used by page-35 setup and event handlers. The ROM confirms values such as <code>0x10</code>, <code>0x20</code>, <code>0x22</code>, <code>0x50</code>, <code>0x80</code>, <code>0x90</code>, <code>0x93</code> on <code>0x57</code>, <code>0x00</code>/<code>0x01</code> on <code>0x5B</code>, <code>0x20</code> on <code>0x4A</code>, and <code>0x02</code>/<code>0x44</code>/<code>0xC4</code> on <code>0x54</code>.</td><td><code>35:4038</code>–<code>4060</code>, <code>35:42C5</code>–<code>42EA</code>, <code>35:4B6A</code>–<code>4C14</code></td></tr>
+<tr><td><code>0x5A</code></td><td>Presentation-link setup writes bit 0 and reads the port back. The next instruction replaces the read value, so this routine does not test the result. It then configures indexed endpoint 2.</td><td><code>35:58B2</code>–<code>58DE</code></td></tr>
+<tr><td><code>0x80</code>–<code>0xA2</code></td><td>Endpoint/status/FIFO region used by the public USB API. Examples: <code>_SendUSBData</code> writes 64-byte chunks to <code>0xA2</code>; <code>_RequestUSBData</code> reads 8-byte records from <code>0xA1</code>; setup/config paths write descriptor bytes through <code>0xA0</code> and use selector/status ports <code>0x8E</code>, <code>0x8F</code>, <code>0x91</code>, <code>0x94</code>, and <code>0x98</code>.</td><td><code>35:4DD3</code>, <code>35:470B</code>, <code>35:48BA</code>, <code>35:48F8</code></td></tr>
 </tbody>
 </table>
 </div>
-<p>The project-local <code>tools/ports.txt</code> now names the confirmed assist and USB interrupt ports so future
-Ghidra rebuilds show the same surface in the database. These labels describe the observed OS use,
-not a complete vendor register map.</p>
+<p>The endpoint receive helper at <code>35:4FA1</code> accepts a count in <code>B</code>, caps it at 64
+bytes, and reads port <code>0xA1</code> in the loop at <code>35:500E</code>. The USB
+receive-to-memory body at <code>36:40E7</code> reaches it through the page-0 bjump stub at
+<code>00:2E17</code>. For a Flash-window destination, <code>36:413A</code> caps the chunk at 16
+bytes, receives it into <code>0x983A</code>, and calls the page-<code>3C</code> Flash-staging
+dispatcher in mode <code>3</code> at <code>36:415C</code>. RAM destinations use chunks of up to 64
+bytes and skip that Flash flush. [confirmed]</p>
+<p>The project-local <code>tools/ports.txt</code> names the observed assist, USB-control, and
+USB-interrupt ports so future Ghidra rebuilds show the same surface in the
+database. Neutral labels retain <code>Unknown</code> for ports <code>0x4F</code> and <code>0x50</code> because
+the ROM does not identify their signals. The file also applies the FDRC-family
+names below to ports <code>0x80</code>–<code>0xA2</code>. Those names identify the register layout;
+they do not prove the exact ASIC implementation or its electrical behavior.</p>
+<h2 id="transceiver-and-enable-timer-ports-without-confirmed-rom-control-flow"><a class="header" href="#transceiver-and-enable-timer-ports-without-confirmed-rom-control-flow">Transceiver and enable-timer ports without confirmed ROM control flow</a></h2>
+<p>WikiTI assigns low-level USB meanings to three ports that OS 2.55MP does not
+use through a confirmed I/O instruction:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Port</th><th>WikiTI description</th><th>Evidence limit</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x49</code></td><td>Raw USB-transceiver status, including proposed D+ and D− bits 1 and 2</td><td>The page calls several other bits only “something” or “possible.” No ROM read, emulator handler, datasheet, or physical sample confirms the bit map. [hypothesis]</td></tr>
+<tr><td><code>0x51</code></td><td>Delay between starting a separate 48 MHz crystal and enabling USB, counted in two-tick units from 32.768 kHz</td><td>No ROM write or cited primary source establishes the clock, unit, or enable effect. [hypothesis]</td></tr>
+<tr><td><code>0x52</code></td><td>Charge-pump enable timer with timing like port <code>0x51</code></td><td>The public description says only that it has “something to do” with charge-pump timing. [hypothesis]</td></tr>
+</tbody>
+</table>
+</div>
+<p>The complete immediate-port and conservative literal-<code>C</code> scan initially
+reports six candidates for these ports. Raw descriptor decoding accounts for
+four of them. <code>tools/analyze_rom_io.py</code> attaches this classification to each
+report and <code>--exclude-descriptors</code> removes the four structural overlaps:
+[confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Linear candidate</th><th>Actual bytes and role</th></tr>
+</thead>
+<tbody>
+<tr><td><code>00:3EDC</code> — apparent <code>OUT (0x51),A</code></td><td>Inline target <code>37:51D3</code>, page byte <code>0x77</code>, after <code>CALL 2B09h</code>; this is a cross-page call descriptor.</td></tr>
+<tr><td><code>37:46D7</code> — apparent <code>IN A,(0x52)</code></td><td>Low and high bytes <code>DB 52</code> of bcall ID <code>52DB</code>, <code>_ResetGraphSettings</code>.</td></tr>
+<tr><td><code>39:583F</code> — apparent <code>OUT (0x51),A</code></td><td>Low and high bytes <code>D3 51</code> of unnamed bcall ID <code>51D3</code>.</td></tr>
+<tr><td><code>3B:620A</code> — apparent <code>IN A,(0x49)</code></td><td>Low and high bytes <code>DB 49</code> of bcall ID <code>49DB</code>, which resolves to <code>36:7DA9</code>.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The remaining apparent port-<code>0x49</code> instruction at <code>01:4304</code> and
+port-<code>0x51</code> instruction at <code>3B:4F45</code> lie in table-shaped byte regions. Neither
+has a direct page-local control-flow reference, and neither has trace evidence.
+The complete <a href="asic-status-gpio.html#complete-rom-io-candidate-audit">ROM I/O candidate audit</a>
+also finds no containing Ghidra function or xref for either location. They are
+reviewed data decodes rather than I/O evidence. The scan confirms no OS 2.55MP
+transaction for ports <code>0x49</code>, <code>0x51</code>, or <code>0x52</code>.
+The separate raw <code>ED</code>-opcode census covers register and block I/O without
+assuming that <code>C</code> can be propagated through control flow. Its only two aligned
+instructions access RTC ports <code>0x48</code> and <code>0x44</code>, so it adds no hidden USB-port
+transaction. [confirmed]</p>
+<p>TilEm, Wabbitemu, MAME, and jsTIfied omit all three ports from their TI-84 Plus USB
+handlers. Their omission cannot establish physical absence or reset values.
+The read-only <a href="hardware-probes.html#usb-control-snapshot">USB control snapshot</a>
+records these ports together with the adjacent low-USB controls on a physical
+calculator. No exported result has been recorded. [standard] for emulator
+coverage; [confirmed] for the assembled probe; [hypothesis] for pending
+physical values.</p>
+<h2 id="presentation-link-mirroring-setup"><a class="header" href="#presentation-link-mirroring-setup">Presentation-link mirroring setup</a></h2>
+<p>The helper at <code>35:58B2</code> sets <code>IY+0x41</code> bit 0, writes <code>0x01</code> to port
+<code>0x5A</code>, and reads the port back. <code>LD A,0x02</code> immediately replaces the read
+value, so the helper does not branch on or retain it. The remaining writes
+select indexed endpoint 2 and initialize its transmit registers: [confirmed]</p>
+<pre><code class="language-z80">; 35:58B2
+SET 0,(IY+41h)
+LD A,01h
+OUT (5Ah),A
+IN A,(5Ah)       ; discarded by the following LD
+LD A,02h
+OUT (8Eh),A
+LD A,22h
+OUT (98h),A
+LD A,48h
+OUT (91h),A
+LD A,02h
+OUT (90h),A
+XOR A
+OUT (87h),A
+OUT (89h),A
+OUT (8Bh),A
+OUT (5Bh),A
+LD A,10h
+OUT (92h),A
+IN A,(92h)
+NOP
+NOP
+NOP
+RET
+</code></pre>
+<p>The port-<code>0x8E</code> index and port-<code>0x98</code> endpoint-type interpretation follow the
+FDRC-family match below. The exact writes and selected index are [confirmed];
+the imported register names remain [hypothesis].</p>
+<p>A static call scan finds one direct caller at <code>35:4481</code>. It calls this helper,
+then <code>35:3EF1</code>, then <code>35:58DF</code>. The last routine performs 64 iterations over
+LCD ports <code>0x10</code> and <code>0x11</code>: it writes commands, reads 12 data bytes, and
+writes those bytes back. This control flow ties the port-<code>0x5A</code> setup to LCD
+traffic and presentation mode, but the ROM alone does not expose what appears
+on the USB wire. [confirmed]</p>
+<p>WikiTI calls port <code>0x5A</code> the presentation-link mirroring enable. It reports
+that bit 0 mirrors writes to LCD ports <code>0x10</code> and <code>0x11</code> as two-byte packets on
+outgoing bulk endpoint 2, and that the feature works only in host mode. The
+page also labels part of its packet interpretation untested. No cited vendor
+datasheet or physical capture establishes the packet format or host-mode
+restriction, so those details remain [hypothesis].</p>
+<p>TilEm, Wabbitemu, MAME, and jsTIfied do not implement port <code>0x5A</code> or a connected
+endpoint-2 transfer for this calculator. Emulator execution therefore cannot
+validate the mirroring behavior. The port accesses above were regenerated from
+the retail OS 2.55MP bytes with <code>tools/analyze_rom_io.py</code>; the surrounding
+instructions come from the same page through <code>tools/z80_disassembly.py</code>.
+Physical validation requires a presentation-link adapter or a controlled USB
+capture. [standard] for the emulator implementations; [confirmed] for the ROM
+sequence.</p>
+<h2 id="mentor-fdrc-register-family-match-hypothesis"><a class="header" href="#mentor-fdrc-register-family-match-hypothesis">Mentor FDRC register-family match [hypothesis]</a></h2>
+<p>The ROM-visible accesses in the controller region at <code>0x80</code>–<code>0x9B</code> align with the Mentor Graphics
+MUSBFDRC register file. A Mentor-authored 2004 <code>mu_fdrdf.h</code> header assigns offsets <code>0x00</code>–<code>0x1F</code>
+in the same order and places the non-AHB FIFO window at offset <code>0x20</code>. The preserved header labels
+itself proprietary; it is primary-origin source code in a third-party SDK tree, not a publicly
+released TI ASIC specification. The independent VSF FDRC implementation reproduces the compact
+ordering. Adding the candidate TI base port <code>0x80</code> produces the map below. [standard] for the two
+external layouts; [hypothesis] for applying that identity to the TI ASIC.</p>
+<p>The ROM does not contain a silicon identifier. Board-level identification remains open, so the
+family identification remains [hypothesis].</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>TI ports</th><th>FDRC names</th><th>ROM cross-check</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x80</code></td><td><code>FADDR</code></td><td>The control-transfer path defers a device-address write until the status stage at <code>35:4630</code>. [confirmed]</td></tr>
+<tr><td><code>0x81</code></td><td><code>POWER</code></td><td>Initialization polls bit 6 and later writes or modifies bits 0–3. The FDRC masks call these <code>VBUSVAL</code>, <code>ENSUSPEND</code>, <code>SUSPENDM</code>, <code>RESUME</code>, and <code>RESET</code>. [confirmed] for the operations; [hypothesis] for the imported bit names</td></tr>
+<tr><td><code>0x82</code>–<code>0x85</code></td><td><code>INTRTX1/2</code>, <code>INTRRX1/2</code></td><td>The protocol handler reads transmit and receive endpoint-event bytes at <code>35:4D03</code> and <code>35:4D57</code>. [confirmed]</td></tr>
+<tr><td><code>0x86</code></td><td><code>INTRUSB</code></td><td>Host setup waits for bit 4; the peripheral handler branches on bit 2 at <code>35:40A2</code> and <code>35:4CFE</code>. Those masks match FDRC <code>CONNECT</code> and <code>RESET</code>. [confirmed] for the branches; [hypothesis] for the event names</td></tr>
+<tr><td><code>0x87</code>–<code>0x8A</code></td><td><code>INTRTX1E/2E</code>, <code>INTRRX1E/2E</code></td><td>Setup enables transmit events with <code>0xFF</code> at <code>35:407B</code> and receive endpoint events with <code>0x0E</code> at <code>35:4084</code>. [confirmed]</td></tr>
+<tr><td><code>0x8B</code></td><td><code>INTRUSBE</code></td><td>The ROM uses masks including <code>0x05</code>, <code>0x21</code>, <code>0xA1</code>, and <code>0xF7</code>. FDRC defines the bits as suspend, resume, reset/babble, SOF, connect, disconnect, session request, and VBUS error. [confirmed] for the masks; [hypothesis] for the imported names</td></tr>
+<tr><td><code>0x8C</code>–<code>0x8D</code></td><td><code>FRAME1/2</code></td><td>Initialization waits for the low frame byte to become nonzero at <code>35:411B</code> and <code>35:418D</code>. [confirmed]</td></tr>
+<tr><td><code>0x8E</code></td><td><code>INDEX</code></td><td>Endpoint setup and transfer routines select a pipe before using the shared endpoint registers. [confirmed]</td></tr>
+<tr><td><code>0x8F</code></td><td><code>DEVCTL</code></td><td>The ROM tests bit 7 for B-device state and bit 2 for host mode, then writes bit 0 to start a session. These are the FDRC <code>BDEVICE</code>, <code>HM</code>, and <code>SESSION</code> masks. [confirmed] for the operations; [hypothesis] for the imported names</td></tr>
+<tr><td><code>0x90</code>–<code>0x92</code></td><td><code>TXMAXP</code>, <code>CSR0</code>/<code>TXCSR1</code>, <code>CSR02</code>/<code>TXCSR2</code></td><td>Endpoint 0 uses <code>CSR0</code>; nonzero indexed endpoints use the transmit CSR pair. The ROM writes bit 1 to launch endpoint-0 packets and bit 0 to launch nonzero-endpoint packets. [confirmed]</td></tr>
+<tr><td><code>0x93</code>–<code>0x97</code></td><td><code>RXMAXP</code>, <code>RXCSR1/2</code>, <code>COUNT0</code>/<code>RXCOUNT1/2</code></td><td>Receive paths select an endpoint, test <code>RXCSR1</code> bit 0, read the count, drain the matching FIFO, and clear the ready condition. [confirmed]</td></tr>
+<tr><td><code>0x98</code>–<code>0x9B</code></td><td><code>TXTYPE</code>, <code>TXINTERVAL</code>/<code>NAKLIMIT0</code>, <code>RXTYPE</code>, <code>RXINTERVAL</code></td><td>Host setup writes endpoint type/address and interval values before starting transfers. [confirmed]</td></tr>
+<tr><td><code>0x9C</code>–<code>0x9F</code></td><td><code>TXFIFO1/2</code>, <code>RXFIFO1/2</code>; <code>FIFOSIZE</code>/<code>CONFIGDATA</code> aliases at <code>0x9F</code></td><td>These offsets complete the Mentor FDRC register file. A static page-<code>2F</code>/<code>35</code> scan found no resolved immediate or literal-<code>C</code> access, so the TI use of these registers remains [hypothesis].</td></tr>
+<tr><td><code>0xA0</code>–<code>0xAF</code></td><td>endpoint FIFOs 0–15</td><td>Mentor’s non-AHB macro maps endpoint $n$ to offset <code>0x20 + n</code>. The ROM confirms FIFO 0 at <code>0xA0</code>, FIFO 1 at <code>0xA1</code>, and FIFO 2 at <code>0xA2</code>; higher endpoints remain [hypothesis].</td></tr>
+</tbody>
+</table>
+</div>
+<p>The FDRC ordering matters because the common HDRC/MUSB byte layout in Linux’s Mentor/TI-copyrighted
+driver header places several interrupt registers at different offsets. These offsets distinguish
+the candidates:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>TI port</th><th>Relative offset</th><th>FDRC candidate</th><th>Common HDRC candidate</th><th>ROM cross-check</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x86</code></td><td><code>0x06</code></td><td><code>INTRUSB</code></td><td>low byte of <code>INTRTXE</code></td><td>The ROM waits on bit 4 and branches on bit 2. FDRC names these global connect and reset/babble events. [confirmed] for the operations; [hypothesis] for the names</td></tr>
+<tr><td><code>0x87</code></td><td><code>0x07</code></td><td><code>INTRTX1E</code></td><td>high byte of <code>INTRTXE</code></td><td>Setup writes <code>0xFF</code>. Both candidates make this byte an enable register, although they assign it to different endpoint ranges. This access alone does not distinguish the layouts. [confirmed]</td></tr>
+<tr><td><code>0x89</code></td><td><code>0x09</code></td><td><code>INTRRX1E</code></td><td>high byte of <code>INTRRXE</code></td><td>Setup writes <code>0x0E</code>, matching receive endpoints 1–3 in the FDRC low-byte register. [confirmed] for the value; [hypothesis] for the imported endpoint names</td></tr>
+<tr><td><code>0x8B</code></td><td><code>0x0B</code></td><td><code>INTRUSBE</code></td><td><code>INTRUSBE</code></td><td>Both layouts agree at this offset; the write masks do not distinguish them. [confirmed]</td></tr>
+<tr><td><code>0x8F</code></td><td><code>0x0F</code></td><td><code>DEVCTL</code></td><td><code>TESTMODE</code></td><td>The ROM tests bits 7 and 2 and sets bit 0. FDRC names them B-device, host mode, and session. [confirmed] for the operations; [hypothesis] for the names</td></tr>
+</tbody>
+</table>
+</div>
+<p>The combination at <code>0x86</code>, <code>0x89</code>, and <code>0x8F</code> favors the compact FDRC ordering over the common
+HDRC map. It does not identify the surrounding TI ASIC or its PHY. Linky commit <code>89586b0</code>
+independently calls this block MUSBFDRC and performs the same initialization sequence. Linky is
+calculator software evidence, not a vendor specification. [hypothesis]</p>
 <h2 id="sending-one-byte-through-the-assist-fifo-confirmed"><a class="header" href="#sending-one-byte-through-the-assist-fifo-confirmed">Sending one byte through the assist FIFO [confirmed]</a></h2>
 <p>The hardware send entry is <code>lnk_send_byte_hw</code> at <code>3C:6BB2</code> (the preceding byte at <code>3C:6BB1</code> is a
 <code>RET</code> from the prior helper). It is the assist branch behind <code>_SendAByte</code> (<code>3C:420D</code>).</p>
@@ -249,54 +421,62 @@ the outer counter at <code>0x9CAC</code> expires, then fall into the link error 
 </ol>
 <p>The ROM disassembles to:</p>
 <pre><code class="language-z80">; 3C:6BB2, assist send path
-6BB2: call 6D4Fh        ; clear/prepare assist I/O latch
-6BB5: call 6BD2h        ; seed 9CAC from CPU speed
-6BB8: call 6BD2h
+6BB2: CALL 6D4Fh        ; clear/prepare assist I/O latch
+6BB5: CALL 6BD2h        ; seed 9CAC from CPU speed
+6BB8: CALL 6BD2h
 
-6BBB: ld   a,0FAh
-6BBD: ld   (9C86h),a    ; inner retry reload
-6BC0: in   a,(09h)
-6BC2: bit  5,a
-6BC4: jr   z,6BCAh      ; TX not ready
-6BC6: ld   a,c
-6BC7: out  (0Dh),a      ; write byte to assist FIFO
-6BC9: ret
+6BBB: LD   A,0FAh
+6BBD: LD   (9C86h),A    ; inner retry reload
+6BC0: IN   A,(09h)
+6BC2: BIT  5,A
+6BC4: JR   Z,6BCAh      ; TX not ready
+6BC6: LD   A,C
+6BC7: OUT  (0Dh),A      ; write byte to assist FIFO
+6BC9: RET
 
-6BCA: call 6BE4h        ; decrement 9CAC, Z means keep polling
-6BCD: jr   z,6BBBh
-6BCF: jp   4434h        ; link timeout/error path
+6BCA: CALL 6BE4h        ; decrement 9CAC, Z means keep polling
+6BCD: JR   Z,6BBBh
+6BCF: JP   4434h        ; link timeout/error path
 </code></pre>
 <p><code>lnk_set_timeout</code> (<code>3C:6BD2</code>) seeds <code>0x9CAC</code> from CPU speed. When port <code>0x20</code> bit 0 is clear it uses
 <code>0x6800</code>; when the bit is set it leaves the larger <code>0xFFFF</code> seed. The ROM confirms the two reload
 values, while the wall-clock timeout they target is not measured here. [confirmed]</p>
 <h2 id="receiving-and-status-handling-confirmed"><a class="header" href="#receiving-and-status-handling-confirmed">Receiving and status handling [confirmed]</a></h2>
 <p>The receive path is split between <code>_RecAByteIO</code> (<code>3C:443F</code>), <code>lnk_rec_status</code> (<code>3C:444A</code>), and the
-assist helpers around <code>3C:6BF4</code>-<code>6D40</code>.</p>
+assist helpers around <code>3C:6BF4</code>–<code>6D40</code>.</p>
 <p>The hardware-facing receive loop waits until port <code>0x09 &amp; 0x58</code> becomes nonzero. In the confirmed
 path:</p>
 <ul>
 <li><code>0x40</code> (bit 6) is treated as a transmission/error condition.</li>
 <li><code>0x10</code> (bit 4) is the “byte received” condition.</li>
 <li><code>0x08</code> is an assist read-busy/activity bit: it wakes the wait loop, but the byte is not accepted
-until bit 4 or an error/status bit is also present. Tilem names the corresponding state
+until bit 4 or an error/status bit is also present. TilEm names the corresponding state
 <code>TILEM_LINK_ASSIST_READ_BUSY</code>.</li>
 <li>When the receive condition is accepted, the byte is read from port <code>0x0A</code> into <code>C</code>.</li>
 <li>The status masks <code>0x19</code> and <code>0x99</code> select error/activity cases before the code resets or re-arms
 the assist latch through port <code>0x08</code>.</li>
 </ul>
-<p><code>lnk_rec_status</code> also uses the sentinel byte <code>0xE0</code>: callers pass it for a nonblocking/probe style
-receive check. If the caller requires a byte and the status path reports anything else, the code
-raises <code>E_LnkErr</code> through <code>_JError(0x9F)</code>. [confirmed]</p>
+<p>The assist receiver returns a normal byte in <code>C</code> with <code>A=0</code>; the port-<code>0x09</code>
+bit-6 path returns <code>A=1</code>. <code>lnk_rec_status</code> compares the returned <code>C</code> with
+<code>0xE0</code>, and raises <code>E_LnkErr</code> when <code>A=1</code> and <code>C != 0xE0</code>. <code>_RecAByteIO</code>
+preserves no caller-supplied <code>A</code>. The exceptional <code>0xE0</code> is the TI-Keyboard
+prefix, not an assist-register sentinel: <code>_KeyboardGetKey = 50E9</code>, body
+<code>3C:6D5E</code>, expects it before a deliberate DBUS error delimiter, command <code>0x01</code>,
+and a final data byte. The ROM-confirmed decoder and the independently sourced
+peripheral description are separated in
+<a href="link-port-hardware.html#the-ti-keyboard-error-delimiter">Two-wire link port hardware</a>.
+[confirmed] for the receive path and decoder; [standard] for the reported
+physical-keyboard transmitter sequence.</p>
 <p>The assist reset/enable sequence at <code>3C:6C3B</code> writes:</p>
-<pre><code class="language-z80">out (0x00),0x00
-out (0x09),0x97
-out (0x0A),0xB4
-out (0x0B),0xB4
-out (0x0C),0xB4
-out (0x08),0x80
-out (0x08),0x00
-in  a,(0x09)
-set 0,(IY+0x3E)
+<pre><code class="language-z80">OUT (0x00),0x00
+OUT (0x09),0x97
+OUT (0x0A),0xB4
+OUT (0x0B),0xB4
+OUT (0x0C),0xB4
+OUT (0x08),0x80
+OUT (0x08),0x00
+IN  A,(0x09)
+SET 0,(IY+0x3E)
 </code></pre>
 <p>The sequence proves the ports touched and the RAM flag used by the OS. WikiTI names these writes as
 link-assist signaling-rate setup values for CPU speed modes 0-3: ports <code>0x09</code>, <code>0x0A</code>, <code>0x0B</code>, and
@@ -309,30 +489,29 @@ the inter-bit wait. Under that decoding, the ROM constants are:</p>
 <tr><th>Port</th><th>CPU speed mode</th><th>Value</th><th>Divisor field</th><th>Wait field</th></tr>
 </thead>
 <tbody>
-<tr><td><code>0x09</code></td><td>0, 6 MHz</td><td><code>0x97</code> (<code>10010111b</code>)</td><td><code>100b</code> -&gt; divide by 16</td><td><code>0x17</code></td></tr>
-<tr><td><code>0x0A</code></td><td>1</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> -&gt; divide by 32</td><td><code>0x14</code></td></tr>
-<tr><td><code>0x0B</code></td><td>2, 15 MHz duplicate 1</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> -&gt; divide by 32</td><td><code>0x14</code></td></tr>
-<tr><td><code>0x0C</code></td><td>3, 15 MHz duplicate 2</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> -&gt; divide by 32</td><td><code>0x14</code></td></tr>
+<tr><td><code>0x09</code></td><td>0, 6 MHz</td><td><code>0x97</code> (<code>10010111b</code>)</td><td><code>100b</code> → divide by 16</td><td><code>0x17</code></td></tr>
+<tr><td><code>0x0A</code></td><td>1</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> → divide by 32</td><td><code>0x14</code></td></tr>
+<tr><td><code>0x0B</code></td><td>2, 15 MHz duplicate 1</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> → divide by 32</td><td><code>0x14</code></td></tr>
+<tr><td><code>0x0C</code></td><td>3, 15 MHz duplicate 2</td><td><code>0xB4</code> (<code>10110100b</code>)</td><td><code>101b</code> → divide by 32</td><td><code>0x14</code></td></tr>
 </tbody>
 </table>
 </div>
 <p>Direct ROM scans found the page-3C byte-transfer path writing those constants during setup, then
-using the read side of <code>0x09</code> for status and <code>0x0A</code> for received bytes. Tilem agrees on the runtime
-status/data behavior and stores ports <code>0x09</code>-<code>0x0C</code>, but its <code>x4</code>/<code>xn</code>/<code>xs</code>/<code>xz</code> models label the
-write-side settings as unknown or timeout-like and do not derive link timing from <code>0x97</code>/<code>0xB4</code>.
-[ROM-confirmed writes; WikiTI field names; Tilem storage-only]</p>
-<h2 id="usb-selection-in-_linkxferop-confirmed"><a class="header" href="#usb-selection-in-_linkxferop-confirmed">USB selection in <code>_LinkXferOP</code> [confirmed]</a></h2>
-<p><code>_LinkXferOP</code> (<code>3C:4DD2</code>, bcall ID <code>0x50FB</code>) is the OS entry that sends a silent link request and
+using the read side of <code>0x09</code> for status and <code>0x0A</code> for received bytes. TilEm agrees on the runtime
+status/data behavior and stores ports <code>0x09</code>–<code>0x0C</code>, but its <code>x4</code>/<code>xn</code>/<code>xs</code>/<code>xz</code> models label the
+write-side settings as unknown or timeout-like and do not derive link timing from <code>0x97</code>/<code>0xB4</code>. [confirmed]</p>
+<h2 id="usb-selection-in-link_xfer_op-confirmed"><a class="header" href="#usb-selection-in-link_xfer_op-confirmed">USB selection in <code>link_xfer_op</code> [confirmed]</a></h2>
+<p><code>link_xfer_op</code> (<code>3C:4DD2</code>, bcall ID <code>0x50FB</code>) is the OS entry that sends a silent link request and
 prefers the USB path when its mode flags ask for it. <code>ti83plus.inc</code> names bcall <code>0x50FB</code>
 <code>_GetVarCmdUSB</code>, the USB variant of <code>_GetVarCmd</code> (<code>0x4A11</code>) / <code>_SendVarCmd</code> (<code>0x4A14</code>); that public
-name matches the USB-first variable-command behavior decoded here, while <code>_LinkXferOP</code> is the
+name matches the USB-first variable-command behavior decoded here, while <code>link_xfer_op</code> is the
 inferred name for the page-3C body. The ROM-confirmed setup is:</p>
 <ul>
 <li><code>OP1</code> holds the variable type/name.</li>
 <li><code>sndRecState</code> (<code>0x8672</code>) is <code>0x15</code> for DATA-style receive.</li>
 <li><code>IY+0x1B</code> bit 0 selects USB-first behavior; reset means use the link port path.</li>
 </ul>
-<p>The OS confirms that contract in the <code>4E35</code>-<code>4E73</code> gate:</p>
+<p>The OS confirms that contract in the <code>4E35</code>–<code>4E73</code> gate:</p>
 <ol>
 <li>If <code>IY+0x1B</code> bit 0 is clear, it skips USB probing and sends through the ordinary link path.</li>
 <li>If bit 0 is set and either <code>IY+0x1B</code> bit 5 or bit 6 asks for USB handling, it reads port <code>0x4D</code>.</li>
@@ -342,20 +521,20 @@ and calls the page-0 bjump at <code>ram:2E0B</code>.</li>
 normal page mask. That routine calls the public <code>_InitUSBDevice</code> body at <code>35:42B0</code>, then accepts
 only TI vendor <code>0x0451</code> with product IDs <code>0xE003</code>, <code>0xE008</code>, or <code>0xE00F</code>; success returns carry
 clear, while mismatch or init failure returns carry set.</li>
-<li>On carry set, <code>_LinkXferOP</code> clears <code>IY+0x1B</code> bit 5 and continues into <code>lnk_send_data_867d</code>
+<li>On carry set, <code>link_xfer_op</code> clears <code>IY+0x1B</code> bit 5 and continues into <code>lnk_send_data_867d</code>
 (<code>3C:4055</code>), which
 sends the same TI link request/VAR/DATA packets described in the link-transfer page.</li>
 <li>On carry clear, the USB path remains selected and the OS calls the bjump reached through
 <code>ram:3FC3</code> with <code>A=0x0A</code>.</li>
 </ol>
-<p>This makes <code>_LinkXferOP</code> a USB-first wrapper around the existing link transfer engine. It does not
+<p>This makes <code>link_xfer_op</code> a USB-first wrapper around the existing link transfer engine. It does not
 replace the packet format. The transport choice happens before <code>_SendAByte</code> writes each byte through
 the assist FIFO or falls back to port <code>0x00</code>. [confirmed]</p>
 <h2 id="interrupt-integration-confirmed"><a class="header" href="#interrupt-integration-confirmed">Interrupt integration [confirmed]</a></h2>
-<p>The IM1 dispatcher (<code>ram:006F</code>) treats the USB interrupt status as its first source gate:</p>
-<pre><code class="language-z80">in a,(0x55)
-xor 0xFF
-and 0x1F
+<p>The IM1 dispatcher (<code>ram:006F</code>) tests the USB interrupt status before the separate legacy controller:</p>
+<pre><code class="language-z80">IN A,(0x55)
+XOR 0xFF
+AND 0x1F
 </code></pre>
 <p>If no low-five-bit USB source is active, the handler falls through to the other interrupt work. If a
 USB source is active, it reads port <code>0x56</code> and branches on event bits. In the visible dispatcher,
@@ -368,25 +547,33 @@ bjumps resolve as:</p>
 <tr><th><code>port 0x56</code> bit</th><th>Page-0 dispatch</th><th>Page-35 target</th><th>Observed role</th></tr>
 </thead>
 <tbody>
-<tr><td>4</td><td><code>00:0122</code> -&gt; <code>ram:3FA5</code></td><td><code>35:4B6A</code></td><td>line/event settle path; waits on <code>0x4D</code> bits 7 and 0, writes <code>0x57 = 0x22</code>.</td></tr>
-<tr><td>5</td><td><code>00:0127</code> -&gt; <code>ram:3FAB</code></td><td><code>35:4B9F</code></td><td>event clear/re-arm path; may clear <code>0x4C</code>, reset <code>USBFlag2</code> bit 6, and write <code>0x57 = 0x50/0x93</code>.</td></tr>
-<tr><td>6</td><td><code>00:0113</code> -&gt; <code>ram:3F93</code></td><td><code>35:40B2</code></td><td>USB setup path; sets <code>IY+0x1B</code> bit 5, initializes controller state, and waits for <code>0x4C = 0x1A/0x5A</code>.</td></tr>
-<tr><td>7</td><td><code>00:0118</code> -&gt; <code>ram:3F99</code></td><td><code>35:4C14</code></td><td>cleanup/reset path; clears <code>0x5B</code>, resets <code>USBFlag2</code> bit 0, and jumps through the common controller reset.</td></tr>
-<tr><td>1</td><td><code>00:011D</code> -&gt; <code>ram:3F9F</code></td><td><code>35:4031</code></td><td>alternate setup path; waits for <code>0x4C = 0x12/0x52</code> and uses endpoint/status ports <code>0x87</code>/<code>0x89</code>/<code>0x8B</code>.</td></tr>
+<tr><td>4</td><td><code>00:0122</code> → <code>ram:3FA5</code></td><td><code>35:4B6A</code></td><td>line/event settle path; waits on <code>0x4D</code> bits 7 and 0, writes <code>0x57 = 0x22</code>.</td></tr>
+<tr><td>5</td><td><code>00:0127</code> → <code>ram:3FAB</code></td><td><code>35:4B9F</code></td><td>event clear/re-arm path; may clear <code>0x4C</code>, reset <code>USBFlag2</code> bit 6, and write <code>0x57 = 0x50/0x93</code>.</td></tr>
+<tr><td>6</td><td><code>00:0113</code> → <code>ram:3F93</code></td><td><code>35:40B2</code></td><td>USB setup path; sets <code>IY+0x1B</code> bit 5, initializes controller state, and waits for <code>0x4C = 0x1A/0x5A</code>.</td></tr>
+<tr><td>7</td><td><code>00:0118</code> → <code>ram:3F99</code></td><td><code>35:4C14</code></td><td>cleanup/reset path; clears <code>0x5B</code>, resets <code>USBFlag2</code> bit 0, and jumps through the common controller reset.</td></tr>
+<tr><td>1</td><td><code>00:011D</code> → <code>ram:3F9F</code></td><td><code>35:4031</code></td><td>alternate setup path; waits for <code>0x4C = 0x12/0x52</code> and uses endpoint/status ports <code>0x87</code>/<code>0x89</code>/<code>0x8B</code>.</td></tr>
 </tbody>
 </table>
 </div>
-<p>[confirmed]</p>
+<p>Both paths are [confirmed].</p>
 <p>The timer/idle side of the same handler also bridges to the assist path. At <code>ram:01B1</code> it calls
-<code>ram:1837</code> (<code>IN A,(0x2); AND 0x80; XOR 0x80</code>), the same hardware-model gate used elsewhere before assist-port access. On the legacy path it checks <code>port 0x00 &amp; 0x03</code>; on the assist
+<code>ram:1837</code>:</p>
+<pre><code class="language-z80">IN A,(0x2)
+AND 0x80
+XOR 0x80
+</code></pre>
+<p>This is the same hardware-model gate used elsewhere before assist-port access. On the legacy path it checks <code>port 0x00 &amp; 0x03</code>; on the assist
 path it checks <code>port 0x09 &amp; 0x18</code>. If either assist bit is set, it reloads <code>0x9C86 = 0xFA</code>, pulses
 port <code>0x08</code> with <code>0x80</code> then <code>0x00</code>, sets <code>IY+0x3E</code> bit 0, and calls the common link activity hook
-at <code>ram:3FD5</code>. [confirmed: <code>00:01B1</code>-<code>01DB</code>]</p>
+at <code>ram:3FD5</code>. [confirmed]</p>
+<p>The raw-line encoding, the corresponding port-<code>0x00</code> receiver, and the distinction between this periodic check and a direct line interrupt are detailed in <a href="link-port-hardware.html#background-link-detection-and-interrupts">Two-wire link port hardware</a>.</p>
 <p>For application code, this means a custom interrupt handler that does not chain to the OS handler
 must account for port <code>0x55</code>/<code>0x56</code> activity itself and then either reproduce the relevant page-35
 event handling or deliberately leave USB disabled. The OS still acknowledges the legacy interrupt
 mask through port <code>0x03</code> on exit, but the USB event work is selected by <code>0x55</code>/<code>0x56</code> and page-35
-controller ports, not by a writeable <code>0x56</code> mask. [confirmed]</p>
+controller ports, not by a writeable <code>0x56</code> mask. Port <code>0x55</code> is not a summary of ON, standard-timer,
+or legacy link requests. See <a href="interrupts.html#usb-gate-and-legacy-controller">Interrupts (IM1)</a> for the
+two-stage dispatch and legacy acknowledgement. [confirmed]</p>
 <h2 id="public-usb-api-bodies-confirmed"><a class="header" href="#public-usb-api-bodies-confirmed">Public USB API bodies [confirmed]</a></h2>
 <p>The public USB names in <code>ti83plus.inc</code> are backed by the main page-3B bcall table for the <code>0x50xx</code>,
 <code>0x52xx</code>, and <code>0x53xx</code> IDs. The table entries are <code>addr_lo, addr_hi, page</code>; page bytes like <code>0x75</code>
@@ -400,20 +587,301 @@ mask to physical page <code>0x35</code>.</p>
 <tr><td><code>50F2</code></td><td><code>_SendUSBData</code></td><td><code>35:4DD3</code></td><td>Sends from <code>HL</code> with byte count in <code>DE</code>; stores progress at <code>0x9C7E</code>/<code>0x9C81</code> and writes 64-byte chunks to port <code>0xA2</code>.</td></tr>
 <tr><td><code>50F5</code></td><td><code>_AppGetCBLUSB</code></td><td><code>3B:54C7</code></td><td>Sets <code>IY+0x1B</code> bit 1, clears bit 2, then reaches <code>_GetVarCmdUSB</code>.</td></tr>
 <tr><td><code>50F8</code></td><td><code>_AppGetCalcUSB</code></td><td><code>3B:54F0</code></td><td>At <code>3B:54DE</code> clears <code>IY+0x16</code> bit 0 and sets <code>sndRecState</code>=0x15, then <code>bcall 0x50FB</code> (shared get-var path).</td></tr>
-<tr><td><code>50FB</code></td><td><code>_GetVarCmdUSB</code> / <code>_LinkXferOP</code></td><td><code>3C:4DD2</code></td><td>USB-first variable command wrapper described above.</td></tr>
-<tr><td><code>5254</code></td><td><code>_InitUSBDeviceCallback</code></td><td><code>35:4696</code></td><td>Initializes device mode, stores callback page/address at <code>0x9C13</code>/<code>0x9C14</code>, and returns <code>0xFC</code>-<code>0xFF</code> style error bytes with carry set on failure.</td></tr>
+<tr><td><code>50FB</code></td><td><code>_GetVarCmdUSB</code> / <code>link_xfer_op</code></td><td><code>3C:4DD2</code></td><td>USB-first variable command wrapper described above.</td></tr>
+<tr><td><code>5254</code></td><td><code>_InitUSBDeviceCallback</code></td><td><code>35:4696</code></td><td>Initializes device mode, stores callback page/address at <code>0x9C13</code>/<code>0x9C14</code>, and returns <code>0xFC</code>–<code>0xFF</code> style error bytes with carry set on failure.</td></tr>
 <tr><td><code>5257</code> / <code>5311</code></td><td><code>_KillUSBDevice</code> / <code>_RecycleUSB</code></td><td><code>35:46FC</code> / <code>35:5B9B</code></td><td>Clears callback state and recycles through the same cleanup path.</td></tr>
 <tr><td><code>525A</code></td><td><code>_SetUSBConfiguration</code></td><td><code>35:470B</code></td><td>Builds an 8-byte request block at <code>0x9C29</code> and writes it through port <code>0xA0</code>.</td></tr>
 <tr><td><code>525D</code> / <code>5260</code></td><td><code>_RequestUSBData</code> / <code>_StopReceivingUSBData</code></td><td><code>35:48BA</code> / <code>35:48D1</code></td><td>Stores or clears the receive-buffer descriptor at <code>0x9C1E</code>; receive records are read from port <code>0xA1</code>.</td></tr>
 <tr><td><code>528A</code> / <code>528D</code></td><td><code>_EnableUSBHook</code> / <code>_DisableUSBHook</code></td><td><code>3B:7DC6</code> / <code>3B:7DD1</code></td><td>Stores <code>USBActivityHookPtr</code>/page at <code>0x9BD4</code>/<code>0x9BD6</code> and toggles <code>(IY+0x3A)</code> bit 0.</td></tr>
-<tr><td><code>5290</code></td><td><code>_InitUSBDevice</code></td><td><code>35:42B0</code></td><td>Main controller/device initialization path; uses <code>0x4C</code>/<code>0x4D</code> line handshakes and endpoint ports <code>0x80</code>-<code>0x9B</code>.</td></tr>
+<tr><td><code>5290</code></td><td><code>_InitUSBDevice</code></td><td><code>35:42B0</code></td><td>Main controller/device initialization path; uses <code>0x4C</code>/<code>0x4D</code> line handshakes and endpoint ports <code>0x80</code>–<code>0x9B</code>.</td></tr>
 <tr><td><code>5293</code></td><td><code>_KillUSBPeripheral</code></td><td><code>35:59CF</code></td><td>Peripheral teardown; sets controller state <code>0x9C28 = 5</code> and manipulates ports <code>0x54</code>/<code>0x81</code>.</td></tr>
 <tr><td><code>530B</code></td><td><code>_ToggleUSBSmartPadInput</code></td><td><code>35:5B84</code></td><td>Sets or clears bit 3 in <code>0x9C75</code> according to <code>A == 1</code>.</td></tr>
 <tr><td><code>530E</code></td><td><code>_IsUSBDeviceConnected</code></td><td><code>35:5B92</code></td><td>Preserves <code>A</code>; returns flags from <code>IN (0x81) &amp; 0x40</code> (bit 6). (The <code>.inc</code> comment guesses <code>bit 4,(81h)</code>, but the body actually masks bit 6.)</td></tr>
 </tbody>
 </table>
 </div>
-<h2 id="how-to-use-it-in-code-grounded-by-os-calls"><a class="header" href="#how-to-use-it-in-code-grounded-by-os-calls">How to use it in code [grounded by OS calls]</a></h2>
+<h2 id="boot-page-os-receive-api"><a class="header" href="#boot-page-os-receive-api">Boot-page OS receive API</a></h2>
+<p>The retail boot table on page <code>3F</code> also exposes a USB stack whose bodies run on page <code>2F</code>. This stack receives an operating-system image. It is separate from the page-35 application-facing API above. The table bytes and entry prologues can be reproduced with <code>tools/inspect_bcall.py</code>. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Bcall</th><th style="text-align: right">ID</th><th>Table bytes</th><th>Body</th><th>Observed role</th></tr>
+</thead>
+<tbody>
+<tr><td><code>_AttemptUSBOSReceive</code></td><td style="text-align: right"><code>80E4</code></td><td><code>45 41 2F</code></td><td><code>2F:4145</code></td><td>Wait for or dispatch a USB line event, initialize the controller, then enter the OS-receive pipeline. [confirmed]</td></tr>
+<tr><td><code>_ReceiveOS_USB</code></td><td style="text-align: right"><code>80F6</code></td><td><code>CA 48 2F</code></td><td><code>2F:48CA</code></td><td>Negotiate transfer records and write the received OS image through the Flash-control path. [confirmed]</td></tr>
+<tr><td><code>_USBErrorCleanup</code></td><td style="text-align: right"><code>8105</code></td><td><code>58 59 2F</code></td><td><code>2F:5958</code></td><td>Clear port <code>0x5B</code>, restore controller line state, and re-arm according to port <code>0x4D</code>. [confirmed]</td></tr>
+<tr><td><code>_InitUSB</code></td><td style="text-align: right"><code>8108</code></td><td><code>A4 52 2F</code></td><td><code>2F:52A4</code></td><td>Initialize peripheral mode and return carry set after timeout cleanup. [confirmed]</td></tr>
+<tr><td>unnamed entry</td><td style="text-align: right"><code>810B</code></td><td><code>C5 62 2F</code></td><td><code>2F:62C5</code></td><td>Set port <code>0x81</code> mask <code>0x01</code>, then wait through the timer-3 delay helper. [confirmed]</td></tr>
+<tr><td><code>_KillUSB</code></td><td style="text-align: right"><code>810E</code></td><td><code>61 59 2F</code></td><td><code>2F:5961</code></td><td>Run the error-cleanup sequence with an additional <code>OUT (0x4C),0</code>. [confirmed]</td></tr>
+</tbody>
+</table>
+</div>
+<p>Inspect a named entry and the unnamed slot directly:</p>
+<pre><code class="language-sh">nix develop -c python tools/inspect_bcall.py 0x8108 --bytes 24
+nix develop -c python tools/inspect_bcall.py 0x810B --bytes 24
+</code></pre>
+<h3 id="_attemptusbosreceive-input-and-dispatch"><a class="header" href="#_attemptusbosreceive-input-and-dispatch"><code>_AttemptUSBOSReceive</code> input and dispatch</a></h3>
+<p>The first instruction at <code>2F:4145</code> is <code>JR NZ,2F:414A</code>. The input Z flag therefore controls whether the routine waits for a new event. With Z set, <code>usb_wait_line_event</code> at <code>2F:514C</code> checks the cancel/timeout helper, then samples port <code>0x4D</code> bit 6. If that bit is clear, it returns <code>port 0x56 &amp; 0xF2</code> instead. With Z clear, dispatch begins with the caller’s <code>A</code> unchanged. [confirmed]</p>
+<p>The dispatcher tests event bits in this order: 5, 4, 6, then 7. Bits 5 or 4 call the line-state cleanup helper and resume waiting. Bit 6 calls <code>_InitUSB</code>. Bit 7 jumps to the common error exit at <code>2F:4FFD</code>. When none of those bits is set, the routine reads port <code>0x4D</code>; bit 5 selects <code>_InitUSB</code>, while the other branch calls the controller setup path at <code>2F:5220</code>. Both successful branches continue at <code>2F:4170</code> into the receive protocol. [confirmed]</p>
+<p>The <code>ti83plus.inc</code> comment says Z means “wait” and NZ means “dispatch the supplied port value.” The entry bytes verify that contract and establish the bit priority. [confirmed]</p>
+<h3 id="_initusb-transaction-and-return"><a class="header" href="#_initusb-transaction-and-return"><code>_InitUSB</code> transaction and return</a></h3>
+<p><code>_InitUSB</code> sets <code>IY+0x1B</code> bit 5 and writes controller state 2 to <code>0x9C28</code>. It then performs this prefix: [confirmed]</p>
+<pre><code class="language-z80">; 2F:52AD
+LD A,80h
+OUT (57h),A
+XOR A
+OUT (4Ch),A
+IN A,(4Ch)
+LD A,02h
+OUT (54h),A
+LD A,20h
+OUT (4Ah),A
+CALL 59C3h
+LD A,08h
+OUT (4Ch),A
+</code></pre>
+<p>The reset helper at <code>2F:59C3</code> drives port <code>0x4B</code>, pulses port <code>0x54</code>, and uses programmable timer 3 through ports <code>0x36</code>–<code>0x38</code> for a delay. <code>_InitUSB</code> then waits for port <code>0x4C</code> to equal <code>0x1A</code> or <code>0x5A</code>. Each poll decrements a 16-bit <code>DE</code> timeout through <code>2F:5313</code>. [confirmed]</p>
+<p>After the handshake, the routine writes <code>0xFF</code> to port <code>0x87</code>, zero to <code>0x92</code>, reads <code>0x87</code>, writes <code>0x0E</code> to <code>0x89</code>, clears <code>0x9C26</code> and <code>0x9C27</code>, and writes <code>0x21</code> to <code>0x8B</code>. The tail at <code>2F:52F6</code> gives port <code>0x8C</code> five timeout windows to become nonzero. Success clears carry with:</p>
+<pre><code class="language-z80">OR A
+RET
+</code></pre>
+<p>Failure calls <code>_USBErrorCleanup</code> through <code>2F:5B87</code>, sets carry, and returns. [confirmed]</p>
+<p>The unnamed bcall <code>810B</code> reads port <code>0x81</code>, ORs mask <code>0x01</code>, writes the result back, and jumps to the timer-3 delay at <code>2F:5A06</code>. The <code>ti83plus.inc</code> comment calls this bit 1, while mask <code>0x01</code> sets bit 0. No controller-state poll occurs in this entry itself. [confirmed]</p>
+<h3 id="receive-and-cleanup-boundaries"><a class="header" href="#receive-and-cleanup-boundaries">Receive and cleanup boundaries</a></h3>
+<p><code>_ReceiveOS_USB</code> disables interrupts, enters the record-transfer helpers, and feeds the values <code>0</code>, <code>8</code>, <code>3</code>, <code>0</code>, <code>0x0104</code>, <code>0</code>, and <code>0</code> through <code>2F:42AA</code>. It then sets port <code>0x20</code> to 1, clears receive state at <code>0x8271</code>, <code>0x822F</code>, and <code>0x83A4</code>, and uses <code>0x86EC</code> as a <code>0x0104</code>-byte record workspace. Later branches subtract a four-byte framing size, validate record fields, and program Flash through port <code>0x14</code>. [confirmed]</p>
+<p>This body is an OS installer, not a general USB receive primitive. It changes CPU speed, validates memory and page state, and writes Flash. Error branches converge on <code>2F:4FFD</code>, which calls <code>_USBErrorCleanup</code>. Application code should use the page-35 API instead. [confirmed]</p>
+<p><code>_USBErrorCleanup</code> and <code>_KillUSB</code> share almost all their code: [confirmed]</p>
+<pre><code class="language-z80">; _USBErrorCleanup = 2F:5958
+XOR A
+OUT (5Bh),A
+CALL 591Bh
+JP 58D0h
+
+; _KillUSB = 2F:5961
+XOR A
+OUT (5Bh),A
+CALL 591Bh
+XOR A
+OUT (4Ch),A
+JP 58D0h
+</code></pre>
+<p>The helper at <code>2F:591B</code> chooses the port-<code>0x4C</code> value from port <code>0x4D</code> bits 5 and 6, writes <code>0x02</code> to port <code>0x54</code>, and clears low control bits on port <code>0x39</code>. The tail at <code>2F:58D0</code> re-arms port <code>0x57</code> according to the current line state. <code>_KillUSB</code> differs only by forcing port <code>0x4C</code> to zero between those helpers. [confirmed]</p>
+<p>The setup paths also update GPIO data at port <code>0x3A</code> and GPIO configuration at
+port <code>0x39</code>. Their low-bit read-modify-write sequences are decoded in
+<a href="asic-status-gpio.html#usb-gpio-sequence">ASIC status, identity, protection, and GPIO</a>.
+The ROM ties those bits to USB setup but does not expose their electrical signal
+names. [confirmed] for the operations; [hypothesis] for signal assignments.</p>
+<h2 id="emulator-comparison"><a class="header" href="#emulator-comparison">Emulator comparison</a></h2>
+<p>The four pinned emulators implement disconnected or partial USB behavior. None implements the page-35 endpoint transactions needed for a connected transfer. [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Area</th><th>TilEm <code>f56ad63</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
+</thead>
+<tbody>
+<tr><td>Controller ports</td><td>fixed reads at <code>0x4C</code>, <code>0x4D</code>, <code>0x55</code>–<code>0x57</code></td><td>handlers at <code>0x4A</code>, <code>0x4C</code>, <code>0x4D</code>, <code>0x55</code>–<code>0x57</code>, <code>0x5B</code>, and <code>0x80</code></td><td>fixed reads at <code>0x55</code> and <code>0x56</code> only</td><td>fixed reads at <code>0x4C</code>, <code>0x4D</code>, <code>0x55</code>–<code>0x57</code></td></tr>
+<tr><td>Initial/disconnected <code>0x4C</code>, <code>0x4D</code></td><td><code>0x22</code>, <code>0xA5</code></td><td><code>0x22</code>, <code>0xA5</code></td><td>unmapped</td><td><code>0x22</code>, <code>0xA5</code></td></tr>
+<tr><td>Initial <code>0x55</code>, <code>0x56</code>, <code>0x57</code></td><td><code>0x1F</code>, <code>0x00</code>, <code>0x50</code></td><td><code>0x1F</code>, <code>0x50</code>, <code>0x00</code></td><td><code>0x1F</code>, <code>0x00</code>, unmapped</td><td><code>0x1F</code>, <code>0x00</code>, <code>0x50</code></td></tr>
+<tr><td>Line/event state</td><td>fixed</td><td>paired-state latch and event byte</td><td>none</td><td>fixed</td></tr>
+<tr><td>FDRC block</td><td>unmapped</td><td>only device address at <code>0x80</code></td><td>unmapped</td><td>unmapped</td></tr>
+<tr><td>Connected transfer</td><td>unavailable</td><td>unavailable</td><td>unavailable</td><td>unavailable</td></tr>
+<tr><td>Driver status</td><td>disconnected traces run</td><td>source calls the block <code>Fake USB</code></td><td>TI-84 Plus driver is <code>MACHINE_NOT_WORKING</code></td><td>fixed disconnected browser-emulator values</td></tr>
+</tbody>
+</table>
+</div>
+<p>TilEm’s fixed port <code>0x4C = 0x22</code> cannot satisfy <code>_InitUSB</code>’s <code>0x1A</code>/<code>0x5A</code> handshake. Its <code>x4_io.c</code> has no controller or endpoint write cases. A TilEm trace can therefore exercise timeout and disconnected cleanup, but not connected setup or receive. [standard] for emulator behavior; [confirmed] for the ROM comparison.</p>
+<p>Wabbitemu assigns paired states to port <code>0x4D</code>: D+ low/high in bits 0/1, D- low/high in bits 2/3, ID low/high in bits 4/5, and VBUS high/low in bits 6/7. Reset value <code>0xA5</code> therefore selects D+ low, D- low, ID high, and VBUS low under its own labels. Port <code>0x56</code> starts at <code>0x50</code>, port <code>0x57</code> stores an event mask, and port <code>0x55</code> reports line and protocol requests as active-low bits 2 and 4. [standard]</p>
+<p>The partial model has five source-visible defects: [standard]</p>
+<ul>
+<li>Device initialization registers port <code>0x55</code> twice. The first handler was written for port <code>0x54</code>, so the port-<code>0x54</code> PHY control model is unreachable.</li>
+<li><code>GenerateUSBEvent</code> does not consult the mask stored at port <code>0x57</code>; it raises the CPU interrupt unconditionally.</li>
+<li>From reset state, writing <code>0x08</code> to port <code>0x4A</code> sets VBUS-high bit 6 without clearing VBUS-low bit 7. The line byte becomes <code>0xE5</code>, in which both Wabbitemu VBUS state bits are set.</li>
+<li>The same write records a D-minus-high event by changing the event byte from <code>0x50</code> to <code>0x58</code>, but it does not set D-minus-high in the line byte. Repeated writes can therefore regenerate the event.</li>
+<li>Port <code>0x4D</code> tries to select one D+ state with <code>BIT(1) &amp; ~BIT(0)</code> or its inverse. Each expression evaluates to one set bit. The handler ORs that bit into the line-state byte without clearing the paired bit.</li>
+</ul>
+<p>These inconsistencies prevent Wabbitemu from serving as a connected PHY reference. Its paired-state representation and active-low summary still provide an independent comparison with the ROM’s bit tests. The electrical labels remain emulator evidence because the ROM does not name the signals. [standard] for source behavior; [hypothesis] for physical signal assignments.</p>
+<p>MAME maps ports <code>0x55</code> and <code>0x56</code> to constant disconnected values <code>0x1F</code> and
+zero. Ports <code>0x4A</code>–<code>0x5B</code> outside that pair and the FDRC region at
+<code>0x80</code>–<code>0xA2</code> are absent from the TI-84 Plus map. A guarded native sweep reads
+zeros across <code>0x4A</code>–<code>0x5B</code> except for <code>0x55 = 0x1F</code>; patterned writes leave the
+complete block unchanged. A soft reset produces the same pair. [standard]</p>
+<h3 id="native-wabbitemu-usb-edges"><a class="header" href="#native-wabbitemu-usb-edges">Native Wabbitemu USB edges</a></h3>
+<p>A guarded initialized-core run invokes the registered handlers without
+executing TI-OS. Ports <code>0x4A</code>, <code>0x4C</code>, <code>0x4D</code>, <code>0x55</code>–<code>0x57</code>, <code>0x5B</code>, and
+<code>0x80</code> accept reads. Port <code>0x54</code> is inactive and returns the unhandled-port
+fallback <code>0xFF</code>. Reset reads are <code>0x04</code>, <code>0x22</code>, <code>0xA5</code>, <code>0x1F</code>, <code>0x50</code>,
+<code>0x00</code>, <code>0x00</code>, and <code>0x00</code> in mapped-port order. The run also checks the
+internal reset fields: line state <code>0xA5</code>, events <code>0x50</code>, mask zero, both
+interrupt fields clear, and all three stored control bytes zero. [standard]</p>
+<p>Port <code>0x57</code> stores both <code>0xFF</code> and zero. With the mask set to zero, writing
+<code>0x08</code> to port <code>0x4A</code> asserts Wabbitemu’s CPU interrupt and line-interrupt
+fields. The line state becomes <code>0xE5</code>, the event byte becomes <code>0x58</code>, port
+<code>0x55</code> reads <code>0x1B</code>, and port <code>0x56</code> reads <code>0x58</code>. Clearing only the CPU
+interrupt field and repeating the same port write asserts it again. This
+confirms the mask omission and repeat-event path in the initialized core.
+[standard]</p>
+<p>Directly seeded handler-contract cases produce the complete port-<code>0x55</code>
+matrix <code>0x1F</code>, <code>0x1B</code>, <code>0x0F</code>, and <code>0x0B</code> for neither, line, protocol, and
+both requests. Port <code>0x5B</code> masks <code>0xFF</code> to bit 0, and port <code>0x80</code> masks it to
+<code>0x7F</code>. The two port-<code>0x4D</code> cases return <code>0xA7</code> and <code>0xE7</code>, retaining both D+
+bits after the handler adds the selected bit. These directly seeded states
+test handler arithmetic; the run does not claim that registered ports can
+reach them naturally. [standard]</p>
+<h3 id="controlled-boot-rom-paths"><a class="header" href="#controlled-boot-rom-paths">Controlled boot-ROM paths</a></h3>
+<p>A separate Wabbitemu mode boots the retail OS 2.55MP ROM, installs controlled
+digital handlers for ports <code>0x4A</code>–<code>0x5B</code> and <code>0x80</code>–<code>0xA2</code>, and then calls the
+untouched page-<code>2F</code> boot routines from RAM. The two injected programs are:</p>
+<pre><code class="language-z80">; Call _InitUSB = 8108h, then stop in RAM.
+RST 28h
+.dw 8108h
+HALT
+
+; Dispatch event 40h through _AttemptUSBOSReceive = 80E4h.
+LD A,40h
+OR A                 ; NZ selects dispatch of the supplied event.
+RST 28h
+.dw 80E4h
+HALT
+</code></pre>
+<p>The pinned SPASM-independent byte images are <code>EF 08 81 76</code> and
+<code>3E 40 B7 EF E4 80 76</code>. The native runner executes those bytes and checks the
+page resolved by each bcall. It stops the second case at <code>2F:4170</code>, before the
+endpoint payload and Flash-programming pipeline. [confirmed] for these ROM
+dispatches in the controlled run.</p>
+<p>The harness returns <code>0x5A</code> or <code>0x02</code> from port <code>0x4C</code> to select handshake
+success or timeout. It returns nonzero or zero from port <code>0x8C</code> to select frame
+readiness or timeout. Port <code>0x4D</code> starts at <code>0xA5</code>; all other controlled bytes
+start at zero except the unused status defaults <code>0x55 = 0x1F</code> and
+<code>0x56 = 0x50</code>. This contract supplies digital branch inputs. It does not model
+a USB device, packet timing, or a PHY. [confirmed] for the harness contract.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Case</th><th>Controlled result</th><th style="text-align: right">Instructions / T-states</th><th>Polls and boundary</th><th>Return</th></tr>
+</thead>
+<tbody>
+<tr><td>initialization success</td><td><code>0x4C = 0x5A</code>, <code>0x8C != 0</code></td><td style="text-align: right">5,923 / 62,196</td><td>2 timeout ticks; 2 port-<code>0x4C</code> reads; 1 port-<code>0x8C</code> read</td><td>carry clear, <code>A = 0x01</code></td></tr>
+<tr><td>handshake timeout</td><td><code>0x4C = 0x02</code></td><td style="text-align: right">783,929 / 7,739,783</td><td>65,535 timeout ticks and port-<code>0x4C</code> reads</td><td>carry set, <code>A = 0x50</code></td></tr>
+<tr><td>frame timeout</td><td><code>0x4C = 0x5A</code>, <code>0x8C = 0</code></td><td style="text-align: right">3,012,144 / 28,842,346</td><td>327,676 timeout ticks; 327,670 port-<code>0x8C</code> reads</td><td>carry set, <code>A = 0x50</code></td></tr>
+<tr><td>event <code>0x40</code> dispatch</td><td>success inputs</td><td style="text-align: right">5,935 / 62,310</td><td>reaches <code>2F:4170</code> once</td><td>stopped at receive boundary</td></tr>
+</tbody>
+</table>
+</div>
+<p>Every case visits <code>_InitUSB</code> at <code>2F:52A4</code> and the reset helper at <code>2F:59C3</code>
+once. Success writes the byte-derived sequence
+<code>57:80 4C:00 54:02 4A:20 4B:00 54:00 54:C4 4C:08 87:FF 92:00 89:0E 8B:21</code>.
+The handshake-timeout path appends
+<code>5B:00 4C:00 54:02 57:50</code> after the eight-write initialization prefix. The
+frame-timeout path appends <code>4C:00 54:02 57:50</code> after endpoint setup and does
+not write port <code>0x5B</code>. The bytes at <code>2F:5958</code> contain the port-<code>0x5B</code> write;
+the frame cleanup at <code>2F:58C8</code> starts with <code>CALL 2F:591B</code> and bypasses it.
+[confirmed]</p>
+<p>The runner compares the complete 1 MiB Flash array before and after each case.
+All four comparisons report zero changed bytes and no execution-protection
+reset. This establishes that initialization, both timeouts, and dispatch up to
+<code>2F:4170</code> do not mutate Flash under these inputs. It does not exercise
+<code>_ReceiveOS_USB</code>, endpoint payload transfer, command-busy behavior, electrical
+USB signaling, or a calculator. [confirmed] for the controlled Wabbitemu ROM
+execution; [hypothesis] for corresponding physical behavior.</p>
+<h3 id="controlled-installer-record-rejection"><a class="header" href="#controlled-installer-record-rejection">Controlled installer-record rejection</a></h3>
+<p>A second constant-memory mode continues from <code>_InitUSB</code> into
+<code>_ReceiveOS_USB</code> at <code>2F:48CA</code>. Direct entry requires the session state normally
+created by the preceding negotiation: <code>IY = 0x89F0</code>, frame size <code>0x0104</code>,
+staged offset zero, timeout <code>0x0014</code>, and bit 0 of <code>IY+0x42</code> set. The harness
+scripts three endpoint FIFO packets: [confirmed]</p>
+<pre><code class="language-text">0000000205
+E000
+0000000C0400000000000500003E000000
+</code></pre>
+<p>The first two packets form the five-byte type-<code>0x05</code> transport header and its
+<code>E0 00</code> acknowledgement payload. The final type-<code>0x04</code> frame selects service
+<code>0x0005</code> and supplies an installer record whose page byte is <code>0x3E</code>. The ROM
+transmits the exact request and acknowledgement below: [confirmed]</p>
+<pre><code class="language-text">0000000E040000000800030000010400000000
+0000000205E000
+</code></pre>
+<p>Execution reaches stream receive at <code>2F:4610</code>, installer dispatch at
+<code>2F:495B</code>, <code>_DisplayOSProgress</code>, page validation at <code>2F:5079</code>, the invalid-page
+branch at <code>2F:49A2</code>, and <code>_USBErrorCleanup</code> at <code>2F:5958</code>. It stops at
+<code>2F:5000</code>, before the error UI. <code>_DisplayOSProgress</code> precedes page validation,
+so the isolated validator case explicitly seeds <code>0x82A3 = 0x3E</code> immediately
+before that call. This makes the progress helper a no-op for the already
+displayed page and prevents its unrelated persistent progress-byte update from
+obscuring the rejection path. The complete Flash comparison then reports zero
+changed bytes. [confirmed] for this controlled Wabbitemu-core execution.</p>
+<p>This intervention is part of the result, not a claim about a natural complete
+OS-install session. The run validates transport framing, the retail calling
+context, record dispatch, page rejection, cleanup, and unchanged Flash across
+the isolated rejection. It does not model a USB device, endpoint timing, a PHY,
+natural progress persistence, or a physical calculator. [standard]</p>
+<h2 id="reusable-usb-tools"><a class="header" href="#reusable-usb-tools">Reusable USB tools</a></h2>
+<p><code>tools/usb_hardware.py</code> contains the FDRC offset map, the common HDRC comparison map, pinned source
+provenance, imported global bit names, link-assist rate fields, page-35 and boot-event decoders,
+paired line-state decoder, emulator profiles, and pure functions for Wabbitemu’s USB read handlers.
+<code>tools/describe_usb_hardware.py</code> exposes the general models as text or JSON.
+<code>tools/wabbitemu_usb_receive.py</code> decodes the transport frames and enforces the
+exact receive packets, ROM transmissions, execution boundaries, calling
+context, intervention, and whole-Flash result. The guarded
+<code>tools/run_wabbitemu_usb_receive_probe.py</code> CLI checks both ROM and adapter
+hashes and writes a JSON manifest. The native runner stores packet payloads and
+fixed counters only; it does not emit an instruction-by-instruction trace.
+<code>tools/wabbitemu_usb_probe.py</code> validates native reports against the reusable handler model, while
+<code>tools/run_wabbitemu_usb_edge_probe.py</code> provides the exact-ROM guard and writes a hashed JSON
+manifest. <code>tools/wabbitemu_usb_rom.py</code> contains the byte-derived boot-ROM
+oracle, and <code>tools/run_wabbitemu_usb_rom_probe.py</code> exposes its four controlled
+cases as a hash-guarded JSON CLI. The link-assist state model remains in <code>tools/link_port.py</code>;
+<code>tools/tilem_link.py</code> and <code>tools/run_tilem_link_probe.py</code> add the guarded TilEm
+native report and manifest. <code>tools/port_definitions.py</code> parses the project port
+labels with duplicate checks. <code>tools/analyze_rom_io.py</code> uses that library to
+attach labels to static I/O reports and can restrict output to ports absent
+from the label file. <code>tools/rom_io_coverage.py</code> pins and reconciles the complete
+ROM-wide set of aligned non-descriptor candidates absent from that file.</p>
+<pre><code class="language-sh"># Map global, indexed, dynamic-sizing, and FIFO registers.
+nix develop -c python tools/describe_usb_hardware.py \
+  register 0x80 0x91 0x9F 0xA2
+
+# Compare the FDRC hypothesis with the common HDRC byte layout.
+nix develop -c python tools/describe_usb_hardware.py layouts
+nix develop -c python tools/describe_usb_hardware.py --json layouts
+
+# Keep active-low port-0x55 and port-0x56 interpretations separate.
+nix develop -c python tools/describe_usb_hardware.py events 0x1F 0x50
+
+nix develop -c python tools/describe_usb_hardware.py assist 0x97 0xB4 0xE0
+nix develop -c python tools/describe_usb_hardware.py line 0xA5 0xE5
+nix develop -c python tools/describe_usb_hardware.py reads 0x4C 0x4D 0x55 0x56 0x57 0x80
+nix develop -c python tools/describe_usb_hardware.py wabbit-port4a 0x08
+
+# Audit direct page-35 accesses whose ports lack project-local labels.
+nix develop -c python tools/analyze_rom_io.py \
+  --page 0x35 --direct-only --unlisted --summary 0x40-0x7F
+
+# Retain only the two table-shaped candidates for unobserved USB ports.
+nix develop -c python tools/analyze_rom_io.py \
+  --direct-only --exclude-descriptors 0x49 0x51 0x52
+
+# Verify every candidate for every port absent from tools/ports.txt.
+nix develop -c python tools/describe_rom_io_coverage.py --json
+
+usb_rom_parent=$(mktemp -d /tmp/ti84-usb-rom.XXXXXX)
+nix develop -c python tools/run_wabbitemu_usb_rom_probe.py \
+  --rom tools/rom.bin \
+  --binary /path/to/wabbitemu-headless \
+  --expected-binary-sha256 \
+    3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
+  --output-dir "$usb_rom_parent/run" --json
+
+usb_receive_parent=$(mktemp -d /tmp/ti84-usb-receive.XXXXXX)
+nix develop -c python tools/run_wabbitemu_usb_receive_probe.py \
+  --rom tools/rom.bin \
+  --binary /path/to/wabbitemu-headless \
+  --expected-binary-sha256 \
+    3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
+  --output-dir "$usb_receive_parent/run" --json
+</code></pre>
+<p>The FDRC names and bit labels remain a controller-family hypothesis. The CLI identifies that evidence boundary in its register records; it does not promote imported Mentor names to TI silicon confirmation.</p>
+<h2 id="how-to-use-it-in-code-confirmed"><a class="header" href="#how-to-use-it-in-code-confirmed">How to use it in code [confirmed]</a></h2>
 <p>Prefer the OS entry points unless the program is deliberately writing a USB driver:</p>
 <div class="table-wrapper">
 <table>
@@ -421,20 +889,53 @@ mask to physical page <code>0x35</code>.</p>
 <tr><th>Need</th><th>OS surface</th><th>ROM support</th></tr>
 </thead>
 <tbody>
-<tr><td>Send or request a variable over USB/link</td><td><code>_GetVarCmdUSB</code>/<code>_LinkXferOP</code> (<code>50FB</code> -&gt; <code>3C:4DD2</code>) or <code>_SendVarCmd</code> (<code>4A14</code> -&gt; <code>3C:4EDD</code>)</td><td>Packet engine and USB-selection gate confirmed on page <code>3C</code>. <code>0x50FB</code> is <code>_GetVarCmdUSB</code> in <code>ti83plus.inc</code>.</td></tr>
-<tr><td>Send one byte on the active link transport</td><td><code>_SendAByte</code> (<code>4EE5</code> -&gt; <code>3C:420D</code>)</td><td>Assist branch writes <code>C</code> to port <code>0x0D</code> after port <code>0x09</code> bit 5.</td></tr>
-<tr><td>Receive one byte on the active link transport</td><td><code>_RecAByteIO</code> (<code>4F03</code> -&gt; <code>3C:443F</code>)</td><td>Status path checks port <code>0x09</code> and reads port <code>0x0A</code> on the assist path.</td></tr>
+<tr><td>Send or request a variable over USB/link</td><td><code>_GetVarCmdUSB</code>/<code>link_xfer_op</code> (<code>50FB</code> → <code>3C:4DD2</code>) or <code>_SendVarCmd</code> (<code>4A14</code> → <code>3C:4EDD</code>)</td><td>Packet engine and USB-selection gate confirmed on page <code>3C</code>. <code>0x50FB</code> is <code>_GetVarCmdUSB</code> in <code>ti83plus.inc</code>.</td></tr>
+<tr><td>Send one byte on the active link transport</td><td><code>_SendAByte</code> (<code>4EE5</code> → <code>3C:420D</code>)</td><td>Assist branch writes <code>C</code> to port <code>0x0D</code> after port <code>0x09</code> bit 5.</td></tr>
+<tr><td>Receive one byte on the active link transport</td><td><code>_RecAByteIO</code> (<code>4F03</code> → <code>3C:443F</code>)</td><td>Status path checks port <code>0x09</code> and reads port <code>0x0A</code> on the assist path.</td></tr>
 <tr><td>Use the raw assist FIFO</td><td>Poll port <code>0x09</code> bit 5, then write the byte to port <code>0x0D</code>; for receive, observe port <code>0x09</code> bit 4/error bits and read port <code>0x0A</code>.</td><td>Confirmed as an OS pattern, but not a complete public API.</td></tr>
 </tbody>
 </table>
 </div>
 <p>The raw FIFO sequence is only the byte layer. A working transfer still needs the packet layer:
 machine ID, command, length, payload checksum, ACK/NAK, and EOT. That framing is documented in
-<a href="sub-link-transfer.html#3-packet-framing--the-ti-link-protocol-c">sub-link-transfer.md</a>.</p>
+<a href="sub-link-transfer.html#ti-link-packet-framing-confirmed">Link transfer</a>.</p>
+<h3 id="native-tilem-link-assist-edges"><a class="header" href="#native-tilem-link-assist-edges">Native TilEm link-assist edges</a></h3>
+<p>The guarded TilEm direct-core probe maps all handlers from <code>0x08</code> through
+<code>0x0D</code>. A fresh disabled engine reports <code>0x20</code>. The read sides of
+ports <code>0x09</code>–<code>0x0C</code> remain computed status or zero after the write sides store
+<code>0x91</code>, <code>0xA2</code>, <code>0xB3</code>, and <code>0xC4</code>. This covers the complete four-register
+setup surface that OS 2.55MP initializes. [standard]</p>
+<p>Idle-ready reports <code>0x22</code> and asserts the CPU interrupt. Reading port <code>0x0D</code>
+does not acknowledge that condition. A completed <code>0xA5</code> receive reports
+<code>0x31</code>; reading port <code>0x0A</code> returns the byte and changes status to <code>0x20</code>.
+An illegal both-low input reports <code>0x64</code>; the first status read clears only the
+interrupt request, leaving error status <code>0x60</code>. [standard]</p>
+<p>Full reset restores port <code>0x08 = 0x80</code> and clears the active transfer fields,
+but retains the four auxiliary write registers and external peer-line state.
+Direct handler calls consume zero modeled CPU clocks. These results describe
+the pinned TilEm implementation, not physical assist timing or reset
+retention. See <a href="link-port-hardware.html#native-tilem-raw-and-assist-edges">Two-wire link port hardware</a>
+for the raw matrix, LSB-first transfer sequence, and guarded command.
+[standard]</p>
+<h3 id="native-wabbitemu-link-assist-edges"><a class="header" href="#native-wabbitemu-link-assist-edges">Native Wabbitemu link-assist edges</a></h3>
+<p>The guarded Wabbitemu initialized-core probe maps ports <code>0x08</code>, <code>0x09</code>,
+<code>0x0A</code>, and <code>0x0D</code>; ports <code>0x0B</code> and <code>0x0C</code> are absent. This means its assist
+engine cannot represent the OS’s complete four-register signaling-rate setup
+for CPU speed modes 0–3. [standard]</p>
+<p>The same run sends and receives <code>0xA5</code> through controlled peer handshakes.
+Transmit completion reports <code>0x22</code>; receive completion reports <code>0x11</code>.
+Reading port <code>0x0D</code> clears ready, and reading port <code>0x0A</code> clears read-ready.
+Both enabled conditions assert Wabbitemu’s CPU interrupt line. A separately
+seeded error produces <code>0x4C</code> and clears on the first port-<code>0x09</code> read, but the
+pinned source contains no path that sets the error field. These are emulator
+state-machine results, not physical assist timing or TI-OS execution.
+[standard]</p>
+<p>See <a href="link-port-hardware.html#native-wabbitemu-raw-and-assist-edges">Two-wire link port hardware</a>
+for the full raw matrix, transfer sequence, and guarded command.</p>
 <p>Practical rules:</p>
 <ul>
-<li>Set up <code>IY+0x1B</code> consistently before calling <code>_LinkXferOP</code>. Bit 0 is the USB-first selector.</li>
-<li>Do not write ports <code>0x08</code>-<code>0x0D</code> while the OS link engine is active; the OS keeps state in
+<li>Set up <code>IY+0x1B</code> consistently before calling <code>link_xfer_op</code>. Bit 0 is the USB-first selector.</li>
+<li>Do not write ports <code>0x08</code>–<code>0x0D</code> while the OS link engine is active; the OS keeps state in
 <code>IY+0x3E</code> bit 0, <code>0x9C86</code>, and <code>0x9CAC</code>.</li>
 <li>If a custom interrupt handler is installed, either chain to the OS handler or service the same
 source gates. The OS itself expects to handle port <code>0x55</code>/<code>0x56</code> events.</li>
@@ -442,19 +943,52 @@ source gates. The OS itself expects to handle port <code>0x55</code>/<code>0x56<
 mapped well enough to identify the FIFOs and state variables, but their bit-level protocol is not
 a stable public API.</li>
 </ul>
-<h2 id="remaining-limits-after-this-pass"><a class="header" href="#remaining-limits-after-this-pass">Remaining limits after this pass</a></h2>
+<h2 id="limits"><a class="header" href="#limits">Limits</a></h2>
 <ul>
-<li>The previously listed RAM-target item is resolved: the ROM calls <code>ram:2E0B</code>, a
-<code>cross_page_jump</code> thunk to <code>35:4280</code>. Its carry-clear/carry-set result is now decoded above.</li>
-<li>The public <code>0x50xx</code>/<code>0x52xx</code>/<code>0x53xx</code> USB APIs are mapped to bodies and sampled above. The boot-page
-<code>0x8xxx</code> USB names (<code>_InitUSB</code>, <code>_KillUSB</code>, <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>,
-<code>_USBErrorCleanup</code>) remain part of the repository-wide <code>0x8xxx</code> bcall-table reconciliation problem,
-not a page-3C link-transfer gap.</li>
-<li>The ROM does not give bit names for every page-35 controller register, and Tilem does not model
-physical timing from the assist setup values. This page therefore treats the <code>0x97</code>/<code>0xB4</code> field
-names as WikiTI-supported timing configuration, while ROM-confirmed claims remain limited to the
-written constants, status/data port use, comparisons, branch bits, RAM state, and FIFO direction.</li>
+<li>The ROM calls <code>ram:2E0B</code>, a <code>cross_page_jump</code> thunk to <code>35:4280</code>. Its
+carry-clear/carry-set result is decoded above.</li>
+<li>The public <code>0x50xx</code>/<code>0x52xx</code>/<code>0x53xx</code> USB APIs and the boot-page <code>0x8xxx</code> USB entries are mapped above. The controlled harness executes <code>_InitUSB</code>, both timeout paths, <code>_AttemptUSBOSReceive</code> through <code>2F:4170</code>, and a scripted <code>_ReceiveOS_USB</code> installer record through invalid-page cleanup. A natural connected transfer and valid page-programming session remain dynamically untested.</li>
+<li>The FDRC layout names the endpoint register block, but physical tests have not confirmed every
+imported bit meaning or the TI-specific PHY at ports <code>0x4A</code>–<code>0x5B</code>. TilEm does not model physical
+timing from the assist setup values. ROM-confirmed claims remain limited to written constants,
+comparisons, branch bits, RAM state, FIFO direction, and the transfer sequences cited above.</li>
+<li>The ROM confirms the port-<code>0x4B</code> writes and the port-<code>0x4F</code>/<code>0x50</code>
+read-modify-write sequence. It does not identify their electrical effects.
+Port-<code>0x5A</code> bit 0, endpoint-2 setup, and subsequent LCD traffic are
+ROM-confirmed; mirroring on the wire, its packet format, and the reported
+host-mode restriction remain physically unverified.</li>
+<li>The guarded TilEm link probe verifies handler-visible assist behavior, but it
+does not establish physical signaling-rate divisors, wait states, electrical
+levels, or reset retention.</li>
+<li>TilEm, Wabbitemu, MAME, and jsTIfied do not implement a connected page-35 transfer. The initialized-core Wabbitemu run confirms its port-registration, event-mask, contradictory-line-state, repeat-event, and paired-bit handler defects. The controlled port harness now drives exact endpoint FIFO packets through invalid-page cleanup, but a natural complete transfer still requires physical hardware or a device-level model.</li>
 </ul>
+<h2 id="sources"><a class="header" href="#sources">Sources</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Source</th><th>Use</th></tr>
+</thead>
+<tbody>
+<tr><td>Retail OS 2.55MP and boot 1.03 ROM bytes</td><td>Main and boot bcall tables, page-<code>2F</code>/<code>35</code> bodies, ports, branches, and RAM state</td></tr>
+<tr><td><code>tools/ti83plus.inc</code></td><td>Historical public names and comments, checked against table entries and bodies</td></tr>
+<tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code> at <code>f56ad63</code></a></td><td>Link-assist implementation and fixed disconnected USB reads</td></tr>
+<tr><td><a href="https://github.com/illusionlee/lightcube/blob/ac49c480c45c4106cba46a93fd4ae09969db5a1e/beken378/driver/usb/src/cd/mu_fdrdf.h">Mentor <code>mu_fdrdf.h</code> revision 1.7 as preserved in <code>lightcube</code></a></td><td>Mentor-authored 2004 FDRC register offsets and bit masks. The header labels itself proprietary; the mirror is controller-family evidence, not TI silicon identification.</td></tr>
+<tr><td><a href="https://github.com/vsfteam/vsf/blob/4327394b125aae68f67ed48b3aa891fd203a6ca8/source/component/usb/driver/otg/musb/fdrc/vsf_musb_fdrc_hw.h">VSF FDRC register structure at <code>4327394</code></a></td><td>Independent implementation that corroborates the compact FDRC byte ordering; not TI-84 Plus evidence</td></tr>
+<tr><td><a href="https://github.com/torvalds/linux/blob/db2ddb87143519e20a95aa36c60b36107b736a58/drivers/usb/musb/musb_regs.h">Linux <code>musb_regs.h</code> at <code>db2ddb8</code></a></td><td>Mentor/TI-copyrighted common HDRC/MUSB map used as the comparison candidate; not TI-84 Plus silicon documentation</td></tr>
+<tr><td><a href="https://github.com/brandonlw/Linky/tree/89586b0d33796d9746934560c030bb247193d37a">Linky at <code>89586b0</code></a></td><td>Independent calculator software that names MUSBFDRC and exercises the same ports</td></tr>
+<tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code> at <code>48c2dc0</code></a></td><td>Partial line-state and interrupt model, with the implementation limits described above</td></tr>
+<tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>Fixed USB interrupt reads and absent controller/endpoint ports</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/item.php?id=42">jsTIfied project 42</a> and <a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">deployed <code>20170706a</code> artifact</a></td><td>fixed disconnected values matching TilEm and absence of an endpoint/FDRC model; artifact SHA-256 <code>c7325a38f976f64eaa34182da17d838fe4831eece4650b92d5db710cf7a8fc5b</code></td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:09">WikiTI port <code>0x09</code></a></td><td>Historical link-assist timing-field interpretation, kept separate from ROM observations</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:4B">WikiTI port <code>0x4B</code></a></td><td>Historical USB-power orientation. The page calls its own bit descriptions mostly speculative.</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:49">WikiTI port <code>0x49</code></a></td><td>Historical raw-transceiver bit claims; no primary hardware source or ROM use found</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:51">WikiTI port <code>0x51</code></a></td><td>Historical USB enable-timer claim; physical clock and units remain unverified</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:52">WikiTI port <code>0x52</code></a></td><td>Historical charge-pump timer claim; physical behavior remains unverified</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:5A">WikiTI port <code>0x5A</code></a></td><td>Historical presentation-mirroring description, treated as an unverified physical claim beyond the ROM-visible setup sequence</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:BCALLs:50E9&amp;oldid=5510">WikiTI <code>_KeyboardGetKey</code> revision 5510</a></td><td>Historical TI-Keyboard transmitter sequence, checked against but not substituted for ROM control flow</td></tr>
+</tbody>
+</table>
+</div>
 
                     </main>
 
@@ -500,21 +1034,21 @@ written constants, status/data port use, comparisons, branch bits, RAM state, an
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>
-        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
         <script src="hljs-z80-e93ac716.js"></script>
         <script src="katex-5e4f3b03.min.js"></script>
         <script src="katex-auto-render-bb53eb95.min.js"></script>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
-        <script src="pseudocode-init-5fa46c0a.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
 
 
 

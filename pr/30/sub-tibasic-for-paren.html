@@ -3,20 +3,20 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>TI-BASIC For( optional paren trap - TI-84 Plus OS — Reverse Engineering</title>
+        <title>TI-BASIC For( parenthesis trap - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bba023a5.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-cbaaedfe.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -179,143 +179,137 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="for-closing-paren-and-false-first-line-if"><a class="header" href="#for-closing-paren-and-false-first-line-if"><code>For(</code> closing paren and false first-line <code>If</code></a></h1>
-<p><em>TI-84 Plus OS 2.55MP – dynamic trace note.</em></p>
-<p>This note explains a TI-BASIC performance trap:</p>
-<pre><code class="language-ti-basic">For(I,1,N
-If 0
-1
-End
-</code></pre>
-<p>is much slower than the visually similar:</p>
-<pre><code class="language-ti-basic">For(I,1,N)
-If 0
-1
-End
-</code></pre>
-<p>The closing <code>)</code> is syntactically optional, but it is not performance-neutral
-when the first loop-body statement is a single-line false <code>If</code>.</p>
-<p>Confidence: <strong>[confirmed]</strong> = measured in TilEm instruction traces or read from
-ROM bytes; <strong>[standard]</strong> = consistent with the interpreter structure but not
-field-mapped down to every loop-frame byte.</p>
-<hr>
-<h2 id="benchmark-shape"><a class="header" href="#benchmark-shape">Benchmark shape</a></h2>
-<p>The test program brackets only the loop with an <code>AsmPrgm</code> marker:</p>
+                        <h1 id="ti-basic-for-parenthesis-trap"><a class="header" href="#ti-basic-for-parenthesis-trap">TI-BASIC <code>For(</code> parenthesis trap</a></h1>
+<p>The closing <code>)</code> in <code>For(</code> is optional syntax, but the two spellings can produce
+different parser-buffer behavior. A paired OS 2.55MP trace with a false
+single-line <code>If</code> as the first body statement measures the difference without
+including boot, link transfer, menu navigation, or final display work.</p>
+<h2 id="reproduced-pair"><a class="header" href="#reproduced-pair">Reproduced pair</a></h2>
+<p>The fixtures differ by one token byte:</p>
 <pre><code class="language-ti-basic">Asm(prgmZMARK)
-For(I,1,100)
+For(I,1,25)
 If 0
 1
 End
 Asm(prgmZMARK)
-Disp I
+If I=26
+Asm(prgmZPASS)
 </code></pre>
-<p><code>ZMARK</code> is:</p>
+<pre><code class="language-ti-basic">Asm(prgmZMARK)
+For(I,1,25
+If 0
+1
+End
+Asm(prgmZMARK)
+If I=26
+Asm(prgmZPASS)
+</code></pre>
+<p><code>ZMARK</code> contains one Z80 instruction:</p>
 <pre><code class="language-ti-basic">AsmPrgm
 C9
 </code></pre>
-<p><code>C9</code> is Z80 <code>RET</code>. In both traces the marker payload executes at
-<code>ram:9D95 op=0xC9</code>, so the interval from the first marker <code>RET</code> to the second
-marker <code>RET</code> excludes boot, link transfer, menu navigation, and the final
-display.</p>
-<p>The compared token streams differ by exactly one byte in the <code>For(</code> header:</p>
-<pre><code class="language-text">For(I,1,25) / If 0:  D3 49 2B 31 2B 32 35 11 3F CE 30 ...
-For(I,1,25  / If 0:  D3 49 2B 31 2B 32 35    3F CE 30 ...
+<p><code>C9</code> is <code>RET</code>. Both traces execute it twice at <code>userMem</code> (<code>0x9D95</code>). The analyzer counts
+instructions and clocks from the first marker to the second. After the second
+marker, each program calls <code>ZPASS</code> only when <code>I=26</code>; <code>ZPASS</code> writes <code>A5h</code> to
+<code>plotSScreen</code> at <code>0x9340</code>. The smoke runner asserts that RAM byte directly.
+[confirmed]</p>
+<p>The headers differ only by <code>tRParen = 11h</code>:</p>
+<pre><code class="language-text">explicit: D3 49 2B 31 2B 32 35 11 3F CE 30 ...
+implicit: D3 49 2B 31 2B 32 35    3F CE 30 ...
 </code></pre>
-<p><code>D3</code> is <code>tFor</code>, <code>11</code> is <code>tRParen</code>, <code>3F</code> is EOL, and <code>CE</code> is <code>tIf</code>.</p>
-<h2 id="trace-results"><a class="header" href="#trace-results">Trace results</a></h2>
-<p>All runs completed and displayed the expected final loop variable (<code>26</code> for
-<code>N=25</code>, <code>101</code> for <code>N=100</code>). Counts are marker-to-marker instruction records and
-Z80 clock deltas from the TilEm trace.</p>
+<h2 id="measured-work"><a class="header" href="#measured-work">Measured work</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Loop body</th><th>N</th><th><code>For(... )</code></th><th><code>For(...</code></th><th>Delta</th></tr>
+<tr><th>Form</th><th style="text-align: right">Instructions</th><th style="text-align: right">Clocks</th><th>Trace ID</th></tr>
 </thead>
 <tbody>
-<tr><td><code>If 0</code> / <code>1</code></td><td>25</td><td>144,805 instr / 1,519,710 clocks</td><td>156,292 instr / 1,604,282 clocks</td><td>+7.9% instr / +5.6% clocks</td></tr>
-<tr><td><code>If 0</code> / <code>1</code></td><td>100</td><td>521,723 instr / 5,498,347 clocks</td><td>885,912 instr / 8,862,729 clocks</td><td>+69.8% instr / +61.2% clocks</td></tr>
-<tr><td><code>If 1</code> / <code>1</code></td><td>25</td><td>185,032 instr / 1,920,085 clocks</td><td>179,874 instr / 1,859,796 clocks</td><td>-2.8% instr / -3.1% clocks</td></tr>
+<tr><td>Explicit <code>)</code></td><td style="text-align: right">145,748</td><td style="text-align: right">1,698,162</td><td><code>d8348851f6ba…</code></td></tr>
+<tr><td>Implicit close</td><td style="text-align: right">157,052</td><td style="text-align: right">1,790,338</td><td><code>eef08147e170…</code></td></tr>
 </tbody>
 </table>
 </div>
-<p>The true-condition control matters: omitting <code>)</code> is not inherently slower. The
-large slowdown appears when the omitted close is followed immediately by a
-single-line false <code>If</code>.</p>
-<h2 id="dispatch-difference"><a class="header" href="#dispatch-difference">Dispatch difference</a></h2>
-<p>The optional close is handled by the page-2 command-finalization gate
-<code>02:5676</code> [confirmed]:</p>
-<pre><code class="language-z80">02:5676  LD A,C
-02:5677  CP 11h          ; explicit ")"
-02:5679  JR Z,56C3h
-02:5683  OR A            ; implicit close / statement end
-02:5684  JP NZ,2708h     ; syntax/type error for other cases
-02:5687  CALL 5675h      ; direct command handler path
+<p>The implicit form adds 11,304 instructions, or 7.76%, and 92,176 clocks, or
+5.43%. These values describe this <code>N=25</code>, false-<code>If</code> pair. They do not imply the
+same ratio for other bodies or trip counts. [confirmed]
+The compact JSON report retains each complete SHA-256 digest.</p>
+<h2 id="parser-buffer-state"><a class="header" href="#parser-buffer-state">Parser-buffer state</a></h2>
+<p>The trace records writes to <code>nextParseByte</code> (<code>0x965D</code>) and <code>basic_end</code>
+(<code>0x965F</code>). The analyzer selects temporary states where the two pointers are
+equal and at or above <code>0x9E80</code>.</p>
+<pre class="mermaid">flowchart LR
+    E["Explicit close"] --&gt; ES["one equal high state&lt;br/&gt;0x9ECB"]
+    I["Implicit close"] --&gt; IS["25 equal high states&lt;br/&gt;0x9EC8–0xA018&lt;br/&gt;stride 0x0E"]
+</pre>
+
+<p>The explicit trace reuses one equal-pointer high state. The implicit trace
+advances through 25 states from <code>0x9EC8</code> to <code>0xA018</code> in <code>0x0E</code>-byte steps.
+This is direct RAM-state evidence that the two token streams manage temporary
+parse space differently. [confirmed]</p>
+<p>The <code>FPS</code> pointer distinguishes the forms at every <code>End</code> visit:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Form</th><th>First <code>FPS</code></th><th>Last <code>FPS</code></th><th style="text-align: right">Distinct values</th></tr>
+</thead>
+<tbody>
+<tr><td>Explicit <code>)</code></td><td><code>0x9F02</code></td><td><code>0x9F02</code></td><td style="text-align: right">1</td></tr>
+<tr><td>Implicit close</td><td><code>0x9EFF</code></td><td><code>0xA04F</code></td><td style="text-align: right">25</td></tr>
+</tbody>
+</table>
+</div>
+<p>The implicit sequence advances by <code>0x0E</code> per iteration. The explicit sequence
+keeps one <code>FPS</code> value after the first body setup. This matches the temporary
+cursor/end stride without using an LCD image as an oracle. [confirmed]</p>
+<h2 id="the-natural-loop-record"><a class="header" href="#the-natural-loop-record">The natural loop record</a></h2>
+<p>Both forms reach <code>parse_for_production</code> (<code>38:41E5</code>) and
+<code>parse_end_ops_record</code> (<code>38:4200</code>). At each <code>End</code>, <code>parse_end_ops_record</code>
+consumes one five-byte <code>TIForOpsRecord</code> beginning at <code>OPS + 1</code>:</p>
+<pre class="mermaid">flowchart LR
+    R["OPS + 1 … OPS + 5"] --&gt; Z["00h&lt;br/&gt;sentinel"]
+    R --&gt; C["36 58 or 7D 58&lt;br/&gt;continuation"]
+    R --&gt; S["12 00&lt;br/&gt;state word"]
+    C --&gt; I["for_first_update"]
+    C --&gt; T["for_steady_update"]
+</pre>
+
+<p>The first continuation prepares the loop update. The steady continuation
+re-enters the update path on later iterations. The trace observes 25 <code>End</code>
+visits and the same two record variants in both spellings. [confirmed]</p>
+<p>The pair does not enter the command-finalization gate at <code>02:5676</code> or the
+page-33 dispatcher at <code>33:435F</code>; those routines do not explain the difference.
+The exact branch between <code>For(</code> argument parsing and temporary <code>FPS</code> allocation
+that selects reuse versus <code>0x0E</code>-byte growth remains [hypothesis].</p>
+<h2 id="reproduce-the-evidence"><a class="header" href="#reproduce-the-evidence">Reproduce the evidence</a></h2>
+<p>Generate the programs, run both cases, and retain their traces:</p>
+<pre><code class="language-sh">tools/tibasic_samples.py --write-dir tools/tibasic-samples
+
+TILEM=/path/to/patched/tilem2
+python3 tools/tibasic_smoke.py \
+  --tilem "$TILEM" --rom tools/rom.bin \
+  --out-dir /tmp/tibasic-for-paren --keep-trace \
+  --case forparen --case forimplicit
 </code></pre>
-<p>The explicit <code>)</code> path (<code>02:56C3...</code>) calls through the command cleanup path
-before returning to statement execution. The implicit-close path (<code>C=0</code>) calls
-the command handler directly. For <code>For(</code>, that handler is the page-2 stub
-<code>02:6A30</code>, which calls bcall <code>_grf_435f</code> (<code>33:435F</code>) and indexes the control-flow
-jump table at <code>33:4381</code>; the <code>For</code> entry is table index <code>0x29 - 0x20 = 9</code>, and
-<code>End</code> is index <code>0x2A - 0x20 = 10</code> [confirmed].</p>
-<p>That one-byte syntax difference therefore changes the parser state at exactly
-the point where the <code>For</code> loop frame records the body cursor.</p>
-<h2 id="what-the-slow-case-does"><a class="header" href="#what-the-slow-case-does">What the slow case does</a></h2>
-<p>The marker interval profiler shows that the no-paren/false-<code>If</code> case spends its
-extra time in name/VAT scanning and pointer walking, not arithmetic:</p>
-<pre><code class="language-text">false N=25, no paren minus explicit paren:
-  +18,900 instr  page_07:565F  findsym_scan
-   +3,600 instr  ram:1787      dec_hl_tail_1787
-   +1,800 instr  ram:1785      dec_hl_tail_1785
-     +900 instr  ram:1784      dec_hl_tail_1784
+<p>Reduce the traces to the checked compact report:</p>
+<pre><code class="language-sh">PYTHONPATH=tools python3 tools/analyze_tibasic_for_paren.py \
+  --explicit /tmp/tibasic-for-paren/forparen.trace \
+  --implicit /tmp/tibasic-for-paren/forimplicit.trace \
+  --output tools/tibasic-for-paren.json
 </code></pre>
-<p>The parser-cursor writes explain why. In the explicit-paren trace, the
-single-line false <code>If</code> path repeatedly uses the same temporary parser buffer:</p>
-<pre><code class="language-text">... write nextParseByte=9EA8, parseEnd=9EA8
-... restore nextParseByte=9E3B, parseEnd=9E4C
-... write nextParseByte=9EA8, parseEnd=9EA8
-... restore nextParseByte=9E3B, parseEnd=9E4C
-</code></pre>
-<p>In the omitted-paren trace, the equivalent temporary buffer advances on each
-iteration:</p>
-<pre><code class="language-text">iteration 1: nextParseByte=9EA7, parseEnd=9EA7
-iteration 2: nextParseByte=9EB4, parseEnd=9EB4
-iteration 3: nextParseByte=9EC1, parseEnd=9EC1
-iteration 4: nextParseByte=9ECE, parseEnd=9ECE
-iteration 5: nextParseByte=9EDB, parseEnd=9EDB
-</code></pre>
-<p>Those addresses come from writes to <code>nextParseByte</code> (<code>0x965D</code>) and <code>basic_end</code>
-(<code>0x965F</code>) inside the marker interval. The advancing high-water mark matches
-the growing <code>findsym_scan</code> cost: the interpreter keeps allocating/walking
-temporary expression storage instead of reusing one stable temporary range.</p>
-<h2 id="mechanism"><a class="header" href="#mechanism">Mechanism</a></h2>
-<p>The false single-line <code>If</code> path is the amplifier [standard]:</p>
-<ol>
-<li><code>For(</code> with explicit <code>)</code> enters the <code>02:56C3</code> close/cleanup path before the
-control-flow handler records the loop continuation.</li>
-<li><code>For(</code> without <code>)</code> takes the <code>C=0</code> direct path at <code>02:5687</code>.</li>
-<li>With a first body line of <code>If 0</code>, the loop immediately enters the
-single-statement false-<code>If</code> skip path (<code>if_isg_stmt_handler</code> at <code>38:6F63</code>,
-with skip/temporary-parser work through the page-38 statement evaluator).</li>
-<li>In the direct-path case, that skip work is performed with a temporary parse
-range that advances every iteration. More iterations mean longer VAT/name
-and pointer scans, so the cost grows much faster than the explicit-paren
-version.</li>
-</ol>
-<p>This is why <code>N=25</code> shows only a modest penalty while <code>N=100</code> shows a large one.
-The omitted <code>)</code> saves a little cleanup work in the <code>If 1</code> control, but with
-<code>If 0</code> first it changes the loop/skip interaction and leaks work into temporary
-parser storage.</p>
+<p><code>tools/tibasic-for-paren.json</code> stores the hashes, marker intervals, pointer-write
+counts, high-state sequence, <code>FPS</code> summary, and decoded OPS record variants.
+The smoke check reads the completion marker from a logical-RAM dump. Raw traces
+remain outside the repository.</p>
 <h2 id="practical-rule"><a class="header" href="#practical-rule">Practical rule</a></h2>
-<p>When a <code>For(</code> loop body starts with a guard like <code>If not(condition)</code> or <code>If 0</code>,
-write the closing <code>)</code>:</p>
+<p>Write the closing <code>)</code> when a <code>For(</code> body begins with a single-line guard:</p>
 <pre><code class="language-ti-basic">For(I,1,N)
-If A
-...
+If condition
+statement
 End
 </code></pre>
-<p>Better still, avoid single-line false guards as the first statement of a hot
-loop. Use <code>If ... Then</code> blocks when the body is structured, or invert the loop
-so the common path does not repeatedly exercise the false-<code>If</code> skip scanner.</p>
+<p>The explicit form avoids the measured advancing temporary-buffer sequence in
+this pattern. Use the trace pair as evidence for this case, not as a general
+claim that every implicit <code>For(</code> close is slower.</p>
 
                     </main>
 
@@ -325,7 +319,7 @@ so the common path does not repeatedly exercise the false-<code>If</code> skip s
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="sub-tibasic-programming.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="display-lcd.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -339,7 +333,7 @@ so the common path does not repeatedly exercise the false-<code>If</code> skip s
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="sub-tibasic-programming.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="display-lcd.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>
@@ -361,21 +355,21 @@ so the common path does not repeatedly exercise the false-<code>If</code> skip s
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>
-        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
         <script src="hljs-z80-e93ac716.js"></script>
         <script src="katex-5e4f3b03.min.js"></script>
         <script src="katex-auto-render-bb53eb95.min.js"></script>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
-        <script src="pseudocode-init-5fa46c0a.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
 
 
 

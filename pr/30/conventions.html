@@ -3,20 +3,20 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Conventions &amp; methodology - TI-84 Plus OS — Reverse Engineering</title>
+        <title>Conventions and evidence - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
 
-        <meta name="description" content="Reverse-engineering notes for the TI-84 Plus calculator OS (2.55MP), a Z80 system.">
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
         <link rel="icon" href="favicon-de23e50b.svg">
         <link rel="shortcut icon" href="favicon-8114d1fc.png">
         <link rel="stylesheet" href="css/variables-8adf115d.css">
-        <link rel="stylesheet" href="css/general-2459343d.css">
-        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
         <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-bba023a5.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-cbaaedfe.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -179,23 +179,24 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="conventions--methodology"><a class="header" href="#conventions--methodology">Conventions &amp; methodology</a></h1>
-<p>How to read these notes, and how they were produced.</p>
+                        <h1 id="conventions-and-evidence"><a class="header" href="#conventions-and-evidence">Conventions and evidence</a></h1>
+<p>This page defines the notation, evidence labels, and naming conventions used
+throughout the wiki.</p>
 <h2 id="suggested-reading-order"><a class="header" href="#suggested-reading-order">Suggested reading order</a></h2>
 <ol>
-<li><a href="00-system-overview.html">Overview</a> — the four pillars and the system through-line.</li>
-<li><a href="10-subsystem-map.html">Subsystem map</a> — see the whole API surface at once.</li>
-<li>Substrate: <a href="01-memory-map.html">Memory map</a> → <a href="02-paging.html">Paging</a> → <a href="03-bcall-mechanism.html">The bcall mechanism</a> → <a href="04-interrupts.html">Interrupts</a>.</li>
-<li>Pick a core subsystem (<a href="06-floating-point.html">Floating-point</a>, <a href="05-variables-vat.html">VAT</a>, <a href="07-tokenizer-basic.html">Tokenizer/TI-BASIC</a>, <a href="08-display-lcd.html">Display</a>…), then its <strong>feature deep-dive</strong> (<code>sub-*</code>).</li>
+<li><a href="system-overview.html">System overview</a> introduces the machine, OS, and evidence model.</li>
+<li><a href="subsystem-map.html">Subsystem map</a> shows the major services and their dependencies.</li>
+<li><a href="memory-map.html">Memory map</a>, <a href="paging.html">Paging</a>, <a href="bcall-mechanism.html">The bcall mechanism</a>, and <a href="interrupts.html">Interrupts</a> cover the shared architecture.</li>
+<li>Continue with a core subsystem such as <a href="floating-point.html">Floating point</a>, <a href="variables-vat.html">Variables and the VAT</a>, <a href="tokenizer-basic.html">Tokenizer and TI-BASIC tokens</a>, or <a href="display-lcd.html">Display and LCD</a>, followed by its linked deep dives.</li>
 <li><a href="glossary.html">Glossary</a> for any unfamiliar term.</li>
 </ol>
 <h2 id="address-notation"><a class="header" href="#address-notation">Address notation</a></h2>
 <ul>
-<li><strong><code>pp:addr</code></strong> — flash page <code>pp</code> (<code>00</code>–<code>3F</code>), logical address <code>addr</code>. Banked pages run in the <code>4000–7FFF</code> window, so e.g. <code>_PutS</code> at <code>01:5C39</code> means page 1, address <code>0x5C39</code>. Example: <code>3D:6745</code>.</li>
-<li><strong><code>ram:addr</code></strong> — page 0 (the always-mapped kernel) and the RAM window; Ghidra keeps page 0 in its <code>ram</code> space, so <code>ram:229E</code> ≡ <code>00:229E</code>.</li>
-<li><strong><code>page_pp:addr</code></strong> — the same as <code>pp:addr</code>, written in Ghidra’s overlay-space form (<code>page_38:4000</code>). Used where it matches the tool output.</li>
-<li>A bare <code>0x….</code> (no page) is a <strong>RAM data address or an unpaged value</strong> (e.g. <code>flags</code> <code>0x89F0</code>, the bcall-ID ranges <code>0x4xxx</code>/<code>0x8xxx</code>, a page number like <code>0x3B</code>).</li>
-<li><strong>bcall ID ≠ address.</strong> A bcall has an <em>ID</em> (the 2-byte word after <code>rst 28h</code>, e.g. <code>_FindSym</code> = <code>42F4h</code>) and a <em>body address</em> (<code>00:0E65</code>). The ID indexes the jump table; it is not where the code lives.</li>
+<li><code>pp:addr</code> — Flash page <code>pp</code> (<code>00</code>–<code>3F</code>) and logical address <code>addr</code>. Banked pages run in the <code>0x4000</code>–<code>0x7FFF</code> window, so <code>_PutS</code> at <code>01:5C39</code> means page <code>01</code>, address <code>0x5C39</code>.</li>
+<li><code>ram:addr</code> — page 0 (the always-mapped kernel) and the RAM window; Ghidra keeps page 0 in its <code>ram</code> space, so <code>ram:229E</code> ≡ <code>00:229E</code>.</li>
+<li>Ghidra’s overlay space writes flash addresses as <code>page_pp:addr</code> (e.g. <code>page_38:4000</code>); the wiki normalizes these to the short <code>pp:addr</code> form, so <code>page_38:4000</code> is written <code>38:4000</code>.</li>
+<li>A bare <code>0x….</code> (no page) is a RAM data address or an unpaged value (e.g. <code>flags</code> <code>0x89F0</code>, the bcall-ID ranges <code>0x4xxx</code>/<code>0x8xxx</code>, a page number like <code>0x3B</code>).</li>
+<li><strong>bcall ID ≠ address.</strong> A bcall has an ID (the 2-byte word after <code>rst 28h</code>, such as <code>_FindSym</code> = <code>0x42F4</code>) and a body address (<code>00:0E65</code>). The ID indexes the jump table; it is not where the code lives.</li>
 </ul>
 <h2 id="confidence-flags"><a class="header" href="#confidence-flags">Confidence flags</a></h2>
 <p>Every non-obvious claim is tagged:</p>
@@ -205,29 +206,34 @@
 <tr><th>Flag</th><th>Meaning</th></tr>
 </thead>
 <tbody>
-<tr><td><strong>[confirmed]</strong></td><td>Directly observed in the disassembly/decompiler of this ROM.</td></tr>
-<tr><td><strong>[standard]</strong></td><td>Matches the publicly-documented TI-83+/84+ architecture and is consistent with the disassembly, but not every byte was traced.</td></tr>
-<tr><td><strong>[hypothesis]</strong></td><td>Inferred / not yet verified — treat with caution.</td></tr>
+<tr><td>[confirmed]</td><td>Directly observed in this ROM’s disassembly, decompiler, raw bytes, generated database, or a labeled execution trace.</td></tr>
+<tr><td>[standard]</td><td>Matches the publicly-documented TI-83+/84+ architecture and is consistent with the disassembly, but not every byte was traced.</td></tr>
+<tr><td>[hypothesis]</td><td>Inferred / not yet verified — treat with caution.</td></tr>
 </tbody>
 </table>
 </div>
-<p>Some early deep-dive docs use shorthand <code>[C]</code>/<code>[H]</code>/<code>[I]</code> ≈ <code>[confirmed]</code>/<code>[standard]</code>/<code>[hypothesis]</code>; read them against this three-tier scheme.</p>
 <h2 id="function-naming"><a class="header" href="#function-naming">Function naming</a></h2>
 <ul>
-<li><strong><code>_CamelCase</code></strong> — an official TI bcall/equate name (from <code>ti83plus.inc</code>, the full 2007 TI-83 Plus SDK equates file, or the TI SDK), e.g. <code>_FindSym</code>, <code>_FPAdd</code>. High confidence.</li>
-<li><strong><code>snake_case</code></strong> — a name <strong>inferred during this RE</strong> from a routine’s behavior (which named routines it calls, which RAM/ports it touches), e.g. <code>findsym_scan</code>, <code>fp_normalize</code>. Accurate in aggregate; any single low-level helper name is a best-effort guess.</li>
+<li><code>_CamelCase</code> — an official TI bcall/equate name (from <code>ti83plus.inc</code>, the full 2007 TI-83 Plus SDK equates file, or the TI SDK), e.g. <code>_FindSym</code>, <code>_FPAdd</code>. High confidence.</li>
+<li><code>snake_case</code> — a name inferred from a routine’s behavior, including its callees and RAM or port accesses, such as <code>findsym_scan</code> or <code>fp_normalize</code>. Any individual low-level helper name remains a best-effort interpretation.</li>
 </ul>
-<h2 id="math-notation"><a class="header" href="#math-notation">Math notation</a></h2>
-<p>Formulas are written in LaTeX and rendered by <strong>KaTeX</strong> (offline, client-side): <code>$…$</code> for inline math and <code>$$…$$</code> (or <code>\[…\]</code>) for display. KaTeX skips <code>&lt;code&gt;</code>/<code>&lt;pre&gt;</code>, so <code>$</code>-prefixed hex like <code>$1A2F</code> inside code blocks is left untouched.</p>
-<blockquote>
-<p><strong>Escaping caveat:</strong> mdBook runs markdown <em>before</em> the client-side KaTeX pass, and markdown strips a backslash before ASCII punctuation. So inside <code>$…$</code>/<code>$$…$$</code> you must <strong>double</strong> those escapes — write <code>\\,</code> (thin space), <code>\\%</code> (percent), <code>\\\\</code> (matrix/array row break), <code>\\{</code>/<code>\\}</code> — otherwise KaTeX receives <code>,</code>/<code>%</code>/<code>\</code> and mis-renders (a bare <code>%</code> even comments out the rest of the formula). Backslash-before-letter macros (<code>\frac</code>, <code>\sum</code>, <code>\sqrt</code>, …) are safe as-is. Fenced <code>```pseudocode</code>/<code>```mermaid</code> blocks are verbatim and need no doubling. <strong>Algorithms</strong> are written as <code>```pseudocode</code> blocks in <a href="https://github.com/SaswatPadhi/pseudocode.js">pseudocode.js</a> <code>\begin{algorithm}</code> syntax and typeset client-side. Diagrams use Mermaid (<code>```mermaid</code>) and render to SVG. See the repository <code>flake.nix</code>/<code>book.toml</code> for how the assets are vendored.</p>
-</blockquote>
-<h2 id="how-this-re-was-produced"><a class="header" href="#how-this-re-was-produced">How this RE was produced</a></h2>
+<p>The rebuilt Ghidra project keeps each kind of name in a separate checked registry:</p>
 <ul>
-<li><strong>The Ghidra database</strong> is rebuilt from the ROM by <code>tools/build.sh</code> (a 10-stage headless pipeline). It loads all 64 flash pages (page 0 + overlays at <code>4000</code>), then resolves and names routines from the main OS bcall table.</li>
-<li><strong>bcall table resolution.</strong> The main jump table page was found by <em>scoring</em> all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid <code>(addr, page)</code> entry. Page 0x3B scored highest for the <code>0x4xxx</code> table — more known bcall IDs resolve to a valid <code>(addr, page)</code> entry there than on any other page — and is confirmed by the documented RST shortcuts (all six matched) and by every entry resolving and live-confirming once 0x3B is applied. <code>0x8xxx</code> bcall IDs index a retail boot table on page <code>3F</code> (with the USB boot entries on retail page <code>2F</code>). This <code>rom.bin</code> is a BootFree image — page <code>3F</code> carries the BootFree prefix <code>3E 3F D3 06 …</code> and page <code>2F</code> is blank (all <code>FF</code>) — so these <code>0x8xxx</code> body targets do not resolve and are left unnamed (<code>tools/bcalls8x_targets.txt</code> has no body rows); only their SDK equate names are known.</li>
-<li><strong>Decompiler caveats.</strong> Ghidra’s Z80 decompiler mis-renders some idioms — <code>SET b,(IY+d)</code> flag ops, the <code>CALL cross_page_jump</code> (<code>ram:2B09</code>) trampolines, and register-passed arguments on banked pages. Where the decompiler is unreliable the notes are grounded in the raw disassembly (and several deep-dives used a small custom Z80 decoder over the ROM to verify addresses byte-exactly).</li>
-<li><strong>Parallel multi-agent passes.</strong> The feature deep-dives (<code>sub-*</code>) and the final 100%-naming pass were produced by multiple agents working on isolated copies of the database, each owning a disjoint set of pages, then merged.</li>
+<li><code>tools/names.txt</code> contains function entries. Its importer disassembles the entry and creates a function.</li>
+<li><code>tools/labels.txt</code> contains ROM data and internal code-entry labels. Rows marked <code>entry</code> seed and preserve disassembly without creating an overlapping function.</li>
+<li><code>tools/ram.txt</code> contains RAM symbols, including official SDK equates and carefully named inferred state.</li>
+<li><code>tools/ports.txt</code> contains I/O-port symbols.</li>
+<li><code>tools/poffsets.txt</code> contains reviewed base-plus-offset references. These make an operand such as <code>mathprintArenaState + 0x0D</code> render as a structure member without inventing a second global name for the field address.</li>
+</ul>
+<p><code>tools/ty_regions.txt</code> applies the C layouts built by <code>BuildTypes.java</code>. The prose can therefore use expressions such as <code>table_value_cache.band[1].value[row]</code> once it introduces the typed base and its concrete address. A physical boundary, trace target, or byte-level proof still keeps its concrete address. [confirmed]</p>
+<h2 id="math-notation"><a class="header" href="#math-notation">Math notation</a></h2>
+<p>Formulas are written in LaTeX and rendered by KaTeX (offline, client-side): <code>$…$</code> for inline math and <code>$$…$$</code> for display. Algorithms render as pseudocode blocks and data/control-flow diagrams as Mermaid.</p>
+<h2 id="evidence-and-reproducibility"><a class="header" href="#evidence-and-reproducibility">Evidence and reproducibility</a></h2>
+<ul>
+<li>The Ghidra database is rebuilt from the ROM by <code>tools/build.sh</code> (a 15-stage reproducible pipeline around Ghidra’s headless analyzer). It loads all 64 flash pages (page 0 + overlays at <code>4000</code>), then resolves routines, applies function and data symbols, and installs the checked C layouts and offset references.</li>
+<li><strong>Local ROM trust boundary.</strong> <code>tools/assemble_local_rom.py --check</code> validates the exact ignored base-ROM and AppVar hashes without writing output. Its reusable <code>tools/rom_assembly.py</code> library decodes each TI variable container, verifies its checksum, type, name, flags, duplicate length fields, internal 16 KiB size, and payload hash, then requires the assembled-ROM hash. This proves which bytes the analysis uses; it does not prove that the files were captured from a physical calculator. The pinned base already contains the <code>D84PBE1.8Xv</code> page-<code>3F</code> payload byte for byte. Only <code>D84PBE2.8Xv</code>, installed at page <code>2F</code>, changes the base image (8,615 bytes). [confirmed]</li>
+<li><strong>bcall table resolution.</strong> The main jump table page was found by <em>scoring</em> all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid <code>(addr, page)</code> entry. Page 0x3B scored highest for the <code>0x4xxx</code> table — more known bcall IDs resolve to a valid <code>(addr, page)</code> entry there than on any other page — and is confirmed by the documented RST shortcuts (all six matched) and by every entry resolving and live-confirming once 0x3B is applied. <code>0x8xxx</code> bcall IDs index 87 populated retail boot-table entries on page <code>3F</code>; several USB entries target page <code>2F</code>. The local <code>rom.bin</code> is assembled from the patched base plus the retail <code>D84PBE1.8Xv</code> and <code>D84PBE2.8Xv</code> payloads. <code>tools/bcalls8x_targets.txt</code> contains the 83 byte-resolved bodies with public SDK names; the remaining four entries have project-inferred names. The resolver rejects these targets when page <code>3F</code> has a BootFree prefix.</li>
+<li><strong>Decompiler caveats.</strong> Ghidra’s Z80 decompiler can mis-render <code>SET b,(IY+d)</code> flag operations, <code>CALL cross_page_jump</code> (<code>ram:2B09</code>) trampolines, and register-passed arguments on banked pages. Raw disassembly and ROM bytes are authoritative for these cases.</li>
 </ul>
 <p>See the repository <code>README.md</code> for the exact build pipeline and tooling.</p>
 
@@ -235,11 +241,11 @@
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="10-subsystem-map.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="subsystem-map.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="glossary.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="provenance.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -249,11 +255,11 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="10-subsystem-map.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="subsystem-map.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="glossary.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="provenance.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>
@@ -275,21 +281,21 @@
 
         <script src="elasticlunr-ef4e11c1.min.js"></script>
         <script src="mark-09e88c2c.min.js"></script>
-        <script src="searcher-c2a407aa.js"></script>
+        <script src="searcher-09f2665d.js"></script>
 
         <script src="clipboard-1626706a.min.js"></script>
         <script src="highlight-abc7f01d.js"></script>
-        <script src="book-a0b12cfe.js"></script>
+        <script src="book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>
-        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
         <script src="hljs-z80-e93ac716.js"></script>
         <script src="katex-5e4f3b03.min.js"></script>
         <script src="katex-auto-render-bb53eb95.min.js"></script>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
-        <script src="pseudocode-init-5fa46c0a.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
 
 
 
