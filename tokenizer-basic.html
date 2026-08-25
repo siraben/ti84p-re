@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f09341ee.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -219,6 +219,38 @@ maps are in <a href="token-tables.html">the token tables</a>. [confirmed]</p>
 <p>The editor uses the latter two operations to paint source. Parser scanners use
 the first operation so they never mistake the second byte for a command or
 delimiter. [confirmed]</p>
+<h2 id="editor-conversion-and-insertion-confirmed"><a class="header" href="#editor-conversion-and-insertion-confirmed">Editor conversion and insertion [confirmed]</a></h2>
+<p>The token editor tracks four little-endian pointers in one fixed block:</p>
+<pre><code class="language-c">#pragma pack(push, 1)
+typedef struct {
+    uint16_t top;      /* +0x00, editTop at 0x96F4 */
+    uint16_t cursor;   /* +0x02, editCursor at 0x96F6 */
+    uint16_t tail;     /* +0x04, editTail at 0x96F8 */
+    uint16_t bottom;   /* +0x06, editBtm at 0x96FA */
+} EditorBufferState;  /* 8 bytes */
+#pragma pack(pop)
+</code></pre>
+<p><code>_BufClear = 0x4936</code>, body <code>ram:222E</code>, sets <code>editCursor = editTop</code> and
+<code>editTail = editBtm</code>. It does not wipe every byte between those pointers.</p>
+<p><code>_bufInsert = 0x4909</code>, body <code>06:42E5</code>, accepts a token in <code>DE</code>. It first checks
+for room at the cursor. When <code>D = 0</code>, it inserts the one-byte token from <code>E</code>;
+when <code>D != 0</code>, it performs a second room check and writes the two bytes in
+<code>D,E</code> order. Success advances <code>editCursor</code> and returns NZ. A full buffer or
+failed second-byte check returns Z without reporting success. A controlled
+trace calls the clear body, calls the insert body with <code>DE = 0xBB6A</code> (<code>Asm(</code>),
+calls the clear body again, and returns from every call. The pointer mutations
+above are confirmed from the ROM body; that return-path reducer does not
+snapshot the transient buffer contents. [confirmed] under TilEm.</p>
+<p><code>_ConvKeyToTok = 0x4A02</code>, body <code>07:44DE</code>, converts a cooked key in <code>A</code> to a
+token in <code>DE</code>. Input <code>0x05</code> has the dedicated result <code>DE = 0x003F</code>. Ordinary
+inputs subtract <code>0x5A</code> and select a byte from the table beginning at
+<code>07:4000</code>; special inputs <code>0xFB</code>, <code>0xFC</code>, and <code>0xFE</code> use <code>keyExtend</code> at
+<code>ram:8446</code> and the tables rooted at <code>07:4426</code>, <code>07:422C</code>, <code>07:4099</code>, or
+<code>07:4102</code>. The latter paths can return two-byte tokens. A controlled trace
+confirms <code>A = 0x05</code> → <code>DE = 0x003F</code>; the special-table cases remain confirmed
+from ROM control flow, not exhaustively traced. Reduced results are in
+<code>tools/data/community-manual-bcall-traces.csv</code> and
+<code>tools/data/community-bcall-semantics.csv</code>.</p>
 <h2 id="one-source-line-three-representations"><a class="header" href="#one-source-line-three-representations">One source line, three representations</a></h2>
 <p>The statement</p>
 <pre><code class="language-ti-basic">cumSum(L1)-&gt;L2

@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f09341ee.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -238,6 +238,17 @@
 Controller video RAM is a third image store outside Z80 RAM. Direct text output
 can change it without changing <code>plotSScreen</code>, while graph drawing can change
 <code>plotSScreen</code> without changing the panel until <code>_GrBufCpy</code> runs. [confirmed]</p>
+<h2 id="lcd-ready-wait-confirmed"><a class="header" href="#lcd-ready-wait-confirmed">LCD-ready wait [confirmed]</a></h2>
+<p><code>_lcd_busy = 0x4051</code>, body <code>ram:0CC3</code>, preserves <code>AF</code> while polling port
+<code>0x02</code> bit 1 until the LCD reports ready. If bit 3 of <code>IY + 0x41</code> is set after
+that poll, it calls the short delay helper at <code>ram:0CE6</code> three times before
+restoring <code>AF</code> and returning. The ROM has callers in the fixed page and on
+pages <code>0x01</code>, <code>0x04</code>, <code>0x06</code>, <code>0x07</code>, <code>0x39</code>, and <code>0x3B</code>; it is the common
+serialization point used before direct LCD operations.</p>
+<p>A source-built fixture reaches the body and returns to its marker. That trace
+confirms the callable path in TilEm, while the port-poll latency and optional
+three-delay branch remain dependent on emulator or hardware LCD state. The
+result is pinned in <code>tools/data/community-manual-bcall-traces.csv</code>.</p>
 <h2 id="large-font-text"><a class="header" href="#large-font-text">Large-font text</a></h2>
 <p><code>_PutMap</code> clamps character code zero and codes at or above <code>0xF8</code> to replacement code <code>0xD0</code>. It computes <code>character × 8</code> and bjumps to <code>put_glyph_large</code> at <code>07:4588</code>. [confirmed]</p>
 <p>The page-7 blitter adjusts that offset to a seven-byte packed stride:</p>

@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f09341ee.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -183,9 +183,12 @@
 <p>This page connects three cross-cutting mechanisms: OS startup, context
 switching, and error unwinding.</p>
 <h2 id="boot-confirmed"><a class="header" href="#boot-confirmed">Boot [confirmed]</a></h2>
-<pre><code class="language-z80">3F:4000:     LD A,0x07; OUT (0x04),A           ; paired mapping
-             LD A,0x7F; OUT (0x06),A           ; pages 3E/3F in 4000/8000
-             LD A,0x03; OUT (0x0E),A           ; extended Flash bits
+<pre><code class="language-z80">3F:4000:     LD A,0x07
+             OUT (0x04),A                      ; paired mapping
+             LD A,0x7F
+             OUT (0x06),A                      ; pages 3E/3F in 4000/8000
+             LD A,0x03
+             OUT (0x0E),A                      ; extended Flash bits
              JP 0x812C                         ; page 3F in the 8000 window
 </code></pre>
 <p>The emulator reset trace begins at logical <code>0x8000</code>, where paired mode exposes
@@ -204,9 +207,13 @@ programming, first keypad scan, OS-validity decision, and destructive RAM
 diagnostic. It also reconciles standard Z80 timing with the pinned TilEm trace.</p>
 <p>The assembled <code>rom.bin</code> validates and installs the retail <code>D84PBE1.8Xv</code>
 payload at page <code>3F</code>; the pinned base already contains the same 16 KiB page, so
-the installation changes no bytes. The continuation begins
-<code>IM 1; LD B,0; LD SP,0xFDFA; …</code>. The boot page eventually initializes RAM, the
-VAT, system flags, the LCD, and enters the main context (the homescreen).
+the installation changes no bytes. The continuation begins:</p>
+<pre><code class="language-z80">IM 1
+LD B,0
+LD SP,0xFDFA
+</code></pre>
+<p>The boot page eventually initializes RAM, the VAT, system flags, the LCD, and
+enters the main context (the homescreen).
 [confirmed]</p>
 <p>The boot page (<code>3F</code>) and its version queries are exposed to the OS through <code>ti83plus.inc</code> bcalls: <code>_getBootVer</code> (bcall <code>0x80B7</code> → <code>3F:477C</code>) and <code>_getHardwareVersion</code> (bcall <code>0x80BA</code> → <code>3F:4781</code>). The USB boot support entry points route through the same table but land on page <code>2F</code>, for example <code>_AttemptUSBOSReceive</code> (<code>0x80E4</code> → <code>2F:4145</code>) and <code>_InitUSB</code> (<code>0x8108</code> → <code>2F:52A4</code>).</p>
 <h3 id="ram-clearing-and-reinitialization-ram_reset_wipe-at-ram0bd9-confirmed"><a class="header" href="#ram-clearing-and-reinitialization-ram_reset_wipe-at-ram0bd9-confirmed">RAM clearing and reinitialization (<code>ram_reset_wipe</code> at <code>ram:0BD9</code>) [confirmed]</a></h3>
@@ -214,26 +221,40 @@ VAT, system flags, the LCD, and enters the main context (the homescreen).
 <pre><code class="language-z80">ram_reset_wipe (35:719f):
   ; save flags to preserve: (9B73), (IY+34).6, (IY+35).0, (IY+35).1, (IY+3F)&amp;0x7F
   DI
-  LD HL,0x8000 ; LD DE,0x8001 ; LD BC,0x1BC3 ; LD (HL),0 ; LDIR   ; clear 8000..9BC3
+  LD HL,0x8000
+  LD DE,0x8001
+  LD BC,0x1BC3
+  LD (HL),0
+  LDIR                          ; clear 8000..9BC3
   ... restore the saved flag bits ...
-  LD HL,0x9BD0 ; LD DE,0x9BD1 ; LD BC,0x642F ; LD (HL),0 ; LDIR   ; clear 9BD0..FFFF
+  LD HL,0x9BD0
+  LD DE,0x9BD1
+  LD BC,0x642F
+  LD (HL),0
+  LDIR                          ; clear 9BD0..FFFF
   JP 0x0BD9
 ram_init_after_reset (ram:0BD9):
-  LD A,0xC0 ; OUT (0),A        ; port 0 = memory-map control
+  LD A,0xC0
+  OUT (0),A                    ; port 0 = memory-map control
   LD SP,0xFFF7                 ; reset stack to top of RAM
   CALL 0x3EC1                  ; continue init (page-0 kernel): VAT, sysflags, LCD …
 </code></pre>
-<p>So RAM is wiped in two LDIR runs (<code>0x8000</code>–<code>0x9BC3</code>, then <code>0x9BD0</code>–<code>0xFFFF</code>, leaving the <code>0x9BC4</code>–<code>0x9BCF</code> window and the explicitly-saved flag bytes intact), then <code>ram:0BD9</code> resets the memory map (port 0) and the stack and hands off through <code>ram:3EC1</code>. This <code>ram:0BD9</code> entry is the same RAM re-init point cross-referenced from <a href="memory-management.html">Memory management</a>. The <code>ram:3EC1</code> continuation (VAT/sysflag/LCD bring-up) is page-0 kernel code and is statically present (<code>ram:3EC1</code> = <code>CALL 0x2B09; …</code>). The reset jump to <code>boot_os_entry</code> is also present in the assembled database, so the page-0 and retail boot portions can be followed in one project.</p>
+<p>So RAM is wiped in two LDIR runs (<code>0x8000</code>–<code>0x9BC3</code>, then <code>0x9BD0</code>–<code>0xFFFF</code>, leaving the <code>0x9BC4</code>–<code>0x9BCF</code> window and the explicitly-saved flag bytes intact), then <code>ram:0BD9</code> resets the memory map (port 0) and the stack and hands off through <code>ram:3EC1</code>. This <code>ram:0BD9</code> entry is the same RAM re-init point cross-referenced from <a href="memory-management.html">Memory management</a>. The <code>ram:3EC1</code> continuation (VAT/sysflag/LCD bring-up) is page-0 kernel code and begins with <code>CALL 0x2B09</code>. The reset jump to <code>boot_os_entry</code> is also present in the assembled database, so the page-0 and retail boot portions can be followed in one project.</p>
 <h3 id="the-main-event-loop-confirmed"><a class="header" href="#the-main-event-loop-confirmed">The main event loop [confirmed]</a></h3>
 <p><code>main_event_loop</code> @ <code>ram:05e6</code> (page 0) is the OS root dispatcher. Structure:</p>
-<pre><code class="language-z80">05e6: LD B,8;  LD HL,0x84BE        ; iterate an 8-entry event/context stack
+<pre><code class="language-z80">05e6: LD B,8
+      LD HL,0x84BE                 ; iterate an 8-entry event/context stack
 05eb: INC HL                       ; first slot is 0x84BF
-05ec: LD A,(HL); OR A; JR Z,...    ; skip empty slots
+05ec: LD A,(HL)
+      OR A
+      JR Z,...                     ; skip empty slots
 05f5: CALL 0x3f3f                  ; per-entry dispatch (event/key router)
 0601: CP 0x7F / 0xFE / 0xFC / 0xFB ; branch on the handler's return code
 ...
-0690: LD A,0x7F; CALL call_context_main   ; run the active context's handler
-0699: POP AF; JP Z,0x05e6                 ; loop
+0690: LD A,0x7F
+      CALL call_context_main       ; run the active context's handler
+0699: POP AF
+      JP Z,0x05e6                 ; loop
 </code></pre>
 <p>So the loop pumps an event/context stack (8 slots from <code>0x84BF</code>, after the <code>INC HL</code>), routes each via the dispatcher at <code>ram:3F3F</code>, and ultimately runs the active context’s <code>cxMain</code> handler through <code>call_context_main</code>, looping forever.</p>
 <p>The <code>ram:3F3F</code> router is a bjump trampoline → <code>event_key_router</code> (<code>07:4539</code>): given a key code, it scans key→context dispatch tables (<code>07:4099</code>, ~105 entries, for 1-byte keys; <code>07:422C</code>/<code>4426</code> for extended 2-byte keys, using <code>_LdHLind</code>/<code>_CpHLDE</code>) and returns a routing code:</p>
@@ -287,10 +308,41 @@ ram_init_after_reset (ram:0BD9):
 </code></pre>
 <p>The destination <code>0x858D</code> and length <code>0x000C</code> pin the six 2-byte handler slots <code>cxMain</code>(+0) <code>cxPPutAway</code>(+2) <code>cxPutAway</code>(+4) <code>cxRedisp</code>(+6) <code>cxErrorEP</code>(+8) <code>cxSizeWind</code>(+10), and the explicit <code>LD (0x8599),A</code> writes <code>cxPage</code> at +12 from port 6. <code>_AppInit</code> installs a context, but it is not the only writer: <code>_POPCX</code> (bcall <code>0x49E1</code>, body <code>07:6D1C</code>) restores a suspended context by <code>LDIR</code>ing 14 bytes <code>cxPrev</code>→<code>cxMain</code> (<code>0x859B</code>→<code>0x858D</code>) and copying a 15th byte into the app-flags, and a matching save path (the <code>LDIR</code> at <code>07:5A8C</code>) copies <code>cxMain</code>→<code>cxPrev</code>. <code>cxCurApp</code>(+13, <code>0x859A</code>) is the current context id (a key code); the shadow at <code>cxPrev</code>(<code>0x859B</code>) holds the suspended context.</p>
 <h3 id="how-a-context-handler-is-invoked-confirmed"><a class="header" href="#how-a-context-handler-is-invoked-confirmed">How a context handler is invoked [confirmed]</a></h3>
-<pre><code class="language-text">call_context_main (ram:08fa):   set_bankA_page(cxPage); call (cxMain) via jp_hl; ret   ; run handler on its page, control returns here
-call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; restore port6
+<pre><code class="language-text">call_context_main (ram:08fa):
+  set_bankA_page(cxPage)
+  call (cxMain) via jp_hl
+  ret                            # control returns here after the paged handler
+
+call_context_savepage (ram:08e9):
+  save port6
+  set_bankA_page(cxPage)
+  jp_hl
+  restore port6
 </code></pre>
 <p>Primitives: <code>set_bankA_page</code> (<code>ram:078c</code>, <code>port6 = page</code>) and <code>jp_hl</code> (<code>ram:090b</code>, <code>jp (hl)</code> dynamic dispatch). The OS pages the handler in, runs it, and (for the savepage variant) restores the caller’s page.</p>
+<h3 id="_newcontext-and-string-input-entry-confirmed"><a class="header" href="#_newcontext-and-string-input-entry-confirmed"><code>_newContext</code> and string-input entry [confirmed]</a></h3>
+<p><code>_newContext = 0x4030</code>, body <code>ram:077E</code>, takes the requested context selector
+in <code>A</code>. It copies that byte to <code>C</code>, clears <code>kbdKey</code> at <code>ram:8444</code>, clears <code>B</code>,
+saves port <code>0x06</code>, calls the shared context/key installer at <code>ram:0791</code>, and
+restores port <code>0x06</code>. The routine therefore preserves the caller’s bank-A
+mapping; the supplied selector can still change context and key state.</p>
+<p>A controlled TilEm call with <code>A = 0x40</code> clears <code>kbdKey</code>, returns, and preserves
+port <code>0x06</code> at <code>0x07</code>. This establishes the callable contract for that input,
+not the broader community description that every call “restores the home
+context.” [confirmed] under TilEm.</p>
+<p><code>_GetStringInput2 = 0x4E61</code>, body <code>37:5194</code>, is a higher-level input-context
+entry. It sets bit 1 of <code>IY + 0x09</code>, saves the byte at <code>ram:9653</code>, sets bit 0 of
+<code>IY + 0x29</code>, calls <code>_newContext</code> with <code>A = 0x50</code>, and enters the shared context
+dispatcher at <code>ram:04F9</code>. A valid caller must prepare <code>ioPrompt</code> at <code>ram:865F</code>
+and protect the temporary-allocation state; the archived Elite caller saves
+<code>cleanTmp</code>, replaces it with <code>pTempCnt</code>, invokes the bcall, then restores it.</p>
+<p>The reconstructed caller follows that sequence with prompt <code>A=?</code>, submits
+<code>1</code> then <strong>ENTER</strong>, and regains control with OP1 equal to the 11-byte real
+encoding of 1 (<code>00 80 10 00 00 00 00 00 00 00 00</code>). The trace reaches
+<code>37:5194</code> once, <code>ram:077E</code> twice, and <code>ram:04F9</code> twice before the caller copies
+OP1. The additional context visits belong to the interactive editor path.
+Cancel and invalid-expression exits remain untraced. The reduced result is in
+<code>tools/data/community-string-input.csv</code>. [confirmed] under TilEm.</p>
 <h2 id="error-handling-confirmed"><a class="header" href="#error-handling-confirmed">Error handling [confirmed]</a></h2>
 <p>Errors use a non-local exit, not return codes:</p>
 <ul>
@@ -299,6 +351,40 @@ call_context_savepage (ram:08e9): save port6; set_bankA_page(cxPage); jp_hl; res
 <li>The <code>E_EDIT</code> bit (0x80) tells the handler the error is editable (offer “2:Goto” to jump to the offending token).</li>
 </ul>
 <p>So <code>errSP</code> + <code>_JError</code> together implement try/catch: a context seeds <code>errSP</code> (from <code>onSP</code>) at entry, and any depth of nested calls can abort straight back to it.</p>
+<h3 id="custom-error-wrapper-confirmed"><a class="header" href="#custom-error-wrapper-confirmed">Custom-error wrapper [confirmed]</a></h3>
+<p><code>_ErrCustom1</code> (bcall <code>0x4D41</code> → <code>ram:2771</code>) loads <code>A = 0xAB</code> and branches to
+<code>_JError</code> at <code>ram:2793</code>. After the error handler masks off <code>E_EDIT</code>, code
+<code>0x2B</code> selects the pointer at <code>07:6B20</code>. That table entry is <code>0x984D</code>, the
+<code>appErr1</code> custom-message buffer. The display path treats the buffer as a
+null-terminated string. [confirmed]</p>
+<p>The pinned include places <code>appErr1</code> at <code>0x984D</code> and <code>appErr2</code> at <code>0x985A</code>, so
+the first buffer occupies 13 bytes. A bounded message can contain at most 12
+bytes plus its null terminator. <code>_ErrCustom1</code> takes the same non-local path as
+<code>_JError</code>, so instructions after the bcall do not perform caller cleanup.
+[confirmed]</p>
+<p>The community example
+<a href="https://www.ticalc.org/pub/83plus/asm/programs/generateerror.zip"><code>programs/generateerror.zip</code></a>
+(SHA-256
+<code>1731b2b2cf7580855f7007478d55299e12b1ec4b7430d371feedea764c9139cf</code>)
+copies the <code>Ans</code> string payload into <code>appErr1</code> and invokes bcall <code>0x4D41</code>. Its
+<code>generr.z80</code> member (SHA-256
+<code>5f28fca2dec72dc4d495aff18a8d6b076f02d34b8cafcdbd78c11c05f364386d</code>)
+does not bound the copy to 13 bytes or write an explicit null terminator.
+This static source is evidence of community usage, not evidence that arbitrary
+<code>Ans</code> strings are safe. [confirmed]</p>
+<p>The bounded <code>ERRPROBE</code> fixture copies <code>COMMTRACE\0</code> into <code>appErr1</code> and invokes
+the same <code>4D41h</code> bcall under TilEm x4. Its 3,634,222-instruction trace reaches
+<code>ram:2771</code>, <code>_JError</code> at <code>ram:2793</code>, and the display path at <code>07:6A72</code> once
+each. The rendered error is <code>ERR:COMMTRACE</code>; control does not reach the
+fixture’s post-bcall halt. The trace SHA-256 is
+<code>1c9dbb368b74258ab3b82dc46f9fbb23710b23e343455415dddcef4d37a959eb</code>.
+The patched TilEm executable SHA-256 is
+<code>b8ee505483c79732a4ca21efb8b904de0792477795f6fc717874dcd5addaed09</code>.
+<code>tools/data/community-custom-error.csv</code> records both executable identities,
+the fixture, macro, recording, and hit counts. It also records zero visits to
+the fixture’s unexpected-return path. This confirms the nonlocal path in the
+identified emulator scenario;
+it is not a physical-hardware result. [confirmed]</p>
 <h3 id="error-message-table-confirmed"><a class="header" href="#error-message-table-confirmed">Error-message table [confirmed]</a></h3>
 <p>The error screen shows <code>ERR:&lt;MESSAGE&gt;</code>; the <code>ERR:</code> prefix is at <code>01:4008</code>. The handler at <code>07:6A72</code> masks the code with <code>0x7F</code>, then indexes a little-endian pointer table at <code>07:6ACC</code> by <code>(code) − 1</code> for codes below <code>0x3A</code>. It fetches the pointer through <code>_LdHLind</code> and copies the selected null-terminated string. Codes <code>0x36</code>, <code>0x37</code>, <code>0x39</code>, and values at least <code>0x3A</code> bypass the table and select <code>?</code> at <code>07:6C5A</code>. [confirmed]</p>
 <div class="table-wrapper">

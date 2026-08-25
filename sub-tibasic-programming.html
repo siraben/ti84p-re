@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f09341ee.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -711,7 +711,7 @@ macro is <code>tools/macros/run-callsub-typed.macro</code>.</p>
 </table>
 </div>
 <p>Both gate bits read zero in the working path. The private callee transition at
-<code>38:6910</code> executes <code>XOR A ; CALL 6A15</code> before entering the evaluator. These
+<code>38:6910</code> executes <code>XOR A</code><br><code>CALL 6A15</code> before entering the evaluator. These
 observations suggest that an ASM payload must locate the target through
 <code>_ChkFindSym</code> into OP1, copy the name header to <code>0x9652</code>, point
 <code>start</code>/<code>cursor</code> at <code>_ChkFindSym</code>’s data pointer plus two (past the size word),

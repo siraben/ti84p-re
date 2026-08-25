@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f09341ee.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -281,6 +281,22 @@ agreement with WikiTI does not establish a physical unit’s backing. The
 original, patterned, and restored bytes for selectors <code>82</code>–<code>87</code>. No physical
 result has been recorded. [standard] for the sources; [confirmed] for the probe
 bytes; [hypothesis] for an unmeasured calculator’s topology.</p>
+<p>Flash Editor is historical community corroboration, not the missing physical
+result. Its readme says pages <code>84</code>–<code>87</code> can buffer a Flash sector on older
+128 KiB calculators and cannot do so on newer 48 KiB units. The included source
+saves port <code>0x06</code>, maps selected pages through it, and uses the extra selectors
+during edit and sector operations. It records no calculator identity, alias
+matrix, or hardware trace, so the claim does not establish which selectors are
+independent on any identified unit. The source instructions and identified
+readme wording are [confirmed]; the claimed physical topology remains
+[hypothesis].</p>
+<p>The exact release is <code>programs/flashed.zip</code>, SHA-256
+<code>b99e56f11084f473c34bc2d7679d37b407764a698aee95f9ef8b6f663d7c8463</code>.
+Members <code>flashed.asm</code>, <code>routines.asm</code>, and <code>flashed.txt</code> have SHA-256
+<code>046f76fcfb173dcb80e3634adba5f804f0a961e6ba1efac48fcbe7bb9dc8781a</code>,
+<code>8669a0c6c50f8870a59d1b6d13ef567c5d5b255fcf6985e2026763adf6bc2a9c</code>,
+and <code>5580d4e0d096a2ee4c6ab0b0e08ba9703a3b961fcc72c31dc770a82cfc4d69b7</code>,
+respectively. [confirmed]</p>
 <h2 id="emulator-implementations"><a class="header" href="#emulator-implementations">Emulator implementations</a></h2>
 <p>The pinned source revisions implement different RAM backing rules. These results
 describe software behavior and do not select the correct physical ASIC contract.</p>

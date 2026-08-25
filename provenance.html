@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f09341ee.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -291,6 +291,37 @@ specific analysis task, not evidence that the ROM’s control flow is invalid.
 Ghidra version. Its <code>rom_sha256</code> field can be checked with
 <code>tools/rom_provenance.py verify</code>; use a separately rebuilt retail project when
 auditing retail boot and USB pages. [confirmed]</p>
+<h2 id="community-assembly-archive-snapshot"><a class="header" href="#community-assembly-archive-snapshot">Community assembly archive snapshot</a></h2>
+<p>The community-source audit uses a 2026-08-24 mirror of the
+<a href="https://www.ticalc.org/pub/83plus/asm/">ticalc.org TI-83/84 Plus assembly archive</a>.
+The archive was cloned outside this repository. This repository contains
+hashes and analysis tools, not the contributed programs. [confirmed]</p>
+<p><code>tools/data/community-archive-inventory.csv</code> records every mirrored ZIP path,
+its SHA-256, compressed and expanded sizes, member count, source-member count,
+and the number of paths with byte-identical archive contents. The snapshot has
+2,770 ZIP paths, 2,649 unique archive identities, 19,323 members, and 4,241
+members with recognized assembly or implementation-source suffixes. Of the
+ZIPs, 897 contain at least one such member. [confirmed]</p>
+<p>Run the same inventory and safe extraction process from the development
+environment:</p>
+<pre><code class="language-sh">nix develop -c python3 tools/community_archive.py \
+  "$COMMUNITY_ARCHIVE/mirror/pub/83plus/asm" \
+  --archive-csv tools/data/community-archive-inventory.csv \
+  --member-csv /tmp/community-archive-members.csv \
+  --extract-to "$COMMUNITY_ARCHIVE/extracted"
+</code></pre>
+<p>The extractor validates paths before writing, keeps each ZIP in a separate
+directory, preserves duplicate member revisions under an explicit namespace,
+and stores archived symbolic links as inert metadata. It uses the system
+<code>unzip</code> only for compression methods that Python cannot decode, after rejecting
+links and duplicate paths and before checking every resulting file against the
+ZIP size and CRC records. The audit does not execute contributed host or
+calculator binaries. [confirmed]</p>
+<p>An archive description or readme is a community claim. Source establishes the
+instructions present in that member, but does not prove that the distributed
+calculator variable was assembled from it or that the code works on physical
+hardware. Cite both archive and member hashes for a source finding, and retain
+the wiki’s existing hardware or ROM evidence boundary. [confirmed]</p>
 <h2 id="evidence-limit"><a class="header" href="#evidence-limit">Evidence limit</a></h2>
 <p>A matching hash proves byte identity, not how the image was obtained. The
 environment, ASIC, and emulator-profile fields keep physical and emulator

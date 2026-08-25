@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f09341ee.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -628,7 +628,7 @@ own cleanup at <code>ram:0374</code> and joins the same tail. [confirmed]</p>
 <tr><td><code>ram:0A51</code></td><td>clear <code>shift2nd</code></td><td>remove the <strong>[2nd]</strong> modifier</td></tr>
 <tr><td><code>ram:0A55</code></td><td>clear <code>onRunning</code></td><td>mark the OS as powered down</td></tr>
 <tr><td><code>ram:0A5B</code></td><td><code>EI</code></td><td>allow the selected wake interrupt</td></tr>
-<tr><td><code>poweroff_halt_loop</code></td><td><code>HALT; JR ram:0A5C</code></td><td>remain in the ASIC low-power loop</td></tr>
+<tr><td><code>poweroff_halt_loop</code></td><td><code>HALT</code><br><code>JR ram:0A5C</code></td><td>remain in the ASIC low-power loop</td></tr>
 </tbody>
 </table>
 </div>

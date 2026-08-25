@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f09341ee.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -465,6 +465,18 @@ ram:04BE  ret
 </tbody>
 </table>
 </div>
+<h3 id="_getk-compatibility-entry-confirmed"><a class="header" href="#_getk-compatibility-entry-confirmed"><code>_GetK</code> compatibility entry [confirmed]</a></h3>
+<p><code>_GetK = 0x4744</code>, body <code>37:746D</code>, combines two otherwise separate results.
+It reads <code>kbdGetKy</code> at <code>ram:8445</code>. A zero byte selects integer zero; a nonzero
+byte is consumed, used as an index into the byte table at <code>37:7487</code>, and
+converted to a real value in OP2 through the inline cross-page call at
+<code>37:7482</code>. The tail jump at <code>37:7484</code> enters <code>_GetCSC</code>, so the returned <code>A</code> is
+the current raw scan mailbox result, not the table result placed in OP2.</p>
+<p>In a controlled trace, <code>kbdGetKy = 0x01</code> selects table byte <code>0x22</code> and leaves
+OP2 as real 34 (<code>00 81 34 00 00 00 00 00 00 00 00</code>). The fixture separately
+clears and restores <code>kbdScanCode</code>; this avoids attributing an old launch key to
+the table conversion. The reduced trace is in
+<code>tools/data/community-bcall-semantics.csv</code>. [confirmed] under TilEm.</p>
 <h3 id="modifier-state"><a class="header" href="#modifier-state">Modifier state</a></h3>
 <p><code>_GetKey</code> stores modifier state in <code>shiftFlags</code> at <code>IY+0x12</code>. [confirmed]</p>
 <div class="table-wrapper">
@@ -531,6 +543,15 @@ ram:0980  jr nz,ram:0975
 <p>This debounce is independent of the matrix’s five-sample release filter. It polls <strong>ON</strong> rapidly at forced 6 MHz instead of waiting for timer-1 scans. [confirmed]</p>
 <h2 id="2ndon-apd-and-wake"><a class="header" href="#2ndon-apd-and-wake">2nd+ON, APD, and wake</a></h2>
 <p><code>_GetKey</code> recognizes the ON request as an internal <code>0xFF</code> event at <code>06:4A93</code>. It clears <code>shift2nd</code>. If <code>appRetKeyOff</code> is set, it returns the context key <code>0x3F</code>; otherwise it jumps to <code>_PowerOff</code>, body <code>ram:09E6</code>. [confirmed]</p>
+<p><code>_GetKeyRetOff = 0x500B</code>, body <code>06:491A</code>, consists of <code>SET 7,(IY + 0x28)</code> and
+then falls directly into <code>_GetKey</code> at <code>06:491E</code>. A controlled interactive trace
+drains one explicit <strong>ENTER</strong>, enters <code>_GetKeyRetOff</code>, then injects
+<strong>2nd</strong>+<strong>ON</strong>. It reaches the <code>0xFF</code> comparison at <code>06:4A93</code>, loads
+<code>A = 0x3F</code> at <code>06:4A9B</code>, observes the set flag at <code>06:4A9D</code>, takes the return
+branch at <code>06:4AA1</code>, and records <code>A = 0x3F</code> in the caller. The trace does not
+enter <code>_PowerOff</code>. Its reduced result is in
+<code>tools/data/community-getkey-ret-off.csv</code>. [confirmed] under TilEm; physical
+ON timing remains covered only by the separate hardware probes below.</p>
 <p>Explicit power-off and Auto Power Down (APD) perform different cleanup, then
 join <code>poweroff_shared_tail</code> at <code>ram:0A24</code>. The final hardware operations are:
 [confirmed]</p>
@@ -546,7 +567,7 @@ join <code>poweroff_shared_tail</code> at <code>ram:0A24</code>. The final hardw
 <tr><td><code>ram:0A51</code></td><td>clear <code>shift2nd</code></td><td>discard the power-off modifier</td></tr>
 <tr><td><code>ram:0A55</code></td><td>clear <code>onRunning</code></td><td>mark the OS powered down</td></tr>
 <tr><td><code>ram:0A5B</code></td><td><code>EI</code></td><td>accept a selected wake interrupt</td></tr>
-<tr><td><code>poweroff_halt_loop</code> at <code>ram:0A5C</code></td><td><code>HALT; JR ram:0A5C</code></td><td>remain in the low-power loop</td></tr>
+<tr><td><code>poweroff_halt_loop</code> at <code>ram:0A5C</code></td><td><code>HALT</code><br><code>JR ram:0A5C</code></td><td>remain in the low-power loop</td></tr>
 </tbody>
 </table>
 </div>

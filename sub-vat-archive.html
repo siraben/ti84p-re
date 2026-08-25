@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f09341ee.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -247,7 +247,8 @@ with the 2 name bytes at <code>847A</code>/<code>847B</code>:</p>
   else: HL = symTable (0xFE66), scan downward to progPtr
   loop:
      A = (HL); A &amp;= 0x1F            ; *** mask off archive flag bits in high nibble ***
-     SBC HL,DE ; RET C  (ran past end → not found)
+     SBC HL,DE
+     RET C  (ran past end → not found)
      CP (HL) against token (8479); on match check name bytes (847A/847B) at HL-1/HL-2
      else step HL -= 3 from the name pointer (9 bytes type-to-type for fixed entries)
           / -= (6+nameLen) for named entries, and continue
@@ -298,6 +299,104 @@ does not need to retain the stored type merely to find the program again, but
 it must inspect the type returned by lookup before applying type-specific
 policy. This conclusion covers TI-84 Plus OS 2.55MP; shell-specific loading
 and writeback policies remain separate. [confirmed]</p>
+<h3 id="community-vat-mutation-utilities"><a class="header" href="#community-vat-mutation-utilities">Community VAT mutation utilities</a></h3>
+<p>Two identified community utilities illustrate why a shared payload format is
+not, by itself, a safe type-conversion contract.</p>
+<p>PRGMHIDE toggles bit 6 of the first stored name byte. Its source obtains the
+selected VAT type pointer, subtracts seven to the first name byte, and applies
+<code>XOR 0x40</code>; for example, stored <code>A</code> (<code>0x41</code>) becomes <code>0x01</code>. Its own display
+path restores bit 6 only while drawing the name. The 471-byte source rebuild is
+byte-identical to the packaged <code>PRGMHIDE.8xp</code> body. [confirmed] for the
+identified community source and binary.</p>
+<p>A source-matched TilEm trace reaches the utility’s write at <code>ram:9F2E</code> and
+changes <code>ZTARGET</code>’s first stored byte from <code>0x5A</code> to <code>0x1A</code>. The same run then
+archives the program through <code>_Arc_Unarc</code>; its VAT entry becomes type <code>0x05</code>,
+page <code>0x08</code>, address <code>0x4001</code>, with the changed name intact. A cold reset from
+that output Flash image rebuilds the same VAT entry, and the ordinary program
+menu contains no entry. The hidden-name persistence and menu filtering are
+therefore confirmed under TilEm on OS 2.55MP, but not on physical hardware.
+[confirmed]</p>
+<p>Creating a visible name that differs only by this stored bit may still produce
+confusing lookup or display results. [hypothesis]</p>
+<p>The older <code>HIDE</code> utility directly replaces the complete VAT type byte with
+<code>ProgObj</code>, <code>ProtProgObj</code>, or <code>AppVarObj</code>. It does not test the returned Flash
+page or preserve archive-state bits. A source-matched trace reaches its write
+at <code>ram:9E29</code> and changes a RAM <code>ProgObj</code> into an <code>AppVarObj</code> without moving its
+data. [confirmed] Applying it to an archived object can clear the archived flag
+while leaving the page and address fields unchanged. That unsafe case was not
+executed because it deliberately creates an inconsistent VAT; the resulting OS
+behavior remains a hypothesis. [hypothesis]</p>
+<p>PRGMAPPV provides the safer counterexample. It refuses archived inputs, creates
+a destination through <code>_CreateAppVar</code> or <code>_CreateProtProg</code>, copies the data,
+then deletes the original with <code>_DelVarNoArc</code>. Its ordinary/protected lock
+toggle changes only <code>0x05</code> and <code>0x06</code>, and also refuses archived inputs. The
+packaged 550-byte body matches the included source. [confirmed] for the
+identified community source and binary. A source-matched trace of the
+program-to-AppVar path reaches <code>_CreateAppVar</code> at <code>ram:9F31</code> and <code>_DelVarNoArc</code>
+at <code>ram:9F5E</code>; the resulting RAM entry is type <code>0x15</code>. A second trace selects
+an archived program, reaches the refusal at <code>ram:9F6A</code>, and reaches neither
+create nor delete. [confirmed] The lock-toggle refusal uses the same source
+gate, but it was not keyed separately. [confirmed] for source; [hypothesis]
+for that untraced interaction.</p>
+<p>The exact artifacts are:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Utility</th><th>Archive SHA-256</th><th>Source member SHA-256</th><th>Packaged member SHA-256</th></tr>
+</thead>
+<tbody>
+<tr><td><code>programs/prgmhide.zip</code></td><td><code>6342d57b18a1277aa3ce13ba514d986fc3c485dfc4b747a157972fad61756103</code></td><td><code>source/PRGMHIDE.z80</code>: <code>10b7b0bfd902ebdef63f70120ef08d0fcb0fa3144885e8daf53e4880572648a1</code></td><td><code>PRGMHIDE.8xp</code>: <code>16e0ad05b138ccd15cde0648312b5032bd1f450faa544cd3b6ab1b882d4f0a43</code></td></tr>
+<tr><td><code>programs/programtoappvar.zip</code></td><td><code>4e27be8774fca769f26f1ce9984026f250fc8c4e9222277d3458a67e7fb25dc9</code></td><td><code>Hide.asm</code>: <code>65d290071a4ca2837f2e7ad08b3614939ec024a946057c75452f7b174b081a57</code></td><td><code>HIDE.8XP</code>: <code>0b03d6d7c97322140eb051844458adba1acf95009bf28d827c510e38f545e756</code></td></tr>
+<tr><td><code>programs/prgmappv.zip</code></td><td><code>33ba32795488b17e316f2efe556f5b323b6ca5b9fa9a1bf08db8dc59bac44ddf</code></td><td><code>PRGMAPPV.z80</code>: <code>5d75239635d4791b08519e366276aebef3de51d1fe81f68c8cd5ee59f65f97bb</code></td><td><code>PRGMAPPV.8XP</code>: <code>a035c67a56e31dd8504d9d2f293d955a0ce56638a4506b0fcdd8ed9b27d54eb0</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The reproducible macros and analyzer are in <code>tools/community-vat-probes/</code>.
+<code>tools/data/community-vat-dynamic-observations.csv</code> records the complete trace,
+snapshot, input-ROM, output-ROM, and emulator hashes. The ROM hash is
+<code>dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09</code>;
+the patched TilEm executable hash is
+<code>b8ee505483c79732a4ca21efb8b904de0792477795f6fc717874dcd5addaed09</code>.</p>
+<h3 id="base-page-table-archive-accounting-and-group-extraction"><a class="header" href="#base-page-table-archive-accounting-and-group-extraction">Base-page table, archive accounting, and group extraction</a></h3>
+<p><code>_FillBasePageTable = 0x5011</code>, body <code>ram:2692</code>, saves port <code>0x06</code> and selects
+a model-specific Flash source and RAM destination. The older path begins with
+page <code>0x15</code> and destination <code>ram:8015</code>; the TI-84 Plus path selects page
+<code>0x29</code> and <code>ram:8029</code>, with a second hardware probe able to select page
+<code>0x69</code> and <code>ram:8069</code>. It maps the source into bank A, walks its descriptor
+data through the inline helpers at <code>ram:3DC5</code> and <code>ram:3DCB</code>, then restores
+port <code>0x06</code>. [confirmed]</p>
+<p>The archived Cherries comment says this “restores first 1087 bytes in RAM.”
+The ROM body is not a fixed 1,087-byte <code>LDIR</code>: its copy count is selected from
+the mapped descriptor and its outer loop continues until selector <code>0x07</code>.
+The fixed-size community wording is therefore not established. A controlled
+fixture reaches <code>ram:2692</code> and returns, but does not corrupt a live base-page
+table to prove every rewritten byte. [confirmed] for the ROM control flow and
+return; [hypothesis] for a universal 1,087-byte extent.</p>
+<p><code>_ArcChk = 0x5014</code>, body <code>3D:61AF</code>, prepares the archive accounting words at
+<code>ram:839F</code>–<code>ram:83A2</code>. Bit 6 of <code>IY + 0x24</code> lazily guards the first Flash scan,
+whose four-byte intermediate result is saved at <code>ram:9C96</code>; bit 7 guards the
+second scan and the intermediate result at <code>ram:9C9A</code>. The tail adds four bytes
+from the temporary result into <code>ram:839F</code>–<code>ram:83A2</code>, restores the caller’s
+<code>HL</code> and <code>AF</code>, and returns. The first scan temporarily enables Flash writing
+through port <code>0x14</code>, runs its archive check, then disables writes and restores
+the prior interrupt-enable state. [confirmed]</p>
+<p>The numeric-bcall fixture reaches <code>_FillBasePageTable</code> and <code>_ArcChk</code>, regains
+control, and snapshots the four accounting bytes. Its accepted trace records
+the fixture-local call sites separately from OS loader calls that also reach
+<code>_ArcChk</code>. Results and artifact hashes are in
+<code>tools/data/community-vat-dynamic-observations.csv</code>. [confirmed] under TilEm.</p>
+<p><code>_UngroupVar = 0x50C8</code>, body <code>39:764A</code>, is not a generic blob unpacker. It
+copies eight bytes from OP1 to <code>ram:85E7</code>, calls the group-state initializer at
+<code>39:765D</code>, sets bit 6 of <code>IY + 0x26</code>, and jumps into the extraction state
+machine at <code>39:6E11</code>. That initializer clears link/group scratch at
+<code>ram:8670</code>, <code>ram:97A5</code>, <code>ram:85D9</code>, and <code>ram:8672</code> before calling the page-7
+group helper. The Celtic III caller first requires <code>OP1.type = GroupObj</code>
+(<code>0x17</code>). [confirmed] for ROM and caller control flow.</p>
+<p>No dynamic call is accepted yet: the fixture set does not contain an authentic
+on-calculator Group object plus the surrounding group state, and calling the
+routine with a fabricated OP1 can create or overwrite variables. The ABI and
+side effects above are static ROM evidence; successful extraction, collisions,
+and error unwinding remain [hypothesis].</p>
 <hr>
 <h2 id="store-and-recall-confirmed"><a class="header" href="#store-and-recall-confirmed">Store and recall [confirmed]</a></h2>
 <p><strong>Store.</strong> <code>_StoOther</code> (<code>38:62A9</code>) and siblings (<code>_StoAns</code>, <code>_StoX</code>, <code>_StoY</code>, … <code>38:6251-62A3</code>):</p>
@@ -334,20 +433,29 @@ remain available to callers that intentionally handle Flash-backed data.</li>
 the Flash archive (the same entry point does both directions, deciding from the current state).</p>
 <pre><code class="language-z80">_Arc_Unarc (07:6248):
   SET 0,(IY+0x24)              ; flag: an archive operation is in progress
-  CALL 628B                    ; validate OP1 name is an archivable class; Z⇒not allowed → JP 26E0 (local error shim; LD A,0xB2 = E_Variable, ERR:VARIABLE → _JError)
+  CALL 628B                    ; validate OP1 name is an archivable class
+                               ; Z ⇒ JP 26E0, whose shim loads E_Variable (0xB2)
   CALL _OP1ToOP3 (1A0F)
   CALL _ChkFindSym (0E60)      ; locate the VAT entry; C ⇒ JP 271D (undefined)
   DI
   LD (981C),HL                 ; chkDelPtr3 = entry ptr
-  LD A,B ; OR A ; JR Z,6272    ; B = page byte: 0 ⇒ currently in RAM, else ⇒ in Flash
-      (Flash, B≠0) LD A,(HL); CP 0x17 ; Group? ⇒ JP 26E0 reject  [groups archive via a different path]
-                   CALL 61F4   ; *** Flash → RAM:  unarchive ***
-   6272 (RAM, B==0):  CALL 6107        ; *** RAM → Flash:  archive ***
+  LD A,B
+  OR A
+  JR Z,6272                    ; B = 0 means RAM; nonzero means Flash
+  LD A,(HL)                    ; Flash-backed object type
+  CP 0x17
+  JP Z,26E0                    ; reject GroupObj
+  CALL 61F4                    ; Flash → RAM: unarchive
+6272:
+  CALL 6107                    ; RAM → Flash: archive
   ... name-token-0x5D (list name, `tVarLst`) special-case via 32A9 / cross_page 05:4A6E
-  LD A,(83EE); OR A; EI; RET
+  LD A,(83EE)
+  OR A
+  EI
+  RET
 </code></pre>
 <p><code>628B</code> is the <em>archivable-name guard</em>: after <code>_CkOP1Real</code> it returns Z for the non-archivable
-single-letter real/sysvar name tokens <code>0x58 0x59 0x54 0x5B 0x52 0x72 0xFC</code> (<code>CP n; RET Z</code> chain), so
+single-letter real/sysvar name tokens <code>0x58 0x59 0x54 0x5B 0x52 0x72 0xFC</code> (<code>CP n</code><br><code>RET Z</code> chain), so
 <code>_Arc_Unarc</code>’s <code>JP Z,26E0</code> rejects them via the <code>26E0</code> shim (<code>LD A,0xB2</code> = E_Variable, ERR:VARIABLE →
 <code>_JError</code>); archivable classes (lists, matrices, programs, appvars, …) return NZ and continue. (<code>arc_59f1</code> @<code>07:59F1</code> and <code>arc_5936</code> @<code>07:5936</code> are companion name/range
 validators for the catalog archive command.)</p>
@@ -355,27 +463,36 @@ validators for the catalog archive command.)</p>
 <em>in-Flash</em> var (<code>B≠0</code>) to <code>61F4</code> (unarchive). <code>6107</code> is the one that programs Flash and frees the
 RAM copy; <code>61F4</code> is the one that carves RAM and copies the data back out of Flash.</p>
 <h3 id="ram-to-flash-archive-path-confirmed"><a class="header" href="#ram-to-flash-archive-path-confirmed">RAM-to-Flash archive path [confirmed]</a></h3>
-<pre><code class="language-z80">6107:  CALL 7866 ; DI
+<pre><code class="language-z80">6107: CALL 7866
+      DI
        CALL 614B                       ; arcInfo.vat_ptr and arcInfo.size
                                        ;   616C reserves the archive-Flash slot
        CALL 2FF1 (cross_page 3D:64AA)  ; program the data into archive Flash
-       LD HL,(83F3) ; LD DE,(83F7) ; CALL _DelMem (1368)  ; release the old RAM copy
+       LD HL,(83F3)
+       LD DE,(83F7)
+       CALL _DelMem (1368)  ; release the old RAM copy
        RET
 616C:  reads vatPtr type, AND 0x1F (clean type for the record header),
-       LD HL,(83F7)+(83F5) ; ADC ; JP C,2729 (E_Invalid, 0x8F)  ; size overflow?
+       LD HL,(83F7)+(83F5)
+       ADC
+       JP C,2729 (E_Invalid, 0x8F)  ; size overflow?
        reserves a Flash slot via archive_prepare_scan / archive_find_free_span
 </code></pre>
 <p>The data is appended to the archive Flash (Flash cannot be overwritten in place). The VAT entry’s
 type byte gets its archive flag set and its data ptr/page rewritten to point into Flash; the old RAM
 copy is then released (the upward data heap shrinks). <code>archive_write_record</code> at <code>3D:64AA</code> lays down a fresh archived record plus a copy of the symbol header, name, and data. The status markers are <code>0xFE</code> for in progress, <code>0xFC</code> for valid, <code>0xF0</code> for deleted, and <code>0xFF</code> for erased space. The successful archive trace executes the complete body and its six boot-page writes. [confirmed] <code>_Chk_Batt_Low</code> (<code>00:0D07</code>) gates the Flash write — archiving aborts on low battery (<code>07:61C5: CALL _Chk_Batt_Low</code>).</p>
 <h3 id="flash-to-ram-unarchive-path-confirmed"><a class="header" href="#flash-to-ram-unarchive-path-confirmed">Flash-to-RAM unarchive path [confirmed]</a></h3>
-<pre><code class="language-z80">61F4:  LD (83EF),DE ; LD (83EE),A      ; arcInfo.data_ptr/page = source
+<pre><code class="language-z80">61F4: LD (83EF),DE
+      LD (83EE),A                      ; arcInfo.data_ptr/page = source
        CALL 6335                       ; set arcInfo.vat_ptr and arcInfo.data_size
        CALL 32D3                       ; size accounting
-       LD A,(HL) ; CALL 146C           ; add header overhead → arcInfo.size_full
-       EX DE,HL ; CALL _EnoughMem(0FA6); ensure there is RAM room for the unarchived copy
-                JP C,_ErrMemory(2721)
-       OR 1 ; CALL 0F0C                ; carve the RAM gap (internal create-gap routine)
+       LD A,(HL)
+       CALL 146C           ; add header overhead → arcInfo.size_full
+       EX DE,HL
+       CALL _EnoughMem(0FA6)           ; ensure there is RAM room
+       JP C,_ErrMemory(2721)
+       OR 1
+       CALL 0F0C                ; carve the RAM gap (internal create-gap routine)
        LD (83F3),DE                    ; arcInfo.dest_ptr = new RAM address
        CALL 3003 (unarchive_record_to_ram) ; copy Flash→RAM, retire old record
        RET
@@ -398,11 +515,23 @@ at <code>3D:6440</code> shares the page-3D flash-control prologue
 a RAM destination, transparently advancing the Flash page when the read crosses the <code>0x8000</code>
 window boundary:</p>
 <pre><code class="language-z80">3D:6745: mask page (AND 1F / AND 3F per port-2 model check FUN 1837/182F)
-         PUSH IX ; LD IX,6761 ; CALL 678C ; POP IX ; RET
+         PUSH IX
+         LD IX,6761
+         CALL 678C
+         POP IX
+         RET
 3D:678C: copies the small arg-block to ramCode, sets DE=0x8100, JP 8100  ; runs the copier from RAM
 the copier (6761..678A):
-   IN A,(6) saved ; OUT (6),A     ; bank A = the source Flash page into 0x4000 window
-   loop LDI:  BIT 7,H → at 0x8000 wrap: IN A,(6); INC A; OUT (6),A; LD HL,0x4000  ; next page
+   IN A,(6) saved
+   OUT (6),A                    ; map the source Flash page into bank A
+loop:
+   LDI
+   BIT 7,H
+                              ; crossing 0x8000 advances the mapped page
+   IN A,(6)                     ; advance after the 0x8000 boundary
+   INC A
+   OUT (6),A
+   LD HL,0x4000
 </code></pre>
 <p>Port <code>6</code> is the bank-A page-select; the read code itself runs from <code>ramCode</code>
 at <code>ram:8100</code>. This is an explicit Flash-to-RAM byte-copy primitive, not proof
@@ -432,7 +561,7 @@ table maps it to <code>3F:4888</code>.</p>
 <p>The status byte is a classic AMD/Am29F <em>monotonic bit-clear</em> marker: erased Flash is all-ones
 (<code>0xFF</code>), and the OS advances a record’s state by <em>clearing</em> bits (program can only flip <code>1→0</code>; only
 a sector erase restores <code>1</code>s). The writers are three tiny routines on page 0x3D that load an AND-mask
-into <code>C</code> and then read-modify-write the status byte (<code>3D:7C9A: CALL flash_read_byte; AND C; …</code>):</p>
+into <code>C</code> and then read-modify-write the status byte (<code>3D:7C9A: CALL flash_read_byte</code><br><code>AND C</code><br><code>…</code>):</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -453,6 +582,56 @@ can never be re-validated in place — it is reclaimed only by GC erasing the wh
 <code>flash_find_nonff</code> (<code>3D:7DEA</code>) confirms <code>0xFF</code> = empty: it reads the 13-byte record header and <code>CP 0xFF</code>
 on each, treating an all-<code>0xFF</code> run as a free slot. (<code>3D:7C99</code> additionally folds in <code>AND 0xE7</code> and
 conditional <code>OR 0x10</code>/<code>OR 0x08</code> for the swap/relocate state bits driven by <code>(IY+0x1A).0</code> and <code>(IY+0).2</code>.)</p>
+<h3 id="deleted-record-recovery-before-collection"><a class="header" href="#deleted-record-recovery-before-collection">Deleted-record recovery before collection</a></h3>
+<p>Marking a record <code>0xF0</code> does not erase its remaining bytes. Archive Utility 1.0
+uses that interval before garbage collection: it scans after each sector header,
+accepts live <code>0xFC</code> and deleted <code>0xF0</code> records of program, protected-program,
+and AppVar type, creates a RAM program, copies the record’s original type into
+the new VAT entry, and calls <code>_FlashToRam</code> for the saved data. It does not
+rewrite or revalidate the old Flash record. Its 1,547-byte source rebuild is
+byte-identical to the packaged body. [confirmed] for the identified community
+source and binary.</p>
+<p>A controlled page-<code>0x08</code> image places a live <code>ProgObj</code> record at <code>08:4001</code>
+and a deleted <code>ProtProgObj</code> record at <code>08:4013</code>. The source-matched utility’s
+scan reaches <code>ram:9E68</code> twice and its deleted-record branch at <code>ram:9EBF</code> once.
+Separate retrieval traces reach <code>_CreateProg</code> at <code>ram:9FD0</code> and <code>_FlashToRam</code>
+at <code>ram:9FE7</code>. They create <code>RCVLIVE</code> as type <code>0x05</code> and <code>RCVDEAD</code> as type
+<code>0x06</code>, with the exact two-byte-size and two-byte data fields from their
+records. Both output Flash images are byte-identical to the controlled input,
+SHA-256
+<code>b532eb990567ea3d48b73e4f69e5b9e864d7455872c3d231f9bf9853e413a59e</code>.
+[confirmed] under TilEm.</p>
+<p>Recovery is opportunistic. The next garbage collection can erase or repurpose
+the containing sector, and a stale record must still have intact metadata and
+data. The utility permits a record to cross a 16 KiB page boundary but rejects
+one that extends beyond its four-page sector. That last rule is community
+reader policy; ROM-level proof that the allocator never crosses a 64 KiB erase
+sector remains open. [confirmed] for the utility; [hypothesis] for the general
+allocator invariant.</p>
+<p>A second controlled image places a record at <code>08:7FE0</code>; its size-and-data field
+begins at <code>08:7FEF</code>. Retrieval creates a RAM <code>ProgObj</code> whose size word and bytes
+<code>0x00</code>–<code>0x1F</code> match across the page-<code>0x09</code> boundary. The output image remains
+byte-identical to its input,
+SHA-256
+<code>7fef8578f31c2becf15b1c1d940a5231594df970a035dcbb64cb71d511d5cb90</code>.
+This confirms the utility’s page-crossing read under TilEm. It does not test a
+record crossing a 64 KiB sector boundary. [confirmed]</p>
+<p>An earlier Archive Recover release describes recovery of “programs,” but its
+source accepts deleted records only when their type is <code>ProtProgObj</code> (<code>0x06</code>)
+and recreates them with <code>_CreateProtProg</code>. Ordinary <code>ProgObj</code> records are not
+accepted. [confirmed] for the identified source; the release claim is broader
+than its implementation.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Utility</th><th>Archive SHA-256</th><th>Source member SHA-256</th><th>Packaged member SHA-256</th></tr>
+</thead>
+<tbody>
+<tr><td><code>programs/archive_utility.zip</code></td><td><code>04ca940aacb229a65378450c0c673644bea6fce723215396d195552487e2a7e8</code></td><td><code>archutil.z80</code>: <code>152f96d1d1b3eee178cd728527c10bacc5cdaa3498941ef750e4df79e2d2b2b2</code></td><td><code>ARCHUTIL.8XP</code>: <code>0b74c5a8eb6a2daa4e6b598d307cd6cca24948d7a7aa707dcc446bcabbf87569</code></td></tr>
+<tr><td><code>programs/mirageos/arcrecov.zip</code></td><td><code>991c0324521ac9099276a3de1bc795e87b272cd4c56eba276268b6f100c7d19c</code></td><td><code>arcrecov.asm</code>: <code>1b30935bad150965b42fc75cf786570469d3df63a7ddd33816d664c46acb0a68</code></td><td><code>ARCRECOV.8XP</code>: <code>d1e5c3faf49eb65b9fd3fcc1cbb6cbf69883087f5996ad3a3d481562b2f7d71a</code></td></tr>
+</tbody>
+</table>
+</div>
 <h3 id="dynamic-archive-and-application-boundary-confirmed"><a class="header" href="#dynamic-archive-and-application-boundary-confirmed">Dynamic archive and application boundary [confirmed]</a></h3>
 <p>The archive begins at page <code>08</code>. <code>archive_app_boundary</code> (<code>3D:6413</code>) computes its exclusive upper bound by starting at the model-specific top App page from <code>3D:726E</code>, validating each installed App header, obtaining its span from <code>_FindAppNumPages</code> (<code>3D:4AA3</code>), and subtracting that span until it reaches the first page below the installed App run. [confirmed]</p>
 <div class="table-wrapper">
@@ -912,7 +1091,7 @@ Ports: <code>0x06</code> = bank-A page select (Flash window), <code>0x14</code> 
 <h2 id="resolved-behavior-and-open-items"><a class="header" href="#resolved-behavior-and-open-items">Resolved behavior and open items</a></h2>
 <ul>
 <li>
-<p><strong>Archive allocation.</strong> [confirmed] The allocator scans upward from page <code>08</code> to the exclusive App boundary from <code>3D:6413</code>. On the traced OS-only TI-84 Plus, that interval is pages <code>08</code>–<code>28</code>; the new record begins at <code>08:4000</code>.</p>
+<p><strong>Archive allocation.</strong> [confirmed] The allocator scans upward from page <code>08</code> to the exclusive App boundary from <code>3D:6413</code>. On the traced OS-only TI-84 Plus, that interval is pages <code>08</code>–<code>28</code>; the sector header is at <code>08:4000</code>, and the first record begins at <code>08:4001</code>.</p>
 </li>
 <li>
 <p><strong>Hardware Flash path.</strong> [confirmed] <code>archive_write_record</code> at <code>3D:64AA</code> invokes <code>_WriteAByte</code> and <code>_WriteFlashUnsafe</code>; the boot worker runs at <code>0x8100</code>, issues AMD byte-program commands, polls DQ7/DQ5, and returns success. See <a href="flash-memory.html">Flash memory</a>.</p>

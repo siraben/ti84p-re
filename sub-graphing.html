@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f09341ee.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -242,7 +242,8 @@ window setup’s divisions by 94 and 62. [confirmed]</p>
 9-byte <code>TIFloat</code> and return a pixel index in <code>A</code>. Both select operands for the
 shared engine at <code>37:41F2</code>: [confirmed]</p>
 <pre><code class="language-z80">_XftoI (37:41EB):  BC = 0x8E6A, HL = shortX (0x9164), SCF  → 37:41F2
-_YftoI (37:41DF):  BC = Ymin,   HL = shortY (0x916D), OR A → 37:41F2; INC A
+_YftoI (37:41DF):  BC = Ymin,   HL = shortY (0x916D), OR A → 37:41F2
+INC A
 </code></pre>
 <p>The core loads <code>*DE</code>, subtracts the selected base through <code>ram:228F</code>, and
 multiplies by the selected reciprocal through <code>ram:2385</code>. The X path then adds
@@ -294,9 +295,9 @@ a menu covers it). [confirmed]</li>
 <p><code>_GrBufClr</code> (<code>04:6071</code>): clears the whole 0x300-byte buffer to 0 (a
 <code>LD (HL),0</code> + 0x2FF-byte propagate copy). [confirmed]</p>
 <p><code>_IOffset</code> (<code>04:42B5</code>) computes the LCD controller address bytes for a pixel (inputs <code>B</code>=x, <code>C</code>=y):</p>
-<pre><code class="language-text">(0x844F) = (x &gt;&gt; 3) | 0x20     ; LCD byte-column command for the horizontal group
-(0x8451) = (0x3F - y) | 0x80   ; LCD row command, vertically mirrored
-returns (table_42E4)[x &amp; 7]    ; the 1-of-8 bit mask within the byte (bit = x mod 8)
+<pre><code class="language-text">(0x844F) = (x &gt;&gt; 3) | 0x20     # LCD byte-column command for the horizontal group
+(0x8451) = (0x3F - y) | 0x80   # LCD row command, vertically mirrored
+returns (table_42E4)[x &amp; 7]    # the 1-of-8 bit mask within the byte (bit = x mod 8)
 HL = 3 * ((4 * display_row) &amp; 0xFF) + (x &gt;&gt; 3)
 </code></pre>
 <p>This maps a <code>(x,y)</code> pixel to a byte+bit in the buffer and produces the matching LCD

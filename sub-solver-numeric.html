@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f09341ee.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -223,22 +223,34 @@ root-finding engine living on flash page <code>0x39</code>. (The Solver app’s 
 <p>A callback, given the trial value in <code>OP1</code>, returns <code>f(x) = left − right</code>
 of the equation. Located around <code>39:468F</code>:</p>
 <ol>
-<li><code>_CkValidNum</code> (<code>ram:1E9B</code>), then <code>_MovFrOP1</code> (<code>ram:1B0C</code>) stores the current guess into
+<li>
+<p><code>_CkValidNum</code> (<code>ram:1E9B</code>), then <code>_MovFrOP1</code> (<code>ram:1B0C</code>) stores the current guess into
 the solve variable (its data pointer is loaded from <code>(9306)</code>, in the expression-stack
-region — the bytes are <code>ED 5B 06 93</code> = <code>LD DE,(9306)</code>).</li>
-<li>It installs the error handler at <code>39:46C7</code>, then re-evaluates the stored
+region — the bytes are <code>ED 5B 06 93</code> = <code>LD DE,(9306)</code>).</p>
+</li>
+<li>
+<p>It installs the error handler at <code>39:46C7</code>, then re-evaluates the stored
 equation through <code>parse_inp_current_state_bjump</code> (<code>ram:391B</code>). The stub’s
 inline descriptor targets <code>parse_inp_current_state</code> (<code>38:5992</code>), an interior
-entry in <code>_ParseInp</code> that preserves the already selected parser state.</li>
-<li>The error filter at <code>39:46C7</code> inspects the error code in <code>A</code>: codes below <code>0x86</code>
+entry in <code>_ParseInp</code> that preserves the already selected parser state.</p>
+</li>
+<li>
+<p>The error filter at <code>39:46C7</code> inspects the error code in <code>A</code>: codes below <code>0x86</code>
 (<code>OVERFLOW</code>/<code>DIV BY 0</code>/<code>SINGULAR MAT</code>/<code>DOMAIN</code>) and <code>0x87</code> (<code>NONREAL ANS</code>) are
-swallowed (<code>CP 0x87; JR Z</code> then <code>CP 0x86; JP NC,0x2799</code> — this <code>x</code> is treated as a
-point where <code>f</code> is undefined, so the solver can step past it) while <code>0x86</code> (<code>BREAK</code>) and
+swallowed by these comparisons:</p>
+<pre><code class="language-z80">CP 0x87
+JR Z
+CP 0x86
+JP NC,0x2799
+</code></pre>
+<p>This <code>x</code> is treated as a point where <code>f</code> is undefined, so the solver can step
+past it, while <code>0x86</code> (<code>BREAK</code>) and
 codes <code>≥ 0x88</code> are
 re-raised via <code>_JErrorNo</code> (<code>JP 2799</code>). Before returning a swallowed error,
 <code>fix_temp_count_bjump</code> (<code>ram:327F</code>) dispatches to <code>_FixTempCnt</code> (<code>07:4FEC</code>)
 to repair temporary-object accounting. This is why <code>solve(</code> can skip
-singularities inside the bracket without aborting. [confirmed]</li>
+singularities inside the bracket without aborting. [confirmed]</p>
+</li>
 </ol>
 <p>The sign test <code>39:463A</code> reads <code>OP1.value.type</code> (<code>8478</code>) and <code>OP2.value.type</code> (<code>8483</code>), masks <code>0x80</code>
 and XORs them: Z = same sign, NZ = opposite sign — the bracket sign-change predicate. [confirmed]</p>
@@ -292,7 +304,7 @@ on other convergence sub-paths. [confirmed]</li>
         \STATE $b \gets x$
     \ENDIF
     \IF{$|b-a| &lt; 10^{-13}$}
-        \RETURN $x$ \COMMENT{converged; exits via 39:4540 -&gt; 4553}
+        \RETURN $x$ \COMMENT{converged, exits via 39:4540 -&gt; 4553}
     \ENDIF
 \ENDFOR
 \STATE \textbf{raise} \textsc{iterations} (0x99) / \textsc{bad guess} (0x9A)
@@ -335,15 +347,26 @@ power/exp helpers. [standard]</p>
 <p>Solving for <code>I%</code> (the only variable with no closed form) uses Newton’s method on the
 rate:</p>
 <ul>
-<li>Iteration state is allocated as a small FPS frame (<code>LD HL,0x0005; _AllocFPS</code> at
-<code>3A:70A2</code>) and the loop counter is <code>B = 0x40</code> (= <code>64</code> iterations max), <code>3A:70AB</code>.</li>
-<li>Each pass recomputes the TVM residual and its derivative, takes a Newton step, and tests
+<li>
+<p>Iteration state is allocated as a small FPS frame at <code>3A:70A2</code>:</p>
+<pre><code class="language-z80">LD HL,0x0005
+bcall(_AllocFPS)
+</code></pre>
+<p>The loop counter is <code>B = 0x40</code> (= <code>64</code> iterations max), <code>3A:70AB</code>.</p>
+</li>
+<li>
+<p>Each pass recomputes the TVM residual and its derivative, takes a Newton step, and tests
 the exponent of the correction against <code>CP 0x74</code> (<code>3A:71F4</code>) — i.e. converged when the
 update is ≤ ~10⁻¹². The new estimate is written back via <code>(84D9)→(84D3)</code>
-(<code>3A:71F9…71FE</code>). [confirmed]</li>
+(<code>3A:71F9…71FE</code>). [confirmed]</p>
+</li>
 </ul>
 <h3 id="_sinh-call-in-the-tvm-rate-loop-confirmed"><a class="header" href="#_sinh-call-in-the-tvm-rate-loop-confirmed"><code>_SinH</code> call in the TVM rate loop [confirmed]</a></h3>
-<p>At <code>3A:710B</code> the TVM body contains <code>EF CF 40</code> = <code>RST 0x28; .dw 0x40CF</code>, and the bcall
+<p>At <code>3A:710B</code> the TVM body contains <code>EF CF 40</code>:</p>
+<pre><code class="language-z80">RST 0x28
+.dw 0x40CF
+</code></pre>
+<p>The bcall
 table maps <code>0x40CF</code> to <code>_SinH</code> (<code>_SinHCosH</code>=<code>0x40C6</code>, <code>_SinH</code>=<code>0x40CF</code>, <code>_ASinH</code>=<code>0x40ED</code>
 are three consecutive distinct entries). A scan of the whole loop body (<code>3A:70A0…7210</code>) finds
 three bcalls: <code>_SinH</code> (<code>0x40CF</code>, <code>3A:710B</code>), an unmapped helper <code>0x462A</code> (adjacent to
@@ -381,26 +404,40 @@ and variable save/restore flow is [confirmed]. The default <code>ε</code> is [s
 <p><code>fnInt(expr, var, a, b [,tol])</code> is an adaptive iterative quadrature. The body is the
 Ghidra function <code>fnint_body</code> at <code>33:4D00</code> (extent <code>33:4D00…4E91</code>):</p>
 <ul>
-<li>builds interval midpoints and half-widths: <code>_FPSub</code> (<code>2297</code>), <code>_TimesPt5</code> (<code>2382</code>, ×0.5),
+<li>
+<p>builds interval midpoints and half-widths: <code>_FPSub</code> (<code>2297</code>), <code>_TimesPt5</code> (<code>2382</code>, ×0.5),
 <code>_FPDiv</code> (<code>2541</code>). The bytes at <code>33:4D18</code> are executable code — <code>33:4D18 21 83 84</code>
 (<code>LD HL,0x8483</code>), <code>33:4D1B 3E 60</code> (<code>LD A,0x60</code>), <code>33:4D1D CD 65 1B</code> (<code>CALL fp_set_digit</code> <code>1B65</code>; not <code>_OP2SetA</code>, whose body is <code>1B24</code>) — loading the
 scalar <code>0x60 = 96</code>
-(a working digit/scale count), not a quadrature weight. [confirmed]</li>
-<li>maintains a working set of partial sums in an FPS frame (<code>_AllocFPS 1534</code>,
+(a working digit/scale count), not a quadrature weight. [confirmed]</p>
+</li>
+<li>
+<p>maintains a working set of partial sums in an FPS frame (<code>_AllocFPS 1534</code>,
 <code>_PopRealOx 14F6/150F/1505</code>, <code>_DeallocFPS 1526</code>, with slot offsets <code>DE=0x15/0x1B/0x24</code>)
 — endpoint values, the running estimate, and the previous estimate for the error test.
-[confirmed]</li>
-<li>iterates, refining the partition by interval bisection (the ×0.5 <code>_TimesPt5</code> halving;
-the <code>97E7</code>/<code>84AF</code> depth counters track subdivision depth; the loop tail is
-<code>33:4E81 LD DE,0x0024 … C3 CB 45</code> and <code>33:4E8C 3D F5 C2 57 4D</code> = <code>DEC A; …; JP NZ,0x4D57</code>),
-and converges when the change in the estimate has exponent <code>≤ CP 0x74</code> (~10⁻¹²,
+[confirmed]</p>
+</li>
+<li>
+<p>iterates, refining the partition by interval bisection. The ×0.5 <code>_TimesPt5</code> halving
+refines the interval, the <code>97E7</code>/<code>84AF</code> depth counters track subdivision depth, and the loop tail includes
+<code>33:4E81 LD DE,0x0024 … C3 CB 45</code>, while <code>33:4E8C 3D F5 C2 57 4D</code> decodes as:</p>
+<pre><code class="language-z80">DEC A
+PUSH AF
+JP NZ,0x4D57
+</code></pre>
+<p>It converges when the change in the estimate has exponent <code>≤ CP 0x74</code> (~10⁻¹²,
 <code>33:4E74</code>). Exhausting the refinement budget falls through to <code>33:4E8F JP 274D</code> =
-ITERATIONS (0x99). [confirmed]</li>
+ITERATIONS (0x99). [confirmed]</p>
+</li>
 </ul>
 <p><strong>Quadrature rule.</strong> A full byte scan of <code>33:4D00…4F00</code> finds exactly one
 floating-point constant in the body: <code>const_ln10x100</code> (<code>33:4E92</code>)
 (<code>00 82 23 02 58 50 92 99 40</code> = 2.30258509…×10², i.e. <code>ln(10)·100</code>). It is referenced at
-<code>33:4E5D</code> (<code>LD HL,0x4E92; CALL 0x1982</code>), immediately after the only transcendental bcall in
+<code>33:4E5D</code>:</p>
+<pre><code class="language-z80">LD HL,0x4E92
+CALL 0x1982
+</code></pre>
+<p>This is immediately after the only transcendental bcall in
 the body, <code>33:4E56 EF AB 40</code> = bcall <code>_LnX</code> (0x40AB). So <code>ln(10)·100</code> is used purely to
 convert the requested significant-digit tolerance into a decimal error bound via
 <code>ln</code> — it is a tolerance scaler, not a quadrature node or weight. There is no node/weight table anywhere in
@@ -440,20 +477,30 @@ adaptive partition can parse it thousands of times — the dominant cost.</p>
 <code>BB 22</code> / <code>BB 24</code> / <code>BB 25</code>. The routing is a generic paged command call, not an inline
 bjump, and goes through the page-0x02 command-execution layer:</p>
 <ol>
-<li>The evaluator hands the operand token to the page-0x02 dispatcher, which recognises the
+<li>
+<p>The evaluator hands the operand token to the page-0x02 dispatcher, which recognises the
 <code>0xBB</code> group and the second byte: <code>tFnInt</code> at <code>02:68F3</code> (<code>CP 0x24</code>), <code>tNDeriv</code> at
-<code>02:6904</code> (<code>CP 0x25</code>), <code>tRoot</code> at <code>02:58AD</code>/<code>02:69BC</code> (<code>CP 0x22</code>). [confirmed]</li>
-<li>The page-0x02 handler parses the comma-separated argument list and sets defaults — e.g.
-the <code>nDeriv</code>/<code>fnInt</code> prologue at <code>02:6AF6</code> does <code>LD A,0x7D; LD (8479),A</code>, seeding the
+<code>02:6904</code> (<code>CP 0x25</code>), <code>tRoot</code> at <code>02:58AD</code>/<code>02:69BC</code> (<code>CP 0x22</code>). [confirmed]</p>
+</li>
+<li>
+<p>The page-0x02 handler parses the comma-separated argument list and sets defaults. For
+example, the <code>nDeriv</code>/<code>fnInt</code> prologue at <code>02:6AF6</code> does:</p>
+<pre><code class="language-z80">LD A,0x7D
+LD (0x8479),A
+</code></pre>
+<p>This seeds the
 default tolerance exponent <code>0x7D</code> (= <code>1e-3</code>, the documented nDeriv ε) before the call.
-[confirmed]</li>
-<li>It then performs a paged call into page 0x33. The page-0x33 entry re-validates the token
+[confirmed]</p>
+</li>
+<li>
+<p>It then performs a paged call into page 0x33. The page-0x33 entry re-validates the token
 through the <code>33:504E</code> <code>bb_token_scanner</code> (<code>CP 0xBB</code>, then <code>CP 0x68 / 0xCF / 0xDB / 0xF6</code>
 to assign a small class index in <code>C</code> and <code>CALL 0x50AC</code>) and dispatches into the numeric
 bodies <code>nderiv_body</code> (<code>33:4C80</code>) / <code>fnint_body</code> (<code>33:4D00</code>). Because the call crosses
 pages through the bcall/app-call trampoline, no static xref to these bodies survives
 in the Ghidra database — the mark of a generic paged call rather than an inline bjump.
-[confirmed]</li>
+[confirmed]</p>
+</li>
 </ol>
 <hr>
 <h2 id="routine-index-confirmed"><a class="header" href="#routine-index-confirmed">Routine index [confirmed]</a></h2>
@@ -512,21 +559,32 @@ Parser entries (page 0x38): <code>_ParseInp 5987</code>, <code>parse_eval_expr 5
 <h2 id="resolved-behavior-and-remaining-questions"><a class="header" href="#resolved-behavior-and-remaining-questions">Resolved behavior and remaining questions</a></h2>
 <p>Summary of the four sub-results:</p>
 <ul>
-<li><strong><code>fnInt(</code> quadrature rule.</strong> Not Gauss–Kronrod. The <a href="#fnint-adaptive-numeric-integration-confirmed">body</a> has no node or
+<li>
+<p><strong><code>fnInt(</code> quadrature rule.</strong> Not Gauss–Kronrod. The <a href="#fnint-adaptive-numeric-integration-confirmed">body</a> has no node or
 weight table; its sole FP constant is <code>const_ln10x100</code>, used with bcall <code>_LnX</code>
 to convert digit-tolerance to a decimal error bound. With explicit ×0.5 interval bisection
 and a coarse-vs-fine estimate comparison, it is an adaptive Newton–Cotes / Simpson-class
-bisection integrator. <code>33:4D1B</code> is executable code (<code>LD A,0x60; CALL fp_set_digit</code>).</li>
-<li><strong>TVM <code>_SinH</code> (id <code>0x40CF</code>).</strong> The <a href="#_sinh-call-in-the-tvm-rate-loop-confirmed">TVM rate loop</a> calls <code>_SinH</code> at
+bisection integrator. <code>33:4D1B</code> is executable code:</p>
+<pre><code class="language-z80">LD A,0x60
+CALL fp_set_digit
+</code></pre>
+</li>
+<li>
+<p><strong>TVM <code>_SinH</code> (id <code>0x40CF</code>).</strong> The <a href="#_sinh-call-in-the-tvm-rate-loop-confirmed">TVM rate loop</a> calls <code>_SinH</code> at
 <code>3A:710B</code> (<code>0x40C6/0x40CF/0x40ED</code> are three distinct hyperbolic bcalls); it evaluates the
-annuity / compound factor in hyperbolic form for numerical stability at small rates.</li>
-<li><strong>Class-3 routing of <code>tFnInt</code>, <code>tNDeriv</code>, and <code>tRoot</code>.</strong> The <a href="#parser-routing-for-tfnint-tnderiv-and-troot-confirmed">parser route</a> is
+annuity / compound factor in hyperbolic form for numerical stability at small rates.</p>
+</li>
+<li>
+<p><strong>Class-3 routing of <code>tFnInt</code>, <code>tNDeriv</code>, and <code>tRoot</code>.</strong> The <a href="#parser-routing-for-tfnint-tnderiv-and-troot-confirmed">parser route</a> is
 <code>BB-token → page-0x02 dispatcher (02:68F3/6904/58AD) → arg-parse + default-tol (02:6AF6, exp 0x7D = 1e-3) → paged call → page-0x33 bodies</code>, re-validated by <code>bb_token_scanner</code>
-(<code>33:504E</code>). The trampoline hides the static xref, confirming it is a generic paged call.</li>
-<li><strong>Page-0 helper cluster.</strong> The <a href="#routine-index-confirmed">routine index</a> identifies generic FPS slot save/restore (9-byte
+(<code>33:504E</code>). The trampoline hides the static xref, confirming it is a generic paged call.</p>
+</li>
+<li>
+<p><strong>Page-0 helper cluster.</strong> The <a href="#routine-index-confirmed">routine index</a> identifies generic FPS slot save/restore (9-byte
 TIFloat slots at <code>-(9*slot)</code> from frame base <code>(9302)</code>) plus the active-frame swapper at
 <code>ram:2800</code>, renamed <code>fps_swap_active_frame</code>; the store/load stubs are
-<code>fp_st_slotN_opX</code> / <code>fp_ld_op1_slotN</code>.</li>
+<code>fp_st_slotN_opX</code> / <code>fp_ld_op1_slotN</code>.</p>
+</li>
 </ul>
 <p>Residual (genuinely unverified, would need deeper paged tracing):</p>
 <ul>

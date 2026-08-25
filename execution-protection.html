@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f09341ee.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -847,6 +847,19 @@ nix develop -c python tools/run_wabbitemu_protection_port_probe.py \
 <pre><code class="language-console">$ python tools/disassemble_rom.py 0x3f --start 0x41d5 --end 0x4206
 $ python tools/analyze_rom_io.py 0x21 0x22 0x23 0x24 0x25 0x26 --summary
 </code></pre>
+<h2 id="flash-write-disable-bcall-confirmed"><a class="header" href="#flash-write-disable-bcall-confirmed">Flash write-disable bcall [confirmed]</a></h2>
+<p><code>_FlashWriteDisable = 0x4F3C</code>, body <code>3C:66D5</code>, controls Flash programming,
+not the execution-protection bounds described above. After four padding
+<code>NOP</code>s, it saves <code>AF</code>, clears <code>A</code>, executes <code>DI</code>, selects IM 1, writes
+<code>0x00</code> to port <code>0x14</code>, executes another <code>DI</code>, restores <code>AF</code>, and returns. The
+intervening <code>OR A</code> makes its <code>JP NZ,ram:0000</code> unreachable on this path.</p>
+<p>The body restores the caller’s <code>AF</code> but deliberately leaves maskable
+interrupts disabled. Callers that require interrupts must re-enable them after
+the bcall; they must not infer interrupt restoration from the saved <code>AF</code>.
+A controlled trace reaches the body once, observes <code>OUT (0x14),A</code> with
+<code>A = 0x00</code>, returns to the fixture, and then executes an explicit <code>EI</code>. The
+reduced result is in <code>tools/data/community-bcall-semantics.csv</code>. [confirmed]
+under TilEm; the physical Flash gate was not written on hardware in this test.</p>
 <h2 id="community-execution-techniques"><a class="header" href="#community-execution-techniques">Community execution techniques</a></h2>
 <p>Crabcake’s original source uses two model-specific methods. On a 6 MHz
 TI-83 Plus it uses a Flash-unlock exploit, locates a protected

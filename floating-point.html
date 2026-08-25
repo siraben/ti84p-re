@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f09341ee.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -257,7 +257,8 @@ the primary accumulator; binary operations use <code>OP2</code> and return in <c
 \IF{$\mathrm{sign}(OP1) = \mathrm{sign}(OP2)$}
     \STATE $\mathrm{mantissa} \gets$ BCD-add
 \ELSE
-    \STATE $\mathrm{mantissa} \gets$ BCD-subtract; fix result sign \COMMENT{\texttt{fp\_sub\_mantissa}}
+    \STATE $\mathrm{mantissa} \gets$ BCD-subtract
+    \STATE fix result sign \COMMENT{\texttt{fp\_sub\_mantissa}}
 \ENDIF
 \STATE round via the guard digits, renormalize, store exp/type in $OP1$
 \RETURN $OP1$
@@ -290,8 +291,16 @@ subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
 </tbody>
 </table>
 </div>
-<p><code>ram:1d2f</code> and <code>ram:1d37</code> are two entry points into the same BCD-subtract body — <code>1d2f</code> loads <code>HL=0x8481</code> (OP1 guard), <code>DE=0x848C</code> (OP2 guard) and computes <code>OP2 − OP1</code> into OP2 (<code>LD A,(DE); SUB (HL)</code>), while <code>1d37</code> enters with the pointers swapped for the reverse <code>OP1 − OP2</code>, before joining the common loop — so the caller picks the subtraction direction by choosing the entry. This is what lets <code>_FPAdd</code> produce a non-negative magnitude and then fix the sign.</p>
+<p><code>ram:1d2f</code> and <code>ram:1d37</code> are two entry points into the same BCD-subtract body — <code>1d2f</code> loads <code>HL=0x8481</code> (OP1 guard), <code>DE=0x848C</code> (OP2 guard) and computes <code>OP2 − OP1</code> into OP2 (<code>LD A,(DE)</code><br><code>SUB (HL)</code>), while <code>1d37</code> enters with the pointers swapped for the reverse <code>OP1 − OP2</code>, before joining the common loop — so the caller picks the subtraction direction by choosing the entry. This is what lets <code>_FPAdd</code> produce a non-negative magnitude and then fix the sign.</p>
 <p>Multiply/divide/transcendentals (on page 0x02) reuse the same align/normalize primitives.</p>
+<h3 id="accumulator-high-nibble-helper-confirmed"><a class="header" href="#accumulator-high-nibble-helper-confirmed">Accumulator high-nibble helper [confirmed]</a></h3>
+<p><code>_ShRAcc = 0x41D4</code>, body <code>ram:1BCB</code>, is a six-instruction scalar helper rather
+than an OP-register operation. It executes four <code>RRA</code> instructions, masks with
+<code>0x0F</code>, and returns the original high nibble of <code>A</code> in the low nibble. The
+final <code>AND</code> defines the returned flags; no other register is touched.</p>
+<p>A controlled trace passes <code>A = 0xAB</code> and records <code>A = 0x0A</code>, <code>F = 0x1C</code> after
+the bcall returns. The result is in <code>tools/data/community-bcall-semantics.csv</code>.
+[confirmed] under TilEm.</p>
 <h2 id="floating-point-stack-fps-standard"><a class="header" href="#floating-point-stack-fps-standard">Floating-point stack (FPS) [standard]</a></h2>
 <p><code>FPS</code> (<code>0x9824</code>) is a software stack for temporaries; <code>_PushRealO1</code> (= <code>RST 18h</code>, <code>ram:155C</code>), <code>_PushReal</code>, <code>_PopRealO1</code> through <code>_PopRealO6</code>, <code>_PopReal</code>, <code>_AllocFPS</code>, and <code>_DeallocFPS</code> manage it. Used to spill OP registers during nested expression evaluation.</p>
 <h2 id="multiplication-division-and-transcendentals-confirmed"><a class="header" href="#multiplication-division-and-transcendentals-confirmed">Multiplication, division, and transcendentals [confirmed]</a></h2>
@@ -339,7 +348,7 @@ separate the accumulator entries: <code>_EToX</code> uses <code>fp_add_mantissa<
         \STATE $L \gets L + c_k$ \COMMENT{add count = the $k$-th digit of the answer}
     \ENDWHILE
 \ENDFOR
-\RETURN $\log_{10}x = 1 - L$ \COMMENT{$x$ driven up to $10$; then $\ln x = \log_{10}x \cdot \ln 10$}
+\RETURN $\log_{10}x = 1 - L$ \COMMENT{$x$ driven up to $10$, then $\ln x = \log_{10}x \cdot \ln 10$}
 \end{algorithmic}
 \end{algorithm}
 </code></pre>
@@ -368,7 +377,7 @@ supplies the base-conversion and trig-reduction constants. [confirmed]</p>
 (<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/ln2.macro"><code>ln2.macro</code></a>) drives <code>_LnX</code>, whose selector
 (<code>02:6F94</code>) steps <code>A=00…07</code> then <code>08…0F</code> (the coarse/fine split at the <code>6FAD AND 0x8</code>
 / <code>6FD3 BIT 4</code> tests), walking successive <code>02:7181</code> rows with a per-step
-shift-add, then fetches $\ln 10$ via <code>LD A,6; CALL ram:2362</code> and multiplies.
+shift-add, then fetches $\ln 10$ via <code>LD A,6</code><br><code>CALL ram:2362</code> and multiplies.
 <code>e^{1}</code> (<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/exp1.macro"><code>exp1.macro</code></a>) drives <code>_EToX</code>, which consumes
 the same table in reverse (the inner step is <code>fp_sub_mantissa</code> <code>1d37</code>, the
 accumulator add <code>fp_add_mantissa</code> <code>1cb9</code>), selector sweeping <code>00…0F</code> under the
@@ -397,15 +406,15 @@ slots. [confirmed]</p>
 <p>This one keeps its range reduction on page 0x02 and is the most fully recovered:</p>
 <ol>
 <li>
-<p><strong>Mode/select flags.</strong> <code>0x8499</code> holds the trig-op selector — <code>0x01</code> (sin), <code>0x02</code> (cos), <code>0x04</code> (tan) — ORed with <code>0x80</code> when <code>(IY+0)</code> bit 2 is clear (<code>BIT 2,(IY+0); JR NZ,+2; OR 0x80</code>). <code>_SinCosRad</code> itself enters with <code>A=0x81</code>, so it stores <code>0x81</code> regardless. <code>fp_clear_guard</code> and <code>_ZeroOP3</code> initialize the work area.</p>
+<p><strong>Mode/select flags.</strong> <code>0x8499</code> holds the trig-op selector — <code>0x01</code> (sin), <code>0x02</code> (cos), <code>0x04</code> (tan) — ORed with <code>0x80</code> when <code>(IY+0)</code> bit 2 is clear (<code>BIT 2,(IY+0)</code><br><code>JR NZ,+2</code><br><code>OR 0x80</code>). <code>_SinCosRad</code> itself enters with <code>A=0x81</code>, so it stores <code>0x81</code> regardless. <code>fp_clear_guard</code> and <code>_ZeroOP3</code> initialize the work area.</p>
 </li>
 <li>
-<p><strong>Exponent gate.</strong> <code>LD A,(0x8479); SUB 0x80; JP C,02:73D4; CP 0x0C; JP NC</code> — tiny arguments (negative exponent) take a fast path at <code>02:73D4</code>, and arguments with decimal exponent ≥ 12 are rejected to the slow/error path (<code>_JError 0x84</code> for out-of-range), because reduction can no longer be done accurately.</p>
+<p><strong>Exponent gate.</strong> <code>LD A,(0x8479)</code><br><code>SUB 0x80</code><br><code>JP C,02:73D4</code><br><code>CP 0x0C</code><br><code>JP NC</code> — tiny arguments (negative exponent) take a fast path at <code>02:73D4</code>, and arguments with decimal exponent ≥ 12 are rejected to the slow/error path (<code>_JError 0x84</code> for out-of-range), because reduction can no longer be done accurately.</p>
 </li>
 <li>
 <p><strong>Reduce the angle.</strong> It reduces against the stored period constants and takes the fractional part to find the quadrant. The reduction constants are the page-0x02 BCD block:</p>
 <ul>
-<li><code>02:7D81</code> — the 2π full-turn modulus (mantissa <code>62 83 18 53 07 17 96</code> = <code>6.2831853…</code>), copied to the OP3 work reg via <code>LD HL,02:7D81; CALL ram:1AE2</code> (<code>ram:1AE2</code>/<code>copy7_from_8490</code> copies 7 mantissa bytes to <code>0x8490</code>).</li>
+<li><code>02:7D81</code> — the 2π full-turn modulus (mantissa <code>62 83 18 53 07 17 96</code> = <code>6.2831853…</code>), copied to the OP3 work reg via <code>LD HL,02:7D81</code><br><code>CALL ram:1AE2</code> (<code>ram:1AE2</code>/<code>copy7_from_8490</code> copies 7 mantissa bytes to <code>0x8490</code>).</li>
 <li><code>02:7D8E</code>, <code>02:7D95</code>, <code>02:7D96</code> — companion constants used in the quadrant-fixup / remainder comparisons (<code>CALL ram:1D7B</code> magnitude compare at <code>02:73B1</code>/<code>02:7447</code>).
 The quadrant (0–3) is accumulated in <code>B</code>/<code>bStack_1</code> (bits 0/3/6) and decides sin-vs-cos and the result sign (the <code>XOR 0x1 / OR 0x8 / XOR 0x8</code> flag juggling at <code>02:7424</code>–<code>02:7464</code>).</li>
 </ul>
@@ -445,10 +454,10 @@ For <code>sin(1)</code>, it produces <code>OP4 = 0.8414709848078931</code>, with
 <blockquote>
 <p><strong>Dynamic confirmation.</strong> Traced under headless TilEm: <code>sin(1)</code> in radian mode
 (<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/sin1.macro"><code>sin1.macro</code></a>) drives <code>_SinCosRad</code>. The flag init,
-the exponent gate (<code>735D LD A,(0x8479); SUB 0x80; JP C,02:73D4; CP 0x0C; JP NC</code> — neither
+the exponent gate (<code>735D LD A,(0x8479)</code><br><code>SUB 0x80</code><br><code>JP C,02:73D4</code><br><code>CP 0x0C</code><br><code>JP NC</code> — neither
 branch taken, since the decimal exponent of 1 is <code>0</code>), and
 the reduction multiply by the <code>02:7D81</code> constant
-(<code>7372 LD HL,02:7D81; CALL ram:1AE2</code>). The trace records all three recurrence
+(<code>7372 LD HL,02:7D81</code><br><code>CALL ram:1AE2</code>). The trace records all three recurrence
 phases and the on-screen result <code>.8414709848</code>. It also records eight phase-1
 entries at <code>02:731D</code>, with <code>B = 0</code>–<code>7</code> and
 <code>HL = 0x7201 + 16·B + 8</code> after each <code>ram:1A94</code> copy, followed by one
@@ -457,7 +466,7 @@ entries at <code>02:731D</code>, with <code>B = 0</code>–<code>7</code> and
 <h3 id="coefficient-tables-confirmed"><a class="header" href="#coefficient-tables-confirmed">Coefficient tables [confirmed]</a></h3>
 <p><code>coeff_fetch</code> zeroes <code>OP2.value.type</code>, indexes <code>fp_constant_table[A]</code>, then
 copies the selected constant into <code>OP2</code>. The only
-<code>LD A,n; CALL fp_mul_indexed_constant</code> uses in this cluster select row 3
+<code>LD A,n</code><br><code>CALL fp_mul_indexed_constant</code> uses in this cluster select row 3
 (<code>log10(e)</code>) and row 6 (<code>ln(10)</code>). Later trig reduction constants are loaded
 directly from the same block.</p>
 <pre><code class="language-text">02:7D42 constants, 9-byte stride:

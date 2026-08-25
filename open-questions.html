@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f09341ee.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -261,7 +261,7 @@ bytes in the page-<code>07</code> 11-byte OP scratch registers also remain open.
 <p>Plain <code>augment(</code> enters the partial-pivoting engine at <code>02:4663</code> but never
 eliminates: the <code>0x91</code> branch sets carry (<code>02:6361 SCF</code>, restored by the
 <code>POP AF</code> at <code>02:6378</code>), and the engine gates its elimination body on that flag
-(<code>46DA POP AF ; JR C,46EF</code>). The elimination pass belongs to the statistics
+(<code>46DA POP AF</code><br><code>JR C,46EF</code>). The elimination pass belongs to the statistics
 regression path, which enters the same dispatcher through <code>3A:6398</code>. [confirmed]</p>
 <p>The <code>randM(</code> fill is decoded: <code>02:5CC1</code>–<code>02:5CE6</code> computes <code>int(19·rand)−9</code> per
 cell, drawing from <code>_Random</code> (<code>36:7DC9</code>) through the page 0 banked-call stub

@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f09341ee.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -562,8 +562,11 @@ These entries have not yet been attributed to specific editor events.
 <p>The mapper at <code>39:683D</code> converts a descriptor cell to pixels. Its index names
 are transposed relative to conventional screen coordinates: the descriptor
 row advances LCD $x$, while the descriptor column advances $y$. The <code>+7</code> loop
-(<code>DEC B; ADD A,7</code>) builds the packed high byte, and the
-<code>rowHeight + 2</code> loop builds the low byte. The caller stores <code>HL</code> to <code>penCol</code>
+builds the packed high byte:</p>
+<pre><code class="language-z80">DEC B
+ADD A,7
+</code></pre>
+<p>The <code>rowHeight + 2</code> loop builds the low byte. The caller stores <code>HL</code> to <code>penCol</code>
 (<code>0x86D7</code>, low to $x$) and <code>penRow</code> (<code>0x86D8</code>, high to $y$):</p>
 <p>$$
 \begin{aligned}
@@ -590,9 +593,16 @@ $$</p>
 </table>
 </div>
 <p>For kind nibbles <code>3</code> and above, <code>39:69C8</code> adds <code>0x10</code> and calls
-<code>ram:025E</code> (<code>BIT 6,(IY+2); RET</code>). A set bit selects <code>39:689C</code>. Otherwise it
-adds <code>0x10</code> again and calls <code>ram:0254</code> (<code>BIT 5,(IY+2); RET</code>); a set bit selects
-<code>39:68A5</code>, and a clear result selects <code>39:6893</code>. The JavaScript
+<code>ram:025E</code>:</p>
+<pre><code class="language-z80">BIT 6,(IY+2)
+RET
+</code></pre>
+<p>A set bit selects <code>39:689C</code>. Otherwise it adds <code>0x10</code> again and calls
+<code>ram:0254</code>:</p>
+<pre><code class="language-z80">BIT 5,(IY+2)
+RET
+</code></pre>
+<p>A set bit selects <code>39:68A5</code>, and a clear result selects <code>39:6893</code>. The JavaScript
 <code>selectDescriptor</code> translation takes this caller-owned <code>flag02</code> byte explicitly
 for the family branches and reports the byte that <code>39:69FC</code> stores back at
 <code>0x85E8</code>. [confirmed]</p>
@@ -1703,8 +1713,15 @@ handler. [confirmed]</p>
 <p><code>eqdisp_draw_marker_primitive</code> has two distinct entry ABIs. Render-table row 0
 in <code>eqdisp_render_handler_table</code> (<code>34:6119</code>) contains
 the bytes <code>43 61</code>, the pointer <code>6143h</code>. <code>_LdHLind</code> at <code>00:0033</code> executes
-<code>LD A,(HL); INC HL; LD H,(HL); LD L,A; RET</code>. Its low-byte load therefore makes
-a type-<code>0x1F</code> table dispatch enter <code>eqdisp_draw_marker_primitive</code> with <code>A=0x43</code>. That value follows
+the following sequence:</p>
+<pre><code class="language-z80">LD A,(HL)
+INC HL
+LD H,(HL)
+LD L,A
+RET
+</code></pre>
+<p>Its low-byte load therefore makes a type-<code>0x1F</code> table dispatch enter
+<code>eqdisp_draw_marker_primitive</code> with <code>A=0x43</code>. That value follows
 the fixed default path to the seven-row bitmap at <code>34:61BE</code>; <code>(IY+44h).3</code> and
 <code>0x8520</code> do not affect this ABI. [confirmed]</p>
 <h2 id="shared-marker-rendering"><a class="header" href="#shared-marker-rendering">Shared marker rendering</a></h2>

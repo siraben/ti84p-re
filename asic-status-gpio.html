@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f09341ee.js";
+            window.path_to_searchindex_js = "searchindex-0179cca2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-34eae533.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -316,6 +316,16 @@ and archive traces return <code>0xE1</code>, <code>0xE3</code>, and <code>0xE7</
 </tbody>
 </table>
 </div>
+<h3 id="_nzif83plus-model-probe-confirmed"><a class="header" href="#_nzif83plus-model-probe-confirmed"><code>_NZIf83Plus</code> model probe [confirmed]</a></h3>
+<p><code>_NZIf83Plus = 0x50E0</code>, body <code>ram:1837</code>, preserves <code>BC</code> and the caller’s <code>A</code>
+while returning its result only in the flags. It reads port <code>0x02</code>, masks bit
+7, and XORs with <code>0x80</code>. Bit 7 set therefore returns Z; bit 7 clear returns NZ.
+The historical name should not be read as “NZ on every TI-83 Plus-family
+calculator.” OS 2.55MP uses the flag to distinguish the advanced TI-84 Plus
+path from the older family path.</p>
+<p>A controlled trace enters with <code>A = 0xA5</code>, returns with the same <code>A</code>, and
+records Z set on the TI-84 Plus model. The reduced result is in
+<code>tools/data/community-manual-bcall-traces.csv</code>. [confirmed] under TilEm.</p>
 <h3 id="complete-direct-consumer-audit"><a class="header" href="#complete-direct-consumer-audit">Complete direct-consumer audit</a></h3>
 <p>The 1 MiB ROM contains exactly 55 raw <code>DB 02</code> byte pairs, the opcode and
 operand for <code>IN A,(0x02)</code>. Every linear-disassembly candidate reaches one of
