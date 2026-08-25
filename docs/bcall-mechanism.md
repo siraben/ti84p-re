@@ -36,6 +36,15 @@ project-inferred names in the [bcall index](bcall-index.md#retail-boot-0x8xxx-bc
 the retail prefix and page `2F` contains the companion USB payload; its
 BootFree guard otherwise leaves only diagnostic comments.
 `tools/ApplyBcalls.java` disassembles and names the confirmed bodies.
+`tools/BcallEvidenceStudy.java` then provides a read-only listing, reference,
+and decompiler dump for a selected set of IDs. For example:
+
+```sh
+nix develop -c ghidra-analyzeHeadless "$PWD" ti84 \
+  -process -noanalysis -readOnly -scriptPath tools \
+  -postScript BcallEvidenceStudy.java tools/bcall_targets.txt \
+  /tmp/bcall-evidence.txt 4030 4ED6 50C8
+```
 
 ## Jump-table ID ranges
 

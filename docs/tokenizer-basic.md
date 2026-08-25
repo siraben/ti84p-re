@@ -38,6 +38,45 @@ The editor uses the latter two operations to paint source. Parser scanners use
 the first operation so they never mistake the second byte for a command or
 delimiter. [confirmed]
 
+## Editor conversion and insertion [confirmed]
+
+The token editor tracks four little-endian pointers in one fixed block:
+
+```c
+#pragma pack(push, 1)
+typedef struct {
+    uint16_t top;      /* +0x00, editTop at 0x96F4 */
+    uint16_t cursor;   /* +0x02, editCursor at 0x96F6 */
+    uint16_t tail;     /* +0x04, editTail at 0x96F8 */
+    uint16_t bottom;   /* +0x06, editBtm at 0x96FA */
+} EditorBufferState;  /* 8 bytes */
+#pragma pack(pop)
+```
+
+`_BufClear = 0x4936`, body `ram:222E`, sets `editCursor = editTop` and
+`editTail = editBtm`. It does not wipe every byte between those pointers.
+
+`_bufInsert = 0x4909`, body `06:42E5`, accepts a token in `DE`. It first checks
+for room at the cursor. When `D = 0`, it inserts the one-byte token from `E`;
+when `D != 0`, it performs a second room check and writes the two bytes in
+`D,E` order. Success advances `editCursor` and returns NZ. A full buffer or
+failed second-byte check returns Z without reporting success. A controlled
+trace calls the clear body, calls the insert body with `DE = 0xBB6A` (`Asm(`),
+calls the clear body again, and returns from every call. The pointer mutations
+above are confirmed from the ROM body; that return-path reducer does not
+snapshot the transient buffer contents. [confirmed] under TilEm.
+
+`_ConvKeyToTok = 0x4A02`, body `07:44DE`, converts a cooked key in `A` to a
+token in `DE`. Input `0x05` has the dedicated result `DE = 0x003F`. Ordinary
+inputs subtract `0x5A` and select a byte from the table beginning at
+`07:4000`; special inputs `0xFB`, `0xFC`, and `0xFE` use `keyExtend` at
+`ram:8446` and the tables rooted at `07:4426`, `07:422C`, `07:4099`, or
+`07:4102`. The latter paths can return two-byte tokens. A controlled trace
+confirms `A = 0x05` → `DE = 0x003F`; the special-table cases remain confirmed
+from ROM control flow, not exhaustively traced. Reduced results are in
+`tools/data/community-manual-bcall-traces.csv` and
+`tools/data/community-bcall-semantics.csv`.
+
 ## One source line, three representations
 
 The statement

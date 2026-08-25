@@ -125,6 +125,19 @@ and archive traces return `0xE1`, `0xE3`, and `0xE7`. [confirmed]
 | `0xE3` | Comparator high, LCD ready, Flash locked, and bits 5–7 set [confirmed] |
 | `0xE7` | Comparator high, LCD ready, Flash unlocked, and bits 5–7 set [confirmed] |
 
+### `_NZIf83Plus` model probe [confirmed]
+
+`_NZIf83Plus = 0x50E0`, body `ram:1837`, preserves `BC` and the caller's `A`
+while returning its result only in the flags. It reads port `0x02`, masks bit
+7, and XORs with `0x80`. Bit 7 set therefore returns Z; bit 7 clear returns NZ.
+The historical name should not be read as “NZ on every TI-83 Plus-family
+calculator.” OS 2.55MP uses the flag to distinguish the advanced TI-84 Plus
+path from the older family path.
+
+A controlled trace enters with `A = 0xA5`, returns with the same `A`, and
+records Z set on the TI-84 Plus model. The reduced result is in
+`tools/data/community-manual-bcall-traces.csv`. [confirmed] under TilEm.
+
 ### Complete direct-consumer audit
 
 The 1 MiB ROM contains exactly 55 raw `DB 02` byte pairs, the opcode and

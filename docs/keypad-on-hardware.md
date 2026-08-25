@@ -293,6 +293,21 @@ The two APIs therefore have different contracts:
 | `_GetCSC` | no | raw scan event, or zero | no cooking | timer scanner |
 | `_GetKey` | yes | cooked `TIKeyCode` | **2nd**, **ALPHA**, hooks, context policy | events consumed from the scanner |
 
+### `_GetK` compatibility entry [confirmed]
+
+`_GetK = 0x4744`, body `37:746D`, combines two otherwise separate results.
+It reads `kbdGetKy` at `ram:8445`. A zero byte selects integer zero; a nonzero
+byte is consumed, used as an index into the byte table at `37:7487`, and
+converted to a real value in OP2 through the inline cross-page call at
+`37:7482`. The tail jump at `37:7484` enters `_GetCSC`, so the returned `A` is
+the current raw scan mailbox result, not the table result placed in OP2.
+
+In a controlled trace, `kbdGetKy = 0x01` selects table byte `0x22` and leaves
+OP2 as real 34 (`00 81 34 00 00 00 00 00 00 00 00`). The fixture separately
+clears and restores `kbdScanCode`; this avoids attributing an old launch key to
+the table conversion. The reduced trace is in
+`tools/data/community-bcall-semantics.csv`. [confirmed] under TilEm.
+
 ### Modifier state
 
 `_GetKey` stores modifier state in `shiftFlags` at `IY+0x12`. [confirmed]
@@ -365,6 +380,16 @@ This debounce is independent of the matrix's five-sample release filter. It poll
 ## 2nd+ON, APD, and wake
 
 `_GetKey` recognizes the ON request as an internal `0xFF` event at `06:4A93`. It clears `shift2nd`. If `appRetKeyOff` is set, it returns the context key `0x3F`; otherwise it jumps to `_PowerOff`, body `ram:09E6`. [confirmed]
+
+`_GetKeyRetOff = 0x500B`, body `06:491A`, consists of `SET 7,(IY + 0x28)` and
+then falls directly into `_GetKey` at `06:491E`. A controlled interactive trace
+drains one explicit **ENTER**, enters `_GetKeyRetOff`, then injects
+**2nd**+**ON**. It reaches the `0xFF` comparison at `06:4A93`, loads
+`A = 0x3F` at `06:4A9B`, observes the set flag at `06:4A9D`, takes the return
+branch at `06:4AA1`, and records `A = 0x3F` in the caller. The trace does not
+enter `_PowerOff`. Its reduced result is in
+`tools/data/community-getkey-ret-off.csv`. [confirmed] under TilEm; physical
+ON timing remains covered only by the separate hardware probes below.
 
 Explicit power-off and Auto Power Down (APD) perform different cleanup, then
 join `poweroff_shared_tail` at `ram:0A24`. The final hardware operations are:

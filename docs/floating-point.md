@@ -128,6 +128,17 @@ These five page-0 primitives are shared by add/sub/mult/div and the transcendent
 
 Multiply/divide/transcendentals (on page 0x02) reuse the same align/normalize primitives.
 
+### Accumulator high-nibble helper [confirmed]
+
+`_ShRAcc = 0x41D4`, body `ram:1BCB`, is a six-instruction scalar helper rather
+than an OP-register operation. It executes four `RRA` instructions, masks with
+`0x0F`, and returns the original high nibble of `A` in the low nibble. The
+final `AND` defines the returned flags; no other register is touched.
+
+A controlled trace passes `A = 0xAB` and records `A = 0x0A`, `F = 0x1C` after
+the bcall returns. The result is in `tools/data/community-bcall-semantics.csv`.
+[confirmed] under TilEm.
+
 ## Floating-point stack (FPS) [standard]
 
 `FPS` (`0x9824`) is a software stack for temporaries; `_PushRealO1` (= `RST 18h`, `ram:155C`), `_PushReal`, `_PopRealO1` through `_PopRealO6`, `_PopReal`, `_AllocFPS`, and `_DeallocFPS` manage it. Used to spill OP registers during nested expression evaluation.

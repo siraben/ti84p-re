@@ -650,7 +650,7 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `_ZooDefault` | `4867` | `36:7BF9` |
 | `_lcd_busy` | `4051` | `00:0CC3` |
 
-## Community numeric-use audit
+## Corpus coverage and map provenance
 
 `tools/audit_community_bcalls.py` scans the extracted community corpus for
 numeric bcall macros, raw `rst 28h` plus word sequences, and complete
@@ -660,56 +660,23 @@ bytes; the other 109 use macro or `rst 28h` forms. Exact archive and source
 hashes are in `tools/data/community-bcall-uses.csv`. [confirmed] for the
 checked scan output.
 
-Sixteen used main-table IDs were absent from the generated map. Decoding their
-three-byte entries on ROM page `0x3B` resolves every target: [confirmed]
+The scan exposed 24 aligned main-table IDs that the old generated map omitted.
+All 24 were already literal entries in the OS 2.55MP table on page `0x3B`, and
+all 24 names were already present in the bundled TI include. Adding them changed
+the main map from 621 to 645 rows and the include-backed subset from 599 to 623;
+the 22 project-inferred names did not change. They are therefore new to this
+repository's resolver input, not new ROM routines or newly invented names.
+[confirmed]
 
-These rows establish the ROM table mapping and the static source call site.
-They do not, by themselves, establish every runtime side effect named in the
-source comment.
+The main table above is the single address catalog. ABI and side-effect notes
+live with their subsystems: contexts and errors, display, floating point,
+keypad, tokenizer, link transfer, execution protection, resident hooks,
+archive/group handling, and ASIC status. Reduced trace results are kept in the
+`tools/data/community-*.csv` files. This separation matters because an aligned
+table entry proves only an ID-to-body mapping; neither an include name nor a
+community comment proves the body's complete behavior.
 
-| ID | Include name | Body | Source call-site context |
-|---|---|---|---|
-| `4030` | `_newContext` | `00:077E` | Plasma home-context restore |
-| `41D4` | `_ShRAcc` | `00:1BCB` | RLIB nibble conversion |
-| `4744` | `_GetK` | `37:746D` | AntiNibbles key input |
-| `4A02` | `_ConvKeyToTok` | `07:44DE` | FlashED editor key conversion |
-| `4E61` | `_GetStringInput2` | `37:5194` | Elite string input |
-| `4ED6` | `_SendPacket` | `3C:4139` | Overflow link packet sender |
-| `4F3C` | `_FlashWriteDisable` | `3C:66D5` | Crabcake protection cleanup |
-| `4F69` | `_ClrCursorHook` | `3B:7AEA` | DisLink hook removal |
-| `4F6F` | `_ClrRawKeyHook` | `3B:7B88` | Remote Control and Sentry cleanup |
-| `5011` | `_FillBasePageTable` | `00:2692` | Cherries App-state repair |
-| `5014` | `_ArcChk` | `3D:61AF` | RAGE archive check |
-| `5026` | `_SetParserHook` | `3B:7D6E` | chemistry parser extensions |
-| `5029` | `_ClearParserHook` | `3B:7C3B` | chemistry parser cleanup |
-| `50C8` | `_UngroupVar` | `39:764A` | Celtic III group extraction |
-| `50CE` | `_SetSilentLinkHook` | `3B:7DBB` | DisLink silent-link hook |
-| `5221` | `_Chk_Batt_Level` | `33:4E9B` | Battery Check display |
-
-The table entry proves the body address, not the community comment's ABI or
-the result under every OS state. Runtime observations therefore remain separate
-from these ROM-resolved rows.
-
-### Archive-local symbolic equates
-
-The scanner's `--symbolic` mode resolves an unambiguous equate across each
-extracted archive before classifying its use. Five active IDs add valid OS
-2.55MP table rows: [confirmed]
-
-| ID | Name | Body | Active community use |
-|---:|---|---|---|
-| `4051` | `_lcd_busy` | `00:0CC3` | Letter waits before writing an LCD control byte. |
-| `4909` | `_bufInsert` | `06:42E5` | Plasma inserts `Asm` and program-name tokens into the edit buffer. |
-| `4936` | `_BufClear` | `00:222E` | Plasma clears the edit buffer before inserting a launch command. |
-| `500B` | `_GetKeyRetOff` | `06:491A` | Balltrix, Nukewar, and CalClock request the **ON** return code. |
-| `50E0` | `_NZIf83Plus` | `00:1837` | ZMegaMan branches on the calculator model before masking a Flash page. |
-
-A source-built trace calls `4051`, `4936`, `4909`, `4936`, and `50E0` from
-`ram:9D9F`, `ram:9DA7`, `ram:9DB2`, `ram:9DBA`, and `ram:9DC4`. Each call site
-executes once and reaches its resolved body. `50E0` preserves `A = 0xA5` and
-returns Z on the TI-84 Plus. PRGMHIDE separately reaches `500B` in its packaged
-execution trace. `tools/data/community-manual-bcall-traces.csv` pins the ROM,
-emulator, fixture, trace, and snapshot hashes. [confirmed] under TilEm.
+### Malformed active call
 
 The scan also finds one active malformed call. `graphics/cool.zip:cool.asm`
 defines `_copygbuf = 4B9Ch` and emits `EF 9C 4B`; the packaged `cool.8xp`

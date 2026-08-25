@@ -165,6 +165,34 @@ call_context_savepage (ram:08e9):
 ```
 Primitives: `set_bankA_page` (`ram:078c`, `port6 = page`) and `jp_hl` (`ram:090b`, `jp (hl)` dynamic dispatch). The OS pages the handler in, runs it, and (for the savepage variant) restores the caller's page.
 
+### `_newContext` and string-input entry [confirmed]
+
+`_newContext = 0x4030`, body `ram:077E`, takes the requested context selector
+in `A`. It copies that byte to `C`, clears `kbdKey` at `ram:8444`, clears `B`,
+saves port `0x06`, calls the shared context/key installer at `ram:0791`, and
+restores port `0x06`. The routine therefore preserves the caller's bank-A
+mapping; the supplied selector can still change context and key state.
+
+A controlled TilEm call with `A = 0x40` clears `kbdKey`, returns, and preserves
+port `0x06` at `0x07`. This establishes the callable contract for that input,
+not the broader community description that every call “restores the home
+context.” [confirmed] under TilEm.
+
+`_GetStringInput2 = 0x4E61`, body `37:5194`, is a higher-level input-context
+entry. It sets bit 1 of `IY + 0x09`, saves the byte at `ram:9653`, sets bit 0 of
+`IY + 0x29`, calls `_newContext` with `A = 0x50`, and enters the shared context
+dispatcher at `ram:04F9`. A valid caller must prepare `ioPrompt` at `ram:865F`
+and protect the temporary-allocation state; the archived Elite caller saves
+`cleanTmp`, replaces it with `pTempCnt`, invokes the bcall, then restores it.
+
+The reconstructed caller follows that sequence with prompt `A=?`, submits
+`1` then **ENTER**, and regains control with OP1 equal to the 11-byte real
+encoding of 1 (`00 80 10 00 00 00 00 00 00 00 00`). The trace reaches
+`37:5194` once, `ram:077E` twice, and `ram:04F9` twice before the caller copies
+OP1. The additional context visits belong to the interactive editor path.
+Cancel and invalid-expression exits remain untraced. The reduced result is in
+`tools/data/community-string-input.csv`. [confirmed] under TilEm.
+
 ## Error handling [confirmed]
 
 Errors use a non-local exit, not return codes:
@@ -176,7 +204,7 @@ So `errSP` + `_JError` together implement try/catch: a context seeds `errSP` (fr
 
 ### Custom-error wrapper [confirmed]
 
-`_ErrCustom1` (bcall `4D41` → `ram:2771`) loads `A = 0xAB` and branches to
+`_ErrCustom1` (bcall `0x4D41` → `ram:2771`) loads `A = 0xAB` and branches to
 `_JError` at `ram:2793`. After the error handler masks off `E_EDIT`, code
 `0x2B` selects the pointer at `07:6B20`. That table entry is `0x984D`, the
 `appErr1` custom-message buffer. The display path treats the buffer as a
@@ -192,7 +220,7 @@ The community example
 [`programs/generateerror.zip`](https://www.ticalc.org/pub/83plus/asm/programs/generateerror.zip)
 (SHA-256
 `1731b2b2cf7580855f7007478d55299e12b1ec4b7430d371feedea764c9139cf`)
-copies the `Ans` string payload into `appErr1` and invokes bcall `4D41h`. Its
+copies the `Ans` string payload into `appErr1` and invokes bcall `0x4D41`. Its
 `generr.z80` member (SHA-256
 `5f28fca2dec72dc4d495aff18a8d6b076f02d34b8cafcdbd78c11c05f364386d`)
 does not bound the copy to 13 bytes or write an explicit null terminator.

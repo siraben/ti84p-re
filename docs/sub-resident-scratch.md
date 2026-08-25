@@ -108,9 +108,31 @@ typedef struct {
 #pragma pack(pop)
 ```
 
-The raw-key target begins at `0x9B84`, and the parser target begins at
-`0x9BAC`. Their active bits at `IY + 0x34` and `IY + 0x36` are separate OS
-state, not fields in this record. [confirmed]
+The same packed record is used by these audited setters: [confirmed]
+
+| Hook | Target record | Active flag | Setter | Clearer |
+|---|---:|---|---|---|
+| raw key | `ram:9B84` | bit 5 of `IY + 0x34` | `_SetGetKeyHook = 0x4F66`, body `3B:7D00` | `_ClrRawKeyHook = 0x4F6F`, body `3B:7B88` |
+| token | `ram:9BC8` | bit 0 of `IY + 0x35` | `_SetTokenHook = 0x4F99`, body `3B:7D0B` | `_ClearTokenHook` |
+| parser | `ram:9BAC` | bit 1 of `IY + 0x36` | `_SetParserHook = 0x5026`, body `3B:7D6E` | `_ClearParserHook = 0x5029`, body `3B:7C3B` |
+| silent link | `ram:9BD0` | bit 7 of `IY + 0x36` | `_SetSilentLinkHook = 0x50CE`, body `3B:7DBB` | `_DisableSilentLinkHook` |
+
+Each setter stores `HL` as the callback address, stores `A` as the page byte,
+sets only its active bit, and returns. The clear bodies at `3B:7B88` and
+`3B:7C3B` only reset their respective active bits; they do not wipe the target
+records. A controlled trace additionally installs token target
+`{ ram:9872, page 0 }` and silent-link target `{ ram:9875, page 0 }`, observes
+their active bits, and restores both records and all affected flag bytes before
+halting. The result is in `tools/data/community-bcall-semantics.csv`.
+[confirmed] under TilEm.
+
+`_ClrCursorHook = 0x4F69`, body `3B:7AEA`, is not a silent-link clearer. It
+only resets bit 7 of `IY + 0x34`. The DisLink source first clears the real
+silent-link bit, bit 7 of `IY + 0x36`, itself and then calls `0x4F69` under the
+comment “actually uninstall it.” The first instruction disables its silent
+hook; the bcall separately disables any cursor hook. A controlled trace seeds
+bit 7 of `IY + 0x34`, calls the bcall, observes that bit clear, and restores the
+original flag byte. [confirmed]
 
 After the selected NoExec removal sequence, the resident reaches
 `_ClrRawKeyHook` at `3B:7B88` and `_ClearParserHook` at `3B:7C3B`; the two
@@ -128,7 +150,7 @@ raw-key, parser, and shell hooks and persistent IM2 residents before borrowing
 this buffer. The documented `_DisableApd` and `_DelRes` conditions for other
 buffers do not establish that `appBackUpScreen` is unowned.
 
-The pinned include names `4F66h` `_SetGetKeyHook`; the Plasma and NoExec
+The pinned include names `0x4F66` `_SetGetKeyHook`; the Plasma and NoExec
 sources instead describe raw-key-hook enablement. The ROM target stores the
 supplied pointer and page and sets the active flag, so this page records both
 names as aliases without deriving the callback ABI from either name.
