@@ -14,7 +14,9 @@ public class ApplyBcalls extends GhidraScript {
         int named = 0, dis = 0;
         String[] targetFiles = {"bcall_targets.txt", "bcalls8x_targets.txt"};
         for (String targetFile : targetFiles) for (String line : Files.readAllLines(Paths.get(dir + "/" + targetFile))) {
-            String[] p = line.trim().split("\\s+");
+            String stripped = line.trim();
+            if (stripped.isEmpty() || stripped.startsWith("#")) continue;
+            String[] p = stripped.split("\\s+");
             if (p.length < 4) continue;
             String name = p[0];
             int addr = Integer.parseInt(p[2], 16);
