@@ -85,11 +85,71 @@ Pinned exact-byte runs completed with restoration true. TilEm printed
 `21731`; Wabbitemu printed `23959`. These codes identify emulator frames, not
 physical controller behavior. [confirmed]
 
-The emulator-only hidden-column tools retain three competing models. TilEm
-uses 16-column rows, Wabbitemu wraps a 15-column sequence, and MAME exposes a
-15-byte linear spill. Those tools do not make hidden writes safe on an
-unknown physical module. [hypothesis] Physical hidden geometry remains open
-until a separately gated, recoverable protocol exists.
+The hidden-column models retain three competing behaviors. TilEm uses
+16-column rows, Wabbitemu wraps a 15-column sequence, and MAME exposes a
+15-byte linear spill. The separate laboratory experiment below tests these
+behaviors without changing the default artifact. [confirmed] for the emulator
+models; [hypothesis] for physical geometry.
+
+## Recovery-gated hidden-column experiment — `HWPLAB`
+
+`lcd-hidden-lab.asm` addresses columns `0x2C`–`0x2F` only after it creates the
+pending `HWPLAB01` AppVar. It snapshots all 768 visible bytes and the four
+addressed hidden bytes at row command `0xB8`. It then runs independent direct
+writes and a two-byte increment from column 14. Each completed stage is copied
+to the pending AppVar. [confirmed]
+
+Cleanup restores the visible snapshot and four hidden bytes, rereads them,
+and records separate mismatch counts. It also restores the entry read latch,
+movement command, and guarded OS pointer. Every ready poll is bounded. A
+timeout uses a finite fixed-delay restore attempt. The program sends no power,
+test, contrast, row-shift, display-enable, or OPA command. [confirmed]
+
+The source is excluded from `build_hardware_probes.py`. Build it only with
+`build_lcd_hidden_lab_probe.py`, which requires:
+
+- the exact acknowledgement string printed by `--help`;
+- the expected port-`0x15` ASIC byte;
+- an identified LCD module or test-unit label;
+- a nonempty backup file and its independently supplied SHA-256;
+- recovery notes that state the backup, reset, and restore procedure.
+
+The generated manifest binds those inputs to the exact `.8xp`. The runtime
+also checks the ASIC byte, the OS 2.55MP signature at logical `0x0BD9`,
+eight-bit LCD mode, reset status, and the OS-tracked pointer range before the
+first LCD write or data transfer. [confirmed]
+
+These gates limit known failure modes. They cannot prove that an unknown
+controller maps column 15 only into the saved visible or four hidden bytes. A
+reset can still be necessary, and an unseen hidden cell can remain changed.
+Use an identified, repairable calculator with stable power. Do not distribute
+a device-specific build as part of the default probe bundle. [hypothesis] for
+unmeasured physical aliasing.
+
+On a normal return the calculator prints `HWPLAB CODE nnnnn`. Export
+`HWPLAB01`; `decode_hardware_probe.py` reports the same decimal CRC as
+`verification_code_decimal`. A pending outcome or restoration mismatch is a
+failed run, even if the calculator later reaches the home screen.
+
+Exact assembly runs completed in both supported cores. TilEm selected the
+16-column model, restored every checked byte, and printed `62131`.
+Wabbitemu wrapped the second incremented byte into visible index 0, restored
+every checked byte, and printed `42103`. The two images differ only in the
+compiled expected-ASIC byte. These runs test probe control flow and emulator
+models; they do not establish physical safety. [confirmed]
+
+An operator-specific build has this form:
+
+```sh
+nix develop -c python3 -m ti84re.hardware.build_lcd_hidden_lab_probe \
+  --output-dir /tmp/hwplab-build \
+  --acknowledgement I_UNDERSTAND_HIDDEN_LCD_WRITES_CAN_REQUIRE_A_RESET \
+  --expected-asic 0x45 \
+  --controller-id CALCULATOR_AND_LCD_MODULE_ID \
+  --backup-file /path/to/pre-run-backup.8xg \
+  --expected-backup-sha256 64_HEXADECIMAL_DIGITS \
+  --recovery-notes /path/to/unit-specific-recovery.txt
+```
 
 ## Interrupt and `HALT` policy — `HWPIRQ`
 

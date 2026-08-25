@@ -919,6 +919,41 @@ The packaged 1,686-byte `HWPLCD.8xp` has SHA-256
 `34ba8a8349fa0faba1dde74fdfb618030c8e71729cc0df50b5b35453ae058b1b`.
 [confirmed]
 
+## Hidden-column LCD laboratory probe
+
+Probe ID 17 is a separately built experiment, not one of the 25 default
+artifacts. `HWPLAB` snapshots the 768 visible LCD bytes and four addressed
+hidden bytes before writing columns `0x2C`–`0x2F`. It records direct-write and
+column-14 increment cases independently, restores the snapshots, and rereads
+every restored byte. [confirmed]
+
+The builder requires a real backup file with a matching operator-supplied
+SHA-256, a controller or test-unit identifier, recovery notes, an expected
+ASIC byte, and a literal risk acknowledgement. The program checks the ASIC,
+logical-`0x0BD9` OS signature, controller mode, reset status, and pointer
+guards before the first write or data transfer. It creates `HWPLAB01` before
+the first hidden write. Each completed stage is copied into that AppVar.
+[confirmed]
+
+The restore covers every visible byte and the four hidden bytes deliberately
+addressed at row `0xB8`. An unknown controller can alias a hidden command to a
+different hidden cell, so the artifact cannot promise universal restoration.
+Use it only on an identified, repairable calculator after `HWPLCD`. A pending
+outcome, timeout, or nonzero restore count is a failed run. [hypothesis] for
+unmeasured physical aliasing.
+
+A completed run prints `HWPLAB CODE nnnnn` after restoration. The decimal
+number is the CRC-16/CCITT-FALSE value over the AppVar-resident frame. Compare
+it with `verification_code_decimal` after exporting `HWPLAB01`.
+
+Exact emulator runs completed with matching resident and staging frames.
+TilEm retained both incremented bytes in hidden columns and printed `62131`.
+Wabbitemu placed the second byte at visible index 0 and printed `42103`.
+Both reported zero visible and hidden restoration mismatches. [confirmed]
+
+The build and emulator commands are documented in [Guarded mapper, LCD, and
+interrupt probes](needed-probes/additional-calculator-probes.md).
+
 ## Interrupt-`HALT` probe
 
 Probe ID 16 determines whether programmable timer 1 or standard timer 1 first
@@ -1005,6 +1040,7 @@ physical execution and reset retention.
 | `tools/probes/hardware/rtc-rollover.asm` | read-only natural RTC low-byte rollover-coherence measurement |
 | `tools/probes/hardware/mapper-overlays.asm` | guarded restoring overlay and paired-mapper matrix |
 | `tools/probes/hardware/lcd-controller.asm` | guarded ready-trigger and visible-cell status measurement |
+| `tools/probes/hardware/lcd-hidden-lab.asm` | separately gated hidden-column geometry and restoration experiment |
 | `tools/probes/hardware/interrupt-halt.asm` | guarded programmable-timer `HALT` wake with watchdog |
 | `tools/probes/hardware/display.inc` | post-cleanup CRC-16 verification-number display |
 | `tools/probes/hardware/usb-snapshot.asm` | read-only low-USB control and status snapshot |
@@ -1022,6 +1058,8 @@ physical execution and reset retention.
 | `tools/ti84re/emulators/tilem/build_exact_probe.py` | pinned TilEm generic exact-probe runner build CLI |
 | `tools/ti84re/emulators/wabbitemu/build_exact_probe.py` | pinned Wabbitemu generic exact-probe runner build CLI |
 | `tools/ti84re/hardware/run_exact_probe.py` | normalized exact-byte runner for every displayed physical probe |
+| `tools/ti84re/hardware/build_lcd_hidden_lab_probe.py` | backup-bound device-specific hidden-LCD artifact builder |
+| `tools/ti84re/hardware/run_lcd_hidden_lab_emulator.py` | exact hidden-LCD image runner for TilEm and Wabbitemu |
 | `tools/ti84re/hardware/battery.py` | ROM decision tree and emulator threshold-region model |
 | `tools/ti84re/hardware/describe_battery.py` | text and JSON threshold/sample model CLI |
 | `tools/ti84re/hardware/build_probes.py` | SPASM runner, artifact validator, packager, and manifest CLI |
