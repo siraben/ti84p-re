@@ -1,7 +1,8 @@
-; Restoring LCD hidden-column and ready-trigger probe.
-; Result AppVar: HWPLCD01, probe ID 15, payload 43 bytes.
-; No display, power, test, contrast, or Z-address command is issued by the
-; measurement. The final OS result display occurs only after restoration.
+; Restoring visible-cell LCD status and ASIC-ready probe.
+; Result AppVar: HWPLCD02, probe ID 15, payload 42 bytes.
+; The default artifact never addresses a hidden byte column. It rewrites one
+; visible cell with its original value, verifies it, and restores the movement
+; mode plus the OS-tracked row and column before any display bcall.
 
 .org $9D95
     jp start
@@ -52,118 +53,99 @@ start:
     jp nz,abort_controller_reset
     bit 6,a
     jp z,abort_not_eight_bit
+    and $03
+    add a,$04
+    ld (payload_pre_movement),a
+
+    ; Only the twelve visible 8-bit byte columns are permitted.
     ld a,(payload_pre_cury)
     cp $20
     jp c,abort_bad_os_pointer
-    cp $40
-    jp nc,abort_bad_os_pointer
+    cp $2C
+    jp nc,abort_hidden_column
     ld a,(payload_pre_curxrow)
     cp $80
     jp c,abort_bad_os_pointer
     cp $C0
     jp nc,abort_bad_os_pointer
+    ld a,1
+    ld (pointer_safe),a
 
-    call backup_cells
+    call read_tracked_cell
+    ld (payload_cell_before),a
     ld a,(lcd_timeout)
     or a
     jp nz,abort_ready_timeout
 
-    ; Measure whether command, data-read, and data-write accesses restart the
-    ; ASIC port-0x02 ready interval. All loops saturate at 0xFFFF.
-    ld a,$80
+    ; A harmless row-address command is repeated so the ready counter and the
+    ; controller-status sample do not time each other's port access.
+    ld a,(payload_pre_curxrow)
     out ($10),a
+    in a,($02)
+    ld (payload_immediate_command_port02),a
     call measure_ready_count
     ld (payload_ready_command),hl
     call long_lcd_delay
 
-    ld a,$80
+    ld a,(payload_pre_curxrow)
     call safe_lcd_command
-    ld a,$20
-    call safe_lcd_command
-    in a,($11)
+    in a,($10)
+    ld (payload_immediate_command_status10),a
+    call long_lcd_delay
+
+    ; Readdress before each read. The first data read fills the controller's
+    ; output latch; the second returns the selected visible cell.
+    call address_tracked_cell
+    call safe_lcd_data_read
+    call safe_lcd_data_read
+    in a,($02)
+    ld (payload_immediate_read_port02),a
     call measure_ready_count
     ld (payload_ready_read),hl
     call long_lcd_delay
 
-    ld a,$80
-    call safe_lcd_command
-    ld a,$20
-    call safe_lcd_command
-    ld a,(cell_backup+0)
-    out ($11),a
-    in a,($02)
-    ld (payload_immediate_port02),a
+    call address_tracked_cell
+    call safe_lcd_data_read
+    call safe_lcd_data_read
     in a,($10)
-    ld (payload_immediate_status10),a
+    ld (payload_immediate_read_status10),a
+    call long_lcd_delay
+
+    ; Rewrite the selected visible cell with the byte that was read from it.
+    call address_tracked_cell
+    ld a,(payload_cell_before)
+    call safe_lcd_data_write
+    in a,($02)
+    ld (payload_immediate_write_port02),a
     call measure_ready_count
     ld (payload_ready_write),hl
     call long_lcd_delay
 
-    ; Three column-increment writes starting at row 0, column 14 distinguish
-    ; a 16-column row, 15-column wrap, and MAME's 15-byte linear spill.
-    ld a,$01
-    call safe_lcd_command
-    ld a,$07
-    call safe_lcd_command
-    ld a,$80
-    call safe_lcd_command
-    ld a,$2E
-    call safe_lcd_command
-    ld a,$A4
+    call address_tracked_cell
+    ld a,(payload_cell_before)
     call safe_lcd_data_write
-    ld a,$A5
-    call safe_lcd_data_write
-    ld a,$A6
-    call safe_lcd_data_write
+    in a,($10)
+    ld (payload_immediate_write_status10),a
+    call long_lcd_delay
 
-    ld hl,probe_cells
-    ld de,payload_observed_cells
-    ld b,7
-observe_cells_loop:
-    push bc
-    ld b,(hl)
-    inc hl
-    ld c,(hl)
-    inc hl
-    push hl
-    call read_lcd_cell
-    ld (de),a
-    inc de
-    pop hl
-    pop bc
-    djnz observe_cells_loop
-
-    ; Read-only out-of-range commands remain at row 0, avoiding MAME's known
-    ; row-63 out-of-bounds case.
-    ld b,$80
-    ld c,$30
-    call read_lcd_cell
-    ld (payload_direct_column16),a
-    ld b,$80
-    ld c,$3F
-    call read_lcd_cell
-    ld (payload_direct_column31),a
-
-    call restore_cells
-    jr c,restore_failed
+    call read_tracked_cell
+    ld (payload_cell_after_write),a
+    ld a,(payload_cell_before)
+    call write_tracked_cell
+    call read_tracked_cell
+    ld (payload_cell_after_restore),a
+    ld c,a
+    ld a,(payload_cell_before)
+    cp c
+    jr nz,restore_failed
     ld a,1
     ld (payload_restore_ok),a
-    jr normalize_controller
+    jr restore_controller_state
 
 restore_failed:
     ld a,6
     ld (payload_outcome),a
-
-normalize_controller:
-    ld a,$01
-    call safe_lcd_command
-    ld a,$05
-    call safe_lcd_command
-    ld a,(payload_pre_curxrow)
-    call safe_lcd_command
-    ld a,(payload_pre_cury)
-    call safe_lcd_command
-    jr capture_post
+    jr restore_controller_state
 
 abort_controller_reset:
     ld a,1
@@ -176,19 +158,39 @@ abort_bad_os_pointer:
     jr set_abort
 abort_ready_timeout:
     ld a,4
+    jr set_abort
+abort_hidden_column:
+    ld a,5
 set_abort:
     ld (payload_outcome),a
 
-capture_post:
+restore_controller_state:
     ld a,(lcd_timeout)
     or a
-    jr z,capture_post_ports
+    jr z,restore_movement
     ld a,(payload_outcome)
     or a
-    jr nz,capture_post_ports
+    jr nz,restore_movement
     ld a,4
     ld (payload_outcome),a
-capture_post_ports:
+restore_movement:
+    ld a,(payload_pre_movement)
+    cp $04
+    jr c,restore_pointer
+    cp $08
+    jr nc,restore_pointer
+    call safe_lcd_command
+restore_pointer:
+    ld a,(pointer_safe)
+    or a
+    jr z,capture_post
+    ld a,(payload_pre_curxrow)
+    call safe_lcd_command
+    ld a,(payload_pre_cury)
+    call safe_lcd_command
+    call long_lcd_delay
+
+capture_post:
     in a,($02)
     ld (payload_post_port02),a
     in a,($04)
@@ -212,6 +214,18 @@ capture_post_ports:
     in a,($2F)
     ld (payload_post_waits+6),a
 
+    ; A status read can move the pointer on replacement controllers. Restore
+    ; the tracked address once more after the post-status sample.
+    ld a,(pointer_safe)
+    or a
+    jr z,finish_restore
+    ld a,(payload_pre_curxrow)
+    call safe_lcd_command
+    ld a,(payload_pre_cury)
+    call safe_lcd_command
+    call long_lcd_delay
+
+finish_restore:
     pop af
     jp po,interrupts_restored
     ei
@@ -230,120 +244,64 @@ interrupts_restored:
     call display_probe_code
     ret
 
-; Read and save the seven cells that can be affected by the increment case or
-; by MAME's known row-stride aliases.
-backup_cells:
-    ld hl,probe_cells
-    ld de,cell_backup
-    ld b,7
-backup_cells_loop:
-    push bc
-    ld b,(hl)
-    inc hl
-    ld c,(hl)
-    inc hl
-    push hl
-    call read_lcd_cell
-    ld (de),a
-    inc de
-    pop hl
-    pop bc
-    djnz backup_cells_loop
-    or a
-    ret
-
-restore_cells:
-    ld hl,probe_cells
-    ld de,cell_backup
-    ld b,7
-restore_cells_loop:
-    push bc
-    ld b,(hl)
-    inc hl
-    ld c,(hl)
-    inc hl
-    ld a,(de)
-    inc de
-    push hl
-    push de
-    call write_lcd_cell
-    pop de
-    pop hl
-    pop bc
-    djnz restore_cells_loop
-
-    ld hl,probe_cells
-    ld de,cell_backup
-    ld b,7
-verify_cells_loop:
-    push bc
-    ld b,(hl)
-    inc hl
-    ld c,(hl)
-    inc hl
-    push hl
-    call read_lcd_cell
-    ld c,a
-    ld a,(de)
-    inc de
-    cp c
-    pop hl
-    pop bc
-    scf
-    ret nz
-    djnz verify_cells_loop
-    or a
-    ret
-
-; B = row command, C = column command. Returns the addressed byte in A after
-; the controller's required dummy read.
-read_lcd_cell:
-    ld a,$01
+address_tracked_cell:
+    ld a,(payload_pre_curxrow)
     call safe_lcd_command
-    ld a,b
-    call safe_lcd_command
-    ld a,c
-    call safe_lcd_command
+    ld a,(payload_pre_cury)
+    jp safe_lcd_command
+
+read_tracked_cell:
+    call address_tracked_cell
     call safe_lcd_data_read
-    call safe_lcd_data_read
-    ret
+    jp safe_lcd_data_read
 
-; B = row command, C = column command, A = value.
-write_lcd_cell:
+write_tracked_cell:
     push af
-    ld a,$01
-    call safe_lcd_command
-    ld a,b
-    call safe_lcd_command
-    ld a,c
-    call safe_lcd_command
+    call address_tracked_cell
     pop af
     jp safe_lcd_data_write
 
 safe_lcd_command:
     push af
     call wait_lcd_ready
+    jr c,safe_lcd_command_timeout
     call long_lcd_delay
     pop af
     out ($10),a
+    or a
+    ret
+safe_lcd_command_timeout:
+    pop af
+    scf
     ret
 
 safe_lcd_data_read:
     call wait_lcd_ready
+    ret c
     call long_lcd_delay
     in a,($11)
+    or a
     ret
 
 safe_lcd_data_write:
     push af
     call wait_lcd_ready
+    jr c,safe_lcd_data_write_timeout
     call long_lcd_delay
     pop af
     out ($11),a
+    or a
+    ret
+safe_lcd_data_write_timeout:
+    pop af
+    scf
     ret
 
 wait_lcd_ready:
     push bc
+    ld a,(lcd_timeout)
+    or a
+    jr nz,lcd_ready_prior_timeout
     ld bc,$FFFF
 wait_lcd_ready_loop:
     in a,($02)
@@ -358,13 +316,17 @@ wait_lcd_ready_loop:
     pop bc
     scf
     ret
+lcd_ready_prior_timeout:
+    pop bc
+    scf
+    ret
 lcd_ready:
     pop bc
     or a
     ret
 
-; This fixed delay exceeds the documented T6K04 busy maximum at the fastest
-; calculator clock. It keeps restoration independent of status-bit polling.
+; This delay exceeds the documented T6K04 busy maximum at the fastest CPU
+; speed. Restoration does not depend on controller-status polling.
 long_lcd_delay:
     push bc
     ld bc,$0800
@@ -390,12 +352,9 @@ measure_ready_loop:
     jr nz,measure_ready_loop
     ret
 
-probe_cells:
-    .db $80,$20,$80,$21,$80,$2E,$80,$2F
-    .db $81,$20,$81,$21,$82,$21
-cell_backup:
-    .fill 7,0
 lcd_timeout:
+    .db 0
+pointer_safe:
     .db 0
 
 display_label:
@@ -403,7 +362,7 @@ display_label:
 #include "display.inc"
 
 appvar_name:
-    .db AppVarObj,"HWPLCD01"
+    .db AppVarObj,"HWPLCD02"
 
 frame:
     .db "HWP1",1,15
@@ -422,11 +381,16 @@ payload_outcome: .db 0
 payload_ready_command: .dw 0
 payload_ready_read: .dw 0
 payload_ready_write: .dw 0
-payload_immediate_port02: .db 0
-payload_immediate_status10: .db 0
-payload_observed_cells: .fill 7,0
-payload_direct_column16: .db 0
-payload_direct_column31: .db 0
+payload_immediate_command_port02: .db 0
+payload_immediate_command_status10: .db 0
+payload_immediate_read_port02: .db 0
+payload_immediate_read_status10: .db 0
+payload_immediate_write_port02: .db 0
+payload_immediate_write_status10: .db 0
+payload_cell_before: .db 0
+payload_cell_after_write: .db 0
+payload_cell_after_restore: .db 0
+payload_pre_movement: .db 0
 payload_restore_ok: .db 0
 payload_post_port02: .db 0
 payload_post_port04: .db 0

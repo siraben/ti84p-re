@@ -1069,8 +1069,55 @@ class WabbitemuFlashWorkerReport:
     return_hl: int
     port06: int
     bank1_page: str
+    flash_changed_bytes: int
+    target_sector_changed_bytes: int
+    protected_changed_bytes: int
+    outside_target_changed_bytes: int
     final_pc: int
     classification: str
+    source_rom_sha256: str = ""
+    binary_sha256: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class WabbitemuFlashPreflightReport:
+    """Stable fields emitted by the locked Flash-preflight reset probe."""
+
+    status: int
+    preflight_address: int
+    failure_address: int
+    reset_address: int
+    configured_sp: int
+    signature_size: int
+    source_signature_match: bool
+    mapped_signature_match: bool
+    boot_steps: int
+    boot_tstates: int
+    boot_pc: int
+    boot_page: str
+    boot_flash_locked: bool
+    max_probe_steps: int
+    probe_steps: int
+    harness_visits: int
+    preflight_visits: int
+    failure_visits: int
+    reset_visits: int
+    return_visits: int
+    violation_resets: int
+    gate_locked_before_restart: bool
+    step_before_restart: str
+    flash_changed_before_restart: int
+    restart_reset_pc: int
+    max_restart_steps: int
+    restart_steps: int
+    restart_tstates: int
+    restart_pc: int
+    restart_page: str
+    restart_ready: bool
+    flash_changed_after_restart: int
     source_rom_sha256: str = ""
     binary_sha256: str = ""
 
@@ -2957,6 +3004,10 @@ def parse_flash_worker_report(line: str) -> WabbitemuFlashWorkerReport:
         "return_hl",
         "port06",
         "bank1_page",
+        "flash_changed_bytes",
+        "target_sector_changed_bytes",
+        "protected_changed_bytes",
+        "outside_target_changed_bytes",
         "final_pc",
         "classification",
     }
@@ -3039,12 +3090,125 @@ def parse_flash_worker_report(line: str) -> WabbitemuFlashWorkerReport:
             return_hl=int(fields["return_hl"], 0),
             port06=int(fields["port06"], 0),
             bank1_page=fields["bank1_page"],
+            flash_changed_bytes=int(fields["flash_changed_bytes"], 0),
+            target_sector_changed_bytes=int(
+                fields["target_sector_changed_bytes"], 0
+            ),
+            protected_changed_bytes=int(fields["protected_changed_bytes"], 0),
+            outside_target_changed_bytes=int(
+                fields["outside_target_changed_bytes"], 0
+            ),
             final_pc=int(fields["final_pc"], 0),
             classification=fields["classification"],
         )
     except ValueError as error:
         raise WabbitemuHeadlessError(
             f"invalid native Flash worker report: {line.strip()}"
+        ) from error
+
+
+def parse_flash_preflight_report(line: str) -> WabbitemuFlashPreflightReport:
+    """Parse one locked Flash-preflight reset and restart report."""
+
+    fields = {match["key"]: match["value"] for match in REPORT_PATTERN.finditer(line)}
+    required = {
+        "mode",
+        "status",
+        "preflight_address",
+        "failure_address",
+        "reset_address",
+        "configured_sp",
+        "signature_size",
+        "source_signature_match",
+        "mapped_signature_match",
+        "boot_steps",
+        "boot_tstates",
+        "boot_pc",
+        "boot_page",
+        "boot_flash_locked",
+        "max_probe_steps",
+        "probe_steps",
+        "harness_visits",
+        "preflight_visits",
+        "failure_visits",
+        "reset_visits",
+        "return_visits",
+        "violation_resets",
+        "gate_locked_before_restart",
+        "step_before_restart",
+        "flash_changed_before_restart",
+        "restart_reset_pc",
+        "max_restart_steps",
+        "restart_steps",
+        "restart_tstates",
+        "restart_pc",
+        "restart_page",
+        "restart_ready",
+        "flash_changed_after_restart",
+    }
+    missing = sorted(required - fields.keys())
+    if missing:
+        raise WabbitemuHeadlessError(
+            "native Flash preflight report omits " + ", ".join(missing)
+        )
+    if fields["mode"] != "flash-preflight-probe":
+        raise WabbitemuHeadlessError(
+            f"unexpected native Flash preflight mode {fields['mode']!r}"
+        )
+    try:
+        boolean_names = (
+            "source_signature_match",
+            "mapped_signature_match",
+            "boot_flash_locked",
+            "gate_locked_before_restart",
+            "restart_ready",
+        )
+        booleans = {name: int(fields[name], 0) for name in boolean_names}
+        if any(value not in (0, 1) for value in booleans.values()):
+            raise ValueError("Flash preflight booleans must be zero or one")
+        return WabbitemuFlashPreflightReport(
+            status=int(fields["status"], 0),
+            preflight_address=int(fields["preflight_address"], 0),
+            failure_address=int(fields["failure_address"], 0),
+            reset_address=int(fields["reset_address"], 0),
+            configured_sp=int(fields["configured_sp"], 0),
+            signature_size=int(fields["signature_size"], 0),
+            source_signature_match=bool(booleans["source_signature_match"]),
+            mapped_signature_match=bool(booleans["mapped_signature_match"]),
+            boot_steps=int(fields["boot_steps"], 0),
+            boot_tstates=int(fields["boot_tstates"], 0),
+            boot_pc=int(fields["boot_pc"], 0),
+            boot_page=fields["boot_page"],
+            boot_flash_locked=bool(booleans["boot_flash_locked"]),
+            max_probe_steps=int(fields["max_probe_steps"], 0),
+            probe_steps=int(fields["probe_steps"], 0),
+            harness_visits=int(fields["harness_visits"], 0),
+            preflight_visits=int(fields["preflight_visits"], 0),
+            failure_visits=int(fields["failure_visits"], 0),
+            reset_visits=int(fields["reset_visits"], 0),
+            return_visits=int(fields["return_visits"], 0),
+            violation_resets=int(fields["violation_resets"], 0),
+            gate_locked_before_restart=bool(
+                booleans["gate_locked_before_restart"]
+            ),
+            step_before_restart=fields["step_before_restart"],
+            flash_changed_before_restart=int(
+                fields["flash_changed_before_restart"], 0
+            ),
+            restart_reset_pc=int(fields["restart_reset_pc"], 0),
+            max_restart_steps=int(fields["max_restart_steps"], 0),
+            restart_steps=int(fields["restart_steps"], 0),
+            restart_tstates=int(fields["restart_tstates"], 0),
+            restart_pc=int(fields["restart_pc"], 0),
+            restart_page=fields["restart_page"],
+            restart_ready=bool(booleans["restart_ready"]),
+            flash_changed_after_restart=int(
+                fields["flash_changed_after_restart"], 0
+            ),
+        )
+    except (TypeError, ValueError) as error:
+        raise WabbitemuHeadlessError(
+            f"invalid native Flash preflight report: {line.strip()}"
         ) from error
 
 
@@ -3582,6 +3746,44 @@ def run_flash_worker_probe(
     ) != (initial, requested, initial_toggle, max_probe_steps):
         raise WabbitemuHeadlessError(
             "native Flash worker report disagrees with the requested case"
+        )
+    return replace(
+        report,
+        source_rom_sha256=file_sha256(source_rom),
+        binary_sha256=file_sha256(binary),
+    )
+
+
+def run_flash_preflight_probe(
+    binary: Path,
+    source_rom: Path,
+    *,
+    max_boot_steps: int = 5_000_000,
+    max_probe_steps: int = 10_000,
+    max_restart_steps: int = 5_000_000,
+) -> WabbitemuFlashPreflightReport:
+    """Run the locked bad-stack preflight path and a bounded retail restart."""
+
+    if min(max_boot_steps, max_probe_steps, max_restart_steps) <= 0:
+        raise WabbitemuHeadlessError("Flash preflight step bounds must be positive")
+    _require_file_size(source_rom, FLASH_SIZE, "source ROM")
+    command = [
+        str(binary),
+        "--flash-preflight-probe",
+        str(source_rom),
+        str(max_boot_steps),
+        str(max_probe_steps),
+        str(max_restart_steps),
+    ]
+    report = parse_flash_preflight_report(
+        _run_native_command(command, "Flash preflight probe")
+    )
+    if (report.max_probe_steps, report.max_restart_steps) != (
+        max_probe_steps,
+        max_restart_steps,
+    ):
+        raise WabbitemuHeadlessError(
+            "native Flash preflight report disagrees with the requested bounds"
         )
     return replace(
         report,
