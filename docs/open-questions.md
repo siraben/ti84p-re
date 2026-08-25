@@ -244,7 +244,9 @@ Determine whether ports `0x27` and `0x28` remain active in paired mode, whether
 the `0xFB64` cutoff exists in the ASIC, and whether forced
 [execution-protection overlays](execution-protection.md#mapping-and-forced-overlays)
 follow the underlying window or a forced RAM page. The boot transition, selector
-modes, and emulator differences are in [Paging](paging.md).
+modes, and emulator differences are in [Paging](paging.md). Run the guarded
+[mapper-overlay probe](hardware-probes.md#mapper-overlay-probe) on identified
+TA2 and TA3 units.
 
 ### Bus timing and LCD controller
 
@@ -261,6 +263,8 @@ On TA2 and TA3 controller revisions:
 Use the [memory-bus timing probe](hardware-probes.md#memory-bus-timing-probe),
 [prefix-M1 probe](hardware-probes.md#prefix-m1-timing-probe), and
 [programmable-timer probe](hardware-probes.md#programmable-timer-physical-probe).
+The [LCD-controller probe](hardware-probes.md#lcd-controller-probe) covers the
+digital ready and hidden-column cases without issuing analog or power commands.
 The established decode and emulator differences are in
 [Bus timing and wait states](bus-timing.md) and
 [LCD controller and display bus](lcd-hardware.md).
@@ -287,8 +291,10 @@ On TA2 and TA3 units:
 - distinguish timer divisors `33`/`328`/`3277` from the emulator values
   `32`/`327`/`3276`;
 - test the port-`0x2F` prescaler, counter zero, first- versus second-expiry
-  status bit 2, programmable-timer `HALT` behavior, disabled RTC reads, and
-  rollover coherence;
+  status bit 2, and programmable-timer `HALT` behavior;
+- run the [RTC rollover probe](hardware-probes.md#rtc-rollover-coherence-probe),
+  then test disabled RTC reads and the larger `0x00FFFFFF` → `0x01000000`
+  carry with a separately guarded mutating artifact;
 - run the [keypad settling probe](hardware-probes.md#keypad-settling-probe) with
   worst-case chords, then measure switch bounce and ON-key edges separately;
 - determine which ON and link transitions wake low power; and
@@ -298,6 +304,9 @@ On TA2 and TA3 units:
 See [Clock, timers, and power](clock-timers-power.md),
 [Keypad and ON-key hardware](keypad-on-hardware.md#resolved-findings-and-open-hardware-tests),
 and [Interrupts](interrupts.md#emulator-comparison).
+Use the guarded [interrupt wake
+probe](hardware-probes.md#interrupt-halt-probe) for the programmable-versus-
+watchdog discriminator; ON, link, and electrical edge cases remain separate.
 
 ## Closed audit boundary
 

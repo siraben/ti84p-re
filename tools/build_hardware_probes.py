@@ -136,6 +136,18 @@ PROBES = {
         + 1
         + PHYSICAL_TIMER_MEASUREMENT_SIZE,
     ),
+    "rtc-rollover": ProbeDefinition(
+        "rtc-rollover.asm", "HWPRTC", "HWPRTC01", 13, 19
+    ),
+    "mapper-overlays": ProbeDefinition(
+        "mapper-overlays.asm", "HWPMAP", "HWPMAP01", 14, 47
+    ),
+    "lcd-controller": ProbeDefinition(
+        "lcd-controller.asm", "HWPLCD", "HWPLCD01", 15, 43
+    ),
+    "interrupt-halt": ProbeDefinition(
+        "interrupt-halt.asm", "HWPIRQ", "HWPIRQ01", 16, 21
+    ),
     "exec-flash-07": ProbeDefinition(
         "execution-fetch.asm", "HWEF07", "HWEF0701", 4, 16,
         (("TARGET_KIND", 0), ("TARGET_SELECTOR", 0x07),
@@ -207,6 +219,10 @@ def probe_definition(probe_name: str) -> ProbeDefinition:
 def initial_probe_payload(probe: ProbeDefinition) -> bytes:
     """Return the exact payload bytes expected at the end of an artifact."""
 
+    if probe.probe_id in (14, 16):
+        payload = bytearray(probe.payload_size)
+        payload[9 if probe.probe_id == 14 else 6] = 0xFF
+        return bytes(payload)
     if probe.probe_id != 4:
         return bytes(probe.payload_size)
     configuration = dict(probe.defines)
@@ -559,6 +575,84 @@ def validate_machine_code(probe_name: str, machine_code: bytes) -> None:
                 raise ValueError(
                     f"{probe_name} must contain its {label} exactly {count} times"
                 )
+    if probe.probe_id == 13:
+        expected_inputs = {0x40: 2, 0x45: 3, 0x46: 2, 0x47: 2, 0x48: 2}
+        for port, count in expected_inputs.items():
+            if machine_code.count(bytes((0xDB, port))) != count:
+                raise ValueError(
+                    f"{probe_name} must read port 0x{port:02X} exactly {count} times"
+                )
+        for port in range(0x40, 0x49):
+            if bytes((0xD3, port)) in machine_code:
+                raise ValueError(
+                    f"{probe_name} must not write RTC port 0x{port:02X}"
+                )
+        for sequence, label in (
+            (bytes.fromhex("ED57E2"), "enabled-interrupt entry guard"),
+            (bytes.fromhex("E60128"), "enabled-RTC entry guard"),
+            (bytes.fromhex("DB45FEFF20"), "low-byte polling loop"),
+            (bytes.fromhex("F3"), "rollover-window interrupt mask"),
+            (bytes.fromhex("FB"), "interrupt restoration"),
+            (bytes.fromhex("E5DDE1"), "AppVar-resident verification frame"),
+            (bytes.fromhex("EF7249"), "verification-code display"),
+        ):
+            if sequence not in machine_code:
+                raise ValueError(f"{probe_name} omits its {label}")
+    if probe.probe_id == 14:
+        for sequence, label in (
+            (bytes.fromhex("3E13D327"), "port-0x27 0xFB40 boundary"),
+            (bytes.fromhex("3E01D328"), "port-0x28 64-byte boundary"),
+            (bytes.fromhex("3E07D304"), "paired-mode transition"),
+            (bytes.fromhex("3E06D304"), "independent-mode restoration"),
+            (bytes.fromhex("3E82D306"), "paired RAM backing"),
+            (bytes.fromhex("3E81D307"), "stable paired-C mapping"),
+            (bytes.fromhex("F5232BF1C9"), "fixed-page helper signature"),
+            (bytes.fromhex("DD2A"), "AppVar-resident verification frame"),
+        ):
+            if sequence not in machine_code:
+                raise ValueError(f"{probe_name} omits its {label}")
+        if bytes.fromhex("EF7249") not in machine_code:
+            raise ValueError(f"{probe_name} must display its verification code")
+        if machine_code.find(bytes.fromhex("CD989D")) > machine_code.find(
+            bytes.fromhex("323FFB")
+        ):
+            raise ValueError(f"{probe_name} must create its pending result first")
+    if probe.probe_id == 15:
+        for port in (0x02, 0x03, 0x20, 0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F):
+            if bytes((0xD3, port)) in machine_code:
+                raise ValueError(
+                    f"{probe_name} must not write protected port 0x{port:02X}"
+                )
+        for sequence, label in (
+            (bytes.fromhex("01FFFFDB02CB4F"), "bounded ASIC-ready poll"),
+            (bytes.fromhex("3E07"), "column-increment command"),
+            (bytes.fromhex("3E2E"), "column-14 start command"),
+            (bytes.fromhex("0E3F"), "read-only column-31 command"),
+            (bytes.fromhex("E5DDE1"), "AppVar-resident verification frame"),
+            (bytes.fromhex("EF7249"), "verification-code display"),
+        ):
+            if sequence not in machine_code:
+                raise ValueError(f"{probe_name} omits its {label}")
+    if probe.probe_id == 16:
+        for sequence, label in (
+            (bytes.fromhex("ED5E"), "IM2 installation"),
+            (bytes.fromhex("ED56"), "IM1 restoration"),
+            (bytes.fromhex("76"), "HALT experiment"),
+            (bytes.fromhex("ED4D"), "RETI handler return"),
+            (bytes.fromhex("3E0AD303"), "powered-HALT watchdog mask"),
+            (bytes.fromhex("3E45D3303E02D3313E01D332"), "programmable timer setup"),
+            (bytes.fromhex("FDE5E1"), "IY context guard"),
+            (bytes.fromhex("FDCB1646"), "canonical OS interrupt-mask restore"),
+            (bytes.fromhex("1833DB04CB7F"), "OS IM1 vector signature"),
+            (bytes.fromhex("DD2A"), "AppVar-resident verification frame"),
+            (bytes.fromhex("EF7249"), "verification-code display"),
+        ):
+            if sequence not in machine_code:
+                raise ValueError(f"{probe_name} omits its {label}")
+        if machine_code.find(bytes.fromhex("CD989D")) > machine_code.find(
+            bytes.fromhex("ED5E")
+        ):
+            raise ValueError(f"{probe_name} must create its pending result first")
 
 
 def package_probe(

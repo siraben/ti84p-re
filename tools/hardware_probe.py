@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import binascii
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -73,6 +74,10 @@ PROBE_NAMES = {
     10: "bus-timing",
     11: "prefix-m1",
     12: "timer-physical",
+    13: "rtc-rollover",
+    14: "mapper-overlays",
+    15: "lcd-controller",
+    16: "interrupt-halt",
 }
 
 
@@ -110,6 +115,12 @@ class ProbeFrame:
             + bytes((self.asic_id, self.status))
             + self.payload
         )
+
+
+def probe_verification_code(frame: ProbeFrame) -> int:
+    """Return the decimal code displayed after a guarded physical run."""
+
+    return binascii.crc_hqx(frame.encode(), 0xFFFF)
 
 
 @dataclass(frozen=True)
@@ -764,6 +775,175 @@ def decode_probe_measurements(frame: ProbeFrame) -> dict[str, object]:
         )
     if frame.probe_id == 12:
         return _decode_physical_timer_probe(frame)
+    if frame.probe_id == 13:
+        if len(frame.payload) != 19:
+            raise ProbeFormatError(
+                "RTC rollover payload must contain 19 bytes, "
+                f"got {len(frame.payload)}"
+            )
+        outcome_names = {
+            0: "completed",
+            1: "interrupts-disabled-on-entry",
+            2: "missed-rollover-window",
+            3: "rtc-disabled-on-entry",
+        }
+        last_ff = int.from_bytes(frame.payload[2:6], "big")
+        first_after = int.from_bytes(frame.payload[6:10], "big")
+        reverse_after = int.from_bytes(frame.payload[10:14], "little")
+        followup = int.from_bytes(frame.payload[14:18], "big")
+        outcome_code = frame.payload[1]
+        return {
+            "outcome_code": outcome_code,
+            "outcome": outcome_names.get(
+                outcome_code, f"unknown-{outcome_code}"
+            ),
+            "pre_control": f"0x{frame.payload[0]:02X}",
+            "last_low_ff": f"0x{last_ff:08X}",
+            "first_high_to_low_after": f"0x{first_after:08X}",
+            "first_low_to_high_after": f"0x{reverse_after:08X}",
+            "followup_high_to_low": f"0x{followup:08X}",
+            "post_control": f"0x{frame.payload[18]:02X}",
+            "control_unchanged": frame.payload[18] == frame.payload[0],
+            "first_transition_coherent": (
+                outcome_code == 0
+                and first_after == ((last_ff + 1) & 0xFFFFFFFF)
+            ),
+            "later_reads_monotonic": (
+                outcome_code == 0
+                and first_after <= reverse_after <= followup
+            ),
+        }
+    if frame.probe_id == 14:
+        if len(frame.payload) != 47:
+            raise ProbeFormatError(
+                "mapper-overlay payload must contain 47 bytes, "
+                f"got {len(frame.payload)}"
+            )
+        outcome_names = {
+            0: "completed",
+            1: "unexpected-port-05",
+            2: "unexpected-port-06",
+            3: "unexpected-port-07",
+            4: "unexpected-port-0e",
+            5: "unexpected-port-0f",
+            6: "port-27-already-active",
+            7: "port-28-already-active",
+            8: "post-appvar-mapping-changed",
+            9: "fixed-page-helper-signature-mismatch",
+        }
+        independent_reads = list(frame.payload[10:19])
+        independent_writes = list(frame.payload[19:23])
+        paired_reads = list(frame.payload[23:32])
+        paired_writes = list(frame.payload[32:36])
+        profiles = {
+            "tilem": ([0xA1, 0xA2, 0xB3], [0xA1, 0xA2, 0xE3]),
+            "wabbitemu": ([0xA1, 0xA2, 0xB3], [0xE1, 0xE2, 0xE3]),
+            "mame-no-overlays": ([0xB1, 0xB2, 0xB3], [0xE1, 0xE2, 0xE3]),
+        }
+        profile = "mixed-or-physical"
+        for name, (independent_prefix, paired_prefix) in profiles.items():
+            if independent_reads[:3] == independent_prefix and paired_reads[:3] == paired_prefix:
+                profile = name
+                break
+        pre = frame.payload[0:9]
+        post = frame.payload[38:47]
+        outcome_code = frame.payload[9]
+        return {
+            "outcome_code": outcome_code,
+            "outcome": outcome_names.get(outcome_code, f"unknown-{outcome_code}"),
+            "pre_ports_03_04_05_06_07_0e_0f_27_28": [f"0x{value:02X}" for value in pre],
+            "independent_reads": [f"0x{value:02X}" for value in independent_reads],
+            "independent_write_routing": [f"0x{value:02X}" for value in independent_writes],
+            "paired_reads": [f"0x{value:02X}" for value in paired_reads],
+            "paired_write_routing": [f"0x{value:02X}" for value in paired_writes],
+            "paired_even_flash_b": f"0x{frame.payload[36]:02X}",
+            "closest_emulator_profile": profile,
+            "restore_flags": f"0x{frame.payload[37]:02X}",
+            "all_marker_pages_restored": frame.payload[37] == 0x0F,
+            "post_ports_03_04_05_06_07_0e_0f_27_28": [f"0x{value:02X}" for value in post],
+            "readable_ports_restored": post[0] == pre[0] and post[2:] == pre[2:],
+        }
+    if frame.probe_id == 15:
+        if len(frame.payload) != 43:
+            raise ProbeFormatError(
+                "LCD-controller payload must contain 43 bytes, "
+                f"got {len(frame.payload)}"
+            )
+        outcome_names = {
+            0: "completed",
+            1: "controller-in-reset",
+            2: "not-in-eight-bit-mode",
+            3: "invalid-os-pointer-state",
+            4: "asic-ready-timeout",
+            6: "cell-restoration-failed",
+        }
+        ready = {
+            "command_write": int.from_bytes(frame.payload[14:16], "little"),
+            "data_read": int.from_bytes(frame.payload[16:18], "little"),
+            "data_write": int.from_bytes(frame.payload[18:20], "little"),
+        }
+        cells = list(frame.payload[22:29])
+        row_model = "mixed-or-physical"
+        if cells[0] == 0xA6 and cells[2:4] == [0xA4, 0xA5]:
+            row_model = "tilem-16-column"
+        elif cells[0:3] == [0xA5, 0xA6, 0xA4]:
+            row_model = "wabbitemu-15-column-wrap"
+        elif cells[2] == 0xA4 and cells[4:6] == [0xA5, 0xA6]:
+            row_model = "mame-15-byte-spill"
+        pre_waits = frame.payload[4:11]
+        post_waits = frame.payload[36:43]
+        outcome_code = frame.payload[13]
+        return {
+            "outcome_code": outcome_code,
+            "outcome": outcome_names.get(outcome_code, f"unknown-{outcome_code}"),
+            "ready_zero_sample_counts": ready,
+            "immediate_port_0x02": f"0x{frame.payload[20]:02X}",
+            "immediate_status_0x10": f"0x{frame.payload[21]:02X}",
+            "observed_cells": [f"0x{value:02X}" for value in cells],
+            "direct_column_16": f"0x{frame.payload[29]:02X}",
+            "direct_column_31": f"0x{frame.payload[30]:02X}",
+            "row_model": row_model,
+            "restore_ok": frame.payload[31] == 1,
+            "wait_registers_unchanged": post_waits == pre_waits,
+        }
+    if frame.probe_id == 16:
+        if len(frame.payload) != 21:
+            raise ProbeFormatError(
+                "interrupt-HALT payload must contain 21 bytes, "
+                f"got {len(frame.payload)}"
+            )
+        outcome_names = {
+            0: "completed",
+            1: "interrupt-source-pending-on-entry",
+            2: "on-key-held-on-entry",
+            3: "timer-source-active",
+            4: "timer-mode-active",
+            5: "interrupts-disabled-on-entry",
+            6: "unexpected-handler-count",
+            7: "post-appvar-guard-failed",
+            8: "unsupported-os-context",
+            9: "im1-vector-signature-mismatch",
+            10: "usb-source-active",
+        }
+        wake_status = frame.payload[8]
+        wake_class = "unknown"
+        if wake_status & 0x20 and not wake_status & 0x02:
+            wake_class = "programmable-timer"
+        elif wake_status & 0x02:
+            wake_class = "standard-timer-watchdog"
+        outcome_code = frame.payload[6]
+        return {
+            "outcome_code": outcome_code,
+            "outcome": outcome_names.get(outcome_code, f"unknown-{outcome_code}"),
+            "handler_count": frame.payload[7],
+            "handler_status_0x04": f"0x{wake_status:02X}",
+            "handler_mode_0x31": f"0x{frame.payload[9]:02X}",
+            "handler_counter_0x32": f"0x{frame.payload[10]:02X}",
+            "wake_class": wake_class,
+            "after_status_0x04": f"0x{frame.payload[11]:02X}",
+            "restore_ok": frame.payload[20] == 1,
+            "i_register_restored": frame.payload[19] == frame.payload[5],
+        }
     return {"payload_hex": frame.payload.hex().upper()}
 
 
@@ -784,6 +964,8 @@ def probe_appvar_report(blob: bytes, *, path: str | None = None) -> dict[str, ob
         "payload_size": len(frame.payload),
         "payload_hex": frame.payload.hex().upper(),
         "measurements": decode_probe_measurements(frame),
+        "verification_code_decimal": probe_verification_code(frame),
+        "verification_code_hex": f"0x{probe_verification_code(frame):04X}",
     }
     if path is not None:
         report = {"path": path, **report}

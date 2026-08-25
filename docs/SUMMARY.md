@@ -32,6 +32,12 @@
 - [Flash page map](flash-page-map.md)
 - [RAM pages](ram-pages.md)
 - [Physical hardware probes](hardware-probes.md)
+    - [Measurements needed from physical calculators](needed-probes/physical-measurements.md)
+        - [Calculator-readable probes](needed-probes/calculator-readable.md)
+        - [Guarded mapper, LCD, and interrupt probes](needed-probes/additional-calculator-probes.md)
+        - [External measurements](needed-probes/external-measurements.md)
+        - [Emulator comparison matrix](needed-probes/emulator-matrix.md)
+        - [Recording a physical result](needed-probes/recording-results.md)
 
 # Core subsystems
 

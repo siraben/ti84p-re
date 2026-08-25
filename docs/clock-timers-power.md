@@ -698,9 +698,10 @@ nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
 - [standard] Wabbitemu's low-level and frontend reset paths retain the timer context, delay registers, interrupt controller, programmable timers, and RTC. A guarded run confirms the directly seeded state. Physical reset retention remains open.
 - [standard] TilEm's full reset clears programmable timers and reschedules standard timers while retaining the global clock, RTC fields, and dynamic scheduler timers. A guarded direct-core run confirms the seeded boundaries. Physical reset retention remains open.
 - [confirmed] The prepared [memory-bus timing probe](hardware-probes.md#memory-bus-timing-probe) uses timer 2 only when its source and mode are zero, records completion state for every sample, and restores the idle counter byte. No physical result has been recorded.
+- [confirmed] The prepared [RTC rollover probe](hardware-probes.md#rtc-rollover-coherence-probe) reads a natural low-byte carry in both port orders without writing the RTC block. No physical result has been recorded.
 - [hypothesis] Physical RTC reads can tear across a one-second rollover because no latch or OS retry is documented.
 - [hypothesis] The physical crystal divisors, port-`0x2F` prescaler, first-versus-second-expiry meaning of mode/status bit 2, counter-zero edge, and precise reason programmable timers fail to wake `HALT` need direct TA2/TA3 measurements.
-- [hypothesis] Low-power behavior of port `0x2D`, disabled RTC reads, control-edge behavior, and rollover coherence should be checked on TA2 and TA3 hardware rather than inferred from emulators.
+- [hypothesis] Low-power behavior of port `0x2D`, disabled RTC reads, control-edge behavior, natural low-byte rollover coherence, and the larger `0x00FFFFFF` → `0x01000000` carry should be checked on TA2 and TA3 hardware.
 
 ## Sources
 

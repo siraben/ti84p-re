@@ -103,7 +103,7 @@ class HardwareProbeBuilderTests(unittest.TestCase):
 
     def test_probe_definitions_use_stable_names_and_ids(self):
         self.assertEqual(
-            {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
+            {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
             {probe.probe_id for probe in PROBES.values()},
         )
         for probe in PROBES.values():
@@ -183,6 +183,13 @@ class HardwareProbeBuilderTests(unittest.TestCase):
             validate_machine_code(
                 "usb-snapshot",
                 fixture_machine_code("usb-snapshot"),
+            )
+
+    def test_rtc_probe_requires_read_only_rollover_sampling(self):
+        with self.assertRaisesRegex(ValueError, "must read port 0x40"):
+            validate_machine_code(
+                "rtc-rollover",
+                fixture_machine_code("rtc-rollover"),
             )
 
     def test_battery_probe_requires_bcall_samples_and_restoration(self):
