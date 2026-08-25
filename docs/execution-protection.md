@@ -708,6 +708,22 @@ $ python tools/disassemble_rom.py 0x3f --start 0x41d5 --end 0x4206
 $ python tools/analyze_rom_io.py 0x21 0x22 0x23 0x24 0x25 0x26 --summary
 ```
 
+## Flash write-disable bcall [confirmed]
+
+`_FlashWriteDisable = 0x4F3C`, body `3C:66D5`, controls Flash programming,
+not the execution-protection bounds described above. After four padding
+`NOP`s, it saves `AF`, clears `A`, executes `DI`, selects IM 1, writes
+`0x00` to port `0x14`, executes another `DI`, restores `AF`, and returns. The
+intervening `OR A` makes its `JP NZ,ram:0000` unreachable on this path.
+
+The body restores the caller's `AF` but deliberately leaves maskable
+interrupts disabled. Callers that require interrupts must re-enable them after
+the bcall; they must not infer interrupt restoration from the saved `AF`.
+A controlled trace reaches the body once, observes `OUT (0x14),A` with
+`A = 0x00`, returns to the fixture, and then executes an explicit `EI`. The
+reduced result is in `tools/data/community-bcall-semantics.csv`. [confirmed]
+under TilEm; the physical Flash gate was not written on hardware in this test.
+
 ## Community execution techniques
 
 Crabcake's original source uses two model-specific methods. On a 6 MHz

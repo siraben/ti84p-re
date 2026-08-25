@@ -55,6 +55,20 @@ Controller video RAM is a third image store outside Z80 RAM. Direct text output
 can change it without changing `plotSScreen`, while graph drawing can change
 `plotSScreen` without changing the panel until `_GrBufCpy` runs. [confirmed]
 
+## LCD-ready wait [confirmed]
+
+`_lcd_busy = 0x4051`, body `ram:0CC3`, preserves `AF` while polling port
+`0x02` bit 1 until the LCD reports ready. If bit 3 of `IY + 0x41` is set after
+that poll, it calls the short delay helper at `ram:0CE6` three times before
+restoring `AF` and returning. The ROM has callers in the fixed page and on
+pages `0x01`, `0x04`, `0x06`, `0x07`, `0x39`, and `0x3B`; it is the common
+serialization point used before direct LCD operations.
+
+A source-built fixture reaches the body and returns to its marker. That trace
+confirms the callable path in TilEm, while the port-poll latency and optional
+three-delay branch remain dependent on emulator or hardware LCD state. The
+result is pinned in `tools/data/community-manual-bcall-traces.csv`.
+
 ## Large-font text
 
 `_PutMap` clamps character code zero and codes at or above `0xF8` to replacement code `0xD0`. It computes `character × 8` and bjumps to `put_glyph_large` at `07:4588`. [confirmed]

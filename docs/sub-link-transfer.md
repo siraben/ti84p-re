@@ -261,6 +261,31 @@ Confirmed in the code; semantics are the standard TI link protocol:
 | `0x92` | `EOT` | `4195` (H=0x92) | end of transmission |
 | `0xA2`/`0xB7` | request | `link_xfer_op` `4E2B/4E2F` | request var (A2=DATA-type, B7=other) |
 
+### `_SendPacket` [confirmed]
+
+`_SendPacket = 0x4ED6`, body `3C:4139`, consumes the shared
+`LinkPacketHeader` at `ram:8674`, takes the payload pointer from `iMathPtr5` at
+`ram:84DB`, and uses `header.data_length` as the payload byte count. It clears
+`pagedPN` at `ram:9835`, sends the four-byte header through `3C:41C3`, clears
+the 16-bit checksum at `ram:8678`, and streams the payload. A zero `pagedPN`
+reads bytes directly from `HL`; a nonzero value uses the paged read helper at
+`ram:17BB`. Each byte is added to the checksum before `_SendAByte` is called.
+
+After the last byte, the routine sends checksum low then high, receives a reply
+header, and returns only when its command byte is `0x56` ACK. A line failure,
+bad reply, or checksum-side failure takes the link error machinery rather than
+returning a status code.
+
+A one-sided controlled trace supplies a one-byte DATA packet and an installed
+calculator error handler. With no peer, the run reaches `_SendPacket` once,
+the header helper once, and `_SendAByte` twice before `_ErrLinkXmit` and
+`_JErrorNo` transfer control to the fixture's handler. It does not reach the
+payload read at `3C:4160`. This dynamically establishes the no-peer boundary;
+the payload, checksum, and ACK success path above remains ROM control-flow
+evidence until a paired trace is captured. The reduced result is in
+`tools/data/community-send-packet.csv`. [confirmed] under TilEm for the
+one-sided path.
+
 ### Checksum and acknowledgement tail [confirmed]
 
 After the data payload, the sender appends the 16-bit sum and waits for the ACK:

@@ -195,34 +195,52 @@ snapshot, input-ROM, output-ROM, and emulator hashes. The ROM hash is
 the patched TilEm executable hash is
 `b8ee505483c79732a4ca21efb8b904de0792477795f6fc717874dcd5addaed09`.
 
-### Numeric community bcalls
+### Base-page table, archive accounting, and group extraction
 
-The same source audit found manually defined or numeric bcalls that were not
-reliably named in older include sets:
+`_FillBasePageTable = 0x5011`, body `ram:2692`, saves port `0x06` and selects
+a model-specific Flash source and RAM destination. The older path begins with
+page `0x15` and destination `ram:8015`; the TI-84 Plus path selects page
+`0x29` and `ram:8029`, with a second hardware probe able to select page
+`0x69` and `ram:8069`. It maps the source into bank A, walks its descriptor
+data through the inline helpers at `ram:3DC5` and `ram:3DCB`, then restores
+port `0x06`. [confirmed]
 
-| ID | OS 2.55MP target | Community source and use |
-|---:|---|---|
-| `500Bh` | `_GetKeyRetOff`, `06:491A` | `programs/prgmhide.zip:source/Dialog.z80:42`; return from the dialog on a key. |
-| `509Eh` | `_HLMinus5`, `ram:1785` | `programs/prgmhide.zip:source/RefreshDisplay.z80:68`; move a VAT pointer back five bytes. |
-| `5011h` | `_FillBasePageTable`, `ram:2692` | `programs/2dca.zip:source/Cherries.z80:35`; repair the base-page RAM table before exit. |
-| `5014h` | `_ArcChk`, `3D:61AF` | `libs/rage.zip:RAGE/RAGE.asm:71`; populate archive-accounting words beginning at `0x839F`. |
-| `50C8h` | `_UngroupVar`, `39:764A` | `libs/c3asm.zip:C3ASM/_CELTIC/CELTIC3.ASM:832`; ungroup only after OP1 is confirmed as `GroupObj`. |
+The archived Cherries comment says this “restores first 1087 bytes in RAM.”
+The ROM body is not a fixed 1,087-byte `LDIR`: its copy count is selected from
+the mapped descriptor and its outer loop continues until selector `0x07`.
+The fixed-size community wording is therefore not established. A controlled
+fixture reaches `ram:2692` and returns, but does not corrupt a live base-page
+table to prove every rewritten byte. [confirmed] for the ROM control flow and
+return; [hypothesis] for a universal 1,087-byte extent.
 
-PRGMHIDE dynamically reaches `500Bh` and `509Eh`. In a separate source-built
-probe, the `5011h` and `5014h` fixture call sites each execute once, both OS
-bodies are reached, and the final marker proves that both calls return after
-saving the `_ArcChk` words. Other OS activity may reach the same body addresses.
-`50C8h` was not called without an authentic group object and caller state.
-These tests confirm the first four ID-to-target mappings and safe return paths,
-not every side effect implied by the community comments.
-[confirmed]
+`_ArcChk = 0x5014`, body `3D:61AF`, prepares the archive accounting words at
+`ram:839F`–`ram:83A2`. Bit 6 of `IY + 0x24` lazily guards the first Flash scan,
+whose four-byte intermediate result is saved at `ram:9C96`; bit 7 guards the
+second scan and the intermediate result at `ram:9C9A`. The tail adds four bytes
+from the temporary result into `ram:839F`–`ram:83A2`, restores the caller's
+`HL` and `AF`, and returns. The first scan temporarily enables Flash writing
+through port `0x14`, runs its archive check, then disables writes and restores
+the prior interrupt-enable state. [confirmed]
 
-| Archive | Archive SHA-256 | Source member SHA-256 |
-|---|---|---|
-| `programs/prgmhide.zip` | `6342d57b18a1277aa3ce13ba514d986fc3c485dfc4b747a157972fad61756103` | `source/Dialog.z80`: `d05696213724cf74fdad5d20af58f6f74833fe541194c795403e8c90ff0fa054`; `source/RefreshDisplay.z80`: `bf8c40214695bb28c1c444d16e44635931a399429dd9e004f861fa4d110307bf` |
-| `programs/2dca.zip` | `b8f1f0fdd4f7787b3474e3ddd4af2454a91b5bf50ac10249ff62eb66783d545c` | `source/Cherries.z80`: `b3ac8ea3d80e3cd62dfc67b5562648ae50fa6c7538603da6f161ff0d83fbddac` |
-| `libs/rage.zip` | `4849830711b0c0ef0cdc6ad93b437dd905cab7ce8b55a5bff9d10e261f6688f4` | `RAGE/RAGE.asm`: `8882aa3c8f7fdbf9e1155addebd6ed74bc80f913b1d3179bc7e1ecab8563890d` |
-| `libs/c3asm.zip` | `61a7b698bdcbdfba482c24a002b19e4e6b5bb1cab3493413433ee832d0f15e9f` | `C3ASM/_CELTIC/CELTIC3.ASM`: `14c3084a160fd4f43120efbceef8d045788bc7b389bfe0d5933f83d597734279` |
+The numeric-bcall fixture reaches `_FillBasePageTable` and `_ArcChk`, regains
+control, and snapshots the four accounting bytes. Its accepted trace records
+the fixture-local call sites separately from OS loader calls that also reach
+`_ArcChk`. Results and artifact hashes are in
+`tools/data/community-vat-dynamic-observations.csv`. [confirmed] under TilEm.
+
+`_UngroupVar = 0x50C8`, body `39:764A`, is not a generic blob unpacker. It
+copies eight bytes from OP1 to `ram:85E7`, calls the group-state initializer at
+`39:765D`, sets bit 6 of `IY + 0x26`, and jumps into the extraction state
+machine at `39:6E11`. That initializer clears link/group scratch at
+`ram:8670`, `ram:97A5`, `ram:85D9`, and `ram:8672` before calling the page-7
+group helper. The Celtic III caller first requires `OP1.type = GroupObj`
+(`0x17`). [confirmed] for ROM and caller control flow.
+
+No dynamic call is accepted yet: the fixture set does not contain an authentic
+on-calculator Group object plus the surrounding group state, and calling the
+routine with a fabricated OP1 can create or overwrite variables. The ABI and
+side effects above are static ROM evidence; successful extraction, collisions,
+and error unwinding remain [hypothesis].
 
 ---
 
