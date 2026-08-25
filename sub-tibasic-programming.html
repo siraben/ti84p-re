@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-fdb79b39.js";
+            window.path_to_searchindex_js = "searchindex-0e4eff2a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-b88a411b.js"></script>
@@ -596,6 +596,18 @@ bcalls <code>_ExecutePrgm</code> (<code>4E7C</code>, target <code>07:5758</code>
 compile/copy the <code>AsmPrgm</code> body and hand off through <code>07:57B4</code>, execute the
 payload byte at <code>userMem</code> (<code>0x9D95</code>) with opcode <code>C9h</code>, and return to BASIC.
 [confirmed]</p>
+<p><strong>Open discrepancy.</strong> The <code>_ExecutePrgm</code> setup body at <code>07:5762</code> runs
+<code>_ChkFindSym</code>, reads the size word, and validates the program body’s first two
+bytes against <code>BB</code> (<code>07:576B</code>) and <code>6D</code> (<code>07:5772</code>, raw bytes <code>FE 6D</code>). A
+mismatch jumps to the BASIC-program path at <code>07:57D4</code>. Only the <code>6D</code> case
+performs the ASM setup: size sanity against <code>0x2000</code>
+(<code>07:577B</code>), <code>_ErrNotEnoughMem</code> guard, <code>_InsertMem</code> to grow <code>userMem</code>
+(<code>07:578D</code>), size saved to <code>0x89EC</code>, <code>LDIR</code> of the payload, USB state save
+around port <code>0x20</code> on non-TI-84 hardware probes, cleanup handler <code>0x5800</code> via
+<code>ctx_save_switch</code>, and the jump table entry <code>07:57FD</code> → <code>JP 0x9D95</code>. The
+working fixtures emit <code>AsmPrgm</code> as <code>BB 6C</code>, yet their traces reach the payload.
+The remaining gap is whether the upstream <code>Asm(</code> handler rewrites the token or
+uses a second entry. [confirmed]</p>
 <p>Practical convention: pass data through OS variables or known RAM locations,
 validate inputs on the BASIC side, and make the ASM payload return normally with
 <code>RET</code> unless it intentionally transfers control elsewhere.</p>
@@ -655,18 +667,18 @@ hits <code>userMem</code>, <code>_OP1Set2</code> (<code>00:1B50</code>), <code>_
 <tr><td>ASM → BASIC callback</td><td>ASM stores a signal/result such as <code>Ans=1</code>, returns, and the BASIC wrapper conditionally runs <code>prgmNAME</code>.</td><td>BASIC must own the actual <code>prgm</code> call; this is cooperative, not an arbitrary ASM bcall into BASIC.</td></tr>
 <tr><td>ASM → BASIC value return</td><td>ASM stores a numeric result in <code>Ans</code> with <code>_StoAns</code>; BASIC resumes and evaluates <code>Ans</code>.</td><td>This returns data to BASIC, not control into a BASIC program body.</td></tr>
 <tr><td>ASM → VAT lookup</td><td><code>ASMFIND</code> builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym</code>.</td><td>Lookup is not execution; the wrapper returns and <code>ZZBASIC</code> does not display <code>CALLED</code>.</td></tr>
-<tr><td>Direct ASM → BASIC</td><td>No working public bcall sequence is proven in this repo.</td><td><code>ASMPARSE</code> reaches <code>_ParseInpLastEnt</code>/<code>_ParseInp</code> and then <code>ERR:INVALID</code>; <code>ASMFORM</code> reaches <code>_Find_Parse_Formula</code> and then <code>ERR:UNDEFINED</code>; forced-command/edit-buffer probes did not call the target BASIC program.</td></tr>
+<tr><td>Direct ASM → BASIC</td><td>No working public bcall sequence is proven in this repo.</td><td><code>ASMPARSE</code> reaches <code>_ParseInpLastEnt</code>/<code>_ParseInp</code> and then <code>ERR:INVALID</code>; <code>ASMFORM</code> reaches <code>_Find_Parse_Formula</code> and then <code>ERR:UNDEFINED</code>; <code>ZZRUN</code> reaches the private evaluator and then <code>ERR:SYNTAX</code>; forced-command/edit-buffer probes did not call the target BASIC program successfully.</td></tr>
 </tbody>
 </table>
 </div>
 <h3 id="asm-to-basic"><a class="header" href="#asm-to-basic">ASM to BASIC</a></h3>
 <p>Direct ASM-initiated BASIC program execution is not yet run-confirmed in this
-repo. Two easy-looking bcalls are not that entry point:</p>
+repository. Two apparent candidates are not that entry point:</p>
 <ul>
 <li><code>_ExecutePrgm</code> is the <code>AsmPrgm</code> executor reached by <code>Asm(prgmNAME)</code>, not a
 general “run a BASIC program” entry.</li>
 <li><code>_ExecuteNewPrgm</code> (<code>4C3C</code>, target <code>00:265F</code>) is not a drop-in BASIC runner
-from an arbitrary <code>AsmPrgm</code> either. It expects more OS state than just a name
+from an arbitrary <code>AsmPrgm</code> either. It expects OS state beyond a name
 pointer.</li>
 <li><code>_ParsePrgmName</code> (<code>4E82</code>, target <code>38:40D4</code>) only consumes a <code>prgmNAME</code> token
 from the current parser cursor and builds the name object used by <code>Asm(</code>.</li>
@@ -679,6 +691,47 @@ parser/VAT path, enters the program-body evaluator at <code>38:6914</code> →
 from arbitrary ASM requires more than loading OP1 and bcalling a single public
 entry; it needs the same parser cursor, stack, error, and run-state setup that a
 live BASIC caller already has. [hypothesis]</p>
+<p>A typed two-program trace of <code>prgmPP</code> calling <code>prgmOO</code> captures the live parser
+frame at each <code>38:6914</code> entry through shadow-memory replay. The reproduction
+macro is <code>tools/macros/run-callsub-typed.macro</code>.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Field</th><th>Observed value at callee entry</th></tr>
+</thead>
+<tbody>
+<tr><td><code>basic_prog</code> (<code>0x9652</code>)</td><td><code>05h</code>, two encoded name bytes, six zeros</td></tr>
+<tr><td><code>basic_start</code> (<code>0x965B</code>)</td><td>callee body start (first token)</td></tr>
+<tr><td><code>next_parse_byte</code> (<code>0x965D</code>)</td><td>equals start before execution; end when finished</td></tr>
+<tr><td><code>basic_end</code> (<code>0x965F</code>)</td><td>start + body size</td></tr>
+<tr><td>state byte (<code>0x9661</code>)</td><td><code>01h</code></td></tr>
+<tr><td><code>FPS</code> / <code>OPS</code> pointers</td><td>valid live pointers (<code>0x9E94</code> / <code>0xFCB1</code> on one entry)</td></tr>
+<tr><td>gate bits</td><td><code>BIT 0,(IY+28h)</code> and <code>BIT 7,(IY+48h)</code> are both zero (<code>IY=0x89F0</code>; bytes at <code>0x8A18</code> and <code>0x8A38</code>)</td></tr>
+</tbody>
+</table>
+</div>
+<p>Both gate bits read zero in the working path. The private callee transition at
+<code>38:6910</code> executes <code>XOR A ; CALL 6A15</code> before entering the evaluator. These
+observations suggest that an ASM payload must locate the target through
+<code>_ChkFindSym</code> into OP1, copy the name header to <code>0x9652</code>, point
+<code>start</code>/<code>cursor</code> at <code>_ChkFindSym</code>’s data pointer plus two (past the size word),
+set <code>end</code> = start + size, store <code>01h</code> at <code>0x9661</code>, ensure the FPS/OPS bounds
+are sane, bank page <code>38</code> into port <code>0x06</code>, and enter <code>38:6910</code>. No identified
+public bcall performs this setup. This proposed hand-built state transplant
+also accounts for the parser-frame failures in the negative probes
+(<code>ZZFIND</code>/<code>ZZFORM</code>/<code>ZZPARSE</code>). [hypothesis]</p>
+<p>The generated negative probe consists of <code>OO.8xp</code>, <code>ZZRUN.8xp</code>, and
+<code>ZZRUNWR.8xp</code>. <code>ZZRUN</code> is an 81-byte payload targeting <code>prgmOO</code>; it returns
+immediately if <code>_ChkFindSym</code> sets carry. <code>ZZRUNWR</code> contains the one-line
+<code>Asm(prgmZZRUN)</code> launcher.</p>
+<p>A link-loaded run resolves <code>OO</code> through <code>_ChkFindSym</code> with <code>DE=0x9E76</code>, then
+sets the parser interval to <code>0x9E78</code>–<code>0x9E7F</code> and enters <code>38:6910</code>. The trace
+reaches <code>38:6914</code> and <code>38:778F</code>, walks the target body, and terminates at
+<code>_ErrSyntax</code> (<code>ram:2700</code>) with the parser cursor at <code>0x9E7C</code>. The final frame
+shows <code>ERR:SYNTAX</code>. An otherwise equivalent 80-byte layout without the
+<code>_ChkFindSym</code> carry guard instead ended at <code>_ErrArgument</code> (<code>ram:2711</code>). The
+layout-sensitive error indicates that the copied name and cursor interval do not
+reproduce the native BASIC call frame. [confirmed]</p>
 <p><code>ASMFIND.8xp</code> and <code>ZZFIND.8xp</code> make the VAT lookup boundary reproducible. The
 wrapper displays <code>BEFORE</code>, runs <code>Asm(prgmZZFIND)</code>, and displays <code>AFTER</code>. The
 payload builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym</code> (<code>42F1</code>):</p>
@@ -805,13 +858,13 @@ paths: <code>Asm(</code> → <code>_ExecutePrgm</code> → <code>userMem</code>,
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>
-        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
         <script src="hljs-z80-e93ac716.js"></script>
         <script src="katex-5e4f3b03.min.js"></script>
         <script src="katex-auto-render-bb53eb95.min.js"></script>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
-        <script src="pseudocode-init-5fa46c0a.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
 
 
 

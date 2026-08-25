@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-fdb79b39.js";
+            window.path_to_searchindex_js = "searchindex-0e4eff2a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-b88a411b.js"></script>
@@ -340,7 +340,7 @@ in flash (for the APPS-menu list), both wrapping the common walker <code>app_5de
 scratch (<code>0x9C87</code>=‘i’ selects the in-RAM “temp app” search variant).</p>
 <h3 id="launching-an-app-as-a-context-confirmed"><a class="header" href="#launching-an-app-as-a-context-confirmed">Launching an app as a context [confirmed]</a></h3>
 <p><code>_AppInit</code> (<code>ram:0936</code>, bcall <code>0x404B</code>) installs a context from an app header:</p>
-<pre><code class="language-pseudocode">_AppInit(byte *hdr):                 ; HL -&gt; 13-byte vector block in the header
+<pre><code class="language-text">_AppInit(byte *hdr):                 ; HL -&gt; 13-byte vector block in the header
   copy 12 bytes hdr[0..11] -&gt; cxMain (0x858D)   ; the 6 context vectors
   flags.appFlags (IY+0x0D) = hdr[12]            ; appFlags byte
   cxPage (0x8599) = port_mapBankA               ; the flash page the handlers run from
@@ -461,7 +461,7 @@ radians; the degree paths convert first).</p>
 <p>The four graph-mode setters on <code>page 0x36</code> are mutually exclusive: each first clears
 all four bits via <code>clr_grfmode (36:7D00)</code>, then ORs in its own bit, then calls
 <code>_SetTblGraphDraw</code>. <code>param_1</code> is <code>IY</code>, so <code>*(param_1+2)</code> = <code>grfModeFlags</code>.</p>
-<pre><code class="language-pseudocode">clr_grfmode (36:7D00):  grfModeFlags &amp;= 0xEF &amp; 0xDF &amp; 0xBF &amp; 0x7F   ; clear bits 4,5,6,7
+<pre><code class="language-text">clr_grfmode (36:7D00):  grfModeFlags &amp;= 0xEF &amp; 0xDF &amp; 0xBF &amp; 0x7F   ; clear bits 4,5,6,7
 </code></pre>
 <div class="table-wrapper">
 <table>
@@ -607,13 +607,13 @@ ram:0B27       full_reset_wipe        (zeroes all 0x8000-0xFFFF)
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>
-        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
         <script src="hljs-z80-e93ac716.js"></script>
         <script src="katex-5e4f3b03.min.js"></script>
         <script src="katex-auto-render-bb53eb95.min.js"></script>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
-        <script src="pseudocode-init-5fa46c0a.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
 
 
 

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-fdb79b39.js";
+            window.path_to_searchindex_js = "searchindex-0e4eff2a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-b88a411b.js"></script>
@@ -220,7 +220,7 @@ the same elimination family.</p>
 <hr>
 <h2 id="data-layouts-and-creator-routines-confirmed"><a class="header" href="#data-layouts-and-creator-routines-confirmed">Data layouts and creator routines [confirmed]</a></h2>
 <h3 id="list--_createrlist-0010c4-_createclist-001109"><a class="header" href="#list--_createrlist-0010c4-_createclist-001109">List — <code>_CreateRList</code> (<code>00:10C4</code>), <code>_CreateCList</code> (<code>00:1109</code>)</a></h3>
-<pre><code class="language-pseudocode">_CreateRList(count, dataPtrOut):
+<pre><code class="language-text">_CreateRList(count, dataPtrOut):
   reject unless OP1 name token (8478.exp) ∈ {0x5D, 0x24, 0x3A, 0x72}  ; list-name classes
   var_alloc(1)                  ; carve  count*9 + 2  bytes via _InsertMem
   store count word at data[0..1]
@@ -229,7 +229,7 @@ the same elimination family.</p>
 <p>Layout: <code>[countLo countHi] [TIFloat e1] [TIFloat e2] …</code>. A complex list keeps a <code>0x0C</code>
 flag and 18-byte elements.</p>
 <h3 id="matrix--_creatermat-001115"><a class="header" href="#matrix--_creatermat-001115">Matrix — <code>_CreateRMat</code> (<code>00:1115</code>)</a></h3>
-<pre><code class="language-pseudocode">_CreateRMat(dimWord, dataPtrOut):
+<pre><code class="language-text">_CreateRMat(dimWord, dataPtrOut):
   _HTimesL()                    ; element count = H * L  (the two dims multiplied)
   var_alloc(2)                  ; carve  H*L*9 + 2  bytes
   header: LD (HL),C ; INC HL ; LD (HL),B   ; writes dim0 then dim1
@@ -344,18 +344,28 @@ and matrix→list (<code>List►matr(</code>, <code>Matr►list(</code>) reshape
 <h3 id="sum-prod--higher-order-folds-over-a-list-confirmed"><a class="header" href="#sum-prod--higher-order-folds-over-a-list-confirmed"><code>sum(</code>, <code>prod(</code> — higher-order folds over a list [confirmed]</a></h3>
 <p>Tokens <code>0xB6</code>=<code>sum(</code>, <code>0xB7</code>=<code>prod(</code> load a <em>combiner function pointer</em> and fold the
 list (dispatcher <code>02:6104</code>):</p>
-<pre><code class="language-pseudocode">sum(  : HL = 0x3A83 (cross-page → FP add-accumulate),  seed via _OP1Set0
+<pre><code class="language-text">sum(  : HL = 0x3A83 (cross-page → FP add-accumulate),  seed via _OP1Set0
 prod( : HL = 0x49B9 (seed accumulator = 1.0, _PushOP1), combine with _FPMult
         CALL 0x64B7 ; ... ; JP (HL)   ; apply the combiner across e1..eN
 </code></pre>
 <p>The fold seeds the accumulator (0 for sum, 1 for prod), then for each element does
 <code>acc = combine(acc, L[i])</code> through OP1/OP2. Works on real and complex lists (<code>type 1</code>/<code>0xD</code>
 both route to <code>02:6140</code>). [confirmed]</p>
-<h3 id="sequence-cumulative-sorting-and-statistics-operations-hypothesis"><a class="header" href="#sequence-cumulative-sorting-and-statistics-operations-hypothesis">Sequence, cumulative, sorting, and statistics operations [hypothesis]</a></h3>
+<h3 id="sequence-cumulative-sorting-and-statistics-operations"><a class="header" href="#sequence-cumulative-sorting-and-statistics-operations">Sequence, cumulative, sorting, and statistics operations</a></h3>
 <ul>
 <li><code>seq(expr,var,lo,hi[,step])</code> evaluates <code>expr</code> for <code>var = lo..hi</code>, pushing each result
-and finally <code>_CreateRList</code>-ing the collected floats (the generic list-builder loop;
-<code>_SetSeqM 36:7D1F</code> is the sequence-graph variant). [standard]</li>
+and finally <code>_CreateRList</code>-ing the collected floats; <code>_SetSeqM 36:7D1F</code> is the
+sequence-graph variant. A trace of <code>seq(X²,X,1,5,1)</code> produced <code>{1 4 9 16 25}</code> and
+mapped the collection path (<code>tools/macros/list-seq-eval.macro</code>). Each element enters
+through <code>cross_page_jump</code> at <code>37:6E87</code>. The parser setup at <code>38:5B3C</code> evaluates
+the expression, with <code>34:5AA1</code> and <code>34:5BD8</code> computing X². The append path runs
+through <code>02:69BC</code> and <code>37:4260</code>–<code>37:4285</code>; it addresses list elements through
+<code>00:150F</code> and <code>00:154F</code> and compares them at <code>00:198D</code>. Page <code>07</code> VAT routines at
+<code>07:565F</code>, <code>07:5662</code>, and <code>07:5683</code> grow the storage. After the last element,
+<code>37:70DC</code> calls <code>_CreateRList</code> at <code>00:10C4</code>. The trace contains one collection cycle
+per element, with a period of roughly 2,000 instructions repeated five times.
+[confirmed] The <code>02:5E14</code>–<code>02:5F5D</code> span is the command-executor dispatch shared by
+every evaluated command; it is not the <code>seq(</code> collection loop.</li>
 <li><code>cumSum(</code> is a running <code>_FPAdd</code> writing back each partial sum (the sum-fold with the
 accumulator stored every step). [hypothesis]</li>
 <li><code>SortA(</code>/<code>SortD(</code> — list sort in place (<code>SortA(</code> co-sorts dependent lists); the comparator
@@ -367,9 +377,14 @@ and per-element sort key are detailed in the next subsection. [confirmed]</li>
 descending respectively; <code>SortA(L1,L2,…)</code> co-sorts the trailing lists by the same permutation. This
 is the command sort, distinct from the stat-internal <code>stat_sort</code> (<code>3A:7935</code>) that backs median/
 quartile/Med-Med (see <a href="sub-statistics.html">Statistics</a>).</p>
-<p>The sort body is on page <code>0x02</code> (around <code>02:5939</code>); it is reached only through the parser’s
-computed command dispatch, so it is unnamed. Its comparator is <code>_CpOP1OP2</code>
-(<code>00:198D</code>), confirmed by the call at <code>02:5939</code>.</p>
+<p>The command dispatch is byte-pinned in <code>list_fold_dispatch</code> on page <code>02</code>.
+<code>CP 0xE3</code> at <code>02:6529</code> (<code>SortA(</code>) and <code>CP 0xE4</code> at <code>02:657A</code> (<code>SortD(</code>) converge
+on the shared setup at <code>02:652F</code>. Register <code>A</code> carries the direction: <code>0x0E</code> for
+ascending and <code>0x10</code> for descending. The executor chain checks arguments at
+<code>ram:38BB</code>, registers the list through <code>02:5DFB</code>, and saves the element pointer
+from <code>0x84AF</code> to <code>0x84B1</code>. It then resets the pointer to <code>1</code> and enters the
+compare/store loop through <code>02:6A12</code>. The engine at <code>02:5939</code> compares each
+element with <code>_CpOP1OP2</code> (<code>00:198D</code>).</p>
 <p><code>_CpOP1OP2</code> compares two <code>TIFloat</code>s as real numbers [confirmed]: it tests the
 sign (type byte bit 7), then the exponent, then the mantissa digits, and returns the
 ordering. It does not compute a magnitude and does not read an imaginary part. Each comparison
@@ -419,13 +434,41 @@ writing <code>1.0</code> when <code>row==col</code> (the <code>exp==type</code> 
 <li><code>Fill(value,[M])</code> / <code>randM(</code> stamp a constant / random values across all cells via a
 per-cell loop over the whole matrix. The <code>02:62D4</code> branch (<code>CP 0xB5</code>) is <code>dim(</code> (<code>0xB5</code> =
 <code>tDim</code>), which creates the <code>r×c</code> result (<code>5DBB</code> → <code>_CreateRMat 110F</code>) and stores the dims
-(<code>631B</code>/<code>631C</code>/<code>4825</code>) but performs no fill. <code>randM(</code> itself is a separate 2-byte token
-(<code>tRandM</code> = <code>0x20</code>, <code>0xBB</code>-prefix group); its per-cell random fill is the one residual still
-open in <a href="#matrix-operations-confirmed">Matrix operations</a> — it does not use the <code>_Random</code> bcall (<code>0x4B79</code>): a ROM-wide scan finds
-zero <code>RST 28h; .dw 0x4B79</code> sites, so randM’s randomness comes from some other path. [standard]</li>
+(<code>631B</code>/<code>631C</code>/<code>4825</code>) but performs no fill. For the decoded <code>randM(</code> fill see
+<a href="#the-randm-cell-fill-confirmed">The <code>randM(</code> cell fill</a>.</li>
 <li>Matrix copy/reshape = <code>_DataSize</code>-counted byte copy of the float payload
 (<code>mele_copy9_d3</code> (<code>02:4539</code>)/<code>mele_copy9_loop</code> (<code>02:453F</code>)). [confirmed]</li>
 </ul>
+<h3 id="the-randm-cell-fill-confirmed"><a class="header" href="#the-randm-cell-fill-confirmed">The <code>randM(</code> cell fill [confirmed]</a></h3>
+<p><code>randM(rows,cols)</code> builds its <code>r×c</code> result through <code>_CreateRMat</code> (<code>00:110F</code>). It fills
+each cell with $\operatorname{int}(19\cdot\operatorname{rand})-9$, matching the
+documented integer range $[-9,9]$. The loop is byte-pinned at
+<code>02:5CC1</code>–<code>02:5CE6</code>. A headless TilEm trace of <code>randM(3,3)</code> executes this path
+(<code>tools/macros/matrix-randm.macro</code>):</p>
+<pre><code class="language-z80">02:5CC1 loop:
+  PUSH BC / PUSH DE           ; save cell counter and element pointer
+5CC3: CALL ram:392D           ; banked-call stub -&gt; _Random (36:7DC9); OP1 = uniform [0,1)
+      LD A,0x13               ; 19 decimal
+      CALL ram:389D           ; banked-call stub -&gt; 33:5F83; load small int A as FP operand
+      CALL _FPMult   (238B)   ; OP1 = 19·rand
+      CALL _Intgr    (2263)   ; truncate -&gt; {0..18}
+      LD A,0x09               ; 9 decimal
+      CALL ram:389D           ; second operand = 9
+      CALL _FPSub    (2297)   ; OP1 = int(19·rand) - 9 in [-9, 9]
+      POP DE                  ; advance element pointer by one float cell
+      CALL 1B0C               ; store OP1 into the matrix element
+      LD HL,-18 / ADD HL,DE   ; step to the next 9-byte cell
+      POP BC / DEC BC         ; cells remaining--
+      JR NZ,loop
+</code></pre>
+<p>The loop reaches <code>_Random</code> (<code>0x4B79</code> → <code>36:7DC9</code>) through a page 0 banked-call
+stub table. It does not use an <code>RST 28h</code> bcall site, so a ROM-wide scan for
+<code>RST 28h; .dw 0x4B79</code> finds no match. The stub at <code>ram:392D</code> contains <code>CALL 2B09</code>
+followed by the inline descriptor <code>.dw 0x7DC9 ; .db 0x76</code>. The trampoline writes
+the descriptor’s page byte to port 6. Bit 7 clear selects flash, and the low six
+bits select the page, so <code>0x76</code> selects page <code>36</code>. Static descriptor scans must
+mask the page byte with <code>0x3F</code>. The small-integer loader stub at <code>ram:389D</code>
+targets <code>33:5F83</code> through the same mechanism. [confirmed]</p>
 <h3 id="a--b-a---b-scalara--element-wise-standard"><a class="header" href="#a--b-a---b-scalara--element-wise-standard"><code>[A] + [B]</code>, <code>[A] - [B]</code>, scalar·[A] — element-wise [standard]</a></h3>
 <p>Binary matrix add/sub apply the FP op per cell with a nested <code>for col { for row { load [M](r,c)→OP1; op; store } }</code> walk and require equal dims (<code>_ErrDimMismatch 0x8B</code>). The nested two-counter cell
 walk at <code>02:412A</code> is the transpose copy (§ transpose); the add/sub element-loop driver is a
@@ -438,7 +481,7 @@ cross-checked against a routine Ghidra <em>does</em> define. The body is called 
 is also the <code>_SinCosRad</code> bcall ID in ti83plus.inc — a hex coincidence, unrelated to this page-02
 address.)</p>
 <p><code>40BA</code> is a classic O(n³) triple loop with an FP accumulator:</p>
-<pre><code class="language-pseudocode">for each result cell (i,j):                  ; counters at 84B7, 84B4
+<pre><code class="language-text">for each result cell (i,j):                  ; counters at 84B7, 84B4
     for k = 1 .. inner:                       ; inner counter at 84AF
         load [A](i,k)          (403C mele_adr_af_jp)
         multiply by [B](k,j)   (47B9 / 0166F  FP multiply)
@@ -484,8 +527,8 @@ body and its single caller are byte-verified below.</p>
 <tbody>
 <tr><td><code>Matr►list(</code></td><td><code>0x8D</code> @ <code>6388</code></td><td><code>02:4773</code> (2-arg), <code>02:49E3</code> (1-arg list copy)</td><td>[confirmed] The <code>0x8D</code> branch splits on argument count (<code>638D: CP 0x02</code>). The column-extract engine is <code>02:4773</code> (2-arg path: <code>639D: CALL 5DD8 ; CALL 4773</code>; only caller <code>63A0</code>, byte-verified <code>CD 73 47</code>): it nests a per-row loop (<code>477B: LD B,1 …</code>, reading via <code>4040</code> <code>_AdrMRow</code>/<code>4068</code> <code>mele_store_ckvalid</code>) inside a column loop over <code>(84AF)</code>, copying matrix columns into list element(s) (<code>4051</code>/<code>479F</code>). The 1-arg/list path uses <code>02:49E3</code> (<code>6397: CALL 0x49E3</code>), a list-element copy-until-length-match (<code>47E6</code> recall, <code>4825</code> store, <code>21BB</code> compare vs <code>(84AF)</code>, <code>RET Z</code>).</td></tr>
 <tr><td>transpose <code>ᵀ</code></td><td><code>0x0E</code> @ <code>60E9</code></td><td><code>02:412A</code></td><td>[confirmed] Swaps the dim header (<code>60F5</code>), allocates the transposed shape, then <code>412A</code> copies <code>dst(c,r)=src(r,c)</code> over every cell (<code>403C</code> read from <code>(84D3)</code>, <code>4068</code> write to <code>(84D7)</code>); only caller <code>60FE</code>. See the transpose subsection above.</td></tr>
-<tr><td><code>augment(</code></td><td><code>0x91</code> @ <code>635B</code></td><td><code>02:6238</code> copy [confirmed]; <code>02:4663</code> engine [standard]</td><td>The <code>0x91</code> branch requires two operands (<code>CP 0x02</code>), reads the dims (<code>5D98</code>), and checks the two row counts with <code>LD A,H ; CP L</code>: equal rows fall through (<code>JR Z</code>) and <code>H&gt;L</code> raises <code>E_Dimension</code> (<code>JP NC,2719</code>). It then runs the column-concatenation copy at <code>02:6238</code> [confirmed]: <code>6238</code> allocates the result (<code>5DE0</code> → <code>5DE6</code> → <code>_CreateRMat 110F</code>) and bulk-copies the float payload with <code>02:4539</code> (<code>mele_copy9_d3</code> — skip the 2 dim bytes, <code>LDIR</code> the column-major data), re-pointing <code>84D3←84D7</code>. The branch then calls <code>02:4663</code> (<code>6379</code>, only caller; byte-verified <code>CD 63 46</code>), a partial-pivoting elimination engine: it computes <code>min(H,L)</code> (<code>4672: LD A,H ; CP L ; JR C ; LD L,H</code>), inits via <code>475E</code>, and iterates from <code>BC=0x0101</code> calling <code>461C</code> (max-abs), <code>41D0</code> (pivot-column scan), <code>198D</code> (compare), <code>471C</code> (permutation swap) and <code>405E</code> (store). The column-concat copy (<code>6238</code>/<code>4539</code>) is confirmed augment behaviour [confirmed]; <code>4663</code>’s elimination pass on the concatenated result is byte-confirmed but its role for plain <code>augment(</code> is left open [standard]. (<code>augment(L1,L2)</code> list-concat is the <code>0x92</code> sibling at <code>637F</code>, sharing the <code>6362</code> setup.)</td></tr>
-<tr><td><code>dim(</code> (matrix create/set-dims)</td><td><code>0xB5</code> @ <code>62D4</code></td><td>create + dim setup (<code>5DBB</code>/<code>5DEB</code>) [confirmed]</td><td>The compare at <code>62D4</code> is <code>CP 0xB5</code>, and <code>0xB5</code> = <code>tDim</code> (<code>dim(</code>), not <code>randM(</code> — so this is the <code>→dim(</code> matrix create/resize handler. It splits on argument count (<code>62D9: CP 0x02</code>): a 2-arg path (<code>62DD</code>) and a 1-arg path (<code>630A</code>). Both create the result and set its dims through <code>02:5DBB</code> (<code>CALL 5CEB</code> registers the variable by name, stores the data pointer to <code>84D3</code>, reads and zero-rejects the dim bytes <code>OR L ; JP Z,2719</code>, stores dims to <code>84AF</code>) and <code>02:5DEB</code>/<code>02:631E</code>. There is no per-cell fill loop here — consistent with <code>dim(</code>, which only sets dimensions. <code>02:5264</code> (<code>cplx_swap_dispatch</code>) is reached only from the <code>0xBD</code> complex-operand branch (<code>62D0</code>), not here. <code>randM(</code> is a separate 2-byte token (<code>tRandM</code> = <code>0x20</code>, <code>0xBB</code>-prefix group) routed through the <code>0xBB</code> dispatcher; its cell-fill body is unidentified — it uses no <code>_Random</code> bcall (<code>0x4B79</code>: a ROM-wide scan finds no <code>RST 28h; .dw 0x4B79</code> site). [standard]</td></tr>
+<tr><td><code>augment(</code></td><td><code>0x91</code> @ <code>02:635B</code></td><td><code>02:6238</code> copy [confirmed]; <code>02:4663</code> engine entered but carry-gated [confirmed]</td><td>The branch requires two operands, reads the dimensions at <code>02:5D98</code>, and compares the row counts with <code>LD A,H ; CP L</code>. Equal rows fall through; <code>H&gt;L</code> raises <code>E_Dimension</code>. <code>02:6238</code> allocates the result and copies the column-major float payload through <code>02:4539</code>. The branch then calls <code>02:4663</code>. Carry is set at <code>02:6361</code> and restored at <code>02:6378</code>; <code>JR C,46EF</code> at <code>02:46DC</code> skips elimination. The statistics regression path enters the same dispatcher through <code>3A:6398</code> with carry clear. The <code>augment(L1,L2)</code> sibling at <code>02:637F</code> also shares the setup at <code>02:6362</code> with carry clear. [confirmed]</td></tr>
+<tr><td><code>dim(</code> (matrix create/set-dims)</td><td><code>0xB5</code> @ <code>62D4</code></td><td>create + dim setup (<code>5DBB</code>/<code>5DEB</code>) [confirmed]</td><td>The compare at <code>62D4</code> is <code>CP 0xB5</code>, and <code>0xB5</code> = <code>tDim</code> (<code>dim(</code>), not <code>randM(</code> — so this is the <code>→dim(</code> matrix create/resize handler. It splits on argument count (<code>62D9: CP 0x02</code>): a 2-arg path (<code>62DD</code>) and a 1-arg path (<code>630A</code>). Both create the result and set its dims through <code>02:5DBB</code> (<code>CALL 5CEB</code> registers the variable by name, stores the data pointer to <code>84D3</code>, reads and zero-rejects the dim bytes <code>OR L ; JP Z,2719</code>, stores dims to <code>84AF</code>) and <code>02:5DEB</code>/<code>02:631E</code>. There is no per-cell fill loop here — consistent with <code>dim(</code>, which only sets dimensions. <code>02:5264</code> (<code>cplx_swap_dispatch</code>) is reached only from the <code>0xBD</code> complex-operand branch (<code>62D0</code>), not here. <code>randM(</code> is a separate two-byte token (<code>tRandM = 0xBB20</code>) whose decoded fill loop is documented under <a href="#the-randm-cell-fill-confirmed">The <code>randM(</code> cell fill</a>. [confirmed]</td></tr>
 <tr><td><code>List►matr(</code></td><td><code>0x8E</code> @ <code>61C1</code></td><td><code>02:7D19</code> + copy</td><td>reshapes the argument lists into a matrix (<code>_DataSize</code>-counted float copy <code>4539</code>/<code>453F</code>). [standard]</td></tr>
 </tbody>
 </table>
@@ -493,8 +536,8 @@ body and its single caller are byte-verified below.</p>
 <p>The matrix-element kernels these drivers share are <code>_AdrMEle</code>/<code>_AdrMRow</code> (<code>4002</code>/<code>4000</code>) for indexing,
 <code>4068</code> (<code>mele_store_ckvalid</code>) for validated stores, and <code>4539</code> (<code>mele_copy9_d3</code>) for the bulk
 column-major payload copy. Each command’s dispatch site and body is
-[confirmed]. The remaining <code>randM(</code> per-cell fill and the role of <code>02:4663</code>
-inside <code>augment(</code> are [standard].</p>
+[confirmed]. The <code>randM(</code> cell fill and the carry-gated role of <code>02:4663</code>
+inside <code>augment(</code> are also [confirmed].</p>
 <hr>
 <h2 id="determinant-inverse-and-row-reduction-confirmed"><a class="header" href="#determinant-inverse-and-row-reduction-confirmed">Determinant, inverse, and row reduction [confirmed]</a></h2>
 <p><code>det(</code> and <code>[A]⁻¹</code> share the Gauss-Jordan elimination engine with partial pivoting —
@@ -516,7 +559,7 @@ separate driver and do not call <code>42A6</code> (see below):</p>
 unverified) first type-checks the operand is a matrix (<code>chk_op_is_matrix</code> (<code>02:69B7</code>):
 <code>type==2 else E_DataType 0x89</code>), then <code>LD A,0x40 ; CALL 0x42A6</code>.</p>
 <h3 id="the-engine-42a6-confirmed"><a class="header" href="#the-engine-42a6-confirmed">The engine (<code>42A6</code>) [confirmed]</a></h3>
-<pre><code class="language-pseudocode">matrix_gauss_engine(A = mode flags):
+<pre><code class="language-text">matrix_gauss_engine(A = mode flags):
   HL = dims (84AF); if H != L -&gt; _JError(0x8C)   ; must be square (det/inverse)
   if 1x1: handle scalar directly (inverse = _FPRecip)
   461C: scan |all elements| -&gt; max magnitude (pivot-tolerance baseline)
@@ -707,9 +750,23 @@ and the routine and condition that triggers it.</p>
 <li><code>rref(</code>/<code>ref(</code> use a separate driver, not <code>42A6</code>. Xref proves <code>42A6</code> has
 exactly two callers (inverse <code>5F80</code>, det <code>5FC0</code>); rref/ref are 2-byte <code>0xBB</code>-lead function
 tokens dispatched via the page-38 evaluator’s
-<code>leaf_production_handler_table</code> (<code>38:7175</code>). The <em>exact rref/ref body</em>
-sits behind that table and is the only residual: its
-start address was not byte-isolated, but it is confirmed not to be <code>42A6</code>.</li>
+<code>leaf_production_handler_table</code> (<code>38:7175</code>). The <code>ref(</code> execution dispatch is
+byte-pinned in the page <code>02</code> command chain. It compares <code>CP 0x2D</code> at <code>02:609A</code>
+and, with arguments present, executes <code>RST 28h ; .dw 0x4B85</code>. Bcall ID <code>4B85h</code>
+resolves through the page <code>3B</code> table to <code>35:7995</code>; its port-encoded page byte
+<code>0x75</code> selects page <code>35</code>.
+<code>35:7995</code> is an iterative FP reduction loop (<code>_Minus1</code>/<code>_FPMult</code>/OP-exchange primitives,
+back edge at <code>35:79C4</code>) consistent with the row-reduction driver. [confirmed]
+The <code>rref(</code> execution dispatch lives on page <code>38</code>, where two entry stubs
+(<code>38:514F</code> with carry set and <code>B=1</code>; <code>38:5157</code> with carry clear and <code>B=0</code>) converge on
+<code>RST 28h ; .dw 0x4B88</code> at <code>38:515D</code>. The ID resolves through the page <code>3B</code> table to
+<code>02:7C23</code>, a per-element driver that walks the pushed matrix data from the FPS pointer
+(<code>LD HL,(9824)</code> then a <code>DJNZ</code> loop), validates dimensions against the header bytes
+(<code>8479</code>/<code>847A</code> exponent checks raising through <code>26F4</code> on failure), and stores results back
+per cell. No <code>CP 0x2E</code> site exists on page <code>02</code>, so the parser normalizes the <code>rref(</code> token
+before this dispatcher. The role of <code>B</code> and carry in distinguishing <code>rref(</code> from related
+calls remains [hypothesis]. The parse-side signature descriptors remain distinct (<code>38:431E</code>/<code>0x5108</code> for
+<code>ref(</code> vs <code>38:4323</code>/<code>0x510C</code> for <code>rref(</code>).</li>
 <li>det sign / pivot-product (<code>42A6</code> tail <code>43D8-4470</code>) and dim labelling. The det
 sign = LSB of the permutation-swap count applied via <code>_InvOP1S</code> (<code>24BD</code>) at <code>43FB</code>/<code>442B</code>;
 the magnitude is the <code>238B</code>/<code>RST 30h</code> diagonal-pivot accumulate (<code>43E3-43F6</code>); <code>420F</code>/<code>4259</code>
@@ -732,17 +789,13 @@ is reached only from that complex branch, not here. [confirmed]</li>
 unchanged [standard].</li>
 </ul>
 </li>
-<li><strong>Open — two residuals inside the confirmed branches:</strong>
-<ul>
-<li><code>augment(</code>’s <code>0x91</code> branch calls <code>02:4663</code> (<code>mat_gauss_engine</code>, only caller <code>6379</code>) — a
-<code>min(H,L)</code> partial-pivoting elimination pass — after the column-concat copy. Its role for plain
-<code>augment(</code> is byte-confirmed as a call but not explained. [standard]</li>
-<li><code>randM(</code>’s per-cell random fill body is unidentified. <code>randM(</code> is a 2-byte token
-(<code>tRandM</code> = <code>0x20</code>, <code>0xBB</code>-prefix group), distinct from the <code>0xB5</code>/<code>dim(</code> branch; the visible
-matrix-create/dim-convert code is <code>dim(</code>’s, not randM’s. randM does not go through the
-<code>_Random</code> bcall (<code>0x4B79</code>) — a ROM-wide scan finds no <code>RST 28h; .dw 0x4B79</code> site. [standard]</li>
-</ul>
-</li>
+<li>The <code>augment(</code> call to <code>02:4663</code> performs pivot-column setup but skips elimination because
+the engine tests the carry set by <code>02:6361</code>. The statistics regression path enters the same
+dispatcher with carry clear. [confirmed]</li>
+<li>The <code>randM(</code> fill loop at <code>02:5CC1</code>–<code>02:5CE6</code> computes
+$\operatorname{int}(19 \cdot \operatorname{rand}) - 9$ per cell. It calls <code>_Random</code>
+(<code>36:7DC9</code>) through the page 0 banked-call stub at <code>ram:392D</code>; no <code>RST 28h</code> bcall site is
+involved. See <a href="#the-randm-cell-fill-confirmed">The <code>randM(</code> cell fill</a>. [confirmed]</li>
 <li><code>seq(</code>/<code>SortA(</code>/<code>SortD(</code>/stats list-builders: confirm the collect-then-<code>_CreateRList</code> loop
 and the in-place float sort/compare. (Residual — comparator <code>_CpOP1OP2</code> confirmed; the
 unanalyzed page-02 sort body’s element-load is still not byte-traced.)</li>
@@ -800,13 +853,13 @@ unanalyzed page-02 sort body’s element-load is still not byte-traced.)</li>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>
-        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
         <script src="hljs-z80-e93ac716.js"></script>
         <script src="katex-5e4f3b03.min.js"></script>
         <script src="katex-auto-render-bb53eb95.min.js"></script>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
-        <script src="pseudocode-init-5fa46c0a.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
 
 
 

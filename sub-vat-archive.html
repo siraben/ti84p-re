@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-fdb79b39.js";
+            window.path_to_searchindex_js = "searchindex-0e4eff2a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-b88a411b.js"></script>
@@ -265,8 +265,8 @@ whose data lives on a Flash page.</p>
 <p>For an archived entry the data address (<code>addrLSB/MSB</code>) points into the Flash window and the
 page byte selects the Flash page; the VAT record itself always stays in RAM.</p>
 <hr>
-<h2 id="store-and-recall-standard"><a class="header" href="#store-and-recall-standard">Store and recall [standard]</a></h2>
-<p><strong>Store</strong> <code>_StoOther</code> (<code>38:62A9</code>) and siblings (<code>_StoAns</code>, <code>_StoX</code>, <code>_StoY</code>, … <code>38:6251-62A3</code>):</p>
+<h2 id="store-and-recall-confirmed"><a class="header" href="#store-and-recall-confirmed">Store and recall [confirmed]</a></h2>
+<p><strong>Store.</strong> <code>_StoOther</code> (<code>38:62A9</code>) and siblings (<code>_StoAns</code>, <code>_StoX</code>, <code>_StoY</code>, … <code>38:6251-62A3</code>):</p>
 <ul>
 <li>Set OP1 type = 0xFF placeholder (<code>62A9: LD A,FF / LD (8478),A</code>), parse the destination name.</li>
 <li><code>5F45</code> resolves/creates the target symbol; then it copies the value. It dispatches on the
@@ -275,17 +275,24 @@ matrix element, etc. Ultimately a <code>_Create*</code> routine carves RAM with 
 <li>A store into an archived var is not done in place; the OS unarchives first (you cannot rewrite
 Flash in place); see the <a href="#archive-and-unarchive-confirmed"><code>_Arc_Unarc</code> direction logic</a>. [hypothesis]</li>
 </ul>
-<p><strong>Recall</strong> <code>_RclVarSym</code> (<code>38:67B1</code>) and <code>rcl_var_push</code> (<code>3A:5D07</code>):</p>
+<p><strong>Recall.</strong> <code>_RclVarSym</code> (<code>38:67B1</code>) and <code>rcl_var_push</code> (<code>3A:5D07</code>):</p>
 <ul>
-<li><code>_RclVarSym</code> calls <code>RST 10h</code> (<code>17A6</code>, a <code>_FindSym</code>+error-check wrapper: <code>RST 10h; JP C,271D</code>), then checks the name token (<code>8479</code>). For a list
+<li><code>_RclVarSym</code> calls the wrapper at <code>00:17A6</code>. It runs <code>_FindSym</code>, raises
+<code>ERR:UNDEFINED</code> on a miss, then tests the returned page byte <code>B</code>; a nonzero
+page jumps through <code>00:2779</code> to <code>ERR:ARCHIVED</code>. It then checks the name token
+at <code>ram:8479</code>. For a list
 recall (<code>63</code>/<code>2A</code>) it sizes the data with <code>_DataSize</code> (<code>00:1485</code>) and copies it into a work buffer
-(<code>91E0</code>), using <code>_LdHLind</code> and cross-page helpers; ends <code>JP _OP4ToOP1</code>.</li>
+at <code>ram:91E0</code>, using <code>_LdHLind</code> and cross-page helpers; it ends with
+<code>JP _OP4ToOP1</code>.</li>
 <li><code>_DataSize</code> (<code>00:1485</code>): returns the variable’s data byte-count in DE from the type byte — real=9,
 list/cplx-list read the <code>word count</code> header, matrix uses cols×rows, and named types
 (<code>0x15</code> AppVar, <code>0x16</code>, <code>0x17</code> Group) read the leading <code>word size</code>.</li>
-<li>The recall code does not care whether the source is RAM or Flash for <em>reading</em> — Flash is
-memory-mapped read-only into the 0x4000 window. To <em>use</em> an archived program/var that must be
-modified or executed in RAM, the OS first copies it via <a href="#reading-archived-data-with-_flashtoram-confirmed"><code>_FlashToRam</code></a>. [standard]</li>
+<li>Flash is memory-mapped read-only in the <code>0x4000</code> window, but this recall
+wrapper rejects a Flash-backed symbol before reading its data. The same page
+check is visible when invoking an archived TI-BASIC program, as described in
+<a href="#resolved-behavior-and-open-items">archived-target receipt</a>. Explicit copy
+primitives such as <a href="#reading-archived-data-with-_flashtoram-confirmed"><code>_FlashToRam</code></a>
+remain available to callers that intentionally handle Flash-backed data.</li>
 </ul>
 <hr>
 <h2 id="archive-and-unarchive-confirmed"><a class="header" href="#archive-and-unarchive-confirmed">Archive and unarchive [confirmed]</a></h2>
@@ -363,9 +370,11 @@ the copier (6761..678A):
    IN A,(6) saved ; OUT (6),A     ; bank A = the source Flash page into 0x4000 window
    loop LDI:  BIT 7,H → at 0x8000 wrap: IN A,(6); INC A; OUT (6),A; LD HL,0x4000  ; next page
 </code></pre>
-<p>Port <code>6</code> is the bank-A page-select; the read code itself runs from <code>ramCode (0x8100)</code>. This is how
-an archived program/appvar is pulled back into RAM to be executed or edited. <code>ti83plus.inc</code> also
-names a sibling <code>_FlashToRam2</code> (id 8054); the retail boot table maps it to <code>3F:4888</code>.</p>
+<p>Port <code>6</code> is the bank-A page-select; the read code itself runs from <code>ramCode</code>
+at <code>ram:8100</code>. This is an explicit Flash-to-RAM byte-copy primitive, not proof
+that ordinary TI-BASIC recall or program execution invokes it automatically.
+<code>ti83plus.inc</code> also names a sibling <code>_FlashToRam2</code> (id <code>8054h</code>); the retail boot
+table maps it to <code>3F:4888</code>.</p>
 <hr>
 <h2 id="archive-record-allocation-and-programming-confirmed"><a class="header" href="#archive-record-allocation-and-programming-confirmed">Archive record allocation and programming [confirmed]</a></h2>
 <p>The archive manager chooses a free record and then calls the boot-page Flash API. <a href="flash-memory.html">Flash memory</a> reconstructs port <code>0x14</code>, <code>_WriteFlash</code>, <code>_WriteFlashUnsafe</code>, <code>_WriteAByte</code>, erase sectors, DQ polling, and the RAM workers. This section covers the archive-specific layer above that API.</p>
@@ -878,22 +887,60 @@ Ports: <code>0x06</code> = bank-A page select (Flash window), <code>0x14</code> 
 </li>
 <li>
 <p><strong>Record-status bytes.</strong> [confirmed] The <a href="#record-status-byte-confirmed">record-status byte</a> uses monotonic bit clearing: <code>0xFF</code> erased → <code>0xFE</code> in-progress
-→ <code>0xFC</code> valid via <code>flash_op_fe/fd/fb</code> (<code>3D:7C97/7C8F/7C93</code>) AND-masking; <code>0xF0</code> deleted is a direct write in the delete/GC path
-the status byte; <code>flash_find_nonff</code> (<code>3D:7DEA</code>) treats an all-<code>0xFF</code> header as free.</p>
+→ <code>0xFC</code> valid via <code>flash_op_fe/fd/fb</code> (<code>3D:7C97</code>/<code>3D:7C8F</code>/<code>3D:7C93</code>) AND-masking. The delete and GC paths write <code>0xF0</code> directly to the status byte; <code>flash_find_nonff</code> (<code>3D:7DEA</code>) treats an all-<code>0xFF</code> header as free.</p>
 </li>
 <li>
 <p><strong>Garbage collection.</strong> [confirmed] <code>archive_gc_collect</code> at <code>3C:7733</code> moves live records in 64 KiB sector units and uses the inactive 8 KiB certificate half as a persistent journal. The ordinary <code>GCFLASH</code> trace copies the surviving <code>B</code> record from the page-<code>08</code> sector to page <code>0C</code>, erases the old sector, and rotates the empty scratch sector back to page <code>08</code>. TilEm and pinned Wabbitemu cold restarts exercise all six ROM-written journal phases. Five converge byte-for-byte with uninterrupted execution; <code>0xF0</code> converges after the uninterrupted result performs deferred <code>0xE0</code> cleanup on its next boot. [hypothesis] Physical power loss and cuts inside busy commands remain untested.</p>
 </li>
 <li>
-<p><strong>Group archive path.</strong> [hypothesis] The path is partially pinned. <code>_DataSize</code> (<code>00:1485</code>) confirms a Group
-(type <code>0x17</code>, like AppVar <code>0x15</code>/<code>0x16</code>) carries a leading word-size header, so a group <em>can</em> be
-stored as one Flash blob. In <code>_Arc_Unarc</code> the <code>CP 0x17</code> → <code>26E0</code> reject sits on the B≠0 (in-Flash)
-branch, immediately before the unarchive worker <code>61F4</code> — so an archived group is not unarchived
-through <code>61F4</code>, and groups are handled by a separate routine that walks the group’s member list.
-That member-walk routine remains
-unidentified in the disassembly — <code>_Arc_Unarc</code>’s body past the entry <code>CALL</code> is not
-disassembled here (cross-page <code>CALL</code> flagged non-returning), and no group-archive function is
-named or xref-reachable. Confirming it would need a linear disassembly pass like the one used for <a href="#archive-and-unarchive-confirmed">archive and unarchive</a>.</p>
+<p><strong>Group receive path.</strong> [confirmed] The standard link variable-receive loop is
+the member walk. <code>_DataSize</code> (<code>00:1485</code>) confirms that a Group (type <code>0x17</code>)
+carries a leading word-size header. <code>_Arc_Unarc</code>’s <code>CP 0x17</code> → <code>26E0</code> reject
+is on the Flash-backed branch before worker <code>07:61F4</code>. Its only bcall site at
+<code>38:56E2</code> is a wrapper gated by the <code>Archive</code>/<code>UnArchive</code> statement handler at
+<code>38:56E8</code>. That handler checks <code>tStore</code> (<code>5Fh</code>) and rejects <code>16h</code>. Page <code>07</code>
+also contains the group guard cluster: the reject at <code>07:6266</code>, type-class
+checker at <code>07:62C8</code>, insertion guards at <code>07:7338</code> and <code>07:739B</code>, and
+group-aware VAT walker at <code>07:73B7</code>.</p>
+<p>A two-program <code>.8xg</code> fixture contains <code>HELLO</code> and <code>FACTOR</code>. It concatenates
+standard variable records — a <code>000Dh</code> header-length word, 13-byte header,
+echoed size, and payload — followed by a 16-bit checksum and no end marker.
+Libtifiles rejects a trailing <code>80h</code> byte. A headless TilEm trace compares this
+fixture with a single-variable <code>HELLO</code> baseline:</p>
+<ul>
+<li>The members land as individual variables. The RAM dump shows <code>FACTOR</code> in a
+VAT record with type byte <code>05h</code>, not a <code>0x17h</code> Group object. No group blob
+remains in the final RAM image.</li>
+<li>The coverage difference contains no new page-<code>07</code> addresses. Neither trace
+executes the guard cluster at <code>07:6266</code>, <code>07:62C8</code>, <code>07:7338</code>, <code>07:739B</code>,
+and <code>07:73B7</code>. Those guards belong to the <code>Archive</code>/<code>UnArchive</code> statement
+path, not to receipt.</li>
+<li>The trace contains no dedicated receiver-side member walker. The standard
+variable-receive loop runs once per entry. Its per-member anchors execute
+once in the single-variable baseline and twice in the two-member trace.
+These anchors include the post-transfer finalization block at
+<code>38:7858</code>–<code>38:790F</code>, the checksum verifier at <code>3C:6356</code>, and the
+receive-and-store sequence at <code>3C:6994</code>. The finalization block resets
+flags, performs <code>_ChkFindSym</code>-adjacent stores, and reloads VAT pointers from
+<code>ram:96EE</code>–<code>ram:96F0</code> into <code>ram:8588</code>–<code>ram:858B</code>. The receive-and-store
+sequence is documented in
+<a href="sub-link-transfer.html">Link transfer</a>. The <code>.8xg</code> framing exists only in the
+file and sender. On the wire, each member is an independently framed
+variable transfer. The receiver’s existing loop until end of transfer is
+the member walk.</li>
+</ul>
+<p>A second fixture contains archive-flagged <code>HELLO</code> followed by ordinary
+<code>FACTOR</code>; the complete link transfer succeeds. In the final VAT, <code>HELLO</code> has
+page <code>08</code>, data address
+<code>0x4001</code>, and type <code>05h</code>, while <code>FACTOR</code> has page <code>00</code> and type <code>05h</code>. The
+<strong>PRGM</strong> menu marks only <code>HELLO</code> as archived. This confirms that the receiver
+honors each member’s <code>80h</code> attribute independently and still creates no
+type-<code>17h</code> object. [confirmed]</p>
+<p>Invoking that archived <code>HELLO</code> reaches <code>ERR:ARCHIVED</code>. A bounded dynamic trace
+records <code>00:179D</code>–<code>00:17A1</code> with <code>B=08</code>, followed by <code>JP NZ,00:2779</code>.
+The target loads error code <code>0xAF</code> (<code>E_Archived</code>) and enters <code>_JError</code> at
+<code>00:2793</code>. The observed path does not call <code>_FlashToRam</code> automatically.
+[confirmed]</p>
 </li>
 </ul>
 
@@ -949,13 +996,13 @@ named or xref-reachable. Confirming it would need a linear disassembly pass like
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>
-        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
         <script src="hljs-z80-e93ac716.js"></script>
         <script src="katex-5e4f3b03.min.js"></script>
         <script src="katex-auto-render-bb53eb95.min.js"></script>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
-        <script src="pseudocode-init-5fa46c0a.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
 
 
 

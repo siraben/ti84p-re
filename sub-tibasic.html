@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-fdb79b39.js";
+            window.path_to_searchindex_js = "searchindex-0e4eff2a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-b88a411b.js"></script>
@@ -247,7 +247,7 @@ current body, and <code>basic_end</code> is its inclusive parser/refill boundary
 means the lead and following byte must move together. The scanner also treats a
 quoted string as one region, so <code>Then</code>, <code>Else</code>, or <code>End</code> bytes inside a string
 cannot terminate an outer scan. [confirmed]</p>
-<pre><code class="language-pseudocode">scan_to_delimiter():
+<pre><code class="language-text">scan_to_delimiter():
   loop:
     token = current_token()
     if token is end, colon, or EOL:
@@ -287,7 +287,7 @@ handler recursively consume tighter-binding operands. The selector at
 <code>grammar_handler_table</code>. Its 87 page-local offsets contain 84 valid pointers and 81
 distinct handler destinations. The bytes there are data — beginning <code>9F 41 F0 45 1C 42 ...</code>—not executable Z80. The selector doubles the class, reads the
 pointer, and calls the chosen production. [confirmed]</p>
-<pre><code class="language-pseudocode">evaluate_production(class, level):
+<pre><code class="language-text">evaluate_production(class, level):
   if level == 2:
     return postfix_production_478C(class)
   else if level == 3:
@@ -370,7 +370,7 @@ are distinct boundaries. [confirmed]</p>
 <code>While</code>, <code>Repeat</code>, or <code>For(</code> must find a matching structural boundary without
 executing the intervening tokens. That is the purpose of
 <code>blockmatch_end_else</code> (<code>38:4130</code>). [confirmed]</p>
-<pre><code class="language-pseudocode">find_matching_boundary():
+<pre><code class="language-text">find_matching_boundary():
   depth = 0
   loop:
     token = current_token()
@@ -397,28 +397,45 @@ confirm both bounds outcomes at <code>33:436D</code> and <code>33:4372</code>, b
 programs do not enter it. It is not the <code>For(</code>/<code>End</code> transition. [confirmed]</p>
 <p>Natural <code>For(</code> execution reaches <code>parse_for_production</code> (<code>38:41E5</code>). Natural
 <code>End</code> execution reaches <code>parse_end_ops_record</code> (<code>38:4200</code>), which consumes a
-<code>TIForOpsRecord</code> from the operator stack at <code>OPS + 1</code>: [confirmed]</p>
+5-byte loop record from the operator stack at <code>OPS + 1</code>. All three structured
+loops share the shape — sentinel byte, continuation word, state word: [confirmed]</p>
 <pre><code class="language-c">#pragma pack(push, 1)
 typedef struct {
     uint8_t sentinel;       /* 00h */
-    uint16_t continuation;  /* for_first_update or for_steady_update */
-    uint16_t state;         /* 0012h in both observed forms */
-} TIForOpsRecord;
+    uint16_t continuation;  /* where the End token jumps back to */
+    uint16_t state;         /* varies per fixture; meaning open */
+} TILoopOpsRecord;
 #pragma pack(pop)
 </code></pre>
-<p>The observed bytes use this order:</p>
+<p>A shadow-memory replay of the headless trace records the loop state for a
+program that runs <code>For(θ,1,3)</code>, <code>While θ&lt;3</code>, and <code>Repeat θ≥2</code> in sequence. The
+reproduction macro is <code>tools/macros/run-loops-typed.macro</code>.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Offset</th><th>First <code>End</code></th><th>Later <code>End</code> visits</th><th>Role</th></tr>
+<tr><th>Loop</th><th>Record at <code>End</code></th><th>Continuation</th><th>State</th></tr>
 </thead>
 <tbody>
-<tr><td><code>+0</code></td><td><code>00h</code></td><td><code>00h</code></td><td><code>sentinel</code> consumed by <code>parse_end_ops_record</code></td></tr>
-<tr><td><code>+1..+2</code></td><td><code>36 58</code></td><td><code>7D 58</code></td><td><code>continuation</code>: <code>for_first_update</code> (<code>38:5836</code>) or <code>for_steady_update</code> (<code>38:587D</code>)</td></tr>
-<tr><td><code>+3..+4</code></td><td><code>12 00</code></td><td><code>12 00</code></td><td>Stable state word <code>0012h</code></td></tr>
+<tr><td><code>For(</code> first <code>End</code></td><td><code>00 36 58 07 00</code></td><td><code>for_first_update</code> (<code>38:5836</code>)</td><td><code>0007h</code></td></tr>
+<tr><td><code>For(</code> later <code>End</code>s</td><td><code>00 7D 58 07 00</code></td><td><code>for_steady_update</code> (<code>38:587D</code>)</td><td><code>0007h</code></td></tr>
+<tr><td><code>Repeat</code> <code>End</code></td><td><code>00 E7 57 23 00</code></td><td><code>38:57E7</code></td><td><code>0023h</code></td></tr>
 </tbody>
 </table>
 </div>
+<p>The continuation field selects the loop mechanics. Observed state words include
+<code>0012h</code> and <code>0007h</code>, so the field is not a fixed constant; its exact role is
+still open. [confirmed]</p>
+<p><code>While</code> and <code>Repeat</code> push their records in a parse-time form with continuation
+<code>38:5AC1</code>. Three observed pushes carry marker bytes <code>F0 58</code>, <code>11 58</code>, and
+<code>2A 58</code>. The first condition evaluation rewrites the record to the runtime form
+above. That evaluation runs through
+<code>38:41CC</code> or <code>38:41D9</code> — each guards with <code>CALL 7203</code>, calls <code>71B4</code>, pops the
+saved value into <code>HL</code>, and jumps to <code>38:57A8</code> or <code>38:57E1</code> respectively;
+<code>38:57E1</code> sits immediately before the <code>Repeat</code> continuation <code>38:57E7</code>.
+[confirmed]</p>
+<p>A single trace does not establish which loop re-enters through
+<code>parse_end_ops_record</code> on each iteration and which jumps directly from its
+continuation. [hypothesis]</p>
 <pre class="mermaid">flowchart LR
     F["For( token"] --&gt; P["parse_for_production&lt;br/&gt;create production state"]
     P --&gt; B["execute loop body"]
@@ -564,7 +581,7 @@ The report preserves that distinction. [confirmed]</p>
 pointers. It saves each pointer as a delta from the corresponding base at
 <code>0x9822</code> or <code>0x9826</code>, together with the previous error stack and mapped page.
 The unwind path at <code>00:27BB–27D9</code> restores them in reverse order. [confirmed]</p>
-<pre><code class="language-pseudocode">save_error_context(target):
+<pre><code class="language-text">save_error_context(target):
   push current_flash_page
   push previous_error_stack
   push FPS - word_at(0x9822)
@@ -703,13 +720,13 @@ verify the pinned ROM before producing a report.</p>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>
-        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
         <script src="hljs-z80-e93ac716.js"></script>
         <script src="katex-5e4f3b03.min.js"></script>
         <script src="katex-auto-render-bb53eb95.min.js"></script>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
-        <script src="pseudocode-init-5fa46c0a.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
 
 
 

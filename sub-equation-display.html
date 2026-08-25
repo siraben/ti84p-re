@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-fdb79b39.js";
+            window.path_to_searchindex_js = "searchindex-0e4eff2a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-b88a411b.js"></script>
@@ -374,13 +374,13 @@ preceding leaf run as its base and child 1 as its exponent. [confirmed]</p>
 <pre><code class="language-pseudocode">\begin{algorithm}
 \caption{Construct one structural arena record}
 \begin{algorithmic}
-\STATE $t \gets \Call{LookupRenderType}{sourceToken}$ \COMMENT{eqdisp\_source\_type\_table}
-\STATE $g \gets \Call{LookupAllocationGeometry}{t}$ \COMMENT{eqdisp\_allocation\_geometry\_table}
-\STATE $record \gets \Call{AllocateArenaRecord}{g}$
-\STATE \Call{ReserveChildIds}{$record, g$}
-\STATE $s \gets \Call{LookupChildScan}{t}$ \COMMENT{eqdisp\_child\_scan\_table}
-\STATE $children \gets \Call{ScanSourceArguments}{s}$
-\STATE \Call{StoreChildrenInRenderOrder}{$record, children$}
+\STATE $t \gets \operatorname{LookupRenderType}(sourceToken)$ \COMMENT{eqdisp\_source\_type\_table}
+\STATE $g \gets \operatorname{LookupAllocationGeometry}(t)$ \COMMENT{eqdisp\_allocation\_geometry\_table}
+\STATE $record \gets \operatorname{AllocateArenaRecord}(g)$
+\STATE $\operatorname{ReserveChildIds}(record, g)$
+\STATE $s \gets \operatorname{LookupChildScan}(t)$ \COMMENT{eqdisp\_child\_scan\_table}
+\STATE $children \gets \operatorname{ScanSourceArguments}(s)$
+\STATE $\operatorname{StoreChildrenInRenderOrder}(record, children)$
 \end{algorithmic}
 \end{algorithm}
 </code></pre>
@@ -505,6 +505,50 @@ action-<code>0x03</code> do-while loop at <code>39:50A1</code> wraps to <code>0x
 <code>39:4DCA</code> locates the handler row, <code>39:4CA4</code> emits its visible suffix, and
 <code>39:4E14</code> emits the final argument on row 7. The action-<code>0x04</code> delegated return
 passes through <code>39:5447</code> and <code>39:52A2</code>. [confirmed]</p>
+<h3 id="action-bytes-are-ti-key-codes"><a class="header" href="#action-bytes-are-ti-key-codes">Action bytes are TI key codes</a></h3>
+<p>The action byte that reaches <code>eqdisp_layout_main</code> (<code>39:4F9A</code>, entered with the
+code in <code>A</code>) is a raw key code from the editor’s key-dispatch loop. The
+dispatcher compares it directly. <code>CP 2</code> (<code>kLeft</code>) at <code>39:5048</code> opens the
+backward-walk path. <code>CP 8</code> (<code>kAlphaDown</code> in the <code>ti83plus.inc</code> keypress
+equates) at <code>39:507C</code> opens window advance. [confirmed]</p>
+<p>The window-advance body computes
+<code>count(0x85E2) - index(0x85E0) + baseline(0x844B)</code>. For values below nine, it
+stores <code>6</code> at <code>0x844D</code> and loops over <code>CALL 39:5167</code> with the <code>DEC (HL)</code>
+counter at <code>39:50A4</code>–<code>39:50AB</code>. Otherwise, <code>ADD A,7</code> repositions the index
+before the jump to <code>39:5132</code>. [confirmed]</p>
+<p>Two traces constrain which inputs select it:</p>
+<ul>
+<li>A trace of a 20-digit integrand does not reach <code>eqdisp_layout_main</code> while the
+content scrolls. Its template dispatchers run during insertion transitions.
+In-slot horizontal scrolling uses a separate page-<code>39</code> scroll set
+(<code>39:530A</code>–<code>39:539F</code>, <code>39:53A1</code>–<code>39:53FE</code>,
+<code>39:5500</code>–<code>39:5563</code>, <code>39:5605</code>–<code>39:5632</code>, <code>39:5709</code>–<code>39:572C</code>,
+<code>39:57AC</code>–<code>39:57FC</code>, and <code>39:5955</code>–<code>39:599B</code>). Character scrolling inside
+that slot is not a compositor event. [confirmed]</li>
+<li>Inserting a nested radical into the integrand re-enters the layout dispatcher
+at <code>39:507C</code>. The action is not <code>kAlphaDown</code>, so the relayout jumps directly
+to <code>39:5112</code>. This structural insertion does not select window advance.
+[confirmed]</li>
+</ul>
+<p>The translator at <code>39:53A1</code> converts a specific incoming key code into layout
+actions. It first calls bcall ID <code>4A68h</code>, whose body at <code>07:59F1</code> is a context
+test rather than a key fetch. The body copies the entry <code>A</code> to <code>B</code> and calls
+the helper at <code>07:59E5</code>. That helper compares <code>cxMain</code> at <code>0x858D</code> with
+context ID <code>0x5B53</code>. A mismatch returns NZ. When the context matches, the body
+returns Z only for codes <code>0x41</code>–<code>0x59</code> that equal the context byte at <code>0x859A</code>.
+[confirmed]</p>
+<p>The translator then compares the preserved <code>A</code> with <code>0xFB</code>. On a match, it
+reads the template ID at <code>0x8446</code>: <code>0xC7</code> yields action <code>7</code>, and <code>0xC8</code> yields
+action <code>8</code>, before the jump to <code>39:4F9A</code>. Register captures show <code>0xC8</code>
+(<code>kFnInt</code>) at <code>0x8446</code> when <code>fnInt(</code> is inserted, including a nested insertion
+inside another integral’s integrand. The <code>ti83plus.inc</code> equates identify
+<code>0xC7</code> as <code>kNDeriv</code>, <code>0xC8</code> as <code>kFnInt</code>, and <code>0xFB</code> as <code>kwnA</code>. Plain template
+insertion therefore does not pass the <code>CP 0xFB</code> gate. The editor state that
+sends <code>0xFB</code> to this handler remains open. [confirmed]</p>
+<p>Five more jumps to <code>39:4F9A</code> occur on page <code>35</code>, at <code>35:4DAE</code>, <code>35:4E73</code>,
+<code>35:4F1D</code>, <code>35:4F70</code>, and <code>35:5052</code>. The jump at <code>39:53D7</code> is another entry.
+These entries have not yet been attributed to specific editor events.
+[confirmed]</p>
 <h2 id="cell-coordinates"><a class="header" href="#cell-coordinates">Cell coordinates</a></h2>
 <p>Descriptor-backed templates use a fixed ABI. A descriptor is:</p>
 <pre><code class="language-c">typedef struct {
@@ -623,7 +667,13 @@ to large-font code <code>0x08</code>, and emits it. [confirmed]</p>
 </ol>
 <p>The parser slot order and the static compositor are identified. The filled and
 nested-integral traces use <code>39:4CA4</code> instead, so the expression or cursor state
-that selects <code>39:5167</code> remains open. Fixed glyph cells use <code>39:4E8E</code> and
+that selects <code>39:5167</code> remains open. A headless TilEm trace that inserts the
+<code>fnInt(</code> template and walks the cursor across its slots exercises the action
+dispatcher once each at <code>39:51F1</code> (action <code>0x03</code>) and <code>39:52A5</code> (action
+<code>0x04</code>) but takes the non-<code>5167</code> branches; the window-advance path at
+<code>39:50A4</code> does not execute. The witness state therefore needs either more
+arguments than the visible window (count ≥ 8) or a template whose slot walk
+crosses a window boundary. Fixed glyph cells use <code>39:4E8E</code> and
 <code>39:4F1A</code>; page <code>07:4588</code> copies large-font records. [confirmed]</p>
 <h2 id="archived-fixed-token-markers"><a class="header" href="#archived-fixed-token-markers">Archived fixed-token markers</a></h2>
 <p>Classes <code>0x17</code>, <code>0x18</code>, and <code>0x19</code> point to one-row records at <code>39:62C8</code>,
@@ -1200,7 +1250,7 @@ the cursor:</p>
 <pre><code class="language-pseudocode">\begin{algorithm}
 \caption{Insert a structural template}
 \begin{algorithmic}
-\STATE $rule \gets \Call{TemplateRule}{renderType}$
+\STATE $rule \gets \operatorname{TemplateRule}(renderType)$
 \STATE split the active leaf at the cursor on a packed-token boundary
 \STATE consume one token on the right when $rule$ requires replacement
 \STATE write placeholder \texttt{EF type 00 00 EF 2D} into the containing leaf
@@ -1900,12 +1950,12 @@ record delegates placement to the handler for its type:</p>
 <pre><code class="language-pseudocode">\begin{algorithm}
 \caption{Render an arena record}
 \begin{algorithmic}
-\STATE $record \gets \Call{ResolveRecordId}{id}$
+\STATE $record \gets \operatorname{ResolveRecordId}(id)$
 \IF{$record.type &lt; \mathtt{0x1F}$}
-  \STATE \Call{ExecuteLeafProgram}{$record.payload, origin, depth$}
+  \STATE $\operatorname{ExecuteLeafProgram}(record.payload, origin, depth)$
 \ELSE
-  \STATE $handler \gets \Call{StructuralHandler}{record.type}$
-  \STATE \Call{RenderPlacedChildrenAndPrimitives}{$handler, record, origin, depth$}
+  \STATE $handler \gets \operatorname{StructuralHandler}(record.type)$
+  \STATE $\operatorname{RenderPlacedChildrenAndPrimitives}(handler, record, origin, depth)$
 \ENDIF
 \end{algorithmic}
 \end{algorithm}
@@ -2243,14 +2293,14 @@ discarding the text on either side:</p>
 \begin{algorithmic}
 \WHILE{$pc &lt; payloadEnd$}
   \IF{$pc$ names an embedded structural record}
-    \STATE \Call{RenderRecord}{$\Call{ResolveRecordId}{marker.id}, pen, depth$}
+    \STATE $\operatorname{RenderRecord}(\operatorname{ResolveRecordId}(marker.id), pen, depth)$
     \STATE advance past the marker
   \ELSIF{$pc$ is an embedded-object separator}
     \STATE advance past the separator
   \ELSE
-    \STATE $(token, pc) \gets \Call{DecodeNativeToken}{pc}$
-    \FOR{each $displayCode$ in \Call{KeyToString}{token}}
-      \STATE \Call{EmitGlyph}{$displayCode, pen, depth$}
+    \STATE $(token, pc) \gets \operatorname{DecodeNativeToken}(pc)$
+    \FOR{each $displayCode$ in $\operatorname{KeyToString}(token)$}
+      \STATE $\operatorname{EmitGlyph}(displayCode, pen, depth)$
     \ENDFOR
   \ENDIF
 \ENDWHILE
@@ -3417,13 +3467,13 @@ the retained trace does not expose the final source buffer. [hypothesis]</p>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>
-        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
         <script src="hljs-z80-e93ac716.js"></script>
         <script src="katex-5e4f3b03.min.js"></script>
         <script src="katex-auto-render-bb53eb95.min.js"></script>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
-        <script src="pseudocode-init-5fa46c0a.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
 
 
 

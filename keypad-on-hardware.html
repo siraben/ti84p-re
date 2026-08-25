@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-fdb79b39.js";
+            window.path_to_searchindex_js = "searchindex-0e4eff2a.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-b88a411b.js"></script>
@@ -393,7 +393,7 @@ ram:04A3  jr ram:048A          ; then the four-NOP tail
 <h2 id="ghosting-and-physical-bounce"><a class="header" href="#ghosting-and-physical-bounce">Ghosting and physical bounce</a></h2>
 <p>The matrix has no isolation diode at each key. Three closed switches can connect an unselected group to a selected group and create a fourth apparent closure. WikiTI’s example selects group <code>0xF7</code>: pressing <strong>2</strong>, <strong>3</strong>, and <strong>6</strong> also couples group <code>0xFB</code>, making <strong>5</strong> appear closed. Unwired positions can ghost too. [standard]</p>
 <p>TilEm reproduces this topology in <code>tilem_keypad_read_keys</code>. It starts with all keys in selected groups, then repeatedly unions any group sharing a set bit until the set stops growing. The returned byte is the complement of that transitive closure. [standard]</p>
-<pre><code class="language-pseudocode">closed = union(keysDown[group] for each selected group)
+<pre><code class="language-text">closed = union(keysDown[group] for each selected group)
 repeat
     previous = closed
     for each group:
@@ -804,13 +804,13 @@ physical AppVar has been recorded.</li>
 
         <!-- Custom JS scripts -->
         <script src="mermaid-eefea253.min.js"></script>
-        <script src="mermaid-init-ccf746f1.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
         <script src="hljs-z80-e93ac716.js"></script>
         <script src="katex-5e4f3b03.min.js"></script>
         <script src="katex-auto-render-bb53eb95.min.js"></script>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
-        <script src="pseudocode-init-5fa46c0a.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
 
 
 
