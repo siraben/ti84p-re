@@ -78,6 +78,7 @@ PROBE_NAMES = {
     14: "mapper-overlays",
     15: "lcd-controller",
     16: "interrupt-halt",
+    17: "lcd-hidden-lab",
 }
 
 
@@ -1000,6 +1001,79 @@ def decode_probe_measurements(frame: ProbeFrame) -> dict[str, object]:
             "after_status_0x04": f"0x{frame.payload[11]:02X}",
             "restore_ok": frame.payload[20] == 1,
             "i_register_restored": frame.payload[19] == frame.payload[5],
+        }
+    if frame.probe_id == 17:
+        if len(frame.payload) != 2335:
+            raise ProbeFormatError(
+                "hidden-LCD laboratory payload must contain 2335 bytes, "
+                f"got {len(frame.payload)}"
+            )
+        outcome_names = {
+            0: "pending-reset-or-interruption",
+            1: "completed",
+            2: "compile-time-acknowledgement-mismatch",
+            3: "ASIC-identity-mismatch",
+            4: "OS-signature-mismatch",
+            5: "controller-reset-active",
+            6: "controller-not-in-eight-bit-mode",
+            7: "unsafe-OS-pointer-state",
+            8: "LCD-ready-timeout",
+            9: "restoration-mismatch",
+        }
+        before = frame.payload[31:799]
+        direct = frame.payload[799:1567]
+        wrap = frame.payload[1567:2335]
+        direct_differences = [
+            index for index, (old, new) in enumerate(zip(before, direct, strict=True))
+            if old != new
+        ]
+        wrap_differences = [
+            index for index, (old, new) in enumerate(zip(before, wrap, strict=True))
+            if old != new
+        ]
+        outcome_code = frame.payload[0]
+        reported_direct_changes = int.from_bytes(frame.payload[8:10], "little")
+        reported_wrap_changes = int.from_bytes(frame.payload[10:12], "little")
+        visible_restore_mismatches = int.from_bytes(frame.payload[12:14], "little")
+        hidden_restore_mismatches = frame.payload[14]
+        return {
+            "schema": "recovery-gated-hidden-column-v1",
+            "outcome_code": outcome_code,
+            "outcome": outcome_names.get(outcome_code, f"unknown-{outcome_code}"),
+            "last_completed_stage": frame.payload[1],
+            "entry": {
+                "controller_status": f"0x{frame.payload[2]:02X}",
+                "movement_command": f"0x{frame.payload[3]:02X}",
+                "curY": f"0x{frame.payload[4]:02X}",
+                "curXRow": f"0x{frame.payload[5]:02X}",
+                "read_latch": f"0x{frame.payload[6]:02X}",
+                "visible_cell": f"0x{frame.payload[7]:02X}",
+            },
+            "direct_hidden_columns": {
+                "before": list(frame.payload[15:19]),
+                "after": list(frame.payload[19:23]),
+                "reported_visible_change_count": reported_direct_changes,
+                "calculated_visible_change_count": len(direct_differences),
+                "change_count_matches": reported_direct_changes == len(direct_differences),
+                "visible_difference_indices": direct_differences,
+            },
+            "increment_from_column_14": {
+                "hidden_after": list(frame.payload[23:27]),
+                "reported_visible_change_count": reported_wrap_changes,
+                "calculated_visible_change_count": len(wrap_differences),
+                "change_count_matches": reported_wrap_changes == len(wrap_differences),
+                "visible_difference_indices": wrap_differences,
+            },
+            "restoration": {
+                "hidden_after": list(frame.payload[27:31]),
+                "visible_mismatch_count": visible_restore_mismatches,
+                "hidden_mismatch_count": hidden_restore_mismatches,
+                "matches": (
+                    outcome_code == 1
+                    and visible_restore_mismatches == 0
+                    and hidden_restore_mismatches == 0
+                ),
+            },
         }
     return {"payload_hex": frame.payload.hex().upper()}
 

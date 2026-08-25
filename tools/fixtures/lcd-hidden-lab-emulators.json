@@ -1,0 +1,39 @@
+{
+  "schema": "ti84p-re.lcd-hidden-lab-emulators.v1",
+  "source_rom_sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d",
+  "source_sha256": "fc6f7a96a658f9b24ec0502d294694c4e87fbb37d96e88dd538c1847c42f4a8f",
+  "payload_size": 2335,
+  "runs": {
+    "tilem": {
+      "emulator_commit": "f56ad637d0524ee841dd381be6ecbaf5b8975600",
+      "runner_sha256": "60d9b585b32c2c368d6cd316a95f6bb29ef022dc389a8eb263dd9c105e23ae68",
+      "expected_asic": 69,
+      "machine_code_size": 3450,
+      "machine_code_sha256": "09e778ec832f5e69bf0a444d3d9a7cf20cd43bb426a080b6f1ea596b2ad3506e",
+      "run_clocks": 265592760,
+      "verification_code_decimal": 62131,
+      "direct_hidden_after": [165, 90, 195, 60],
+      "increment_hidden_after": [0, 0, 161, 162],
+      "visible_difference_indices": [],
+      "visible_restore_mismatches": 0,
+      "hidden_restore_mismatches": 0,
+      "appvar_matches": true
+    },
+    "wabbitemu": {
+      "emulator_commit": "48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422",
+      "runner_sha256": "02d26223af9e73637ac0a58daf09c539656b6aed18c0f0dae0a7a5d6c3442ad2",
+      "expected_asic": 68,
+      "machine_code_size": 3450,
+      "machine_code_sha256": "dc683dccfc25f76c59c79776e4311d6655da75647d01c11be266d86c8b7699dd",
+      "probe_steps": 40714633,
+      "verification_code_decimal": 42103,
+      "direct_hidden_after": [165, 90, 195, 60],
+      "increment_hidden_after": [0, 0, 161, 0],
+      "visible_difference_indices": [0],
+      "visible_restore_mismatches": 0,
+      "hidden_restore_mismatches": 0,
+      "appvar_matches": true
+    }
+  },
+  "scope": "Exact assembled measurement and restoration in emulator LCD models; not physical-controller safety or geometry evidence."
+}
