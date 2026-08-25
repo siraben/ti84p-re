@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Subsystem map - TI-84 Plus OS — Reverse Engineering</title>
+        <title>Flash Apps as resident runtimes - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
@@ -179,63 +179,178 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="subsystem-map-bcall-api-surface"><a class="header" href="#subsystem-map-bcall-api-surface">Subsystem map (bcall API surface)</a></h1>
-<p>This page groups the roughly 600 named bcall entry points by subsystem. The
-result shows the public API used by both application code and the OS itself.</p>
+                        <h1 id="flash-apps-as-resident-runtimes"><a class="header" href="#flash-apps-as-resident-runtimes">Flash Apps as resident runtimes</a></h1>
+<p>A Flash App keeps its kernel in Flash instead of copying it to <code>userMem</code>.
+This removes the normal assembly-program execution copy, but it does not turn
+<code>ram:9D95</code>–<code>ram:BFFF</code> into private storage. The OS still owns that range
+as part of the user heap.</p>
+<p>This page describes long-running App runtimes. See
+<a href="sub-apps-mem-settings.html">Apps, memory reset, and settings</a> for App discovery
+and headers, <a href="boot-contexts-errors.html">Boot, contexts, and errors</a> for context
+dispatch, and <a href="memory-management.html">Memory management</a> for the RAM heap.</p>
+<h2 id="code-in-flash-state-in-ram"><a class="header" href="#code-in-flash-state-in-ram">Code in Flash, state in RAM</a></h2>
+<p>The current App page executes in bank A at <code>0x4000</code>–<code>0x7FFF</code>. An App
+therefore avoids the temporary copy that the compiled <code>Asm(</code> launcher creates
+at <code>ram:9D95</code>. The conventional <code>ram:9D95</code>–<code>ram:BFFF</code> interval contains
+8,811 bytes. [confirmed]</p>
+<p>That interval remains part of the movable user-data region. Variables,
+temporary objects, the FPS/OPS gap, and the VAT determine how much space is
+available. An App must reserve mutable storage through the OS or start from a
+controlled memory image. It cannot claim 8,811 bytes merely because its code
+executes from Flash. [standard]</p>
+<p>The practical maximum contiguous allocation depends on the calculator model,
+OS version, VAT contents, temporary objects, and current heap pointers. Measure
+it with <code>_MemChk</code> and a real allocation in each fixture state. Do not use the
+address-map span as the capacity result. [confirmed]</p>
+<p>Generated native code must also remain in executable physical RAM. Staying
+below <code>ram:C000</code> matches the retail executable window, but the exact physical
+RAM-page rules differ among emulators and remain partly unverified on hardware.
+See <a href="execution-protection.html">RAM execution protection</a>. A threaded bytecode or
+data image does not require executable RAM, although its interpreter still
+does. The map is confirmed. [confirmed] The physical hardware boundary remains
+untested. [hypothesis]</p>
+<h2 id="cross-page-code-and-data"><a class="header" href="#cross-page-code-and-data">Cross-page code and data</a></h2>
+<p>A multi-page App cannot treat bank-A addresses as flat pointers. Mapping
+another App or OS page changes the bytes visible at the same logical address.
+Any pointer into <code>0x4000</code>–<code>0x7FFF</code> is valid only while its page remains
+mapped. [confirmed]</p>
+<p>RPN83P provides a concrete multi-page design. Its page-0 branch table stores
+entries in this form:</p>
+<pre><code class="language-z80">.dw target_routine
+.db relative_app_page
+</code></pre>
+<p>Other App pages call those entries through an App-aware <code>bcall()</code> macro. App
+page 0 contains the branch table and event handlers, while larger modules live
+on later App pages. The identified RPN83P source at commit
+<code>e2ad0bff98c94a13f34ae461b13f79384a75c17f</code> confirms this layout. [confirmed]</p>
+<p>An OS bcall or App-page call may remap bank A. This affects Flash data as well
+as code. RPN83P does not pass a Flash string to <code>_PutS</code>. Its <code>putS</code> helper
+reads each byte on the current App page and passes the byte to <code>_PutC</code>; its
+source comments identify <code>_PutS</code> and <code>_VPutS</code> as RAM-string routines. [confirmed]
+Reacquire or remap the App page before an untested API dereferences a Flash
+pointer after a page-changing call. That broader API rule remains a
+[hypothesis].</p>
+<h2 id="install-an-app-context"><a class="header" href="#install-an-app-context">Install an App context</a></h2>
+<p><code>_AppInit</code> at <code>ram:0936</code> copies six 16-bit vectors from the 13-byte block at
+<code>HL</code> into <code>cxMain</code> through <code>cxSizeWind</code>. It copies the following byte into
+<code>appFlags</code> and records the current bank-A page in <code>cxPage</code>. The event router can
+then map <code>cxPage</code> and dispatch the installed handlers. [confirmed]</p>
+<p>The block has this layout:</p>
+<pre><code class="language-text">+0x00  cxMain
++0x02  cxPPutAway
++0x04  cxPutAway
++0x06  cxRedisp
++0x08  cxErrorEP
++0x0A  cxSizeWind
++0x0C  appFlags
+</code></pre>
+<p>A resident App should make cleanup an explicit part of this context:</p>
+<ol>
+<li>Save each OS setting that the App changes.</li>
+<li>Open or validate persistent AppVars.</li>
+<li>Call <code>_AppInit</code> with a <code>cxPutAway</code> handler that reaches the normal cleanup
+routine.</li>
+<li>Install an error frame around each command dispatched by the App.</li>
+<li>On explicit quit, <code>PutAway</code>, or a handled error, close mutable variables,
+persist state, restore settings, and restore the default context.</li>
+<li>Call <code>_ReloadAppEntryVecs</code>, then return through <code>_JForceCmdNoChar</code> or
+<code>_PutAway</code> as appropriate.</li>
+</ol>
+<p>RPN83P routes both explicit exit and its <code>cxPutAway</code> handler through
+<code>mainExit</code>, which closes its AppVars, saves state, and restores OS settings.
+Its identified source does not install <code>AppOnErr</code>, so this example does not
+cover a TI-OS error that unwinds past the App. A reset or nonlocal jump can also
+bypass the App’s cleanup. [confirmed]</p>
+<h2 id="keep-persistent-state-relocatable"><a class="header" href="#keep-persistent-state-relocatable">Keep persistent state relocatable</a></h2>
+<p>RPN83P stores mutable state in four RAM AppVars and uses 1,044–2,545 bytes,
+depending on its register count. Its structured variables carry a size,
+CRC16, App ID, variable type, and schema version. Startup rejects stale,
+truncated, or corrupt structures and initializes the affected state again.
+These sizes and checks come from the identified RPN83P source and README.
+[confirmed]</p>
+<p>Its <code>RPN83SAV</code> update is not atomic: <code>StoreAppState</code> deletes the old variable
+before <code>_CreateAppVar</code> creates the replacement. Validation detects corruption
+on the next launch, but an interruption can lose the last valid state.
+[confirmed]</p>
+<p>A runtime that needs the last committed dictionary should use two named slots.
+This design remains a fixture target: [hypothesis]</p>
+<ul>
+<li>Store a magic value, format version, generation, payload length, CRC,
+payload, and final commit marker in each slot.</li>
+<li>Write and validate the inactive slot before archiving it.</li>
+<li>Reacquire the archived slot with <code>_ChkFindSym</code>, read it with page-aware
+access, then validate the copied record again.</li>
+<li>Delete the old slot only after the new archived slot is proven valid.</li>
+<li>At startup, validate both RAM and archived candidates and select the highest
+valid generation.</li>
+<li>Test resets at every write, archive, garbage-collection, and delete boundary.</li>
+</ul>
+<p>AppVar data can move during allocation, deletion, archive, unarchive, or
+garbage collection. Retain names and offsets, not long-lived absolute payload
+pointers. Reacquire a RAM payload after memory-moving calls and an archived
+payload after any operation that can collect the archive. See
+<a href="sub-resident-programs.html">Resident assembly programs</a> for the detailed handle
+protocol. [confirmed]</p>
+<h2 id="minimal-developer-key-fixture"><a class="header" href="#minimal-developer-key-fixture">Minimal developer-key fixture</a></h2>
+<p><code>tools/flash-apps/minimal_flash_app.asm</code> builds a one-page App named <code>REPROBE</code>.
+It immediately exits through
+<code>_JForceCmdNoChar</code>; it is a packaging and launch fixture, not yet a RAM-budget
+probe.</p>
+<p>The source uses SPASM-ng’s <code>app.inc</code> and <code>ti83plus.inc</code>:</p>
+<pre><code class="language-sh">spasm -N -I path/to/spasm-ng/inc \
+  tools/flash-apps/minimal_flash_app.asm /tmp/minimal-flash-app.8xk
+</code></pre>
+<p>Use a SPASM-ng build with GMP and OpenSSL App signing enabled. A build compiled
+with <code>NO_APPSIGN=1</code> can emit raw App bytes, but its <code>.8xk</code> wrapper is not a
+usable signed developer-key transfer file.</p>
+<p>The reference build used SPASM-ng commit
+<code>5f0786d38f064835be674d4b7df42969967bb73c</code>. It produces 668 bytes with SHA-256
+<code>4dcbd992e71734b2255db34321d6980f5a908f8c0641ad4b79408e68e8334981</code>.
+The repository header decoder reports:</p>
+<pre><code class="language-text">name REPROBE; pages 1/1; final field ends at 4070
+entry bytes at 4080: CD 50 00 27 40 02 2D 40
+</code></pre>
+<p>The header field <code>801</code> contains key ID <code>0104</code>, the TI-83+/84+ freeware and
+shareware developer key. This fixture has been assembled and decoded. It has
+not been transferred to physical hardware. The build and decoded header are
+confirmed. [confirmed] Physical launch remains untested. [hypothesis]</p>
+<h2 id="source-provenance"><a class="header" href="#source-provenance">Source provenance</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Subsystem</th><th style="text-align: right">~bcalls</th><th>Representative entry points</th></tr>
+<tr><th>Artifact</th><th>Exact identity</th><th>Source</th></tr>
 </thead>
 <tbody>
-<tr><td><strong>Floating-point / numeric</strong></td><td style="text-align: right">~230 (+~120 more in “misc”)</td><td><code>_FPAdd</code>,<code>_Times2</code>,<code>_DivHLBy10</code>,<code>_Intgr</code>,<code>_Trunc</code>,<code>_DToR</code>,<code>_RToD</code>,<code>_Min</code>,<code>_Max</code>,<code>_SqRoot</code></td></tr>
-<tr><td><strong>Display / LCD</strong></td><td style="text-align: right">~41</td><td><code>_PutMap</code>,<code>_PutC</code>,<code>_PutS</code>,<code>_DispHL</code>,<code>_NewLine</code>,<code>_ClrLCDFull</code>,<code>_VPutS</code>,<code>_GrBufCpy</code></td></tr>
-<tr><td><strong>Variables / VAT</strong></td><td style="text-align: right">~37</td><td><code>_FindSym</code>,<code>_ChkFindSym</code>,<code>_CreateReal</code>,<code>_CreateStrng</code>,<code>_CreateAppVar</code>,<code>_DelVar</code>,<code>_InsertMem</code>,<code>_Arc_Unarc</code></td></tr>
-<tr><td><strong>String / convert</strong></td><td style="text-align: right">~18</td><td><code>_ExpToHex</code>,<code>_OP1ExpToDec</code>,<code>_CreateStrng</code>,<code>_StrCopy</code>,<code>_Get_Tok_Strng</code></td></tr>
-<tr><td><strong>Parser / TI-BASIC</strong></td><td style="text-align: right">~18</td><td><code>_IsA2ByteTok</code>,<code>_GetTokLen</code>,<code>_BinOPExec</code>,<code>_ParseInp</code></td></tr>
-<tr><td><strong>Link / I-O</strong></td><td style="text-align: right">~15</td><td><code>_SendAByte</code>,<code>_RecAByteIO</code>,<code>_SendVarCmd</code>,<code>_Rec1stByte</code>,<code>link_xfer_op</code></td></tr>
-<tr><td><strong>System / power</strong></td><td style="text-align: right">~15</td><td><code>_AppInit</code>,<code>_PutAway</code>,<code>_RandInit</code>,<code>_ApdSetup</code>,<code>_Chk_Batt_Low</code>,<code>_SetExSpeed</code>,<code>_JForceCmd</code></td></tr>
-<tr><td><strong>Boot cryptography</strong></td><td style="text-align: right">5</td><td><code>_MD5Init</code>, <code>_MD5Update</code>, <code>_MD5Final</code>, <code>_SigModR</code>, <code>_TransformHash</code></td></tr>
-<tr><td><strong>List / Matrix</strong></td><td style="text-align: right">~13</td><td><code>_CreateRList</code>,<code>_CreateCList</code>,<code>_CreateRMat</code>,<code>_ErrDimMismatch</code>,dim/element ops</td></tr>
-<tr><td><strong>Keyboard</strong></td><td style="text-align: right">~5</td><td><code>_GetCSC</code>,<code>_GetKey</code>,<code>_KeyToString</code></td></tr>
-<tr><td><strong>Menu / UI</strong></td><td style="text-align: right">~5</td><td><code>_DispMenuTitle</code>,<code>_CursorOn</code>,<code>_CursorOff</code>,<code>_RunIndicOn</code>,<code>_RunIndicOff</code></td></tr>
+<tr><td>RPN83P source</td><td>Commit <code>e2ad0bff98c94a13f34ae461b13f79384a75c17f</code></td><td><a href="https://github.com/bxparks/rpn83p/tree/e2ad0bff98c94a13f34ae461b13f79384a75c17f">RPN83P commit</a></td></tr>
+<tr><td>SPASM-ng used for the reference build</td><td>Commit <code>5f0786d38f064835be674d4b7df42969967bb73c</code></td><td><a href="https://github.com/alberthdev/spasm-ng/tree/5f0786d38f064835be674d4b7df42969967bb73c">SPASM-ng commit</a></td></tr>
 </tbody>
 </table>
 </div>
-<p>(Counts approximate — keyword buckets overlap; ~170 “misc” are mostly more math/int helpers.)</p>
-<h2 id="reading-the-map"><a class="header" href="#reading-the-map">Reading the map</a></h2>
-<p>This is a calculator: roughly two-thirds of the API is numeric, and everything else is comparatively small glue. The architecture flows:</p>
-<pre class="mermaid">flowchart TD
-    KP([keypad]) --&gt; GK["_GetKey"] --&gt; P[parser] --&gt; TD[token dispatch]
-    TD --&gt; VAT["VAT · _FindSym&lt;br/&gt;variables"]
-    TD --&gt; FP["FP engine · OP1..6&lt;br/&gt;arithmetic / transcendentals"]
-    TD --&gt; DISP["display · _PutMap&lt;br/&gt;homescreen / graph"]
-    VAT --&gt; R["result in OP1&lt;br/&gt;shown via _DispOP1A / _PutS"]
-    FP --&gt; R
-    DISP --&gt; R
-</pre>
-
-<p>Cross-cutting services used by all of the above: <a href="bcall-mechanism.html">the bcall mechanism</a>, <a href="interrupts.html">interrupt dispatch</a>, <a href="clock-timers-power.html">clock/timers/APD/power</a>, <a href="md5-hardware.html">MD5 and boot signature arithmetic</a>, error handling (<code>_JError</code> + <code>TIError</code> codes), and the system flags (<code>SystemFlags</code> @ <code>flags</code>).</p>
-<h2 id="execution-through-line"><a class="header" href="#execution-through-line">Execution through-line</a></h2>
-<ol>
-<li><strong>Interrupt</strong> keeps time, scans the keypad into <code>kbdScanCode</code>, runs APD.</li>
-<li><code>_GetKey</code> turns scan codes into key codes (<code>TIKeyCode</code>), driving menus and the homescreen.</li>
-<li>The parser reads tokenized input/programs, dispatching each <code>TIToken</code>.</li>
-<li>Number tokens → FP engine (OP1–OP6, BCD); name tokens → VAT (<code>_FindSym</code>).</li>
-<li>Results land in <code>OP1</code> and are rendered by the display subsystem.</li>
-<li><strong>bcall + paging</strong> is the substrate that lets steps 3–5 live on different flash pages; errors unwind via <code>_JError</code>/<code>onSP</code>.</li>
-</ol>
-<p>See the subsystem pages linked above and in the sidebar for detail.</p>
+<h2 id="remaining-measurements"><a class="header" href="#remaining-measurements">Remaining measurements</a></h2>
+<p>The fixture still needs these extensions:</p>
+<ul>
+<li>reserve generated-code RAM through a named AppVar;</li>
+<li>record <code>_MemChk</code>, heap pointers, VAT endpoints, and <code>SP</code> before and after the
+allocation;</li>
+<li>compare one-page and multi-page App builds on clean and representative VAT
+states;</li>
+<li>force an error, <code>PutAway</code>, reset, and archive garbage collection during
+persistence updates;</li>
+<li>repeat the executable-RAM boundary on identified 48 KiB and 128 KiB physical
+calculators.</li>
+</ul>
+<p>Until those runs exist, report Flash residency as removal of the assembly copy,
+not as proof that the complete <code>ram:9D95</code>–<code>ram:BFFF</code> range is available.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="system-overview.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="sub-apps-mem-settings.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="conventions.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="flash-memory.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -245,11 +360,11 @@ result shows the public API used by both application code and the OS itself.</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="system-overview.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="sub-apps-mem-settings.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="conventions.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="flash-memory.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

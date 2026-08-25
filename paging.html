@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0e4eff2a.js";
+            window.path_to_searchindex_js = "searchindex-f09341ee.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-b88a411b.js"></script>
+        <script src="toc-34eae533.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -208,6 +208,23 @@ or <code>0x28</code> a nonzero value, so their physical behavior remains unconfi
 <p>The target ROM runs on a TI-84 Plus with 64 Flash pages and eight RAM page
 selectors. Family members with more Flash need the extended selector bits in
 ports <code>0x0E</code> and <code>0x0F</code>.</p>
+<p>Page selection and execution permission are separate. The mapper can expose a
+RAM page in a CPU window while the execution-protection logic rejects an opcode
+fetch from the corresponding physical chunk. See <a href="execution-protection.html">Execution
+protection</a>. [standard]</p>
+<h2 id="os-and-analysis-use"><a class="header" href="#os-and-analysis-use">OS and analysis use</a></h2>
+<p>The bcall dispatcher maps a paged body through port <code>0x06</code>, executes it in
+window A, then restores the previous page. A bcall whose body resides on fixed
+page 0 executes below <code>0x4000</code> without changing bank A. The page-set helper at
+<code>ram:181C</code> implements the dispatcher write. [confirmed]</p>
+<p><code>cross_page_jump</code> at <code>ram:2B09</code> consumes an inline address-and-page payload and
+transfers control across Flash pages. Banked routines are position-fixed for
+window A because their logical addresses remain in <code>0x4000</code>–<code>0x7FFF</code> regardless
+of the selected physical page. [confirmed]</p>
+<p>Ghidra models physical Flash pages 1–63 as overlay blocks based at <code>0x4000</code>.
+This makes every banked body statically visible while preserving its logical
+address. Runtime traces still need the active port-<code>0x06</code> value to identify the
+physical page. [confirmed]</p>
 <h2 id="the-four-logical-windows"><a class="header" href="#the-four-logical-windows">The four logical windows</a></h2>
 <p>The Z80 supplies a 16-bit address. The top two address bits choose a logical
 window; the mapper supplies the physical page.</p>

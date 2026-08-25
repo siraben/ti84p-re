@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0e4eff2a.js";
+            window.path_to_searchindex_js = "searchindex-f09341ee.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-b88a411b.js"></script>
+        <script src="toc-34eae533.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -265,6 +265,40 @@ whose data lives on a Flash page.</p>
 <p>For an archived entry the data address (<code>addrLSB/MSB</code>) points into the Flash window and the
 page byte selects the Flash page; the VAT record itself always stays in RAM.</p>
 <hr>
+<h2 id="ordinary-and-protected-programs-after-lookup"><a class="header" href="#ordinary-and-protected-programs-after-lookup">Ordinary and protected programs after lookup</a></h2>
+<p><code>ProgObj</code> (<code>0x05</code>) and <code>ProtProgObj</code> (<code>0x06</code>) use the same data representation.
+The helper at <code>ram:2042</code>–<code>ram:2058</code>, called by <code>_ChkFindSym</code>, admits both types
+as named program objects. <code>findsym_scan</code> returns the matched VAT type in <code>A</code> and
+OP1, so the caller can still distinguish <code>0x05</code> from <code>0x06</code>. [confirmed]</p>
+<p>The shared data and archive paths do not branch on that distinction:</p>
+<ul>
+<li><code>_DataSize</code> at <code>ram:1485</code>–<code>ram:14BB</code> sends both types through the same leading
+size-word case and includes the same two-byte header in its result.</li>
+<li><code>_Arc_Unarc</code> at <code>07:6248</code> branches on the returned page byte in <code>B</code>. Its only
+post-lookup object-type rejection is <code>GroupObj</code> (<code>0x17</code>) at <code>07:6263</code>.
+<code>07:614B</code>–<code>07:6158</code> obtains either program type’s size through <code>_DataSize</code>.</li>
+<li>The archive writer masks the VAT type with <code>0x1F</code> at <code>07:616F</code>–<code>07:6178</code> and
+preserves that low-five-bit value in the record. Copy length and page
+crossing do not depend on whether the preserved value is <code>0x05</code> or <code>0x06</code>.</li>
+<li><code>_FlashToRam</code> at <code>3D:6745</code> receives a page, source pointer, destination
+pointer, and byte count. It does not receive or read a VAT type.</li>
+</ul>
+<p>Protected-program behavior remains a type-routing policy outside those data
+paths. The alphabetical VAT selector maps <code>0x06</code> to the ordinary program class
+at <code>07:524D</code>–<code>07:5251</code>. The parser accepts either value and joins the same
+program path at <code>38:6012</code>–<code>38:601C</code>. <code>_ExecuteNewPrgm</code> instead requires
+<code>ProtProgObj</code> at <code>ram:2670</code>–<code>ram:2677</code>; this internal helper is not a general
+TI-BASIC execution API. These sites accept, normalize, or reject a type before
+using the common size-word payload. [confirmed]</p>
+<p>An archived-source reader therefore uses the same mapping, <code>_FlashToRam</code>, and
+cross-page rules for both program types after lookup. <code>_ChkFindSym</code> accepts
+either program class as a named-object query, and <code>findsym_scan</code> matches the
+name before replacing the OP1 type with the stored VAT type. A caller therefore
+does not need to retain the stored type merely to find the program again, but
+it must inspect the type returned by lookup before applying type-specific
+policy. This conclusion covers TI-84 Plus OS 2.55MP; shell-specific loading
+and writeback policies remain separate. [confirmed]</p>
+<hr>
 <h2 id="store-and-recall-confirmed"><a class="header" href="#store-and-recall-confirmed">Store and recall [confirmed]</a></h2>
 <p><strong>Store.</strong> <code>_StoOther</code> (<code>38:62A9</code>) and siblings (<code>_StoAns</code>, <code>_StoX</code>, <code>_StoY</code>, … <code>38:6251-62A3</code>):</p>
 <ul>
@@ -360,7 +394,7 @@ at <code>3D:6440</code> shares the page-3D flash-control prologue
 </ul>
 <hr>
 <h2 id="reading-archived-data-with-_flashtoram-confirmed"><a class="header" href="#reading-archived-data-with-_flashtoram-confirmed">Reading archived data with <code>_FlashToRam</code> [confirmed]</a></h2>
-<p><code>bcall(_FlashToRam)</code> (id 0x5017 → real body <code>3D:6745</code>). Copies <code>BC</code> bytes from a Flash page:addr to
+<p><code>bcall(_FlashToRam)</code> (ID <code>5017h</code>, body <code>3D:6745</code>) copies <code>BC</code> bytes from a Flash page:addr to
 a RAM destination, transparently advancing the Flash page when the read crosses the <code>0x8000</code>
 window boundary:</p>
 <pre><code class="language-z80">3D:6745: mask page (AND 1F / AND 3F per port-2 model check FUN 1837/182F)
@@ -393,7 +427,7 @@ table maps it to <code>3F:4888</code>.</p>
 </div>
 <p><code>archive_write_record</code> unlocks Flash with the protected port-<code>0x14</code> sequence. It writes an initial <code>0xF0</code> marker when the selected position requires one, starts the record with <code>0xFE</code>, writes the size and variable metadata, copies the data, and finalizes the status as <code>0xFC</code>. It uses <code>_WriteAByte</code> (<code>8021</code>, body <code>3F:4C9F</code>) for marker bytes and <code>_WriteFlashUnsafe</code> (<code>8087</code>, body <code>3F:4CA6</code>) for blocks. [confirmed]</p>
 <p>The bounds checks at <code>3D:6B6D</code> and <code>3D:6B9B</code> reject pages below <code>08</code> and pages at or above the dynamic App boundary from <code>3D:6413</code>. Both require the Flash destination to be at least <code>0x4000</code>; the block form at <code>3D:6B6D</code> also requires <code>HL &gt;= 0x4000</code>. Carry reports rejection to the caller, which raises <code>E_ArchFull</code>. [confirmed]</p>
-<p>A generated 17,000-byte program makes the record data span pages. The traced record writer passes its 17,002-byte <code>[size][body]</code> field to one <code>_WriteFlashUnsafe</code> invocation, which programs physical <code>0x20013</code> through <code>0x2427C</code> continuously across <code>08:7FFF</code> to <code>09:4000</code>. The copied worker increments port <code>0x06</code> from <code>0x08</code> to <code>0x09</code>, resets <code>DE</code> to <code>0x4000</code>, and finishes with its <code>0xF0</code> reset at the final target. This is direct TilEm evidence for the ordinary archive page-crossing path, not a physical-calculator measurement. [confirmed]</p>
+<p>A generated 17,000-byte program makes the record data span pages. The traced record writer passes its 17,002-byte <code>[size][body]</code> field to one <code>_WriteFlashUnsafe</code> invocation, which programs physical <code>0x20013</code>–<code>0x2427C</code> continuously, crossing from <code>08:7FFF</code> to <code>09:4000</code>. The copied worker increments port <code>0x06</code> from <code>0x08</code> to <code>0x09</code>, resets <code>DE</code> to <code>0x4000</code>, and finishes with its <code>0xF0</code> reset at the final target. This is direct TilEm evidence for the ordinary archive page-crossing path, not a physical-calculator measurement. [confirmed]</p>
 <h3 id="record-status-byte-confirmed"><a class="header" href="#record-status-byte-confirmed">Record-status byte [confirmed]</a></h3>
 <p>The status byte is a classic AMD/Am29F <em>monotonic bit-clear</em> marker: erased Flash is all-ones
 (<code>0xFF</code>), and the OS advances a record’s state by <em>clearing</em> bits (program can only flip <code>1→0</code>; only
@@ -549,9 +583,9 @@ for 94 and 12 sector-state bytes respectively. [confirmed]</p>
 <p>The mode-<code>4</code> certificate rebuild path at <code>3D:4274</code> copies <code>0x66</code> bytes from
 <code>0x82A5</code>, two more than the TI-84 Plus initializer erases. Offsets <code>+0x64</code> and
 <code>+0x65</code> are therefore retained from the previously loaded certificate block;
-they are not initialized sector states. No direct semantic accessor for those
-two bytes has been found. [confirmed] for the load, initialization, and rebuild
-bounds; [hypothesis] for the trailing bytes’ semantic owner.</p>
+they are not initialized sector states. The load, initialization, and rebuild
+bounds are confirmed. [confirmed] No direct semantic accessor for the trailing
+bytes has been found. [hypothesis]</p>
 <p><code>3C:7DA9</code> indexes the sector-state array as
 <code>(archive_page &gt;&gt; 2) - 2</code>. Page <code>08</code> maps to slot <code>0</code>, page <code>0C</code> maps to slot
 <code>1</code>, and each later 64 KiB sector advances one slot. The normal path writes
@@ -603,7 +637,7 @@ mirror. The normal phase machine emits the following values: [confirmed]</p>
 <p>The <code>GCFLASH</code> trace takes a short path. The master byte at <code>3E:7DED</code> receives
 <code>0xFE</code> at clock <code>334587331</code> and <code>0xE0</code> at clock <code>338262732</code>. Slot <code>0</code> at
 <code>3E:7DF0</code>, which maps page <code>08</code>, receives <code>0xFE</code> at clock <code>335222873</code> and
-<code>0xFC</code> at clock <code>338237430</code>. [confirmed] for the decoded TilEm trace.</p>
+<code>0xFC</code> at clock <code>338237430</code> in the decoded TilEm trace. [confirmed]</p>
 <p>The rebuild worker also issues program commands with data <code>0xFF</code> while copying
 the block. Those commands cannot clear NOR bits and are not phase transitions.
 <code>tools/gc_journal.py</code> separates them from state-changing commands. Its CLI can
@@ -625,9 +659,10 @@ belongs to the sole certificate half whose base marker is <code>0x00</code>. [co
 The fixture supports that assumption in three independent ways: all 62 ordinary
 program invocations and all six certificate invocations end at OS success
 resets, the decoder finds no unmatched writes, and later trace reads use the
-programmed archive state. TLMT does not directly record ASIC or Flash-device
-acceptance, so the CLI requires <code>--accept-command-shapes</code>. [confirmed] for this
-fixture; [hypothesis] for an arbitrary trace.</p>
+programmed archive state. This supports the assumption for this fixture, and
+the CLI requires <code>--accept-command-shapes</code>. [confirmed] TLMT does not directly
+record ASIC or Flash-device acceptance, so applying the assumption to an
+arbitrary trace remains unverified. [hypothesis]</p>
 <p>The active journal has flags <code>0xFB</code>, archive limit <code>0x2A</code>, selected sector page
 <code>0x08</code>, and active half base <code>0xFA000</code>. The <code>0xFF</code> snapshot begins only when
 <code>3E:6000</code> reaches its final <code>0x00</code> marker at clock <code>334577678</code>. The earlier
@@ -649,7 +684,7 @@ trace then supplies active <code>0xFE</code> and <code>0xE0</code> snapshots: [c
 <code>0xFF</code> and <code>0xFE</code> paths erase the page-<code>08</code> archive sector and both certificate
 halves while completing the sector move. The <code>0xE0</code> path programs the page-<code>0C</code>
 sector header to <code>0xF0</code> and performs certificate cleanup without erasing page
-<code>08</code>. [confirmed] for TilEm.</p>
+<code>08</code> under TilEm. [confirmed]</p>
 <p>Replaying each recovery trace over its input image produces SHA-256
 <code>8c857701d7da118d5c5f4c240ee21af91a10b95539059e74fb5e423368a683f9</code>.
 Replaying the uninterrupted <code>GCFLASH</code> trace from the pinned ROM produces the
@@ -668,8 +703,8 @@ controlled: 788b3c088e2954be5e53689afa7ac07d80159086a45d213a53f88952a65dd2e1
 </code></pre>
 <p>The starting topology is synthetic, but the unmodified ROM writes the journal
 and all later archive state. Its <code>GCFLASH</code> trace reaches <code>3C:7801</code> and writes
-active <code>0xFC</code> and <code>0xF8</code> phases. Fresh-RAM cold boots visit the statically
-decoded recovery branches: [confirmed] for TilEm.</p>
+active <code>0xFC</code> and <code>0xF8</code> phases. Fresh-RAM cold boots under TilEm visit the
+statically decoded recovery branches: [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -698,8 +733,8 @@ name/size pairs. [confirmed]</p>
 <p>Running <code>GCFLASH</code> from the reconstructed input puts its dead record in page
 <code>10</code>; page <code>08</code> and page <code>0C</code> remain occupied when
 <code>gc_check_archive_consistency</code> runs. An unmodified-ROM recapture takes the
-direct <code>0xFE → 0xF0</code> transition and reproduces the phase image hash below.
-[confirmed] for TilEm.</p>
+direct <code>0xFE → 0xF0</code> transition and reproduces the phase image hash below under
+TilEm. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -722,10 +757,10 @@ both certificate halves and produces the recovered SHA-256
 <code>39113ee67921340b8817e35576a8f8fda467122af7713b099f399512d65d9bc3</code>.
 Cold-booting the recovered output produces no Flash commands. Thus the <code>0xF0</code>
 case converges to the same stable Flash image after deferred <code>0xE0</code> cleanup,
-not at the first trace endpoint. [confirmed] for TilEm.</p>
+not at the first trace endpoint under TilEm. [confirmed]</p>
 <p>TilEm and Wabbitemu exercise all six phase boundaries after successful command
-boundaries. Cuts during busy commands and physical power loss remain untested.
-[confirmed] for the emulator runs; [hypothesis] for the remaining cases.</p>
+boundaries. [confirmed] Cuts during busy commands and physical power loss
+remain untested. [hypothesis]</p>
 <h3 id="wabbitemu-restart-at-six-journal-boundaries"><a class="header" href="#wabbitemu-restart-at-six-journal-boundaries">Wabbitemu restart at six journal boundaries</a></h3>
 <p>A Linux headless adapter now runs the pinned Wabbitemu commit <code>48c2dc0</code> without
 its Windows interface. The acquisition procedure verifies the codeload archive
@@ -762,8 +797,8 @@ image. It executes 20,000,000 instructions and 231,942,592 t-states before
 reaching ten unchanged Flash samples. Its complete 1 MiB output equals both the
 TilEm recovery and the normalized uninterrupted result.
 <code>tools/compare_flash_images.py</code> enforces the input hashes and complete-image
-equality. [confirmed] for all six Wabbitemu command-boundary runs;
-[hypothesis] for cuts during busy commands and physical power loss.</p>
+equality for all six Wabbitemu command-boundary runs. [confirmed] Cuts during
+busy commands and physical power loss remain untested. [hypothesis]</p>
 <p>The cold-start caller at <code>00:0D73</code> reaches the wrapper at <code>3D:6098</code> through
 the bjump stub at <code>00:3EEB</code>. Wabbitemu accepts the protected <code>OUT (0x14),A</code>
 at <code>3D:60A6</code>, changing its gate from locked to unlocked. The wrapper enters
@@ -837,7 +872,7 @@ page. The catalog <strong>MEM</strong> path runs through <code>3C:7121</code>. [
 <tr><td><code>38:62A9</code></td><td><code>_StoOther</code></td><td>store value into named var</td></tr>
 <tr><td><code>38:67B1</code></td><td><code>_RclVarSym</code></td><td>recall var by symbol</td></tr>
 <tr><td><code>3A:5D07</code></td><td><code>rcl_var_push</code></td><td>recall var, push to FPS</td></tr>
-<tr><td><code>3D:6745</code></td><td><code>_FlashToRam</code></td><td>copy archived data Flash→RAM (page-aware); <code>ti83plus.inc</code> sibling <code>_FlashToRam2</code> (id 8054) is named but its body is unmapped in the disassembly</td></tr>
+<tr><td><code>3D:6745</code></td><td><code>_FlashToRam</code></td><td>copy archived data Flash→RAM (page-aware); <code>ti83plus.inc</code> sibling <code>_FlashToRam2</code> (ID <code>8054h</code>) maps to <code>3F:4888</code></td></tr>
 <tr><td><code>3D:678C</code></td><td><code>ram_worker_launcher</code></td><td>copy a length-prefixed worker to <code>0x8100</code> and execute it; used by <code>_FlashToRam</code> and certificate-page programming</td></tr>
 <tr><td><code>3D:61AF</code></td><td><code>archive_prepare_scan</code></td><td>prepare archive accounting and scan state</td></tr>
 <tr><td><code>3D:64AA</code></td><td><code>archive_write_record</code></td><td>program a complete archive record; executed in the archive trace</td></tr>
@@ -952,7 +987,7 @@ The target loads error code <code>0xAF</code> (<code>E_Archived</code>) and ente
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="sub-apps-mem-settings.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="sub-resident-programs.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -966,7 +1001,7 @@ The target loads error code <code>0xAF</code> (<code>E_Archived</code>) and ente
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="sub-apps-mem-settings.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="sub-resident-programs.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

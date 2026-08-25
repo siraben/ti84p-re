@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Subsystem map - TI-84 Plus OS — Reverse Engineering</title>
+        <title>Resident scratch RAM - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
@@ -179,63 +179,252 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <h1 id="subsystem-map-bcall-api-surface"><a class="header" href="#subsystem-map-bcall-api-surface">Subsystem map (bcall API surface)</a></h1>
-<p>This page groups the roughly 600 named bcall entry points by subsystem. The
-result shows the public API used by both application code and the OS itself.</p>
+                        <h1 id="resident-scratch-ram"><a class="header" href="#resident-scratch-ram">Resident scratch RAM</a></h1>
+<p>Long-running assembly programs cannot treat the usual TI-OS work buffers as
+anonymous memory while continuing to call arbitrary OS routines. Two OS
+2.55MP traces directly overwrite <code>OP1</code>–<code>OP6</code>, <code>iMathPtr1</code>–<code>iMathPtr5</code>,
+<code>textShadow</code>, and every byte of <code>saveSScreen</code>. The remaining advertised ranges
+have subsystem owners that make them conditional, even where these traces did
+not touch them. [confirmed]</p>
+<p>The measurements are in <code>tools/data/scratch-ram-observations.csv</code> and
+<code>tools/data/scratch-guard-results.csv</code>.
+Regenerate a row set from a full-range TilEm trace with:</p>
+<pre><code class="language-sh">nix develop --command python3 tools/analyze_scratch_trace.py TRACE \
+  --initial-port-5 0 --initial-port-7 0x81 \
+  --scenario NAME --model ti84p --os-version 2.55MP --format csv
+</code></pre>
+<p>The initial selectors matter when a trace starts after TI-OS established its
+normal mapping. A zero result means only that the scenario did not write the
+range; it is not evidence that the range is safe.</p>
+<p>The launch and interactive trace SHA-256 values are
+<code>e61293d420f92b37dfa0d118f14896287735989c9292210933f1abca4ef6b0fa</code>
+and <code>23338cdef33bc3f47988a3bf48089f25405205109b83421c3c1a9219f2e90505</code>.
+The recorded rows identify the emulator only as <code>emulator-unspecified</code>; the
+trace contents are pinned, but the emulator binary and source revision are not.
+Each TLMT initial snapshot has fixed Flash page <code>0x00</code> SHA-256
+<code>bfc698e445d98d6d0905589ec34a88c9372a90cb0ed2d1fe9aa9b6fca0962fc1</code>.
+That hash matches page <code>0x00</code> in both known OS 2.55MP images. [confirmed]
+Neither trace has a complete-ROM sidecar, so the hash does not identify the
+boot pages or the complete image.</p>
+<h2 id="observed-clobbers-confirmed"><a class="header" href="#observed-clobbers-confirmed">Observed clobbers [confirmed]</a></h2>
+<p>Both scenarios are direct compiled <code>Asm(</code> launches of the local <code>ti84-forth</code>
+runtime. The second continues through cooked-input activity. Counts are memory
+writes, followed by the number of distinct bytes touched.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Subsystem</th><th style="text-align: right">~bcalls</th><th>Representative entry points</th></tr>
+<tr><th>Buffer</th><th>Address range</th><th style="text-align: right">Launch</th><th style="text-align: right">Interactive input</th><th>Classification</th></tr>
 </thead>
 <tbody>
-<tr><td><strong>Floating-point / numeric</strong></td><td style="text-align: right">~230 (+~120 more in “misc”)</td><td><code>_FPAdd</code>,<code>_Times2</code>,<code>_DivHLBy10</code>,<code>_Intgr</code>,<code>_Trunc</code>,<code>_DToR</code>,<code>_RToD</code>,<code>_Min</code>,<code>_Max</code>,<code>_SqRoot</code></td></tr>
-<tr><td><strong>Display / LCD</strong></td><td style="text-align: right">~41</td><td><code>_PutMap</code>,<code>_PutC</code>,<code>_PutS</code>,<code>_DispHL</code>,<code>_NewLine</code>,<code>_ClrLCDFull</code>,<code>_VPutS</code>,<code>_GrBufCpy</code></td></tr>
-<tr><td><strong>Variables / VAT</strong></td><td style="text-align: right">~37</td><td><code>_FindSym</code>,<code>_ChkFindSym</code>,<code>_CreateReal</code>,<code>_CreateStrng</code>,<code>_CreateAppVar</code>,<code>_DelVar</code>,<code>_InsertMem</code>,<code>_Arc_Unarc</code></td></tr>
-<tr><td><strong>String / convert</strong></td><td style="text-align: right">~18</td><td><code>_ExpToHex</code>,<code>_OP1ExpToDec</code>,<code>_CreateStrng</code>,<code>_StrCopy</code>,<code>_Get_Tok_Strng</code></td></tr>
-<tr><td><strong>Parser / TI-BASIC</strong></td><td style="text-align: right">~18</td><td><code>_IsA2ByteTok</code>,<code>_GetTokLen</code>,<code>_BinOPExec</code>,<code>_ParseInp</code></td></tr>
-<tr><td><strong>Link / I-O</strong></td><td style="text-align: right">~15</td><td><code>_SendAByte</code>,<code>_RecAByteIO</code>,<code>_SendVarCmd</code>,<code>_Rec1stByte</code>,<code>link_xfer_op</code></td></tr>
-<tr><td><strong>System / power</strong></td><td style="text-align: right">~15</td><td><code>_AppInit</code>,<code>_PutAway</code>,<code>_RandInit</code>,<code>_ApdSetup</code>,<code>_Chk_Batt_Low</code>,<code>_SetExSpeed</code>,<code>_JForceCmd</code></td></tr>
-<tr><td><strong>Boot cryptography</strong></td><td style="text-align: right">5</td><td><code>_MD5Init</code>, <code>_MD5Update</code>, <code>_MD5Final</code>, <code>_SigModR</code>, <code>_TransformHash</code></td></tr>
-<tr><td><strong>List / Matrix</strong></td><td style="text-align: right">~13</td><td><code>_CreateRList</code>,<code>_CreateCList</code>,<code>_CreateRMat</code>,<code>_ErrDimMismatch</code>,dim/element ops</td></tr>
-<tr><td><strong>Keyboard</strong></td><td style="text-align: right">~5</td><td><code>_GetCSC</code>,<code>_GetKey</code>,<code>_KeyToString</code></td></tr>
-<tr><td><strong>Menu / UI</strong></td><td style="text-align: right">~5</td><td><code>_DispMenuTitle</code>,<code>_CursorOn</code>,<code>_CursorOff</code>,<code>_RunIndicOn</code>,<code>_RunIndicOff</code></td></tr>
+<tr><td><code>OP1</code>–<code>OP6</code></td><td><code>ram:8478</code>–<code>ram:84B9</code></td><td style="text-align: right">218 / 44</td><td style="text-align: right">824 / 44</td><td>Unsafe across ordinary parser, VAT, and floating-point calls</td></tr>
+<tr><td><code>iMathPtr1</code>–<code>iMathPtr5</code></td><td><code>ram:84D3</code>–<code>ram:84DC</code></td><td style="text-align: right">80 / 8</td><td style="text-align: right">88 / 10</td><td>Unsafe across VAT, graph, table, and link activity</td></tr>
+<tr><td><code>textShadow</code></td><td><code>ram:8508</code>–<code>ram:8587</code></td><td style="text-align: right">442 / 128</td><td style="text-align: right">1,097 / 21</td><td>Unsafe with ordinary text display</td></tr>
+<tr><td><code>saveSScreen</code></td><td><code>ram:86EC</code>–<code>ram:89EB</code></td><td style="text-align: right">2,304 / 768</td><td style="text-align: right">3,072 / 768</td><td>Unsafe in the normal launch state</td></tr>
+<tr><td><code>statVars</code></td><td><code>ram:8A3A</code>–<code>ram:8C4C</code></td><td style="text-align: right">0 / 0</td><td style="text-align: right">0 / 0</td><td>Candidate only after <code>_DelRes</code>, with statistics and shell interrupts excluded</td></tr>
+<tr><td>Table/solver workspace</td><td><code>ram:91DC</code>–<code>ram:9301</code></td><td style="text-align: right">0 / 0</td><td style="text-align: right">0 / 0</td><td>Candidate only while table, solver, finance, and graph-table contexts are excluded</td></tr>
+<tr><td><code>plotSScreen</code></td><td><code>ram:9340</code>–<code>ram:963F</code></td><td style="text-align: right">0 / 0</td><td style="text-align: right">0 / 0</td><td>Unsafe when graph or buffered-display routines remain available</td></tr>
+<tr><td><code>appBackUpScreen</code></td><td><code>ram:9872</code>–<code>ram:9B71</code></td><td style="text-align: right">0 / 0</td><td style="text-align: right">0 / 0</td><td>Candidate only in a controlled assembly context without app or menu transitions</td></tr>
 </tbody>
 </table>
 </div>
-<p>(Counts approximate — keyword buckets overlap; ~170 “misc” are mostly more math/int helpers.)</p>
-<h2 id="reading-the-map"><a class="header" href="#reading-the-map">Reading the map</a></h2>
-<p>This is a calculator: roughly two-thirds of the API is numeric, and everything else is comparatively small glue. The architecture flows:</p>
-<pre class="mermaid">flowchart TD
-    KP([keypad]) --&gt; GK["_GetKey"] --&gt; P[parser] --&gt; TD[token dispatch]
-    TD --&gt; VAT["VAT · _FindSym&lt;br/&gt;variables"]
-    TD --&gt; FP["FP engine · OP1..6&lt;br/&gt;arithmetic / transcendentals"]
-    TD --&gt; DISP["display · _PutMap&lt;br/&gt;homescreen / graph"]
-    VAT --&gt; R["result in OP1&lt;br/&gt;shown via _DispOP1A / _PutS"]
-    FP --&gt; R
-    DISP --&gt; R
-</pre>
+<p>The traces include writers at <code>ram:1F37</code> and <code>07:51FA</code> for operand storage,
+<code>07:4F70</code>–<code>07:4F82</code> for iMath pointers, and <code>01:617A</code> and <code>01:61C2</code> for text
+state. The page-<code>0x3B</code> display-save loop writes every byte of <code>saveSScreen</code> at
+its <code>3B:69C2</code> store. [confirmed]</p>
+<p>Static ROM ownership disqualifies the zero-write rows as unconditional storage:
+<code>_GrBufClr</code> clears <code>plotSScreen</code>; graph primitives consume it; table, solver,
+finance, and graph-table code own the <code>ram:91DC</code> workspace; statistics routines
+deposit named results in <code>statVars</code>; and app/menu state paths use
+<code>appBackUpScreen</code>. [confirmed]</p>
+<p>There is consequently no buffer in this table that remains stable while every
+display, keyboard, VAT, archive, graph, table, statistics, app, error, APD,
+link, and USB path is allowed. A runtime may borrow a conditional range only by
+defining the excluded calls and contexts as part of its ABI.</p>
+<h2 id="conditional-savesscreen-and-statvars-claims"><a class="header" href="#conditional-savesscreen-and-statvars-claims">Conditional <code>saveSScreen</code> and <code>statVars</code> claims</a></h2>
+<p>Public TI-83 Plus documentation permits <code>saveSScreen</code> after <code>_DisableApd</code>, and
+permits <code>statVars</code> after <code>_DelRes</code> when statistics code is excluded. <code>_DelRes</code>
+invalidates existing statistics results; it does not reserve the block against
+later statistics commands or third-party interrupt handlers. [standard]</p>
+<h3 id="direct-ti-os-guard"><a class="header" href="#direct-ti-os-guard">Direct TI-OS guard</a></h3>
+<p>The guarded direct-launch fixture calls <code>_DisableApd</code> and <code>_DelRes</code>, fills all
+768 bytes of <code>saveSScreen</code> with <code>0xA5</code> and all 531 bytes of <code>statVars</code> with
+<code>0x5A</code>, polls <code>_GetCSC</code>, blocks in <code>_GetKey</code>, and receives one injected <strong>ON</strong>
+event. Both complete checks pass, and the fixture displays <code>SAVE STAT 1 1</code>.
+This result is limited to TI-OS 2.55MP in one TilEm x4 run. Its trace SHA-256
+is <code>716fe78c274536d2d486d53c2d1b89606c0aafee101c5562202d658250b52508</code>.
+Its TLMT Flash page <code>0x00</code> hash matches the launch traces, but it also lacks a
+complete-ROM sidecar. The recorded capture context and trace content establish
+this emulator result; the trace does not independently identify every ROM page.
+[confirmed]</p>
+<p>Build the TI-BASIC <code>Asm(prgmSCRPROBE)</code> wrapper with
+<code>tools/build_scratch_probe_wrapper.py</code>; then assemble
+<code>tools/fixtures/scratch_guard_probe.asm</code> and run
+<code>tools/macros/scratch-guard-probe.macro</code>. The full trace executes 14,736
+instructions in the payload range, including the 767- and 530-byte fill
+<code>LDIR</code>s and the complete 768- and 531-byte comparison loops. The fixture halts
+after rendering the result so a held <strong>ON</strong> key cannot enter another <code>_GetKey</code>.</p>
+<p>This confirms the documented <code>saveSScreen</code> condition for that direct emulator
+scenario. It does not cover an APD timeout, error unwinding, physical hardware,
+or statistics code after <code>_DelRes</code>.</p>
+<h3 id="shell-owned-statvars-ranges"><a class="header" href="#shell-owned-statvars-ranges">Shell-owned <code>statVars</code> ranges</a></h3>
+<p>Common shells do not share one <code>statVars</code> contract. The table separates static
+shell ownership from the direct dynamic guard. Identified owned ranges come
+from the release source or binary. [confirmed] Untraced runtime cells remain
+open.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Context</th><th>Result</th><th>Evidence and boundary</th></tr>
+</thead>
+<tbody>
+<tr><td>Direct TI-OS 2.55MP</td><td>All 531 bytes pass</td><td>One TilEm x4 guard with <code>_DelRes</code>, statistics excluded, and IM1; no physical run</td></tr>
+<tr><td>MirageOS 1.2 with tasker disabled</td><td>Candidate only</td><td>The setup routine returns while tasker flag bit 6 at <code>0x9689</code> is clear; no client guard run</td></tr>
+<tr><td>MirageOS 1.2 with tasker or custom interrupt active</td><td>Unsafe</td><td>The original binary installs timers, handler code, and an IM2 vector table inside <code>statVars</code> before client execution</td></tr>
+<tr><td>Doors CS 7.4</td><td>Unsafe as general client storage</td><td>Source reserves the block for shell state; its Mirage-compatible interrupt also installs code and vectors there</td></tr>
+<tr><td>Ion 1.6</td><td>Unresolved</td><td>Source review pins no Ion-owned interrupt in this block; no client guard run</td></tr>
+<tr><td>zStart 1.3.013</td><td>Unresolved</td><td>The launcher selects IM1 for the client and pins no explicit shell owner in this block; no client guard run</td></tr>
+</tbody>
+</table>
+</div>
+<p>MirageOS’s tasker setup at mapped <code>0x7176</code>–<code>0x71E9</code> writes these ranges:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Range</th><th>MirageOS owner</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x8A3A</code>–<code>0x8A3E</code></td><td>three timer counters and two reload values</td></tr>
+<tr><td><code>0x8A4F</code>–<code>0x8A88</code></td><td>relocated interrupt code</td></tr>
+<tr><td><code>0x8A8A</code>–<code>0x8AFE</code></td><td>relocated interrupt dispatcher</td></tr>
+<tr><td><code>0x8B00</code>–<code>0x8C00</code></td><td>257-byte IM2 vector table built by <code>_MemSet = 4C33h</code></td></tr>
+<tr><td><code>0x8C01</code>–<code>0x8C1B</code></td><td>relocated timer worker</td></tr>
+</tbody>
+</table>
+</div>
+<p>The timer worker at mapped <code>0x7140</code>–<code>0x715A</code> updates the first five bytes. The
+launch paths call the setup routine before calling the client at <code>0x9680</code> or
+<code>0x9D96</code>; they select IM1 only after that call returns at mapped <code>0x7584</code> or
+<code>0x75A3</code>. A client can therefore run while the MirageOS IM2 owner is active.
+[confirmed]</p>
+<p>Doors CS source defines <code>pendfile = 0x8A3A</code> and places up to 48 bytes of ALE
+vectors after its ten-byte record, occupying <code>0x8A3A</code>–<code>0x8A73</code>. Its source
+also declares the complete 531-byte <code>statVars</code>/<code>anovaf_vars</code> span as internal
+storage. The Mirage-compatible <code>mos_setupint</code> routine installs its handler at
+<code>0x8A8A</code>, its vector table at <code>0x8B00</code>–<code>0x8C00</code>, and optional timers at
+<code>0x8A3A</code>–<code>0x8A3E</code>. <code>_DelRes</code> does not release these shell-owned objects.
+[confirmed]</p>
+<p><code>tools/data/scratch-guard-results.csv</code> records the direct trace, the exact
+MirageOS and Doors CS owned ranges, and explicit <code>not-run</code> rows for Ion and
+zStart. Dynamic guards under all four shells and physical-calculator runs
+remain required before the checklist’s common-shell requirement is complete.</p>
+<h2 id="page-0x83-during-resident-execution"><a class="header" href="#page-0x83-during-resident-execution">Page <code>0x83</code> during resident execution</a></h2>
+<p>Page <code>0x83</code> is OS state rather than a spare 16 KiB page. The two resident traces
+add the following observations to the boot and expression traces documented in
+<a href="ram-pages.html">RAM pages</a>:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Scenario</th><th style="text-align: right">Writes</th><th>Touched range</th></tr>
+</thead>
+<tbody>
+<tr><td>Direct resident launch</td><td style="text-align: right">2,304</td><td><code>83:5A7E</code>–<code>83:5D7D</code></td></tr>
+<tr><td>Interactive resident input</td><td style="text-align: right">3,840</td><td><code>83:5A7E</code>–<code>83:5D7D</code></td></tr>
+<tr><td>Guarded <code>_GetKey</code> wait interrupted by <strong>ON</strong></td><td style="text-align: right">3,893</td><td><code>83:4373</code>–<code>83:4390</code>, <code>83:577E</code>–<code>83:5794</code>, and <code>83:5A7E</code>–<code>83:5D7D</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The range is the LCD/home-display capture area. Combining these runs with ROM,
+boot, and expression evidence gives these known owners:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Page-<code>0x83</code> range</th><th>Owner</th></tr>
+</thead>
+<tbody>
+<tr><td><code>83:4000</code>–<code>83:4080</code></td><td>App base-page staging [standard]</td></tr>
+<tr><td><code>83:4100</code>–<code>83:433A</code></td><td>USB communication buffers [standard]</td></tr>
+<tr><td><code>83:4373</code>–<code>83:4390</code></td><td>Expression-path block copy [confirmed]</td></tr>
+<tr><td><code>83:43D9</code>–<code>83:44BD</code></td><td>Boot/home block copy [confirmed]</td></tr>
+<tr><td><code>83:577E</code>–<code>83:5A7D</code></td><td>MathPrint previous-entry history [confirmed]</td></tr>
+<tr><td><code>83:5A7E</code>–<code>83:5D7D</code></td><td>LCD/home-display capture [confirmed]</td></tr>
+<tr><td><code>83:5D7E</code>–<code>83:5DF2</code></td><td>Additional boot/home writes in the measured scenario [confirmed]</td></tr>
+</tbody>
+</table>
+</div>
+<p>All holes are candidates, not safe ranges. A separate direct-TI-OS trace covers
+one division-by-zero dialog without adding a range beyond the boot baseline.
+Current coverage still omits USB receive, archive garbage collection,
+statistics, the program editor, app transitions, APD timeout, and third-party
+interrupts. The <code>_GetKey</code> guard called <code>_DisableApd</code>, so its <strong>ON</strong> event does not
+cover APD. [confirmed]</p>
+<p>Selectors <code>0x82</code>–<code>0x87</code> alias one physical RAM page on 48 KiB ASICs. Pages
+<code>0x84</code>–<code>0x87</code> still need forced read/write/hash probes on 128 KiB calculators;
+an emulator’s unused page is not hardware confirmation. [standard]</p>
+<h2 id="mapping-a-ram-page-through-bank-a"><a class="header" href="#mapping-a-ram-page-through-bank-a">Mapping a RAM page through bank A</a></h2>
+<p>The page-zero bcall dispatcher at <code>ram:2A2F</code> restores the caller’s port-<code>0x06</code>
+selector on ordinary return. During the bcall, however, the dispatcher maps its
+own target into <code>0x4000</code>–<code>0x7FFF</code>, so a pointer into a borrowed bank-A page is
+invalid. An OS error can also bypass caller-owned cleanup. [confirmed]</p>
+<p>A bounded copy operation should save the selector and interrupt state, map the
+page, copy, and restore before making another bcall:</p>
+<pre><code class="language-z80">    LD A,I
+    PUSH AF             ; P/V records IFF2
+    DI
+    IN A,(0x0E)
+    PUSH AF
+    IN A,(0x06)
+    PUSH AF
 
-<p>Cross-cutting services used by all of the above: <a href="bcall-mechanism.html">the bcall mechanism</a>, <a href="interrupts.html">interrupt dispatch</a>, <a href="clock-timers-power.html">clock/timers/APD/power</a>, <a href="md5-hardware.html">MD5 and boot signature arithmetic</a>, error handling (<code>_JError</code> + <code>TIError</code> codes), and the system flags (<code>SystemFlags</code> @ <code>flags</code>).</p>
-<h2 id="execution-through-line"><a class="header" href="#execution-through-line">Execution through-line</a></h2>
-<ol>
-<li><strong>Interrupt</strong> keeps time, scans the keypad into <code>kbdScanCode</code>, runs APD.</li>
-<li><code>_GetKey</code> turns scan codes into key codes (<code>TIKeyCode</code>), driving menus and the homescreen.</li>
-<li>The parser reads tokenized input/programs, dispatching each <code>TIToken</code>.</li>
-<li>Number tokens → FP engine (OP1–OP6, BCD); name tokens → VAT (<code>_FindSym</code>).</li>
-<li>Results land in <code>OP1</code> and are rendered by the display subsystem.</li>
-<li><strong>bcall + paging</strong> is the substrate that lets steps 3–5 live on different flash pages; errors unwind via <code>_JError</code>/<code>onSP</code>.</li>
-</ol>
-<p>See the subsystem pages linked above and in the sidebar for detail.</p>
+    XOR A
+    OUT (0x0E),A
+    LD A,0x83
+    OUT (0x06),A
+
+    ; Copy only. Do not call a bcall with a pointer into bank A.
+
+    POP AF
+    OUT (0x06),A
+    POP AF
+    OUT (0x0E),A
+    POP AF
+    JP PO,interrupts_were_disabled
+    EI
+interrupts_were_disabled:
+</code></pre>
+<p>Code running in bank A cannot use this sequence to map out its own instruction
+stream. Keep interrupts disabled for the entire nonstandard mapping unless the
+interrupt handler is proven independent of normal bank-A ROM. Restore both
+ports even though port <code>0x0E</code> is ignored by TI-84 Plus and TI-84 Plus SE
+hardware; doing so keeps the helper transparent and portable to related models.</p>
+<h2 id="sources"><a class="header" href="#sources">Sources</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Source</th><th>Use here</th></tr>
+</thead>
+<tbody>
+<tr><td>OS 2.55MP ROM and <code>tools/analyze_scratch_trace.py</code></td><td>ROM ownership and trace write attribution</td></tr>
+<tr><td><code>tools/data/scratch-ram-observations.csv</code></td><td>launch scenarios, selector assumptions, and write counts</td></tr>
+<tr><td><code>tools/data/scratch-guard-results.csv</code></td><td>guard trace identity, shell-owned ranges, and evidence limits</td></tr>
+<tr><td><a href="https://education.ti.com/download/en/ed-tech/830D08FF31804AEAA2F03B8F5E89AD14/672891A1E98349CAB91C11B4928C253C/sdk83pguide.pdf">TI-83 Plus Developer Guide</a></td><td>documented <code>saveSScreen</code>, <code>statVars</code>, <code>_DisableApd</code>, and <code>_DelRes</code> conditions</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:OS:Ram_Pages&amp;oldid=11670">WikiTI RAM pages, revision 11670</a></td><td>public page-<code>0x83</code> owners and <code>0x82</code>–<code>0x87</code> alias behavior</td></tr>
+<tr><td><a href="https://www.ticalc.org/pub/83plus/flash/shells/mirageos.zip">MirageOS 1.2 release archive</a>, SHA-256 <code>38dc70173818972de8c5eb78099e8870c7acb9ad4c62d290f6c6f5840c71d43b</code></td><td>tasker setup and client-launch control flow</td></tr>
+<tr><td><a href="https://github.com/KermMartian/Doors_CS_7/tree/33af4f5ede199eee77cf2f89b5463a0a6ec9a1af">Doors CS source at <code>33af4f5</code></a></td><td>shell state, ALE vectors, and Mirage-compatible interrupt ownership</td></tr>
+<tr><td><a href="https://www.ticalc.org/pub/83plus/asm/shells/ion.zip">Ion 1.6 release archive</a>, SHA-256 <code>b5a5ba97f325f8779aa35cda23e38152087930298ff8b7b8573905710230e6e6</code></td><td>source review for the unresolved Ion row</td></tr>
+<tr><td><a href="https://www.ticalc.org/pub/83plus/flash/shells/zstart.zip">zStart 1.3.013 release archive</a>, SHA-256 <code>7a1b7c69c85030b412bb6ea11ae71ac608b9882a9de3ab7dbef1faf69519c5e9</code></td><td>source review for the unresolved zStart row</td></tr>
+</tbody>
+</table>
+</div>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="system-overview.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="sub-shell-loaders.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="conventions.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="sub-apps-mem-settings.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -245,11 +434,11 @@ result shows the public API used by both application code and the OS itself.</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="system-overview.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="sub-shell-loaders.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="conventions.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="sub-apps-mem-settings.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

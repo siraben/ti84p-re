@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0e4eff2a.js";
+            window.path_to_searchindex_js = "searchindex-f09341ee.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-b88a411b.js"></script>
+        <script src="toc-34eae533.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -847,6 +847,45 @@ nix develop -c python tools/run_wabbitemu_protection_port_probe.py \
 <pre><code class="language-console">$ python tools/disassemble_rom.py 0x3f --start 0x41d5 --end 0x4206
 $ python tools/analyze_rom_io.py 0x21 0x22 0x23 0x24 0x25 0x26 --summary
 </code></pre>
+<h2 id="community-execution-techniques"><a class="header" href="#community-execution-techniques">Community execution techniques</a></h2>
+<p>Crabcake’s original source uses two model-specific methods. On a 6 MHz
+TI-83 Plus it uses a Flash-unlock exploit, locates a protected
+<code>OUT (0x16),A</code> routine on Flash page <code>0x1F</code>, and calls it with <code>0x00</code> or <code>0x07</code>.
+Separate exploit code changes the port-<code>0x05</code> mapping. On the
+TI-83+SE/TI-84+/SE family it does not rewrite ports <code>0x25</code> or <code>0x26</code>. With
+interrupts disabled, it swaps all <code>0x4000</code> bytes between physical RAM pages
+<code>0x80</code> and <code>0x83</code>, then maps page <code>0x83</code> into bank C. Code above <code>0xC000</code>
+remains at the same CPU address while residing on an executable odd physical
+page. The Crabcake release source contains both paths. [confirmed]</p>
+<p>The TI-84-family cleanup restores port <code>0x05</code> to an assumed normal value,
+unconditionally enables interrupts, and has no error handler around the swap.
+These operations are explicit in the release source. [confirmed] The release
+does not distinguish the later 48 KiB alias model. That hardware remains
+unsupported without a physical probe.</p>
+<p>zStart 1.3.013 implements its <code>Execute &gt;C000</code> option as a persistent policy.
+Its menu toggle first writes the assumed retail values <code>0x10</code> and <code>0x20</code> to
+ports <code>0x25</code> and <code>0x26</code>, regardless of the new option state. If the option is
+enabled, later configuration and ON-script paths call <code>unlockC000</code>, which
+writes <code>0x00</code> and <code>0xFF</code> after unlocking Flash writes. This is not a per-launch
+save/restore wrapper. The zStart release source confirms this control flow.
+[confirmed]</p>
+<p>The Swords 2 source release contains <code>FULLRENE.8xv</code>, a 229-byte AppVar payload
+with the Axiom <code>DE C0</code> signature. Both embedded command bodies contain this
+sequence: [confirmed]</p>
+<pre><code class="language-z80">    LD A,0x10
+    JR NC,+1
+    XOR A
+    OUT (0x25),A
+</code></pre>
+<p>The incoming carry therefore selects <code>0x10</code> or <code>0x00</code> for port <code>0x25</code>, and
+neither command body writes port <code>0x26</code>. One command immediately calls
+<code>_FlashWriteDisable</code> and returns. The other restores port <code>0x06</code> from the stack
+before the same bcall and return. [confirmed] The artifact does not establish a
+hardware model matrix or behavior after an OS error. Those details remain
+[hypothesis].</p>
+<p><code>tools/data/execution-protection-observations.csv</code> records the emulator and
+physical-probe classifications in the preceding sections. It does not classify
+Crabcake, zStart, or Fullrene.</p>
 <h2 id="resolved-findings-and-open-hardware-tests"><a class="header" href="#resolved-findings-and-open-hardware-tests">Resolved findings and open hardware tests</a></h2>
 <ul>
 <li>The boot writes <code>00</code>, <code>08</code>, <code>29</code>, <code>10</code>, and <code>20</code> to ports <code>0x21</code>, <code>0x22</code>,
@@ -913,6 +952,9 @@ emulator agreement is only a test oracle for emulator behavior.</p>
 <tr><td><a href="https://github.com/mamedev/mame/tree/mame0287/src/mame/ti">MAME <code>ti85.cpp</code> and <code>ti85_m.cpp</code> at <code>mame0287</code></a></td><td>absent execution-protection ports and unused Flash-unlock state</td></tr>
 <tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>protected writes, page-level <code>run_lock</code>, violation reset, and unused stored RAM-bound ports</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:22">WikiTI port <code>0x22</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:23"><code>0x23</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:24"><code>0x24</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:25"><code>0x25</code></a>, and <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:26"><code>0x26</code></a></td><td>public register descriptions, treated as secondary evidence</td></tr>
+<tr><td><a href="https://www.ticalc.org/pub/83plus/asm/libs/crabcake.zip">Crabcake release archive</a>, SHA-256 <code>84f6660c86f715e09e03637b19df47abe46b86906ed34791bc4281959186f71e</code></td><td>6 MHz protected-port path and TI-84-family page-swap path</td></tr>
+<tr><td><a href="https://www.ticalc.org/pub/83plus/flash/shells/zstart.zip">zStart 1.3.013 release archive</a>, SHA-256 <code>7a1b7c69c85030b412bb6ea11ae71ac608b9882a9de3ab7dbef1faf69519c5e9</code></td><td>persistent <code>Execute &gt;C000</code> configuration and ON-script restoration</td></tr>
+<tr><td><a href="https://www.ticalc.org/archives/files/fileinfo/449/44919.html">Swords 2 source release</a>, archive SHA-256 <code>830878e3449221664b85eb3996992ad0f8b46b7e57183c337930b7e78e5a3397</code>; <code>FULLRENE.8xv</code> SHA-256 <code>327ea2ce2a603febc46490d9758cffc12c9fc926fc1d773a0d53a5ccdf5d4ec3</code></td><td>original Fullrene Axiom command bodies</td></tr>
 </tbody>
 </table>
 </div>

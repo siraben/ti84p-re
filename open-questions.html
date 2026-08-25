@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-0e4eff2a.js";
+            window.path_to_searchindex_js = "searchindex-f09341ee.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-b88a411b.js"></script>
+        <script src="toc-34eae533.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -305,6 +305,34 @@ receiver honors the archive attribute per member. <code>HELLO</code> lands on Fl
 page-byte guard to <code>ERR:ARCHIVED</code>. See
 <a href="sub-vat-archive.html#resolved-behavior-and-open-items">Variables, archive and unarchive</a>.
 [confirmed]</p>
+<h2 id="resident-runtime-experiments"><a class="header" href="#resident-runtime-experiments">Resident-runtime experiments</a></h2>
+<p>The compiled <code>Asm(</code> launcher, its <code>0x2000</code> internal-size cap, pointer repair,
+archived lookup, scratch-buffer observations, and normal bank-A bcall restore
+are documented. The following cases remain unresolved:</p>
+<ul>
+<li>Repeat the completed direct, unarchived compiled-launch heap snapshot under
+<code>_ExecAsm</code>, archived OS paths, and shell paths with boundary-size programs.</li>
+<li>Isolate scratch-buffer writes by bcall. Complete a successful
+<code>_DisableApd</code>/<code>_DelRes</code> guard run through <code>_GetKey</code>, ON-key handling, an OS
+error, APD, archive collection, link/USB, and shell interrupts.</li>
+<li>Run RAM-selector <code>0x83</code> guards through editor, graph, table, statistics, App,
+archive-GC, and transfer contexts. Probe selectors <code>0x84</code>–<code>0x87</code> on
+identified 48 KiB and 128 KiB calculators.</li>
+<li>Measure execution-protection ports and reset behavior on each ASIC. Recover
+Fullrene from an original artifact and test instruction fetch, operand read,
+stack access, and block copy at the same physical addresses.</li>
+<li>Repeat the direct-<code>Asm(</code> maximum-AppVar measurement with representative VAT
+states. Measure the same limit under shell move loaders and one- and
+multi-page Flash Apps.</li>
+<li>Force Flash-page, sector, and garbage-collection crossings while streaming an
+archived object. Reacquire its VAT result after each moving operation.</li>
+<li>Run one instrumented self-modifying payload under Ion, MirageOS, Doors CS, and
+zStart. Record peak RAM, self-lookup bytes, normal/error/forced-exit writeback,
+interrupt state, page selectors, and scratch restoration.</li>
+<li>Interrupt a two-slot AppVar update at each create, write, archive,
+garbage-collection, and delete boundary. Verify that startup selects the last
+committed generation.</li>
+</ul>
 <h2 id="physical-hardware-work"><a class="header" href="#physical-hardware-work">Physical-hardware work</a></h2>
 <p>The emulator pages distinguish ROM behavior from TilEm, Wabbitemu, and MAME
 behavior. The items below require calculator measurements; emulator agreement
