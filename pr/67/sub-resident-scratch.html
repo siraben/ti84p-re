@@ -1,0 +1,611 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Resident scratch RAM - TI-84 Plus OS — Reverse Engineering</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="katex-383e7b8d.min.css">
+        <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-c5feb52e.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-3a621010.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">TI-84 Plus OS — Reverse Engineering</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/siraben/ti84p-re" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="resident-scratch-ram"><a class="header" href="#resident-scratch-ram">Resident scratch RAM</a></h1>
+<p>Long-running assembly programs cannot treat the usual TI-OS work buffers as
+anonymous memory while continuing to call arbitrary OS routines. Two OS
+2.55MP traces directly overwrite <code>OP1</code>–<code>OP6</code>, <code>iMathPtr1</code>–<code>iMathPtr5</code>,
+<code>textShadow</code>, and every byte of <code>saveSScreen</code>. The remaining advertised ranges
+have subsystem owners that make them conditional, even where these traces did
+not touch them. [confirmed]</p>
+<p>The measurements are in <code>tools/data/scratch-ram-observations.csv</code> and
+<code>tools/data/scratch-guard-results.csv</code>.
+Regenerate a row set from a full-range TilEm trace with:</p>
+<pre><code class="language-sh">nix develop --command python3 tools/analyze_scratch_trace.py TRACE \
+  --initial-port-5 0 --initial-port-7 0x81 \
+  --scenario NAME --model ti84p --os-version 2.55MP --format csv
+</code></pre>
+<p>The initial selectors matter when a trace starts after TI-OS established its
+normal mapping. A zero result means only that the scenario did not write the
+range; it is not evidence that the range is safe.</p>
+<p>The launch and interactive trace SHA-256 values are
+<code>e61293d420f92b37dfa0d118f14896287735989c9292210933f1abca4ef6b0fa</code>
+and <code>23338cdef33bc3f47988a3bf48089f25405205109b83421c3c1a9219f2e90505</code>.
+The recorded rows identify the emulator only as <code>emulator-unspecified</code>; the
+trace contents are pinned, but the emulator binary and source revision are not.
+Each TLMT initial snapshot has fixed Flash page <code>0x00</code> SHA-256
+<code>bfc698e445d98d6d0905589ec34a88c9372a90cb0ed2d1fe9aa9b6fca0962fc1</code>.
+That hash matches page <code>0x00</code> in both known OS 2.55MP images. [confirmed]
+Neither trace has a complete-ROM sidecar, so the hash does not identify the
+boot pages or the complete image.</p>
+<h2 id="observed-clobbers-confirmed"><a class="header" href="#observed-clobbers-confirmed">Observed clobbers [confirmed]</a></h2>
+<p>Both scenarios are direct compiled <code>Asm(</code> launches of the local <code>ti84-forth</code>
+runtime. The second continues through cooked-input activity. Counts are memory
+writes, followed by the number of distinct bytes touched.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Buffer</th><th>Address range</th><th style="text-align: right">Launch</th><th style="text-align: right">Interactive input</th><th>Classification</th></tr>
+</thead>
+<tbody>
+<tr><td><code>OP1</code>–<code>OP6</code></td><td><code>ram:8478</code>–<code>ram:84B9</code></td><td style="text-align: right">218 / 44</td><td style="text-align: right">824 / 44</td><td>Unsafe across ordinary parser, VAT, and floating-point calls</td></tr>
+<tr><td><code>iMathPtr1</code>–<code>iMathPtr5</code></td><td><code>ram:84D3</code>–<code>ram:84DC</code></td><td style="text-align: right">80 / 8</td><td style="text-align: right">88 / 10</td><td>Unsafe across VAT, graph, table, and link activity</td></tr>
+<tr><td><code>textShadow</code></td><td><code>ram:8508</code>–<code>ram:8587</code></td><td style="text-align: right">442 / 128</td><td style="text-align: right">1,097 / 21</td><td>Unsafe with ordinary text display</td></tr>
+<tr><td><code>saveSScreen</code></td><td><code>ram:86EC</code>–<code>ram:89EB</code></td><td style="text-align: right">2,304 / 768</td><td style="text-align: right">3,072 / 768</td><td>Unsafe in the normal launch state</td></tr>
+<tr><td><code>statVars</code></td><td><code>ram:8A3A</code>–<code>ram:8C4C</code></td><td style="text-align: right">0 / 0</td><td style="text-align: right">0 / 0</td><td>Candidate only after <code>_DelRes</code>, with statistics and shell interrupts excluded</td></tr>
+<tr><td>Table/solver workspace</td><td><code>ram:91DC</code>–<code>ram:9301</code></td><td style="text-align: right">0 / 0</td><td style="text-align: right">0 / 0</td><td>Candidate only while table, solver, finance, and graph-table contexts are excluded</td></tr>
+<tr><td><code>plotSScreen</code></td><td><code>ram:9340</code>–<code>ram:963F</code></td><td style="text-align: right">0 / 0</td><td style="text-align: right">0 / 0</td><td>Unsafe when graph or buffered-display routines remain available</td></tr>
+<tr><td><code>appBackUpScreen</code></td><td><code>ram:9872</code>–<code>ram:9B71</code></td><td style="text-align: right">0 / 0</td><td style="text-align: right">0 / 0</td><td>Candidate only without app/menu transitions or installed hooks that own the buffer</td></tr>
+</tbody>
+</table>
+</div>
+<p>The traces include writers at <code>ram:1F37</code> and <code>07:51FA</code> for operand storage,
+<code>07:4F70</code>–<code>07:4F82</code> for iMath pointers, and <code>01:617A</code> and <code>01:61C2</code> for text
+state. The page-<code>0x3B</code> display-save loop writes every byte of <code>saveSScreen</code> at
+its <code>3B:69C2</code> store. [confirmed]</p>
+<p>Static ROM ownership disqualifies the zero-write rows as unconditional storage:
+<code>_GrBufClr</code> clears <code>plotSScreen</code>; graph primitives consume it; table, solver,
+finance, and graph-table code own the <code>ram:91DC</code> workspace; statistics routines
+deposit named results in <code>statVars</code>; and app/menu state paths use
+<code>appBackUpScreen</code>. [confirmed]</p>
+<p>There is consequently no buffer in this table that remains stable while every
+display, keyboard, VAT, archive, graph, table, statistics, app, error, APD,
+link, and USB path is allowed. A runtime may borrow a conditional range only by
+defining the excluded calls and contexts as part of its ABI.</p>
+<h3 id="third-party-hook-ownership-of-appbackupscreen"><a class="header" href="#third-party-hook-ownership-of-appbackupscreen">Third-party hook ownership of <code>appBackUpScreen</code></a></h3>
+<p>Archived community source and complete TilEm traces identify persistent
+raw-key, parser, and IM2 residents as additional owners of
+<code>appBackUpScreen</code>. The runs use OS 2.55MP image SHA-256
+<code>dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09</code>
+and patched TilEm commit <code>d1bdc58dd321ae462a701e556fcb62bb925a78b1</code>.
+They establish emulator execution, not physical-hardware behavior. [confirmed]</p>
+<ul>
+<li>NoExec copies a raw-key hook to <code>appBackUpScreen</code> and a parser hook to
+<code>appBackUpScreen + 500</code>. It calls <code>_EnRawKeyHook</code> and <code>_EnParserHook</code>, then
+returns while the hooks remain installed according to its control flow.</li>
+<li>Plasma 1.4.1 copies its raw-key hook to <code>0x9872</code>, installs it with
+bcall <code>4F66h</code>, and launches its loader while that hook can receive key and
+<strong>ON</strong> events.</li>
+<li>Remote Control copies a key hook to its <code>KEYLOC</code> equate at
+<code>appBackUpScreen</code>, installs it with bcall ID <code>4F66h</code>, and returns. The hook
+sends bytes through <code>_SendAByte</code> when TI-OS invokes it.</li>
+<li>ONBLOCK fills <code>0x9900</code>–<code>0x99FF</code> with an IM2 vector, copies its handler to
+<code>0x9A9A</code>, selects IM2, and returns while both ranges remain live inside
+<code>appBackUpScreen</code>. Its handler clears port-<code>0x03</code> bit 0 before calling the
+TI-OS IM1 entry at <code>ram:003A</code>.</li>
+</ul>
+<p><strong>Dynamic confirmation.</strong> NoExec writes <code>0x83</code> at both <code>ram:9872</code> and
+<code>ram:9A66</code>. <code>_SetGetKeyHook</code> at <code>3B:7D00</code> then stores pointer
+<code>0x9872</code>, page <code>0x07</code>, and sets bit 5 of <code>IY + 0x34</code>.
+<code>_SetParserHook</code> at <code>3B:7D6E</code> stores pointer <code>0x9A66</code>, page <code>0x07</code>, and sets
+bit 1 of <code>IY + 0x36</code>. Remote Control reaches the same raw-key installer with
+pointer <code>0x9872</code>, while Plasma stores pointer <code>0x9872</code> with its supplied page
+byte <code>0x41</code>. These runs stop before invoking Remote Control’s link sender.
+[confirmed]</p>
+<p>The ROM installers store each callback as a packed three-byte target:</p>
+<pre><code class="language-c">#pragma pack(push, 1)
+typedef struct {
+    uint16_t callback_addr;  /* +0x00, little-endian */
+    uint8_t page;            /* +0x02 */
+} OSHookTarget;              /* 3 bytes */
+#pragma pack(pop)
+</code></pre>
+<p>The same packed record is used by these audited setters: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Hook</th><th style="text-align: right">Target record</th><th>Active flag</th><th>Setter</th><th>Clearer</th></tr>
+</thead>
+<tbody>
+<tr><td>raw key</td><td style="text-align: right"><code>ram:9B84</code></td><td>bit 5 of <code>IY + 0x34</code></td><td><code>_SetGetKeyHook = 0x4F66</code>, body <code>3B:7D00</code></td><td><code>_ClrRawKeyHook = 0x4F6F</code>, body <code>3B:7B88</code></td></tr>
+<tr><td>token</td><td style="text-align: right"><code>ram:9BC8</code></td><td>bit 0 of <code>IY + 0x35</code></td><td><code>_SetTokenHook = 0x4F99</code>, body <code>3B:7D0B</code></td><td><code>_ClearTokenHook</code></td></tr>
+<tr><td>parser</td><td style="text-align: right"><code>ram:9BAC</code></td><td>bit 1 of <code>IY + 0x36</code></td><td><code>_SetParserHook = 0x5026</code>, body <code>3B:7D6E</code></td><td><code>_ClearParserHook = 0x5029</code>, body <code>3B:7C3B</code></td></tr>
+<tr><td>silent link</td><td style="text-align: right"><code>ram:9BD0</code></td><td>bit 7 of <code>IY + 0x36</code></td><td><code>_SetSilentLinkHook = 0x50CE</code>, body <code>3B:7DBB</code></td><td><code>_DisableSilentLinkHook</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Each setter stores <code>HL</code> as the callback address, stores <code>A</code> as the page byte,
+sets only its active bit, and returns. The clear bodies at <code>3B:7B88</code> and
+<code>3B:7C3B</code> only reset their respective active bits; they do not wipe the target
+records. A controlled trace additionally installs token target
+<code>{ ram:9872, page 0 }</code> and silent-link target <code>{ ram:9875, page 0 }</code>, observes
+their active bits, and restores both records and all affected flag bytes before
+halting. The result is in <code>tools/data/community-bcall-semantics.csv</code>.
+[confirmed] under TilEm.</p>
+<p><code>_ClrCursorHook = 0x4F69</code>, body <code>3B:7AEA</code>, is not a silent-link clearer. It
+only resets bit 7 of <code>IY + 0x34</code>. The DisLink source first clears the real
+silent-link bit, bit 7 of <code>IY + 0x36</code>, itself and then calls <code>0x4F69</code> under the
+comment “actually uninstall it.” The first instruction disables its silent
+hook; the bcall separately disables any cursor hook. A controlled trace seeds
+bit 7 of <code>IY + 0x34</code>, calls the bcall, observes that bit clear, and restores the
+original flag byte. [confirmed]</p>
+<p>After the selected NoExec removal sequence, the resident reaches
+<code>_ClrRawKeyHook</code> at <code>3B:7B88</code> and <code>_ClearParserHook</code> at <code>3B:7C3B</code>; the two
+active bytes at <code>IY + 0x34</code> and <code>IY + 0x36</code> become zero. Remote Control’s
+resident removal path was not exercised because its ordinary hook events send
+link bytes. [confirmed] for NoExec; [hypothesis] for Remote Control removal.</p>
+<p>The ONBLOCK trace writes <code>0x9A</code> at <code>ram:9900</code> and <code>ram:9901</code>, copies byte
+<code>0x08</code> to its handler entry at <code>ram:9A9A</code>, and subsequently executes that
+entry 1,303 times. The source handler tail calls the TI-OS IM1 entry at
+<code>ram:003A</code>. [confirmed]</p>
+<p>An assembly runtime must therefore exclude or explicitly remove installed
+raw-key, parser, and shell hooks and persistent IM2 residents before borrowing
+this buffer. The documented <code>_DisableApd</code> and <code>_DelRes</code> conditions for other
+buffers do not establish that <code>appBackUpScreen</code> is unowned.</p>
+<p>The pinned include names <code>0x4F66</code> <code>_SetGetKeyHook</code>; the Plasma and NoExec
+sources instead describe raw-key-hook enablement. The ROM target stores the
+supplied pointer and page and sets the active flag, so this page records both
+names as aliases without deriving the callback ABI from either name.</p>
+<h2 id="conditional-savesscreen-and-statvars-claims"><a class="header" href="#conditional-savesscreen-and-statvars-claims">Conditional <code>saveSScreen</code> and <code>statVars</code> claims</a></h2>
+<p>Public TI-83 Plus documentation permits <code>saveSScreen</code> after <code>_DisableApd</code>, and
+permits <code>statVars</code> after <code>_DelRes</code> when statistics code is excluded. <code>_DelRes</code>
+invalidates existing statistics results; it does not reserve the block against
+later statistics commands or third-party interrupt handlers. [standard]</p>
+<h3 id="direct-ti-os-guard"><a class="header" href="#direct-ti-os-guard">Direct TI-OS guard</a></h3>
+<p>The guarded direct-launch fixture calls <code>_DisableApd</code> and <code>_DelRes</code>, fills all
+768 bytes of <code>saveSScreen</code> with <code>0xA5</code> and all 531 bytes of <code>statVars</code> with
+<code>0x5A</code>, polls <code>_GetCSC</code>, blocks in <code>_GetKey</code>, and receives one injected <strong>ON</strong>
+event. Both complete checks pass, and the fixture displays <code>SAVE STAT 1 1</code>.
+This result is limited to TI-OS 2.55MP in one TilEm x4 run. Its trace SHA-256
+is <code>716fe78c274536d2d486d53c2d1b89606c0aafee101c5562202d658250b52508</code>.
+Its TLMT Flash page <code>0x00</code> hash matches the launch traces, but it also lacks a
+complete-ROM sidecar. The recorded capture context and trace content establish
+this emulator result; the trace does not independently identify every ROM page.
+[confirmed]</p>
+<p>Build the TI-BASIC <code>Asm(prgmSCRPROBE)</code> wrapper with
+<code>tools/build_scratch_probe_wrapper.py</code>; then assemble
+<code>tools/fixtures/scratch_guard_probe.asm</code> and run
+<code>tools/macros/scratch-guard-probe.macro</code>. The full trace executes 14,736
+instructions in the payload range, including the 767- and 530-byte fill
+<code>LDIR</code>s and the complete 768- and 531-byte comparison loops. The fixture halts
+after rendering the result so a held <strong>ON</strong> key cannot enter another <code>_GetKey</code>.</p>
+<p>This confirms the documented <code>saveSScreen</code> condition for that direct emulator
+scenario. It does not cover an APD timeout, error unwinding, physical hardware,
+or statistics code after <code>_DelRes</code>.</p>
+<h3 id="additional-third-party-savesscreen-owners"><a class="header" href="#additional-third-party-savesscreen-owners">Additional third-party <code>saveSScreen</code> owners</a></h3>
+<p>Three older community sources deliberately execute from or overlap
+<code>saveSScreen</code>. Weird and LCD2 have complete OS 2.55MP emulator traces; GPP
+remains a static source finding. [confirmed]</p>
+<ul>
+<li>GPP 1.1 builds IM2 tables at <code>ram:8600</code> and <code>ram:8700</code>, places interrupt
+code at <code>ram:8686</code> and <code>ram:8787</code>, and alternates display buffers from the
+handler. Both code ranges overlap <code>saveSScreen</code>.</li>
+<li>Weird places a signature at <code>ram:86EC</code>, an ISR at <code>ram:8888</code>, and an IM2
+table at <code>ram:8700</code>. Its handler also reads <code>apdTimer</code> and writes the LCD
+through ports <code>0x10</code> and <code>0x11</code>.</li>
+<li>LCD2 emits a timing routine into <code>saveSScreen</code>, calls the buffer as code,
+and uses direct LCD reads to adjust its delay.</li>
+</ul>
+<p>The source-built Weird fixture writes its <code>0xFF</code> signature at <code>ram:86EC</code>,
+copies an ISR beginning with <code>0xF3</code> to <code>ram:8888</code>, fills its table at
+<code>ram:8700</code> with <code>0x88</code>, and executes the ISR entry seven times. LCD2 rewrites
+the timing entry at <code>ram:86EC</code> during calibration and executes that address
+141 times before reaching its result screen. [confirmed]</p>
+<p>GPP’s distributed examples require the legacy Ion client environment. No
+byte-matched direct-client run is recorded, so execution at <code>ram:8686</code> and
+<code>ram:8787</code> remains unmeasured. [hypothesis]</p>
+<p>These examples are evidence of additional third-party ownership, not evidence
+that the range is safe on current OS or shell combinations.</p>
+<h3 id="third-party-owned-statvars-ranges"><a class="header" href="#third-party-owned-statvars-ranges">Third-party-owned <code>statVars</code> ranges</a></h3>
+<p>Common shells and interrupt installers do not share one <code>statVars</code> contract.
+The table separates static third-party ownership from the direct dynamic guard.
+Identified owned ranges come from the release source or binary. [confirmed]
+Untraced runtime cells remain open.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Context</th><th>Result</th><th>Evidence and boundary</th></tr>
+</thead>
+<tbody>
+<tr><td>Direct TI-OS 2.55MP</td><td>All 531 bytes pass</td><td>One TilEm x4 guard with <code>_DelRes</code>, statistics excluded, and IM1; no physical run</td></tr>
+<tr><td>MirageOS 1.2 with tasker disabled</td><td>Candidate only</td><td>The setup routine returns while tasker flag bit 6 at <code>0x9689</code> is clear; no client guard run</td></tr>
+<tr><td>MirageOS 1.2 with tasker or custom interrupt active</td><td>Unsafe</td><td>The original binary installs timers, handler code, and an IM2 vector table inside <code>statVars</code> before client execution</td></tr>
+<tr><td>Doors CS 7.4</td><td>Unsafe as general client storage</td><td>Source reserves the block for shell state; its Mirage-compatible interrupt also installs code and vectors there</td></tr>
+<tr><td>ViewRegs interrupt installed</td><td>Unsafe</td><td>The release binary dynamically copies code to <code>ram:8790</code>, <code>statVars</code>, and <code>ram:8C01</code>, fills <code>ram:8B00</code> with <code>0x8A</code>, and executes <code>ram:8790</code> 656 times in TilEm; no physical run</td></tr>
+<tr><td>Ion 1.6</td><td>Unresolved</td><td>Source review pins no Ion-owned interrupt in this block; no client guard run</td></tr>
+<tr><td>zStart 1.3.013</td><td>Unresolved</td><td>The launcher selects IM1 for the client and pins no explicit shell owner in this block; no client guard run</td></tr>
+</tbody>
+</table>
+</div>
+<p>MirageOS’s tasker setup at mapped <code>0x7176</code>–<code>0x71E9</code> writes these ranges:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Range</th><th>MirageOS owner</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x8A3A</code>–<code>0x8A3E</code></td><td>three timer counters and two reload values</td></tr>
+<tr><td><code>0x8A4F</code>–<code>0x8A88</code></td><td>relocated interrupt code</td></tr>
+<tr><td><code>0x8A8A</code>–<code>0x8AFE</code></td><td>relocated interrupt dispatcher</td></tr>
+<tr><td><code>0x8B00</code>–<code>0x8C00</code></td><td>257-byte IM2 vector table built by <code>_MemSet = 4C33h</code></td></tr>
+<tr><td><code>0x8C01</code>–<code>0x8C1B</code></td><td>relocated timer worker</td></tr>
+</tbody>
+</table>
+</div>
+<p>The timer worker at mapped <code>0x7140</code>–<code>0x715A</code> updates the first five bytes. The
+launch paths call the setup routine before calling the client at <code>0x9680</code> or
+<code>0x9D96</code>; they select IM1 only after that call returns at mapped <code>0x7584</code> or
+<code>0x75A3</code>. A client can therefore run while the MirageOS IM2 owner is active.
+[confirmed]</p>
+<p>Doors CS source defines <code>pendfile = 0x8A3A</code> and places up to 48 bytes of ALE
+vectors after its ten-byte record, occupying <code>0x8A3A</code>–<code>0x8A73</code>. Its source
+also declares the complete 531-byte <code>statVars</code>/<code>anovaf_vars</code> span as internal
+storage. The Mirage-compatible <code>mos_setupint</code> routine installs its handler at
+<code>0x8A8A</code>, its vector table at <code>0x8B00</code>–<code>0x8C00</code>, and optional timers at
+<code>0x8A3A</code>–<code>0x8A3E</code>. <code>_DelRes</code> does not release these shell-owned objects.
+[confirmed]</p>
+<p>ViewRegs calls <code>_DelRes</code>, then copies a 603-byte interrupt block to
+<code>IntAddress = saveSScreen + 767 - 603</code>. It copies another block to the start of
+<code>statVars</code>, builds an IM2 vector table at <code>0x8B00</code>–<code>0x8C00</code>, and places another
+handler block at <code>0x8C01</code>. Its readme warns that <code>statVars</code> must not be accessed
+and statistics must not run while the interrupt is active. The trace observes
+first writes at <code>ram:8790</code>, <code>ram:8A3A</code>, <code>ram:8B00</code>, and <code>ram:8C01</code>, followed
+by 656 executions of the resident entry. <code>_DelRes</code> therefore does not reserve
+either buffer against a subsequently installed third-party interrupt.
+[confirmed]</p>
+<p><code>tools/data/scratch-guard-results.csv</code> records the direct trace, the exact
+MirageOS and Doors CS owned ranges, and explicit <code>not-run</code> rows for Ion and
+zStart. Dynamic guards under all four shells and physical-calculator runs
+remain required before the checklist’s common-shell requirement is complete.
+The community-program trace identities and exact write observations are in
+<code>tools/data/community-runtime-observations.csv</code>.</p>
+<h2 id="page-0x83-during-resident-execution"><a class="header" href="#page-0x83-during-resident-execution">Page <code>0x83</code> during resident execution</a></h2>
+<p>Page <code>0x83</code> is OS state rather than a spare 16 KiB page. The two resident traces
+add the following observations to the boot and expression traces documented in
+<a href="ram-pages.html">RAM pages</a>:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Scenario</th><th style="text-align: right">Writes</th><th>Touched range</th></tr>
+</thead>
+<tbody>
+<tr><td>Direct resident launch</td><td style="text-align: right">2,304</td><td><code>83:5A7E</code>–<code>83:5D7D</code></td></tr>
+<tr><td>Interactive resident input</td><td style="text-align: right">3,072</td><td><code>83:5A7E</code>–<code>83:5D7D</code></td></tr>
+<tr><td>Guarded <code>_GetKey</code> wait interrupted by <strong>ON</strong></td><td style="text-align: right">3,893</td><td><code>83:4373</code>–<code>83:4390</code>, <code>83:577E</code>–<code>83:5794</code>, and <code>83:5A7E</code>–<code>83:5D7D</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The range is the LCD/home-display capture area. Combining these runs with ROM,
+boot, and expression evidence gives these known owners:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Page-<code>0x83</code> range</th><th>Owner</th></tr>
+</thead>
+<tbody>
+<tr><td><code>83:4000</code>–<code>83:4080</code></td><td>App base-page staging [standard]</td></tr>
+<tr><td><code>83:4100</code>–<code>83:433A</code></td><td>USB communication buffers [standard]</td></tr>
+<tr><td><code>83:4373</code>–<code>83:4390</code></td><td>Expression-path block copy [confirmed]</td></tr>
+<tr><td><code>83:43D9</code>–<code>83:44BD</code></td><td>Boot/home block copy [confirmed]</td></tr>
+<tr><td><code>83:577E</code>–<code>83:5A7D</code></td><td>MathPrint previous-entry history [confirmed]</td></tr>
+<tr><td><code>83:5A7E</code>–<code>83:5D7D</code></td><td>LCD/home-display capture [confirmed]</td></tr>
+<tr><td><code>83:5D7E</code>–<code>83:5DF2</code></td><td>Additional boot/home writes in the measured scenario [confirmed]</td></tr>
+</tbody>
+</table>
+</div>
+<p>All holes are candidates, not safe ranges. A separate direct-TI-OS trace covers
+one division-by-zero dialog without adding a range beyond the boot baseline.
+Current coverage still omits USB receive, archive garbage collection,
+statistics, the program editor, app transitions, APD timeout, and third-party
+interrupts. The <code>_GetKey</code> guard called <code>_DisableApd</code>, so its <strong>ON</strong> event does not
+cover APD. [confirmed]</p>
+<p>Selectors <code>0x82</code>–<code>0x87</code> alias one physical RAM page on 48 KiB ASICs. Pages
+<code>0x84</code>–<code>0x87</code> still need forced read/write/hash probes on 128 KiB calculators;
+an emulator’s unused page is not hardware confirmation. [standard]</p>
+<h2 id="mapping-a-ram-page-through-bank-a"><a class="header" href="#mapping-a-ram-page-through-bank-a">Mapping a RAM page through bank A</a></h2>
+<p>The page-zero bcall dispatcher at <code>ram:2A2F</code> restores the caller’s port-<code>0x06</code>
+selector on ordinary return. During the bcall, however, the dispatcher maps its
+own target into <code>0x4000</code>–<code>0x7FFF</code>, so a pointer into a borrowed bank-A page is
+invalid. An OS error can also bypass caller-owned cleanup. [confirmed]</p>
+<p>A bounded copy operation should save the selector and interrupt state, map the
+page, copy, and restore before making another bcall:</p>
+<pre><code class="language-z80">    LD A,I
+    PUSH AF             ; P/V records IFF2
+    DI
+    IN A,(0x0E)
+    PUSH AF
+    IN A,(0x06)
+    PUSH AF
+
+    XOR A
+    OUT (0x0E),A
+    LD A,0x83
+    OUT (0x06),A
+
+    ; Copy only. Do not call a bcall with a pointer into bank A.
+
+    POP AF
+    OUT (0x06),A
+    POP AF
+    OUT (0x0E),A
+    POP AF
+    JP PO,interrupts_were_disabled
+    EI
+interrupts_were_disabled:
+</code></pre>
+<p>Code running in bank A cannot use this sequence to map out its own instruction
+stream. Keep interrupts disabled for the entire nonstandard mapping unless the
+interrupt handler is proven independent of normal bank-A ROM. Restore both
+ports even though port <code>0x0E</code> is ignored by TI-84 Plus and TI-84 Plus SE
+hardware; doing so keeps the helper transparent and portable to related models.</p>
+<h2 id="sources"><a class="header" href="#sources">Sources</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Source</th><th>Use here</th></tr>
+</thead>
+<tbody>
+<tr><td>OS 2.55MP ROM and <code>tools/analyze_scratch_trace.py</code></td><td>ROM ownership and trace write attribution</td></tr>
+<tr><td><code>tools/data/scratch-ram-observations.csv</code></td><td>launch scenarios, selector assumptions, and write counts</td></tr>
+<tr><td><code>tools/data/scratch-guard-results.csv</code></td><td>guard trace identity, shell-owned ranges, and evidence limits</td></tr>
+<tr><td><a href="https://education.ti.com/download/en/ed-tech/830D08FF31804AEAA2F03B8F5E89AD14/672891A1E98349CAB91C11B4928C253C/sdk83pguide.pdf">TI-83 Plus Developer Guide</a></td><td>documented <code>saveSScreen</code>, <code>statVars</code>, <code>_DisableApd</code>, and <code>_DelRes</code> conditions</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:OS:Ram_Pages&amp;oldid=11670">WikiTI RAM pages, revision 11670</a></td><td>public page-<code>0x83</code> owners and <code>0x82</code>–<code>0x87</code> alias behavior</td></tr>
+<tr><td><a href="https://www.ticalc.org/pub/83plus/flash/shells/mirageos.zip">MirageOS 1.2 release archive</a>, SHA-256 <code>38dc70173818972de8c5eb78099e8870c7acb9ad4c62d290f6c6f5840c71d43b</code></td><td>tasker setup and client-launch control flow</td></tr>
+<tr><td><a href="https://github.com/KermMartian/Doors_CS_7/tree/33af4f5ede199eee77cf2f89b5463a0a6ec9a1af">Doors CS source at <code>33af4f5</code></a></td><td>shell state, ALE vectors, and Mirage-compatible interrupt ownership</td></tr>
+<tr><td><a href="https://www.ticalc.org/pub/83plus/asm/shells/ion.zip">Ion 1.6 release archive</a>, SHA-256 <code>b5a5ba97f325f8779aa35cda23e38152087930298ff8b7b8573905710230e6e6</code></td><td>source review for the unresolved Ion row</td></tr>
+<tr><td><a href="https://www.ticalc.org/pub/83plus/flash/shells/zstart.zip">zStart 1.3.013 release archive</a>, SHA-256 <code>7a1b7c69c85030b412bb6ea11ae71ac608b9882a9de3ab7dbef1faf69519c5e9</code></td><td>source review for the unresolved zStart row</td></tr>
+<tr><td><a href="https://www.ticalc.org/pub/83plus/asm/programs/noexec.zip">NoExec release archive</a>, SHA-256 <code>dc3ddf2dd4de8a802a2862d6aaf671a4ff5e618eb98377844eb711b90a443a84</code>; member <code>noexec.z80</code>, SHA-256 <code>de323ead58eea7b9590865da2694905b775b8f900c798fa438b4aa9b035d58b5</code></td><td>static raw-key and parser hook placement in <code>appBackUpScreen</code></td></tr>
+<tr><td><a href="https://www.ticalc.org/pub/83plus/asm/shells/plasma141.zip">Plasma 1.4.1 release archive</a>, SHA-256 <code>62965a41fe071902043ebcbbd1254f710d29729bf86a78f20b6f14d6974f5d5a</code>; member <code>Plasma/plasma.asm</code>, SHA-256 <code>b424980285adf3f16225239c3ba3f133a42efb38d0666d968eee4b1fe24b810f</code></td><td>static raw-key hook placement in <code>appBackUpScreen</code></td></tr>
+<tr><td><a href="https://www.ticalc.org/pub/83plus/asm/programs/remotecontrol.zip">Remote Control release archive</a>, SHA-256 <code>9eb1d4bb9beabe0ae31e49756c2a23938c6301a27f3d553a5d3381651262e591</code>; member <code>RemoteC.z80</code>, SHA-256 <code>19eb8c5b8b20a1f9139ac89c8603727f76977ddb9548c8ff318ef5eec07285c4</code></td><td>static key-hook placement and link-send behavior</td></tr>
+<tr><td><a href="https://www.ticalc.org/pub/83plus/asm/programs/onblock.zip">ONBLOCK release archive</a>, SHA-256 <code>40a5139d378608a303691fb34f3edf79ae4968bf39801b75bc311371b66f69d2</code>; member <code>ONBLOCK.asm</code>, SHA-256 <code>3023dc7654db87f8f2ea60f54a4b61beba1ca1252cc3fff975409631384ed750</code></td><td>static persistent IM2 vector and handler placement in <code>appBackUpScreen</code></td></tr>
+<tr><td><a href="https://www.ticalc.org/pub/83plus/asm/programs/viewregs.zip">ViewRegs release archive</a>, SHA-256 <code>84837e779315f799b53f8115e8c4e9563babc5add0541f52d72117d93a68e2b2</code>; member <code>ViewRegs/ViewRegs.z80</code>, SHA-256 <code>120d8a7845a0f0f7a4f3c32f4f53b1e1f1d5efd210af542e64e1408546bba13b</code>; member <code>ViewRegs/readme.txt</code>, SHA-256 <code>a4f66bc84f2f7d17e2dbfa5603fb3b65ed57f311e20dbb7143ad95bde20d2cf7</code></td><td>static IM2 ownership of <code>saveSScreen</code> and <code>statVars</code>, plus the statistics warning</td></tr>
+<tr><td><a href="https://www.ticalc.org/pub/83plus/asm/graphics/ion/gpp11.zip">GPP 1.1 release archive</a>, SHA-256 <code>08167b71e72cca031782d5154048fdb4b3f2b8a6a088b476936b5abd1f53ed10</code>; member <code>graydev/template/graylib.inc</code>, SHA-256 <code>2891c83665a136c02fd43df5a5db05ef9be229a5f98263539c4596458f211fa8</code></td><td>static IM2 table and interrupt-code placement overlapping <code>saveSScreen</code></td></tr>
+<tr><td><a href="https://www.ticalc.org/pub/83plus/asm/source/weird.z80">Weird source</a>, SHA-256 <code>881cb1b39c41da3e2629e8cc39765f4cc8e337e6e5a2b65d0539df2cb9fd8ca4</code></td><td>static persistent IM2 ownership inside <code>saveSScreen</code></td></tr>
+<tr><td><a href="https://www.ticalc.org/pub/83plus/asm/programs/lcd2.zip">LCD2 release archive</a>, SHA-256 <code>46532d795aadfff782a83ca52001da87ad73cef9e2013c7800291f4b26af94ab</code>; member <code>lcd2.asm</code>, SHA-256 <code>01033202eb0439a7a6dcdb1b28abf62f2c52aeecc630c4688c8603de75b97780</code></td><td>static timing-code execution from <code>saveSScreen</code></td></tr>
+</tbody>
+</table>
+</div>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="sub-resident-programs.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="sub-apps-mem-settings.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="sub-resident-programs.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="sub-apps-mem-settings.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-09f2665d.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
+        <script src="hljs-z80-e93ac716.js"></script>
+        <script src="katex-5e4f3b03.min.js"></script>
+        <script src="katex-auto-render-bb53eb95.min.js"></script>
+        <script src="katex-init-5efd21f9.js"></script>
+        <script src="pseudocode-695903c6.min.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
+
+
+
+    </div>
+    </body>
+</html>

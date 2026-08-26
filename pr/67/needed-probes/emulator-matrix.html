@@ -1,0 +1,436 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Emulator comparison matrix - TI-84 Plus OS — Reverse Engineering</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="../favicon-8114d1fc.png">
+        <link rel="stylesheet" href="../css/variables-8adf115d.css">
+        <link rel="stylesheet" href="../css/general-e96d0476.css">
+        <link rel="stylesheet" href="../css/chrome-d279d366.css">
+        <link rel="stylesheet" href="../css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="../highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="../tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../katex-383e7b8d.min.css">
+        <link rel="stylesheet" href="../pseudocode-570315ff.min.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex-c5feb52e.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc-3a621010.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">TI-84 Plus OS — Reverse Engineering</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/siraben/ti84p-re" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="emulator-comparison-matrix"><a class="header" href="#emulator-comparison-matrix">Emulator comparison matrix</a></h1>
+<p>Emulators validate probe control flow and expose useful competing hypotheses.
+They do not supply physical results. The repository pins TilEm commit
+<code>f56ad637</code>, Wabbitemu commit <code>48c2dc0</code>, MAME 0.287, and a jsTIfied
+<code>20170706a</code> source profile. [standard]</p>
+<h2 id="executed-coverage"><a class="header" href="#executed-coverage">Executed coverage</a></h2>
+<p>The guarded runs below use the exact OS 2.55MP ROM with SHA-256
+<code>7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d</code>.
+The direct-core and Lua cases exercise emulator device handlers. Only cells
+marked exact execute assembled physical-probe bytes. [confirmed] for the
+executed emulator paths.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Area</th><th>TilEm <code>f56ad637</code></th><th>Wabbitemu <code>48c2dc0</code></th><th>MAME 0.287</th><th>Physical implication</th></tr>
+</thead>
+<tbody>
+<tr><td>MD5 assist</td><td>direct-core pass</td><td>direct-core pass; agrees on one-, three-, four-, and five-write edges</td><td>pass confirming ports <code>0x18</code>–<code>0x1F</code> are unmapped</td><td>agreement of two implementations remains [hypothesis] for ASIC edges</td></tr>
+<tr><td>Timers and RTC</td><td>direct-core pass; divisor 33 model and separately read RTC bytes</td><td>direct-core pass; exact <code>HWTMR</code> pass selects divisor 32, no port-<code>0x2F</code> prescaler, and first-expiry bit 2</td><td>direct Lua pass; divisor 32 model, different zero and mode behavior, RTC unmapped</td><td><code>HWTMR</code> distinguishes timer behavior; <code>HWPRTC</code> records RTC rollover coherence</td></tr>
+<tr><td>Prefix M1 waits</td><td>source model predicts the ordinary two-M1 indexed-CB interpretation</td><td>exact <code>HWPFX</code> pass selects <code>wabbitemu-three-m1</code>; all restoration fields match</td><td>delay-register block absent</td><td>physical indexed-CB timer delta remains open</td></tr>
+<tr><td>ASIC, protection, and GPIO</td><td>battery comparator direct-core pass; other handler behavior is source evidence</td><td>ASIC and protection direct-core passes</td><td>ASIC Lua pass; protection/GPIO ports absent</td><td>constant or absent reads are unsupported cases, not hardware values</td></tr>
+<tr><td>Mapper overlays</td><td>exact <code>HWPMAP</code> pass; overlays remain active in paired mode and cutoff starts at <code>0xFB40</code></td><td>exact <code>HWPMAP</code> pass; overlays are disabled in paired mode and the <code>0xFB64</code> cutoff is present</td><td>exact execution unsupported; direct Lua pass finds the overlay ports absent</td><td>physical paired-mode and cutoff behavior remain open</td></tr>
+<tr><td>LCD</td><td>exact <code>HWPLCD</code> pass reports ready counts 2/2/2 and three busy samples; exact <code>HWPLAB</code> selects 16 columns and prints <code>62131</code></td><td>exact <code>HWPLCD</code> pass reports ready counts 4/0/3 and busy set/clear/set; exact <code>HWPLAB</code> wraps into visible index 0 and prints <code>42103</code></td><td>direct Lua pass has no busy model, constant ASIC-ready state, and a 15-byte linear spill</td><td>physical timing and hidden geometry remain open</td></tr>
+<tr><td>Raw link and assist</td><td>direct-core pass</td><td>direct-core pass</td><td>Lua pass; assist block absent</td><td>logic-model results cannot provide voltage or rise time</td></tr>
+<tr><td>Keypad and ON</td><td>direct-core pass</td><td>direct-core pass</td><td>Lua matrix pass</td><td>electrical settling, bounce, and ON waveform remain open</td></tr>
+<tr><td>Flash</td><td>direct-core command/status pass</td><td>guarded command and restart runners exist</td><td>Lua command/status pass</td><td>no backend proves silicon timing or real power-loss atomicity</td></tr>
+<tr><td>Interrupt <code>HALT</code> wake</td><td>exact <code>HWPIRQ</code> pass wakes on programmable timer 1</td><td>exact <code>HWPIRQ</code> pass reaches the standard-timer watchdog</td><td>ports <code>0x30</code>–<code>0x38</code> are modeled; mode <code>0x02</code> suppresses the timer interrupt in this implementation</td><td>physical wake policy remains open</td></tr>
+<tr><td>Reset and execution protection</td><td>direct-core reset/violation pass; exact boundary fixtures exist</td><td>exact boundary fixtures and reset runner exist</td><td>protection mechanism absent</td><td>physical exception ordering and retention remain open</td></tr>
+</tbody>
+</table>
+</div>
+<p>jsTIfied is a hash-checked source profile, not a native runner. CEmu targets
+the TI-84 Plus CE and is outside this monochrome calculator’s hardware scope.</p>
+<h2 id="exact-assembled-results"><a class="header" href="#exact-assembled-results">Exact assembled results</a></h2>
+<p>Two generic runners accept all 25 physical-probe definitions. Wabbitemu boots
+the retail ROM before injection. TilEm loads the exact ROM and establishes the
+guarded direct-<code>Asm(</code> core baseline. Both redirect <code>_CreateAppVar</code> to a private
+RAM buffer, execute the assembly CRC routine, and stop at the first display
+bcall. Ordinary probes require the resident buffer to match the staging frame
+byte for byte. Execution-fetch probes instead require the immutable header and
+configuration to match and validate the resident outcome transition. Their
+displayed CRC is checked against that resident frame. The measurement,
+cleanup, frame update, and verification-number computation are therefore
+exact; OS variable allocation and rendered screen pixels are not. [confirmed]</p>
+<p>The exhaustive matrix completed all 24 non-interactive images with zero
+failures in each backend. <code>HWKEYS</code> is recorded separately as
+<code>interactive-input-required</code>: its calculator contract waits for the launch key
+to be released and then for an operator-held key or chord. The generic
+injection adapters do not synthesize that sequence. The guarded direct-core
+keypad cases remain the emulator evidence for that device family. The tracked
+summary <code>tools/fixtures/exact-hardware-probe-matrix.json</code> contains every
+completed probe’s decimal verification code and both runner hashes.
+[confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Probe</th><th>TilEm result and code</th><th>Wabbitemu result and code</th></tr>
+</thead>
+<tbody>
+<tr><td><code>HWPMAP</code></td><td><code>tilem</code>; all restore flags set; <code>58756</code></td><td><code>wabbitemu</code>; all restore flags set; <code>21062</code></td></tr>
+<tr><td><code>HWPLCD</code></td><td>ready 2/2/2; busy set/set/set; restore true; <code>21731</code></td><td>ready 4/0/3; busy set/clear/set; restore true; <code>23959</code></td></tr>
+<tr><td><code>HWPLAB</code></td><td>hidden bytes <code>A5 5A C3 3C</code>; increment keeps <code>A1 A2</code> in hidden columns; restore true; <code>62131</code></td><td>hidden bytes <code>A5 5A C3 3C</code>; second increment reaches visible index 0; restore true; <code>42103</code></td></tr>
+<tr><td><code>HWPIRQ</code></td><td>programmable-timer wake; restore true; <code>44737</code></td><td>standard-timer-watchdog wake; restore true; <code>19672</code></td></tr>
+<tr><td><code>HWEF07</code></td><td>returned; resident-frame code <code>26515</code></td><td>returned; resident-frame code <code>38818</code></td></tr>
+<tr><td><code>HWTMR</code></td><td>completed after 16,855,833 clocks; restore fields pass; <code>3397</code></td><td>completed; restore fields pass; <code>41549</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The compact-display record <code>tools/fixtures/compact-probe-e2e.json</code> runs the
+current 1,385-byte <code>HWTMR</code> image through the complete decimal and <code>HWPZ1</code>
+paths. TilEm emitted a
+170-character code and Wabbitemu emitted a 182-character code. Both required
+one decimal-screen key and two compact-page keys. Each assembly-produced code
+equaled the independent host encoding and decoded to the exact resident frame.
+The different strings preserve real differences between the two emulator
+frames. [confirmed]</p>
+<p><code>tools/fixtures/compact-probe-link-e2e.json</code> repeats the test with the 276-byte
+<code>HWLINK</code> frame. This crosses the compact encoder’s 8-bit frame-length boundary.
+Wabbitemu also traversed a compact-page boundary. [confirmed]</p>
+<p>Wabbitemu executed the OS <code>_VPutMap</code> small-font renderer and retained the final
+LCD hash. The TilEm adapter intercepted <code>_VPutMap</code> while validating the same
+assembly codec, pagination, and return control flow; it did not render pixels.
+This distinction is recorded as <code>rendered_small_font</code> for each backend.
+[confirmed]</p>
+<p>The adapters redirect <code>_CreateAppVar</code> to private emulator RAM and synthesize
+the page-advance keys. They require the probe to return with its private stack
+balanced. This is exact probe and display control-flow evidence, not a link
+transfer or retail VAT-allocation test. Check the tracked record with:</p>
+<pre><code class="language-sh">python tools/run_compact_probe_e2e.py \
+  --check tools/fixtures/compact-probe-e2e.json
+python tools/run_compact_probe_e2e.py \
+  --check tools/fixtures/compact-probe-link-e2e.json
+</code></pre>
+<p>The deterministic <code>HWPMAP</code> record is
+<code>tools/fixtures/mapper-overlays-emulators.json</code>. It binds the two exact runs to
+the 1,802-byte assembly image and preserves the displayed decimal codes, raw
+frames, decoded routing rows, restoration results, emulator revisions, and
+runner hashes. Its MAME row labels exact image execution <code>unsupported</code> and
+keeps the completed direct-handler profile as a different evidence class.
+[confirmed]</p>
+<p>The exact <code>HWPLCD</code> rows use the same 1,319-byte image. Its SHA-256 is
+<code>e3312cd5b80691e7cec97a7a4fa0c32fa27da731e3b0190008dfdedbab8360c4</code>.
+Both runs matched the AppVar-resident frame and the assembly CRC. Both also
+preserved the visible cell, movement bits, and wait-register snapshot.
+[confirmed]</p>
+<p>MAME 0.287 completed only <code>tools/run_mame_lcd_probe.py</code>. That adapter drives
+the LCD handlers directly from isolated CPU state. It did not execute the
+<code>HWPLCD</code> assembly image. Its guarded run reports a 15-byte linear-spill model,
+permanent busy-clear status, constant ASIC-ready state, and absent wait ports.
+[confirmed]</p>
+<p><code>HWPLAB</code> is outside the default 25-image matrix because its physical build is
+device-specific. <code>run_lcd_hidden_lab_emulator.py</code> compiles the expected ASIC
+byte for one emulator, runs the exact image, requires the AppVar and staging
+frames to match, and checks the displayed decimal CRC. The TilEm image has
+SHA-256 <code>c10676d8f7798d0ce92c5abac7cab49fe117805dc18bf34969b1137cb3cf326c</code>.
+The Wabbitemu image has SHA-256
+<code>2fd3f5605bc1df2b9ee274e869560b01c84fbc382d46a285332c2c2ced410190</code>.
+Each image is 3,904 bytes. [confirmed]</p>
+<p>The TilEm adapter runs in 10,000,000-clock slices until it reaches a display
+breakpoint, an exception, an unexpected stop reason, or its 100,000,000-clock
+runner limit. An ordinary zero stop reason ends one slice, not the probe. A
+runner-limit failure is distinct from the probe’s bounded polling outcome.</p>
+<p>The exact-runner builds are separate from the older fixed-mode Wabbitemu
+adapter, so extending the matrix does not change that evidence binary. The
+locally reproduced generic runner hashes are:</p>
+<ul>
+<li>TilEm <code>f56ad637</code> runner:
+<code>ac280251dcda1cda083196abf88032502420351732cb689cac38d20348126408</code>;</li>
+<li>Wabbitemu <code>48c2dc0</code> runner:
+<code>643607b5acee38813b221f3e91e24de31332acc8be25368e1d281e1a07c31d79</code>.</li>
+</ul>
+<p>Build either runner from its guarded source tree, then run any probe name
+through the normalized CLI:</p>
+<pre><code class="language-sh">nix develop -c python tools/build_tilem_exact_probe.py \
+  --source /path/to/tilem-f56ad637 --output /tmp/tilem-exact
+
+nix develop -c python tools/build_wabbitemu_exact_probe.py \
+  --source /path/to/wabbitemu-48c2dc0 --output /tmp/wabbitemu-exact
+
+nix develop -c python tools/run_exact_hardware_probe.py \
+  --backend tilem --binary /tmp/tilem-exact \
+  --expected-binary-sha256 \
+    ac280251dcda1cda083196abf88032502420351732cb689cac38d20348126408 \
+  --probe lcd-controller --output-dir /tmp/tilem-hwplcd --json
+</code></pre>
+<p>Run every non-interactive image without allowing one failure to hide later
+results:</p>
+<pre><code class="language-sh">nix develop -c python tools/run_exact_hardware_probe_matrix.py \
+  --backend tilem --binary /tmp/tilem-exact \
+  --expected-binary-sha256 \
+    ac280251dcda1cda083196abf88032502420351732cb689cac38d20348126408 \
+  --output-dir /tmp/tilem-hardware-matrix
+</code></pre>
+<p>The matrix manifest uses distinct <code>completed</code>, <code>failed</code>, and
+<code>interactive-input-required</code> statuses. It keeps each child manifest and both
+stdout/stderr streams. A timeout or unsupported handler is therefore never
+reported as a physical observation.</p>
+<p>The older exact <code>HWTMR</code> and <code>HWPFX</code> paths provide independent prior evidence
+through a pinned Wabbitemu binary with
+SHA-256
+<code>3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e</code>:</p>
+<pre><code class="language-sh">nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
+  --binary /path/to/wabbitemu-headless \
+  --expected-binary-sha256 \
+    3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
+  --output-dir /tmp/wabbitemu-hwtmr --json
+
+nix develop -c python tools/run_wabbitemu_prefix_m1_probe.py \
+  --binary /path/to/wabbitemu-headless \
+  --expected-binary-sha256 \
+    3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
+  --output-dir /tmp/wabbitemu-hwpfx --json
+</code></pre>
+<h2 id="reproduction-cautions"><a class="header" href="#reproduction-cautions">Reproduction cautions</a></h2>
+<p><code>nix shell nixpkgs#mame</code> is not a version pin. As of 25 August 2026 it
+resolves MAME 0.289, which the 0.287 guards reject. Use an explicit MAME 0.287
+binary, pass its measured SHA-256, and retain that identity in the report.</p>
+<p>TilEm and Wabbitemu builds require their exact source commit or tree. Each
+builder refuses an unexpected source tree, and each run requires an expected
+binary hash, exact ROM hash, and new output directory. The normalized report
+retains launch scope, machine-image hash, raw frame, decoded payload, and
+verification code.</p>
+<p>MAME 0.287 was also run for all three device families through the existing
+guarded Lua adapters. Those are direct-handler cases, not executions of the
+new assembly images. They confirm that MAME omits mapper overlays, models LCD
+addressing as a 15-byte linear spill, lacks LCD busy and wait registers, and
+does not provide the programmable-timer block used by <code>HWPIRQ</code>. A future exact
+MAME injection runner must label absent ports <code>unsupported</code> rather than turn
+zero readback into a purported hardware observation.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../needed-probes/external-measurements.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="../needed-probes/evidence-closure.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../needed-probes/external-measurements.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="../needed-probes/evidence-closure.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr-ef4e11c1.min.js"></script>
+        <script src="../mark-09e88c2c.min.js"></script>
+        <script src="../searcher-09f2665d.js"></script>
+
+        <script src="../clipboard-1626706a.min.js"></script>
+        <script src="../highlight-abc7f01d.js"></script>
+        <script src="../book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../mermaid-eefea253.min.js"></script>
+        <script src="../mermaid-init-f0fdd07e.js"></script>
+        <script src="../hljs-z80-e93ac716.js"></script>
+        <script src="../katex-5e4f3b03.min.js"></script>
+        <script src="../katex-auto-render-bb53eb95.min.js"></script>
+        <script src="../katex-init-5efd21f9.js"></script>
+        <script src="../pseudocode-695903c6.min.js"></script>
+        <script src="../pseudocode-init-a22cdb5c.js"></script>
+
+
+
+    </div>
+    </body>
+</html>
