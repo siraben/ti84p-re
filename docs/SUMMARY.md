@@ -37,6 +37,7 @@
         - [Guarded mapper, LCD, and interrupt probes](needed-probes/additional-calculator-probes.md)
         - [External measurements](needed-probes/external-measurements.md)
         - [Emulator comparison matrix](needed-probes/emulator-matrix.md)
+        - [Online evidence and physical closure](needed-probes/evidence-closure.md)
         - [Recording a physical result](needed-probes/recording-results.md)
         - [Adversarial safety review](needed-probes/safety-review.md)
 
