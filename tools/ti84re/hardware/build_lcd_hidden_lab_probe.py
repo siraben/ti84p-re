@@ -218,6 +218,7 @@ def build(
         "result_appvar": APPVAR,
         "probe_id": PROBE_ID,
         "payload_size": PAYLOAD_SIZE,
+        "physical_use_class": "laboratory-only",
         "source": "tools/probes/hardware/lcd-hidden-lab.asm",
         "machine_code_size": len(machine_code),
         "machine_code_sha256": sha256(machine_code),

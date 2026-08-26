@@ -1,6 +1,6 @@
 ; Read-only RTC rollover-coherence probe.
 ; Result AppVar: HWPRTC01, probe ID 13, payload 19 bytes.
-; The wait for low byte $FF can take up to 256 seconds.
+; The wait for low byte $FF can take up to 256 observed RTC transitions.
 
 .org $9D95
     jp start
@@ -22,19 +22,53 @@ entry_iff_recorded:
     in a,($40)
     ld (payload_pre_control),a
     and 1
-    jr z,rtc_disabled
+    jp z,rtc_disabled
 
     ; A disabled-interrupt caller cannot safely wait several minutes while
     ; preserving its entry state. Record the guard outcome without sampling.
     ld a,(entry_iff)
     or a
-    jr z,interrupts_disabled
+    jp z,interrupts_disabled
 
-wait_for_low_ff:
     in a,($45)
+    ld e,a
+    ld d,0                         ; 256 observed transitions maximum
+    ld a,$40
+    ld (progress_watchdog),a
+wait_for_low_ff:
+    ld a,e
     cp $FF
+    jr z,low_ff_seen
+    ld bc,$FFFF
+wait_for_progress:
+    in a,($45)
+    cp e
+    jr nz,low_byte_progressed
+    dec bc
+    ld a,b
+    or c
+    jr nz,wait_for_progress
+    ld a,(progress_watchdog)
+    dec a
+    ld (progress_watchdog),a
+    jr z,progress_timeout
+    ld bc,$FFFF
+    jr wait_for_progress
+progress_timeout:
+    ld a,4
+    ld (payload_outcome),a
+    jp snapshot_exit
+low_byte_progressed:
+    ld e,a
+    ld a,$40
+    ld (progress_watchdog),a
+    dec d
     jr nz,wait_for_low_ff
+    ld a,4
+    ld (payload_outcome),a
+    jp snapshot_exit
 
+low_ff_seen:
     ; Mask interrupts only across the final one-second rollover window.
     di
     ld hl,sample_temp
@@ -47,6 +81,9 @@ wait_for_low_ff:
     ld de,payload_last_ff
     ld bc,4
     ldir
+    ld de,$FFFF
+    ld a,$40
+    ld (rollover_watchdog),a
 
 wait_for_rollover:
     ld hl,sample_temp
@@ -55,11 +92,26 @@ wait_for_rollover:
     cp $FF
     jr nz,rollover_seen
 
+    push de
     ld hl,sample_temp
     ld de,payload_last_ff
     ld bc,4
     ldir
+    pop de
+    dec de
+    ld a,d
+    or e
+    jr nz,wait_for_rollover
+    ld a,(rollover_watchdog)
+    dec a
+    ld (rollover_watchdog),a
+    jr z,rollover_watchdog_expired
+    ld de,$FFFF
     jr wait_for_rollover
+rollover_watchdog_expired:
+    ld a,5
+    ld (payload_outcome),a
+    jr sampling_done
 
 rollover_seen:
     ld hl,sample_temp
@@ -143,6 +195,10 @@ sample_low_to_high:
 sample_temp:
     .fill 4,0
 entry_iff:
+    .db 0
+progress_watchdog:
+    .db 0
+rollover_watchdog:
     .db 0
 
 display_label:

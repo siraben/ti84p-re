@@ -40,6 +40,7 @@
         - [External measurements](needed-probes/external-measurements.md)
         - [Emulator comparison matrix](needed-probes/emulator-matrix.md)
         - [Recording a physical result](needed-probes/recording-results.md)
+        - [Adversarial safety review](needed-probes/safety-review.md)
 
 # Core subsystems
 

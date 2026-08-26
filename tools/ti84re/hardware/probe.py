@@ -476,10 +476,37 @@ def decode_probe_measurements(frame: ProbeFrame) -> dict[str, object]:
             "mixed_result": word(16),
         }
     if frame.probe_id == 2:
+        if len(frame.payload) == 19:
+            outcome_code = frame.payload[0]
+            topology_payload = frame.payload[1:]
+            outcome_names = {
+                0: "completed",
+                1: "unsupported-mapping-context",
+                2: "mapping-changed-after-appvar",
+                0xFF: "pending-reset-or-interruption",
+            }
+        elif len(frame.payload) == 18:
+            outcome_code = None
+            topology_payload = frame.payload
+            outcome_names = {}
+        else:
+            raise ProbeFormatError(
+                "RAM alias payload must contain 18 legacy bytes or 19 current "
+                f"bytes, got {len(frame.payload)}"
+            )
         try:
-            return decode_ram_alias_payload(frame.payload).to_dict()
+            report = decode_ram_alias_payload(topology_payload).to_dict()
         except ValueError as error:
             raise ProbeFormatError(str(error)) from error
+        if outcome_code is not None:
+            report = {
+                "outcome_code": outcome_code,
+                "outcome": outcome_names.get(
+                    outcome_code, f"unknown-{outcome_code}"
+                ),
+                **report,
+            }
+        return report
     if frame.probe_id == 3:
         if len(frame.payload) != 11:
             raise ProbeFormatError(
@@ -504,7 +531,7 @@ def decode_probe_measurements(frame: ProbeFrame) -> dict[str, object]:
             1: "returned",
             2: "no-ret-found",
             3: "target-changed-before-fetch",
-            4: "unsupported-paired-mapping",
+            4: "unsupported-mapping-context",
         }
         kind = frame.payload[0]
         outcome = frame.payload[8]
@@ -550,15 +577,55 @@ def decode_probe_measurements(frame: ProbeFrame) -> dict[str, object]:
         )
         return report
     if frame.probe_id == 7:
-        report, masks = _decode_restoring_samples(
-            frame,
-            payload_name="battery-raw",
-            allowed_samples=range(16),
-            samples_key="mask_samples",
-            histogram_key="mask_histogram",
-            stable_key="stable_mask",
-            post_key="post_sequence",
-        )
+        if len(frame.payload) != 31:
+            raise ProbeFormatError(
+                "battery-raw payload must contain 31 bytes, "
+                f"got {len(frame.payload)}"
+            )
+        outcome_code = frame.payload[4]
+        masks = tuple(frame.payload[5:21])
+        if any(mask > 0x0F for mask in masks):
+            raise ProbeFormatError("battery-raw samples must be in range 0 through 15")
+        counts = Counter(masks)
+        pre = frame.payload[0:4]
+        post = frame.payload[21:26]
+        restored = frame.payload[26:30]
+        outcome_names = {
+            0: "completed",
+            1: "unsupported-os-context",
+            2: "helper-signature-mismatch",
+            3: "os-signature-mismatch",
+            4: "unsupported-mapping-context",
+        }
+        report = {
+            "outcome_code": outcome_code,
+            "outcome": outcome_names.get(outcome_code, f"unknown-{outcome_code}"),
+            "pre": {
+                "port_0x04": f"0x{pre[0]:02X}",
+                "port_0x39": f"0x{pre[1]:02X}",
+                "port_0x3A": f"0x{pre[2]:02X}",
+                "trace_flags": f"0x{pre[3]:02X}",
+                "status": f"0x{frame.status:02X}",
+            },
+            "mask_samples": list(masks),
+            "mask_histogram": {str(value): counts.get(value, 0) for value in range(16)},
+            "stable_mask": masks[0] if len(counts) == 1 else None,
+            "post_sequence": {
+                "status": f"0x{post[0]:02X}",
+                "port_0x04": f"0x{post[1]:02X}",
+                "port_0x39": f"0x{post[2]:02X}",
+                "port_0x3A": f"0x{post[3]:02X}",
+                "trace_flags": f"0x{post[4]:02X}",
+            },
+            "restored": {
+                "port_0x04_write": f"0x{restored[0]:02X}",
+                "port_0x39": f"0x{restored[1]:02X}",
+                "port_0x3A": f"0x{restored[2]:02X}",
+                "trace_flags": f"0x{restored[3]:02X}",
+                "status": f"0x{frame.payload[30]:02X}",
+            },
+            "cleanup_matches": restored[0] == 0x06 and restored[1:] == pre[1:],
+        }
         selectors = (0x06, 0x46, 0x86, 0xC6)
         report["selector_pass_counts"] = {
             f"0x{selector:02X}": sum(
@@ -727,6 +794,8 @@ def decode_probe_measurements(frame: ProbeFrame) -> dict[str, object]:
             },
             "trigger_all_groups_read": f"0x{trigger:02X}",
             "trigger_pressed_columns": (~trigger) & 0xFF,
+            "operator_wait_timed_out": trigger == 0xFF,
+            "measurements_valid": trigger != 0xFF,
             "sample_order": "group-major, trial-major, delay-major",
             "trials_per_point": KEYPAD_SETTLE_TRIALS,
             "pre_sample_hold_loop_iterations": KEYPAD_SETTLE_HOLD_LOOP_ITERATIONS,
@@ -788,6 +857,8 @@ def decode_probe_measurements(frame: ProbeFrame) -> dict[str, object]:
             1: "interrupts-disabled-on-entry",
             2: "missed-rollover-window",
             3: "rtc-disabled-on-entry",
+            4: "rtc-progress-timeout",
+            5: "rollover-timeout",
         }
         last_ff = int.from_bytes(frame.payload[2:6], "big")
         first_after = int.from_bytes(frame.payload[6:10], "big")

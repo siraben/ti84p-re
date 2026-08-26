@@ -15,6 +15,7 @@ from ti84re.hardware.build_probes import (
     DISPLAY_CRC_SIGNATURE,
     DISPLAY_DONE_SIGNATURE,
     DISPLAY_IFF_GUARD,
+    PHYSICAL_USE_CLASS,
     PROBE_START,
     PROBES,
     build_probes,
@@ -74,9 +75,18 @@ def fixture_raw_battery_machine_code() -> bytes:
         + bytes.fromhex("E6EFD33A")
         + bytes.fromhex("E67FD33A")
     )
+    context_guards = (
+        bytes.fromhex("FDE5E111F089B7ED52")
+        + bytes.fromhex("21D90B")
+        + bytes.fromhex("3EC0D30031F7FFCD")
+        + bytes.fromhex("21EB0C")
+        + bytes.fromhex("3EFFF5CDBD0DF1CDE60C3D20FACD3718C0")
+        + bytes.fromhex("DB05B7DB06FE3FDB07FE81DB0EB7DB0FB7")
+        + bytes.fromhex("3E06D30432")
+    )
     ports = (
-        bytes.fromhex("DB04") * 3
-        + bytes.fromhex("D304") * 3
+        bytes.fromhex("DB04") * 2
+        + bytes.fromhex("D304") * 2
         + bytes.fromhex("DB39") * 4
         + bytes.fromhex("D339") * 2
         + bytes.fromhex("DB3A") * 7
@@ -85,6 +95,7 @@ def fixture_raw_battery_machine_code() -> bytes:
     return (
         base[:-frame_size]
         + sampler
+        + context_guards
         + delay
         + gpio
         + ports
@@ -135,6 +146,18 @@ class HardwareProbeBuilderTests(unittest.TestCase):
         self.assertEqual(0x0400, execution["exec-ram-82-chunk0"]["SCAN_LENGTH"])
         self.assertEqual(0x4400, execution["exec-ram-82-chunk1"]["SCAN_START"])
 
+    def test_ram_alias_persists_originals_before_mutation(self):
+        text = (
+            PROBE_SOURCES / "hardware" / "ram-alias.asm"
+        ).read_text()
+
+        first_write = text.index("write_patterns_ready:")
+        self.assertLess(text.index("call create_probe_appvar"), first_write)
+        self.assertIn("call mapping_context_supported", text[:first_write])
+        self.assertIn("ld (result_frame_ptr),hl", text[:first_write])
+        self.assertIn("ld de,(result_frame_ptr)", text[:first_write])
+        self.assertIn("payload_outcome:\n    .db $FF", text)
+
     def test_every_probe_source_calls_the_shared_display_after_result_creation(self):
         source_names = {probe.source_name for probe in PROBES.values()}
 
@@ -168,6 +191,9 @@ class HardwareProbeBuilderTests(unittest.TestCase):
         self.assertIn(
             "A status read can move the pointer on replacement controllers", text
         )
+        self.assertIn("force_restore_controller:", text)
+        self.assertIn("call force_lcd_command", text)
+        self.assertIn("force_lcd_command:", text)
         self.assertNotIn("probe_cells:", text)
         self.assertNotIn("payload_direct_column", text)
         self.assertNotIn("$2E\n    call safe_lcd_command", text)
@@ -203,14 +229,20 @@ class HardwareProbeBuilderTests(unittest.TestCase):
         self.assertEqual(machine_code, recovered)
         self.assertEqual("tools/probes/hardware/md5-edge.asm", metadata["source"])
         self.assertEqual(20, metadata["payload_size"])
+        self.assertEqual("conditional", metadata["physical_use_class"])
 
     def test_packaging_is_deterministic(self):
-        machine_code = fixture_machine_code("ram-alias")
+        machine_code = fixture_machine_code("md5-edge")
 
-        first = package_probe("ram-alias", machine_code)
-        second = package_probe("ram-alias", machine_code)
+        first = package_probe("md5-edge", machine_code)
+        second = package_probe("md5-edge", machine_code)
 
         self.assertEqual(first, second)
+
+    def test_manifest_quarantines_physically_blocked_artifacts(self):
+        self.assertEqual("blocked", PHYSICAL_USE_CLASS["battery-raw"])
+        self.assertEqual("blocked", PHYSICAL_USE_CLASS["mapper-overlays"])
+        self.assertEqual("laboratory-only", PHYSICAL_USE_CLASS["ram-alias"])
 
     def test_rejects_entry_without_jump(self):
         machine_code = bytearray(fixture_machine_code("md5-edge"))
@@ -241,6 +273,20 @@ class HardwareProbeBuilderTests(unittest.TestCase):
                 fixture_machine_code("exec-flash-08"),
             )
 
+    def test_execution_probe_uses_readable_mapping_context_not_port04_status(self):
+        text = (
+            PROBE_SOURCES / "hardware" / "execution-fetch.asm"
+        ).read_text()
+
+        self.assertIn("call mapping_context_supported", text)
+        self.assertIn("in a,($05)\n    or a", text)
+        self.assertIn("in a,($06)\n    cp $3F", text)
+        self.assertIn("in a,($07)\n    cp $81", text)
+        self.assertIn("in a,($0E)\n    or a", text)
+        self.assertIn("in a,($0F)\n    or a", text)
+        self.assertIn("ld hl,$0BD9", text)
+        self.assertNotIn("ld a,(payload_port04)\n    and 1", text)
+
     def test_usb_probe_requires_every_direct_port_read(self):
         with self.assertRaisesRegex(ValueError, "must read port 0x49"):
             validate_machine_code(
@@ -254,6 +300,18 @@ class HardwareProbeBuilderTests(unittest.TestCase):
                 "rtc-rollover",
                 fixture_machine_code("rtc-rollover"),
             )
+
+    def test_rtc_probe_has_progress_and_rollover_watchdogs(self):
+        text = (
+            PROBE_SOURCES / "hardware" / "rtc-rollover.asm"
+        ).read_text()
+
+        self.assertIn("wait_for_progress:", text)
+        self.assertIn("ld bc,$FFFF", text)
+        self.assertIn("progress_timeout:", text)
+        self.assertIn("rollover_watchdog_expired:", text)
+        self.assertIn("ld a,4\n    ld (payload_outcome),a", text)
+        self.assertIn("ld a,5\n    ld (payload_outcome),a", text)
 
     def test_battery_probe_requires_bcall_samples_and_restoration(self):
         with self.assertRaisesRegex(ValueError, "call _Chk_Batt_Level"):
@@ -275,6 +333,40 @@ class HardwareProbeBuilderTests(unittest.TestCase):
             fixture_raw_battery_machine_code(),
         )
 
+    def test_raw_battery_probe_guards_context_before_sampling(self):
+        text = (
+            PROBE_SOURCES / "hardware" / "battery-raw.asm"
+        ).read_text()
+
+        guard_end = text.index("    call sample_once")
+        guards = text[:guard_end]
+        self.assertIn("push iy\n    pop hl\n    ld de,$89F0", guards)
+        self.assertIn("ld hl,$0BD9\n    ld de,os_signature\n    ld b,8", guards)
+        self.assertIn("ld hl,$0CEB\n    ld de,helper_signature\n    ld b,17", guards)
+        self.assertIn("call mapping_context_supported", guards)
+        self.assertIn("abort_os_context:", text)
+        self.assertIn("abort_helper_signature:", text)
+        self.assertIn("abort_os_signature:", text)
+        self.assertIn("abort_mapping_context:", text)
+        self.assertNotIn("ld a,(payload_pre_port04)\n    out ($04),a", text)
+        self.assertIn(
+            "ld a,$06\n    out ($04),a\n    ld (payload_restored_write04),a",
+            text,
+        )
+
+    def test_interrupt_probe_skips_restore_writes_on_untouched_abort(self):
+        text = (
+            PROBE_SOURCES / "hardware" / "interrupt-halt.asm"
+        ).read_text()
+
+        restore = text.index("restore_state:")
+        first_restore_write = text.index("out ($30),a", restore)
+        untouched_branch = text.index("jr z,capture_post_state", restore)
+        self.assertLess(untouched_branch, first_restore_write)
+        self.assertIn("ld (state_touched),a", text)
+        self.assertIn("check_untouched_state:", text)
+        self.assertIn("ld b,6", text[text.index("check_untouched_state:") - 80:])
+
     def test_raw_battery_probe_requires_delay_loop(self):
         machine_code = fixture_raw_battery_machine_code().replace(
             bytes.fromhex("0605CDEB0C10FB"),
@@ -282,6 +374,14 @@ class HardwareProbeBuilderTests(unittest.TestCase):
         )
 
         with self.assertRaisesRegex(ValueError, "five calls"):
+            validate_machine_code("battery-raw", machine_code)
+
+    def test_raw_battery_probe_requires_exact_helper_guard(self):
+        machine_code = fixture_raw_battery_machine_code().replace(
+            bytes.fromhex("21EB0C"), bytes.fromhex("21EA0C")
+        )
+
+        with self.assertRaisesRegex(ValueError, "delay-helper address guard"):
             validate_machine_code("battery-raw", machine_code)
 
     def test_raw_battery_probe_requires_cleanup_delay(self):
@@ -305,6 +405,17 @@ class HardwareProbeBuilderTests(unittest.TestCase):
                 "keypad-settle",
                 fixture_machine_code("keypad-settle"),
             )
+
+    def test_keypad_operator_waits_are_bounded(self):
+        text = (
+            PROBE_SOURCES / "hardware" / "keypad-settle.asm"
+        ).read_text()
+
+        self.assertIn("ld b,$80\n    ld hl,0\nwait_released:", text)
+        self.assertIn("djnz wait_released\n    jp operator_timeout", text)
+        self.assertIn("ld b,$80\n    ld hl,0\nwait_pressed:", text)
+        self.assertIn("djnz wait_pressed\n    jp operator_timeout", text)
+        self.assertIn("operator_timeout:", text)
 
     def test_bus_timing_probe_requires_guarded_measurement_structure(self):
         with self.assertRaisesRegex(ValueError, "read port 0x02"):

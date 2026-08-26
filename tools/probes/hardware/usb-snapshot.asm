@@ -1,4 +1,4 @@
-; Read-only low-USB control and status snapshot.
+; No-I/O-write low-USB snapshot. Register read side effects remain open.
 ; Result AppVar: HWPUSB01, probe ID 5, payload 15 bytes.
 
 .org $9D95
