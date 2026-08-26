@@ -45,7 +45,10 @@ currently built artifact. [Guarded mapper, LCD, and interrupt
 probes](additional-calculator-probes.md) defines the new digital experiments
 and their safety gates. [External
 measurements](external-measurements.md) lists the questions that an AppVar
-cannot settle.
+cannot settle. [Online evidence and physical
+closure](evidence-closure.md) separates manufacturer-specified behavior,
+emulator-model results, historical measurements, and claims that still need a
+calculator.
 
 ## Priority order
 
