@@ -38,6 +38,9 @@ class NeededProbeDocumentationTests(unittest.TestCase):
         self.assertIn("appvar_file_sha256", text)
         self.assertIn("ti84p-re.physical-probe-metadata.v1", text)
         self.assertIn("all calculator-observable state", text)
+        self.assertIn("compact_state_code", text)
+        self.assertIn("HWPZ1-", text)
+        self.assertIn("compact_probe_code.py", text)
 
 
 if __name__ == "__main__":

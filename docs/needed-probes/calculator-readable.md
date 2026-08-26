@@ -2,8 +2,9 @@
 
 The prepared `AsmPrgm` artifacts write versioned `HWP1` frames to AppVars.
 These frames preserve raw values for export and decoding after the program has
-restored its working state. The screen is not the evidence channel because a
-reset, LCD refresh, or later OS drawing can erase it.
+restored its working state. The AppVar is canonical because a reset, LCD
+refresh, or later OS drawing can erase the screen. A completely recorded
+`HWPZ1-` display is a reversible copy of the same frame.
 
 ## Prepared artifacts
 
@@ -62,14 +63,18 @@ size word, `HWP1` magic, version, probe ID, and payload length. [confirmed]
 ## Display and persistence
 
 Every normal-return probe creates or finalizes its AppVar after restoring the
-ports named by its contract. It then prints a labeled decimal CRC-16
-verification code over the AppVar-resident `HWP1` frame. The shared routine
-skips display and key bcalls when interrupts were disabled on entry. The
-decoder reports the same number as `verification_code_decimal`. Record the
-displayed number before pressing a key, then compare it with the exported
-AppVar. The AppVar remains the canonical evidence because the screen does not
-survive a reset.
+ports named by its contract. It first prints a labeled decimal CRC-16 over the
+AppVar-resident `HWP1` frame. After a key press, `_VPutMap` renders a paged
+small-font `HWPZ1-` code that losslessly encodes the same complete frame. The
+shared routine skips display and key bcalls when interrupts were disabled on
+entry.
 
-An execution-fetch protection reset cannot reach the display path. A normal
-return prints the CRC after updating the resident outcome to `returned`; a
-reset-capable run leaves its pending AppVar as the recovery record.
+The decoder reports `verification_code_decimal`, `compact_state_code`, and
+`compact_state_code_length`. Record the decimal value and every compact page,
+then compare them with the exported AppVar. The AppVar remains canonical
+because its TI container preserves information outside the `HWP1` frame.
+
+An execution-fetch protection reset cannot reach either display path. A normal
+return prints the CRC and compact code after updating the resident outcome to
+`returned`; a reset-capable run leaves its pending AppVar as the recovery
+record.

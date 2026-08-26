@@ -18,9 +18,10 @@ Keep the following together:
 
 Do not replace the exported AppVar with decoded text. The decoder can change;
 the original TI container preserves the checksum and byte-level result. The
-decoded report includes `frame_hex`, `frame_sha256`, `appvar_file_sha256`, and
+decoded report includes `frame_hex`, `frame_sha256`,
+`appvar_file_sha256`, `compact_state_code`, `compact_state_code_length`, and
 every named measurement. An unrecognized payload byte remains present in
-`payload_hex` and `frame_hex`.
+`payload_hex`, `frame_hex`, and the reversible compact code.
 
 ## Metadata fields
 
@@ -84,6 +85,22 @@ The metadata contract adds fields when a probe depends on external state:
 and LCD experiments. The displayed verification code is required after a
 normal return. A visible-reset record may leave it `null`.
 
+After the decimal verification screen, each normal-return probe displays a
+small-font `HWPZ1-` code in pages of at most 144 characters. Photograph or
+transcribe every page if the AppVar cannot be transferred immediately. The
+code includes the complete `HWP1` frame, its byte length, and a CRC; it does
+not omit unknown or reserved payload bytes. Decode it with:
+
+```sh
+python tools/compact_probe_code.py 'HWPZ1-...'
+```
+
+Spaces, line breaks, and grouping hyphens in the body are ignored. The decoder
+also accepts `O` for zero and `I` or `L` for one. A successful decode recovers
+the same `frame_hex` that an exported AppVar contains. Preserve the AppVar when
+possible because its TI container checksum and file metadata provide evidence
+that the screen text alone does not carry.
+
 ## Self-contained evidence bundle
 
 Build one canonical record after exporting the AppVar:
@@ -124,8 +141,10 @@ Before using a result as evidence:
    errors.
 4. Confirm every cleanup or restoration flag required by that probe.
 5. For every normal-return probe, compare the recorded screen number with
-   `verification_code_decimal` from the decoded AppVar. A reset-capable
-   execution probe can leave a pending AppVar without reaching this display.
+   `verification_code_decimal` from the decoded AppVar. Decode the complete
+   `HWPZ1` text when it was recorded and compare the recovered `frame_hex`.
+   A reset-capable execution probe can leave a pending AppVar without reaching
+   either display.
 6. Check that the recorded model and OS satisfy the probe's entry guards.
 7. Keep visible reset, timeout, unsupported, and normal-return outcomes
    distinct.

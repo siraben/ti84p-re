@@ -18,18 +18,24 @@ size shifts every probe entry and invalidates exact-emulator runners and
 artifact hashes. A probe that displays a completion message must do so after
 state restoration and AppVar creation.
 
-`display.inc` implements every probe's post-cleanup display. It prints a
+`display.inc` implements every probe's post-cleanup display. It first prints a
 labeled decimal CRC-16/CCITT-FALSE code over the complete AppVar-resident
-`HWP1` frame. The host decoder reports the same code for comparison. The
-display and key bcalls run only when interrupts were enabled on entry.
-The code identifies a visible run; it is not the sole evidence payload. The
-decoder retains the complete frame and reports SHA-256 identities for the frame
-and exported AppVar. `tools/physical_probe_evidence.py` then binds those bytes
-to the exact build manifest and required physical metadata.
+`HWP1` frame. It then uses `_VPutMap` to page through a reversible `HWPZ1`
+encoding in fixed small-font cells. The encoding contains the frame length,
+CRC, and deterministic escape-run compression of every frame byte. The host
+decoder reports the decimal code and compact text for comparison. All display
+and key bcalls run only when interrupts were enabled on entry.
+
+The decimal number identifies a visible run; the compact text can reconstruct
+the frame but does not replace the original exported AppVar. The decoder
+retains the complete frame and reports SHA-256 identities for the frame and
+AppVar. `tools/physical_probe_evidence.py` binds those bytes to the exact build
+manifest and required physical metadata.
 
 Execution-fetch probes create their AppVar before the guarded fetch. A normal
-return updates the resident outcome and prints its CRC. A protection reset
-cannot reach the display path; export the pending AppVar after recovery.
+return updates the resident outcome and prints its CRC and compact frame code.
+A protection reset cannot reach either display path; export the pending AppVar
+after recovery.
 
 `lcd-controller.asm` is a transferable visible-cell probe. It rejects saved
 columns outside command range `0x20`–`0x2B` and never writes a hidden column.

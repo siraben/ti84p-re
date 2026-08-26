@@ -28,6 +28,7 @@ from hardware_probe import (
     encode_ti_variable_file,
     probe_appvar_report,
 )
+from compact_probe_code import decode_compact_probe_code
 from link_port import port_read_value
 
 
@@ -720,6 +721,14 @@ class HardwareProbeTests(unittest.TestCase):
         self.assertEqual(
             f"0x{probe_verification_code(frame):04X}",
             report["verification_code_hex"],
+        )
+        self.assertEqual(
+            frame.encode(),
+            decode_compact_probe_code(report["compact_state_code"]),
+        )
+        self.assertEqual(
+            len(report["compact_state_code"]),
+            report["compact_state_code_length"],
         )
 
 

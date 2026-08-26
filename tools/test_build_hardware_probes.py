@@ -10,8 +10,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from build_hardware_probes import (
     CREATE_APPVAR_COPY,
-    DISPLAY_BCALLS,
+    DISPLAY_BCALL_COUNTS,
+    DISPLAY_COMPACT_SIGNATURE,
     DISPLAY_CRC_SIGNATURE,
+    DISPLAY_DONE_SIGNATURE,
     DISPLAY_IFF_GUARD,
     PROBE_START,
     PROBES,
@@ -46,7 +48,9 @@ def fixture_machine_code(probe_name: str) -> bytes:
         + CREATE_APPVAR_COPY
         + DISPLAY_IFF_GUARD
         + DISPLAY_CRC_SIGNATURE
-        + b"".join(DISPLAY_BCALLS)
+        + b"".join(bcall * count for bcall, count in DISPLAY_BCALL_COUNTS.items())
+        + DISPLAY_COMPACT_SIGNATURE
+        + DISPLAY_DONE_SIGNATURE
         + b"\0"
         + (probe.appvar if probe.probe_id == 4 else probe.program).encode("ascii")
         + b" CODE \0"
@@ -176,6 +180,11 @@ class HardwareProbeBuilderTests(unittest.TestCase):
         self.assertIn("display_created_probe_code:", text)
         self.assertIn("sbc hl,bc", text)
         self.assertIn("pop ix", text)
+        self.assertIn("_VPutMap", text)
+        self.assertIn('    .db "HWPZ1-",0', text)
+        self.assertIn("Escape-run records are FF,count,value", text)
+        self.assertIn("cp 16", text)
+        self.assertIn("cp 9", text)
 
     def test_packaged_program_decodes_to_original_machine_code(self):
         machine_code = fixture_machine_code("md5-edge")

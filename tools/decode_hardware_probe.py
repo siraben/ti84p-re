@@ -40,6 +40,7 @@ def main() -> None:
             f"frame_sha256={report['frame_sha256']} "
             f"appvar_sha256={report['appvar_file_sha256']}"
         )
+        print(f"compact_state_code={report['compact_state_code']}")
         print(json.dumps(report["measurements"], indent=2))
 
 
