@@ -26,17 +26,38 @@ start:
     ld (payload_pre_port20),a
 
     ; Select every group, wait for the launch key to be released, then wait
-    ; for the operator to hold the key or chord under test.
+    ; for the operator to hold the key or chord under test. Both operator
+    ; waits are bounded. A timeout leaves trigger FFh and skips measurement.
+    ld a,$FF
+    ld (payload_trigger),a
     xor a
     out ($01),a
+    ld b,$80
+    ld hl,0
 wait_released:
     in a,($01)
     inc a
+    jr z,launch_released
+    dec hl
+    ld a,h
+    or l
     jr nz,wait_released
+    djnz wait_released
+    jp operator_timeout
+launch_released:
+    ld b,$80
+    ld hl,0
 wait_pressed:
     in a,($01)
     inc a
-    jr z,wait_pressed
+    jr nz,test_input_seen
+    dec hl
+    ld a,h
+    or l
+    jr nz,wait_pressed
+    djnz wait_pressed
+    jp operator_timeout
+test_input_seen:
     dec a
     ld (payload_trigger),a
 
@@ -175,6 +196,13 @@ sample_trial:
     rlc c
     jp c,sample_group
 
+    jr cleanup_keypad
+
+operator_timeout:
+    ; The FFh sentinel was stored before either wait. Keep the sample buffer
+    ; zeroed so the decoder cannot mistake it for completed measurements.
+
+cleanup_keypad:
     ; The OS leaves every group unselected between scans.
     ld a,$FF
     out ($01),a

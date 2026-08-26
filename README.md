@@ -79,7 +79,7 @@ Then open `ti84.gpr` in Ghidra for interactive analysis.
 | parser handlers | 84 (page 0x38 dispatch table) |
 | Defined data (strings/floats/typed) | 618 |
 | Flash pages loaded | 64 (1 MiB) |
-| Docs | 46 rendered content pages |
+| Docs | 57 rendered content pages |
 
 The checked [database-health report](tools/data/database-health.json) records
 coverage and concrete cleanup locations for the current BootFree-derived

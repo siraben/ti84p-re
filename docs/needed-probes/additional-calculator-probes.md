@@ -45,6 +45,12 @@ read/write rows, paired read/write rows, the even-Flash discriminator, restore
 flags, and nine exit-port bytes. The decoder names the closest emulator
 profile and separately reports marker and readable-port restoration.
 
+Do not run this artifact on physical hardware. The worker's instruction fetch
+remains in a mapped RAM window while it changes paired mode. A physical ASIC
+that maps that window differently can make cleanup unreachable. The build
+manifest marks the artifact `blocked`, and the physical-evidence bundler
+refuses it. [confirmed]
+
 Fresh exact-image runs selected the TilEm profile with decimal verification
 code `58756` and the Wabbitemu profile with code `21062`; all four restore
 flags and both derived restoration checks passed. The normalized record is
@@ -68,7 +74,8 @@ original value of one tracked visible cell. It rereads and restores that cell
 before creating `HWPLCD02`. [confirmed]
 
 Every ready poll and measurement counter is bounded. A timeout suppresses the
-pending LCD transfer. The measurement sends no display-enable, power, test,
+pending LCD transfer and enters a separately bounded fixed-delay movement and
+pointer recovery path. The measurement sends no display-enable, power, test,
 contrast, row-shift, or OPA command. It does not write the ASIC wait ports.
 [confirmed]
 
@@ -178,6 +185,11 @@ OS port-`0x03` mask from `(IY+0x16)` bit 0. It does not trust undocumented
 bit-3 readback. It then returns to IM1, restores `I`, verifies the documented
 readable mask bits, updates the pending frame, and only then restores entry
 interrupt enable state.
+
+An entry guard failure occurs before `state_touched` is set. That path performs
+no timer, mask, `I`, or interrupt-mode write and verifies the six sampled bytes
+unchanged. This prevents an unsupported shell, live source, or vector context
+from being altered by cleanup intended for the mutating path. [confirmed]
 
 The watchdog bounds emulator and expected physical runs, but an ASIC that
 wakes for neither source can remain halted until reset. In that case the

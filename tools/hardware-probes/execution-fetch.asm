@@ -10,7 +10,7 @@ OUTCOME_PENDING         .equ 0
 OUTCOME_RETURNED        .equ 1
 OUTCOME_NO_RET          .equ 2
 OUTCOME_TARGET_CHANGED  .equ 3
-OUTCOME_PAIRED_MAPPING  .equ 4
+OUTCOME_MAPPING_CONTEXT .equ 4
 
 start:
     ld a,i
@@ -37,14 +37,15 @@ start:
     in a,($26)
     ld (payload_port26),a
 
-    ; In paired mapper mode port 06h remaps both bank A and the bank-B program.
-    ; Refuse the case before a mapping write can unmap this probe.
-    ld a,(payload_port04)
-    and 1
+    ; Reading port 04h returns interrupt status, not the write-side mapper
+    ; mode. Require the complete OS 2.55MP direct-Asm mapping context instead.
+    ; With the probe executing from RAM page 1 in B, these exact selectors
+    ; establish independent mode before any port-06h write can unmap the code.
+    call mapping_context_supported
     jr z,mapping_supported
-    ld a,OUTCOME_PAIRED_MAPPING
+    ld a,OUTCOME_MAPPING_CONTEXT
     ld (payload_outcome),a
-    jr create_result
+    jr create_result_without_port_restore
 
 mapping_supported:
     ld a,TARGET_SELECTOR
@@ -73,6 +74,7 @@ ret_found:
 create_result:
     ld a,(saved_port6)
     out ($06),a
+create_result_without_port_restore:
     ld ix,appvar_name
     ld hl,frame
     ld bc,frame_end-frame
@@ -114,16 +116,15 @@ create_result:
     in a,($26)
     ld (hl),a
 
-    ld a,d
-    and 1
+    call mapping_context_supported
     jr z,post_create_mapping_supported
     ld hl,(result_outcome_ptr)
-    ld (hl),OUTCOME_PAIRED_MAPPING
+    ld (hl),OUTCOME_MAPPING_CONTEXT
     jr finish_without_port_restore
 
 post_create_mapping_supported:
     ld a,(payload_outcome)
-    cp OUTCOME_PAIRED_MAPPING
+    cp OUTCOME_MAPPING_CONTEXT
     jr z,finish_without_port_restore
     or a
     jr nz,finish
@@ -163,12 +164,43 @@ interrupts_restored:
     call display_probe_code
     ret
 
+mapping_context_supported:
+    in a,($05)
+    or a
+    ret nz
+    in a,($06)
+    cp $3F
+    ret nz
+    in a,($07)
+    cp $81
+    ret nz
+    in a,($0E)
+    or a
+    ret nz
+    in a,($0F)
+    or a
+    ret nz
+    ld hl,$0BD9
+    ld de,os_signature
+    ld b,8
+mapping_os_signature_loop:
+    ld a,(de)
+    cp (hl)
+    ret nz
+    inc de
+    inc hl
+    djnz mapping_os_signature_loop
+    xor a
+    ret
+
 saved_port6:
     .db 0
 result_outcome_ptr:
     .dw 0
 result_frame_ptr:
     .dw 0
+os_signature:
+    .db $3E,$C0,$D3,$00,$31,$F7,$FF,$CD
 
 display_label:
     .db APPVAR_0,APPVAR_1,APPVAR_2,APPVAR_3

@@ -602,21 +602,22 @@ The corresponding CPU-source case loads counter 3 with source `0x80` and advance
 
 With mode `0x02`, source `0x80`, and counter 1, expiry during `HALT` leaves the CPU interrupt line clear while mode/status reads `0x06`. Evaluating the timer after leaving `HALT` asserts the retained interrupt request. The RTC case commits `0x12345678`, advances emulated time by 10.75 seconds, and reads `0x12345682`. Disabling the RTC freezes that value through an advance to 100 seconds. These tests inject emulator clock values directly; they do not measure wall-clock accuracy, callback cadence under CPU execution, or physical low-power behavior. [standard]
 
-**Assembled-probe confirmation.** The exact 835-byte `HWTMR` image also runs
-after a retail OS 2.55MP boot. The guarded runner stops at `01:9EE4` before
-`_CreateAppVar`, after 1,645,212 probe instructions and 12,937,610 modeled
-T-states, with no execution-violation reset. Four samples infer source-`0x41`
+**Assembled-probe confirmation.** The current exact 1,385-byte `HWTMR` image
+also runs after a retail OS 2.55MP boot. The guarded Wabbitemu matrix run
+completed with no execution-violation reset and verification code `41549`.
+Four samples infer source-`0x41`
 divisor `3568/111`, about 32.144. Speed requests 0–3 read back as 0, 1, 1,
 and 1, and the nonzero cases infer prescalers near one. Counter zero produces
 mode/status `0x04` and port `0x04 = 0x68`; both expiry samples expose bit 2.
 All saved timer, speed, port-`0x2F`, power-control, and interrupt-mask fields
 compare equal after cleanup. [confirmed] for the pinned Wabbitemu run.
 
-The shared injected-program adapter has SHA-256
-`3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e`.
+The generic exact-image adapter has SHA-256
+`643607b5acee38813b221f3e91e24de31332acc8be25368e1d281e1a07c31d79`.
 The machine-code SHA-256 is
-`6767caf1d714bc15e642de2f791151a060015fa0d9faebe1ebddd92d184df68a`.
-This execution does not create the result AppVar or measure physical timing.
+`2b7d5edec2d6df58fb3447312411ecaf26a1b8e75d1efb21e5b02761c21c38a1`.
+The adapter redirects result allocation to private RAM and does not measure
+physical timing.
 
 ### MAME timer and RTC policy
 

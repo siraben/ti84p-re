@@ -25,6 +25,8 @@ start:
     ld (payload_pre_port31),a
     in a,($32)
     ld (payload_pre_port32),a
+    xor a
+    ld (state_touched),a
 
     push iy
     pop hl
@@ -103,8 +105,10 @@ check_im1_signature:
     ld (irq_counter32),a
 
     ; A 257-byte uniform IM2 table covers every vector byte. The table points
-    ; to the handler at 0xA3A3 and remains in the program's RAM page.
-    ld a,$A2
+    ; to the handler at 0xA4A4 and remains in the program's RAM page.
+    ld a,1
+    ld (state_touched),a
+    ld a,$A3
     ld i,a
     im 2
 
@@ -183,6 +187,9 @@ set_abort:
 
 restore_state:
     di
+    ld a,(state_touched)
+    or a
+    jr z,capture_post_state
     xor a
     out ($30),a
     out ($31),a
@@ -194,6 +201,7 @@ restore_state:
     ld a,(payload_pre_i)
     ld i,a
 
+capture_post_state:
     in a,($03)
     ld (payload_post_port03),a
     in a,($04)
@@ -207,6 +215,25 @@ restore_state:
     ld a,i
     ld (payload_post_i),a
 
+    ld a,(state_touched)
+    or a
+    jr nz,check_restored_state
+
+    ; A guard-only exit must leave every sampled interrupt/timer register and I
+    ; byte untouched. IM is never changed unless state_touched is set.
+    ld hl,payload_pre_port03
+    ld de,payload_post_port03
+    ld b,6
+check_untouched_state:
+    ld a,(de)
+    cp (hl)
+    jr nz,restoration_recorded
+    inc hl
+    inc de
+    djnz check_untouched_state
+    jr restoration_matches
+
+check_restored_state:
     ld a,(payload_post_port03)
     and $17
     ld b,a
@@ -230,6 +257,7 @@ restore_state:
     ld a,(payload_pre_i)
     cp b
     jr nz,restoration_recorded
+restoration_matches:
     ld a,1
     ld (payload_restore_ok),a
 restoration_recorded:
@@ -289,6 +317,7 @@ irq_counter32: .db 0
 result_created: .db 0
 result_frame_ptr: .dw 0
 restore_mask: .db 0
+state_touched: .db 0
 im1_signature:
     .db $18,$33,$DB,$04,$CB,$7F
 
@@ -296,12 +325,12 @@ display_label:
     .db "HWPIRQ CODE ",0
 #include "display.inc"
 
-; Keep the vector table at 0xA200. Any interrupt-vector byte indexes two
-; adjacent 0xA3 bytes, yielding handler address 0xA3A3.
-.fill $A200-$,0
+; Keep the vector table at 0xA300. Any interrupt-vector byte indexes two
+; adjacent 0xA4 bytes, yielding handler address 0xA4A4.
+.fill $A300-$,0
 im2_table:
-    .fill 257,$A3
-.fill $A3A3-$,0
+    .fill 257,$A4
+.fill $A4A4-$,0
 im2_handler_entry:
     jp irq_handler
 

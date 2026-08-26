@@ -32,6 +32,10 @@ retains the complete frame and reports SHA-256 identities for the frame and
 AppVar. `tools/physical_probe_evidence.py` binds those bytes to the exact build
 manifest and required physical metadata.
 
+The manifest also records `physical_use_class`. `HWBRAW` and `HWPMAP` are
+currently `blocked`; the physical-evidence bundler refuses them. Read
+`docs/needed-probes/safety-review.md` before transferring any artifact.
+
 Execution-fetch probes create their AppVar before the guarded fetch. A normal
 return updates the resident outcome and prints its CRC and compact frame code.
 A protection reset cannot reach either display path; export the pending AppVar
@@ -86,6 +90,7 @@ marker or port restoration, a mismatched displayed decimal code, and an
 unexpected ROM or emulator revision. It records MAME's Lua result as a direct
 handler profile and labels exact `HWPMAP` execution unsupported.
 
-`rtc-rollover.asm` is the only probe that may wait several minutes. It keeps
-interrupts enabled until current-time port `0x45` reaches `0xFF`, then masks
-interrupts across the final rollover window. It never writes the RTC block.
+`rtc-rollover.asm` can wait while the current-time low byte advances. It keeps
+interrupts enabled until port `0x45` reaches `0xFF`, then masks interrupts
+across the final rollover window. Progress and rollover watchdogs bound both
+waits. It never writes the RTC block.

@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from hardware_probe import (
     ProbeFrame,
+    decode_probe_measurements,
     encode_probe_appvar,
     encode_ti_variable_file,
     probe_verification_code,
@@ -20,6 +21,7 @@ from hardware_probe import (
 from physical_probe_evidence import (
     METADATA_SCHEMA,
     SCHEMA,
+    _acceptance,
     build_evidence,
     validate_evidence,
 )
@@ -40,14 +42,16 @@ def artifact_row(
     appvar="HWPASIC1",
     payload=11,
     program_blob=b"program fixture",
+    program=None,
 ):
     return {
         "probe": probe,
         "probe_id": probe_id,
         "source": f"tools/hardware-probes/{probe}.asm",
-        "program": "HWASIC" if probe_id == 3 else "HWBATT",
+        "program": program or ("HWASIC" if probe_id == 3 else "HWBATT"),
         "result_appvar": appvar,
         "payload_size": payload,
+        "physical_use_class": "conditional",
         "defines": {},
         "machine_code_size": 123,
         "machine_code_sha256": "1" * 64,
@@ -86,6 +90,23 @@ def metadata(row, frame):
             "notes": "No visible anomaly.",
         },
     }
+
+
+def add_recovery_metadata(meta, backup_blob):
+    digest = hashlib.sha256(backup_blob).hexdigest()
+    meta["calculator"].update(
+        {
+            "backup_verified": True,
+            "backup_artifact_sha256": digest,
+        }
+    )
+    meta["run"]["restore_rehearsal"] = {
+        "utc_time": "2026-08-24T18:00:00-04:00",
+        "result": "passed",
+        "backup_sha256": digest,
+        "notes": "Restored this backup to the calculator and verified contents.",
+    }
+    return digest
 
 
 class PhysicalProbeEvidenceTests(unittest.TestCase):
@@ -129,6 +150,12 @@ class PhysicalProbeEvidenceTests(unittest.TestCase):
         )
         self.assertEqual("0x06", evidence["probe_report"]["measurements"]["registers"]["0x04"])
         validate_evidence(evidence)
+
+    def test_blocked_artifact_cannot_produce_physical_evidence(self):
+        self.row["physical_use_class"] = "blocked"
+
+        with self.assertRaisesRegex(ValueError, "blocked from physical evidence"):
+            self.build()
 
     def test_embedded_appvar_tamper_is_rejected(self):
         evidence = self.build()
@@ -206,9 +233,258 @@ class PhysicalProbeEvidenceTests(unittest.TestCase):
 
         self.assertTrue(evidence["state_coverage"]["complete"])
 
+    def test_nonzero_outcome_is_preserved_but_not_accepted(self):
+        payload = bytearray(19)
+        payload[0] = 0x41
+        payload[1] = 1
+        payload[18] = 0x41
+        frame = ProbeFrame(probe_id=13, asic_id=0x45, status=0xE3, payload=bytes(payload))
+        program = program_file("HWRTC", b"rtc program")
+        row = artifact_row(
+            probe="rtc-rollover",
+            probe_id=13,
+            appvar="HWPRTC01",
+            payload=19,
+            program_blob=program,
+            program="HWRTC",
+        )
+        meta = metadata(row, frame)
+        meta["run"]["rtc_configuration"] = "RTC enabled; interrupts enabled."
+
+        evidence = build_evidence(
+            encode_probe_appvar("HWPRTC01", frame),
+            program,
+            json_blob({"format": 1, "probes": [row]}),
+            json_blob(meta),
+            appvar_name="HWPRTC01.8xv",
+            program_name="HWRTC.8xp",
+            manifest_name="manifest.json",
+            metadata_name="metadata.json",
+        )
+
+        self.assertEqual(1, evidence["probe_report"]["measurements"]["outcome_code"])
+        self.assertFalse(evidence["state_coverage"]["complete"])
+        self.assertEqual("failed", evidence["state_coverage"]["run_acceptance"]["classification"])
+        self.assertIn(
+            "outcome_code",
+            evidence["state_coverage"]["run_acceptance"]["failed_predicates"],
+        )
+        validate_evidence(evidence)
+
+        evidence["state_coverage"]["complete"] = True
+        with self.assertRaisesRegex(ValueError, "claims complete state coverage"):
+            validate_evidence(evidence)
+
+    def test_failed_cleanup_is_preserved_but_not_accepted(self):
+        frame = ProbeFrame(probe_id=6, asic_id=0x45, status=0xE3, payload=bytes(30))
+        program = program_file("HWBATT", b"battery program")
+        row = artifact_row(
+            probe="battery-level",
+            probe_id=6,
+            appvar="HWBATT01",
+            payload=30,
+            program_blob=program,
+        )
+        meta = metadata(row, frame)
+        meta["run"].update(
+            {
+                "supply_volts": 5.9,
+                "load_amps": 0.03,
+                "temperature_c": 22.0,
+                "supply_sweep_direction": "steady",
+            }
+        )
+
+        evidence = build_evidence(
+            encode_probe_appvar("HWBATT01", frame),
+            program,
+            json_blob({"format": 1, "probes": [row]}),
+            json_blob(meta),
+            appvar_name="HWBATT01.8xv",
+            program_name="HWBATT.8xp",
+            manifest_name="manifest.json",
+            metadata_name="metadata.json",
+        )
+
+        self.assertFalse(evidence["state_coverage"]["complete"])
+        self.assertIn(
+            "cleanup_status_matches",
+            evidence["state_coverage"]["run_acceptance"]["failed_predicates"],
+        )
+        validate_evidence(evidence)
+
+    def test_mutating_probe_requires_bound_backup_and_passed_rehearsal(self):
+        original = bytes.fromhex("101112131415")
+        observed = bytes.fromhex("202122232425")
+        frame = ProbeFrame(
+            probe_id=2,
+            asic_id=0x45,
+            status=0xE3,
+            payload=original + observed + original,
+        )
+        program = program_file("HWPRAM", b"ram program")
+        row = artifact_row(
+            probe="ram-alias",
+            probe_id=2,
+            appvar="HWPRAM01",
+            payload=18,
+            program_blob=program,
+            program="HWPRAM",
+        )
+        meta = metadata(row, frame)
+        arguments = {
+            "appvar_name": "HWPRAM01.8xv",
+            "program_name": "HWPRAM.8xp",
+            "manifest_name": "manifest.json",
+            "metadata_name": "metadata.json",
+        }
+
+        with self.assertRaisesRegex(ValueError, "verified calculator backup"):
+            build_evidence(
+                encode_probe_appvar("HWPRAM01", frame),
+                program,
+                json_blob({"format": 1, "probes": [row]}),
+                json_blob(meta),
+                **arguments,
+            )
+
+        meta["calculator"]["backup_verified"] = True
+        with self.assertRaisesRegex(ValueError, "backup_artifact_sha256"):
+            build_evidence(
+                encode_probe_appvar("HWPRAM01", frame),
+                program,
+                json_blob({"format": 1, "probes": [row]}),
+                json_blob(meta),
+                **arguments,
+            )
+
+        backup = b"complete calculator backup fixture"
+        digest = add_recovery_metadata(meta, backup)
+        with self.assertRaisesRegex(ValueError, "attachment SHA-256"):
+            build_evidence(
+                encode_probe_appvar("HWPRAM01", frame),
+                program,
+                json_blob({"format": 1, "probes": [row]}),
+                json_blob(meta),
+                attachments=(("calculator_backup", "unit.8xg", b"wrong backup"),),
+                **arguments,
+            )
+
+        evidence = build_evidence(
+            encode_probe_appvar("HWPRAM01", frame),
+            program,
+            json_blob({"format": 1, "probes": [row]}),
+            json_blob(meta),
+            attachments=(("calculator_backup", "unit.8xg", backup),),
+            **arguments,
+        )
+        self.assertTrue(evidence["state_coverage"]["complete"])
+        self.assertEqual(
+            digest,
+            evidence["input_files"]["attachments"][0]["sha256"],
+        )
+        validate_evidence(evidence)
+
+        meta["run"]["restore_rehearsal"]["result"] = "not attempted"
+        with self.assertRaisesRegex(ValueError, "result must be passed"):
+            build_evidence(
+                encode_probe_appvar("HWPRAM01", frame),
+                program,
+                json_blob({"format": 1, "probes": [row]}),
+                json_blob(meta),
+                attachments=(("calculator_backup", "unit.8xg", backup),),
+                **arguments,
+            )
+
+        meta["run"]["restore_rehearsal"].update(
+            {
+                "result": "passed",
+                "utc_time": "2026-08-26T18:00:00-04:00",
+            }
+        )
+        with self.assertRaisesRegex(ValueError, "must predate"):
+            build_evidence(
+                encode_probe_appvar("HWPRAM01", frame),
+                program,
+                json_blob({"format": 1, "probes": [row]}),
+                json_blob(meta),
+                attachments=(("calculator_backup", "unit.8xg", backup),),
+                **arguments,
+            )
+
+    def test_acceptance_predicates_match_high_risk_decoder_schemas(self):
+        mapper = bytearray(47)
+        mapper[37] = 0x0F
+
+        lcd_v2 = bytearray(42)
+        lcd_v2[29] = 0x04
+        lcd_v2[30] = 1
+
+        lcd_legacy = bytearray(43)
+        lcd_legacy[31] = 1
+
+        interrupt = bytearray(21)
+        interrupt[20] = 1
+
+        hidden = bytearray(2335)
+        hidden[0] = 1
+        hidden[1] = 5
+
+        cases = (
+            (14, mapper),
+            (15, lcd_v2),
+            (15, lcd_legacy),
+            (16, interrupt),
+            (17, hidden),
+        )
+        for probe_id, payload in cases:
+            with self.subTest(probe_id=probe_id, payload_size=len(payload)):
+                frame = ProbeFrame(
+                    probe_id=probe_id,
+                    asic_id=0x45,
+                    status=0xE3,
+                    payload=bytes(payload),
+                )
+                classification = _acceptance(
+                    {
+                        "probe_id": probe_id,
+                        "measurements": decode_probe_measurements(frame),
+                    }
+                )
+                self.assertTrue(classification["accepted"])
+
+        lcd_v2[13] = 4
+        timed_out = _acceptance(
+            {
+                "probe_id": 15,
+                "measurements": decode_probe_measurements(
+                    ProbeFrame(15, 0x45, 0xE3, bytes(lcd_v2))
+                ),
+            }
+        )
+        self.assertFalse(timed_out["accepted"])
+        self.assertIn("outcome_code", timed_out["failed_predicates"])
+
+        interrupt[20] = 0
+        unrestored = _acceptance(
+            {
+                "probe_id": 16,
+                "measurements": decode_probe_measurements(
+                    ProbeFrame(16, 0x45, 0xE3, bytes(interrupt))
+                ),
+            }
+        )
+        self.assertFalse(unrestored["accepted"])
+        self.assertIn("restore_ok", unrestored["failed_predicates"])
+
     def test_recovery_gated_laboratory_manifest_is_preserved(self):
-        frame = ProbeFrame(probe_id=17, asic_id=0x45, status=0xE3, payload=bytes(2335))
+        payload = bytearray(2335)
+        payload[0] = 1
+        payload[1] = 5
+        frame = ProbeFrame(probe_id=17, asic_id=0x45, status=0xE3, payload=bytes(payload))
         appvar = encode_probe_appvar("HWPLAB01", frame)
+        backup = b"hidden LCD laboratory backup fixture"
+        backup_sha256 = hashlib.sha256(backup).hexdigest()
         manifest = {
             "format": 1,
             "laboratory_only": True,
@@ -216,6 +492,7 @@ class PhysicalProbeEvidenceTests(unittest.TestCase):
             "result_appvar": "HWPLAB01",
             "probe_id": 17,
             "payload_size": 2335,
+            "physical_use_class": "laboratory-only",
             "source": "tools/hardware-probes/lcd-hidden-lab.asm",
             "machine_code_size": 800,
             "machine_code_sha256": "3" * 64,
@@ -223,7 +500,7 @@ class PhysicalProbeEvidenceTests(unittest.TestCase):
             "program_file_sha256": hashlib.sha256(
                 program_file("HWPLAB", b"hidden lab program")
             ).hexdigest(),
-            "recovery": {"backup": {"sha256": "5" * 64}},
+            "recovery": {"backup": {"sha256": backup_sha256}},
         }
         meta = metadata(
             {
@@ -235,10 +512,10 @@ class PhysicalProbeEvidenceTests(unittest.TestCase):
         )
         meta["calculator"].update(
             {
-                "backup_verified": True,
                 "lcd_controller_or_revision": "identified test controller",
             }
         )
+        add_recovery_metadata(meta, backup)
         meta["run"].update(
             {
                 "visible_reset": True,
@@ -257,10 +534,15 @@ class PhysicalProbeEvidenceTests(unittest.TestCase):
             program_name="HWPLAB.8xp",
             manifest_name="manifest.json",
             metadata_name="metadata.json",
+            attachments=(("calculator_backup", "unit.8xg", backup),),
         )
 
         self.assertTrue(evidence["artifact"]["laboratory_only"])
-        self.assertEqual("5" * 64, evidence["artifact"]["recovery"]["backup"]["sha256"])
+        self.assertEqual(
+            backup_sha256,
+            evidence["artifact"]["recovery"]["backup"]["sha256"],
+        )
+        self.assertTrue(evidence["state_coverage"]["complete"])
         validate_evidence(evidence)
 
 

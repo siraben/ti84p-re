@@ -6,6 +6,10 @@ restored its working state. The AppVar is canonical because a reset, LCD
 refresh, or later OS drawing can erase the screen. A completely recorded
 `HWPZ1-` display is a reversible copy of the same frame.
 
+This page inventories artifacts; it does not authorize every physical run.
+The [adversarial safety review](safety-review.md) currently blocks `HWBRAW`
+and `HWPMAP` and places several other artifacts in laboratory-only use.
+
 ## Prepared artifacts
 
 All sources use the shared entry and AppVar writer in

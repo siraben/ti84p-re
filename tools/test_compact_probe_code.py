@@ -94,6 +94,22 @@ class CompactProbeCodeTests(unittest.TestCase):
         with self.assertRaisesRegex(CompactProbeCodeError, "count is zero"):
             rle_decompress(bytes((0xFF, 0, 1)), 1)
 
+    def test_rejects_crc_valid_noncanonical_escape_runs(self):
+        frame = ProbeFrame(3, 0x45, 0xE3, b"A").encode()
+        compressed = b"".join(bytes((0xFF, 1, value)) for value in frame)
+        envelope = (
+            len(frame).to_bytes(2, "little")
+            + binascii.crc_hqx(frame, 0xFFFF).to_bytes(2, "little")
+            + compressed
+        )
+
+        with self.assertRaisesRegex(CompactProbeCodeError, "noncanonical escape-run"):
+            decode_compact_probe_code("HWPZ1-" + base32_encode(envelope))
+
+    def test_encoder_wraps_invalid_frame_errors(self):
+        with self.assertRaisesRegex(CompactProbeCodeError, "frame is invalid"):
+            encode_compact_probe_code(b"not an HWP1 frame")
+
     def test_crc_correct_non_frame_is_reported_as_compact_code_error(self):
         invalid = b"not an HWP1 frame"
         envelope = (
