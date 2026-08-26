@@ -19,6 +19,10 @@ No exported `HWP1` AppVar from a physical calculator is present in this
 repository. The existing suite therefore supplies tested measurement
 artifacts, not physical conclusions. [confirmed]
 
+In the table below, a displayed code means the decimal CRC plus the complete
+paged `HWPZ1-` text when both screens can be recorded. The compact text
+contains the `HWP1` frame, not calculator metadata or external readings.
+
 | Experiment family | Minimum physical setup | Prepared artifact | Remaining output |
 |-------------------|------------------------|-------------------|------------------|
 | ASIC identity and RAM topology | TI-84 Plus with recorded PCB and ASIC marking | `HWASIC`, `HWPRAM` | AppVars plus displayed codes |
