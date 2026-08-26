@@ -39,13 +39,17 @@ PROBE_START = 0x9DB5
 CREATE_APPVAR_COPY = b"\xEF\x6A\x4E\xE1\xC1\x13\x13\xED\xB0"
 DISPLAY_IFF_GUARD = bytes.fromhex("ED57E0")
 DISPLAY_CRC_SIGNATURE = bytes.fromhex("11FFFF78B1C8DD7E00AA572608")
-DISPLAY_BCALLS = (
-    bytes.fromhex("EF4045"),
-    bytes.fromhex("EF5845"),
-    bytes.fromhex("EF0A45"),
-    bytes.fromhex("EF0745"),
-    bytes.fromhex("EF7249"),
-)
+DISPLAY_COMPACT_SIGNATURE = b"HWPZ1-\0" + b"0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+DISPLAY_DONE_SIGNATURE = bytes.fromhex("3EC7FEC7C9")
+DISPLAY_BCALL_COUNTS = {
+    bytes.fromhex("EF4045"): 1,
+    bytes.fromhex("EF5845"): 1,
+    bytes.fromhex("EF0A45"): 1,
+    bytes.fromhex("EF0745"): 1,
+    bytes.fromhex("EF7249"): 3,
+    bytes.fromhex("EF4345"): 2,
+    bytes.fromhex("EF5E45"): 1,
+}
 TIMING_PROBE_EXPECTED_INPUTS = {
     0x02: 2,
     0x03: 2,
@@ -301,11 +305,15 @@ def validate_machine_code(probe_name: str, machine_code: bytes) -> None:
         raise ValueError(f"{probe_name} must contain its labeled verification display")
     if machine_code.count(DISPLAY_IFF_GUARD) != 1:
         raise ValueError(f"{probe_name} must guard display bcalls with entry IFF")
-    for bcall in DISPLAY_BCALLS:
-        if machine_code.count(bcall) != 1:
+    for bcall, count in DISPLAY_BCALL_COUNTS.items():
+        if machine_code.count(bcall) != count:
             raise ValueError(f"{probe_name} must contain its verification display bcalls")
     if machine_code.count(DISPLAY_CRC_SIGNATURE) != 1:
         raise ValueError(f"{probe_name} must contain its frame CRC loop")
+    if machine_code.count(DISPLAY_COMPACT_SIGNATURE) != 1:
+        raise ValueError(f"{probe_name} must contain its compact-code alphabet")
+    if machine_code.count(DISPLAY_DONE_SIGNATURE) != 1:
+        raise ValueError(f"{probe_name} must contain its compact-display stop marker")
     if probe.probe_id == 4:
         configuration = dict(probe.defines)
         selector = configuration["TARGET_SELECTOR"]

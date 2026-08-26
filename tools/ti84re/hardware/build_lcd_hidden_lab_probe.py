@@ -13,8 +13,10 @@ import tempfile
 
 from ti84re.hardware.build_probes import (
     CREATE_APPVAR_COPY,
-    DISPLAY_BCALLS,
+    DISPLAY_BCALL_COUNTS,
+    DISPLAY_COMPACT_SIGNATURE,
     DISPLAY_CRC_SIGNATURE,
+    DISPLAY_DONE_SIGNATURE,
     DISPLAY_IFF_GUARD,
     PROBE_DIR,
     PROBE_START,
@@ -141,9 +143,13 @@ def validate_machine_code(machine_code: bytes, *, expected_asic: int) -> None:
         raise LcdHiddenLabBuildError("laboratory display lacks the entry-IFF guard")
     if machine_code.count(DISPLAY_CRC_SIGNATURE) != 1:
         raise LcdHiddenLabBuildError("laboratory frame CRC loop differs")
-    for bcall in DISPLAY_BCALLS:
-        if machine_code.count(bcall) != 1:
+    for bcall, count in DISPLAY_BCALL_COUNTS.items():
+        if machine_code.count(bcall) != count:
             raise LcdHiddenLabBuildError("laboratory display bcall inventory differs")
+    if machine_code.count(DISPLAY_COMPACT_SIGNATURE) != 1:
+        raise LcdHiddenLabBuildError("laboratory compact-code alphabet differs")
+    if machine_code.count(DISPLAY_DONE_SIGNATURE) != 1:
+        raise LcdHiddenLabBuildError("laboratory compact-display marker differs")
     if ACK_VALUE.to_bytes(2, "little") not in machine_code:
         raise LcdHiddenLabBuildError("laboratory acknowledgement constant is absent")
     if bytes((0xFE, expected_asic)) not in machine_code:
