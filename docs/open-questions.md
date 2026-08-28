@@ -9,10 +9,15 @@ comparisons remain on the subsystem pages linked below.
 
 ### Symbol types
 
-The Ghidra model assigns `TIKeyCode` to `kbdKey`, `kbdGetKy`, and `keyExtend`
-(`0x8444`–`0x8446`), and `TIError` to `errNo` (`0x86DD`). `TIVarType` remains
-on `curType` and `varType`. `stat_calc_command` remains inside the typed
-`SystemFlags` span. [confirmed]
+The Ghidra model assigns `TIKeyCode` to `kbdKey`, `kbdGetKy`, `keyExtend`, and
+`cxCurApp`. It assigns `TIError` to `errNo` and
+`TIVarType` to `curType` and `varType`. A reviewed manifest also applies enum
+equates to 57 instruction operands: 16 object-type constructors, 39 named error
+stubs, and two MathPrint key-code comparisons. Each row binds the address,
+operand index, enum member, and instruction bytes. `BuildTypes.java` rejects a
+row if the instruction or scalar changes. [confirmed]
+
+No remaining items for this subsystem.
 
 ### Floating-point table semantics
 
