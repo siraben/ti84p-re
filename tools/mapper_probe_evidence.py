@@ -28,6 +28,7 @@ SOURCE_PATHS = (
     "tools/hardware-probes/mapper-overlays.asm",
     "tools/hardware-probes/common.inc",
     "tools/hardware-probes/display.inc",
+    "tools/emulator_probe_build.py",
     "tools/build_tilem_exact_probe.py",
     "tools/build_wabbitemu_exact_probe.py",
     "tools/tilem_probe_support.c",

@@ -34,6 +34,7 @@ SOURCE_PATHS = (
     "tools/compact_probe_code.py",
     "tools/hardware_probe.py",
     "tools/build_hardware_probes.py",
+    "tools/emulator_probe_build.py",
     "tools/build_tilem_compact_probe.py",
     "tools/build_wabbitemu_compact_probe.py",
     "tools/tilem_compact_probe.c",

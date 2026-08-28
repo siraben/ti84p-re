@@ -12,8 +12,9 @@
     "tools/compact_probe_code.py": "de7ad70d45fa10ea16d61f7ee8f37be45e8c243f2e7b0576b9851227513fe2fe",
     "tools/hardware_probe.py": "bcd8b8260aaf4fd78fde42dad2f65a92872a9b5fa601a3ebe47858b43ba152d4",
     "tools/build_hardware_probes.py": "183e6fe1f23d4930aede25ca8dc1044b1c100b7b8ee216b7c187ac581d9e0153",
-    "tools/build_tilem_compact_probe.py": "f1d1c3896c01dbd509c26f41916f1b0050aadb227ddaecc6772deaa91cbfc27a",
-    "tools/build_wabbitemu_compact_probe.py": "9d097c6d2369189cc7b1d091348d34bb7c8ba6ce8d4087fd8d65d1cc57b59d08",
+    "tools/emulator_probe_build.py": "14954a5d40c5a9b2e28338647b1df727a682019fa90fba5310230a5d0f3b7d08",
+    "tools/build_tilem_compact_probe.py": "0a2ff210136ae6197a95f572bd4542d023810724212eb28aa2da77fec8b1ea24",
+    "tools/build_wabbitemu_compact_probe.py": "2c02e02ac916f106018bb858040f4a8532d6772f10923937a9974a8979331066",
     "tools/tilem_compact_probe.c": "4cfe40c7c19f3ce2e21ee39f1fb3696dc119991c2a77dfccddfdc2cafaa80ecf",
     "tools/tilem_probe_support.c": "cf9e554bab3cfe90b9faf034bf98003263638a18d276355e1cca16da339bb8a5",
     "tools/tilem_probe_support.h": "039bac054d23ad54d6bbd5955bf2a8dab955d10a2fcc221cde96bd3c6d52a068",
@@ -21,7 +22,7 @@
     "tools/wabbitemu_compact_probe.cpp": "db4a4143990f5bea85bb013c74521f97a24dc977e7f4cc628845b9e00453be0f",
     "tools/wabbitemu_headless.cpp": "fd464d4ddec5b2912ec108d1eb0d4149b302f2fd23cdde897a4f1247642fff41",
     "tools/wabbitemu_headless.py": "5ee85c88397616b4ad7c90e6313f01f44e167ff606ba779882966c4adb994a8d",
-    "tools/run_compact_probe_e2e.py": "47756cbd88efa3e4e2d37a3d01fb8ecbbd5a98ce20974566871dd587f1097019",
+    "tools/run_compact_probe_e2e.py": "bfee519860bde88a672bc47755cbc18fb8cc93f29ff4a8e8910d888fa173afe5",
     "tools/hardware-probes/link-raw.asm": "4f98345567fb88dfca8781123ed1aa59a8f278762840645cefa9ec142526653f"
   },
   "emulator_sources": {

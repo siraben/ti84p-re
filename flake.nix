@@ -78,7 +78,7 @@
               tools.test_rom_provenance tools.test_compare_boot_pages \
               tools.test_database_health_report tools.test_hardware_probe \
               tools.test_build_hardware_probes tools.test_needed_probe_docs \
-              tools.test_exact_hardware_probe
+              tools.test_exact_hardware_probe tools.test_emulator_probe_build
           '';
           dontInstall = true;
           dontFixup = true;
