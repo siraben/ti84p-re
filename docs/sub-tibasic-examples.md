@@ -527,12 +527,18 @@ hits `userMem`, `_OP1Set2` (`00:1B50`), `_StoAns` (`38:6251`), `_AnsName`,
 | ASM → BASIC callback | ASM stores a signal/result such as `Ans=1`, returns, and the BASIC wrapper conditionally runs `prgmNAME`. | BASIC must own the actual `prgm` call; this is cooperative, not an arbitrary ASM bcall into BASIC. |
 | ASM → BASIC value return | ASM stores a numeric result in `Ans` with `_StoAns`; BASIC resumes and evaluates `Ans`. | This returns data to BASIC, not control into a BASIC program body. |
 | ASM → VAT lookup | `ASMFIND` builds `OP1={ProgObj,"ZZBASIC"}` and bcalls `_ChkFindSym`. | Lookup is not execution; the wrapper returns and `ZZBASIC` does not display `CALLED`. |
-| Direct ASM → BASIC | No working public bcall sequence is proven in this repo. | `ASMPARSE` reaches `_ParseInpLastEnt`/`_ParseInp` and then `ERR:INVALID`; `ASMFORM` reaches `_Find_Parse_Formula` and then `ERR:UNDEFINED`; `ZZRUN` reaches the private evaluator and then `ERR:SYNTAX`; forced-command/edit-buffer probes did not call the target BASIC program successfully. |
+| Direct ASM → BASIC | The bounded OS 2.55MP census finds no distinct callable ABI. | A private construction must reproduce the ordinary parser, VAT, FPS/OPS, error, and return records; supported applications should return to a BASIC-owned `prgmNAME` call. |
 
 ### ASM to BASIC
 
-Direct ASM-initiated BASIC program execution is not yet run-confirmed in this
-repository. Two apparent candidates are not that entry point:
+OS 2.55MP has no distinct public or private-funnel ABI for calling a BASIC
+program from arbitrary ASM within the bounded search described below. ASM can
+enter private parser addresses after constructing their state, but the required
+parser, VAT, FPS, OPS, error, and return records are the ordinary BASIC caller
+frame. Constructing all of them duplicates that caller rather than invoking a
+separate ABI. [confirmed]
+
+Four apparent public candidates are not that entry point:
 
 - `_ExecutePrgm` is the `AsmPrgm` executor reached by `Asm(prgmNAME)`, not a
   general "run a BASIC program" entry.
@@ -541,6 +547,9 @@ repository. Two apparent candidates are not that entry point:
   pointer.
 - `_ParsePrgmName` (`4E82`, target `38:40D4`) only consumes a `prgmNAME` token
   from the current parser cursor and builds the name object used by `Asm(`.
+- `_SetParseVarProg` (`4C5A`, target `3B:73F5`) preserves `AF`, stores `06h`
+  at `basic_prog` (`ram:9652`), and returns. It constructs none of the caller
+  frame.
 
 The confirmed BASIC subprogram path is different: the `CALLSUB`/`SUBRT` trace
 does not hit `_ParsePrgmName`, `_ExecutePrgm`, `_Find_Parse_Formula`, or
@@ -549,7 +558,7 @@ parser/VAT path, enters the program-body evaluator at `38:6914` →
 `38:778F`, and lets `Return` unwind to the caller. Calling that same machinery
 from arbitrary ASM requires more than loading OP1 and bcalling a single public
 entry; it needs the same parser cursor, stack, error, and run-state setup that a
-live BASIC caller already has. [hypothesis]
+live BASIC caller already has. [confirmed]
 
 A typed two-program trace of `prgmPP` calling `prgmOO` captures the live parser
 frame at each `38:6914` entry through shadow-memory replay. The reproduction
@@ -671,11 +680,48 @@ It still ends at `ERR:SYNTAX` and never runs the target body. That makes
 `_ExecuteNewPrgm` another stateful OS helper, not a standalone program executor
 ABI for `AsmPrgm` payloads. [confirmed]
 
-The bounded public-candidate search covers `_ExecutePrgm`, `_ExecuteNewPrgm`,
-`_ParsePrgmName`, `_ParseInpLastEnt`, `_Find_Parse_Formula`, `_JForceCmd`,
-`_PutTokString`, and `_rclToQueue`. None is a standalone direct-call ABI.
-[confirmed] This is a scoped negative result, not proof that no private state
-construction can execute a token stream.
+#### Bounded ABI census
+
+The bounded census covers:
+
+- all 1,732 three-byte main bcall slots from `4000h` through `5449h`;
+- all 825 raw `CALL 2B09h` cross-page-call descriptors in the 1 MiB ROM; and
+- every direct control-flow edge in the disassembled page-38 parser region
+  `38:4100`–`38:77FF`.
+
+None of the 1,732 public slots and none of the 825 cross-page descriptors
+targets `38:59C5`, `38:6910`, `38:6914`, or `38:778F`. Of the 95 public slots
+whose target is on page `38`, only six land in the conservative 613-instruction
+direct reverse slice of `38:778F`:
+
+| Bcall | Target | Role |
+|-------|--------|------|
+| `_FetchQuotedString` (`4AF8`) | `38:5E11` | Consume a quoted parser operand. |
+| `_ParseNameTokens` (`4AFE`) | `38:5F4D` | Parse name tokens within an existing expression. |
+| `_ExecClassCToken` (`50D7`) | `38:7010` | Dispatch an existing class-C token. |
+| `_ExecClass1Token` (`5215`) | `38:6FEC` | Dispatch an existing class-1 token. |
+| `_HandleMathTokenParse` (`5218`) | `38:6963` | Continue an existing math-token parse. |
+| `_RestartParseOP1Result` (`521E`) | `38:5CA7` | Resume parsing with an existing OP1 result. |
+
+These are mid-parser helpers, not frame constructors. The exact incoming-edge
+census further narrows the private funnel: `38:59C5` has the local
+`38:5C03` jump and the `38:59C2` fallthrough; `38:6910` has the conditional
+`38:59CE` jump and `38:690D` fallthrough; `38:6914` follows `38:6911`; and
+only `38:6914` calls `38:778F`. [confirmed]
+
+The separate semantic-candidate experiments cover `_ExecutePrgm`,
+`_ExecuteNewPrgm`, `_SetParseVarProg`, `_ParsePrgmName`,
+`_ParseInpLastEnt`, `_Find_Parse_Formula`, `_JForceCmd`, `_PutTokString`, and
+`_rclToQueue`. They either execute compiled ASM, modify only part of parser or
+editor state, or enter the parser with a malformed caller frame. None is a
+standalone direct-call ABI. [confirmed]
+
+This is a scoped negative result for the complete public table, standard
+cross-page-call descriptors, and the declared page-38 direct graph on OS
+2.55MP. It does not claim that manually reproducing every private caller record
+cannot execute a token stream; that construction is specifically excluded
+because it is a reimplementation of the ordinary BASIC caller, not a distinct
+callable ABI.
 
 #### Private-frame comparison
 
