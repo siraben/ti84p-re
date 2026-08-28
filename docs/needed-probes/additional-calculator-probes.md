@@ -1,6 +1,6 @@
 # Guarded mapper, LCD, and interrupt probes
 
-The three previously missing digital experiments now have SPASM-ng sources,
+The mapper, LCD, and interrupt experiments have SPASM-ng sources,
 builder validators, result decoders, and exact-byte emulator runners. Their
 AppVars remain physical measurements only after export from an identified
 calculator. [confirmed] for the assembled artifacts and emulator executions;
@@ -27,7 +27,7 @@ The entry guard requires the OS 2.55MP direct-`Asm(` mapping: ports `0x05`,
 `0x06`, `0x07`, `0x0E`, `0x0F`, `0x27`, and `0x28` must read `0x00`,
 `0x3F`, `0x81`, `0x00`, `0x00`, `0x00`, and `0x00`. It also verifies the
 fixed-page helper at
-`00:0CE6`. Port `0x04` readback is interrupt status, not mapper-mode
+`ram:0CE6`. Port `0x04` readback is interrupt status, not mapper-mode
 readback, so the program does not pretend to save mode from that port. It
 normalizes independent mode with port `0x04 = 0x06` during cleanup.
 
@@ -173,7 +173,7 @@ standard-timer watchdog. [confirmed]
 A Z80 program cannot read the current interrupt mode. This artifact therefore
 requires direct `Asm(` on unmodified OS 2.55MP in IM1; do not launch it through
 a shell, hook, or resident interrupt replacement. It guards `IY = 0x89F0`,
-the six-byte IM1 vector signature at `00:0038`, enabled entry interrupts, an
+the six-byte IM1 vector signature at `ram:0038`, enabled entry interrupts, an
 unheld ON key, idle programmable timer 1, no pending legacy/completion source,
 and an inactive USB interrupt gate.
 
