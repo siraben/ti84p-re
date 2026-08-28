@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TI-84 Plus MathPrint renderer</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css?v=570e0f46af33">
+</head>
+<body>
+<main>
+  <h1>TI-84 Plus MathPrint renderer</h1>
+
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="renderer">Renderer</button>
+    <button class="tab" data-tab="font">Font table</button>
+  </div>
+
+  <section id="tab-renderer">
+  <p class="lede">
+    Type an expression or prefix native token bytes with <code>hex:</code> to
+    inspect the calculator's pixel-level LCD write stream. Closed
+    page-<code>0x39</code> record and descriptor routines run
+    through a direct JavaScript translation documented in the
+    <a href="../sub-equation-display.html">Equation display (MathPrint)</a> wiki page.
+    Supported named-token, absolute-value, power, radical, nth-root,
+    stacked-fraction, integral, summation, and <code>nDeriv(</code> expressions
+    encode native calculator bytes, scan those bytes into settled records,
+    including nesting among those structural forms and placement in a stacked
+    fraction numerator. They then execute through
+    the translated structural renderer and LCD blitters to generate every
+    accepted LCD data write and replay each byte onto the 96&times;64 pixel grid.
+    Raw native bytes never fall back to the labeled compositor: unsupported or
+    malformed streams report an error. Other text expressions can fall back to
+    that compositor. Captured calculator writes remain available as a separate
+    oracle view for two integral scenarios.
+  </p>
+
+  <div class="controls">
+    <label class="grow">
+      Expression
+      <textarea id="expr" rows="2" spellcheck="false"
+                placeholder="e.g. int(1,2,(1//2)X,X)"></textarea>
+    </label>
+    <label>
+      Scale <input id="scale" type="range" min="2" max="12" value="6">
+    </label>
+    <label class="check">
+      <input id="lcd" type="checkbox" checked> LCD tint
+    </label>
+    <label class="check">
+      <input id="pen" type="checkbox"> Pen X/Y
+    </label>
+    <label>
+      Timeline
+      <select id="source">
+        <option value="generated">RE-generated LCD writes</option>
+        <option value="trace">Captured LCD writes</option>
+        <option value="model">Model elements</option>
+      </select>
+    </label>
+  </div>
+
+  <div id="presets" class="presets"></div>
+
+  <div class="stage">
+    <canvas id="screen"></canvas>
+  </div>
+  <div class="timeline-row">
+    <button id="play">▶ Play draw order</button>
+    <input id="timeline" type="range" min="0" max="1" value="1">
+    <span id="timeline-hint" class="hint">step accepted LCD writes</span>
+  </div>
+  <p id="timeline-note" class="note">
+    RE-generated mode executes record bytes through translated JavaScript logic.
+    Blue pixels are set by the selected write; outlined red pixels are cleared.
+  </p>
+  <p class="meta"><span id="dims"></span> <span id="err" class="err"></span></p>
+
+  <div id="penlog" class="penlog"></div>
+
+  <details class="syntax">
+    <summary>Syntax</summary>
+    <ul>
+      <li><code>a/b</code> linear divide · <code>a//b</code> stacked fraction
+          (small-font digits, like the n/d template)</li>
+      <li><code>a^b</code> — exponent (small font; bottom sits 2&nbsp;px below the base top)</li>
+      <li><code>sqrt(x)</code> — radical (`2nd`+`x²`); <code>nthroot(n,x)</code> — nth root (`MATH→5`)</li>
+      <li><code>int(lo,hi,body,var)</code> — definite integral (∫, `MATH→9`);
+          <code>integral(</code> and <code>fnInt(</code> are accepted aliases</li>
+      <li><code>sum(var,lo,hi,body)</code> — summation (Σ, `MATH→0`): <code>hi</code>
+          above, <code>var=lo</code> below, body to the right</li>
+      <li><code>nDeriv(body,var,value)</code> — numeric derivative
+          (<code>MATH→8</code>) evaluated at <code>value</code></li>
+      <li><code>matrix(rows,columns,elements...)</code> — row-major matrix;
+          the element count must equal <code>rows*columns</code></li>
+      <li><code>abs(x)</code>, parentheses, <code>+ - * ^</code>, and implicit
+          multiplication (<code>2X</code>)</li>
+      <li><code>Ans</code>, <code>sin(x)</code>, <code>cos(x)</code>,
+          <code>tan(x)</code>, <code>sinh(x)</code>, <code>cosh(x)</code>,
+          <code>tanh(x)</code>, <code>ln(x)</code>, and <code>log(x)</code>
+          use their native TI token spellings</li>
+      <li><code>L1</code>–<code>L6</code>, <code>Y1</code>–<code>Y0</code>,
+          <code>Str1</code>–<code>Str0</code>, <code>Pic1</code>–<code>Pic0</code>,
+          <code>GDB1</code>–<code>GDB0</code>, and <code>[A]</code>–<code>[J]</code>
+          use their native two-byte TI tokens</li>
+      <li><code>cumSum(x)</code> and <code>remainder(x,y)</code> exercise the
+          extended <code>BB</code> and <code>EF</code> token tables</li>
+      <li><code>hex: EF 33 4E F0 32 2B 4E 2B 31 2B 33 11</code> sends native
+          token bytes directly to the translated constructor and LCD writer</li>
+    </ul>
+    <p>
+      The accepted syntax is a small, lenient notation for experimenting with
+      TI-84 constructs; it is not TI-BASIC syntax or a complete template parser.
+      This text grammar is a frontend; the RE-generated path begins with the
+      native bytes shown above its write table.
+      A <code>hex:</code> input bypasses the text grammar and reports any
+      unsupported construction branch instead of using the model compositor.
+      The executable ROM translations stop at unresolved branches. Trace-fitted
+      box constants remain in the model compositor.
+    </p>
+  </details>
+  </section>
+
+  <section id="tab-font" hidden>
+    <p class="lede">
+      The ROM font glyphs extracted by <code>tools/export-font.py</code>, each drawn
+      on its pixel grid. The large font is 5&times;7 cells on page&nbsp;7 (drawn by
+      <code>put_glyph_large</code>, 07:4588); the small/variable-width font is on page&nbsp;3
+      (drawn by <code>_VPutMap</code>, 01:6293). Printable ASCII shows its character;
+      other codes show a known include/equate name when available, otherwise hex.
+    </p>
+    <div id="fonttable"></div>
+  </section>
+</main>
+<script src="rom-engine.js?v=2ae32841030d"></script>
+<script src="app.js?v=4dcfaf72f947"></script>
+</body>
+</html>
