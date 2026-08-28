@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-45daf8f5.js";
+            window.path_to_searchindex_js = "searchindex-de5f80e1.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -3842,7 +3842,7 @@ not physical phase or frequency measurements. [standard]</p>
 </div>
 <p>The keypad mechanism is covered in <a href="#keypad-and-on-key-hardware">Keypad and ON-key hardware</a>. These consumers advance from standard timer 1, not from a programmable timer. [confirmed]</p>
 <h3 id="auto-power-down-timing"><a class="header" href="#auto-power-down-timing">Auto Power Down timing</a></h3>
-<p><code>_ApdSetup = 4C93</code> has body <code>ram:03AE</code>. It reloads only the high byte: [confirmed]</p>
+<p><code>_ApdSetup = 4C93h</code> has body <code>ram:03AE</code>. It reloads only the high byte: [confirmed]</p>
 <pre><code class="language-z80">; bytes 21 49 84 36 74 C9
 ram:03AE  ld hl,0x8449       ; apdTimer
 ram:03B1  ld (hl),0x74
@@ -3861,13 +3861,13 @@ ram:0373  ret nz
 <p>$$
 N = d + 115 \times 256
 $$</p>
-<p>standard timer-1 ticks. The tick range is exact for the ROM counter arithmetic.
-The seconds and minutes below use the nominal 32.768 kHz oscillator. [confirmed]
-for the counter arithmetic; [standard] for the nominal wall-time conversion.</p>
+<p>standard timer-1 ticks. The ROM arithmetic gives the exact tick range.
+[confirmed]</p>
+<p>The seconds and minutes below use the nominal 32.768 kHz oscillator. [standard]</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Nominal quantity</th><th style="text-align: right">Minimum</th><th style="text-align: right">Maximum</th></tr>
+<tr><th>Quantity</th><th style="text-align: right">Minimum</th><th style="text-align: right">Maximum</th></tr>
 </thead>
 <tbody>
 <tr><td>Timer ticks</td><td style="text-align: right">29,441</td><td style="text-align: right">29,696</td></tr>
@@ -3876,7 +3876,10 @@ for the counter arithmetic; [standard] for the nominal wall-time conversion.</p>
 </tbody>
 </table>
 </div>
-<p>The low byte’s free-running phase explains the roughly 2.37-second spread after a reload. The high-byte constant alone therefore does not encode one exact number of minutes. [confirmed]</p>
+<p>The low byte’s free-running phase gives the 255-tick span after a reload.
+[confirmed]</p>
+<p>This is nominally 2.37 seconds. [standard]</p>
+<p>The high-byte constant alone does not encode one exact tick count. [confirmed]</p>
 <p>On expiry, <code>ram:0374</code> performs display/context cleanup, clears <code>apdRunning</code>,
 sets <code>apdWarmStart</code>, and jumps to <code>poweroff_shared_tail</code> at <code>ram:0A24</code>.
 [confirmed]</p>
@@ -3884,12 +3887,13 @@ sets <code>apdWarmStart</code>, and jumps to <code>poweroff_shared_tail</code> a
 <p><code>_CursorOn</code> and <code>_CursorOff</code> reload <code>curTime</code> with <code>0x32</code> (50).
 <code>cursor_blink_tick</code> decrements it, toggles <code>curOn</code> on expiry, and reloads the
 same value. [confirmed]</p>
-<p>At the OS standard-timer setting, the nominal visible-state interval is
-[confirmed] for the tick count and [standard] for wall time.</p>
+<p>Converting the 50-tick interval through the nominal standard-timer period gives
+the following wall time: [standard]</p>
 <p>$$
 50 \times \frac{304}{32768} = 0.4638671875\text{ seconds}
 $$</p>
-<p>A complete on/off cycle is 0.927734375 seconds. The run indicator has a separate counter at <code>0x8476</code>; it does not share the APD word. [confirmed]</p>
+<p>The nominal on/off cycle is 0.927734375 seconds. [standard] The run indicator
+has a separate counter at <code>0x8476</code>; it does not share the APD word. [confirmed]</p>
 <p>Pinned emulator schedulers produce different wall times from the same ROM
 counters. These rows apply the 29,441–29,696 APD ticks and 50-tick cursor toggle
 to each implementation’s timer-1 period: [standard]</p>
@@ -4310,7 +4314,24 @@ both masks: clearing their pending fields after reset allows both to regenerate
 status <code>0x0E</code> during the next frame. These are MAME scheduler and reset results,
 not physical timer periods or retention. [standard]</p>
 <h2 id="reusable-timer-tools"><a class="header" href="#reusable-timer-tools">Reusable timer tools</a></h2>
-<p><code>tools/timer_hardware.py</code> exposes exact rational source rates, first-expiry timing, callback outcomes, APD and cursor cadence, the ROM’s radix-255 chunks, RTC implementation profiles, and the physical-probe discriminator. <code>tools/describe_timer_hardware.py</code> is a JSON-capable front end. The TilEm, Wabbitemu, and MAME report oracles validate native observations against reusable source models; <code>tools/jstified_hardware.py</code> supplies a separately hash-guarded source profile without claiming a native run. <code>tools/tilem_timer.py</code> adds the complete direct-core programmable-timer and deterministic RTC matrix. <code>tools/tilem_interrupt.py</code> adds direct standard-timer scheduling and programmable-timer HALT-gate observations. <code>tools/mame_interrupt.py</code> adds fixed standard-timer and reset-retention observations through the immutable MAME state in <code>tools/interrupt_controller.py</code>. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-<code>0x2D</code> implementation edges use <code>tools/wabbitemu_speed_probe.py</code> and its guarded CLI. <code>tools/run_wabbitemu_timer_physical_probe.py</code> executes the assembled physical discriminator through the shared injected-program runner. These are emulator-comparison tools, not physical-hardware simulators.</p>
+<p><code>tools/timer_hardware.py</code> exposes exact rational source rates, first-expiry
+timing, callback outcomes, APD and cursor cadence, the ROM’s radix-255 chunks,
+RTC implementation profiles, and the physical-probe discriminator.
+<code>tools/describe_timer_hardware.py</code> is its JSON-capable front end.</p>
+<p>The TilEm, Wabbitemu, and MAME report oracles validate native observations
+against reusable source models. <code>tools/jstified_hardware.py</code> supplies a
+separately hash-guarded source profile without claiming a native run.
+<code>tools/tilem_timer.py</code> adds the complete direct-core programmable-timer and
+deterministic RTC matrix. <code>tools/tilem_interrupt.py</code> adds direct standard-timer
+scheduling and programmable-timer HALT-gate observations.
+<code>tools/mame_interrupt.py</code> adds fixed standard-timer and reset-retention
+observations through the immutable MAME state in <code>tools/interrupt_controller.py</code>.</p>
+<p>The guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope
+identities. CPU-speed and port-<code>0x2D</code> implementation edges use
+<code>tools/wabbitemu_speed_probe.py</code> and its guarded CLI.
+<code>tools/run_wabbitemu_timer_physical_probe.py</code> executes the assembled physical
+discriminator through the shared injected-program runner. These tools compare
+emulators; they do not simulate physical hardware.</p>
 <pre><code class="language-sh">nix develop -c python tools/describe_timer_hardware.py \
   source 0x41 0x80 0xC0 --mode3-prescaler 4
 
