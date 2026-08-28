@@ -4,8 +4,8 @@
 # from a fresh build decompile — deterministic for this Ghidra/ROM. Unknown names
 # are skipped, so a stale entry is harmless.
 
-# _AdrMEle (page_02:4002) — matrix element address: (idx0-1)*dim0 + (idx1-1)
-page_02:4002	param_1	rowCol
+# _AdrMEle (page_02:4002) — matrix element address: (row-1)*columns + (column-1)
+page_02:4002	param_1	rowColumn
 page_02:4002	param_2	matData
 page_02:4002	cVar4	idx0Ctr
 page_02:4002	bVar3	offsetLo

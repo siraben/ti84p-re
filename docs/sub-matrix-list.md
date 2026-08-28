@@ -16,11 +16,11 @@ not reduce reliably.
 - A list is `word count` (2 bytes) followed by `count` × 9-byte `TIFloat` elements
   (18-byte complex elements if the list is complex, flagged `0x0C`). Element $i$ (1-based)
   lives at $\mathrm{addr}(L_i)=\mathrm{data}+2+(i-1)\cdot 9$.
-- A matrix is <code>byte dim0</code><br><code>byte dim1</code> (two 1-byte dimensions) followed by
-  `dim0*dim1` × 9-byte `TIFloat`, stored column-major. The element offset from the start
-  of the data area (after the 2 dim bytes) is
+- A matrix is <code>byte columns</code><br><code>byte rows</code> followed by
+  `columns*rows` × 9-byte `TIFloat`, stored row-major. The element offset from the start
+  of the data area, after the two dimension bytes, is
 
-  $$\mathrm{offset}=\big((\mathit{idx}_0-1)\cdot \mathit{dim}_0+(\mathit{idx}_1-1)\big)\times 9$$
+  $$\mathrm{offset}=\big((\mathit{row}-1)\cdot \mathit{columns}+(\mathit{column}-1)\big)\times 9$$
 - Every element read/write routes one `TIFloat` through `OP1`/`OP2` and the FP engine —
   there is no "vector unit"; matrix multiply is a triple loop of `_FPMult`+`_FPAdd`.
 - The data area is found through the VAT (`_FindSym`, [Variables & the VAT](variables-vat.md)): the VAT entry's data
@@ -49,26 +49,23 @@ flag and 18-byte elements.
 ### Matrix — `_CreateRMat` (`00:1115`)
 
 ```text
-_CreateRMat(dimWord, dataPtrOut):
+_CreateRMat(H=rows, L=columns, dataPtrOut):
   _HTimesL()                    # element count = H * L
   var_alloc(2)                  # carve H*L*9 + 2 bytes
-  LD (HL),C                     # write dim0
+  LD (HL),C                     # write columns
   INC HL
-  LD (HL),B                     # write dim1
+  LD (HL),B                     # write rows
 ```
 - `_HTimesL` (`00:1EF6`) computes `result = H * L` (<code>B=H</code><br><code>HL=Σ L</code>, a `DJNZ` add loop) —
   it computes the element count from the two dimension bytes. [confirmed]
-- Header = two bytes `dim0,dim1`; data is `dim0*dim1` floats column-major.
+- The header stores `columns,rows`; the payload contains `columns*rows` floats row-major.
 
-> **Dimension naming.** [confirmed] Settled by disassembly. `_AdrMEle` (`02:4002`) reads the header's
-> first byte (<code>LD A,(DE)</code><br><code>LD L,A</code>) and uses it as the major stride, looping `(B−1)`
-> adds of it and then `+(C−1)` *within* a column (column-major). The major stride of a
-> column-major array is the number of rows, so the first header byte (`dim0`) = #rows,
-> and `_AdrMEle`'s `B = idx0 = column`, `C = idx1 = row`. `_CreateRMat` (`ram:1115`) confirms
-> the layout: it is <code>PUSH HL</code><br><code>CALL _HTimesL (1EF6)</code><br><code>LD A,2</code><br><code>JR 10DD</code> — `_HTimesL` returns
-> `H·L` (the element count) and `A=2` is the 2-byte dim header; the two dimension bytes are
-> stored `dim0` (rows) then `dim1` (cols). The byte-confirmed index arithmetic
-> `((idx0−1)·dim0 + (idx1−1))·9` is therefore a (column, row) register convention with a row-count stride.
+> **Dimension naming.** `_CreateRMat` receives `H=rows` and `L=columns`.
+> The common header writer at `ram:10E0` recovers those bytes as `B` and `C`,
+> then stores `C` before `B` at `ram:10EE`–`ram:10F1`. `_AdrMEle` reads the
+> first byte as the stride, adds it `B-1` times, and adds `C-1`. Its public
+> register convention is therefore `B=row`, `C=column`, with the offset
+> `(row-1)*columns+(column-1)`. [confirmed]
 
 ---
 
@@ -107,26 +104,25 @@ Convenience wrappers (all = `_AdrLEle` then a 9-byte move through OP1, complex-a
 ### Matrix element address — `_AdrMEle` (`02:4002`) [confirmed]
 
 ```z80
-_AdrMEle:                                 ; B=column idx0, C=row idx1, DE=matrixDataPtr
+_AdrMEle:                                 ; B=row, C=column, DE=matrixDataPtr
   if B==0 or C==0 -> LD A,0x78
   JP 0x2793 ; 0-index rejected (error vector)
-  A = (DE)        ; A = dim0 (rows)        ; first header byte
+  A = (DE)        ; A = columns             ; first header byte
   HL = 0
-  repeat (B − 1) times:  HL += dim0        ; (idx0-1) * dim0     (column stride)
-  HL += (C − 1)                            ; + (idx1-1)          (within column)
+  repeat (B − 1) times:  HL += columns     ; (row-1) * columns
+  HL += (C − 1)                            ; + (column-1)
   DE += 2                                  ; skip both dim bytes
   CALL 1930 (_HLTimes9)                    ; HL *= 9
   HL += DE                                 ; final element pointer
 ```
-Column-major offset: `elem = data + 2 + ((idx0−1)*dim0 + (idx1−1)) * 9`. The `(B-1)`
-adds of `dim0` walk whole columns; the `(C-1)` steps within a column. The 8-bit adds track
-a carry into `H` so the address is a true 16-bit offset (matrices up to 99×99). Because the
-multiplied byte is `dim0` and that is the row count (column-major major stride), `B=idx0`
-is the column index and `C=idx1` is the row index; see [Data layouts and creator routines](#data-layouts-and-creator-routines-confirmed). [confirmed]
+The row-major address is `data + 2 + ((row-1)*columns + (column-1)) * 9`.
+Each `(B-1)` addition skips one complete row, and `C-1` selects an element
+within that row. The 8-bit additions propagate carry into `H`, so the result
+is a 16-bit offset for matrices up to 99×99. [confirmed]
 
 Matrix element wrappers: [confirmed]
-- `_AdrMRow` (`02:4000`) — address of the *start of column idx0* in the column-major buffer
-  (loops `(idx0−1)` × dim0, no `+(idx1-1)`); whole-row operations layer their own iteration on top.
+- `_AdrMRow` (`02:4000`) — address of the start of row `B`; it sets `C=1` and
+  enters `_AdrMEle`.
 - `_GetMToOP1` (`02:4044`) — `[M](r,c)` → OP1 (`_AdrMEle` then `RST4` = load 9 bytes).
 - `_PutToMat` (`02:406C`) = `mele_store_ckvalid` (`02:4068`): <code>_AdrMEle</code><br><code>_CkValidNum</code><br><code>_MovFrOP1</code> — OP1 →
   `[M](r,c)` with validation.
@@ -161,7 +157,7 @@ Matrix element wrappers: [confirmed]
 
 `dim(` reads the `count` word straight from the list header; assigning `n→dim(L)` calls the
 resize path (`_IncLstSize`/`_DelListEl`) to grow/shrink, zero-filling new cells. List→matrix
-and matrix→list (`List►matr(`, `Matr►list(`) reshape via `_DataSize` + a column-major copy
+and matrix→list (`List►matr(`, `Matr►list(`) reshape via `_DataSize` and a linear payload copy
 (`mele_copy9_d3` (`02:4539`)/`mele_copy9_loop` (`02:453F`), a `_DataSize`-counted byte copy of the float payload). [standard]
 
 ### List arithmetic `L1+L2`, scalar broadcast
@@ -368,7 +364,7 @@ then stores via `JP 0x5F89`. `02:412A` has exactly one caller, `02:60FE` (byte-v
 destination whose `_AdrMEle` stride is the *swapped* dimension, so `dst(c,r) = src(r,c)`:
 ```z80
 412A: LD HL,(84AF)              ; loop counters = dims
-412E: CALL 403C                 ; load src [M] (B=col,C=row) from (84D3) → OP1
+412E: CALL 403C                 ; load src [M] (B=row,C=column) from (84D3) → OP1
 4131: LD HL,(84AF)
 LD B,L
 LD C,H
@@ -385,10 +381,8 @@ LD C,H
 RET
 ```
 `403C` reads from the source data pointer `(84D3)`; `4068` writes to the destination pointer
-`(84D7)`. Because the destination header carries the dims swapped (the `60F5` swap), `_AdrMEle`
-(`4002`) computes the column-major offset with the row/column roles exchanged, so the same linear
-walk lands element `src(r,c)` at `dst(c,r)` — a true transpose, which re-indexes *both* `i` and
-`j`. [confirmed]
+`(84D7)`. The destination header carries the dimensions swapped by `02:60F5`.
+The row-major `_AdrMEle` calls therefore place `src(r,c)` at `dst(c,r)`. [confirmed]
 
 `02:4178` (`mat_fill_type1`) is a separate single-counter fill/apply in the `414A`–`4178` block,
 not the transpose body. [confirmed]
@@ -401,15 +395,15 @@ body and its single caller are byte-verified below.
 
 | Command | dispatch site | body | what the disassembly shows |
 |---|---|---|---|
-| `Matr►list(` | `0x8D` @ `6388` | `02:4773` (2-arg), `02:49E3` (1-arg list copy) | [confirmed] The `0x8D` branch splits on argument count (`638D: CP 0x02`). The column-extract engine is `02:4773` (2-arg path: <code>639D: CALL 5DD8</code><br><code>CALL 4773</code>; only caller `63A0`, byte-verified `CD 73 47`): it nests a per-row loop (`477B: LD B,1 …`, reading via `4040` `_AdrMRow`/`4068` `mele_store_ckvalid`) inside a column loop over `(84AF)`, copying matrix columns into list element(s) (`4051`/`479F`). The 1-arg/list path uses `02:49E3` (`6397: CALL 0x49E3`), a list-element copy-until-length-match (`47E6` recall, `4825` store, `21BB` compare vs `(84AF)`, `RET Z`). |
+| `Matr►list(` | `0x8D` @ `6388` | `02:4773` (2-arg), `02:49E3` (1-arg list copy) | [confirmed] The `0x8D` branch splits on argument count (`638D: CP 0x02`). The column-extract engine is `02:4773` (2-arg path: <code>639D: CALL 5DD8</code><br><code>CALL 4773</code>; only caller `63A0`, byte-verified `CD 73 47`). It holds one column in `C` while `B` walks the rows, reading through the `_GetMToOP1` setup at `02:4040` and writing through `mele_store_ckvalid` at `02:4068`. It then copies the completed column into the destination list through `02:4051`/`02:479F`. The 1-arg/list path uses `02:49E3` (`6397: CALL 0x49E3`), a list-element copy-until-length-match (`47E6` recall, `4825` store, `21BB` compare vs `(84AF)`, `RET Z`). |
 | transpose `ᵀ` | `0x0E` @ `60E9` | `02:412A` | [confirmed] Swaps the dim header (`60F5`), allocates the transposed shape, then `412A` copies `dst(c,r)=src(r,c)` over every cell (`403C` read from `(84D3)`, `4068` write to `(84D7)`); only caller `60FE`. See the transpose subsection above. |
-| `augment(` | `0x91` @ `02:635B` | `02:6238` copy [confirmed]; `02:4663` engine entered but carry-gated [confirmed] | The branch requires two operands, reads the dimensions at `02:5D98`, and compares the row counts with <code>LD A,H</code><br><code>CP L</code>. Equal rows fall through; `H>L` raises `E_Dimension`. `02:6238` allocates the result and copies the column-major float payload through `02:4539`. The branch then calls `02:4663`. Carry is set at `02:6361` and restored at `02:6378`; `JR C,46EF` at `02:46DC` skips elimination. The statistics regression path enters the same dispatcher through `3A:6398` with carry clear. The `augment(L1,L2)` sibling at `02:637F` also shares the setup at `02:6362` with carry clear. [confirmed] |
+| `augment(` | `0x91` @ `02:635B` | `02:6238` copy [confirmed]; `02:4663` engine entered but carry-gated [confirmed] | The branch requires two operands, reads the dimensions at `02:5D98`, and compares the row counts with <code>LD A,H</code><br><code>CP L</code>. Equal rows fall through; `H>L` raises `E_Dimension`. `02:6238` allocates the result and copies the row-major float payload through `02:4539`. The branch then calls `02:4663`. Carry is set at `02:6361` and restored at `02:6378`; `JR C,46EF` at `02:46DC` skips elimination. The statistics regression path enters the same dispatcher through `3A:6398` with carry clear. The `augment(L1,L2)` sibling at `02:637F` also shares the setup at `02:6362` with carry clear. [confirmed] |
 | `dim(` (matrix create/set-dims) | `0xB5` @ `62D4` | create + dim setup (`5DBB`/`5DEB`) [confirmed] | The compare at `62D4` is `CP 0xB5`, and `0xB5` = `tDim` (`dim(`), not `randM(` — so this is the `→dim(` matrix create/resize handler. It splits on argument count (`62D9: CP 0x02`): a 2-arg path (`62DD`) and a 1-arg path (`630A`). Both create the result and set its dims through `02:5DBB` (`CALL 5CEB` registers the variable by name, stores the data pointer to `84D3`, reads and zero-rejects the dim bytes <code>OR L</code><br><code>JP Z,2719</code>, stores dims to `84AF`) and `02:5DEB`/`02:631E`. There is no per-cell fill loop here — consistent with `dim(`, which only sets dimensions. `02:5264` (`cplx_swap_dispatch`) is reached only from the `0xBD` complex-operand branch (`62D0`), not here. `randM(` is a separate two-byte token (`tRandM = 0xBB20`) whose decoded fill loop is documented under [The `randM(` cell fill](#the-randm-cell-fill-confirmed). [confirmed] |
 | `List►matr(` | `0x8E` @ `61C1` | `02:7D19` + copy | reshapes the argument lists into a matrix (`_DataSize`-counted float copy `4539`/`453F`). [standard] |
 
 The matrix-element kernels these drivers share are `_AdrMEle`/`_AdrMRow` (`4002`/`4000`) for indexing,
 `4068` (`mele_store_ckvalid`) for validated stores, and `4539` (`mele_copy9_d3`) for the bulk
-column-major payload copy. Each command's dispatch site and body is
+row-major payload copy. Each command's dispatch site and body is
 [confirmed]. The `randM(` cell fill and the carry-gated role of `02:4663`
 inside `augment(` are also [confirmed].
 
@@ -465,7 +459,7 @@ Key sub-routines (all `page_02`; names are the live Ghidra DB labels): [confirme
   `41D0` — scan a column for the largest-magnitude pivot (partial pivoting), calling
   `43B9` to swap rows as it goes.
 - `43B9` / `414E` `mrow_swap_loop` / `_AdrMRow` — physical row swap / row scale
-  (whole-row moves; `414E` loads the `dim0` stride and swaps two whole rows via `_AdrMRow`×2 +
+  (whole-row moves; `414E` loads the column-count stride and swaps two complete rows via `_AdrMRow`×2 +
   `1DDA`).
 - `4259` — swap two entries in the permutation vector at `84D5`.
 - `4473` `ele_sub_ref` — the elimination element step (`[M](i,k) − factor*[M](pivot,k)`:
@@ -577,11 +571,11 @@ and the routine and condition that triggers it.
 |---|---|---|
 | `00:10C4` | `_CreateRList` | new real list (`count*9+2`) [confirmed] |
 | `00:1109` | `_CreateCList` | new complex list (`count*18+2`) [confirmed] |
-| `00:1115` | `_CreateRMat` | new matrix (`H*L*9+2`, header `dim0,dim1`) [confirmed] |
+| `00:1115` | `_CreateRMat` | new matrix (`H*L*9+2`, header `columns,rows`) [confirmed] |
 | `00:1EF6` | `_HTimesL` | element count = H*L (dims multiplied) [confirmed] |
 | `00:1930` | `_HLTimes9` | ×9 (real `TIFloat` stride) [confirmed] |
-| `02:4000` | `_AdrMRow` | address of matrix column start (column stride) [confirmed] |
-| `02:4002` | `_AdrMEle` | matrix element address: `((column-1)*dim0+(row-1))*9` [confirmed] |
+| `02:4000` | `_AdrMRow` | address of matrix row start [confirmed] |
+| `02:4002` | `_AdrMEle` | matrix element address: `((row-1)*columns+(column-1))*9` [confirmed] |
 | `02:4044` | `_GetMToOP1` | `[M](i,j)` → OP1 [confirmed] |
 | `02:406C` | `_PutToMat` | OP1 → `[M](i,j)` (validated) [confirmed] |
 | `02:40BA` | matrix-multiply body | O(n³) triple loop, decoded from `rom.bin` (not a defined function in the disassembly); called from `02:5FFF`/`4605`/`5B39`. `0x40BA` in ti83plus.inc is the unrelated `_SinCosRad` bcall ID. [confirmed] |
@@ -589,7 +583,7 @@ and the routine and condition that triggers it.
 | `02:412A` | `mat_transpose` | transpose `[A]ᵀ` body (token `0x0E`, dispatched `60E9`/called `60FE`): per-cell copy `dst(c,r)=src(r,c)` via the swapped dest header [confirmed] |
 | `02:414E` | `mrow_swap_loop` | row swap/scale (elimination) [confirmed] |
 | `02:4178` | `mat_fill_type1` | live DB name; single-counter per-cell fill/apply loop in the `414A`–`4178` block — not transpose [confirmed] |
-| `02:4539` | `mele_copy9_d3` | bulk column-major float-payload copy (skip 2 dim bytes, `LDIR`); used by `augment(`/reshape [confirmed] |
+| `02:4539` | `mele_copy9_d3` | bulk row-major float-payload copy (skip 2 dim bytes, `LDIR`); used by `augment(`/reshape [confirmed] |
 | `02:4663` | `mat_gauss_engine` | live DB name; `min(H,L)` partial-pivoting elimination engine; only caller is the `augment(` `0x91` branch (`6379`). Its role inside plain `augment(` is the one open item [standard] |
 | `02:4773` | `mat_to_list_cols` | `Matr►list(` 2-arg column-extract engine (only caller `63A0`): nested col×row walk copying matrix columns into list element(s) [confirmed] |
 | `02:5264` | `cplx_swap_dispatch` | live DB name; complex OP-pair arrange/swap (`5344`/`52D3`) reached only from the `0xBD` branch (`62D0`) — not the `0xB5`/`dim(` matrix-create branch [confirmed] |
@@ -651,11 +645,13 @@ and the routine and condition that triggers it.
   before this dispatcher. The role of `B` and carry in distinguishing `rref(` from related
   calls remains [hypothesis]. The parse-side signature descriptors remain distinct (`38:431E`/`0x5108` for
   `ref(` vs `38:4323`/`0x510C` for `rref(`).
-- det sign / pivot-product (`42A6` tail `43D8-4470`) and dim labelling. The det
+- det sign / pivot-product (`42A6` tail `43D8-4470`) and dimension labeling. The det
   sign = LSB of the permutation-swap count applied via `_InvOP1S` (`24BD`) at `43FB`/`442B`;
   the magnitude is the `238B`/`RST 30h` diagonal-pivot accumulate (`43E3-43F6`); `420F`/`4259`
-  undo the column permutation for the inverse. Row/col vs dim0/dim1 is now [confirmed]:
-  `dim0` (first header byte) = #rows, and `_AdrMEle` takes `B=column`, `C=row`; see [Data layouts](#data-layouts-and-creator-routines-confirmed) and [Element access](#element-access-and-index-to-offset-conversion-confirmed).
+  undo the column permutation for the inverse. Matrix storage is [confirmed]:
+  the first header byte is the column count, the second is the row count, and
+  `_AdrMEle` takes `B=row`, `C=column`. See [Data layouts](#data-layouts-and-creator-routines-confirmed)
+  and [Element access](#element-access-and-index-to-offset-conversion-confirmed).
 - transpose, `Matr►list(`, and the `augment(` column-concat bodies. Each command's
   page-`02` dispatch site and body are byte-confirmed, every body having exactly one caller:
   - transpose `[A]ᵀ` (token `0x0E` @ `60E9`) → `02:412A` (only caller `60FE`): the dim header is

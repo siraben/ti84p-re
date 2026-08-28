@@ -65,8 +65,8 @@ public class BuildTypes extends GhidraScript {
         dtm.addDataType(lh, DataTypeConflictHandler.REPLACE_HANDLER);
 
         StructureDataType mh = new StructureDataType("TIMatrixHdr", 0);
-        mh.add(new ByteDataType(), "rows", null); mh.add(new ByteDataType(), "cols", null);
-        mh.setDescription("followed by TIFloat[rows*cols], column-major");
+        mh.add(new ByteDataType(), "columns", null); mh.add(new ByteDataType(), "rows", null);
+        mh.setDescription("followed by TIFloat[rows*columns], row-major");
         dtm.addDataType(mh, DataTypeConflictHandler.REPLACE_HANDLER);
 
         // Fixed-token VAT record.  The VAT grows downward, so this structure is
