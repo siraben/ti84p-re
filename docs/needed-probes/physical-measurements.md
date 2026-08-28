@@ -41,8 +41,8 @@ contains the `HWP1` frame, not calculator metadata or external readings.
 | Analog, boot, Flash, and power-loss behavior | calculator plus laboratory fixture | no ordinary standalone artifact | captured waveform, timing, or post-reset image |
 
 The [calculator-readable probes](calculator-readable.md) page names every
-currently built artifact. [Guarded mapper, LCD, and interrupt
-probes](additional-calculator-probes.md) defines the new digital experiments
+currently built artifact. The [guarded mapper, LCD, and interrupt
+probes](additional-calculator-probes.md) page defines those digital experiments
 and their safety gates. [External
 measurements](external-measurements.md) lists the questions that an AppVar
 cannot settle. [Online evidence and physical

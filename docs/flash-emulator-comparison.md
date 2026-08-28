@@ -296,10 +296,10 @@ with one legal worker control and one DQ5 worker failure. It requires the exact
 OS 2.55MP image. The adapter reads that file into allocated emulator memory and
 never writes an output ROM. [confirmed]
 
-The preflight case checks the 18 bytes beginning at `00:02BF` in both the input
+The preflight case checks the 18 bytes beginning at `ram:02BF` in both the input
 image and the mapped page. A four-byte RAM harness calls that unmodified entry
 with `SP=0xBFFE`. The saved stack pointer therefore fails the `0xC000`–`0xFFFF`
-test. Execution visits `00:02BF`, `00:02CE`, and the reset vector at `00:0000`
+test. Execution visits `ram:02BF`, `ram:02CE`, and the reset vector at `ram:0000`
 once each. It does not return to the harness. [confirmed] for the pinned native
 run.
 
