@@ -38,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-f7a8b752.js";
+            window.path_to_searchindex_js = "searchindex-a712ec86.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d9f1b932.js"></script>
+        <script src="toc-359c0a17.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -14601,7 +14601,7 @@ are not substitutes for that prepared state: calling <code>_ParseInpLastEnt</cod
 working BASIC call frame. The negative fixtures end at <code>ERR:INVALID</code> and
 <code>ERR:UNDEFINED</code>, respectively. [confirmed]</p>
 <p>For source-level conventions and the <code>Ans</code>/scalar/list calling fixture, see
-<a href="#subprogram-interfaces">TI-BASIC programming patterns</a>.</p>
+<a href="#subprogram-interfaces">TI-BASIC examples and ASM interop</a>.</p>
 <h2 id="commands-parse-arguments-then-hand-off"><a class="header" href="#commands-parse-arguments-then-hand-off">Commands parse arguments, then hand off</a></h2>
 <p>Commands use the same expression evaluator for arguments and then cross to a
 specialized subsystem. The important boundary is between argument parsing and
@@ -14782,58 +14782,57 @@ error slices are in <code>tools/tibasic-numeric-errors.json</code>. All three ge
 verify the pinned ROM before producing a report.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="ti-basic-programming-patterns"><a class="header" href="#ti-basic-programming-patterns">TI-BASIC programming patterns</a></h1>
-<p>This page turns the recovered interpreter model into practical source-level
-choices. The central cost is not only arithmetic: every loop iteration also
-walks tokens, resolves variables, moves values through OP registers, and may
-scan ahead for a structural boundary.</p>
-<h2 id="a-source-level-cost-model"><a class="header" href="#a-source-level-cost-model">A source-level cost model</a></h2>
-<ol>
-<li><strong>Keep parser work out of hot loops.</strong> Every statement re-enters the page-38
-evaluator (<code>eval_stmt_entry</code>, <code>parse_refill</code>, <code>parse_advance</code>,
-<code>chk_tok_end</code>). Tiny loop bodies can still spend most of their time walking
-tokens and rebuilding temporary parse state. The
-<a href="#ti-basic-for-parenthesis-trap"><code>For(</code> parenthesis trap</a> is the sharpest
-example: with a first-line false <code>If</code>, dropping the closing <code>)</code> makes the
-reproduced <code>N=25</code> pair grow from 145,748 to 157,052 marker-to-marker
-instructions. [confirmed]</li>
-<li><strong>Prefer built-ins for list-wide work.</strong> <code>SortA(</code>, <code>cumSum(</code>, and <code>sum(</code>
-cross into OS routines that run one parser setup and then loop internally.
-The <code>DATA.8xp</code> trace hits <code>list_fold_dispatch</code> (<code>02:6104</code>) for <code>sum(</code> rather
-than reparsing an explicit BASIC accumulator loop for every element.
-[confirmed]</li>
-<li><strong>Cache list elements and dimensions.</strong> List indexing resolves a variable
-name through the VAT, checks type/dimension, computes an element address, and
-shuttles a 9-byte <code>TIFloat</code> through OP registers. Repeated <code>L1(I)</code> inside a
-loop is much more expensive than storing the element into a scalar once when
-the value is reused. [standard]</li>
-<li><strong>Avoid <code>Goto</code> in hot loops.</strong> <code>Goto</code> searches for a matching <code>Lbl</code> by
-scanning the program token stream, and escaping structured loops through
-<code>Goto</code> can leave loop bookkeeping behind. Use <code>For(</code>/<code>While</code>/<code>Repeat</code> plus
-<code>End</code> unless the jump is truly cold. [standard] The token-stream scanner is
-[confirmed] in <a href="#ti-basic-execution">TI-BASIC execution</a>.</li>
-<li><strong>Batch display and graph output.</strong> <code>Disp</code> and <code>Output(</code> reach display
-primitives and LCD update paths; graph drawing reaches graph-buffer and pixel
-routines before display copy. Draw into the graph buffer and call
-<code>DispGraph</code> once when possible. [confirmed]</li>
-<li><strong>Write the optional syntax in loops.</strong> Closing <code>For(</code> with <code>)</code> avoids the
-advancing temporary parser and <code>FPS</code> range measured in the false-<code>If</code> pair.
-Both forms use the same page-38 <code>For(</code>/<code>End</code> entries and OPS record; the
-branch that selects temporary-state reuse remains open. [confirmed] for the
-RAM and OPS state; [hypothesis] for that unresolved selection predicate.</li>
-</ol>
-<p>The rules follow one compact model:</p>
-<p>$$
-\begin{aligned}
-W \approx{}&amp; N_{\text{statements}} \\
-&amp;{}+ N_{\text{variable/list lookups}} \\
-&amp;{}+ N_{\text{floating-point operations}} \\
-&amp;{}+ N_{\text{structural rescans}} \\
-&amp;{}+ N_{\text{display or graph writes}}.
-\end{aligned}
-$$</p>
-<p>The terms are not equal-cost cycles, but they identify which part grows when a
-program is changed. [confirmed]</p>
-<h3 id="trace-backed-examples"><a class="header" href="#trace-backed-examples">Trace-backed examples</a></h3>
+<p>TI-BASIC performance depends on parser work, floating-point transfers, VAT
+lookups, and display calls. This page collects the source-level decisions. The
+full programs, traces, and BASIC/ASM fixtures are in
+<a href="#ti-basic-examples-and-asm-interop">TI-BASIC examples and ASM interop</a>.</p>
+<h2 id="choose-work-with-fewer-interpreter-crossings"><a class="header" href="#choose-work-with-fewer-interpreter-crossings">Choose work with fewer interpreter crossings</a></h2>
+<p>The statement loop at <code>38:59C5</code> dispatches every source statement. Structured
+loops also maintain FPS and OPS records, and each variable access crosses the
+VAT/value boundary. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Source-level choice</th><th>Interpreter cost</th><th>Example</th></tr>
+</thead>
+<tbody>
+<tr><td>Keep loop bodies short</td><td>Fewer statement dispatches and parser scans per iteration</td><td><a href="#text-animation-with-output">Text animation</a></td></tr>
+<tr><td>Prefer list or matrix primitives</td><td>One parsed command can run an internal ROM loop</td><td><a href="#trace-backed-examples">Trace-backed list fixture</a></td></tr>
+<tr><td>Cache repeated list elements in scalars</td><td>Avoid repeated VAT lookup and list-element address calculation</td><td><a href="#dfs-with-a-list-stack">DFS list stack</a></td></tr>
+<tr><td>Keep graph drawing in the graph buffer</td><td>Avoid repeated home-screen formatting and LCD updates</td><td><a href="#graph-buffer-visualization">Graph-buffer visualization</a></td></tr>
+<tr><td>Use structured loops instead of hot <code>Goto</code> paths</td><td>Avoid repeated label rescans through <code>38:7600</code></td><td><a href="#natural-loops-use-a-page-38-ops-record">Loop behavior</a></td></tr>
+<tr><td>Include the optional <code>For(</code> closing parenthesis</td><td>Avoid the documented implicit-close parser trap</td><td><a href="#ti-basic-for-parenthesis-trap"><code>For(</code> parenthesis trap</a></td></tr>
+</tbody>
+</table>
+</div>
+<p>These are interpreter-cost rules, not cycle counts. Exact timing depends on the
+program, data, display mode, and calculator speed.</p>
+<h2 id="preserve-the-basic-caller-for-callbacks"><a class="header" href="#preserve-the-basic-caller-for-callbacks">Preserve the BASIC caller for callbacks</a></h2>
+<p>TI-BASIC subprograms share variables and <code>Ans</code>, but preserve parser control in
+a private frame. Use a small input/output convention and let BASIC perform the
+<code>prgmNAME</code> call. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Boundary</th><th>Supported pattern</th></tr>
+</thead>
+<tbody>
+<tr><td>BASIC → BASIC</td><td>Store inputs, call <code>prgmNAME</code>, then read shared variables or <code>Ans</code>.</td></tr>
+<tr><td>BASIC → ASM</td><td>Call <code>Asm(prgmNAME)</code> and require the payload to return normally.</td></tr>
+<tr><td>ASM → BASIC callback</td><td>Store a result or signal in <code>Ans</code>, return to BASIC, and let the wrapper call <code>prgmNAME</code>.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The compiled launcher, negative public-bcall probes, and private-frame
+comparison are documented under
+<a href="#basic-and-asm-interop">BASIC and ASM interop</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="ti-basic-examples-and-asm-interop"><a class="header" href="#ti-basic-examples-and-asm-interop">TI-BASIC examples and ASM interop</a></h1>
+<p>These trace-backed examples connect source-level choices to the interpreter
+paths documented in <a href="#ti-basic-execution">TI-BASIC execution</a>. The page also records
+the supported BASIC/ASM boundary and the tested failures around direct
+ASM-initiated BASIC execution.</p>
+<h2 id="trace-backed-examples"><a class="header" href="#trace-backed-examples">Trace-backed examples</a></h2>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -15195,21 +15194,35 @@ C9
 <p><code>Asm(</code> is token <code>BB 6A</code>; <code>AsmPrgm</code> is <code>BB 6C</code>; <code>prgm</code> is token <code>5F</code>. The
 <code>Asm(</code> command handler parses the following <code>prgmNAME</code> token stream, then
 bcalls <code>_ExecutePrgm</code> (<code>4E7C</code>, target <code>07:5758</code>). The trace shows that path
-compile/copy the <code>AsmPrgm</code> body and hand off through <code>07:57B4</code>, execute the
-payload byte at <code>userMem</code> (<code>0x9D95</code>) with opcode <code>C9h</code>, and return to BASIC.
+compile or copy the <code>AsmPrgm</code> body and hand off through <code>07:57B4</code>, execute the
+payload byte at <code>ram:9D95</code> with opcode <code>C9h</code>, and return to BASIC. [confirmed]</p>
+<p><code>tools/asm_execution.py</code> byte-pins the complete setup and cleanup path:
 [confirmed]</p>
-<p><strong>Open discrepancy.</strong> The <code>_ExecutePrgm</code> setup body at <code>07:5762</code> runs
-<code>_ChkFindSym</code>, reads the size word, and validates the program body’s first two
-bytes against <code>BB</code> (<code>07:576B</code>) and <code>6D</code> (<code>07:5772</code>, raw bytes <code>FE 6D</code>). A
-mismatch jumps to the BASIC-program path at <code>07:57D4</code>. Only the <code>6D</code> case
-performs the ASM setup: size sanity against <code>0x2000</code>
-(<code>07:577B</code>), <code>_ErrNotEnoughMem</code> guard, <code>_InsertMem</code> to grow <code>userMem</code>
-(<code>07:578D</code>), size saved to <code>0x89EC</code>, <code>LDIR</code> of the payload, USB state save
-around port <code>0x20</code> on non-TI-84 hardware probes, cleanup handler <code>0x5800</code> via
-<code>ctx_save_switch</code>, and the jump table entry <code>07:57FD</code> → <code>JP 0x9D95</code>. The
-working fixtures emit <code>AsmPrgm</code> as <code>BB 6C</code>, yet their traces reach the payload.
-The remaining gap is whether the upstream <code>Asm(</code> handler rewrites the token or
-uses a second entry. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Address</th><th>Operation</th></tr>
+</thead>
+<tbody>
+<tr><td><code>07:5758</code></td><td>Query application restriction selector <code>3</code>; reject a disallowed caller.</td></tr>
+<tr><td><code>07:5762</code></td><td>Resolve the program named by <code>OP1</code>; reject an archived data page.</td></tr>
+<tr><td><code>07:5766</code></td><td>Distinguish compiled marker <code>BB 6D</code> from hexadecimal <code>AsmPrgm</code> source.</td></tr>
+<tr><td><code>07:577B</code></td><td>Reject a machine image larger than <code>0x2000</code> bytes.</td></tr>
+<tr><td><code>07:5785</code></td><td>Insert an exact-sized gap at <code>ram:9D95</code> and copy compiled bytes.</td></tr>
+<tr><td><code>07:57D4</code></td><td>For source form, call <code>_GetAsmSize</code>, allocate the result, and call <code>_SquishPrgm</code>.</td></tr>
+<tr><td><code>07:5791</code></td><td>Store the allocation length in <code>asm_prgm_size</code> (<code>ram:89EC</code>).</td></tr>
+<tr><td><code>07:57B1</code></td><td>Install the error cleanup at <code>07:5800</code>.</td></tr>
+<tr><td><code>07:57B4</code></td><td>Call the <code>JP ram:9D95</code> trampoline at <code>07:57FD</code>.</td></tr>
+<tr><td><code>07:57C4</code></td><td>Clear the length and delete the allocation after a normal return.</td></tr>
+<tr><td><code>07:5800</code></td><td>Restore speed state, delete the allocation, and resume error handling.</td></tr>
+</tbody>
+</table>
+</div>
+<p><code>BB 6C</code> is the hexadecimal source token. It takes the source/squish path at
+<code>07:57D4</code>; <code>BB 6D</code> identifies an already compiled body. The source pointer is
+adjusted after <code>_InsertMem</code> because the source object moves when the gap opens.
+Normal and error exits therefore delete the recorded allocation length rather
+than a fixed-size region. [confirmed]</p>
 <p>Practical convention: pass data through OS variables or known RAM locations,
 validate inputs on the BASIC side, and make the ASM payload return normally with
 <code>RET</code> unless it intentionally transfers control elsewhere.</p>
@@ -15402,11 +15415,49 @@ hits <code>_ExecuteNewPrgm</code>, the copy tail at <code>00:268A</code>, and th
 It still ends at <code>ERR:SYNTAX</code> and never runs the target body. That makes
 <code>_ExecuteNewPrgm</code> another stateful OS helper, not a standalone program executor
 ABI for <code>AsmPrgm</code> payloads. [confirmed]</p>
-<p>The current open item is therefore precise: trace a small ASM payload that
-successfully invokes a BASIC program, identify the required parser/VAT/error
-state, and compare it to the rejected public routes above plus both confirmed
-paths: <code>Asm(</code> → <code>_ExecutePrgm</code> → <code>userMem</code>, and BASIC <code>prgmNAME</code> →
-<code>38:6914</code>/<code>38:778F</code> program-body evaluation.</p>
+<p>The bounded public-candidate search covers <code>_ExecutePrgm</code>, <code>_ExecuteNewPrgm</code>,
+<code>_ParsePrgmName</code>, <code>_ParseInpLastEnt</code>, <code>_Find_Parse_Formula</code>, <code>_JForceCmd</code>,
+<code>_PutTokString</code>, and <code>_rclToQueue</code>. None is a standalone direct-call ABI.
+[confirmed] This is a scoped negative result, not proof that no private state
+construction can execute a token stream.</p>
+<h4 id="private-frame-comparison"><a class="header" href="#private-frame-comparison">Private-frame comparison</a></h4>
+<p>The T042 probe compares an incomplete direct call with the ordinary caller in
+one reset-origin TilEm run. <code>ZZFRAME</code> saves four state groups before the
+experiment: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Saved group</th><th>Range</th><th>Contents</th></tr>
+</thead>
+<tbody>
+<tr><td>Parser and name</td><td><code>0x9652</code>–<code>0x9662</code></td><td><code>basic_prog</code>, parser pointers, and <code>numArguments</code></td></tr>
+<tr><td>VAT and temporary stacks</td><td><code>0x981C</code>–<code>0x9831</code></td><td>VAT scratch, FPS, OPS, <code>pTemp</code>, and <code>progPtr</code></td></tr>
+<tr><td>Parser flags</td><td><code>0x89F0</code>–<code>0x8A39</code></td><td>IY flags read by the page-38 parser</td></tr>
+<tr><td>Error state</td><td><code>0x86DD</code></td><td>prior <code>errNo</code> value</td></tr>
+</tbody>
+</table>
+</div>
+<p>The payload installs a caught-error frame through <code>_pushErrorHandleR</code> at
+<code>ram:27DA</code>, substitutes a token stream containing <code>prgmZZGOOD</code>, and calls
+<code>eval_stmt_entry</code> at <code>38:59C5</code>. It reaches the statement entry once, then
+raises <code>E_DataType</code> before <code>38:6910</code>, <code>38:6914</code>, or <code>38:778F</code>. <code>_JError</code>
+transfers through <code>ram:27BB</code>; the payload restores every saved group before it
+stores error code <code>9</code> in <code>Ans</code>. The combined frame SHA-256 matches before and
+after the failed call. [confirmed]</p>
+<p>The BASIC wrapper then calls <code>prgmZZGOOD</code> normally. That path reaches
+<code>38:59C5</code> twice and <code>38:6910</code>, <code>38:6914</code>, and <code>38:778F</code> once each, returns
+value <code>2</code>, and resumes at <code>AFTER</code>. The final screen reads <code>BEFORE</code>, <code>9</code>, <code>2</code>,
+<code>AFTER</code>, and <code>Done</code>. [confirmed]</p>
+<p>The comparison pins the missing boundary for this construction. Parser
+pointers and copied RAM blocks do not create the OPS grammar/type record, FPS
+baselines, VAT adoption, and return record consumed before <code>38:6914</code>. The
+ordinary <code>prgmNAME</code> handler creates them. Reproducing all of that state would
+duplicate the BASIC caller rather than expose a separate supported ABI.
+[confirmed]</p>
+<p><code>tools/fixtures/asm-basic-frames-tilem.json</code> records the pinned TilEm run,
+screen contract, ROM spans, SPASM-ng output, and source/program hashes. The
+supported application pattern remains <code>Asm(</code> → <code>_ExecutePrgm</code> → <code>ram:9D95</code>,
+return a value through <code>Ans</code>, and let BASIC perform <code>prgmNAME</code>.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="ti-basic-dynamic-tracing"><a class="header" href="#ti-basic-dynamic-tracing">TI-BASIC dynamic tracing</a></h1>
 <p>TI-BASIC coverage combines exhaustive local models, natural calculator traces,
