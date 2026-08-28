@@ -1330,6 +1330,7 @@ page_3C:6d17	lnk_recv_byte_full
 page_3C:6d38	lnk_chk_line_err
 page_3C:6d4b	lnk_set_recv_flag
 page_3C:6d4f	lnk_clr_io8b
+page_3C:7121	flash_cmd_dispatch
 page_3C:71f8	gc_command
 page_3C:7219	gc_recovery_preflight
 page_3C:7733	archive_gc_collect

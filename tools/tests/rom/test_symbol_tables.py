@@ -191,6 +191,16 @@ class SymbolTableTests(unittest.TestCase):
                     f"labels.txt:{line_number}",
                 )
 
+    def test_archive_command_dispatch_has_one_function_entry(self):
+        functions = {
+            location: symbol
+            for location, symbol, _ in self.parse_symbols("names.txt")
+        }
+        self.assertEqual(
+            "flash_cmd_dispatch", functions["page_3c:7121"]
+        )
+        self.assertNotIn("page_3c:7bd0", functions)
+
     def test_type_regions_reference_registered_bases(self):
         registered = defaultdict(set)
         for location, symbol, _ in (
