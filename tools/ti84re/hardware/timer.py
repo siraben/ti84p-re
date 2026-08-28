@@ -11,6 +11,11 @@ from dataclasses import dataclass
 from fractions import Fraction
 
 CRYSTAL_HZ = 32_768
+KERNEL_TIMER_QUARTZ_CYCLES = 304
+APD_SETUP_SIGNATURE = bytes.fromhex("21 49 84 36 74 C9")
+APD_COUNTDOWN_SIGNATURE = bytes.fromhex("21 48 84 35 C0 23 35 C0")
+APD_HIGH_RELOAD = APD_SETUP_SIGNATURE[4]
+CURSOR_TOGGLE_TICKS = 0x32
 DOCUMENTED_CRYSTAL_DIVISORS = (3, 33, 328, 3277, 1, 16, 256, 4096)
 WABBIT_MAME_CRYSTAL_DIVISORS = (3, 32, 327, 3276, 1, 16, 256, 4096)
 PHYSICAL_TIMER_STATE_PORTS = (
@@ -130,17 +135,127 @@ TIMER_IMPLEMENTATION_PROFILES = (
 )
 
 
+@dataclass(frozen=True)
+class OsCadence:
+    """APD and cursor periods derived from one kernel-tick model."""
+
+    profile: str
+    revision: str
+    clock_basis: str
+    kernel_tick_period_seconds: Fraction
+    apd_sub_timer: int | None
+    apd_min_ticks: int
+    apd_max_ticks: int
+    apd_min_seconds: Fraction
+    apd_max_seconds: Fraction
+    cursor_toggle_ticks: int
+    cursor_toggle_seconds: Fraction
+    cursor_cycle_ticks: int
+    cursor_cycle_seconds: Fraction
+
+
 def timer_implementation_profile(name: str) -> TimerImplementationProfile:
     """Return a source profile by case-insensitive name."""
 
     normalized = name.casefold()
-    aliases = {"hardware": "documented", "public": "documented"}
+    aliases = {
+        "hardware": "documented",
+        "nominal": "documented",
+        "public": "documented",
+        "wabbit": "wabbitemu",
+    }
     normalized = aliases.get(normalized, normalized)
     for profile in TIMER_IMPLEMENTATION_PROFILES:
         if profile.name.casefold() == normalized:
             return profile
     choices = ", ".join(profile.name for profile in TIMER_IMPLEMENTATION_PROFILES)
     raise ValueError(f"unknown timer profile {name!r}; choose {choices}")
+
+
+def kernel_tick_period(
+    profile: str, *, crystal_hz: int | Fraction = CRYSTAL_HZ
+) -> Fraction:
+    """Return one OS kernel-tick period under a named timing model.
+
+    The documented profile keeps the oscillator frequency explicit.  The
+    emulator profiles reproduce their pinned scheduler constants and therefore
+    ignore ``crystal_hz``.
+    """
+
+    normalized = profile.casefold()
+    normalized = {
+        "hardware": "documented",
+        "nominal": "documented",
+        "public": "documented",
+        "wabbit": "wabbitemu",
+    }.get(normalized, normalized)
+    if normalized == "documented":
+        frequency = Fraction(crystal_hz)
+        if frequency <= 0:
+            raise ValueError("crystal frequency must be positive")
+        return Fraction(KERNEL_TIMER_QUARTZ_CYCLES, 1) / frequency
+    if normalized == "tilem":
+        return Fraction(9_277, 1_000_000)
+    if normalized == "wabbitemu":
+        return Fraction(1, 108)
+    if normalized == "mame":
+        return Fraction(1, 256)
+    choices = "Documented, TilEm, Wabbitemu, MAME"
+    raise ValueError(f"unknown kernel-tick profile {profile!r}; choose {choices}")
+
+
+def apd_ticks_until_expiry(apd_sub_timer: int) -> int:
+    """Return APD ticks after ``_ApdSetup`` for one low-byte phase."""
+
+    phase = _byte(apd_sub_timer, "APD sub-timer")
+    ticks_to_first_zero = phase if phase else 0x100
+    return ticks_to_first_zero + (APD_HIGH_RELOAD - 1) * 0x100
+
+
+def os_cadence(
+    profile: str,
+    *,
+    crystal_hz: int | Fraction = CRYSTAL_HZ,
+    apd_sub_timer: int | None = None,
+) -> OsCadence:
+    """Derive APD and cursor timing from the OS counter bytes."""
+
+    implementation = timer_implementation_profile(profile)
+    period = kernel_tick_period(profile, crystal_hz=crystal_hz)
+    if apd_sub_timer is None:
+        minimum_ticks = apd_ticks_until_expiry(1)
+        maximum_ticks = apd_ticks_until_expiry(0)
+    else:
+        minimum_ticks = maximum_ticks = apd_ticks_until_expiry(apd_sub_timer)
+
+    if implementation.name == "Documented":
+        frequency = Fraction(crystal_hz)
+        clock_basis = (
+            f"304 oscillator cycles at {frequency} Hz; use a measured unit "
+            "frequency for physical wall time"
+        )
+    elif implementation.name == "TilEm":
+        clock_basis = "TilEm whole-microsecond scheduler period"
+    elif implementation.name == "Wabbitemu":
+        clock_basis = "Wabbitemu rounded 108 Hz timer-1 rate"
+    else:
+        clock_basis = "MAME fixed 256 Hz timer-1 rate"
+
+    return OsCadence(
+        profile=implementation.name,
+        revision=implementation.revision,
+        clock_basis=clock_basis,
+        kernel_tick_period_seconds=period,
+        apd_sub_timer=apd_sub_timer,
+        apd_min_ticks=minimum_ticks,
+        apd_max_ticks=maximum_ticks,
+        apd_min_seconds=minimum_ticks * period,
+        apd_max_seconds=maximum_ticks * period,
+        cursor_toggle_ticks=CURSOR_TOGGLE_TICKS,
+        cursor_toggle_seconds=CURSOR_TOGGLE_TICKS * period,
+        cursor_cycle_ticks=2 * CURSOR_TOGGLE_TICKS,
+        cursor_cycle_seconds=2 * CURSOR_TOGGLE_TICKS * period,
+    )
 
 
 def _cpu_divisor(value: int) -> int:
