@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6e3684b7.js";
+            window.path_to_searchindex_js = "searchindex-44e119bf.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-359c0a17.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -215,8 +215,8 @@
 <tr><th>Routine</th><th>Addr</th><th>Role</th></tr>
 </thead>
 <tbody>
-<tr><td><code>_FindSym</code></td><td><code>00:0E65</code></td><td>find the VAT entry named by OP1; returns ptr/page (also the <code>RST 10h</code> fast path: vector <code>00:0010</code> → <code>JP 0E65</code>)</td></tr>
-<tr><td><code>_ChkFindSym</code></td><td><code>00:0E60</code></td><td>type-classify OP1 (via the helper at <code>ram:2042</code>, which calls <code>_CkOP1Real</code> <code>00:1942</code> then checks the findable var classes) then <code>_FindSym</code></td></tr>
+<tr><td><code>_FindSym</code></td><td><code>00:0E65</code></td><td>find the VAT entry named by OP1; its page-<code>07</code> body selects fixed-token or length-prefixed scanning from the OP1 name encoding; also the <code>RST 10h</code> fast path</td></tr>
+<tr><td><code>_ChkFindSym</code></td><td><code>00:0E60</code></td><td>route <code>AppVarObj</code>, <code>GroupObj</code>, <code>ProgObj</code>, <code>TempProgObj</code>, and <code>ProtProgObj</code> directly to the length-prefixed scanner; other classes fall through <code>_FindSym</code></td></tr>
 <tr><td><code>_CreateReal</code></td><td><code>00:10B8</code></td><td>make a RealObj named by OP1</td></tr>
 <tr><td><code>_CreateReal</code>/<code>_CreateCplx</code>/<code>_CreateRList</code>/<code>_CreateCList</code>/<code>_CreateRMat</code>/<code>_CreateStrng</code>/<code>_CreateProg</code>/<code>_CreateAppVar</code>/…</td><td><code>00:10B0-00:1153</code></td><td>one exported creator bcall per <em>creatable</em> variable class — ~13 <code>_Create*</code> routines covering the creatable classes, not one per <code>TIVarType</code> (no <code>_CreateList</code>/<code>_CreateMat</code>/<code>_CreateStr</code>); some object types are made only by internal routines with no public <code>_Create*</code> bcall (e.g. the <code>GroupObj</code> creator at <code>00:1157</code>, called from <code>39:73AF</code>)</td></tr>
 <tr><td><code>_DelVar</code>/<code>_DelVarArc</code></td><td><code>00:1308</code>/<code>00:12D9</code></td><td>delete (and handle archived copies)</td></tr>
@@ -237,7 +237,7 @@ typedef struct { TIFloat re, im; } TIComplex;                   /* 18 bytes */
 
 /* ── aggregate data (what the VAT entry's dataAddr points at) ──────── */
 struct List   { uint16_t count;       TIFloat elem[/* count */];         }; /* ListObj 1; CListObj 0x0D uses TIComplex[] */
-struct Matrix { uint8_t  rows, cols;  TIFloat elem[/* rows * cols */];  }; /* MatObj 2, column-major; dim0=rows first (byte-confirmed in sub-matrix-list.md; the TIMatrixHdr DB type labels these cols,rows — reversed) */
+struct Matrix { uint8_t  columns, rows; TIFloat elem[/* rows * columns */]; }; /* MatObj 2, row-major */
 struct Tokens { uint16_t size;        uint8_t body[/* size */];          }; /* EquObj 3, StrngObj 4, ProgObj 5/6 — tokenized */
 struct AppVar { uint16_t size;        uint8_t data[/* size */];          }; /* AppVarObj 0x15 — RAW bytes, not tokenized     */
 </code></pre>
@@ -251,7 +251,7 @@ struct AppVar { uint16_t size;        uint8_t data[/* size */];          }; /* A
 <tr><td><code>RealObj</code></td><td><code>0</code></td><td>one <code>TIFloat</code></td><td>9</td></tr>
 <tr><td><code>CplxObj</code></td><td><code>0x0C</code></td><td>one <code>TIComplex</code> (<code>re</code>, <code>im</code>)</td><td>18</td></tr>
 <tr><td><code>ListObj</code> / <code>CListObj</code></td><td><code>1</code> / <code>0x0D</code></td><td><code>count</code> word + <code>count</code>×<code>TIFloat</code>/<code>TIComplex</code></td><td>2 + 9·n / 2 + 18·n</td></tr>
-<tr><td><code>MatObj</code></td><td><code>2</code></td><td><code>rows</code>,<code>cols</code> bytes (<code>dim0</code>=rows) + <code>TIFloat[]</code>, column-major (index math in <a href="sub-matrix-list.html">Matrices &amp; Lists</a>)</td><td>2 + 9·r·c</td></tr>
+<tr><td><code>MatObj</code></td><td><code>2</code></td><td><code>columns</code>,<code>rows</code> bytes + row-major <code>TIFloat[]</code> (index math in <a href="sub-matrix-list.html">Matrices and lists</a>)</td><td>2 + 9·r·c</td></tr>
 <tr><td><code>EquObj</code></td><td><code>3</code></td><td><code>size</code> word + tokenized formula — <em>system</em> var, carries a selection/style byte, auto-evaluated (<a href="sub-graphing.html">Graphing</a>, <a href="sub-table-yvars.html">Table</a>)</td><td>2 + size</td></tr>
 <tr><td><code>StrngObj</code></td><td><code>4</code></td><td><code>size</code> word + tokenized text — <em>inert</em> (see <a href="#strings-str1str0--a-distinct-object-type-confirmed">Strings</a>)</td><td>2 + size</td></tr>
 <tr><td><code>ProgObj</code> / <code>ProtProgObj</code></td><td><code>5</code> / <code>6</code></td><td><code>size</code> word + tokenized program (6 = edit-locked)</td><td>2 + size</td></tr>
@@ -265,7 +265,21 @@ struct AppVar { uint16_t size;        uint8_t data[/* size */];          }; /* A
 <p><code>WindowObj</code>/<code>ZStoObj</code> (<code>0x0F</code>/<code>0x10</code>) hold the graph <strong>Window</strong> settings, <code>TblRngObj</code> (<code>0x11</code>) the table range, <code>BackupObj</code> (<code>0x13</code>) a full RAM image — all system, fixed-shape blobs.</p>
 <p>Aggregate creators size their data region (= count × element-size + 2-byte header) in the <code>var_alloc</code> prelude (<code>ram:1005</code>), then fall into the common create core (<code>ram:1011</code>), which carves the gap via the internal routine at <code>ram:0F0C</code> (the create path’s own block-move, not the public <code>_InsertMem</code>; see <a href="memory-management.html">Memory management</a>). The specific <code>_Create*</code> routine then writes the data header after the core returns — e.g. <code>_CreateRList</code> writes the list count, <code>_CreateStrng</code> the 2-byte size word. All key off the name in <code>OP1</code> (<code>OP1.value.exp</code> is the name’s token class — <code>_CreateRList</code> validates a list-name token <code>0x5D/0x24/0x3A/0x72</code>).</p>
 <h2 id="the-vat-entry-confirmed"><a class="header" href="#the-vat-entry-confirmed">The VAT entry [confirmed]</a></h2>
-<p>The VAT grows downward from <code>symTable</code> (<code>0xFE66</code>); <code>_FindSym</code> (<code>00:0E65</code> → <code>findsym_scan</code> <code>07:565F</code>) scans down, matching the name in <code>OP1</code>. Fixed-token names (reals, complex, <code>L</code>-lists, <code>[A]</code>-matrices, system vars) are matched by a short 1–3 byte compare against <code>OP1</code>’s <code>0x8479</code>–<code>0x847B</code>; length-prefixed names (programs, appvars, groups) branch to a separate name scanner at <code>07:55D1</code> that compares the full name. On a match it reads the entry’s metadata at fixed offsets relative to the matched name pointer <code>N</code>:</p>
+<p>The VAT grows downward from <code>symTable</code> (<code>0xFE66</code>). <code>_FindSym</code> (<code>00:0E65</code> →
+<code>findsym_scan</code> at <code>07:565F</code>) selects the scanner from the OP1 name encoding.
+Fixed-token names, including reals, complex values, <code>L</code>-lists, <code>[A]</code>-matrices,
+and system variables, use a short one- to three-byte comparison against
+<code>0x8479</code>–<code>0x847B</code>. Length-prefixed program, AppVar, and Group names branch to
+<code>07:55D1</code> for a full-name comparison. <code>_ChkFindSym</code> takes the same named branch
+earlier for object types <code>0x05</code>, <code>0x06</code>, <code>0x15</code>, <code>0x16</code>, and <code>0x17</code>.
+[confirmed]</p>
+<p>TI’s public SDK directs callers to <code>_ChkFindSym</code> for Programs and AppVars. The
+OS 2.55MP <code>_FindSym</code> body can still reach the length-prefixed scanner when OP1
+has a matching name encoding. The public recommendation and the target ROM’s
+internal dispatch are separate claims. [standard] for the SDK contract;
+[confirmed] for this ROM.</p>
+<p>On a match the scanner reads the entry metadata at fixed offsets relative to
+the matched name pointer <code>N</code>:</p>
 <div class="table-wrapper">
 <table>
 <thead>

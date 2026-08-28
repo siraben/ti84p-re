@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6e3684b7.js";
+            window.path_to_searchindex_js = "searchindex-44e119bf.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-359c0a17.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -207,11 +207,10 @@ many token bytes. There are no stored line numbers: <code>3Fh</code> separates l
     R --&gt;|"advance or replace cursor"| C
 </pre>
 
-<p>The Flash page <code>38</code> evaluator owns the cursor and grammar. Statement commands
-can cross to Flash page <code>02</code>, control-flow bodies to Flash page <code>33</code>, display
-code to Flash pages <code>01</code>, <code>03</code>, and <code>37</code>, and variable lookup to the VAT
-routines. Those page changes are continuations of one interpreter, not separate
-parsers. [confirmed]</p>
+<p>The page-38 evaluator owns the cursor and grammar. Statement commands can
+cross to page 02, control-flow bodies to page 33, display code to pages 01/03/37,
+and variable lookup to the VAT routines. Those page changes are continuations
+of one interpreter, not separate parsers. [confirmed]</p>
 <h2 id="the-token-cursor"><a class="header" href="#the-token-cursor">The token cursor</a></h2>
 <p><code>TIBasicParserState</code> (<code>0x9652</code>) keeps the program identity and cursor interval
 contiguous in RAM: [confirmed]</p>
@@ -227,7 +226,7 @@ typedef struct {
 </code></pre>
 <p><code>next_parse_byte</code> is the current token position. <code>basic_start</code> begins the
 current body, and <code>basic_end</code> is its inclusive parser/refill boundary.</p>
-<p>The small Flash page <code>38</code> helpers define the cursor movement:</p>
+<p>The small page-38 helpers are the useful way to reason about cursor movement:</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -243,8 +242,8 @@ current body, and <code>basic_end</code> is its inclusive parser/refill boundary
 </table>
 </div>
 <p>Encoded width matters whenever the interpreter skips rather than evaluates.
-<code>_IsA2ByteTok</code> (<code>ram:1FE8</code>) searches the 11-byte
-<code>two_byte_token_lead_table</code> (<code>ram:1FF6</code>); a match
+<code>_IsA2ByteTok</code> (<code>00:1FE8</code>) searches the 11-byte
+<code>two_byte_token_lead_table</code> (<code>00:1FF6</code>); a match
 means the lead and following byte must move together. The scanner also treats a
 quoted string as one region, so <code>Then</code>, <code>Else</code>, or <code>End</code> bytes inside a string
 cannot terminate an outer scan. [confirmed]</p>
@@ -434,10 +433,8 @@ restores the cleanup link. <code>Stop</code> inside <code>While</code> bypasses 
 the program chain. Divide-by-zero inside <code>Repeat</code> bypasses <code>38:57E7</code>; the OS
 error cleanup resets <code>cleanTmp</code>, FPS, and OPS before displaying the error.
 [confirmed]</p>
-<p><code>tools/tibasic_loop_frames.py --check</code> guards the relevant ROM spans and checks
-the six-case TilEm evidence in
-<code>tools/fixtures/tibasic-loop-frames-tilem.json</code>. The cases cover normal <code>For(</code>,
-<code>While</code>, and <code>Repeat</code>, nesting, <code>Return</code>/<code>Stop</code>, and an OS error. [confirmed]</p>
+<p>Six TilEm cases cover normal <code>For(</code>, <code>While</code>, and <code>Repeat</code>, nesting,
+<code>Return</code>/<code>Stop</code>, and an OS error. [confirmed]</p>
 <p>The optional closing <code>)</code> in <code>For(</code> changes parser work. The measured effect is
 covered in <a href="sub-tibasic-for-paren.html">the <code>For(</code> parenthesis trap</a>.</p>
 <h3 id="labels-rescan-instead-of-indexing"><a class="header" href="#labels-rescan-instead-of-indexing">Labels rescan instead of indexing</a></h3>
@@ -471,8 +468,8 @@ are not substitutes for that prepared state: calling <code>_ParseInpLastEnt</cod
 <code>_Find_Parse_Formula</code> from an arbitrary <code>AsmPrgm</code> reaches parser setup but not a
 working BASIC call frame. The negative fixtures end at <code>ERR:INVALID</code> and
 <code>ERR:UNDEFINED</code>, respectively. [confirmed]</p>
-<p>For the <code>Ans</code>/scalar/list calling fixture, see
-<a href="sub-tibasic-examples.html#subprogram-interfaces">TI-BASIC examples and ASM interop</a>.</p>
+<p>For source-level conventions and the <code>Ans</code>/scalar/list calling fixture, see
+<a href="sub-tibasic-programming.html#subprogram-interfaces">TI-BASIC programming patterns</a>.</p>
 <h2 id="commands-parse-arguments-then-hand-off"><a class="header" href="#commands-parse-arguments-then-hand-off">Commands parse arguments, then hand off</a></h2>
 <p>Commands use the same expression evaluator for arguments and then cross to a
 specialized subsystem. The important boundary is between argument parsing and
@@ -483,13 +480,13 @@ the operation itself:</p>
 <tr><th>Command</th><th>Parse/dispatch evidence</th><th>Downstream operation</th></tr>
 </thead>
 <tbody>
-<tr><td><code>Disp</code></td><td>Flash page <code>38</code> statement handler</td><td><code>_Disp</code> at <code>37:51D3</code>, then <code>_NewLine</code></td></tr>
-<tr><td><code>Output(</code></td><td><code>38:6AE6</code>, Flash page <code>02</code> handler</td><td><code>_OutputExpr</code> at <code>03:4AF2</code></td></tr>
+<tr><td><code>Disp</code></td><td>page-38 statement handler</td><td><code>_Disp</code> at <code>37:51D3</code>, then <code>_NewLine</code></td></tr>
+<tr><td><code>Output(</code></td><td><code>38:6AE6</code>, page-02 handler</td><td><code>_OutputExpr</code> at <code>03:4AF2</code></td></tr>
 <tr><td><code>Input</code></td><td><code>02:54EF</code></td><td>entry editor, <code>_ParseInpGraphReset</code>, variable store</td></tr>
 <tr><td><code>Prompt</code></td><td><code>02:562F</code></td><td>repeated named-variable entry and store</td></tr>
 <tr><td><code>Menu(</code></td><td><code>02:555D</code></td><td><code>_DispMenuTitle</code> at <code>39:4D21</code>, then label transfer</td></tr>
 <tr><td><code>Pause</code></td><td><code>02:55E7</code></td><td>display and key-wait loop</td></tr>
-<tr><td><code>getKey</code></td><td>expression token <code>ADh</code></td><td>non-blocking <code>_GetKey</code> bcall, ID <code>4972h</code></td></tr>
+<tr><td><code>getKey</code></td><td>expression token <code>ADh</code></td><td>non-blocking <code>_GetKey</code> bcall <code>4972h</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -523,18 +520,15 @@ error cleanup at <code>ram:2793</code>. It never reaches the parser handoff or t
 are clear after cleanup. <code>Menu(</code> uses its separate title/key path at
 <code>39:4D21</code>/<code>39:5955</code>; the tracked numeric selection reaches the label scanner
 at <code>38:4870</code> and displays <code>22</code>. [confirmed]</p>
-<p><code>tools/tibasic_entry_editor.py --check</code> guards the Flash page <code>02</code>, <code>06</code>, <code>38</code>,
-and <code>39</code> spans and checks the compact four-case TilEm fixture in
-<code>tools/fixtures/tibasic-entry-editor-tilem.json</code>. Raw traces are not required
-for the check. [confirmed]</p>
+<p>Four TilEm cases cover <code>Input</code>, <code>Prompt</code>, cancellation, and <code>Menu(</code>. [confirmed]</p>
 <p><code>getKey</code> is an expression value, not a statement. The table at <code>37:6700</code> is a
-token-attribute table; returned key codes come from <code>_GetKey</code> on Flash page
-<code>06</code>. This distinguishes the key result from the nearby <code>CP ADh</code> token
-classification. [confirmed]</p>
+token-attribute table; returned key codes come from <code>_GetKey</code> on page 06. This
+distinction prevents a common false inference from the nearby <code>CP ADh</code> bytes.
+[confirmed]</p>
 <h2 id="errors-unwind-saved-relative-stack-state"><a class="header" href="#errors-unwind-saved-relative-stack-state">Errors unwind saved relative stack state</a></h2>
 <p>The error entries first select an error code, then join the common path at
-<code>ram:270A</code>. For example, <code>_ErrDivBy0</code> at <code>ram:26EC</code> selects <code>82h</code>, while the
-syntax entry at <code>ram:2700</code> selects <code>88h</code>. Natural <code>Disp 1/0</code> and <code>Disp 1+</code>
+<code>00:270A</code>. For example, <code>_ErrDivBy0</code> at <code>00:26EC</code> selects <code>82h</code>, while the
+syntax entry at <code>00:2700</code> selects <code>88h</code>. Natural <code>Disp 1/0</code> and <code>Disp 1+</code>
 traces reach those entries, respectively. [confirmed]</p>
 <p>The entry identifies the error message, but its incoming guard identifies the
 cause. Twelve natural programs separate all six numeric error entries into 12
@@ -545,20 +539,20 @@ guard paths. This table groups related paths so the mechanism stays visible:</p>
 <tr><th>Program</th><th>Originating guard</th><th>Predicate</th><th>Error shim</th></tr>
 </thead>
 <tbody>
-<tr><td><code>Disp 1/0</code></td><td><code>ram:2548–254B</code></td><td>divisor in OP1 is zero</td><td><code>_ErrDivBy0</code> at <code>ram:26EC</code></td></tr>
-<tr><td><code>Disp 10^100</code></td><td><code>02:7076–7078</code>, then <code>02:7053–7059</code></td><td>positive exponent argument is at least 100</td><td><code>_ErrOverflow</code> at <code>ram:26E8</code></td></tr>
-<tr><td><code>Disp 1E99*1E99</code></td><td><code>ram:2513–251D</code></td><td>adjusted sum of biased decimal exponents overflows</td><td><code>_ErrOverflow</code> at <code>ram:26E8</code></td></tr>
-<tr><td><code>Disp ln(0)</code></td><td><code>02:6F1E</code>, then <code>ram:212D–2131</code></td><td>logarithm operand in OP1 is zero</td><td><code>_ErrDomain</code> at <code>ram:26F4</code></td></tr>
-<tr><td><code>Disp sin⁻¹(2)</code> / <code>cos⁻¹(2)</code></td><td><code>02:76F1–76F5</code> / <code>02:76DF–76E2</code></td><td>operand lies outside $[-1,1]$</td><td><code>_ErrDomain</code> at <code>ram:26F4</code></td></tr>
-<tr><td><code>Disp (-1)!</code> / <code>(-1) nCr 1</code></td><td><code>35:79CF–79D2</code> / <code>02:4FC8</code>, then <code>ram:2125–211D</code></td><td>operand fails the operation’s sign or integer check</td><td><code>_ErrDomain</code> at <code>ram:26F4</code></td></tr>
-<tr><td><code>Disp sqrt(-1)</code></td><td><code>ram:1B8F–1B93</code></td><td>a complex result reaches the real-mode guard</td><td><code>_ErrNon_Real</code> at <code>ram:26FC</code></td></tr>
-<tr><td><code>Disp [[1,2][2,4]]⁻¹</code></td><td><code>02:439C–43A5</code></td><td>the pivot helper rejects the rank-deficient matrix</td><td><code>_ErrSingularMat</code> at <code>ram:26F0</code></td></tr>
-<tr><td><code>For(I,1,3,0)</code> / <code>For(I,1E99,1E99)</code></td><td><code>37:4268–426B</code> / <code>38:586D–5876</code></td><td>the step is zero / adding it makes no progress</td><td><code>_ErrIncrement</code> at <code>ram:26F8</code></td></tr>
+<tr><td><code>Disp 1/0</code></td><td><code>00:2548–254B</code></td><td>divisor in OP1 is zero</td><td><code>_ErrDivBy0</code> at <code>00:26EC</code></td></tr>
+<tr><td><code>Disp 10^100</code></td><td><code>02:7076–7078</code>, then <code>02:7053–7059</code></td><td>positive exponent argument is at least 100</td><td><code>_ErrOverflow</code> at <code>00:26E8</code></td></tr>
+<tr><td><code>Disp 1E99*1E99</code></td><td><code>00:2513–251D</code></td><td>adjusted sum of biased decimal exponents overflows</td><td><code>_ErrOverflow</code> at <code>00:26E8</code></td></tr>
+<tr><td><code>Disp ln(0)</code></td><td><code>02:6F1E</code>, then <code>00:212D–2131</code></td><td>logarithm operand in OP1 is zero</td><td><code>_ErrDomain</code> at <code>00:26F4</code></td></tr>
+<tr><td><code>Disp sin⁻¹(2)</code> / <code>cos⁻¹(2)</code></td><td><code>02:76F1–76F5</code> / <code>02:76DF–76E2</code></td><td>operand lies outside $[-1,1]$</td><td><code>_ErrDomain</code> at <code>00:26F4</code></td></tr>
+<tr><td><code>Disp (-1)!</code> / <code>(-1) nCr 1</code></td><td><code>35:79CF–79D2</code> / <code>02:4FC8</code>, then <code>00:2125–211D</code></td><td>operand fails the operation’s sign or integer check</td><td><code>_ErrDomain</code> at <code>00:26F4</code></td></tr>
+<tr><td><code>Disp sqrt(-1)</code></td><td><code>00:1B8F–1B93</code></td><td>a complex result reaches the real-mode guard</td><td><code>_ErrNon_Real</code> at <code>00:26FC</code></td></tr>
+<tr><td><code>Disp [[1,2][2,4]]⁻¹</code></td><td><code>02:439C–43A5</code></td><td>the pivot helper rejects the rank-deficient matrix</td><td><code>_ErrSingularMat</code> at <code>00:26F0</code></td></tr>
+<tr><td><code>For(I,1,3,0)</code> / <code>For(I,1E99,1E99)</code></td><td><code>37:4268–426B</code> / <code>38:586D–5876</code></td><td>the step is zero / adding it makes no progress</td><td><code>_ErrIncrement</code> at <code>00:26F8</code></td></tr>
 </tbody>
 </table>
 </div>
 <p>The two OVERFLOW rows reach the same shim through different predicates. A trace
-that records only <code>ram:26E8</code> therefore merges distinct numeric behavior. The
+that records only <code>00:26E8</code> therefore merges distinct numeric behavior. The
 compact numeric-error report retains the ordered guard path, the register state
 after each guard instruction, and the final error code in <code>A</code>. [confirmed]</p>
 <p>A whole-ROM direct-reference scan finds 114 candidate <code>CALL</code> or <code>JP</code> operands
@@ -569,12 +563,12 @@ to the six shims. The natural corpus reaches 11 distinct direct callers:</p>
 <tr><th>Error entry</th><th style="text-align: right">Direct-reference candidates</th><th style="text-align: right">Witnessed callers</th></tr>
 </thead>
 <tbody>
-<tr><td><code>_ErrOverflow</code> at <code>ram:26E8</code></td><td style="text-align: right">9</td><td style="text-align: right">2</td></tr>
-<tr><td><code>_ErrDivBy0</code> at <code>ram:26EC</code></td><td style="text-align: right">2</td><td style="text-align: right">1</td></tr>
-<tr><td><code>_ErrSingularMat</code> at <code>ram:26F0</code></td><td style="text-align: right">3</td><td style="text-align: right">1</td></tr>
-<tr><td><code>_ErrDomain</code> at <code>ram:26F4</code></td><td style="text-align: right">91</td><td style="text-align: right">4</td></tr>
-<tr><td><code>_ErrIncrement</code> at <code>ram:26F8</code></td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
-<tr><td><code>_ErrNon_Real</code> at <code>ram:26FC</code></td><td style="text-align: right">3</td><td style="text-align: right">1</td></tr>
+<tr><td><code>_ErrOverflow</code> at <code>00:26E8</code></td><td style="text-align: right">9</td><td style="text-align: right">2</td></tr>
+<tr><td><code>_ErrDivBy0</code> at <code>00:26EC</code></td><td style="text-align: right">2</td><td style="text-align: right">1</td></tr>
+<tr><td><code>_ErrSingularMat</code> at <code>00:26F0</code></td><td style="text-align: right">3</td><td style="text-align: right">1</td></tr>
+<tr><td><code>_ErrDomain</code> at <code>00:26F4</code></td><td style="text-align: right">91</td><td style="text-align: right">4</td></tr>
+<tr><td><code>_ErrIncrement</code> at <code>00:26F8</code></td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
+<tr><td><code>_ErrNon_Real</code> at <code>00:26FC</code></td><td style="text-align: right">3</td><td style="text-align: right">1</td></tr>
 </tbody>
 </table>
 </div>
@@ -585,15 +579,15 @@ The report preserves that distinction. [confirmed]</p>
 <pre class="mermaid">flowchart LR
     S["TI-BASIC expression"] --&gt; E["operator evaluator"]
     E --&gt; G["numeric guard&lt;br/&gt;zero, range, or exponent"]
-    G --&gt; R["shared error shim&lt;br/&gt;ram:26E8–2708"]
-    R --&gt; C["ram:270A&lt;br/&gt;common error path"]
+    G --&gt; R["shared error shim&lt;br/&gt;00:26E8–2708"]
+    R --&gt; C["00:270A&lt;br/&gt;common error path"]
     C --&gt; U["restore OPS, FPS,&lt;br/&gt;error SP, and page"]
 </pre>
 
-<p>The shared context wrapper at <code>ram:27DA</code> does not save absolute <code>FPS</code> and <code>OPS</code>
+<p>The shared context wrapper at <code>00:27DA</code> does not save absolute <code>FPS</code> and <code>OPS</code>
 pointers. It saves each pointer as a delta from the corresponding base at
 <code>0x9822</code> or <code>0x9826</code>, together with the previous error stack and mapped page.
-The unwind path at <code>ram:27BB–27D9</code> restores them in reverse order. [confirmed]</p>
+The unwind path at <code>00:27BB–27D9</code> restores them in reverse order. [confirmed]</p>
 <pre><code class="language-text">save_error_context(target):
   push current_flash_page
   push previous_error_stack
@@ -611,8 +605,8 @@ unwind_error(error_code):
   return error_code
 </code></pre>
 <pre class="mermaid">flowchart LR
-    E["error entry&lt;br/&gt;82h or 88h"] --&gt; C["ram:270A&lt;br/&gt;common error path"]
-    C --&gt; U["ram:27BB&lt;br/&gt;load saved error SP"]
+    E["error entry&lt;br/&gt;82h or 88h"] --&gt; C["00:270A&lt;br/&gt;common error path"]
+    C --&gt; U["00:27BB&lt;br/&gt;load saved error SP"]
     U --&gt; O["restore OPS delta"]
     O --&gt; F["restore FPS delta"]
     F --&gt; P["restore previous error SP and page"]
@@ -626,7 +620,7 @@ current interpreter model.</p>
 <p><code>tools/analyze_tibasic_coverage.py</code> ties eight finite models to byte signatures
 in the pinned ROM. It exhausts 591,360 states across token width, delimiters,
 one scan step, one block-depth transition, the extended-class fold, precedence
-family selection, command finalization, and Flash page <code>33</code> table bounds. Z3 proves a
+family selection, command finalization, and page-33 table bounds. Z3 proves a
 minimum representative set for the semantic outcomes. [confirmed]</p>
 <p>Dynamic evidence is a separate layer. Natural programs reach 38 of 52 outcomes
 at 26 selected branch sites. Public-bcall and internal-entry probes bring the
@@ -653,7 +647,7 @@ boundaries explicitly.</p>
 <tr><th>Address</th><th>Role</th></tr>
 </thead>
 <tbody>
-<tr><td><code>ram:1FE8</code></td><td><code>_IsA2ByteTok</code></td></tr>
+<tr><td><code>00:1FE8</code></td><td><code>_IsA2ByteTok</code></td></tr>
 <tr><td><code>38:4000</code></td><td>Grammar-handler pointer table</td></tr>
 <tr><td><code>38:4130</code></td><td>Matching <code>End</code>/<code>Else</code> scanner</td></tr>
 <tr><td><code>38:4180</code></td><td>Token-aware skip scanner</td></tr>

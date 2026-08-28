@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6e3684b7.js";
+            window.path_to_searchindex_js = "searchindex-44e119bf.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-359c0a17.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -218,7 +218,7 @@ decision family. [confirmed]</p>
 <tr><td>Block matcher transition</td><td style="text-align: right">524,288</td><td style="text-align: right">10</td><td>Every 16-bit depth over eight decision-equivalent token classes</td></tr>
 <tr><td>Extended grammar fold</td><td style="text-align: right">256</td><td style="text-align: right">2</td><td><code>CP F2h</code>/<code>ADD 12h</code>, not later handlers</td></tr>
 <tr><td>Precedence handler family</td><td style="text-align: right">65,536</td><td style="text-align: right">3</td><td>Grammar class × selector byte, not recursive handler state</td></tr>
-<tr><td>Command finalization gate</td><td style="text-align: right">256</td><td style="text-align: right">5</td><td>First Flash page <code>02</code> gate only</td></tr>
+<tr><td>Command finalization gate</td><td style="text-align: right">256</td><td style="text-align: right">5</td><td>First page-02 gate only</td></tr>
 <tr><td>Control-flow table bounds</td><td style="text-align: right">256</td><td style="text-align: right">15</td><td>Index validation, not the 13 handler bodies</td></tr>
 </tbody>
 </table>
@@ -233,7 +233,7 @@ the entire Z80 routine or of arbitrary token streams.</p>
 <h2 id="coverage-by-provenance"><a class="header" href="#coverage-by-provenance">Coverage by provenance</a></h2>
 <p>The report declares 26 branch sites and both outcomes at each site. Natural
 programs reach 38 of those 52 outcomes. Public-bcall probes add the four
-Flash page <code>33</code> bounds outcomes. Internal-entry probes add the remaining 10 outcomes.
+page-33 bounds outcomes. Internal-entry probes add the remaining 10 outcomes.
 The union reaches 52 of 52, but only the first number describes natural
 TI-BASIC reachability. [confirmed]</p>
 <pre class="mermaid">flowchart LR
@@ -268,15 +268,15 @@ branches. Its 2,702 possible outcomes produce this trace breakdown:</p>
 <tr><td>Page-33 control flow</td><td style="text-align: right">174</td><td style="text-align: right">13</td><td style="text-align: right">0</td></tr>
 <tr><td>Value storage</td><td style="text-align: right">154</td><td style="text-align: right">112</td><td style="text-align: right">112</td></tr>
 <tr><td>Numeric and error checks</td><td style="text-align: right">256</td><td style="text-align: right">120</td><td style="text-align: right">119</td></tr>
-<tr><td>Total</td><td style="text-align: right">2,702</td><td style="text-align: right">924</td><td style="text-align: right">898</td></tr>
+<tr><td><strong>Total</strong></td><td style="text-align: right"><strong>2,702</strong></td><td style="text-align: right"><strong>924</strong></td><td style="text-align: right"><strong>898</strong></td></tr>
 </tbody>
 </table>
 </div>
-<p>Natural <code>factorial</code> and <code>dfs</code> traces identify the Flash page <code>38</code> loop path:
+<p>Natural <code>factorial</code> and <code>dfs</code> traces identify the page-38 loop path:
 <code>For(</code> reaches <code>parse_for_production</code> (<code>38:41E5</code>), <code>End</code> reaches
 <code>parse_end_ops_record</code> (<code>38:4200</code>), and the loop continuations are
 <code>for_first_update</code> (<code>38:5836</code>) and <code>for_steady_update</code> (<code>38:587D</code>). They do not
-enter the Flash page <code>33</code> probe dispatcher. [confirmed]</p>
+enter the page-33 probe dispatcher. [confirmed]</p>
 <pre class="mermaid">flowchart LR
     T["81 parser handlers&lt;br/&gt;plus subsystem entries"] --&gt; G["8,490-instruction&lt;br/&gt;direct CFG"]
     G --&gt; B["2,702 outcomes"]
@@ -311,39 +311,38 @@ minimum outcome corpus from the selective documentation corpus. [confirmed]</p>
 </div>
 <p><code>missingend</code> and <code>terminalif</code> add natural end-of-input structural boundaries.
 They exercise carry returns that closed blocks do not reach, then finish through
-Flash page <code>38</code> cleanup and display <code>Done</code>; they do not raise an OS error. The
-report marks both traces with <code>termination: completed</code>. [confirmed]</p>
+page-38 cleanup and display <code>Done</code>; they do not raise an OS error. The report
+marks both traces with <code>termination: completed</code>. [confirmed]</p>
 <p>The syntax and divide-by-zero fixtures provide baseline unwind witnesses.
-<code>syntaxerr</code> executes <code>Disp 1+</code> and reaches the syntax entry at <code>ram:2700</code>.
-<code>divzero</code> executes <code>Disp 1/0</code> and reaches <code>_ErrDivBy0</code> at <code>ram:26EC</code>. The
-expanded numeric corpus raises the natural local-matrix result from 34 to 38
-outcomes. The 15-trace outcome minimum omits the error fixtures because other
-traces cover those local branches; the semantic corpus retains their distinct
-causes. [confirmed]</p>
+<code>syntaxerr</code> executes <code>Disp 1+</code> and reaches the syntax entry at <code>00:2700</code>.
+<code>divzero</code> executes <code>Disp 1/0</code> and reaches <code>_ErrDivBy0</code> at <code>00:26EC</code>. The expanded numeric corpus
+raises the natural local-matrix result from 34 to 38 outcomes. The 15-trace
+outcome minimum omits the error fixtures because other traces cover those local
+branches; the semantic corpus retains their distinct causes. [confirmed]</p>
 <p>Twelve selected numeric-error fixtures also retain the path before the shared
 error shim. The reducer restarts a candidate slice whenever it sees the guard’s
 first instruction. It accepts the slice only when the remaining guard and shim
 addresses occur in order and the shim leaves the expected error code in <code>A</code>.
-This prevents an unrelated call before the guard to <code>_FPDiv</code>, <code>_FPMult</code>, or the
-zero checker from being attached to a later error. [confirmed]</p>
+This prevents an unrelated earlier call to <code>_FPDiv</code>, <code>_FPMult</code>, or the zero
+checker from being attached to a later error. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>Case</th><th>Ordered causal boundary</th><th>Result</th></tr>
 </thead>
 <tbody>
-<tr><td><code>divzero</code></td><td><code>ram:2548 → ram:254B → ram:26EC</code></td><td>divisor-zero guard, code <code>82h</code></td></tr>
-<tr><td><code>overflow</code></td><td><code>02:7076 → 02:7078 → 02:7053 → 02:7056 → 02:7059 → ram:26E8</code></td><td><code>10^x</code> range guard, code <code>81h</code></td></tr>
-<tr><td><code>muloverflow</code></td><td><code>ram:2513 → ram:2516 → ram:2517 → ram:2519 → ram:251B → ram:251D → ram:26E8</code></td><td>exponent-add overflow, code <code>81h</code></td></tr>
-<tr><td><code>lndomain</code></td><td><code>02:6F1E → ram:212D → ram:1DE9 → ram:2130 → ram:2131 → ram:211D → ram:26F4</code></td><td>logarithm zero guard, code <code>84h</code></td></tr>
-<tr><td><code>increment</code></td><td><code>37:4268 → ram:1DE9 → 37:426B → ram:26F8</code></td><td>zero loop step, code <code>85h</code></td></tr>
-<tr><td><code>asindomain</code></td><td><code>02:76F1 → 02:76F4 → 02:76F5 → ram:26F4</code></td><td>inverse-sine range guard, code <code>84h</code></td></tr>
-<tr><td><code>acosdomain</code></td><td><code>02:76DF → 02:76E2 → ram:26F4</code></td><td>inverse-cosine range guard, code <code>84h</code></td></tr>
-<tr><td><code>sqrtnonreal</code></td><td><code>ram:1B8F → ram:1B93 → ram:26FC</code></td><td>real-mode result guard, code <code>87h</code></td></tr>
-<tr><td><code>singular</code></td><td><code>02:439C → 02:439F → 02:43A1 → 02:43A2 → 02:43A3 → 02:43A5 → ram:26F0</code></td><td>matrix-pivot guard, code <code>83h</code></td></tr>
-<tr><td><code>lateincrement</code></td><td><code>38:586D → 38:5870 → 38:5873 → 38:5876 → ram:26F8</code></td><td>loop no-progress guard, code <code>85h</code></td></tr>
-<tr><td><code>negfactdomain</code></td><td><code>35:79CF → 35:79D2 → ram:26F4</code></td><td>factorial sign/integer guard, code <code>84h</code></td></tr>
-<tr><td><code>ncrdomain</code></td><td><code>02:4FC8 → 02:4FA1 → ram:2125 → ram:1DFD → ram:1E00 → ram:1E02 → ram:2128 → ram:211C → ram:211D → ram:26F4</code></td><td>combination left-operand guard, code <code>84h</code></td></tr>
+<tr><td><code>divzero</code></td><td><code>00:2548 → 00:254B → 00:26EC</code></td><td>divisor-zero guard, code <code>82h</code></td></tr>
+<tr><td><code>overflow</code></td><td><code>02:7076 → 02:7078 → 02:7053 → 02:7056 → 02:7059 → 00:26E8</code></td><td><code>10^x</code> range guard, code <code>81h</code></td></tr>
+<tr><td><code>muloverflow</code></td><td><code>00:2513 → 00:2516 → 00:2517 → 00:2519 → 00:251B → 00:251D → 00:26E8</code></td><td>exponent-add overflow, code <code>81h</code></td></tr>
+<tr><td><code>lndomain</code></td><td><code>02:6F1E → 00:212D → 00:1DE9 → 00:2130 → 00:2131 → 00:211D → 00:26F4</code></td><td>logarithm zero guard, code <code>84h</code></td></tr>
+<tr><td><code>increment</code></td><td><code>37:4268 → 00:1DE9 → 37:426B → 00:26F8</code></td><td>zero loop step, code <code>85h</code></td></tr>
+<tr><td><code>asindomain</code></td><td><code>02:76F1 → 02:76F4 → 02:76F5 → 00:26F4</code></td><td>inverse-sine range guard, code <code>84h</code></td></tr>
+<tr><td><code>acosdomain</code></td><td><code>02:76DF → 02:76E2 → 00:26F4</code></td><td>inverse-cosine range guard, code <code>84h</code></td></tr>
+<tr><td><code>sqrtnonreal</code></td><td><code>00:1B8F → 00:1B93 → 00:26FC</code></td><td>real-mode result guard, code <code>87h</code></td></tr>
+<tr><td><code>singular</code></td><td><code>02:439C → 02:439F → 02:43A1 → 02:43A2 → 02:43A3 → 02:43A5 → 00:26F0</code></td><td>matrix-pivot guard, code <code>83h</code></td></tr>
+<tr><td><code>lateincrement</code></td><td><code>38:586D → 38:5870 → 38:5873 → 38:5876 → 00:26F8</code></td><td>loop no-progress guard, code <code>85h</code></td></tr>
+<tr><td><code>negfactdomain</code></td><td><code>35:79CF → 35:79D2 → 00:26F4</code></td><td>factorial sign/integer guard, code <code>84h</code></td></tr>
+<tr><td><code>ncrdomain</code></td><td><code>02:4FC8 → 02:4FA1 → 00:2125 → 00:1DFD → 00:1E00 → 00:1E02 → 00:2128 → 00:211C → 00:211D → 00:26F4</code></td><td>combination left-operand guard, code <code>84h</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -353,7 +352,7 @@ error codes, 12 causes, and 11 distinct direct caller sites. [confirmed]</p>
 9 overflow, 2 divide-by-zero, 3 singular-matrix, 91 domain, 6 increment, and 3
 non-real. Linear disassembly can decode data as instructions, so each candidate
 still needs CFG or dynamic reachability evidence. Indirect transfers and helpers
-that load <code>A</code> before entering <code>ram:270A</code> remain outside that inventory.
+that load <code>A</code> before entering <code>00:270A</code> remain outside that inventory.
 [confirmed]</p>
 <h3 id="probe-outcomes"><a class="header" href="#probe-outcomes">Probe outcomes</a></h3>
 <p>Three public-bcall probes call <code>grf_435f = 5140h</code> with an input below the table,
@@ -458,36 +457,6 @@ nix develop -c env PYTHONPATH=tools \
   --trace ncrdomain=/tmp/tibasic-numeric-errors/ncrdomain.trace \
   --output tools/tibasic-numeric-errors.json
 </code></pre>
-<h3 id="check-focused-runtime-fixtures"><a class="header" href="#check-focused-runtime-fixtures">Check focused runtime fixtures</a></h3>
-<p>The loop, editor, and ASM/BASIC reports keep compact evidence instead of their
-raw traces. Check the tracked files against the pinned ROM and generated
-programs:</p>
-<pre><code class="language-sh">PYTHONPATH=tools python3 tools/asm_execution.py \
-  --rom tools/rom.bin --check
-PYTHONPATH=tools python3 tools/tibasic_loop_frames.py \
-  --rom tools/rom.bin --check
-PYTHONPATH=tools python3 tools/tibasic_entry_editor.py \
-  --rom tools/rom.bin --check
-nix develop -c env PYTHONPATH=tools python3 \
-  tools/asm_basic_frames_runtime.py --rom tools/rom.bin \
-  --spasm spasm --check
-</code></pre>
-<p>Regenerate the entry-editor fixture from four TLMT v2 traces:</p>
-<pre><code class="language-sh">PYTHONPATH=tools python3 tools/tibasic_entry_editor.py \
-  --rom tools/rom.bin \
-  --trace input=/path/to/entry-input.trace \
-  --trace cancel=/path/to/entry-cancel.trace \
-  --trace menu=/path/to/entry-menu.trace \
-  --trace prompt=/path/to/factorial.trace
-</code></pre>
-<p>Regenerate the private-frame report after assembling and running T042:</p>
-<pre><code class="language-sh">nix develop -c env PYTHONPATH=tools python3 \
-  tools/asm_basic_frames_runtime.py --rom tools/rom.bin \
-  --spasm spasm --write \
-  --trace /path/to/t042-final.trace \
-  --screen /path/to/t042-frame-final.png \
-  --ram /path/to/t042-frame-final.ram
-</code></pre>
 <p>Delete the temporary traces after regeneration. They are reproducible evidence,
 not source assets.</p>
 <h2 id="reading-gaps-honestly"><a class="header" href="#reading-gaps-honestly">Reading gaps honestly</a></h2>
@@ -518,7 +487,7 @@ display or graph subsystem continuations.</p>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="sub-tibasic-examples.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="sub-tibasic-programming.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -532,7 +501,7 @@ display or graph subsystem continuations.</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="sub-tibasic-examples.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="sub-tibasic-programming.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6e3684b7.js";
+            window.path_to_searchindex_js = "searchindex-44e119bf.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-359c0a17.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -211,7 +211,7 @@ find and trace a natural caller of <code>_GrphCirc</code>, adding a direct-call 
 boundary to the current <code>_CircCmd</code> trace reducer. Extend the function-mode
 traces to thick, shade, animate, and dotted styles; <code>Xres&gt;1</code>; multiple selected
 equations; and polar, parametric, and sequence modes. The coordinate rounding,
-two ordinary function witnesses, and the clear-flag Flash page <code>33</code> Circle path are
+two ordinary function witnesses, and the clear-flag page-33 Circle path are
 pinned in <a href="sub-graphing.html#evidence-summary-and-open-items">Graphing</a>.</p>
 <h3 id="table-evaluation"><a class="header" href="#table-evaluation">TABLE evaluation</a></h3>
 <p>Driver <code>05:6205</code> loops over seven visible rows and calls bcall ID <code>4741h</code> →
@@ -236,12 +236,12 @@ about 50 candidate <code>PStat</code>–<code>SStat</code> references in that wi
 evidence includes a T-Test output stage at <code>3A:5500</code> that stores <code>TStat</code> (id
 <code>0x24</code>), the Zelen–Severo normal-tail coefficient table at
 <code>3A:554F</code>–<code>3A:5584</code>, and the test-editor descriptor tables at
-<code>3A:7D00</code>–<code>3A:7E60</code>. The <code>normalcdf(</code> evaluation reaches the Flash page <code>39</code>
+<code>3A:7D00</code>–<code>3A:7E60</code>. The <code>normalcdf(</code> evaluation reaches the page-<code>39</code>
 floating-point core at <code>39:4A02</code>–<code>39:4F5B</code> and its helpers. [confirmed]</p>
 <p>Remaining: the per-test entry addresses (the parser’s execution dispatch into
-the Flash page <code>3A</code> engine — the Flash page <code>38</code> table is parse-side only), the
+the page-<code>3A</code> engine — the page-<code>38</code> table is parse-side only), the
 menu-slot mapping of the <code>3A:7DF4</code> pointer array, and the algorithm identity
-of the Flash page <code>39</code> core. See <a href="sub-statistics.html#remaining-questions">Statistics</a>.</p>
+of the page-<code>39</code> core. See <a href="sub-statistics.html#remaining-questions">Statistics</a>.</p>
 <h3 id="mathprint-runtime-paths"><a class="header" href="#mathprint-runtime-paths">MathPrint runtime paths</a></h3>
 <p>The action byte entering <code>eqdisp_layout_main</code> (<code>39:4F9A</code>) is a raw TI key code:
 <code>kLeft</code> opens the backward-walk path (<code>CP 2</code> at <code>39:5048</code>) and <code>kAlphaDown</code>
@@ -255,57 +255,53 @@ sequential ALPHA-then-arrow keystrokes nor overlapping press/release chords do.
 Once it does, <code>39:5167</code>, its callees <code>39:5949</code>/<code>39:5B10</code>/<code>39:5B1D</code>, and the
 saved-operand dispatch through <code>39:59E0</code>/<code>39:59F9</code> to <code>_FindAlphaUp</code>/
 <code>_FindAlphaDn</code> become traceable; arbitrary VAT sequences and the two extension
-bytes in the Flash page <code>07</code> 11-byte OP scratch registers also remain open. See
+bytes in the page-<code>07</code> 11-byte OP scratch registers also remain open. See
 <a href="sub-equation-display.html#from-live-editor-state-to-settled-drawing">Equation display</a>.</p>
 <h3 id="matrix-and-list-paths"><a class="header" href="#matrix-and-list-paths">Matrix and list paths</a></h3>
 <p>Plain <code>augment(</code> enters the partial-pivoting engine at <code>02:4663</code> but never
 eliminates: the <code>0x91</code> branch sets carry (<code>02:6361 SCF</code>, restored by the
 <code>POP AF</code> at <code>02:6378</code>), and the engine gates its elimination body on that flag
-at <code>02:46DA</code>:</p>
-<pre><code class="language-z80">POP AF
-JR C,46EFh
-</code></pre>
-<p>The elimination pass belongs to the statistics regression path, which enters
-the same dispatcher through <code>3A:6398</code>. [confirmed]</p>
+(<code>46DA POP AF</code><br><code>JR C,46EF</code>). The elimination pass belongs to the statistics
+regression path, which enters the same dispatcher through <code>3A:6398</code>. [confirmed]</p>
 <p>The <code>randM(</code> fill is decoded: <code>02:5CC1</code>–<code>02:5CE6</code> computes <code>int(19·rand)−9</code> per
-cell, drawing from <code>_Random</code> (<code>36:7DC9</code>) through the fixed-page banked-call stub
+cell, drawing from <code>_Random</code> (<code>36:7DC9</code>) through the page 0 banked-call stub
 at <code>ram:392D</code>. The <code>ref(</code> driver dispatches at <code>02:609A</code> via bcall ID <code>4B85h</code>
 → <code>35:7995</code>; the <code>rref(</code> executor runs through bcall ID <code>4B88h</code> → <code>02:7C23</code>
-from Flash page <code>38</code> stubs at <code>38:514F</code>/<code>38:5157</code>; <code>SortA(</code>/<code>SortD(</code> share one body at
+from page-38 stubs at <code>38:514F</code>/<code>38:5157</code>; <code>SortA(</code>/<code>SortD(</code> share one body at
 <code>02:652F</code> with direction discriminators <code>0x0E</code>/<code>0x10</code>. The <code>seq(</code> collection is
 traced per element: entry <code>37:6E87</code>, expression eval through the standard
-parser, element append via <code>02:69BC</code> → <code>37:4260</code>–<code>37:4285</code>, list growth via Flash page <code>07</code>
+parser, element append via <code>02:69BC</code> → <code>37:4260</code>–<code>37:4285</code>, list growth via page-<code>07</code>
 VAT routines, final <code>_CreateRList</code> through <code>37:70DC</code>. [confirmed]</p>
 <p>No remaining items for this subsystem.</p>
-<h3 id="parser-and-archive-boundaries"><a class="header" href="#parser-and-archive-boundaries">Parser and archive boundaries</a></h3>
-<p>The <code>Asm(</code>/<code>AsmPrgm</code> launcher is byte-pinned from <code>_ExecutePrgm</code> at <code>07:5758</code>
-through both cleanup paths. <code>BB 6D</code> selects an already compiled body; the
-source token <code>BB 6C</code> takes the <code>_GetAsmSize</code>/<code>_SquishPrgm</code> path at <code>07:57D4</code>.
-Both paths allocate at <code>ram:9D95</code>, record the length at <code>ram:89EC</code>, install the
-error cleanup at <code>07:5800</code>, and call the <code>07:57FD</code> trampoline. [confirmed]</p>
+<h3 id="parser-and-archive-residuals"><a class="header" href="#parser-and-archive-residuals">Parser and archive residuals</a></h3>
+<p>The <code>Asm(</code>/<code>AsmPrgm</code> setup before the <code>ram:9D95</code> payload handoff is
+byte-pinned at <code>07:5762</code>–<code>57D4</code>: <code>_ChkFindSym</code>, size checks against <code>0x2000</code>,
+<code>_InsertMem</code> growth of <code>userMem</code>, <code>LDIR</code> payload copy, USB port-<code>0x20</code> state
+save, cleanup handler <code>0x5800</code>, and the <code>07:57FD</code> jump to <code>0x9D95</code>. The entry
+gate compares the second body byte to <code>6D</code> (<code>07:5772</code>, <code>FE 6D</code>), while working
+fixtures emit <code>AsmPrgm</code> as <code>BB 6C</code> and still reach the payload — reconciling
+the gate byte remains open. [confirmed]</p>
 <p>The loop records are resolved. <code>For(</code> owns four 9-byte FPS slots; <code>While</code> and
 <code>Repeat</code> own one. Their OPS records contain the continuation, one-based parser
 offset, and previous <code>cleanTmp</code> depth. Six TilEm cases cover normal loops,
 nesting, <code>Return</code>, <code>Stop</code>, and error cleanup. [confirmed]</p>
 <p>The <code>Input</code>/<code>Prompt</code> entry editor is also resolved at the requested boundary.
-The Flash page <code>06</code> editor maintains left and right token spans around a movable gap,
+The page-06 editor maintains left and right token spans around a movable gap,
 then hands accepted text to <code>38:5978</code> → <code>38:5B2B</code>. Four TilEm cases cover an
 empty retry, wrapped edit/cursor redraw, <strong>[ON]</strong> cleanup, <code>Prompt</code>, and the
 separate <code>Menu(</code> route. [confirmed]</p>
-<p>The ASM/BASIC boundary is resolved within an exact bounded census. The census
-covers all 1,732 main bcall slots, all 825 raw <code>CD 09 2B</code> byte-pattern
-occurrences, and every direct edge in <code>38:4100</code>–<code>38:77FF</code>. It finds no separate
-ASM-to-BASIC program-call ABI.
-T042 saves and restores the parser, VAT, FPS/OPS, flag, and error state; an
-incomplete direct call raises <code>E_DataType</code> before <code>38:6910</code>, while the ordinary
-<code>prgmNAME</code> caller reaches <code>38:6910</code>, <code>38:6914</code>, and <code>38:778F</code> and returns
-normally. Fully constructing every private grammar/type and return record is
-the ordinary caller reproduced in ASM, not a distinct ABI. The supported route
-remains an ASM result through <code>Ans</code>, followed by a BASIC-owned <code>prgmNAME</code> call.
+<p>Also open: a direct assembly-to-TI-BASIC program-call entry beyond VAT lookup
+and the cooperative <code>Ans</code> callback. The generated <code>ZZRUN</code> negative probe
+resolves <code>prgmOO</code>, sets the observed parser interval, and enters <code>38:6910</code>, but
+the carry-guarded run terminates at <code>_ErrSyntax</code> (<code>ram:2700</code>) with the cursor
+inside the target body. An 80-byte layout of the same probe ended at
+<code>_ErrArgument</code> (<code>ram:2711</code>), so the terminal error depends on state outside the
+copied name and cursor interval. The remaining gap is the native caller’s
+stack, error-handler, FPS/OPS, and run-state setup around that private entry.
 [confirmed]</p>
 <p>The group receive path is resolved. Receiving a <code>.8xg</code> stores each member as an
 individual variable through the standard link variable-receive loop; no
-<code>0x17</code> object or Flash page <code>07</code> guard is involved. A mixed group confirms that the
+<code>0x17</code> object or page-<code>07</code> guard is involved. A mixed group confirms that the
 receiver honors the archive attribute per member. <code>HELLO</code> lands on Flash page
 <code>08</code>, while <code>FACTOR</code> remains in RAM. Invoking the archived program takes the
 page-byte guard to <code>ERR:ARCHIVED</code>. See
