@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TI-84 Plus graphing pipeline demo</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">TI-84 Plus OS 2.55MP</p>
+    <h1>Graphing pipeline demo</h1>
+    <p class="lede">
+      Step through the reconstructed real-coordinate → graph-coordinate →
+      96×64 pixel-buffer path. The function presets mirror the retained
+      <code>Y1=X²</code> and <code>Y1=X⁻¹</code> traces; Circle uses the observed
+      60-segment, six-degree schedule. Read the
+      <a href="../sub-graphing.html">Graphing</a> chapter for ROM addresses and evidence.
+    </p>
+  </header>
+
+  <nav class="presets" aria-label="Graph scenario">
+    <button class="preset active" data-mode="square">Y1=X²</button>
+    <button class="preset" data-mode="reciprocal">Y1=X⁻¹</button>
+    <button class="preset" data-mode="circle">Circle(0,0,5)</button>
+  </nav>
+
+  <section class="workbench">
+    <aside class="controls" aria-label="Graph controls">
+      <h2>Window</h2>
+      <div class="number-grid">
+        <label>Xmin <input id="x-min" type="number" step="any" value="-10"></label>
+        <label>Xmax <input id="x-max" type="number" step="any" value="10"></label>
+        <label>Ymin <input id="y-min" type="number" step="any" value="-10"></label>
+        <label>Ymax <input id="y-max" type="number" step="any" value="10"></label>
+      </div>
+
+      <div id="function-controls">
+        <label class="range-label">
+          <span>Xres <output id="xres-output">1</output></span>
+          <input id="xres" type="range" min="1" max="8" value="1">
+        </label>
+      </div>
+
+      <div id="circle-controls" hidden>
+        <h2>Circle</h2>
+        <div class="number-grid three">
+          <label>Center X <input id="center-x" type="number" step="any" value="0"></label>
+          <label>Center Y <input id="center-y" type="number" step="any" value="0"></label>
+          <label>Radius <input id="radius" type="number" min="0.01" step="any" value="5"></label>
+        </div>
+      </div>
+
+      <h2>Display</h2>
+      <label class="check"><input id="axes" type="checkbox" checked> Show axes</label>
+      <label class="check"><input id="grid" type="checkbox"> Show pixel grid</label>
+      <label class="range-label">
+        <span>Scale <output id="scale-output">6×</output></span>
+        <input id="scale" type="range" min="3" max="9" value="6">
+      </label>
+      <p id="error" class="error" role="alert"></p>
+    </aside>
+
+    <div class="display-column">
+      <div class="lcd-shell">
+        <div class="lcd-label"><span>TI-84 PLUS</span><span>96 × 64</span></div>
+        <canvas id="screen" width="576" height="384" aria-label="Rendered calculator graph"></canvas>
+      </div>
+      <div class="timeline">
+        <button id="play" aria-label="Play timeline">▶</button>
+        <input id="timeline" type="range" min="0" max="1" value="1" aria-label="Drawing timeline">
+        <output id="timeline-output">1 / 1</output>
+      </div>
+      <p id="cursor-readout" class="cursor-readout">Move over the LCD to inspect a pixel.</p>
+    </div>
+  </section>
+
+  <section class="metrics" aria-label="Scene metrics">
+    <article><span>Samples</span><strong id="metric-samples">—</strong></article>
+    <article><span>Raster events</span><strong id="metric-events">—</strong></article>
+    <article><span>Breaks</span><strong id="metric-breaks">—</strong></article>
+    <article><span>Graph pixels</span><strong id="metric-pixels">—</strong></article>
+  </section>
+
+  <section class="inspection">
+    <div>
+      <h2>Current operation</h2>
+      <dl id="operation"><dt>State</dt><dd>Ready</dd></dl>
+    </div>
+    <div>
+      <h2>What this models</h2>
+      <p id="scenario-note"></p>
+      <p class="boundary">
+        The browser uses JavaScript real arithmetic and a direct Bresenham
+        rasterizer. It visualizes the byte-verified coordinate layout and
+        observed control-flow schedule; it is not a calculator emulator or a
+        bit-exact replacement for the OS floating-point engine.
+      </p>
+    </div>
+  </section>
+</main>
+<script src="model.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

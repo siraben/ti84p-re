@@ -1,0 +1,786 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Paging - TI-84 Plus OS — Reverse Engineering</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="katex-383e7b8d.min.css">
+        <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-27040c52.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-3a621010.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">TI-84 Plus OS — Reverse Engineering</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/siraben/ti84p-re" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="paging"><a class="header" href="#paging">Paging</a></h1>
+<p>The ASIC maps four 16 KiB logical windows into Flash and RAM. Port <code>0x04</code>
+selects one of two mapping modes, ports <code>0x05</code>–<code>0x07</code> hold the page selectors,
+and ports <code>0x0E</code>, <code>0x0F</code>, <code>0x27</code>, and <code>0x28</code> modify the selected pages or small
+subranges.</p>
+<p>This page distinguishes behavior executed by OS 2.55MP from public hardware
+descriptions and emulator implementations. The ROM never gives ports <code>0x27</code>
+or <code>0x28</code> a nonzero value, so their physical behavior remains unconfirmed.</p>
+<h2 id="evidence-and-scope"><a class="header" href="#evidence-and-scope">Evidence and scope</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Evidence</th><th>What it establishes</th><th>Confidence</th></tr>
+</thead>
+<tbody>
+<tr><td>ROM bytes at <code>00:0000</code>–<code>029C</code>, <code>3F:4000</code>–<code>4210</code>, and the paged-RAM helpers</td><td>exact selector writes, boot transitions, and OS restore values</td><td>[confirmed]</td></tr>
+<tr><td>Resolved TilEm boot and homescreen traces</td><td>executed page transitions and logical-to-physical page resolution</td><td>[confirmed]</td></tr>
+<tr><td>TilEm <code>x4_io.c</code> and <code>x4_memory.c</code></td><td>one emulator’s paired mode, selector masks, forced overlays, and protection order</td><td>[standard]</td></tr>
+<tr><td>Wabbitemu <code>83psehw.c</code> and <code>core.c</code></td><td>an independent implementation, including extended Flash pages and different overlay rules</td><td>[standard]</td></tr>
+<tr><td>Guarded Wabbitemu mapper run</td><td>initialized-core reset, selector readback, fixed-page handoff, paired mapping, and overlay routing</td><td>[standard]</td></tr>
+<tr><td>MAME 0.287 <code>ti85.cpp</code> and <code>ti85_m.cpp</code></td><td>a third implementation’s bank arithmetic, reset latch, mapped I/O, and backing ranges</td><td>[standard]</td></tr>
+<tr><td>Guarded MAME mapper run</td><td>fresh-reset latch qualifiers, selector masks, safe RAM banks, absent overlay ports, and read/write/fetch routing</td><td>[standard]</td></tr>
+<tr><td>Public port descriptions</td><td>intended family-wide contracts for ports <code>0x04</code>–<code>0x07</code>, <code>0x0E</code>, <code>0x0F</code>, <code>0x27</code>, and <code>0x28</code></td><td>[standard]</td></tr>
+</tbody>
+</table>
+</div>
+<p>The target ROM runs on a TI-84 Plus with 64 Flash pages and eight RAM page
+selectors. Family members with more Flash need the extended selector bits in
+ports <code>0x0E</code> and <code>0x0F</code>.</p>
+<p>Page selection and execution permission are separate. The mapper can expose a
+RAM page in a CPU window while the execution-protection logic rejects an opcode
+fetch from the corresponding physical chunk. See <a href="execution-protection.html">Execution
+protection</a>. [standard]</p>
+<h2 id="os-and-analysis-use"><a class="header" href="#os-and-analysis-use">OS and analysis use</a></h2>
+<p>The bcall dispatcher maps a paged body through port <code>0x06</code>, executes it in
+window A, then restores the previous page. A bcall whose body resides on fixed
+page 0 executes below <code>0x4000</code> without changing bank A. The page-set helper at
+<code>ram:181C</code> implements the dispatcher write. [confirmed]</p>
+<p><code>cross_page_jump</code> at <code>ram:2B09</code> consumes an inline address-and-page payload and
+transfers control across Flash pages. Banked routines are position-fixed for
+window A because their logical addresses remain in <code>0x4000</code>–<code>0x7FFF</code> regardless
+of the selected physical page. [confirmed]</p>
+<p>Ghidra models physical Flash pages 1–63 as overlay blocks based at <code>0x4000</code>.
+This makes every banked body statically visible while preserving its logical
+address. Runtime traces still need the active port-<code>0x06</code> value to identify the
+physical page. [confirmed]</p>
+<h2 id="the-four-logical-windows"><a class="header" href="#the-four-logical-windows">The four logical windows</a></h2>
+<p>The Z80 supplies a 16-bit address. The top two address bits choose a logical
+window; the mapper supplies the physical page.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Logical range</th><th>Window</th><th>Base selector in independent mode</th><th>Normal OS use</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x0000</code>–<code>0x3FFF</code></td><td>0</td><td>fixed Flash page <code>00</code></td><td>reset vectors, interrupts, and kernel code</td></tr>
+<tr><td><code>0x4000</code>–<code>0x7FFF</code></td><td>A</td><td>port <code>0x06</code>, extended by <code>0x0E</code> for Flash</td><td>paged Flash code or temporary banked RAM</td></tr>
+<tr><td><code>0x8000</code>–<code>0xBFFF</code></td><td>B</td><td>port <code>0x07</code>, extended by <code>0x0F</code> for Flash</td><td>normally RAM page <code>81</code></td></tr>
+<tr><td><code>0xC000</code>–<code>0xFFFF</code></td><td>C</td><td>port <code>0x05</code></td><td>normally RAM page <code>80</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Window 0 stays fixed in both modes. [standard] The fixed page and the normal
+RAM values match the OS trace. [confirmed]</p>
+<p>A physical page can appear in more than one window. During boot, Flash page
+<code>3F</code> is visible through both A and B for part of the transition. Logical
+addresses in those windows then alias the same physical bytes at different
+offsets. [confirmed]</p>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/paging-windows.svg" alt="Independent mode gives each banked window its own selector; paired mode maps an adjacent page pair through windows A and B."><span class="img-wrapper"><img src="images/paging-windows.svg" alt="Independent mode gives each banked window its own selector; paired mode maps an adjacent page pair through windows A and B."></span></label></p>
+<p><strong>Mapper view.</strong> Window 0 remains fixed. The boot example is [confirmed]; the complete paired and independent register contract is [standard].</p>
+<h2 id="mapping-modes--port-0x04-bit-0"><a class="header" href="#mapping-modes--port-0x04-bit-0">Mapping modes — port <code>0x04</code> bit 0</a></h2>
+<p>Writing port <code>0x04</code> changes the memory mode and the standard-timer rate. Its
+bit 0 controls the mapper. Reading the same port returns interrupt and key
+status, not the last mode byte. See <a href="clock-timers-power.html">Clock, timers, and power</a>
+for the other bits. [standard]</p>
+<h3 id="independent-mode--bit-0-clear"><a class="header" href="#independent-mode--bit-0-clear">Independent mode — bit 0 clear</a></h3>
+<p>Each banked window has its own selector.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Window</th><th>Source</th><th>Result</th></tr>
+</thead>
+<tbody>
+<tr><td>A, <code>0x4000</code>–<code>0x7FFF</code></td><td>ports <code>0x06</code> and <code>0x0E</code></td><td>one Flash or RAM page</td></tr>
+<tr><td>B, <code>0x8000</code>–<code>0xBFFF</code></td><td>ports <code>0x07</code> and <code>0x0F</code></td><td>one Flash or RAM page</td></tr>
+<tr><td>C, <code>0xC000</code>–<code>0xFFFF</code></td><td>port <code>0x05</code></td><td>one RAM page</td></tr>
+</tbody>
+</table>
+</div>
+<p>The OS normally writes <code>0x06</code> to port <code>0x04</code>, selecting independent mode and
+the slowest standard-timer rate. Its bcall dispatcher maps a target Flash page
+through port <code>0x06</code>. Paged-RAM helpers use ports <code>0x05</code> and <code>0x07</code> as a pair.
+[confirmed]</p>
+<h3 id="paired-mode--bit-0-set"><a class="header" href="#paired-mode--bit-0-set">Paired mode — bit 0 set</a></h3>
+<p>Port <code>0x06</code> supplies an adjacent page pair, and port <code>0x07</code> moves to window C.
+Port <code>0x05</code> does not select a visible window in this mode. [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Window</th><th>Source</th><th>Page rule</th></tr>
+</thead>
+<tbody>
+<tr><td>A, <code>0x4000</code>–<code>0x7FFF</code></td><td>port <code>0x06</code></td><td>selected physical page with bit 0 cleared</td></tr>
+<tr><td>B, <code>0x8000</code>–<code>0xBFFF</code></td><td>port <code>0x06</code></td><td>the adjacent page with bit 0 set</td></tr>
+<tr><td>C, <code>0xC000</code>–<code>0xFFFF</code></td><td>port <code>0x07</code></td><td>the page selected by port <code>0x07</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>For example, the TI-84 Plus reset selector <code>0x3F</code> produces Flash page <code>3E</code> in
+window A and page <code>3F</code> in window B. The boot trace begins at logical <code>0x8000</code>,
+which therefore executes <code>retail_boot_reset_stub</code> at <code>3F:4000</code>. [confirmed]</p>
+<p>Changing bit 0 reinterprets all three banked windows at once. Code that changes
+the mode must execute from fixed page 0 or from a physical page visible at the
+next logical PC under both mappings. The boot transition uses the latter
+method. [confirmed]</p>
+<h2 id="selector-encoding"><a class="header" href="#selector-encoding">Selector encoding</a></h2>
+<h3 id="ports-0x06-and-0x07"><a class="header" href="#ports-0x06-and-0x07">Ports <code>0x06</code> and <code>0x07</code></a></h3>
+<p>Bit 7 chooses the memory type. On the TI-84 Plus, these selector rules match
+the trace, TilEm, and Wabbitemu: [confirmed] for executed OS values; [standard]
+for the complete register contract. MAME matches the OS-used Flash values and
+RAM selectors <code>0x80</code>–<code>0x86</code>, but does not wrap higher RAM values.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Selector</th><th>Physical page</th></tr>
+</thead>
+<tbody>
+<tr><td>bit 7 clear</td><td>Flash page, low six bits on this 64-page calculator</td></tr>
+<tr><td>bit 7 set</td><td>RAM page `0x80</td></tr>
+</tbody>
+</table>
+</div>
+<p>The hardware-facing <code>0x80</code>–<code>0x87</code> RAM notation distinguishes RAM selectors
+from Flash page numbers. It does not mean that RAM has 128 pages. See
+<a href="ram-pages.html">RAM pages</a> for physical aliasing and OS use.</p>
+<h3 id="port-0x05"><a class="header" href="#port-0x05">Port <code>0x05</code></a></h3>
+<p>Port <code>0x05</code> always selects RAM. On the TI-84 Plus, its low three bits select
+RAM page <code>0x80 | (value &amp; 7)</code>. The normal value <code>0x00</code> therefore maps RAM page
+<code>80</code> into window C in independent mode. [confirmed]</p>
+<p>TilEm stores four low bits for port readback but uses only three in its page
+calculation. Wabbitemu reduces the low seven bits by the model’s RAM page
+count. MAME stores the low three bits. The arithmetic in all three selects the
+same eight page numbers, although MAME’s backing range omits the last page as
+described below. [standard]</p>
+<h3 id="extended-flash-bits--ports-0x0e-and-0x0f"><a class="header" href="#extended-flash-bits--ports-0x0e-and-0x0f">Extended Flash bits — ports <code>0x0E</code> and <code>0x0F</code></a></h3>
+<p>Public descriptions and Wabbitemu model these registers as two high Flash-page
+bits. Port <code>0x0E</code> extends port <code>0x06</code>; port <code>0x0F</code> extends port <code>0x07</code>: [standard]</p>
+<p>$$
+P_A = ((p_6 \bmod 128) + 128(p_{0E} \bmod 4)) \bmod N_F
+$$</p>
+<p>$$
+P_B = ((p_7 \bmod 128) + 128(p_{0F} \bmod 4)) \bmod N_F
+$$</p>
+<p>Here $N_F$ is the number of physical Flash pages. The high registers apply
+only when bit 7 of the corresponding low selector is clear. A RAM selector
+ignores them. [standard]</p>
+<p>For the 64-page TI-84 Plus, every contribution from ports <code>0x0E</code> and <code>0x0F</code>
+is a multiple of 128 and disappears after the page mask. The boot ROM still
+writes <code>3</code> to each register while selecting its highest boot page, then clears
+both during normal mapper initialization. [confirmed]</p>
+<p>TilEm’s TI-84 Plus mapper stores and reads the low two bits but does not feed
+them into its 64-page calculation. Wabbitemu uses the family-wide formula and
+masks the result by the configured Flash size. These implementations agree for
+this target. MAME does not map ports <code>0x0E</code> or <code>0x0F</code>; writes reach no handler.
+Its TI-84 Plus port-<code>0x06</code> and port-<code>0x07</code> handlers instead truncate every
+Flash selector below <code>0x80</code> to six bits. [standard]</p>
+<h2 id="emulator-mapper-comparison"><a class="header" href="#emulator-mapper-comparison">Emulator mapper comparison</a></h2>
+<p>The source-level comparison below describes the pinned implementations, not
+the ASIC. Agreement is useful corroboration of an intended rule; disagreement
+is a test target rather than a vote. [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Detail</th><th>TilEm</th><th>Wabbitemu</th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
+</thead>
+<tbody>
+<tr><td>Mapper ports</td><td><code>0x04</code>–<code>0x07</code>, <code>0x0E</code>, <code>0x0F</code>, <code>0x27</code>, <code>0x28</code></td><td>same</td><td>only <code>0x04</code>–<code>0x07</code></td><td><code>0x04</code>–<code>0x07</code>, <code>0x0E</code>, <code>0x0F</code>, <code>0x27</code>, <code>0x28</code></td></tr>
+<tr><td>Declared driver status</td><td>usable mapper</td><td>usable mapper</td><td><code>MACHINE_NOT_WORKING</code></td><td>browser emulator source model</td></tr>
+<tr><td>port <code>0x05</code> write</td><td>stores low four bits; maps low three</td><td>reduces low seven bits by RAM-page count</td><td>stores low three bits</td><td>selects window C on TI-84 Plus</td></tr>
+<tr><td>TI-84 Plus Flash selector</td><td>low six bits</td><td>extended formula, then Flash-size mask</td><td>low six bits for values below <code>0x80</code></td><td>low selector plus ports <code>0x0E</code>/<code>0x0F</code> extensions</td></tr>
+<tr><td>RAM selector</td><td>low three bits</td><td>low bits masked by RAM-page count</td><td>raw value <code>0x80</code>–<code>0xFF</code> becomes the bank number</td><td><code>0x80</code> flag plus low three-bit page</td></tr>
+<tr><td>paired A</td><td>port-<code>0x06</code> page with bit 0 clear</td><td>same</td><td>same</td><td>even member selected from port <code>0x06</code></td></tr>
+<tr><td>paired B</td><td>port-<code>0x06</code> page with bit 0 set</td><td>see expression bug below</td><td>port-<code>0x06</code> page with bit 0 set</td><td>adjacent odd member</td></tr>
+<tr><td>paired C</td><td>port-<code>0x07</code> page</td><td>same</td><td>same</td><td>port-<code>0x07</code> page</td></tr>
+<tr><td>paired reads from <code>0x05</code>–<code>0x07</code></td><td>stored register values</td><td>active C/A/B page values</td><td>stored register values</td><td>stored selector state</td></tr>
+<tr><td>forced-RAM overlays</td><td>both modes</td><td>independent mode only</td><td>absent</td><td>implemented</td></tr>
+</tbody>
+</table>
+</div>
+<p>Wabbitemu’s reads are therefore not register snapshots in paired mode. Port
+<code>0x06</code> reads visible A, port <code>0x07</code> reads visible B, and port <code>0x05</code> reads the
+physical page visible in C without a RAM-type bit. A routine that writes an
+even page to port <code>0x06</code> and reads port <code>0x07</code> receives that duplicated even
+page under the pinned implementation. TilEm and MAME instead return their
+stored selector bytes from ports <code>0x05</code>–<code>0x07</code>. [standard]</p>
+<h3 id="wabbitemus-paired-b-expression"><a class="header" href="#wabbitemus-paired-b-expression">Wabbitemu’s paired-B expression</a></h3>
+<p>Wabbitemu’s <code>update_bootmap_pages</code> intends to construct the second member of
+the pair, but the pinned source assigns it with: [standard]</p>
+<pre><code class="language-c">page = normal_page | (!flash_version == 1);
+</code></pre>
+<p>Every supported Plus-family initializer gives <code>flash_version</code> a nonzero value.
+C operator precedence therefore evaluates <code>!flash_version</code> first, producing
+zero, and then compares zero with one, again producing zero. The expression is
+effectively <code>page | 0</code>. An odd port-<code>0x06</code> selection still produces the usual
+even/odd pair because A clears its low bit and B preserves the already-set bit.
+An even selection duplicates the even page into both A and B. TilEm and MAME
+instead produce the adjacent odd B page. [standard]</p>
+<p>This is a Wabbitemu implementation result, not evidence that the ASIC
+duplicates even pages. [hypothesis] for physical behavior until a hardware
+test exercises an even selector in paired mode.</p>
+<h3 id="mames-raw-ram-banks-and-short-backing-range"><a class="header" href="#mames-raw-ram-banks-and-short-backing-range">MAME’s raw RAM banks and short backing range</a></h3>
+<p>For TI-84 Plus Flash values below <code>0x80</code>, MAME stores <code>value &amp; 0x3F</code>. For RAM
+values at or above <code>0x80</code>, it stores the complete byte and passes that byte
+directly to the address-map bank. It does not reduce the selector modulo eight.
+Port <code>0x05</code> is the exception because its handler stores <code>value &amp; 7</code>.
+[standard]</p>
+<p>The TI-84 Plus banked map provides Flash at offsets <code>0x000000</code>–<code>0x0FFFFF</code> and
+RAM at <code>0x200000</code>–<code>0x21BFFF</code>. The latter is seven, not eight, 16 KiB pages.
+Selectors <code>0x80</code>–<code>0x86</code> reach RAM; selector <code>0x87</code>, port-<code>0x05 = 7</code>, and every
+higher raw RAM selector land outside the mapped backing range. This boundary
+follows directly from the MAME address map and is an emulator defect, not a
+claim that TI-84 Plus RAM page <code>87</code> is absent. [standard]</p>
+<h3 id="reset-entry-and-fixed-page-handoff"><a class="header" href="#reset-entry-and-fixed-page-handoff">Reset entry and fixed-page handoff</a></h3>
+<p>The three emulators do not begin at the same logical address: [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Implementation</th><th>Reset PC</th><th>Initial visible pages 0/A/B/C</th><th>Fixed-page handoff</th></tr>
+</thead>
+<tbody>
+<tr><td>TilEm</td><td><code>0x8000</code></td><td>Flash <code>00</code>/<code>3E</code>/<code>3F</code>/<code>3F</code></td><td>none; page 0 is already fixed</td></tr>
+<tr><td>Wabbitemu</td><td><code>0x0000</code></td><td>Flash <code>3F</code>/<code>00</code>/<code>00</code>, RAM <code>80</code></td><td>first qualifying opcode fetch in A, or B while paired, changes fixed page <code>3F</code> to <code>00</code></td></tr>
+<tr><td>MAME 0.287</td><td><code>0x0000</code></td><td>Flash <code>3F</code>/<code>00</code>/<code>01</code>/<code>00</code></td><td>a read from A, or from B while paired, clears the boot latch before returning the byte</td></tr>
+</tbody>
+</table>
+</div>
+<p>MAME’s reset initializes selectors <code>0x05</code>–<code>0x07</code> to zero, port <code>0x04</code> to one,
+and <code>m_booting</code> to true. Its fixed window consequently starts on page <code>3F</code>,
+while paired A/B are pages <code>00</code>/<code>01</code> and C is Flash page <code>00</code>. The handoff is
+implemented in read handlers, despite a comment saying it should apply only to
+opcode fetches. [standard]</p>
+<p>The pinned MAME source also swaps model constants in two machine-start
+functions: the <code>ti83pse</code> start assigns <code>TI84PSE</code>, and <code>ti84pse</code> assigns
+<code>TI83PSE</code>. The <code>ti84p</code> start correctly assigns <code>TI84P</code>, so the six-bit selector
+mask described here does execute for this article’s target. The swapped names
+still make cross-model inferences from this driver unsafe without checking the
+actual machine configuration and <code>m_model</code> branch. MAME registers the TI-84
+Plus driver with <code>MACHINE_NOT_WORKING</code>; this comparison treats its source as an
+implementation oracle, not a fidelity endorsement. [standard]</p>
+<h2 id="boot-mapping-transition"><a class="header" href="#boot-mapping-transition">Boot mapping transition</a></h2>
+<p>The retail boot page contains <code>retail_boot_reset_stub</code> at <code>3F:4000</code>. Under
+TilEm’s reset mapping it executes at logical <code>0x8000</code>: [confirmed]</p>
+<pre><code class="language-z80">3F:4000  LD A,0x07
+3F:4002  OUT (0x04),A     ; paired mode
+3F:4004  LD A,0x7F
+3F:4006  OUT (0x06),A     ; A=page 3E, B=page 3F
+3F:4008  LD A,0x03
+3F:400A  OUT (0x0E),A
+3F:400C  JP 0x812C       ; continue on page 3F in window B
+</code></pre>
+<p>Page 0 also contains a restart path at <code>00:0000</code> → <code>00:028C</code>. It tests port
+<code>0x02</code> bit 7, writes either <code>0x1F</code> or <code>0x03</code> to port <code>0x0E</code>, writes <code>0x7F</code> to
+port <code>0x06</code>, selects paired mode, and jumps to the same logical <code>0x812C</code>.
+Both values written to <code>0x0E</code> have low two bits equal to three. [confirmed]</p>
+<p><code>boot_os_entry</code> at <code>3F:412C</code> changes to independent mode without paging out its
+next instruction: [confirmed]</p>
+<pre><code class="language-z80">3F:412C  IM 1
+          ; stack/RAM probe omitted
+3F:4142  LD A,0x03
+3F:4144  OUT (0x0F),A
+3F:4146  LD A,0x7F
+3F:4148  OUT (0x07),A     ; C=page 3F while still paired
+3F:414A  LD A,0x06
+3F:414C  OUT (0x04),A     ; independent: A=3F, B=3F, C=RAM 80
+3F:414E  JP 0x4151       ; page 3F remains visible in window A
+</code></pre>
+<p>Boot then maps <code>0x81</code> through port <code>0x07</code>, probes writable RAM at <code>0xC000</code> and
+<code>0x8000</code>, and programs the execution-protection registers. At <code>3F:4208</code> it
+clears ports <code>0x0E</code>, <code>0x0F</code>, and <code>0x05</code>, writes page <code>0x3F</code> to port <code>0x06</code>,
+and later maps RAM through port <code>0x07</code>. [confirmed]</p>
+<p>The resolved trace records the complete transition:</p>
+<pre><code class="language-text">OUT (0x04) &lt;- 07   paired mode
+OUT (0x06) &lt;- 7F   A=page 3E, B=page 3F
+OUT (0x0E) &lt;- 03
+OUT (0x0F) &lt;- 03
+OUT (0x07) &lt;- 7F   C=page 3F
+OUT (0x04) &lt;- 06   independent mode
+OUT (0x07) &lt;- 81   B=RAM page 81
+OUT (0x0E) &lt;- 00
+OUT (0x0F) &lt;- 00
+OUT (0x05) &lt;- 00   C=RAM page 80
+OUT (0x06) &lt;- 3F   A=Flash page 3F
+OUT (0x07) &lt;- 80   B=RAM page 80
+</code></pre>
+<p>This sequence shows why a mode change cannot be modeled as three independent
+port assignments. The meaning of the already-written <code>0x06</code> and <code>0x07</code>
+selectors changes when port <code>0x04</code> bit 0 changes.</p>
+<h2 id="why-ram-helpers-clear-port-0x0f"><a class="header" href="#why-ram-helpers-clear-port-0x0f">Why RAM helpers clear port <code>0x0F</code></a></h2>
+<p>Several OS helpers clear port <code>0x0F</code> immediately before selecting RAM through
+port <code>0x07</code>. Representative sites include <code>ram:0B78</code>, <code>05:5B66</code>, <code>2F:45A9</code>,
+<code>36:74F8</code>, <code>37:44CA</code>, and <code>38:7782</code>. They then compute a page pair:
+[confirmed]</p>
+<pre><code class="language-z80">    XOR A
+    OUT (0x0F),A
+    LD A,B
+    SLA A
+    OUT (0x05),A       ; even RAM page in window C
+    INC A
+    OR 0x80
+    OUT (0x07),A       ; odd RAM page in window B
+</code></pre>
+<p>Bit 7 of the port-<code>0x07</code> value is set, so the extended <em>Flash</em> bits do not
+participate in the resulting RAM page under the public contract, TilEm, or
+Wabbitemu. MAME has no extended selectors to clear. The clear may be defensive
+state normalization or compatibility with another ASIC revision. The ROM does
+not establish that it is required. [hypothesis]</p>
+<h2 id="forced-ram-subranges--ports-0x27-and-0x28"><a class="header" href="#forced-ram-subranges--ports-0x27-and-0x28">Forced RAM subranges — ports <code>0x27</code> and <code>0x28</code></a></h2>
+<p>The public descriptions and TilEm implement two 64-byte-granularity overlays.
+For a byte value $n$: [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Port</th><th>Forced logical range</th><th>Physical page</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x27</code></td><td><code>0x10000 - 64n</code> through <code>0xFFFF</code></td><td>RAM page <code>80</code></td></tr>
+<tr><td><code>0x28</code></td><td><code>0x8000</code> through <code>0x8000 + 64n - 1</code></td><td>RAM page <code>81</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>A zero value disables the corresponding overlay. The maximum byte value,
+<code>0xFF</code>, leaves one 64-byte block of its 16 KiB window outside the forced range.</p>
+<p>OS 2.55MP writes zero to both ports in <code>mode_default_init</code> at <code>37:6D3A</code> and
+<code>37:6D3E</code>. It also clears port <code>0x27</code> before RAM-bank tests at <code>37:72D3</code> and
+<code>3F:45F5</code>. No immediate or dynamic write in the analyzed ROM gives either port
+a nonzero value. These writes confirm that the OS disables the feature, but
+they do not confirm the nonzero mapping formula. [confirmed]</p>
+<h3 id="emulator-disagreement"><a class="header" href="#emulator-disagreement">Emulator disagreement</a></h3>
+<p>The three emulator implementations disagree at the point most useful for a
+hardware test: [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Detail</th><th>TilEm</th><th>Wabbitemu</th><th>MAME 0.287</th></tr>
+</thead>
+<tbody>
+<tr><td>Overlay active in paired mode</td><td>yes</td><td>no; checks <code>!boot_mapped</code></td><td>no overlay model</td></tr>
+<tr><td>Port <code>0x28</code> range</td><td>complete formula above</td><td>complete formula above in independent mode</td><td>port unmapped</td></tr>
+<tr><td>Port <code>0x27</code> range</td><td>complete formula above</td><td>also requires the logical address to be at least <code>0xFB64</code></td><td>port unmapped</td></tr>
+<tr><td>Read, write, and instruction fetch</td><td>all resolve through the overlay</td><td>data reads/writes use the overlay; execution checks retain some underlying-bank logic</td><td>underlying bank only</td></tr>
+</tbody>
+</table>
+</div>
+<p>WikiTI’s historical description says these ports have no effect in paired
+mode, which agrees with Wabbitemu and disagrees with TilEm. None of these
+software sources proves the ASIC behavior. Whether the overlays operate in
+physical paired mode remains a hypothesis. [hypothesis]</p>
+<h3 id="native-wabbitemu-mapper-edges"><a class="header" href="#native-wabbitemu-mapper-edges">Native Wabbitemu mapper edges</a></h3>
+<p>A guarded initialized-core run invokes the eight registered mapper handlers
+and the pinned core’s memory paths directly. Reset reads are <code>0x08</code> from port
+<code>0x04</code> and zero from ports <code>0x05</code>–<code>0x07</code>, <code>0x0E</code>, <code>0x0F</code>, <code>0x27</code>, and
+<code>0x28</code>. The <code>0x08</code> is interrupt status, not the mapping mode. The visible
+reset windows are Flash <code>3F</code>/<code>00</code>/<code>00</code> and RAM <code>80</code>, with independent mode
+active and <code>hasChangedPage0</code> clear. [standard]</p>
+<p>A data read at <code>0x4000</code> leaves fixed page <code>3F</code> and the handoff flag unchanged.
+Executing a NOP from the same address changes fixed page <code>3F</code> to <code>00</code>, sets
+<code>hasChangedPage0</code>, and advances the PC to <code>0x4001</code>. This confirms that
+Wabbitemu’s fixed-page handoff is an opcode-fetch effect. [standard]</p>
+<p>Writing <code>0xFF</code> to ports <code>0x0E</code> and <code>0x0F</code> reads back <code>0x03</code>. With those high
+fields set, a raw Flash selector of <code>0x7F</code> remains stored internally but ports
+<code>0x06</code> and <code>0x07</code> read the visible 64-page result <code>0x3F</code>. RAM selectors
+<code>0xFF</code> and <code>0xFE</code> remain stored while the visible windows read <code>0x87</code> and
+<code>0x86</code>. Port <code>0x05 = 0xFF</code> maps and reads RAM page 7 as <code>0x07</code>. [standard]</p>
+<p>The paired-mode case writes C/A/B selectors <code>0x05</code>, <code>0x02</code>, and <code>0x83</code>.
+Ports <code>0x05</code>–<code>0x07</code> then read <code>0x03</code>, <code>0x02</code>, and <code>0x02</code>; the visible windows
+are Flash page 2, duplicate Flash page 2, and RAM page 3. Port <code>0x04</code> still
+reads interrupt status <code>0x08</code>. This exercises the paired-B expression through
+the registered port handlers. [standard]</p>
+<p>Directly seeded backing bytes isolate the two forced ranges. In independent
+mode with <code>0x28 = 1</code> and <code>0x27 = 0xFF</code>, reads at <code>0x8000</code>, <code>0x803F</code>, and
+<code>0x8040</code> return markers <code>0xB0</code> and <code>0xB1</code> from RAM page 1, then underlying
+Flash marker <code>0xA2</code>. Reads at <code>0xFB63</code> and <code>0xFB64</code> return marker <code>0xC3</code> from
+underlying RAM page 5 and marker <code>0xD4</code> from forced RAM page 0. Low-level
+writes change RAM pages 1 and 0 while leaving the two underlying windows
+unchanged. A NOP in forced RAM over an underlying Flash HALT executes the NOP.
+[standard]</p>
+<p>Switching only to paired mode changes those five reads to underlying markers
+<code>0xE0</code>, <code>0xE1</code>, <code>0xE2</code>, <code>0xF3</code>, and <code>0xF4</code>. Low-level writes modify the
+underlying Flash pages while both forced RAM markers remain unchanged. The
+same NOP/HALT discriminator executes the underlying HALT. These writes call
+Wabbitemu’s low-level mapper function; they test address routing, not Flash
+command acceptance. The run establishes emulator behavior only. [standard]</p>
+<h3 id="native-mame-mapper-edges"><a class="header" href="#native-mame-mapper-edges">Native MAME mapper edges</a></h3>
+<p>A guarded MAME 0.287 run uses five fresh processes so each handoff case starts
+with <code>m_booting</code> set. The untouched process reports <code>PC = 0x0000</code>, port reads
+<code>08 00 00 00</code> for <code>0x04</code>–<code>0x07</code>, and visible Flash prefixes <code>3E 07</code>, <code>DB 02</code>,
+<code>44 6F</code>, and <code>DB 02</code> in windows 0, A, B, and C. These prefixes identify pages
+<code>3F</code>, <code>00</code>, <code>01</code>, and <code>00</code> in the exact OS 2.55MP image. [standard]</p>
+<p>Reading A through Lua’s CPU program space changes the window-0 prefix from
+page <code>3F</code>’s <code>3E 07</code> to page <code>00</code>’s <code>DB 02</code>. This MAME Lua access carries read
+side effects; it is not a side-effect-free debugger peek. Three tiny programs
+in RAM then perform actual Z80 data reads in separate processes. An independent
+B read returns page-<code>02</code> byte <code>0E</code> and leaves page <code>3F</code> fixed. An A read returns
+page-<code>01</code> byte <code>44</code> and fixes page <code>00</code>. A paired B read returns page-<code>03</code> byte
+<code>02</code> and also fixes page <code>00</code>. Each program reaches the expected <code>HALT</code> at
+<code>0xC008</code>. [standard]</p>
+<p>The selector cases exercise only mapped backing. Flash write <code>0x41</code> reads back
+<code>01</code> and exposes page <code>01</code>; <code>0x7F</code> reads back <code>3F</code> and exposes page <code>3F</code>. RAM
+selectors <code>0x80</code>, <code>0x85</code>, and <code>0x86</code> reach seeded pages 0, 5, and 6. Port
+<code>0x05 = 0xFE</code> reads back <code>06</code> and reaches RAM page 6. In paired mode, port
+<code>0x06 = 0x02</code> exposes adjacent Flash pages <code>02</code> and <code>03</code>, while port
+<code>0x07 = 0x83</code> maps RAM page 3 into C. The probe omits selector <code>0x87</code>; the
+pinned address map places that bank beyond its seven mapped RAM pages.
+[standard]</p>
+<p>Ports <code>0x0E</code>, <code>0x0F</code>, <code>0x27</code>, and <code>0x28</code> return zero before and after
+patterned writes. With underlying RAM pages 2 and 3 in B and C, writes at
+<code>0x8000</code> and <code>0xFB64</code> change those pages while seeded candidate overlay bytes
+in RAM pages 1 and 0 remain unchanged. A fetched discriminator executes marker
+<code>22</code> from underlying RAM page 2 rather than marker <code>11</code> from candidate overlay
+page 1. The run therefore covers MAME read, write, and instruction-fetch
+routing without treating the missing overlay as ASIC evidence. [standard]</p>
+<h2 id="interaction-with-execution-protection"><a class="header" href="#interaction-with-execution-protection">Interaction with execution protection</a></h2>
+<p>Ports <code>0x21</code>–<code>0x26</code> control Flash and RAM execution permissions. They do not
+select pages; see <a href="execution-protection.html">Execution protection</a> for their
+write gate, equations, and boundary discrepancies.</p>
+<p>TilEm first resolves a port-<code>0x27</code> or port-<code>0x28</code> overlay, then applies the
+execution rule for the resulting physical RAM page. A fetch forced from a
+Flash-backed window into RAM is therefore checked as RAM in TilEm. [standard]</p>
+<p>Wabbitemu’s fetch check chooses its Flash-versus-RAM branch from the underlying
+window before adjusting a RAM address for the overlay. A forced RAM range over
+an underlying Flash page can therefore follow different protection logic from
+TilEm. This is an emulator fidelity difference, not evidence for either ASIC
+ordering. [standard]</p>
+<p>The analyzed OS leaves both overlays disabled before normal execution, so this
+difference does not affect the traced boot and homescreen paths. [confirmed]</p>
+<h2 id="safe-mapper-use"><a class="header" href="#safe-mapper-use">Safe mapper use</a></h2>
+<ul>
+<li>Preserve every selector that the routine changes. Ports <code>0x05</code>, <code>0x06</code>,
+<code>0x07</code>, <code>0x0E</code>, <code>0x0F</code>, <code>0x27</code>, and <code>0x28</code> have readable state in the public
+contract, TilEm, and Wabbitemu. MAME does not implement the latter four.
+[standard]</li>
+<li>Do not use <code>IN A,(0x04)</code> to save the memory mode. Reads return interrupt
+status. Code entered under TI-OS can rely on its documented normal
+independent mode or must receive the mode from its caller. [standard]</li>
+<li>Disable interrupts around a temporary mapping unless the interrupt path can
+run with that mapping. The OS page-<code>83</code> helpers preserve interrupt state for
+this reason. [confirmed]</li>
+<li>When changing paired mode, ensure the next instruction remains mapped. Fixed
+page 0 is the least state-dependent place to perform the transition.
+[standard]</li>
+<li>On family members with more than 128 Flash pages, preserve the matching high
+selector with each low Flash selector. Restoring only port <code>0x06</code> or <code>0x07</code>
+can restore the wrong physical page. [standard]</li>
+<li>Restore normal TI-84 Plus RAM windows with port <code>0x07 = 0x81</code> and port
+<code>0x05 = 0x00</code> when the caller follows the ordinary OS convention. For a
+general library, restore the values read on entry instead. See
+<a href="ram-pages.html#restoring-after-page-83">RAM pages</a>.</li>
+</ul>
+<h2 id="reproducing-the-mapping"><a class="header" href="#reproducing-the-mapping">Reproducing the mapping</a></h2>
+<p><code>tools/memory_mapper.py</code> contains explicit <code>documented</code>, <code>tilem</code>, <code>wabbitemu</code>,
+and <code>mame</code> profiles. <code>tools/describe_memory_mapping.py</code> applies writes and
+reads, compares profiles, and can emit JSON. List the pinned coverage first:</p>
+<pre><code class="language-sh">nix develop -c python tools/describe_memory_mapping.py profiles
+</code></pre>
+<p>This reproduces the final TilEm boot state shown above:</p>
+<pre><code class="language-sh">nix develop -c python tools/describe_memory_mapping.py \
+  map --profile tilem \
+  --write 0x0e=3 --write 6=0x7f \
+  --write 0x0f=3 --write 7=0x7f --write 4=6 \
+  --write 7=0x81 --write 0x0e=0 --write 0x0f=0 \
+  --write 5=0 --write 6=0x3f --write 7=0x80
+</code></pre>
+<p>An even paired selector exposes Wabbitemu’s duplicated B page while also
+showing MAME’s ignored high-selector and overlay writes:</p>
+<pre><code class="language-sh">nix develop -c python tools/describe_memory_mapping.py compare \
+  --write 4=1 --write 6=2 \
+  --write 0x0e=3 --write 0x27=0xff --write 0x28=1
+</code></pre>
+<p>To reproduce MAME’s fixed-page read latch and machine-read the result:</p>
+<pre><code class="language-sh">nix develop -c python tools/describe_memory_mapping.py --json \
+  map --profile mame --read 0x4000
+</code></pre>
+<p>The trace resolver uses the same library. To show the executed boot writes:</p>
+<pre><code class="language-sh">nix develop -c python tools/tilem_trace_resolve.py /tmp/boot.trace \
+  --initial-mapping ti84p-reset --page-switches \
+  --io-ports 04-07,0e-0f,27-28
+</code></pre>
+<p>Static whole-ROM port scans are candidate generators because data can decode as
+instructions. Add context and verify control flow before treating a hit as
+code:</p>
+<pre><code class="language-sh">nix develop -c python tools/analyze_rom_io.py \
+  --before 8 --after 8 0x0e-0x0f,0x27-0x28
+</code></pre>
+<p><code>tools/wabbitemu_mapper_probe.py</code> derives the native edge expectations from
+the same mapper profile. <code>tools/run_wabbitemu_mapper_edge_probe.py</code> requires
+the exact OS 2.55MP ROM and writes a hash-complete JSON manifest.</p>
+<p><code>tools/mame_mapper.py</code> derives the corresponding MAME oracle from the reusable
+profile and pinned ROM prefixes. The guarded CLI runs every latch case from a
+fresh machine:</p>
+<pre><code class="language-sh">mame_mapper_parent=$(mktemp -d /tmp/ti84-mame-mapper.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_mapper_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_mapper_parent/run" --json
+</code></pre>
+<h2 id="open-physical-tests"><a class="header" href="#open-physical-tests">Open physical tests</a></h2>
+<ul>
+<li>Write nonzero values to ports <code>0x27</code> and <code>0x28</code> in independent mode and test
+both range boundaries with reads and writes.</li>
+<li>Repeat the boundary tests in paired mode to distinguish TilEm from
+Wabbitemu and the historical WikiTI claim.</li>
+<li>Execute controlled code on each side of an overlay boundary while varying
+ports <code>0x21</code>–<code>0x26</code>; record whether protection follows the underlying window
+or the forced RAM page.</li>
+<li>Test port <code>0x27</code> below <code>0xFB64</code> to determine whether Wabbitemu’s additional
+cutoff models hardware or is an emulator-specific restriction.</li>
+<li>Read ports <code>0x0E</code> and <code>0x0F</code> after writing values with upper bits set on TA2,
+TA3, and larger-Flash family members.</li>
+<li>Select an even Flash page through port <code>0x06</code> in paired mode and verify that
+window B exposes the adjacent odd page rather than Wabbitemu’s duplicate.</li>
+<li>Select RAM page <code>87</code> through ports <code>0x05</code>, <code>0x06</code>, and <code>0x07</code>; this confirms
+the physical page independently of MAME’s seven-page backing-map defect.</li>
+</ul>
+<h2 id="sources"><a class="header" href="#sources">Sources</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Source</th><th>Use</th></tr>
+</thead>
+<tbody>
+<tr><td>OS 2.55MP <code>rom.bin</code>, especially <code>00:0000</code>–<code>029C</code>, <code>3F:4000</code>–<code>4210</code>, <code>37:44AE</code>, and <code>37:6D33</code></td><td>executed selector sequences and reset values</td></tr>
+<tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code></a> and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c"><code>x4_memory.c</code></a></td><td>mapping modes, 64-page masks, overlays, and protection order</td></tr>
+<tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code></a> and <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c"><code>core.c</code></a></td><td>extended selectors, paired mode, overlays, and independent comparison</td></tr>
+<tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>mapped ports, bank backing, selector writes, reset mapping, and read-latch behavior</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth source implementation of selector, paired-mode, and overlay routing; the deployed artifact is pinned by <code>tools/jstified_hardware.py</code></td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:04">WikiTI port <code>0x04</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:0E"><code>0x0E</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:0F"><code>0x0F</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:27"><code>0x27</code></a>, and <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:28"><code>0x28</code></a></td><td>historical public register descriptions checked against ROM and emulators</td></tr>
+</tbody>
+</table>
+</div>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="memory-map.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="bus-timing.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="memory-map.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="bus-timing.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-09f2665d.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
+        <script src="hljs-z80-e93ac716.js"></script>
+        <script src="katex-5e4f3b03.min.js"></script>
+        <script src="katex-auto-render-bb53eb95.min.js"></script>
+        <script src="katex-init-5efd21f9.js"></script>
+        <script src="pseudocode-695903c6.min.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
+
+
+
+    </div>
+    </body>
+</html>
