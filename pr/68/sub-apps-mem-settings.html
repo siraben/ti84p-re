@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ea266614.js";
+            window.path_to_searchindex_js = "searchindex-6a51e12f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -190,9 +190,9 @@ screen. Addresses and confidence flags follow
 map). Flag bits use the <code>ti83plus.inc</code> equates; the SystemFlags base is
 <code>IY = flags = 0x89F0</code>, so, for example, <code>(IY+0x0A)</code> = <code>flags + fmtFlags</code>.</p>
 <h2 id="flash-apps--find-and-launch"><a class="header" href="#flash-apps--find-and-launch">Flash Apps — find and launch</a></h2>
-<p>This ROM contains no bundled Flash Apps. A guarded scan finds no <code>80 0F</code> header
-at any byte offset in the 1 MiB image, including its 64 page boundaries. The
-result and ROM hash are stored in <code>tools/data/rom-byte-scan.json</code>. [confirmed]</p>
+<p>This ROM contains no bundled Flash Apps. A complete-image scan finds no
+<code>80 0F</code> header at any byte offset in the 1 MiB image, including its 64 page
+boundaries. [confirmed]</p>
 <p>Flash page <code>3D</code> contains the <code>_FindApp*</code> routines, and Flash page <code>3B</code> contains
 the <code>_AppInit</code> glue and App quit handling. A Flash App occupies a contiguous run
 of 16 KiB Flash pages whose first page begins with a TLV App header.</p>

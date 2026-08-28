@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ea266614.js";
+            window.path_to_searchindex_js = "searchindex-6a51e12f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -218,11 +218,9 @@ targets and per-page function counts.</p>
 </table>
 </div>
 <h2 id="blank-boot-and-system-pages"><a class="header" href="#blank-boot-and-system-pages">Blank, boot, and system pages</a></h2>
-<p>The guarded scan finds no <code>80 0F</code> Flash App header at any byte offset in the
-1 MiB image, including its 64 page boundaries. The image therefore contains no
-bundled Flash App. <code>tools/data/rom-byte-scan.json</code> records the ROM hash,
-whole-image result, and a digest of the first 16 bytes of every page.
-[confirmed]</p>
+<p>The complete 1 MiB image contains no <code>80 0F</code> Flash App header at any byte
+offset, including its 64 page boundaries. The image therefore contains no
+bundled Flash App. [confirmed]</p>
 <p>Byte-level notes on the empty page range and the boot/system pages, some of
 which also carry the bcalls listed above:</p>
 <div class="table-wrapper">

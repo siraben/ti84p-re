@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-ea266614.js";
+            window.path_to_searchindex_js = "searchindex-6a51e12f.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -255,20 +255,6 @@ top-level analysis scripts.</p>
 </code></pre>
 <p>The generated manifest reports an unknown component map for an unrecognized
 ROM rather than silently assigning it a known OS identity. [confirmed]</p>
-<h2 id="verify-raw-rom-hypotheses"><a class="header" href="#verify-raw-rom-hypotheses">Verify raw-ROM hypotheses</a></h2>
-<p><code>tools/rom_byte_scan.py</code> checks claims that depend only on complete-image bytes.
-It reproduces the nine-byte BCD-candidate heuristic and scans for the <code>80 0F</code>
-Flash-App header both ROM-wide and at every page boundary. It requires the
-canonical retail ROM hash before reporting a result. [confirmed]</p>
-<pre><code class="language-sh">python tools/rom_byte_scan.py \
-  --rom tools/rom.bin --output /tmp/rom-byte-scan.json
-python tools/rom_byte_scan.py \
-  --check tools/data/rom-byte-scan.json --rom tools/rom.bin
-</code></pre>
-<p>The tracked report contains each BCD candidate rather than only a count. Its
-page-start digest covers the first 16 bytes of all 64 pages. The scan does not
-use Ghidra listing state, so instruction bytes and unrelated data that resemble
-a <code>TIFloat</code> remain visible in the candidate set. [confirmed]</p>
 <h2 id="reject-stale-results"><a class="header" href="#reject-stale-results">Reject stale results</a></h2>
 <p>Single-ROM CSV result tables use a <code>rom_sha256</code> column. Dual-ROM tables record
 both identities, and tables derived from external source or hardware record an
