@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2e64752f.js";
+            window.path_to_searchindex_js = "searchindex-ea266614.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -201,8 +201,9 @@ different boot support. [confirmed]</p>
 </div>
 <p>The canonical image starts from <code>ti84plus_patched.rom</code>, whose SHA-256 is
 <code>90472848b5f56902287fd5d8b455e62d60e9ab054647c9a03c1c91a67fc1a95a</code>.
-<code>D84PBE2.8Xv</code> supplies page <code>0x2F</code>; <code>D84PBE1.8Xv</code> supplies page <code>0x3F</code>, although
-that decoded retail page is byte-identical to the base image’s page <code>0x3F</code>.
+<code>D84PBE2.8Xv</code> supplies Flash page <code>2F</code>; <code>D84PBE1.8Xv</code> supplies Flash page <code>3F</code>,
+although that decoded retail page is byte-identical to the base image’s page
+<code>3F</code>.
 The exact AppVar and decoded-page identities are pinned in
 <code>tools/rom_signatures.py</code>. [confirmed]</p>
 <p>The BootFree image matches the patched base on pages <code>0x00</code>–<code>0x3E</code>. Only page
@@ -220,7 +221,7 @@ pages are also recorded. It cannot establish retail boot behavior.</p>
 table entries. Every target address differs. BootFree maps 38 entries to other
 bodies, 45 entries to a bare <code>RET</code>, and four entries to small
 constant-return stubs. The six retail entries whose bodies live on USB boot
-page <code>0x2F</code> all map to BootFree’s bare-<code>RET</code> stub. [confirmed]</p>
+page <code>2F</code> all map to BootFree’s bare-<code>RET</code> stub. [confirmed]</p>
 <p>The reset paths also differ before any OS code runs: [confirmed]</p>
 <div class="table-wrapper">
 <table>
@@ -228,7 +229,7 @@ page <code>0x2F</code> all map to BootFree’s bare-<code>RET</code> stub. [conf
 <tr><th>Step</th><th>Retail boot 1.03</th><th>BootFree 11.259</th></tr>
 </thead>
 <tbody>
-<tr><td>Reset stub</td><td>Writes ports <code>0x04</code>, <code>0x06</code>, and <code>0x0E</code>, then jumps to <code>0x812C</code></td><td>Maps page <code>0x3F</code> through ports <code>0x06</code> and <code>0x07</code>, then jumps to <code>0x812C</code></td></tr>
+<tr><td>Reset stub</td><td>Writes ports <code>0x04</code>, <code>0x06</code>, and <code>0x0E</code>, then jumps to <code>0x812C</code></td><td>Maps Flash page <code>3F</code> through ports <code>0x06</code> and <code>0x07</code>, then jumps to <code>0x812C</code></td></tr>
 <tr><td>Installed-OS test</td><td>Scans the keypad; <strong>DEL</strong> and <strong>STAT</strong> select recovery; otherwise tests byte <code>0x0038</code> and marker <code>0xA55A</code> at <code>0x0056</code></td><td>Tests only marker <code>0xA55A</code> at <code>0x0056</code>; it does not scan a recovery key</td></tr>
 <tr><td>Missing or rejected OS</td><td>Enters serial or USB-assisted recovery and can receive an OS</td><td>Displays <code>No OS Loaded</code> and halts</td></tr>
 <tr><td>Boot services</td><td>Certificate, validation, serial receive, USB receive, installer display, and error paths</td><td>Smaller Flash/certificate utility set; signature, receive, USB, and most installer-display entries are stubs</td></tr>
@@ -265,9 +266,9 @@ python tools/rom_byte_scan.py \
   --check tools/data/rom-byte-scan.json --rom tools/rom.bin
 </code></pre>
 <p>The tracked report contains each BCD candidate rather than only a count. Its
-page-start digest binds all 64 inspected prefixes. The scan does not use Ghidra
-listing state, so instruction bytes and unrelated data that resemble a
-<code>TIFloat</code> remain visible in the candidate set.</p>
+page-start digest covers the first 16 bytes of all 64 pages. The scan does not
+use Ghidra listing state, so instruction bytes and unrelated data that resemble
+a <code>TIFloat</code> remain visible in the candidate set. [confirmed]</p>
 <h2 id="reject-stale-results"><a class="header" href="#reject-stale-results">Reject stale results</a></h2>
 <p>Single-ROM CSV result tables use a <code>rom_sha256</code> column. Dual-ROM tables record
 both identities, and tables derived from external source or hardware record an

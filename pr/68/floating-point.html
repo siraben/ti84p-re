@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2e64752f.js";
+            window.path_to_searchindex_js = "searchindex-ea266614.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -205,13 +205,14 @@
 mantissa digits. The guarded raw-byte scan finds 144 overlapping nine-byte
 windows that satisfy the type, exponent, packed-digit, and normalization
 heuristic. Greedily skipping nine bytes after each match leaves 134 candidates.
-These counts include instruction and unrelated data bytes; the former estimate
-of roughly 126 depended on Ghidra listing state and is not a ROM-only property.
-<code>tools/data/rom-byte-scan.json</code> records every candidate. [confirmed]</p>
+These counts include instruction bytes and unrelated data. Counts derived from
+Ghidra data definitions instead depend on listing state and do not measure the
+same ROM-only candidate set. <code>tools/data/rom-byte-scan.json</code> records every
+candidate. [confirmed]</p>
 <p>The constants used below are confirmed separately by Ghidra references and raw
 ROM bytes. Examples include $\pi/180 = 1.745\ldots\mathrm{e}{-2}$,
-$180/\pi = 5.729\ldots\mathrm{e}{1}$, 65536, and the page-<code>02</code>
-transcendental coefficient tables.</p>
+$180/\pi = 5.729\ldots\mathrm{e}{1}$, 65536, and the Flash page <code>02</code>
+transcendental coefficient tables. [confirmed]</p>
 <h2 id="op-registers--11-bytes-each-confirmed"><a class="header" href="#op-registers--11-bytes-each-confirmed">OP registers — 11 bytes each [confirmed]</a></h2>
 <p><code>OP1</code>–<code>OP6</code> begin at <code>0x8478</code> and occupy 11 bytes each. Their shared layout is:</p>
 <pre><code class="language-c">typedef struct {
@@ -302,7 +303,8 @@ subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
 </table>
 </div>
 <p><code>ram:1d2f</code> and <code>ram:1d37</code> are two entry points into the same BCD-subtract body — <code>1d2f</code> loads <code>HL=0x8481</code> (OP1 guard), <code>DE=0x848C</code> (OP2 guard) and computes <code>OP2 − OP1</code> into OP2 (<code>LD A,(DE)</code><br><code>SUB (HL)</code>), while <code>1d37</code> enters with the pointers swapped for the reverse <code>OP1 − OP2</code>, before joining the common loop — so the caller picks the subtraction direction by choosing the entry. This is what lets <code>_FPAdd</code> produce a non-negative magnitude and then fix the sign.</p>
-<p>Multiply/divide/transcendentals (on page 0x02) reuse the same align/normalize primitives.</p>
+<p>Multiply, divide, and the transcendental routines on Flash page <code>02</code> reuse the
+same alignment and normalization primitives.</p>
 <h3 id="accumulator-high-nibble-helper-confirmed"><a class="header" href="#accumulator-high-nibble-helper-confirmed">Accumulator high-nibble helper [confirmed]</a></h3>
 <p><code>_ShRAcc = 0x41D4</code>, body <code>ram:1BCB</code>, is a six-instruction scalar helper rather
 than an OP-register operation. It executes four <code>RRA</code> instructions, masks with
@@ -314,7 +316,8 @@ the bcall returns. The result is in <code>tools/data/community-bcall-semantics.c
 <h2 id="floating-point-stack-fps-standard"><a class="header" href="#floating-point-stack-fps-standard">Floating-point stack (FPS) [standard]</a></h2>
 <p><code>FPS</code> (<code>0x9824</code>) is a software stack for temporaries; <code>_PushRealO1</code> (= <code>RST 18h</code>, <code>ram:155C</code>), <code>_PushReal</code>, <code>_PopRealO1</code> through <code>_PopRealO6</code>, <code>_PopReal</code>, <code>_AllocFPS</code>, and <code>_DeallocFPS</code> manage it. Used to spill OP registers during nested expression evaluation.</p>
 <h2 id="multiplication-division-and-transcendentals-confirmed"><a class="header" href="#multiplication-division-and-transcendentals-confirmed">Multiplication, division, and transcendentals [confirmed]</a></h2>
-<p>The rest of the FP op set lives alongside add on page 0, with the transcendentals banked to page 0x02:</p>
+<p>The rest of the FP operation set lives alongside addition on page <code>00</code>; the
+transcendental routines are banked to Flash page <code>02</code>:</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -413,7 +416,7 @@ sign and reciprocal cases, then evaluates the fractional part through
 <code>logexp_digit_table</code>. The <code>CP 0x0F</code> bound at <code>02:7109</code> establishes 16 selector
 slots. [confirmed]</p>
 <h3 id="_sincosrad-sine-and-cosine-in-radians-02733e-confirmed"><a class="header" href="#_sincosrad-sine-and-cosine-in-radians-02733e-confirmed"><code>_SinCosRad</code> sine and cosine in radians (<code>02:733E</code>) [confirmed]</a></h3>
-<p>This one keeps its range reduction on page 0x02 and is the most fully recovered:</p>
+<p>This routine keeps its range reduction on Flash page <code>02</code>:</p>
 <ol>
 <li>
 <p><strong>Mode/select flags.</strong> <code>0x8499</code> holds the trig-op selector — <code>0x01</code> (sin), <code>0x02</code> (cos), <code>0x04</code> (tan) — ORed with <code>0x80</code> when <code>(IY+0)</code> bit 2 is clear (<code>BIT 2,(IY+0)</code><br><code>JR NZ,+2</code><br><code>OR 0x80</code>). <code>_SinCosRad</code> itself enters with <code>A=0x81</code>, so it stores <code>0x81</code> regardless. <code>fp_clear_guard</code> and <code>_ZeroOP3</code> initialize the work area.</p>

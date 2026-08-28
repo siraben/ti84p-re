@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2e64752f.js";
+            window.path_to_searchindex_js = "searchindex-ea266614.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -377,8 +377,9 @@ different boot support. [confirmed]</p>
 </div>
 <p>The canonical image starts from <code>ti84plus_patched.rom</code>, whose SHA-256 is
 <code>90472848b5f56902287fd5d8b455e62d60e9ab054647c9a03c1c91a67fc1a95a</code>.
-<code>D84PBE2.8Xv</code> supplies page <code>0x2F</code>; <code>D84PBE1.8Xv</code> supplies page <code>0x3F</code>, although
-that decoded retail page is byte-identical to the base image’s page <code>0x3F</code>.
+<code>D84PBE2.8Xv</code> supplies Flash page <code>2F</code>; <code>D84PBE1.8Xv</code> supplies Flash page <code>3F</code>,
+although that decoded retail page is byte-identical to the base image’s page
+<code>3F</code>.
 The exact AppVar and decoded-page identities are pinned in
 <code>tools/rom_signatures.py</code>. [confirmed]</p>
 <p>The BootFree image matches the patched base on pages <code>0x00</code>–<code>0x3E</code>. Only page
@@ -396,7 +397,7 @@ pages are also recorded. It cannot establish retail boot behavior.</p>
 table entries. Every target address differs. BootFree maps 38 entries to other
 bodies, 45 entries to a bare <code>RET</code>, and four entries to small
 constant-return stubs. The six retail entries whose bodies live on USB boot
-page <code>0x2F</code> all map to BootFree’s bare-<code>RET</code> stub. [confirmed]</p>
+page <code>2F</code> all map to BootFree’s bare-<code>RET</code> stub. [confirmed]</p>
 <p>The reset paths also differ before any OS code runs: [confirmed]</p>
 <div class="table-wrapper">
 <table>
@@ -404,7 +405,7 @@ page <code>0x2F</code> all map to BootFree’s bare-<code>RET</code> stub. [conf
 <tr><th>Step</th><th>Retail boot 1.03</th><th>BootFree 11.259</th></tr>
 </thead>
 <tbody>
-<tr><td>Reset stub</td><td>Writes ports <code>0x04</code>, <code>0x06</code>, and <code>0x0E</code>, then jumps to <code>0x812C</code></td><td>Maps page <code>0x3F</code> through ports <code>0x06</code> and <code>0x07</code>, then jumps to <code>0x812C</code></td></tr>
+<tr><td>Reset stub</td><td>Writes ports <code>0x04</code>, <code>0x06</code>, and <code>0x0E</code>, then jumps to <code>0x812C</code></td><td>Maps Flash page <code>3F</code> through ports <code>0x06</code> and <code>0x07</code>, then jumps to <code>0x812C</code></td></tr>
 <tr><td>Installed-OS test</td><td>Scans the keypad; <strong>DEL</strong> and <strong>STAT</strong> select recovery; otherwise tests byte <code>0x0038</code> and marker <code>0xA55A</code> at <code>0x0056</code></td><td>Tests only marker <code>0xA55A</code> at <code>0x0056</code>; it does not scan a recovery key</td></tr>
 <tr><td>Missing or rejected OS</td><td>Enters serial or USB-assisted recovery and can receive an OS</td><td>Displays <code>No OS Loaded</code> and halts</td></tr>
 <tr><td>Boot services</td><td>Certificate, validation, serial receive, USB receive, installer display, and error paths</td><td>Smaller Flash/certificate utility set; signature, receive, USB, and most installer-display entries are stubs</td></tr>
@@ -441,9 +442,9 @@ python tools/rom_byte_scan.py \
   --check tools/data/rom-byte-scan.json --rom tools/rom.bin
 </code></pre>
 <p>The tracked report contains each BCD candidate rather than only a count. Its
-page-start digest binds all 64 inspected prefixes. The scan does not use Ghidra
-listing state, so instruction bytes and unrelated data that resemble a
-<code>TIFloat</code> remain visible in the candidate set.</p>
+page-start digest covers the first 16 bytes of all 64 pages. The scan does not
+use Ghidra listing state, so instruction bytes and unrelated data that resemble
+a <code>TIFloat</code> remain visible in the candidate set. [confirmed]</p>
 <h2 id="reject-stale-results"><a class="header" href="#reject-stale-results">Reject stale results</a></h2>
 <p>Single-ROM CSV result tables use a <code>rom_sha256</code> column. Dual-ROM tables record
 both identities, and tables derived from external source or hardware record an
@@ -7253,13 +7254,12 @@ screen. Addresses and confidence flags follow
 map). Flag bits use the <code>ti83plus.inc</code> equates; the SystemFlags base is
 <code>IY = flags = 0x89F0</code>, so, for example, <code>(IY+0x0A)</code> = <code>flags + fmtFlags</code>.</p>
 <h2 id="flash-apps--find-and-launch"><a class="header" href="#flash-apps--find-and-launch">Flash Apps — find and launch</a></h2>
-<p>This ROM ships with zero bundled Apps. A guarded scan finds no <code>80 0F</code> header
-anywhere in the 1 MiB image or at any of its 64 page starts. The result and ROM
-hash are stored in <code>tools/data/rom-byte-scan.json</code>. [confirmed]</p>
-<p>The complete find and launch machinery remains present on page <code>3D</code>
-(<code>_FindApp*</code>) and page <code>3B</code> (<code>_AppInit</code> glue and App-quit handling). Apps are TI
-Flash Applications: a contiguous run of 16 KiB Flash pages whose first page
-begins with a TLV App header.</p>
+<p>This ROM contains no bundled Flash Apps. A guarded scan finds no <code>80 0F</code> header
+at any byte offset in the 1 MiB image, including its 64 page boundaries. The
+result and ROM hash are stored in <code>tools/data/rom-byte-scan.json</code>. [confirmed]</p>
+<p>Flash page <code>3D</code> contains the <code>_FindApp*</code> routines, and Flash page <code>3B</code> contains
+the <code>_AppInit</code> glue and App quit handling. A Flash App occupies a contiguous run
+of 16 KiB Flash pages whose first page begins with a TLV App header.</p>
 <h3 id="app-header-format-tlv-confirmed"><a class="header" href="#app-header-format-tlv-confirmed">App header format (TLV) [confirmed]</a></h3>
 <p>An app header is a sequence of type-length-value fields starting at offset 0 of the
 app’s first page. Each field begins with two bytes in WikiTI’s <code>TT TS</code> notation: the high
@@ -7424,7 +7424,7 @@ database has no function record at that body address.</li>
 <p>State variables: <code>appSearchPage</code> = <code>0x82A3</code>, <code>0x8497</code>/<code>0x8481</code>/<code>0x9C87</code> are search-mode
 scratch (<code>0x9C87</code>=‘i’ selects the in-RAM “temp app” search variant).</p>
 <h3 id="launching-an-app-as-a-context-confirmed"><a class="header" href="#launching-an-app-as-a-context-confirmed">Launching an app as a context [confirmed]</a></h3>
-<p><code>_AppInit</code> (<code>ram:0936</code>, bcall <code>0x404B</code>) installs a context from an app header:</p>
+<p><code>_AppInit</code> (ID <code>404Bh</code>, body <code>ram:0936</code>) installs a context from an App header:</p>
 <pre><code class="language-text">_AppInit(byte *hdr):                 # HL -&gt; 13-byte vector block in the header
   copy 12 bytes hdr[0..11] -&gt; cxMain (0x858D)   # the 6 context vectors
   flags.appFlags (IY+0x0D) = hdr[12]            # appFlags byte
@@ -7641,8 +7641,8 @@ not as proof that the complete <code>ram:9D95</code>–<code>ram:BFFF</code> ran
 <hr>
 <h2 id="ram-clearing-and-memory-reset"><a class="header" href="#ram-clearing-and-memory-reset">RAM clearing and memory reset</a></h2>
 <p>The <strong>MEM</strong> menu (<code>[2nd][+]</code>, “MEMORY MANAGEMENT/DELETE” + “RESET”) and its messages are on
-<code>page 0x01</code> (text/homescreen page). The reset <em>engine</em> is on <code>page 0x35</code>; the user-RAM
-re-init lands in page-0 boot code.</p>
+Flash page <code>01</code> (text/homescreen page). The reset engine is on Flash page <code>35</code>;
+the user-RAM reinitialization lands in fixed page-<code>00</code> boot code.</p>
 <h3 id="user-facing-strings-on-page-01-confirmed"><a class="header" href="#user-facing-strings-on-page-01-confirmed">User-facing strings on page <code>01</code> [confirmed]</a></h3>
 <div class="table-wrapper">
 <table>
@@ -7733,8 +7733,8 @@ touched by a plain RAM reset.</p>
 </code></pre>
 <p>This zeroes the <em>entire</em> 32 KiB RAM and does the deepest re-init.</p>
 <h3 id="_cleanall-and-cleanup_temp_ram-0752cf-confirmed"><a class="header" href="#_cleanall-and-cleanup_temp_ram-0752cf-confirmed"><code>_CleanAll</code> and <code>cleanup_temp_ram</code> (<code>07:52CF</code>) [confirmed]</a></h3>
-<p>Distinct from the MEM reset. <code>_CleanAll</code> (bcall <code>0x4A50</code>) only compacts temporary RAM
-after a command finishes: it shifts the FP stack (<code>fpBase</code>/<code>FPS</code>) down to <code>tempMem</code>, resets
+<p><code>_CleanAll</code> (ID <code>4A50h</code>) is distinct from the <strong>MEM</strong> reset. It only compacts
+temporary RAM after a command finishes: it shifts the FP stack (<code>fpBase</code>/<code>FPS</code>) down to <code>tempMem</code>, resets
 the <code>OPBase</code>/<code>OPS</code>/<code>pTemp</code> scratch pointers, and clears <code>pTempCnt</code>/<code>cleanTmp</code>. It does not
 clear the VAT, user vars, or Flash (see <a href="#memory-management-ram-heap-and-flash-archive">Memory management</a>). <code>_FixTempCnt</code> (<code>07:4FEC</code>) marks temps
 ≥ a count reclaimable then tail-calls the same compaction.</p>
@@ -7758,8 +7758,8 @@ BIT 2,(IY+0)   ; FD CB 00 56  -&gt; tested by _Sin/_Cos/_Tan to select degree vs
 <p>Math routines branch on this bit to choose degree/radian variants (<code>_SinCosRad</code> etc. force
 radians; the degree paths convert first).</p>
 <h3 id="graph-type-in-grfmodeflags-iy0x02-confirmed"><a class="header" href="#graph-type-in-grfmodeflags-iy0x02-confirmed">Graph type in <code>grfModeFlags</code> (<code>IY+0x02</code>) [confirmed]</a></h3>
-<p>The four graph-mode setters on <code>page 0x36</code> are mutually exclusive: each first clears
-all four bits via <code>clr_grfmode (36:7D00)</code>, then ORs in its own bit, then calls
+<p>The four graph-mode setters on Flash page <code>36</code> are mutually exclusive: each first clears
+all four bits via <code>clr_grfmode</code> (<code>36:7D00</code>), then ORs in its own bit, then calls
 <code>_SetTblGraphDraw</code>. <code>param_1</code> is <code>IY</code>, so <code>*(param_1+2)</code> = <code>grfModeFlags</code>.</p>
 <pre><code class="language-text">clr_grfmode (36:7D00):  grfModeFlags &amp;= 0xEF &amp; 0xDF &amp; 0xBF &amp; 0x7F   # clear bits 4,5,6,7
 </code></pre>
@@ -7805,9 +7805,9 @@ bit5 <code>grfNoAxis</code>; <code>seqFlags</code> (<code>IY+0x0F</code>).</p>
 <code>0x97B0</code>: value <code>0x00-0x09</code> = Fix-N decimal places, <code>0xFF</code> = Float.</p>
 <h3 id="mode-screen-plumbing"><a class="header" href="#mode-screen-plumbing">MODE screen plumbing</a></h3>
 <p>The MODE screen is a menu context (<code>cxMode</code>/<code>kMode</code>=0x45) reached via the event/key router
-(<a href="#boot-contexts-and-errors">Boot contexts &amp; errors</a>). Its row strings live as token names on page 0x01 (<code>RadianN</code>/<code>DegreeO</code>/<code>NormalP</code>/
+(<a href="#boot-contexts-and-errors">Boot contexts &amp; errors</a>). Its row strings live as token names on Flash page <code>01</code> (<code>RadianN</code>/<code>DegreeO</code>/<code>NormalP</code>/
 <code>Float</code> at <code>01:49E4</code>–<code>01:4A06</code>; trailing letters are token-id bytes) and full-caps menu
-labels on page 0x37 (<code>DEGREE</code> <code>4A85</code>, <code>RADIAN</code> <code>4A8C</code>). The setters and inc
+labels on Flash page <code>37</code> (<code>DEGREE</code> at <code>37:4A85</code>, <code>RADIAN</code> at <code>37:4A8C</code>). The setters and inc
 equates confirm the target bits and bytes. [confirmed] The per-row path through
 the menu dispatcher to the corresponding <code>SET</code>/<code>RES</code> or <code>fmtDigits</code> store has
 not been traced line by line. [hypothesis]</p>
@@ -10589,10 +10589,11 @@ targets and per-page function counts.</p>
 </table>
 </div>
 <h2 id="blank-boot-and-system-pages"><a class="header" href="#blank-boot-and-system-pages">Blank, boot, and system pages</a></h2>
-<p>No <code>80 0F</code> Flash-App header occurs anywhere in the 1 MiB image. The guarded
-scan also checks all 64 page boundaries and finds no header. The image therefore
-contains no bundled Flash App. <code>tools/data/rom-byte-scan.json</code> records the ROM
-hash, whole-image result, and page-start digest. [confirmed]</p>
+<p>The guarded scan finds no <code>80 0F</code> Flash App header at any byte offset in the
+1 MiB image, including its 64 page boundaries. The image therefore contains no
+bundled Flash App. <code>tools/data/rom-byte-scan.json</code> records the ROM hash,
+whole-image result, and a digest of the first 16 bytes of every page.
+[confirmed]</p>
 <p>Byte-level notes on the empty page range and the boot/system pages, some of
 which also carry the bcalls listed above:</p>
 <div class="table-wrapper">
@@ -10606,14 +10607,21 @@ which also carry the bcalls listed above:</p>
 <tr><td><code>34</code>–<code>39</code></td><td>More OS code (parser scan, USB, graph, mode, menu, and RTC); fill 0.2–17% <code>0xFF</code>.</td></tr>
 <tr><td><code>3B</code></td><td>bcall jump table — starts <code>99 27 00</code> = entry 0 (<code>_JErrorNo</code> → <code>ram:2799</code>).</td></tr>
 <tr><td><code>3C</code></td><td>Link code, archive garbage collection, and the OS version string — page starts with ASCII <code>32 2E 35 35 4D 50</code> = <code>"2.55MP"</code>; <code>archive_gc_collect</code> is at <code>3C:7733</code>.</td></tr>
-<tr><td><code>3E</code></td><td>Certification page and GC journal — two physical 8 KiB sectors. <code>_GetCertificateStart</code> (bcall <code>0x8057</code>) selects the active half; <code>_GetCertificateEnd</code> (<code>0x802D</code>) bounds it; <code>_FindFirstCertField</code> (<code>0x8027</code>) and <code>_FindNextCertField</code> (<code>0x8078</code>) walk TLV fields. GC transactionally copies the used tail through the inactive half and stores phase bytes near its end. [confirmed] for the ROM and GC trace.</td></tr>
-<tr><td><code>3F</code></td><td>Retail boot page — the pinned base already matches the checksum- and hash-validated local <code>D84PBE1.8Xv</code> payload byte for byte; starts <code>3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81</code>, carries boot version <code>1.03</code>, and hosts the <code>0x8xxx</code> boot bcall table. Boot and hardware-version bcalls resolve to <code>_getBootVer</code> <code>3F:477C</code> (<code>0x80B7</code>) and <code>_getHardwareVersion</code> <code>3F:4781</code> (<code>0x80BA</code>). [confirmed]</td></tr>
+<tr><td><code>3E</code></td><td>Certification page and GC journal — two physical 8 KiB sectors. <code>_GetCertificateStart</code> (ID <code>8057h</code>) selects the active half; <code>_GetCertificateEnd</code> (ID <code>802Dh</code>) bounds it; <code>_FindFirstCertField</code> (ID <code>8027h</code>) and <code>_FindNextCertField</code> (ID <code>8078h</code>) walk TLV fields. GC transactionally copies the used tail through the inactive half and stores phase bytes near its end. [confirmed]</td></tr>
+<tr><td><code>3F</code></td><td>Retail boot page — the pinned base matches the checksum- and hash-validated local <code>D84PBE1.8Xv</code> payload byte for byte; starts <code>3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81</code>, carries boot version <code>1.03</code>, and hosts the boot bcall table. Boot and hardware-version bcalls resolve to <code>_getBootVer</code> (ID <code>80B7h</code>, body <code>3F:477C</code>) and <code>_getHardwareVersion</code> (ID <code>80BAh</code>, body <code>3F:4781</code>). [confirmed]</td></tr>
 </tbody>
 </table>
 </div>
-<p>The large-font glyph table is on page <code>0x07</code> (see <a href="#large-font-text">Display and LCD</a>). Alternate large fonts live on pages <code>0x01</code> and <code>0x36</code> (selected by <code>IY+0x35</code> bits 5 and 1). Page <code>0x07</code> is the busiest data page: archive code, list and matrix code, error messages, and the large font. [confirmed]</p>
+<p>The large-font glyph table is on Flash page <code>07</code>; see
+<a href="#large-font-text">Display and LCD</a>. Alternate large fonts live
+on Flash pages <code>01</code> and <code>36</code>, selected by <code>IY+0x35</code> bits 5 and 1. Flash page
+<code>07</code> contains archive code, list and matrix code, error messages, and the large
+font. [confirmed]</p>
 <h2 id="page-specialization"><a class="header" href="#page-specialization">Page specialization</a></h2>
-<p>The OS is page-specialized: kernel + math on page 0, one subsystem per low page. A bcall is really “run subsystem X’s routine on its page” — the page map <em>is</em> the subsystem decomposition, physically.</p>
+<p>The OS is page-specialized: kernel and math routines occupy page <code>00</code>, while
+most low pages hold one subsystem. A bcall switches to the target routine’s
+page, so the physical page map also describes the OS subsystem layout.
+[confirmed]</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="ram-pages"><a class="header" href="#ram-pages">RAM pages</a></h1>
 <p>The TI-84 Plus maps banked RAM behind the Z80’s 16 KiB windows. This page
@@ -12006,13 +12014,14 @@ retain the six metadata bytes at <code>N+1</code> through <code>N+6</code>. [con
 mantissa digits. The guarded raw-byte scan finds 144 overlapping nine-byte
 windows that satisfy the type, exponent, packed-digit, and normalization
 heuristic. Greedily skipping nine bytes after each match leaves 134 candidates.
-These counts include instruction and unrelated data bytes; the former estimate
-of roughly 126 depended on Ghidra listing state and is not a ROM-only property.
-<code>tools/data/rom-byte-scan.json</code> records every candidate. [confirmed]</p>
+These counts include instruction bytes and unrelated data. Counts derived from
+Ghidra data definitions instead depend on listing state and do not measure the
+same ROM-only candidate set. <code>tools/data/rom-byte-scan.json</code> records every
+candidate. [confirmed]</p>
 <p>The constants used below are confirmed separately by Ghidra references and raw
 ROM bytes. Examples include $\pi/180 = 1.745\ldots\mathrm{e}{-2}$,
-$180/\pi = 5.729\ldots\mathrm{e}{1}$, 65536, and the page-<code>02</code>
-transcendental coefficient tables.</p>
+$180/\pi = 5.729\ldots\mathrm{e}{1}$, 65536, and the Flash page <code>02</code>
+transcendental coefficient tables. [confirmed]</p>
 <h2 id="op-registers--11-bytes-each-confirmed"><a class="header" href="#op-registers--11-bytes-each-confirmed">OP registers — 11 bytes each [confirmed]</a></h2>
 <p><code>OP1</code>–<code>OP6</code> begin at <code>0x8478</code> and occupy 11 bytes each. Their shared layout is:</p>
 <pre><code class="language-c">typedef struct {
@@ -12103,7 +12112,8 @@ subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
 </table>
 </div>
 <p><code>ram:1d2f</code> and <code>ram:1d37</code> are two entry points into the same BCD-subtract body — <code>1d2f</code> loads <code>HL=0x8481</code> (OP1 guard), <code>DE=0x848C</code> (OP2 guard) and computes <code>OP2 − OP1</code> into OP2 (<code>LD A,(DE)</code><br><code>SUB (HL)</code>), while <code>1d37</code> enters with the pointers swapped for the reverse <code>OP1 − OP2</code>, before joining the common loop — so the caller picks the subtraction direction by choosing the entry. This is what lets <code>_FPAdd</code> produce a non-negative magnitude and then fix the sign.</p>
-<p>Multiply/divide/transcendentals (on page 0x02) reuse the same align/normalize primitives.</p>
+<p>Multiply, divide, and the transcendental routines on Flash page <code>02</code> reuse the
+same alignment and normalization primitives.</p>
 <h3 id="accumulator-high-nibble-helper-confirmed"><a class="header" href="#accumulator-high-nibble-helper-confirmed">Accumulator high-nibble helper [confirmed]</a></h3>
 <p><code>_ShRAcc = 0x41D4</code>, body <code>ram:1BCB</code>, is a six-instruction scalar helper rather
 than an OP-register operation. It executes four <code>RRA</code> instructions, masks with
@@ -12115,7 +12125,8 @@ the bcall returns. The result is in <code>tools/data/community-bcall-semantics.c
 <h2 id="floating-point-stack-fps-standard"><a class="header" href="#floating-point-stack-fps-standard">Floating-point stack (FPS) [standard]</a></h2>
 <p><code>FPS</code> (<code>0x9824</code>) is a software stack for temporaries; <code>_PushRealO1</code> (= <code>RST 18h</code>, <code>ram:155C</code>), <code>_PushReal</code>, <code>_PopRealO1</code> through <code>_PopRealO6</code>, <code>_PopReal</code>, <code>_AllocFPS</code>, and <code>_DeallocFPS</code> manage it. Used to spill OP registers during nested expression evaluation.</p>
 <h2 id="multiplication-division-and-transcendentals-confirmed"><a class="header" href="#multiplication-division-and-transcendentals-confirmed">Multiplication, division, and transcendentals [confirmed]</a></h2>
-<p>The rest of the FP op set lives alongside add on page 0, with the transcendentals banked to page 0x02:</p>
+<p>The rest of the FP operation set lives alongside addition on page <code>00</code>; the
+transcendental routines are banked to Flash page <code>02</code>:</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -12214,7 +12225,7 @@ sign and reciprocal cases, then evaluates the fractional part through
 <code>logexp_digit_table</code>. The <code>CP 0x0F</code> bound at <code>02:7109</code> establishes 16 selector
 slots. [confirmed]</p>
 <h3 id="_sincosrad-sine-and-cosine-in-radians-02733e-confirmed"><a class="header" href="#_sincosrad-sine-and-cosine-in-radians-02733e-confirmed"><code>_SinCosRad</code> sine and cosine in radians (<code>02:733E</code>) [confirmed]</a></h3>
-<p>This one keeps its range reduction on page 0x02 and is the most fully recovered:</p>
+<p>This routine keeps its range reduction on Flash page <code>02</code>:</p>
 <ol>
 <li>
 <p><strong>Mode/select flags.</strong> <code>0x8499</code> holds the trig-op selector — <code>0x01</code> (sin), <code>0x02</code> (cos), <code>0x04</code> (tan) — ORed with <code>0x80</code> when <code>(IY+0)</code> bit 2 is clear (<code>BIT 2,(IY+0)</code><br><code>JR NZ,+2</code><br><code>OR 0x80</code>). <code>_SinCosRad</code> itself enters with <code>A=0x81</code>, so it stores <code>0x81</code> regardless. <code>fp_clear_guard</code> and <code>_ZeroOP3</code> initialize the work area.</p>

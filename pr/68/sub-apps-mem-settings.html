@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2e64752f.js";
+            window.path_to_searchindex_js = "searchindex-ea266614.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -190,13 +190,12 @@ screen. Addresses and confidence flags follow
 map). Flag bits use the <code>ti83plus.inc</code> equates; the SystemFlags base is
 <code>IY = flags = 0x89F0</code>, so, for example, <code>(IY+0x0A)</code> = <code>flags + fmtFlags</code>.</p>
 <h2 id="flash-apps--find-and-launch"><a class="header" href="#flash-apps--find-and-launch">Flash Apps — find and launch</a></h2>
-<p>This ROM ships with zero bundled Apps. A guarded scan finds no <code>80 0F</code> header
-anywhere in the 1 MiB image or at any of its 64 page starts. The result and ROM
-hash are stored in <code>tools/data/rom-byte-scan.json</code>. [confirmed]</p>
-<p>The complete find and launch machinery remains present on page <code>3D</code>
-(<code>_FindApp*</code>) and page <code>3B</code> (<code>_AppInit</code> glue and App-quit handling). Apps are TI
-Flash Applications: a contiguous run of 16 KiB Flash pages whose first page
-begins with a TLV App header.</p>
+<p>This ROM contains no bundled Flash Apps. A guarded scan finds no <code>80 0F</code> header
+at any byte offset in the 1 MiB image, including its 64 page boundaries. The
+result and ROM hash are stored in <code>tools/data/rom-byte-scan.json</code>. [confirmed]</p>
+<p>Flash page <code>3D</code> contains the <code>_FindApp*</code> routines, and Flash page <code>3B</code> contains
+the <code>_AppInit</code> glue and App quit handling. A Flash App occupies a contiguous run
+of 16 KiB Flash pages whose first page begins with a TLV App header.</p>
 <h3 id="app-header-format-tlv-confirmed"><a class="header" href="#app-header-format-tlv-confirmed">App header format (TLV) [confirmed]</a></h3>
 <p>An app header is a sequence of type-length-value fields starting at offset 0 of the
 app’s first page. Each field begins with two bytes in WikiTI’s <code>TT TS</code> notation: the high
@@ -361,7 +360,7 @@ database has no function record at that body address.</li>
 <p>State variables: <code>appSearchPage</code> = <code>0x82A3</code>, <code>0x8497</code>/<code>0x8481</code>/<code>0x9C87</code> are search-mode
 scratch (<code>0x9C87</code>=‘i’ selects the in-RAM “temp app” search variant).</p>
 <h3 id="launching-an-app-as-a-context-confirmed"><a class="header" href="#launching-an-app-as-a-context-confirmed">Launching an app as a context [confirmed]</a></h3>
-<p><code>_AppInit</code> (<code>ram:0936</code>, bcall <code>0x404B</code>) installs a context from an app header:</p>
+<p><code>_AppInit</code> (ID <code>404Bh</code>, body <code>ram:0936</code>) installs a context from an App header:</p>
 <pre><code class="language-text">_AppInit(byte *hdr):                 # HL -&gt; 13-byte vector block in the header
   copy 12 bytes hdr[0..11] -&gt; cxMain (0x858D)   # the 6 context vectors
   flags.appFlags (IY+0x0D) = hdr[12]            # appFlags byte
@@ -578,8 +577,8 @@ not as proof that the complete <code>ram:9D95</code>–<code>ram:BFFF</code> ran
 <hr>
 <h2 id="ram-clearing-and-memory-reset"><a class="header" href="#ram-clearing-and-memory-reset">RAM clearing and memory reset</a></h2>
 <p>The <strong>MEM</strong> menu (<code>[2nd][+]</code>, “MEMORY MANAGEMENT/DELETE” + “RESET”) and its messages are on
-<code>page 0x01</code> (text/homescreen page). The reset <em>engine</em> is on <code>page 0x35</code>; the user-RAM
-re-init lands in page-0 boot code.</p>
+Flash page <code>01</code> (text/homescreen page). The reset engine is on Flash page <code>35</code>;
+the user-RAM reinitialization lands in fixed page-<code>00</code> boot code.</p>
 <h3 id="user-facing-strings-on-page-01-confirmed"><a class="header" href="#user-facing-strings-on-page-01-confirmed">User-facing strings on page <code>01</code> [confirmed]</a></h3>
 <div class="table-wrapper">
 <table>
@@ -670,8 +669,8 @@ touched by a plain RAM reset.</p>
 </code></pre>
 <p>This zeroes the <em>entire</em> 32 KiB RAM and does the deepest re-init.</p>
 <h3 id="_cleanall-and-cleanup_temp_ram-0752cf-confirmed"><a class="header" href="#_cleanall-and-cleanup_temp_ram-0752cf-confirmed"><code>_CleanAll</code> and <code>cleanup_temp_ram</code> (<code>07:52CF</code>) [confirmed]</a></h3>
-<p>Distinct from the MEM reset. <code>_CleanAll</code> (bcall <code>0x4A50</code>) only compacts temporary RAM
-after a command finishes: it shifts the FP stack (<code>fpBase</code>/<code>FPS</code>) down to <code>tempMem</code>, resets
+<p><code>_CleanAll</code> (ID <code>4A50h</code>) is distinct from the <strong>MEM</strong> reset. It only compacts
+temporary RAM after a command finishes: it shifts the FP stack (<code>fpBase</code>/<code>FPS</code>) down to <code>tempMem</code>, resets
 the <code>OPBase</code>/<code>OPS</code>/<code>pTemp</code> scratch pointers, and clears <code>pTempCnt</code>/<code>cleanTmp</code>. It does not
 clear the VAT, user vars, or Flash (see <a href="memory-management.html">Memory management</a>). <code>_FixTempCnt</code> (<code>07:4FEC</code>) marks temps
 ≥ a count reclaimable then tail-calls the same compaction.</p>
@@ -695,8 +694,8 @@ BIT 2,(IY+0)   ; FD CB 00 56  -&gt; tested by _Sin/_Cos/_Tan to select degree vs
 <p>Math routines branch on this bit to choose degree/radian variants (<code>_SinCosRad</code> etc. force
 radians; the degree paths convert first).</p>
 <h3 id="graph-type-in-grfmodeflags-iy0x02-confirmed"><a class="header" href="#graph-type-in-grfmodeflags-iy0x02-confirmed">Graph type in <code>grfModeFlags</code> (<code>IY+0x02</code>) [confirmed]</a></h3>
-<p>The four graph-mode setters on <code>page 0x36</code> are mutually exclusive: each first clears
-all four bits via <code>clr_grfmode (36:7D00)</code>, then ORs in its own bit, then calls
+<p>The four graph-mode setters on Flash page <code>36</code> are mutually exclusive: each first clears
+all four bits via <code>clr_grfmode</code> (<code>36:7D00</code>), then ORs in its own bit, then calls
 <code>_SetTblGraphDraw</code>. <code>param_1</code> is <code>IY</code>, so <code>*(param_1+2)</code> = <code>grfModeFlags</code>.</p>
 <pre><code class="language-text">clr_grfmode (36:7D00):  grfModeFlags &amp;= 0xEF &amp; 0xDF &amp; 0xBF &amp; 0x7F   # clear bits 4,5,6,7
 </code></pre>
@@ -742,9 +741,9 @@ bit5 <code>grfNoAxis</code>; <code>seqFlags</code> (<code>IY+0x0F</code>).</p>
 <code>0x97B0</code>: value <code>0x00-0x09</code> = Fix-N decimal places, <code>0xFF</code> = Float.</p>
 <h3 id="mode-screen-plumbing"><a class="header" href="#mode-screen-plumbing">MODE screen plumbing</a></h3>
 <p>The MODE screen is a menu context (<code>cxMode</code>/<code>kMode</code>=0x45) reached via the event/key router
-(<a href="boot-contexts-errors.html">Boot contexts &amp; errors</a>). Its row strings live as token names on page 0x01 (<code>RadianN</code>/<code>DegreeO</code>/<code>NormalP</code>/
+(<a href="boot-contexts-errors.html">Boot contexts &amp; errors</a>). Its row strings live as token names on Flash page <code>01</code> (<code>RadianN</code>/<code>DegreeO</code>/<code>NormalP</code>/
 <code>Float</code> at <code>01:49E4</code>–<code>01:4A06</code>; trailing letters are token-id bytes) and full-caps menu
-labels on page 0x37 (<code>DEGREE</code> <code>4A85</code>, <code>RADIAN</code> <code>4A8C</code>). The setters and inc
+labels on Flash page <code>37</code> (<code>DEGREE</code> at <code>37:4A85</code>, <code>RADIAN</code> at <code>37:4A8C</code>). The setters and inc
 equates confirm the target bits and bytes. [confirmed] The per-row path through
 the menu dispatcher to the corresponding <code>SET</code>/<code>RES</code> or <code>fmtDigits</code> store has
 not been traced line by line. [hypothesis]</p>
