@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-238a9834.js";
+            window.path_to_searchindex_js = "searchindex-6e3684b7.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-359c0a17.js"></script>
@@ -14302,10 +14302,11 @@ many token bytes. There are no stored line numbers: <code>3Fh</code> separates l
     R --&gt;|"advance or replace cursor"| C
 </pre>
 
-<p>The page-38 evaluator owns the cursor and grammar. Statement commands can
-cross to page 02, control-flow bodies to page 33, display code to pages 01/03/37,
-and variable lookup to the VAT routines. Those page changes are continuations
-of one interpreter, not separate parsers. [confirmed]</p>
+<p>The Flash page <code>38</code> evaluator owns the cursor and grammar. Statement commands
+can cross to Flash page <code>02</code>, control-flow bodies to Flash page <code>33</code>, display
+code to Flash pages <code>01</code>, <code>03</code>, and <code>37</code>, and variable lookup to the VAT
+routines. Those page changes are continuations of one interpreter, not separate
+parsers. [confirmed]</p>
 <h2 id="the-token-cursor"><a class="header" href="#the-token-cursor">The token cursor</a></h2>
 <p><code>TIBasicParserState</code> (<code>0x9652</code>) keeps the program identity and cursor interval
 contiguous in RAM: [confirmed]</p>
@@ -14321,7 +14322,7 @@ typedef struct {
 </code></pre>
 <p><code>next_parse_byte</code> is the current token position. <code>basic_start</code> begins the
 current body, and <code>basic_end</code> is its inclusive parser/refill boundary.</p>
-<p>The small page-38 helpers are the useful way to reason about cursor movement:</p>
+<p>The small Flash page <code>38</code> helpers define the cursor movement:</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -14337,8 +14338,8 @@ current body, and <code>basic_end</code> is its inclusive parser/refill boundary
 </table>
 </div>
 <p>Encoded width matters whenever the interpreter skips rather than evaluates.
-<code>_IsA2ByteTok</code> (<code>00:1FE8</code>) searches the 11-byte
-<code>two_byte_token_lead_table</code> (<code>00:1FF6</code>); a match
+<code>_IsA2ByteTok</code> (<code>ram:1FE8</code>) searches the 11-byte
+<code>two_byte_token_lead_table</code> (<code>ram:1FF6</code>); a match
 means the lead and following byte must move together. The scanner also treats a
 quoted string as one region, so <code>Then</code>, <code>Else</code>, or <code>End</code> bytes inside a string
 cannot terminate an outer scan. [confirmed]</p>
@@ -14577,13 +14578,13 @@ the operation itself:</p>
 <tr><th>Command</th><th>Parse/dispatch evidence</th><th>Downstream operation</th></tr>
 </thead>
 <tbody>
-<tr><td><code>Disp</code></td><td>page-38 statement handler</td><td><code>_Disp</code> at <code>37:51D3</code>, then <code>_NewLine</code></td></tr>
-<tr><td><code>Output(</code></td><td><code>38:6AE6</code>, page-02 handler</td><td><code>_OutputExpr</code> at <code>03:4AF2</code></td></tr>
+<tr><td><code>Disp</code></td><td>Flash page <code>38</code> statement handler</td><td><code>_Disp</code> at <code>37:51D3</code>, then <code>_NewLine</code></td></tr>
+<tr><td><code>Output(</code></td><td><code>38:6AE6</code>, Flash page <code>02</code> handler</td><td><code>_OutputExpr</code> at <code>03:4AF2</code></td></tr>
 <tr><td><code>Input</code></td><td><code>02:54EF</code></td><td>entry editor, <code>_ParseInpGraphReset</code>, variable store</td></tr>
 <tr><td><code>Prompt</code></td><td><code>02:562F</code></td><td>repeated named-variable entry and store</td></tr>
 <tr><td><code>Menu(</code></td><td><code>02:555D</code></td><td><code>_DispMenuTitle</code> at <code>39:4D21</code>, then label transfer</td></tr>
 <tr><td><code>Pause</code></td><td><code>02:55E7</code></td><td>display and key-wait loop</td></tr>
-<tr><td><code>getKey</code></td><td>expression token <code>ADh</code></td><td>non-blocking <code>_GetKey</code> bcall <code>4972h</code></td></tr>
+<tr><td><code>getKey</code></td><td>expression token <code>ADh</code></td><td>non-blocking <code>_GetKey</code> bcall, ID <code>4972h</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -14617,18 +14618,18 @@ error cleanup at <code>ram:2793</code>. It never reaches the parser handoff or t
 are clear after cleanup. <code>Menu(</code> uses its separate title/key path at
 <code>39:4D21</code>/<code>39:5955</code>; the tracked numeric selection reaches the label scanner
 at <code>38:4870</code> and displays <code>22</code>. [confirmed]</p>
-<p><code>tools/tibasic_entry_editor.py --check</code> guards the page-02, page-06, page-38,
-and page-39 spans and checks the compact four-case TilEm fixture in
+<p><code>tools/tibasic_entry_editor.py --check</code> guards the Flash page <code>02</code>, <code>06</code>, <code>38</code>,
+and <code>39</code> spans and checks the compact four-case TilEm fixture in
 <code>tools/fixtures/tibasic-entry-editor-tilem.json</code>. Raw traces are not required
 for the check. [confirmed]</p>
 <p><code>getKey</code> is an expression value, not a statement. The table at <code>37:6700</code> is a
-token-attribute table; returned key codes come from <code>_GetKey</code> on page 06. This
-distinction prevents a common false inference from the nearby <code>CP ADh</code> bytes.
-[confirmed]</p>
+token-attribute table; returned key codes come from <code>_GetKey</code> on Flash page
+<code>06</code>. This distinguishes the key result from the nearby <code>CP ADh</code> token
+classification. [confirmed]</p>
 <h2 id="errors-unwind-saved-relative-stack-state"><a class="header" href="#errors-unwind-saved-relative-stack-state">Errors unwind saved relative stack state</a></h2>
 <p>The error entries first select an error code, then join the common path at
-<code>00:270A</code>. For example, <code>_ErrDivBy0</code> at <code>00:26EC</code> selects <code>82h</code>, while the
-syntax entry at <code>00:2700</code> selects <code>88h</code>. Natural <code>Disp 1/0</code> and <code>Disp 1+</code>
+<code>ram:270A</code>. For example, <code>_ErrDivBy0</code> at <code>ram:26EC</code> selects <code>82h</code>, while the
+syntax entry at <code>ram:2700</code> selects <code>88h</code>. Natural <code>Disp 1/0</code> and <code>Disp 1+</code>
 traces reach those entries, respectively. [confirmed]</p>
 <p>The entry identifies the error message, but its incoming guard identifies the
 cause. Twelve natural programs separate all six numeric error entries into 12
@@ -14639,20 +14640,20 @@ guard paths. This table groups related paths so the mechanism stays visible:</p>
 <tr><th>Program</th><th>Originating guard</th><th>Predicate</th><th>Error shim</th></tr>
 </thead>
 <tbody>
-<tr><td><code>Disp 1/0</code></td><td><code>00:2548–254B</code></td><td>divisor in OP1 is zero</td><td><code>_ErrDivBy0</code> at <code>00:26EC</code></td></tr>
-<tr><td><code>Disp 10^100</code></td><td><code>02:7076–7078</code>, then <code>02:7053–7059</code></td><td>positive exponent argument is at least 100</td><td><code>_ErrOverflow</code> at <code>00:26E8</code></td></tr>
-<tr><td><code>Disp 1E99*1E99</code></td><td><code>00:2513–251D</code></td><td>adjusted sum of biased decimal exponents overflows</td><td><code>_ErrOverflow</code> at <code>00:26E8</code></td></tr>
-<tr><td><code>Disp ln(0)</code></td><td><code>02:6F1E</code>, then <code>00:212D–2131</code></td><td>logarithm operand in OP1 is zero</td><td><code>_ErrDomain</code> at <code>00:26F4</code></td></tr>
-<tr><td><code>Disp sin⁻¹(2)</code> / <code>cos⁻¹(2)</code></td><td><code>02:76F1–76F5</code> / <code>02:76DF–76E2</code></td><td>operand lies outside $[-1,1]$</td><td><code>_ErrDomain</code> at <code>00:26F4</code></td></tr>
-<tr><td><code>Disp (-1)!</code> / <code>(-1) nCr 1</code></td><td><code>35:79CF–79D2</code> / <code>02:4FC8</code>, then <code>00:2125–211D</code></td><td>operand fails the operation’s sign or integer check</td><td><code>_ErrDomain</code> at <code>00:26F4</code></td></tr>
-<tr><td><code>Disp sqrt(-1)</code></td><td><code>00:1B8F–1B93</code></td><td>a complex result reaches the real-mode guard</td><td><code>_ErrNon_Real</code> at <code>00:26FC</code></td></tr>
-<tr><td><code>Disp [[1,2][2,4]]⁻¹</code></td><td><code>02:439C–43A5</code></td><td>the pivot helper rejects the rank-deficient matrix</td><td><code>_ErrSingularMat</code> at <code>00:26F0</code></td></tr>
-<tr><td><code>For(I,1,3,0)</code> / <code>For(I,1E99,1E99)</code></td><td><code>37:4268–426B</code> / <code>38:586D–5876</code></td><td>the step is zero / adding it makes no progress</td><td><code>_ErrIncrement</code> at <code>00:26F8</code></td></tr>
+<tr><td><code>Disp 1/0</code></td><td><code>ram:2548–254B</code></td><td>divisor in OP1 is zero</td><td><code>_ErrDivBy0</code> at <code>ram:26EC</code></td></tr>
+<tr><td><code>Disp 10^100</code></td><td><code>02:7076–7078</code>, then <code>02:7053–7059</code></td><td>positive exponent argument is at least 100</td><td><code>_ErrOverflow</code> at <code>ram:26E8</code></td></tr>
+<tr><td><code>Disp 1E99*1E99</code></td><td><code>ram:2513–251D</code></td><td>adjusted sum of biased decimal exponents overflows</td><td><code>_ErrOverflow</code> at <code>ram:26E8</code></td></tr>
+<tr><td><code>Disp ln(0)</code></td><td><code>02:6F1E</code>, then <code>ram:212D–2131</code></td><td>logarithm operand in OP1 is zero</td><td><code>_ErrDomain</code> at <code>ram:26F4</code></td></tr>
+<tr><td><code>Disp sin⁻¹(2)</code> / <code>cos⁻¹(2)</code></td><td><code>02:76F1–76F5</code> / <code>02:76DF–76E2</code></td><td>operand lies outside $[-1,1]$</td><td><code>_ErrDomain</code> at <code>ram:26F4</code></td></tr>
+<tr><td><code>Disp (-1)!</code> / <code>(-1) nCr 1</code></td><td><code>35:79CF–79D2</code> / <code>02:4FC8</code>, then <code>ram:2125–211D</code></td><td>operand fails the operation’s sign or integer check</td><td><code>_ErrDomain</code> at <code>ram:26F4</code></td></tr>
+<tr><td><code>Disp sqrt(-1)</code></td><td><code>ram:1B8F–1B93</code></td><td>a complex result reaches the real-mode guard</td><td><code>_ErrNon_Real</code> at <code>ram:26FC</code></td></tr>
+<tr><td><code>Disp [[1,2][2,4]]⁻¹</code></td><td><code>02:439C–43A5</code></td><td>the pivot helper rejects the rank-deficient matrix</td><td><code>_ErrSingularMat</code> at <code>ram:26F0</code></td></tr>
+<tr><td><code>For(I,1,3,0)</code> / <code>For(I,1E99,1E99)</code></td><td><code>37:4268–426B</code> / <code>38:586D–5876</code></td><td>the step is zero / adding it makes no progress</td><td><code>_ErrIncrement</code> at <code>ram:26F8</code></td></tr>
 </tbody>
 </table>
 </div>
 <p>The two OVERFLOW rows reach the same shim through different predicates. A trace
-that records only <code>00:26E8</code> therefore merges distinct numeric behavior. The
+that records only <code>ram:26E8</code> therefore merges distinct numeric behavior. The
 compact numeric-error report retains the ordered guard path, the register state
 after each guard instruction, and the final error code in <code>A</code>. [confirmed]</p>
 <p>A whole-ROM direct-reference scan finds 114 candidate <code>CALL</code> or <code>JP</code> operands
@@ -14663,12 +14664,12 @@ to the six shims. The natural corpus reaches 11 distinct direct callers:</p>
 <tr><th>Error entry</th><th style="text-align: right">Direct-reference candidates</th><th style="text-align: right">Witnessed callers</th></tr>
 </thead>
 <tbody>
-<tr><td><code>_ErrOverflow</code> at <code>00:26E8</code></td><td style="text-align: right">9</td><td style="text-align: right">2</td></tr>
-<tr><td><code>_ErrDivBy0</code> at <code>00:26EC</code></td><td style="text-align: right">2</td><td style="text-align: right">1</td></tr>
-<tr><td><code>_ErrSingularMat</code> at <code>00:26F0</code></td><td style="text-align: right">3</td><td style="text-align: right">1</td></tr>
-<tr><td><code>_ErrDomain</code> at <code>00:26F4</code></td><td style="text-align: right">91</td><td style="text-align: right">4</td></tr>
-<tr><td><code>_ErrIncrement</code> at <code>00:26F8</code></td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
-<tr><td><code>_ErrNon_Real</code> at <code>00:26FC</code></td><td style="text-align: right">3</td><td style="text-align: right">1</td></tr>
+<tr><td><code>_ErrOverflow</code> at <code>ram:26E8</code></td><td style="text-align: right">9</td><td style="text-align: right">2</td></tr>
+<tr><td><code>_ErrDivBy0</code> at <code>ram:26EC</code></td><td style="text-align: right">2</td><td style="text-align: right">1</td></tr>
+<tr><td><code>_ErrSingularMat</code> at <code>ram:26F0</code></td><td style="text-align: right">3</td><td style="text-align: right">1</td></tr>
+<tr><td><code>_ErrDomain</code> at <code>ram:26F4</code></td><td style="text-align: right">91</td><td style="text-align: right">4</td></tr>
+<tr><td><code>_ErrIncrement</code> at <code>ram:26F8</code></td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
+<tr><td><code>_ErrNon_Real</code> at <code>ram:26FC</code></td><td style="text-align: right">3</td><td style="text-align: right">1</td></tr>
 </tbody>
 </table>
 </div>
@@ -14679,15 +14680,15 @@ The report preserves that distinction. [confirmed]</p>
 <pre class="mermaid">flowchart LR
     S["TI-BASIC expression"] --&gt; E["operator evaluator"]
     E --&gt; G["numeric guard&lt;br/&gt;zero, range, or exponent"]
-    G --&gt; R["shared error shim&lt;br/&gt;00:26E8–2708"]
-    R --&gt; C["00:270A&lt;br/&gt;common error path"]
+    G --&gt; R["shared error shim&lt;br/&gt;ram:26E8–2708"]
+    R --&gt; C["ram:270A&lt;br/&gt;common error path"]
     C --&gt; U["restore OPS, FPS,&lt;br/&gt;error SP, and page"]
 </pre>
 
-<p>The shared context wrapper at <code>00:27DA</code> does not save absolute <code>FPS</code> and <code>OPS</code>
+<p>The shared context wrapper at <code>ram:27DA</code> does not save absolute <code>FPS</code> and <code>OPS</code>
 pointers. It saves each pointer as a delta from the corresponding base at
 <code>0x9822</code> or <code>0x9826</code>, together with the previous error stack and mapped page.
-The unwind path at <code>00:27BB–27D9</code> restores them in reverse order. [confirmed]</p>
+The unwind path at <code>ram:27BB–27D9</code> restores them in reverse order. [confirmed]</p>
 <pre><code class="language-text">save_error_context(target):
   push current_flash_page
   push previous_error_stack
@@ -14705,8 +14706,8 @@ unwind_error(error_code):
   return error_code
 </code></pre>
 <pre class="mermaid">flowchart LR
-    E["error entry&lt;br/&gt;82h or 88h"] --&gt; C["00:270A&lt;br/&gt;common error path"]
-    C --&gt; U["00:27BB&lt;br/&gt;load saved error SP"]
+    E["error entry&lt;br/&gt;82h or 88h"] --&gt; C["ram:270A&lt;br/&gt;common error path"]
+    C --&gt; U["ram:27BB&lt;br/&gt;load saved error SP"]
     U --&gt; O["restore OPS delta"]
     O --&gt; F["restore FPS delta"]
     F --&gt; P["restore previous error SP and page"]
@@ -14720,7 +14721,7 @@ current interpreter model.</p>
 <p><code>tools/analyze_tibasic_coverage.py</code> ties eight finite models to byte signatures
 in the pinned ROM. It exhausts 591,360 states across token width, delimiters,
 one scan step, one block-depth transition, the extended-class fold, precedence
-family selection, command finalization, and page-33 table bounds. Z3 proves a
+family selection, command finalization, and Flash page <code>33</code> table bounds. Z3 proves a
 minimum representative set for the semantic outcomes. [confirmed]</p>
 <p>Dynamic evidence is a separate layer. Natural programs reach 38 of 52 outcomes
 at 26 selected branch sites. Public-bcall and internal-entry probes bring the
@@ -14747,7 +14748,7 @@ boundaries explicitly.</p>
 <tr><th>Address</th><th>Role</th></tr>
 </thead>
 <tbody>
-<tr><td><code>00:1FE8</code></td><td><code>_IsA2ByteTok</code></td></tr>
+<tr><td><code>ram:1FE8</code></td><td><code>_IsA2ByteTok</code></td></tr>
 <tr><td><code>38:4000</code></td><td>Grammar-handler pointer table</td></tr>
 <tr><td><code>38:4130</code></td><td>Matching <code>End</code>/<code>Else</code> scanner</td></tr>
 <tr><td><code>38:4180</code></td><td>Token-aware skip scanner</td></tr>
@@ -14823,8 +14824,8 @@ comparison are documented under
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="ti-basic-examples-and-asm-interop"><a class="header" href="#ti-basic-examples-and-asm-interop">TI-BASIC examples and ASM interop</a></h1>
 <p>These trace-backed examples connect source-level choices to the interpreter
-paths documented in <a href="#ti-basic-execution">TI-BASIC execution</a>. The page also records
-the supported BASIC/ASM boundary and the tested failures around direct
+paths documented in <a href="#ti-basic-execution">TI-BASIC execution</a>. It also records the
+supported BASIC/ASM boundary and the bounded negative result for direct
 ASM-initiated BASIC execution.</p>
 <h2 id="trace-backed-examples"><a class="header" href="#trace-backed-examples">Trace-backed examples</a></h2>
 <div class="table-wrapper">
@@ -14833,20 +14834,19 @@ ASM-initiated BASIC execution.</p>
 <tr><th>Pattern</th><th>Trace evidence</th><th>Practical rule</th></tr>
 </thead>
 <tbody>
-<tr><td>Straight-line display (<code>HELLO</code>)</td><td>page-38 statement parse plus <code>_Disp</code></td><td>Fine for status text; avoid using <code>Disp</code> as a frame loop.</td></tr>
+<tr><td>Straight-line display (<code>HELLO</code>)</td><td>Flash page <code>38</code> statement parse plus <code>_Disp</code></td><td>Suitable for status text; avoid using <code>Disp</code> as a frame loop.</td></tr>
 <tr><td>Prompted arithmetic (<code>FACTOR</code>)</td><td>loop-body reseed, FP multiply, display</td><td>Keep loop bodies short; store loop-invariant values before <code>For(</code>.</td></tr>
 <tr><td>List built-ins (<code>DATA</code>)</td><td><code>sum(</code> reaches <code>list_fold_dispatch</code></td><td>Prefer built-ins when one parser setup can cover many elements.</td></tr>
 <tr><td>Text animation (<code>ANIMTXT</code>)</td><td><code>Output(</code> plus LCD text paths on every loop</td><td>Precompute positions/strings and update the smallest region possible.</td></tr>
 <tr><td>Graph drawing (<code>GRAPHV</code>)</td><td>primitives draw into <code>plotSScreen</code>, then <code>_PDspGrph</code></td><td>Batch graph primitives before <code>DispGraph</code>.</td></tr>
 <tr><td>Graph visualization (<code>GRAPHDFS</code>, <code>GRAPHLST</code>)</td><td>window stores plus repeated <code>Line(</code>/<code>Circle(</code>/<code>Text(</code> reach <code>_StoSysTok</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>graph_pixel_op</code>, <code>_PDspGrph</code>, and small-font paths; <code>GRAPHLST</code> also reaches list indexing in draw arguments</td><td>Store graph topology in lists; draw the whole view in one graph-buffer pass.</td></tr>
-<tr><td>BASIC subprogram (<code>CALLSUB</code>, <code>CALLABI</code>)</td><td>page-38 program-body evaluator and shared VAT variables</td><td>Treat globals/lists/<code>Ans</code> as the calling convention.</td></tr>
+<tr><td>BASIC subprogram (<code>CALLSUB</code>, <code>CALLABI</code>)</td><td>Flash page <code>38</code> program-body evaluator and shared VAT variables</td><td>Treat globals/lists/<code>Ans</code> as the calling convention.</td></tr>
 <tr><td>List algorithms (<code>BIGADD</code>, <code>BIGMUL</code>, <code>DFS</code>)</td><td>VAT lookup, element address, OP-register move per access</td><td>Preallocate lists; cache dimensions and reused elements in scalars.</td></tr>
 </tbody>
 </table>
 </div>
-<p>The table is intentionally selective. The complete fixture and evidence list
-lives on <a href="#ti-basic-dynamic-tracing">the dynamic tracing page</a>, where it can be
-audited without interrupting the programming guidance.</p>
+<p>The table is selective. The complete fixture and evidence list is in
+<a href="#ti-basic-dynamic-tracing">TI-BASIC dynamic tracing</a>.</p>
 <h2 id="patterns-tied-to-interpreter-cost"><a class="header" href="#patterns-tied-to-interpreter-cost">Patterns tied to interpreter cost</a></h2>
 <h3 id="text-animation-with-output"><a class="header" href="#text-animation-with-output">Text animation with <code>Output(</code></a></h3>
 <pre><code class="language-ti-basic">ClrHome
@@ -14856,12 +14856,12 @@ End
 Disp "DONE"
 </code></pre>
 <p>Observed run: <code>ANIMTXT.8xp</code> leaves <code>DONEXXXX</code> on the first row, then <code>Done</code>. The
-trace hits page-38 parser paths, page-33 loop/math helpers, <code>_OutputExpr</code>
-(<code>03:4AF2</code>), <code>_Disp</code> (<code>37:51D3</code>), and LCD text routines. [confirmed]</p>
-<p>The performance lesson is that animation is expensive twice: the interpreter
-parses each <code>Output(</code> call, then the display stack updates text/LCD state. For a
-real animation, keep loop bodies tiny and avoid recomputing strings or indexes
-inside the drawing loop.</p>
+trace hits Flash page <code>38</code> parser paths, Flash page <code>33</code> loop/math helpers,
+<code>_OutputExpr</code> (<code>03:4AF2</code>), <code>_Disp</code> (<code>37:51D3</code>), and LCD text routines.
+[confirmed]</p>
+<p>Each animation iteration parses <code>Output(</code> and then updates the text and LCD
+state. Keeping the loop body short avoids additional string and index work.
+[confirmed]</p>
 <h3 id="graph-buffer-visualization"><a class="header" href="#graph-buffer-visualization">Graph-buffer visualization</a></h3>
 <pre><code class="language-ti-basic">ClrDraw
 0-&gt;Xmin
@@ -14878,10 +14878,10 @@ DispGraph
 <p>Observed run: <code>GRAPHV.8xp</code> ends on the graph screen with <code>DFS</code>, axes, a circle,
 and the diagonal line visible. The trace hits <code>_GrBufClr</code>, <code>_StoSysTok</code>,
 <code>_ILine</code> (<code>04:4029</code>), <code>graph_pixel_op</code>, <code>_IPoint</code>, <code>_PDspGrph</code> (<code>04:7904</code>), and
-the page-38 argument parser. [confirmed]</p>
-<p>The performance lesson is to draw several primitives into the graph buffer, then
-display the graph buffer once. Repeated home-screen <code>Output(</code> calls give you
-more text-layout overhead and less control over redraw timing.</p>
+the Flash page <code>38</code> argument parser. [confirmed]</p>
+<p>Several primitives can accumulate in the graph buffer before one display copy.
+Repeated home-screen <code>Output(</code> calls instead run text layout for every update.
+[confirmed]</p>
 <p>Text animation and graph-buffer animation have different costs. <code>Output(</code> keeps
 the home/text display model active and pays row/column formatting on every
 iteration. Graph-buffer animation pays coordinate conversion, pixel primitive
@@ -14930,10 +14930,10 @@ pixel-like coordinates cover the visible graph area.</p>
 <code>1-2</code>, <code>1-3</code>, and <code>2-4</code>. The trace hits <code>_ILine</code> (<code>04:4029</code>),
 <code>graph_pixel_op</code>, <code>_IPoint</code>, <code>_PDspGrph</code> (<code>04:7904</code>), small-font glyph
 rendering, window variable stores through <code>_StoSysTok</code>, <code>_RestoreDisp</code>, and
-page-38 statement evaluation. [confirmed]</p>
-<p>The performance lesson is to separate graph data from graph drawing. Keep edge
-lists and traversal state in lists, but convert them to pixels in a single draw
-phase instead of interleaving traversal, display, and recalculation.</p>
+Flash page <code>38</code> statement evaluation. [confirmed]</p>
+<p>Separating graph data from drawing keeps traversal state in lists and converts
+it to pixels in one draw phase. This avoids interleaving traversal, display,
+and recalculation. [confirmed]</p>
 <p><code>GRAPHLST.8xp</code> makes that separation explicit. It stores edge endpoint
 coordinates in <code>L1</code>–<code>L4</code> and node centers in <code>L5</code>/<code>L6</code>, then draws edges and
 nodes with loops:</p>
@@ -14952,7 +14952,7 @@ End
 </code></pre>
 <p>Observed run: <code>GRAPHLST.8xp</code> renders the same four-node topology as
 <code>GRAPHDFS.8xp</code>; the smoke runner checks the same node and edge crop regions.
-The trace additionally hits <code>list_var_index</code> and <code>_GetLToOP1</code>, proving that the
+The trace additionally hits <code>list_var_index</code> and <code>_GetLToOP1</code>, confirming that the
 draw arguments came through list element recall rather than hard-coded
 coordinates. [confirmed]</p>
 <h3 id="subprogram-interfaces"><a class="header" href="#subprogram-interfaces">Subprogram interfaces</a></h3>
@@ -14970,8 +14970,8 @@ Return
 then <code>Done</code>. This confirms the practical TI-BASIC calling convention for
 scalars: arguments and return values live in shared global variables; <code>Return</code>
 exits the callee and resumes the caller. The trace hits the
-page-38 statement interpreter, VAT/name resolution (<code>findsym_scan</code>), parser
-entry/refill paths, the program-body evaluator call at <code>38:6914</code> into
+Flash page <code>38</code> statement interpreter, VAT/name resolution (<code>findsym_scan</code>),
+parser entry/refill paths, the program-body evaluator call at <code>38:6914</code> into
 <code>eval_eqn_recursive</code> (<code>38:778F</code>), <code>_StoSysTok</code>, <code>_StoAns</code>, <code>_RclVarSym</code>, and
 <code>_Disp</code>. [confirmed]</p>
 <p>The full smoke trace also hits <code>_ParseInpLastEnt</code>/<code>_ParseInp</code> once while the
@@ -14998,7 +14998,7 @@ pointers have been populated:</p>
 </div>
 <p>There is no local variable frame for BASIC programs. A subprogram that uses <code>A</code>
 modifies the caller’s <code>A</code>. For reusable routines, document which variables are
-inputs, scratch, and outputs.</p>
+inputs, scratch, and outputs. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -15071,10 +15071,10 @@ Disp L3(6)
 store paths (<code>list_var_index</code>, <code>_AdrLEle</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>,
 <code>store_list_elem*</code>) plus <code>fnint_body</code>, <code>_FPDiv</code>, <code>_FPAdd</code>, <code>_FPSub</code>, and
 <code>_FPMult</code>. [confirmed]</p>
-<p>Performance notes: this is intentionally simple, but it is parser-heavy. For a
-general routine, cache <code>dim(L1)</code> and <code>dim(L2)</code> before the loop, avoid repeated
-list indexing when a digit is reused, and use a larger base only if you can
-tolerate more carry and display conversion work.</p>
+<p>This sample emphasizes parser cost. A general routine can cache <code>dim(L1)</code> and
+<code>dim(L2)</code> before the loop, avoid repeated list indexing when a digit is reused,
+and use a larger base when its carry and display conversions remain acceptable.
+[confirmed]</p>
 <p>For a reusable arbitrary-precision add routine, treat <code>L1</code> and <code>L2</code> as
 little-endian digit arrays and compute the loop bound from list lengths:</p>
 <pre><code class="language-ti-basic">dim(L1)-&gt;N
@@ -15096,10 +15096,10 @@ If C
 C-&gt;L3(N+1)
 </code></pre>
 <p>The invariant after iteration <code>I</code> is that <code>L3(1..I)</code> contains the low <code>I</code>
-digits of <code>L1+L2</code>, and <code>C</code> is the carry into digit <code>I+1</code>. Base 10 is easy to
-display and debug. A larger base reduces loop count but adds conversion and
-larger carry values; on TI-BASIC, that tradeoff only helps when display is not
-part of the hot path.</p>
+digits of <code>L1+L2</code>, and <code>C</code> is the carry into digit <code>I+1</code>. Base 10 makes the
+digit list directly readable. A larger base reduces loop count but adds
+conversion and larger carry values; on TI-BASIC, that tradeoff helps when
+display is outside the hot path.</p>
 <h3 id="arbitrary-precision-decimal-multiplication"><a class="header" href="#arbitrary-precision-decimal-multiplication">Arbitrary-precision decimal multiplication</a></h3>
 <p><code>BIGMUL.8xp</code> uses the same little-endian digit convention for schoolbook
 multiplication. The example multiplies <code>123</code> (<code>{3,2,1}</code>) by <code>45</code> (<code>{5,4}</code>), so
@@ -15122,9 +15122,9 @@ Disp L3(4)
 The trace hits nested <code>For(</code> loop parsing, list element reads/stores, <code>_FPMult</code>,
 <code>_FPAdd</code>, <code>_FPSub</code>, <code>_GetLToOP1</code>, and <code>_PutToL</code>. [confirmed]</p>
 <p>The invariant is that each inner-loop step normalizes one result cell
-<code>L3(I+J-1)</code> and carries into the next cell. This is still base-10 arithmetic,
-so it favors trace readability over speed. A larger base reduces the number of
-digits but makes the carry path and display conversion heavier.</p>
+<code>L3(I+J-1)</code> and carries into the next cell. Base-10 arithmetic uses one list
+cell per decimal digit. A larger base reduces the number of cells but adds
+carry and display conversion work.</p>
 <h3 id="dfs-with-a-list-stack"><a class="header" href="#dfs-with-a-list-stack">DFS with a list stack</a></h3>
 <p><code>DFS.8xp</code> uses two edge lists (<code>L1</code> source, <code>L2</code> destination), a visited list
 (<code>L3</code>), and an explicit stack (<code>L4</code>) to traverse this graph:</p>
@@ -15160,10 +15160,10 @@ node <code>3</code> is pushed after node <code>2</code>. The final visited list 
 trace hits <code>blockmatch_end_else</code>, <code>parse_scan_tokens</code>, <code>eval_stmt_entry</code>,
 parser refill/advance paths, <code>_Disp</code>, and the same list read/write helpers used
 by <code>BIGADD</code>. [confirmed]</p>
-<p>Performance notes: this version scans all edges for every visited node, so it is
-easy to understand but O(VE) in BASIC-level work. For larger graphs, keep an
-offset table of edge ranges per node, avoid <code>augment(</code> in hot loops, and
-preallocate stack/visited lists with scalar pointers as this sample does.</p>
+<p>This version scans all edges for every visited node, producing $O(VE)$
+BASIC-level work. For larger graphs, keep an offset table of edge ranges per
+node, avoid <code>augment(</code> in hot loops, and preallocate stack and visited lists
+with scalar pointers as this sample does. [confirmed]</p>
 <p>The loop maintains three invariants:</p>
 <ul>
 <li><code>L3(V)=1</code> means node <code>V</code> has already been displayed and expanded.</li>
@@ -15187,10 +15187,11 @@ C9
 </code></pre>
 <p><code>Asm(</code> is token <code>BB 6A</code>; <code>AsmPrgm</code> is <code>BB 6C</code>; <code>prgm</code> is token <code>5F</code>. The
 <code>Asm(</code> command handler parses the following <code>prgmNAME</code> token stream, then
-bcalls <code>_ExecutePrgm</code> (<code>4E7C</code>, target <code>07:5758</code>). The trace shows that path
-compile or copy the <code>AsmPrgm</code> body and hand off through <code>07:57B4</code>, execute the
-payload byte at <code>ram:9D95</code> with opcode <code>C9h</code>, and return to BASIC. [confirmed]</p>
-<p><code>tools/asm_execution.py</code> byte-pins the complete setup and cleanup path:
+bcalls <code>_ExecutePrgm</code> (ID <code>4E7Ch</code>, body <code>07:5758</code>). The trace shows that this
+path compiles or copies the <code>AsmPrgm</code> body, hands off through <code>07:57B4</code>,
+executes the payload byte at <code>ram:9D95</code> with opcode <code>C9h</code>, and returns to
+BASIC. [confirmed]</p>
+<p><code>tools/asm_execution.py</code> byte-pins the complete setup and cleanup path.
 [confirmed]</p>
 <div class="table-wrapper">
 <table>
@@ -15217,12 +15218,12 @@ payload byte at <code>ram:9D95</code> with opcode <code>C9h</code>, and return t
 adjusted after <code>_InsertMem</code> because the source object moves when the gap opens.
 Normal and error exits therefore delete the recorded allocation length rather
 than a fixed-size region. [confirmed]</p>
-<p>Practical convention: pass data through OS variables or known RAM locations,
-validate inputs on the BASIC side, and make the ASM payload return normally with
-<code>RET</code> unless it intentionally transfers control elsewhere.</p>
+<p>Pass data through OS variables or known RAM locations, validate inputs on the
+BASIC side, and make the ASM payload return with <code>RET</code> unless it intentionally
+transfers control elsewhere. [confirmed]</p>
 <h3 id="cooperative-asm-directed-basic-callback"><a class="header" href="#cooperative-asm-directed-basic-callback">Cooperative ASM-directed BASIC callback</a></h3>
-<p>The run-confirmed way to let ASM choose a BASIC continuation is to keep BASIC in
-charge of the program call. <code>ASMSIG.8xp</code> sets <code>Ans</code> to <code>1</code> and returns:</p>
+<p>A guarded callback keeps BASIC in charge of the program call while ASM chooses
+the continuation. <code>ASMSIG.8xp</code> sets <code>Ans</code> to <code>1</code> and returns:</p>
 <pre><code class="language-z80">RST 28h
 .dw 419Bh         ; _OP1Set1
 RST 28h
@@ -15237,12 +15238,12 @@ If Ans
 prgmZZBASIC
 Disp "AFTER"
 </code></pre>
-<p>with target:</p>
+<p>The target program is:</p>
 <pre><code class="language-ti-basic">Disp "CALLED"
 </code></pre>
 <p>Observed run: <code>ASMBRIDG.8xp</code>, <code>ASMSIG.8xp</code>, and <code>ZZBASIC.8xp</code> display
 <code>BEFORE</code>, <code>CALLED</code>, <code>AFTER</code>, then <code>Done</code>. The trace hits the <code>AsmPrgm</code> payload
-at <code>userMem</code>, <code>_OP1Set1</code> (<code>00:1B38</code>), <code>_StoAns</code> (<code>38:6251</code>), <code>_AnsName</code>
+at <code>userMem</code>, <code>_OP1Set1</code> (<code>ram:1B38</code>), <code>_StoAns</code> (<code>38:6251</code>), <code>_AnsName</code>
 (<code>38:74B7</code>) while evaluating <code>If Ans</code>, and then the normal BASIC program-body
 path for <code>prgmZZBASIC</code> (<code>38:6910</code> → <code>38:6914</code> → <code>38:778F</code>). [confirmed]</p>
 <p>This is a callback convention, not a direct jump from ASM into a BASIC body.
@@ -15262,7 +15263,7 @@ Ans+3-&gt;A
 Disp A
 </code></pre>
 <p>Observed run: <code>ASMRTN.8xp</code> and <code>ASMVAL.8xp</code> display <code>5</code>, then <code>Done</code>. The trace
-hits <code>userMem</code>, <code>_OP1Set2</code> (<code>00:1B50</code>), <code>_StoAns</code> (<code>38:6251</code>), <code>_AnsName</code>,
+hits <code>userMem</code>, <code>_OP1Set2</code> (<code>ram:1B50</code>), <code>_StoAns</code> (<code>38:6251</code>), <code>_AnsName</code>,
 <code>_FPAdd</code>, and <code>_Disp</code>; the smoke runner also checks the final-frame result and
 <code>Done</code> regions. [confirmed]</p>
 <div class="table-wrapper">
@@ -15271,8 +15272,8 @@ hits <code>userMem</code>, <code>_OP1Set2</code> (<code>00:1B50</code>), <code>_
 <tr><th>Direction</th><th>Confirmed mechanism</th><th>Caveat</th></tr>
 </thead>
 <tbody>
-<tr><td>BASIC → ASM</td><td><code>Asm(prgmNAME)</code> parses <code>prgmNAME</code>, bcalls <code>_ExecutePrgm</code>, copies the <code>AsmPrgm</code> payload, then jumps through <code>userMem</code>.</td><td>The payload runs in the calculator OS process; a bad payload can corrupt interpreter state.</td></tr>
-<tr><td>BASIC → BASIC</td><td><code>prgmNAME</code> enters the page-38 parser/VAT/body evaluator path and <code>Return</code> resumes the caller.</td><td>There is no local frame; variables, lists, and <code>Ans</code> are shared.</td></tr>
+<tr><td>BASIC → ASM</td><td><code>Asm(prgmNAME)</code> parses <code>prgmNAME</code>, bcalls <code>_ExecutePrgm</code>, copies the <code>AsmPrgm</code> payload, then jumps through <code>userMem</code>.</td><td>The payload runs in the calculator OS process and can corrupt interpreter state.</td></tr>
+<tr><td>BASIC → BASIC</td><td><code>prgmNAME</code> enters the Flash page <code>38</code> parser/VAT/body evaluator path and <code>Return</code> resumes the caller.</td><td>There is no local frame; variables, lists, and <code>Ans</code> are shared.</td></tr>
 <tr><td>ASM → BASIC callback</td><td>ASM stores a signal/result such as <code>Ans=1</code>, returns, and the BASIC wrapper conditionally runs <code>prgmNAME</code>.</td><td>BASIC must own the actual <code>prgm</code> call; this is cooperative, not an arbitrary ASM bcall into BASIC.</td></tr>
 <tr><td>ASM → BASIC value return</td><td>ASM stores a numeric result in <code>Ans</code> with <code>_StoAns</code>; BASIC resumes and evaluates <code>Ans</code>.</td><td>This returns data to BASIC, not control into a BASIC program body.</td></tr>
 <tr><td>ASM → VAT lookup</td><td><code>ASMFIND</code> builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym</code>.</td><td>Lookup is not execution; the wrapper returns and <code>ZZBASIC</code> does not display <code>CALLED</code>.</td></tr>
@@ -15281,28 +15282,28 @@ hits <code>userMem</code>, <code>_OP1Set2</code> (<code>00:1B50</code>), <code>_
 </table>
 </div>
 <h3 id="asm-to-basic"><a class="header" href="#asm-to-basic">ASM to BASIC</a></h3>
-<p>OS 2.55MP has no distinct public or private-funnel ABI for calling a BASIC
-program from arbitrary ASM within the bounded search described below. ASM can
-enter private parser addresses after constructing their state, but the required
-parser, VAT, FPS, OPS, error, and return records are the ordinary BASIC caller
-frame. Constructing all of them duplicates that caller rather than invoking a
-separate ABI. [confirmed]</p>
+<p>TI-84 Plus OS 2.55MP has no distinct public or private-funnel ABI for calling a
+BASIC program from arbitrary ASM within the bounded search described below.
+ASM can enter private parser addresses after constructing their state, but the
+required parser, VAT, FPS, OPS, error, and return records are the ordinary BASIC
+caller frame. Constructing all of them duplicates that caller rather than
+invoking a separate ABI. [confirmed]</p>
 <p>Four apparent public candidates are not that entry point:</p>
 <ul>
 <li><code>_ExecutePrgm</code> is the <code>AsmPrgm</code> executor reached by <code>Asm(prgmNAME)</code>, not a
 general “run a BASIC program” entry.</li>
-<li><code>_ExecuteNewPrgm</code> (<code>4C3C</code>, target <code>00:265F</code>) is not a drop-in BASIC runner
+<li><code>_ExecuteNewPrgm</code> (ID <code>4C3Ch</code>, body <code>ram:265F</code>) is not a drop-in BASIC runner
 from an arbitrary <code>AsmPrgm</code> either. It expects OS state beyond a name
 pointer.</li>
-<li><code>_ParsePrgmName</code> (<code>4E82</code>, target <code>38:40D4</code>) only consumes a <code>prgmNAME</code> token
+<li><code>_ParsePrgmName</code> (ID <code>4E82h</code>, body <code>38:40D4</code>) only consumes a <code>prgmNAME</code> token
 from the current parser cursor and builds the name object used by <code>Asm(</code>.</li>
-<li><code>_SetParseVarProg</code> (<code>4C5A</code>, target <code>3B:73F5</code>) preserves <code>AF</code>, stores <code>06h</code>
+<li><code>_SetParseVarProg</code> (ID <code>4C5Ah</code>, body <code>3B:73F5</code>) preserves <code>AF</code>, stores <code>06h</code>
 at <code>basic_prog</code> (<code>ram:9652</code>), and returns. It constructs none of the caller
 frame.</li>
 </ul>
 <p>The confirmed BASIC subprogram path is different: the <code>CALLSUB</code>/<code>SUBRT</code> trace
 does not hit <code>_ParsePrgmName</code>, <code>_ExecutePrgm</code>, <code>_Find_Parse_Formula</code>, or
-<code>_SetParseVarProg</code>. It resolves the program name through the page-38
+<code>_SetParseVarProg</code>. It resolves the program name through the Flash page <code>38</code>
 parser/VAT path, enters the program-body evaluator at <code>38:6914</code> →
 <code>38:778F</code>, and lets <code>Return</code> unwind to the caller. Calling that same machinery
 from arbitrary ASM requires more than loading OP1 and bcalling a single public
@@ -15328,8 +15329,11 @@ macro is <code>tools/macros/run-callsub-typed.macro</code>.</p>
 </table>
 </div>
 <p>Both gate bits read zero in the working path. The private callee transition at
-<code>38:6910</code> executes <code>XOR A</code><br><code>CALL 6A15</code> before entering the evaluator. These
-observations suggest that an ASM payload must locate the target through
+<code>38:6910</code> begins:</p>
+<pre><code class="language-z80">XOR A
+CALL 6A15h
+</code></pre>
+<p>A private reimplementation would need to locate the target through
 <code>_ChkFindSym</code> into OP1, copy the name header to <code>0x9652</code>, point
 <code>start</code>/<code>cursor</code> at <code>_ChkFindSym</code>’s data pointer plus two (past the size word),
 set <code>end</code> = start + size, store <code>01h</code> at <code>0x9661</code>, ensure the FPS/OPS bounds
@@ -15351,7 +15355,7 @@ layout-sensitive error indicates that the copied name and cursor interval do not
 reproduce the native BASIC call frame. [confirmed]</p>
 <p><code>ASMFIND.8xp</code> and <code>ZZFIND.8xp</code> make the VAT lookup boundary reproducible. The
 wrapper displays <code>BEFORE</code>, runs <code>Asm(prgmZZFIND)</code>, and displays <code>AFTER</code>. The
-payload builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym</code> (<code>42F1</code>):</p>
+payload builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym</code> (ID <code>42F1h</code>):</p>
 <pre><code class="language-z80">LD HL,name
 LD DE,8478h        ; OP1
 LD BC,0009h
@@ -15364,12 +15368,12 @@ name: .db 05h,"ZZBASIC",00h
 <p>Observed run: <code>ASMFIND.8xp</code>, <code>ZZFIND.8xp</code>, and <code>ZZBASIC.8xp</code> display <code>BEFORE</code>,
 <code>AFTER</code>, and <code>Done</code>; <code>ZZBASIC</code>’s <code>CALLED</code> text does not display. The trace hits
 <code>userMem</code> and <code>findsym_scan</code>, and the smoke runner checks the wrapper output
-and a low-pixel region where an unexpected third line would appear. This proves
+and a low-pixel region where an unexpected third line would appear. This confirms
 ASM-side VAT lookup from an <code>AsmPrgm</code> context, not BASIC program execution. [confirmed]</p>
 <p>Generated negative fixtures make the execution boundary sharper.</p>
 <p><code>ASMFORM.8xp</code> and <code>ZZFORM.8xp</code> make the <code>_Find_Parse_Formula</code> negative probe
 reproducible. The payload is the same OP1-name setup as <code>ZZFIND</code>, but it bcalls
-<code>_Find_Parse_Formula</code> (<code>4AF2</code>, target <code>38:758A</code>) instead of <code>_ChkFindSym</code>.
+<code>_Find_Parse_Formula</code> (ID <code>4AF2h</code>, body <code>38:758A</code>) instead of <code>_ChkFindSym</code>.
 Observed run: the trace reaches <code>userMem</code>, <code>_Find_Parse_Formula</code>,
 <code>parse_init_findsym</code>, <code>findsym_scan</code>, and <code>eval_stmt_entry</code>; the final screen is
 <code>ERR:UNDEFINED</code> with <code>1:Quit</code> and <code>2:Goto</code>. <code>ZZBASIC</code> never displays <code>CALLED</code>.
@@ -15377,7 +15381,7 @@ That failed run confirms <code>_Find_Parse_Formula</code> is not a drop-in BASIC
 executor from an arbitrary <code>AsmPrgm</code> context. [confirmed]</p>
 <p><code>ASMPARSE.8xp</code> and <code>ZZPARSE.8xp</code> make the <code>_ParseInpLastEnt</code> negative probe
 reproducible. The payload is the same OP1-name setup as <code>ZZFIND</code>, but it bcalls
-<code>_ParseInpLastEnt</code> (<code>4B07</code>, target <code>38:5984</code>) instead of <code>_ChkFindSym</code>.
+<code>_ParseInpLastEnt</code> (ID <code>4B07h</code>, body <code>38:5984</code>) instead of <code>_ChkFindSym</code>.
 Observed run: the trace reaches <code>_ParseInpLastEnt</code>, <code>_ParseInp</code> (<code>38:5987</code>),
 <code>parseinp_find_setup</code> (<code>38:5B2B</code>), <code>findsym_scan</code>, <code>parse_init</code>, and
 <code>eval_stmt_entry</code>; the final screen is <code>ERR:INVALID</code> with <code>1:Quit</code> and
@@ -15392,30 +15396,30 @@ RST 28h
 .dw 402Ah         ; _JForceCmd
 RET
 </code></pre>
-<p>entered <code>_JForceCmd</code> (<code>00:0747</code>) but never returned to the BASIC wrapper’s
+<p>entered <code>_JForceCmd</code> (<code>ram:0747</code>) but never returned to the BASIC wrapper’s
 <code>Disp "AFTER"</code> statement. The final screen showed repeated <code>BEFORE</code>/<code>Done</code>
 lines, and the trace hit <code>ram:0747</code> and <code>userMem</code> repeatedly. The disassembly
 explains why: <code>_JForceCmd</code> reloads <code>SP</code> from <code>85BC</code> before dispatching the
 forced key, discarding the <code>AsmPrgm</code> caller’s stack. [confirmed]</p>
 <p>Two edit-buffer variants narrow that path further. A payload that bcalls
-<code>_PutTokString</code> (<code>4960</code>, target <code>06:46FD</code>) for the token bytes
+<code>_PutTokString</code> (ID <code>4960h</code>, body <code>06:46FD</code>) for the token bytes
 <code>5F 5A 5A 42 41 53 49 43</code> (<code>prgmZZBASIC</code>) returns to the wrapper and reaches
 <code>Disp "AFTER"</code>, but it only renders/inserts token text; <code>ZZBASIC</code> does
 not run. Combining those <code>_PutTokString</code> calls with <code>_JForceCmd(kEnter)</code> hits
 both <code>_PutTokString</code> and <code>_JForceCmd</code>, then repeats the wrapper/inserted text
 through the command loop; it still never displays <code>CALLED</code> from <code>ZZBASIC</code>.
-<code>_rclToQueue</code> (<code>49B4</code>, target <code>06:5F29</code>) is a related editor queue helper, but
+<code>_rclToQueue</code> (ID <code>49B4h</code>, body <code>06:5F29</code>) is a related editor queue helper, but
 its ROM path depends on an already-open edit buffer (<code>editCursor</code>/<code>editTail</code>)
 and the <code>rclFlag.enableQueue</code> state; it does not create a BASIC program call
 frame. [confirmed]</p>
-<p><code>_ExecuteNewPrgm</code> (<code>00:265F</code>) is not a public ASM-to-BASIC entry — a payload
+<p><code>_ExecuteNewPrgm</code> (<code>ram:265F</code>) is not a public ASM-to-BASIC entry — a payload
 that sets <code>OP1</code> to <code>ProgObj</code> (<code>05</code>), points <code>HL</code> at the zero-terminated name
-<code>ZZBASIC</code>, and bcalls <code>4C3C</code> enters it and <code>findsym_scan</code>, then ends at
-<code>ERR:SYNTAX</code> [confirmed]; <code>ZZBASIC</code> never displays <code>CALLED</code>. Repeating the test with
+<code>ZZBASIC</code>, and bcalls ID <code>4C3Ch</code> enters it and <code>findsym_scan</code>, then ends at
+<code>ERR:SYNTAX</code>; <code>ZZBASIC</code> never displays <code>CALLED</code>. Repeating the test with
 <code>ZZBASIC</code> loaded as <code>ProtProgObj</code> (<code>06</code>) and <code>OP1=06</code> gets farther: the trace
-hits <code>_ExecuteNewPrgm</code>, the copy tail at <code>00:268A</code>, and the jump at <code>00:268F</code>.
-It still ends at <code>ERR:SYNTAX</code> and never runs the target body. That makes
-<code>_ExecuteNewPrgm</code> another stateful OS helper, not a standalone program executor
+hits <code>_ExecuteNewPrgm</code>, the copy tail at <code>ram:268A</code>, and the jump at <code>ram:268F</code>.
+It still ends at <code>ERR:SYNTAX</code> and never runs the target body.
+<code>_ExecuteNewPrgm</code> is a stateful OS helper, not a standalone program executor
 ABI for <code>AsmPrgm</code> payloads. [confirmed]</p>
 <h4 id="bounded-abi-census"><a class="header" href="#bounded-abi-census">Bounded ABI census</a></h4>
 <p><code>tools/asm_basic_call_audit.py</code> makes the negative result reproducible against
@@ -15423,11 +15427,12 @@ the pinned ROM and a listing produced by
 <code>tools/ExportTiBasicInstructionStarts.java</code>. Its exhaustive bounds are:</p>
 <ul>
 <li>all 1,732 three-byte main bcall slots from <code>4000h</code> through <code>5449h</code>;</li>
-<li>all 825 raw <code>CALL 2B09h</code> cross-page-call descriptors in the 1 MiB ROM; and</li>
-<li>every direct control-flow edge in the disassembled page-38 parser region
+<li>all 825 raw <code>CD 09 2B</code> byte-pattern occurrences in the 1 MiB ROM, interpreted
+with their following address and page bytes; and</li>
+<li>every direct control-flow edge in the disassembled Flash page <code>38</code> parser region
 <code>38:4100</code>–<code>38:77FF</code>.</li>
 </ul>
-<p>None of the 1,732 public slots and none of the 825 cross-page descriptors
+<p>None of the 1,732 public slots and none of the 825 raw byte-pattern occurrences
 targets <code>38:59C5</code>, <code>38:6910</code>, <code>38:6914</code>, or <code>38:778F</code>. Of the 95 public slots
 whose target is on page <code>38</code>, only six land in the conservative 613-instruction
 direct reverse slice of <code>38:778F</code>:</p>
@@ -15437,12 +15442,12 @@ direct reverse slice of <code>38:778F</code>:</p>
 <tr><th>Bcall</th><th>Target</th><th>Role</th></tr>
 </thead>
 <tbody>
-<tr><td><code>_FetchQuotedString</code> (<code>4AF8</code>)</td><td><code>38:5E11</code></td><td>Consume a quoted parser operand.</td></tr>
-<tr><td><code>_ParseNameTokens</code> (<code>4AFE</code>)</td><td><code>38:5F4D</code></td><td>Parse name tokens within an existing expression.</td></tr>
-<tr><td><code>_ExecClassCToken</code> (<code>50D7</code>)</td><td><code>38:7010</code></td><td>Dispatch an existing class-C token.</td></tr>
-<tr><td><code>_ExecClass1Token</code> (<code>5215</code>)</td><td><code>38:6FEC</code></td><td>Dispatch an existing class-1 token.</td></tr>
-<tr><td><code>_HandleMathTokenParse</code> (<code>5218</code>)</td><td><code>38:6963</code></td><td>Continue an existing math-token parse.</td></tr>
-<tr><td><code>_RestartParseOP1Result</code> (<code>521E</code>)</td><td><code>38:5CA7</code></td><td>Resume parsing with an existing OP1 result.</td></tr>
+<tr><td><code>_FetchQuotedString</code> (ID <code>4AF8h</code>)</td><td><code>38:5E11</code></td><td>Consume a quoted parser operand.</td></tr>
+<tr><td><code>_ParseNameTokens</code> (ID <code>4AFEh</code>)</td><td><code>38:5F4D</code></td><td>Parse name tokens within an existing expression.</td></tr>
+<tr><td><code>_ExecClassCToken</code> (ID <code>50D7h</code>)</td><td><code>38:7010</code></td><td>Dispatch an existing class-C token.</td></tr>
+<tr><td><code>_ExecClass1Token</code> (ID <code>5215h</code>)</td><td><code>38:6FEC</code></td><td>Dispatch an existing class-1 token.</td></tr>
+<tr><td><code>_HandleMathTokenParse</code> (ID <code>5218h</code>)</td><td><code>38:6963</code></td><td>Continue an existing math-token parse.</td></tr>
+<tr><td><code>_RestartParseOP1Result</code> (ID <code>521Eh</code>)</td><td><code>38:5CA7</code></td><td>Resume parsing with an existing OP1 result.</td></tr>
 </tbody>
 </table>
 </div>
@@ -15457,9 +15462,10 @@ only <code>38:6914</code> calls <code>38:778F</code>. [confirmed]</p>
 <code>_rclToQueue</code>. They either execute compiled ASM, modify only part of parser or
 editor state, or enter the parser with a malformed caller frame. None is a
 standalone direct-call ABI. [confirmed]</p>
-<p>This is a scoped negative result for the complete public table, standard
-cross-page-call descriptors, and the declared page-38 direct graph on OS
-2.55MP. It does not claim that manually reproducing every private caller record
+<p>This is a scoped negative result for the complete public table, the raw
+cross-page-call pattern census, and the declared Flash page <code>38</code> direct graph
+on TI-84 Plus OS 2.55MP. It does not claim that manually reproducing every
+private caller record
 cannot execute a token stream; that construction is specifically excluded
 because it is a reimplementation of the ordinary BASIC caller, not a distinct
 callable ABI.</p>
@@ -15475,7 +15481,7 @@ experiment: [confirmed]</p>
 <tbody>
 <tr><td>Parser and name</td><td><code>0x9652</code>–<code>0x9662</code></td><td><code>basic_prog</code>, parser pointers, and <code>numArguments</code></td></tr>
 <tr><td>VAT and temporary stacks</td><td><code>0x981C</code>–<code>0x9831</code></td><td>VAT scratch, FPS, OPS, <code>pTemp</code>, and <code>progPtr</code></td></tr>
-<tr><td>Parser flags</td><td><code>0x89F0</code>–<code>0x8A39</code></td><td>IY flags read by the page-38 parser</td></tr>
+<tr><td>Parser flags</td><td><code>0x89F0</code>–<code>0x8A39</code></td><td>IY flags read by the Flash page <code>38</code> parser</td></tr>
 <tr><td>Error state</td><td><code>0x86DD</code></td><td>prior <code>errNo</code> value</td></tr>
 </tbody>
 </table>
@@ -15491,7 +15497,7 @@ after the failed call. [confirmed]</p>
 <code>38:59C5</code> twice and <code>38:6910</code>, <code>38:6914</code>, and <code>38:778F</code> once each, returns
 value <code>2</code>, and resumes at <code>AFTER</code>. The final screen reads <code>BEFORE</code>, <code>9</code>, <code>2</code>,
 <code>AFTER</code>, and <code>Done</code>. [confirmed]</p>
-<p>The comparison pins the missing boundary for this construction. Parser
+<p>The comparison identifies the state boundary for this construction. Parser
 pointers and copied RAM blocks do not create the OPS grammar/type record, FPS
 baselines, VAT adoption, and return record consumed before <code>38:6914</code>. The
 ordinary <code>prgmNAME</code> handler creates them. Reproducing all of that state would
@@ -15500,7 +15506,7 @@ duplicate the BASIC caller rather than expose a separate supported ABI.
 <p><code>tools/fixtures/asm-basic-frames-tilem.json</code> records the pinned TilEm run,
 screen contract, ROM spans, SPASM-ng output, and source/program hashes. The
 supported application pattern remains <code>Asm(</code> → <code>_ExecutePrgm</code> → <code>ram:9D95</code>,
-return a value through <code>Ans</code>, and let BASIC perform <code>prgmNAME</code>.</p>
+return a value through <code>Ans</code>, and let BASIC perform <code>prgmNAME</code>. [confirmed]</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="ti-basic-dynamic-tracing"><a class="header" href="#ti-basic-dynamic-tracing">TI-BASIC dynamic tracing</a></h1>
 <p>TI-BASIC coverage combines exhaustive local models, natural calculator traces,
@@ -15541,7 +15547,7 @@ decision family. [confirmed]</p>
 <tr><td>Block matcher transition</td><td style="text-align: right">524,288</td><td style="text-align: right">10</td><td>Every 16-bit depth over eight decision-equivalent token classes</td></tr>
 <tr><td>Extended grammar fold</td><td style="text-align: right">256</td><td style="text-align: right">2</td><td><code>CP F2h</code>/<code>ADD 12h</code>, not later handlers</td></tr>
 <tr><td>Precedence handler family</td><td style="text-align: right">65,536</td><td style="text-align: right">3</td><td>Grammar class × selector byte, not recursive handler state</td></tr>
-<tr><td>Command finalization gate</td><td style="text-align: right">256</td><td style="text-align: right">5</td><td>First page-02 gate only</td></tr>
+<tr><td>Command finalization gate</td><td style="text-align: right">256</td><td style="text-align: right">5</td><td>First Flash page <code>02</code> gate only</td></tr>
 <tr><td>Control-flow table bounds</td><td style="text-align: right">256</td><td style="text-align: right">15</td><td>Index validation, not the 13 handler bodies</td></tr>
 </tbody>
 </table>
@@ -15556,7 +15562,7 @@ the entire Z80 routine or of arbitrary token streams.</p>
 <h2 id="coverage-by-provenance"><a class="header" href="#coverage-by-provenance">Coverage by provenance</a></h2>
 <p>The report declares 26 branch sites and both outcomes at each site. Natural
 programs reach 38 of those 52 outcomes. Public-bcall probes add the four
-page-33 bounds outcomes. Internal-entry probes add the remaining 10 outcomes.
+Flash page <code>33</code> bounds outcomes. Internal-entry probes add the remaining 10 outcomes.
 The union reaches 52 of 52, but only the first number describes natural
 TI-BASIC reachability. [confirmed]</p>
 <pre class="mermaid">flowchart LR
@@ -15591,15 +15597,15 @@ branches. Its 2,702 possible outcomes produce this trace breakdown:</p>
 <tr><td>Page-33 control flow</td><td style="text-align: right">174</td><td style="text-align: right">13</td><td style="text-align: right">0</td></tr>
 <tr><td>Value storage</td><td style="text-align: right">154</td><td style="text-align: right">112</td><td style="text-align: right">112</td></tr>
 <tr><td>Numeric and error checks</td><td style="text-align: right">256</td><td style="text-align: right">120</td><td style="text-align: right">119</td></tr>
-<tr><td><strong>Total</strong></td><td style="text-align: right"><strong>2,702</strong></td><td style="text-align: right"><strong>924</strong></td><td style="text-align: right"><strong>898</strong></td></tr>
+<tr><td>Total</td><td style="text-align: right">2,702</td><td style="text-align: right">924</td><td style="text-align: right">898</td></tr>
 </tbody>
 </table>
 </div>
-<p>Natural <code>factorial</code> and <code>dfs</code> traces identify the page-38 loop path:
+<p>Natural <code>factorial</code> and <code>dfs</code> traces identify the Flash page <code>38</code> loop path:
 <code>For(</code> reaches <code>parse_for_production</code> (<code>38:41E5</code>), <code>End</code> reaches
 <code>parse_end_ops_record</code> (<code>38:4200</code>), and the loop continuations are
 <code>for_first_update</code> (<code>38:5836</code>) and <code>for_steady_update</code> (<code>38:587D</code>). They do not
-enter the page-33 probe dispatcher. [confirmed]</p>
+enter the Flash page <code>33</code> probe dispatcher. [confirmed]</p>
 <pre class="mermaid">flowchart LR
     T["81 parser handlers&lt;br/&gt;plus subsystem entries"] --&gt; G["8,490-instruction&lt;br/&gt;direct CFG"]
     G --&gt; B["2,702 outcomes"]
@@ -15634,38 +15640,39 @@ minimum outcome corpus from the selective documentation corpus. [confirmed]</p>
 </div>
 <p><code>missingend</code> and <code>terminalif</code> add natural end-of-input structural boundaries.
 They exercise carry returns that closed blocks do not reach, then finish through
-page-38 cleanup and display <code>Done</code>; they do not raise an OS error. The report
-marks both traces with <code>termination: completed</code>. [confirmed]</p>
+Flash page <code>38</code> cleanup and display <code>Done</code>; they do not raise an OS error. The
+report marks both traces with <code>termination: completed</code>. [confirmed]</p>
 <p>The syntax and divide-by-zero fixtures provide baseline unwind witnesses.
-<code>syntaxerr</code> executes <code>Disp 1+</code> and reaches the syntax entry at <code>00:2700</code>.
-<code>divzero</code> executes <code>Disp 1/0</code> and reaches <code>_ErrDivBy0</code> at <code>00:26EC</code>. The expanded numeric corpus
-raises the natural local-matrix result from 34 to 38 outcomes. The 15-trace
-outcome minimum omits the error fixtures because other traces cover those local
-branches; the semantic corpus retains their distinct causes. [confirmed]</p>
+<code>syntaxerr</code> executes <code>Disp 1+</code> and reaches the syntax entry at <code>ram:2700</code>.
+<code>divzero</code> executes <code>Disp 1/0</code> and reaches <code>_ErrDivBy0</code> at <code>ram:26EC</code>. The
+expanded numeric corpus raises the natural local-matrix result from 34 to 38
+outcomes. The 15-trace outcome minimum omits the error fixtures because other
+traces cover those local branches; the semantic corpus retains their distinct
+causes. [confirmed]</p>
 <p>Twelve selected numeric-error fixtures also retain the path before the shared
 error shim. The reducer restarts a candidate slice whenever it sees the guard’s
 first instruction. It accepts the slice only when the remaining guard and shim
 addresses occur in order and the shim leaves the expected error code in <code>A</code>.
-This prevents an unrelated earlier call to <code>_FPDiv</code>, <code>_FPMult</code>, or the zero
-checker from being attached to a later error. [confirmed]</p>
+This prevents an unrelated call before the guard to <code>_FPDiv</code>, <code>_FPMult</code>, or the
+zero checker from being attached to a later error. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>Case</th><th>Ordered causal boundary</th><th>Result</th></tr>
 </thead>
 <tbody>
-<tr><td><code>divzero</code></td><td><code>00:2548 → 00:254B → 00:26EC</code></td><td>divisor-zero guard, code <code>82h</code></td></tr>
-<tr><td><code>overflow</code></td><td><code>02:7076 → 02:7078 → 02:7053 → 02:7056 → 02:7059 → 00:26E8</code></td><td><code>10^x</code> range guard, code <code>81h</code></td></tr>
-<tr><td><code>muloverflow</code></td><td><code>00:2513 → 00:2516 → 00:2517 → 00:2519 → 00:251B → 00:251D → 00:26E8</code></td><td>exponent-add overflow, code <code>81h</code></td></tr>
-<tr><td><code>lndomain</code></td><td><code>02:6F1E → 00:212D → 00:1DE9 → 00:2130 → 00:2131 → 00:211D → 00:26F4</code></td><td>logarithm zero guard, code <code>84h</code></td></tr>
-<tr><td><code>increment</code></td><td><code>37:4268 → 00:1DE9 → 37:426B → 00:26F8</code></td><td>zero loop step, code <code>85h</code></td></tr>
-<tr><td><code>asindomain</code></td><td><code>02:76F1 → 02:76F4 → 02:76F5 → 00:26F4</code></td><td>inverse-sine range guard, code <code>84h</code></td></tr>
-<tr><td><code>acosdomain</code></td><td><code>02:76DF → 02:76E2 → 00:26F4</code></td><td>inverse-cosine range guard, code <code>84h</code></td></tr>
-<tr><td><code>sqrtnonreal</code></td><td><code>00:1B8F → 00:1B93 → 00:26FC</code></td><td>real-mode result guard, code <code>87h</code></td></tr>
-<tr><td><code>singular</code></td><td><code>02:439C → 02:439F → 02:43A1 → 02:43A2 → 02:43A3 → 02:43A5 → 00:26F0</code></td><td>matrix-pivot guard, code <code>83h</code></td></tr>
-<tr><td><code>lateincrement</code></td><td><code>38:586D → 38:5870 → 38:5873 → 38:5876 → 00:26F8</code></td><td>loop no-progress guard, code <code>85h</code></td></tr>
-<tr><td><code>negfactdomain</code></td><td><code>35:79CF → 35:79D2 → 00:26F4</code></td><td>factorial sign/integer guard, code <code>84h</code></td></tr>
-<tr><td><code>ncrdomain</code></td><td><code>02:4FC8 → 02:4FA1 → 00:2125 → 00:1DFD → 00:1E00 → 00:1E02 → 00:2128 → 00:211C → 00:211D → 00:26F4</code></td><td>combination left-operand guard, code <code>84h</code></td></tr>
+<tr><td><code>divzero</code></td><td><code>ram:2548 → ram:254B → ram:26EC</code></td><td>divisor-zero guard, code <code>82h</code></td></tr>
+<tr><td><code>overflow</code></td><td><code>02:7076 → 02:7078 → 02:7053 → 02:7056 → 02:7059 → ram:26E8</code></td><td><code>10^x</code> range guard, code <code>81h</code></td></tr>
+<tr><td><code>muloverflow</code></td><td><code>ram:2513 → ram:2516 → ram:2517 → ram:2519 → ram:251B → ram:251D → ram:26E8</code></td><td>exponent-add overflow, code <code>81h</code></td></tr>
+<tr><td><code>lndomain</code></td><td><code>02:6F1E → ram:212D → ram:1DE9 → ram:2130 → ram:2131 → ram:211D → ram:26F4</code></td><td>logarithm zero guard, code <code>84h</code></td></tr>
+<tr><td><code>increment</code></td><td><code>37:4268 → ram:1DE9 → 37:426B → ram:26F8</code></td><td>zero loop step, code <code>85h</code></td></tr>
+<tr><td><code>asindomain</code></td><td><code>02:76F1 → 02:76F4 → 02:76F5 → ram:26F4</code></td><td>inverse-sine range guard, code <code>84h</code></td></tr>
+<tr><td><code>acosdomain</code></td><td><code>02:76DF → 02:76E2 → ram:26F4</code></td><td>inverse-cosine range guard, code <code>84h</code></td></tr>
+<tr><td><code>sqrtnonreal</code></td><td><code>ram:1B8F → ram:1B93 → ram:26FC</code></td><td>real-mode result guard, code <code>87h</code></td></tr>
+<tr><td><code>singular</code></td><td><code>02:439C → 02:439F → 02:43A1 → 02:43A2 → 02:43A3 → 02:43A5 → ram:26F0</code></td><td>matrix-pivot guard, code <code>83h</code></td></tr>
+<tr><td><code>lateincrement</code></td><td><code>38:586D → 38:5870 → 38:5873 → 38:5876 → ram:26F8</code></td><td>loop no-progress guard, code <code>85h</code></td></tr>
+<tr><td><code>negfactdomain</code></td><td><code>35:79CF → 35:79D2 → ram:26F4</code></td><td>factorial sign/integer guard, code <code>84h</code></td></tr>
+<tr><td><code>ncrdomain</code></td><td><code>02:4FC8 → 02:4FA1 → ram:2125 → ram:1DFD → ram:1E00 → ram:1E02 → ram:2128 → ram:211C → ram:211D → ram:26F4</code></td><td>combination left-operand guard, code <code>84h</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -15675,7 +15682,7 @@ error codes, 12 causes, and 11 distinct direct caller sites. [confirmed]</p>
 9 overflow, 2 divide-by-zero, 3 singular-matrix, 91 domain, 6 increment, and 3
 non-real. Linear disassembly can decode data as instructions, so each candidate
 still needs CFG or dynamic reachability evidence. Indirect transfers and helpers
-that load <code>A</code> before entering <code>00:270A</code> remain outside that inventory.
+that load <code>A</code> before entering <code>ram:270A</code> remain outside that inventory.
 [confirmed]</p>
 <h3 id="probe-outcomes"><a class="header" href="#probe-outcomes">Probe outcomes</a></h3>
 <p>Three public-bcall probes call <code>grf_435f = 5140h</code> with an input below the table,
@@ -24978,7 +24985,7 @@ find and trace a natural caller of <code>_GrphCirc</code>, adding a direct-call 
 boundary to the current <code>_CircCmd</code> trace reducer. Extend the function-mode
 traces to thick, shade, animate, and dotted styles; <code>Xres&gt;1</code>; multiple selected
 equations; and polar, parametric, and sequence modes. The coordinate rounding,
-two ordinary function witnesses, and the clear-flag page-33 Circle path are
+two ordinary function witnesses, and the clear-flag Flash page <code>33</code> Circle path are
 pinned in <a href="#evidence-summary-and-open-items">Graphing</a>.</p>
 <h3 id="table-evaluation"><a class="header" href="#table-evaluation">TABLE evaluation</a></h3>
 <p>Driver <code>05:6205</code> loops over seven visible rows and calls bcall ID <code>4741h</code> →
@@ -25003,12 +25010,12 @@ about 50 candidate <code>PStat</code>–<code>SStat</code> references in that wi
 evidence includes a T-Test output stage at <code>3A:5500</code> that stores <code>TStat</code> (id
 <code>0x24</code>), the Zelen–Severo normal-tail coefficient table at
 <code>3A:554F</code>–<code>3A:5584</code>, and the test-editor descriptor tables at
-<code>3A:7D00</code>–<code>3A:7E60</code>. The <code>normalcdf(</code> evaluation reaches the page-<code>39</code>
+<code>3A:7D00</code>–<code>3A:7E60</code>. The <code>normalcdf(</code> evaluation reaches the Flash page <code>39</code>
 floating-point core at <code>39:4A02</code>–<code>39:4F5B</code> and its helpers. [confirmed]</p>
 <p>Remaining: the per-test entry addresses (the parser’s execution dispatch into
-the page-<code>3A</code> engine — the page-<code>38</code> table is parse-side only), the
+the Flash page <code>3A</code> engine — the Flash page <code>38</code> table is parse-side only), the
 menu-slot mapping of the <code>3A:7DF4</code> pointer array, and the algorithm identity
-of the page-<code>39</code> core. See <a href="#remaining-questions">Statistics</a>.</p>
+of the Flash page <code>39</code> core. See <a href="#remaining-questions">Statistics</a>.</p>
 <h3 id="mathprint-runtime-paths"><a class="header" href="#mathprint-runtime-paths">MathPrint runtime paths</a></h3>
 <p>The action byte entering <code>eqdisp_layout_main</code> (<code>39:4F9A</code>) is a raw TI key code:
 <code>kLeft</code> opens the backward-walk path (<code>CP 2</code> at <code>39:5048</code>) and <code>kAlphaDown</code>
@@ -25022,25 +25029,29 @@ sequential ALPHA-then-arrow keystrokes nor overlapping press/release chords do.
 Once it does, <code>39:5167</code>, its callees <code>39:5949</code>/<code>39:5B10</code>/<code>39:5B1D</code>, and the
 saved-operand dispatch through <code>39:59E0</code>/<code>39:59F9</code> to <code>_FindAlphaUp</code>/
 <code>_FindAlphaDn</code> become traceable; arbitrary VAT sequences and the two extension
-bytes in the page-<code>07</code> 11-byte OP scratch registers also remain open. See
+bytes in the Flash page <code>07</code> 11-byte OP scratch registers also remain open. See
 <a href="#from-live-editor-state-to-settled-drawing">Equation display</a>.</p>
 <h3 id="matrix-and-list-paths"><a class="header" href="#matrix-and-list-paths">Matrix and list paths</a></h3>
 <p>Plain <code>augment(</code> enters the partial-pivoting engine at <code>02:4663</code> but never
 eliminates: the <code>0x91</code> branch sets carry (<code>02:6361 SCF</code>, restored by the
 <code>POP AF</code> at <code>02:6378</code>), and the engine gates its elimination body on that flag
-(<code>46DA POP AF</code><br><code>JR C,46EF</code>). The elimination pass belongs to the statistics
-regression path, which enters the same dispatcher through <code>3A:6398</code>. [confirmed]</p>
+at <code>02:46DA</code>:</p>
+<pre><code class="language-z80">POP AF
+JR C,46EFh
+</code></pre>
+<p>The elimination pass belongs to the statistics regression path, which enters
+the same dispatcher through <code>3A:6398</code>. [confirmed]</p>
 <p>The <code>randM(</code> fill is decoded: <code>02:5CC1</code>–<code>02:5CE6</code> computes <code>int(19·rand)−9</code> per
-cell, drawing from <code>_Random</code> (<code>36:7DC9</code>) through the page 0 banked-call stub
+cell, drawing from <code>_Random</code> (<code>36:7DC9</code>) through the fixed-page banked-call stub
 at <code>ram:392D</code>. The <code>ref(</code> driver dispatches at <code>02:609A</code> via bcall ID <code>4B85h</code>
 → <code>35:7995</code>; the <code>rref(</code> executor runs through bcall ID <code>4B88h</code> → <code>02:7C23</code>
-from page-38 stubs at <code>38:514F</code>/<code>38:5157</code>; <code>SortA(</code>/<code>SortD(</code> share one body at
+from Flash page <code>38</code> stubs at <code>38:514F</code>/<code>38:5157</code>; <code>SortA(</code>/<code>SortD(</code> share one body at
 <code>02:652F</code> with direction discriminators <code>0x0E</code>/<code>0x10</code>. The <code>seq(</code> collection is
 traced per element: entry <code>37:6E87</code>, expression eval through the standard
-parser, element append via <code>02:69BC</code> → <code>37:4260</code>–<code>37:4285</code>, list growth via page-<code>07</code>
+parser, element append via <code>02:69BC</code> → <code>37:4260</code>–<code>37:4285</code>, list growth via Flash page <code>07</code>
 VAT routines, final <code>_CreateRList</code> through <code>37:70DC</code>. [confirmed]</p>
 <p>No remaining items for this subsystem.</p>
-<h3 id="parser-and-archive-residuals"><a class="header" href="#parser-and-archive-residuals">Parser and archive residuals</a></h3>
+<h3 id="parser-and-archive-boundaries"><a class="header" href="#parser-and-archive-boundaries">Parser and archive boundaries</a></h3>
 <p>The <code>Asm(</code>/<code>AsmPrgm</code> launcher is byte-pinned from <code>_ExecutePrgm</code> at <code>07:5758</code>
 through both cleanup paths. <code>BB 6D</code> selects an already compiled body; the
 source token <code>BB 6C</code> takes the <code>_GetAsmSize</code>/<code>_SquishPrgm</code> path at <code>07:57D4</code>.
@@ -25051,13 +25062,14 @@ error cleanup at <code>07:5800</code>, and call the <code>07:57FD</code> trampol
 offset, and previous <code>cleanTmp</code> depth. Six TilEm cases cover normal loops,
 nesting, <code>Return</code>, <code>Stop</code>, and error cleanup. [confirmed]</p>
 <p>The <code>Input</code>/<code>Prompt</code> entry editor is also resolved at the requested boundary.
-The page-06 editor maintains left and right token spans around a movable gap,
+The Flash page <code>06</code> editor maintains left and right token spans around a movable gap,
 then hands accepted text to <code>38:5978</code> → <code>38:5B2B</code>. Four TilEm cases cover an
 empty retry, wrapped edit/cursor redraw, <strong>[ON]</strong> cleanup, <code>Prompt</code>, and the
 separate <code>Menu(</code> route. [confirmed]</p>
-<p>The ASM/BASIC boundary is resolved within an exact bounded census. All 1,732
-main bcall slots, all 825 raw cross-page-call descriptors, and every direct
-edge in <code>38:4100</code>–<code>38:77FF</code> expose no separate ASM-to-BASIC program-call ABI.
+<p>The ASM/BASIC boundary is resolved within an exact bounded census. The census
+covers all 1,732 main bcall slots, all 825 raw <code>CD 09 2B</code> byte-pattern
+occurrences, and every direct edge in <code>38:4100</code>–<code>38:77FF</code>. It finds no separate
+ASM-to-BASIC program-call ABI.
 T042 saves and restores the parser, VAT, FPS/OPS, flag, and error state; an
 incomplete direct call raises <code>E_DataType</code> before <code>38:6910</code>, while the ordinary
 <code>prgmNAME</code> caller reaches <code>38:6910</code>, <code>38:6914</code>, and <code>38:778F</code> and returns
@@ -25067,7 +25079,7 @@ remains an ASM result through <code>Ans</code>, followed by a BASIC-owned <code>
 [confirmed]</p>
 <p>The group receive path is resolved. Receiving a <code>.8xg</code> stores each member as an
 individual variable through the standard link variable-receive loop; no
-<code>0x17</code> object or page-<code>07</code> guard is involved. A mixed group confirms that the
+<code>0x17</code> object or Flash page <code>07</code> guard is involved. A mixed group confirms that the
 receiver honors the archive attribute per member. <code>HELLO</code> lands on Flash page
 <code>08</code>, while <code>FACTOR</code> remains in RAM. Invoking the archived program takes the
 page-byte guard to <code>ERR:ARCHIVED</code>. See
