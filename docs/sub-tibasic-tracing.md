@@ -310,8 +310,8 @@ The graph expands all four declared computed jumps over their valid domains:
 49-class table used by `38:7244`, five literal command targets at `02:5675`,
 and 13 bounds-checked rows at `33:4380`. This does not establish behavior for a
 corrupted class, stack, or pointer outside those domains. Other open dimensions
-include arbitrary token-stream length, every nested error context, full OPS/FPS
-record layout, arbitrary VAT and list shapes, floating-point path classes, and
+include arbitrary token-stream length, every nested error context, corrupted
+OPS/FPS state, arbitrary VAT and list shapes, floating-point path classes, and
 display or graph subsystem continuations.
 
 The next useful coverage expansion starts with the unresolved caller census:
