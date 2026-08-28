@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-60e9087d.js";
+            window.path_to_searchindex_js = "searchindex-75c5c404.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -10751,11 +10751,12 @@ python tools/describe_ram_topology.py \
 reported hardware revision. [confirmed]</p>
 <h2 id="per-page-trace-coverage"><a class="header" href="#per-page-trace-coverage">Per-page trace coverage</a></h2>
 <p>Eleven cold-reset, key-driven TilEm traces exercise startup, home evaluation,
-graph drawing, an error dialog, matrix/list/statistics functions, program creation
-and archive, the Y=/table editor, the Apps menu, and the STAT list editor. The
-selector analyzer reads every instruction and paging <code>OUT</code> in each complete
-<code>0000-FFFF</code> trace. It observed only selectors <code>80</code>–<code>83</code> across <code>37,285,626</code>
-instructions and <code>111,091</code> paging outputs:</p>
+graph drawing, an error dialog, and matrix/list/statistics functions. They also
+cover program creation and archiving, the <strong>Y=</strong> and table editors, the
+<strong>APPS</strong> menu, and the <strong>STAT</strong> list editor. The selector analyzer reads every
+instruction and paging <code>OUT</code> in each complete <code>0000-FFFF</code> trace. It observed
+only selectors <code>80</code>–<code>83</code> across <code>37,285,626</code> instructions and <code>111,091</code> paging
+outputs:</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -10769,29 +10770,30 @@ instructions and <code>111,091</code> paging outputs:</p>
 <tr><td><code>randM(3,3)</code></td><td style="text-align: right"><code>3,533,102</code></td><td style="text-align: right"><code>10,266</code></td><td><code>80</code> (3), <code>81</code> (3), <code>82</code> (1), <code>83</code> (339)</td></tr>
 <tr><td><code>seq(</code> list</td><td style="text-align: right"><code>4,094,469</code></td><td style="text-align: right"><code>16,370</code></td><td><code>80</code> (3), <code>81</code> (3), <code>82</code> (1), <code>83</code> (345)</td></tr>
 <tr><td><code>normalcdf(</code></td><td style="text-align: right"><code>2,751,741</code></td><td style="text-align: right"><code>9,621</code></td><td><code>80</code> (3), <code>81</code> (3), <code>82</code> (1), <code>83</code> (146)</td></tr>
-<tr><td>Program create/archive</td><td style="text-align: right"><code>4,013,157</code></td><td style="text-align: right"><code>12,547</code></td><td><code>80</code> (3), <code>81</code> (3), <code>82</code> (1), <code>83</code> (661)</td></tr>
-<tr><td>Y=/table editor</td><td style="text-align: right"><code>5,016,353</code></td><td style="text-align: right"><code>16,473</code></td><td><code>80</code> (3), <code>81</code> (3), <code>82</code> (1), <code>83</code> (80)</td></tr>
-<tr><td>Apps menu</td><td style="text-align: right"><code>1,959,255</code></td><td style="text-align: right"><code>4,987</code></td><td><code>80</code> (3), <code>81</code> (3), <code>82</code> (1), <code>83</code> (208)</td></tr>
-<tr><td>STAT list editor</td><td style="text-align: right"><code>2,468,397</code></td><td style="text-align: right"><code>6,368</code></td><td><code>80</code> (13), <code>81</code> (13), <code>82</code> (1), <code>83</code> (272)</td></tr>
+<tr><td>Program creation and archiving</td><td style="text-align: right"><code>4,013,157</code></td><td style="text-align: right"><code>12,547</code></td><td><code>80</code> (3), <code>81</code> (3), <code>82</code> (1), <code>83</code> (661)</td></tr>
+<tr><td><strong>Y=</strong> and table editors</td><td style="text-align: right"><code>5,016,353</code></td><td style="text-align: right"><code>16,473</code></td><td><code>80</code> (3), <code>81</code> (3), <code>82</code> (1), <code>83</code> (80)</td></tr>
+<tr><td><strong>APPS</strong> menu</td><td style="text-align: right"><code>1,959,255</code></td><td style="text-align: right"><code>4,987</code></td><td><code>80</code> (3), <code>81</code> (3), <code>82</code> (1), <code>83</code> (208)</td></tr>
+<tr><td><strong>STAT</strong> list editor</td><td style="text-align: right"><code>2,468,397</code></td><td style="text-align: right"><code>6,368</code></td><td><code>80</code> (13), <code>81</code> (13), <code>82</code> (1), <code>83</code> (272)</td></tr>
 </tbody>
 </table>
 </div>
-<p>The compact fixture in <code>tools/fixtures/ram-selector-workflows-tilem.json</code>
+<p>The evidence fixture in <code>tools/fixtures/ram-selector-workflows-tilem.json</code>
 records the ROM, emulator binary, analyzer, macro, trace, and screenshot hashes.
 It binds the result to OS 2.55MP ROM SHA-256
 <code>7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d</code>
 and TilEm commit <code>f56ad637</code>. The analyzer also byte-guards all nine computed
-selector sites and finds no immediate <code>LD A,n</code> followed by <code>OUT</code> sequence for
-selectors <code>84</code>–<code>87</code>, including equivalent values with ignored selector bits.
+selector sites. It finds no immediate-load sequence of <code>LD A,n</code> followed by
+<code>OUT</code> for selectors <code>84</code>–<code>87</code>, including values with ignored selector bits.
 [confirmed]</p>
 <p>This matrix does not cover APD timeout, USB/link transfer, variable receive,
 forced archive garbage collection, execution inside a Flash App, or a physical
-48 KiB ASIC. The absence of selectors <code>84</code>–<code>87</code> is therefore a bounded normal-
-workflow result, not a whole-OS unreachability proof. The generic pair helpers
-still accept <code>B = 2</code> or <code>B = 3</code>, which would select <code>84</code>/<code>85</code> or <code>86</code>/<code>87</code>.
+48 KiB ASIC. The absence of selectors <code>84</code>–<code>87</code> is therefore bounded to these
+normal workflows; it is not a whole-OS unreachability proof. The generic pair
+helpers still accept <code>B = 2</code> or <code>B = 3</code>, which would select <code>84</code>/<code>85</code> or
+<code>86</code>/<code>87</code>.
 [confirmed] for the traces and static instruction forms; [hypothesis] that no
 other normal OS workflow supplies those values.</p>
-<p>Within the older boot/home baseline, physical RAM-page writes for the executed
+<p>Within the older boot/home baseline, mapped RAM-page writes for the executed
 selectors are:</p>
 <div class="table-wrapper">
 <table>
@@ -24989,9 +24991,9 @@ are documented. The following cases remain unresolved:</p>
 <code>_DisableApd</code>/<code>_DelRes</code> guard run through <code>_GetKey</code>, ON-key handling, an OS
 error, APD, archive collection, link/USB, and shell interrupts.</li>
 <li>Run RAM-selector <code>0x83</code> guards through forced archive-GC, transfer, APD, and
-execution-inside-App contexts. Probe selectors <code>0x84</code>–<code>0x87</code> on identified
-48 KiB and 128 KiB calculators; the bounded normal-workflow emulator matrix
-does not observe those selectors.</li>
+execution inside a Flash App. Probe selectors <code>0x84</code>–<code>0x87</code> on identified
+48 KiB and 128 KiB calculators; the bounded emulator matrix of normal
+workflows does not observe those selectors.</li>
 <li>Measure execution-protection ports and reset behavior on each ASIC. Recover
 Fullrene from an original artifact and test instruction fetch, operand read,
 stack access, and block copy at the same physical addresses.</li>
