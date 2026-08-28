@@ -1,0 +1,668 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Bus timing and wait states - TI-84 Plus OS — Reverse Engineering</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="katex-383e7b8d.min.css">
+        <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-27724e82.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-359c0a17.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">TI-84 Plus OS — Reverse Engineering</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/siraben/ti84p-re" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="bus-timing-and-wait-states"><a class="header" href="#bus-timing-and-wait-states">Bus timing and wait states</a></h1>
+<p>The TI-84 Plus ASIC inserts programmable T-states into Flash, RAM, and LCD
+transactions. CPU-speed mode selects one of four LCD-delay registers, which
+also gates the memory waits in port <code>0x2E</code>; port <code>0x2F</code> separately controls the
+high-speed LCD-ready interval and a documented programmable-timer prescaler.</p>
+<p>OS 2.55MP programs this block once during retail boot. The ROM bytes and trace
+pin the register values. Public measurements, TilEm, and Wabbitemu supply the
+detailed timing contract; MAME provides an explicit omission comparison.</p>
+<h2 id="evidence-and-limits"><a class="header" href="#evidence-and-limits">Evidence and limits</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Evidence</th><th>What it establishes</th><th>Confidence</th></tr>
+</thead>
+<tbody>
+<tr><td><code>boot_bus_timing_init</code> at <code>3F:41BD</code>–<code>41D3</code></td><td>exact OS values for ports <code>0x29</code>–<code>0x2C</code>, <code>0x2E</code>, and <code>0x2F</code></td><td>[confirmed]</td></tr>
+<tr><td>Resolved cold-boot trace</td><td>all six writes execute in order before normal CPU speed is selected</td><td>[confirmed]</td></tr>
+<tr><td>Whole-ROM immediate-port scan</td><td>no second control-flow-verified write to these registers in the analyzed ROM</td><td>[confirmed]</td></tr>
+<tr><td>TilEm and Wabbitemu source</td><td>independent decode of speed selection, LCD instruction delays, and memory wait bits</td><td>[standard]</td></tr>
+<tr><td>Native Wabbitemu execution</td><td>reset state, speed masks and frequencies, all seven delay latches, wait-gate selection, and port-<code>0x2D</code> side effects</td><td>[standard]</td></tr>
+<tr><td>MAME 0.287 source</td><td>binary CPU-speed selection and absence of the delay-register block</td><td>[standard]</td></tr>
+<tr><td>Guarded MAME ASIC-control run</td><td>raw speed readback, measured 6:15 instruction throughput, absent delay ports, and soft-reset retention</td><td>[standard]</td></tr>
+<tr><td>Public hardware tests</td><td>intended bit meanings, LCD failure thresholds, and mode-3 timer divisor</td><td>[standard]</td></tr>
+</tbody>
+</table>
+</div>
+<p>The trace proves what the ROM writes and which CPU-speed values execute. It
+does not measure the ASIC bus electrically. Emulator-added clock counts are
+reported as emulator behavior, not physical measurements.</p>
+<h2 id="register-block"><a class="header" href="#register-block">Register block</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Port</th><th>Role</th><th>Selected by</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x20</code></td><td>CPU-speed mode</td><td>software; low two bits form mode 0–3</td></tr>
+<tr><td><code>0x29</code></td><td>LCD instruction delay and memory-wait gates for speed mode 0</td><td>port <code>0x20 &amp; 3 = 0</code></td></tr>
+<tr><td><code>0x2A</code></td><td>same controls for speed mode 1</td><td>port <code>0x20 &amp; 3 = 1</code></td></tr>
+<tr><td><code>0x2B</code></td><td>same controls for speed mode 2</td><td>port <code>0x20 &amp; 3 = 2</code></td></tr>
+<tr><td><code>0x2C</code></td><td>same controls for speed mode 3</td><td>port <code>0x20 &amp; 3 = 3</code></td></tr>
+<tr><td><code>0x2D</code></td><td>quartz and low-power control</td><td>independent block; see <a href="clock-timers-power.html">Clock, timers, and power</a></td></tr>
+<tr><td><code>0x2E</code></td><td>one-T-state Flash and RAM access selectors</td><td>gated by bits 0–1 of the active <code>0x29</code>–<code>0x2C</code> register</td></tr>
+<tr><td><code>0x2F</code></td><td>high-speed LCD-ready interval and documented mode-3 timer prescaler</td><td>field selected by port <code>0x20</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>TilEm reads back the last byte written to ports <code>0x29</code>–<code>0x2C</code>, <code>0x2E</code>, and
+<code>0x2F</code>. Wabbitemu registers one generic latch handler across the complete
+<code>0x29</code>–<code>0x2F</code> range. Its port <code>0x2D</code> therefore stores a raw byte instead of
+implementing the separate low-power contract. MAME maps only port <code>0x20</code> from
+this block; its I/O map has no handler for the six delay-register writes.
+[standard]</p>
+<h2 id="selection-pipeline"><a class="header" href="#selection-pipeline">Selection pipeline</a></h2>
+<p>Let $s = p_{20} \bmod 4$. The active speed-dependent register is [standard]</p>
+<p>$$
+D_s = p_{29+s}
+$$</p>
+<p>That one byte controls two independent effects:</p>
+<ul>
+<li>bits 2–7 select the T-states added to each LCD-port instruction;</li>
+<li>bit 0 enables the Flash bits in port <code>0x2E</code>, and bit 1 enables the RAM bits.</li>
+</ul>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/bus-wait-timing.svg" alt="CPU speed selects one delay register; that register controls LCD instruction additions and gates port 2E memory waits, while port 2F reports a separate LCD busy interval for software to poll."><span class="img-wrapper"><img src="images/bus-wait-timing.svg" alt="CPU speed selects one delay register; that register controls LCD instruction additions and gates port 2E memory waits, while port 2F reports a separate LCD busy interval for software to poll."></span></label></p>
+<p><strong>Timing model.</strong> The register behavior is [standard], and the diagram’s widths are conceptual. OS 2.55MP’s register bytes and executed speed values are [confirmed].</p>
+<p>Changing port <code>0x20</code> changes the active byte immediately in TilEm and
+Wabbitemu. The OS does not need to rewrite ports <code>0x29</code>–<code>0x2C</code> when it moves
+between 6 and 15 MHz. Both emulators recompute memory delays on an accepted
+speed write. [standard]</p>
+<p>Under the public TI-84 Plus contract and TilEm, speed value 0 selects nominal
+6 MHz and values 1–3 select nominal 15 MHz. Wabbitemu’s default TI-84 Plus
+context clamps writes 2–3 to mode 1. Its external <code>extraSpeed</code> option instead
+assigns 20 and 25 MHz to modes 2 and 3. MAME stores the raw byte and selects
+15 MHz for every nonzero value. These are software policies, not evidence for
+extra physical TI-84 Plus clocks. OS 2.55MP uses only values 0 and 1 in the
+captured workflows. See
+<a href="clock-timers-power.html#cpu-speed">Clock, timers, and power</a> for frequency and
+ASIC-revision caveats. [confirmed] for executed values; [standard] for public
+and emulator behavior.</p>
+<p>A guarded initialized-core run writes <code>0xFC</code>–<code>0xFF</code>. The reset
+<code>timer_version = 0</code> context reads back modes <code>0/1/1/1</code> at 6, 15, 15, and
+15 MHz. Directly setting <code>timer_version = 1</code> produces modes <code>0/1/2/3</code> at 6,
+15, 20, and 25 MHz. The direct setting represents Wabbitemu front-end state;
+it is not a calculator port transition. [standard]</p>
+<p>A guarded MAME run writes <code>00</code>, <code>01</code>, <code>02</code>, <code>03</code>, and <code>FF</code> to port <code>0x20</code> and
+reads the same five raw bytes back. A 50-T-state RAM counter advances 12,000
+times during five 20 ms frames after write zero and 30,000 times after write
+one. The exact 2.5 ratio dynamically distinguishes 6 MHz from 15 MHz. A MAME
+soft reset retains raw speed <code>0x03</code>; this is driver behavior, not a calculator
+reset claim. [standard]</p>
+<h2 id="boot-configuration"><a class="header" href="#boot-configuration">Boot configuration</a></h2>
+<p><code>boot_bus_timing_init</code> at <code>3F:41BD</code> writes the complete block after the retail
+boot RAM probes and link-assist initialization: [confirmed]</p>
+<pre><code class="language-z80">3F:41BD  LD A,0x17
+3F:41BF  OUT (0x29),A
+3F:41C1  LD A,0x27
+3F:41C3  OUT (0x2A),A
+3F:41C5  LD A,0x2F
+3F:41C7  OUT (0x2B),A
+3F:41C9  LD A,0x3B
+3F:41CB  OUT (0x2C),A
+3F:41CD  LD A,0x45
+3F:41CF  OUT (0x2E),A
+3F:41D1  LD A,0x4B
+3F:41D3  OUT (0x2F),A
+</code></pre>
+<p>The resolved trace executes the writes at clocks 1,747,536 through 1,747,628.
+Port <code>0x20</code> still reads zero at <code>3F:653E</code>. The OS later writes zero at
+<code>ram:0DD5</code> and selects speed mode 1 at <code>ram:0C72</code>. [confirmed]</p>
+<p>TilEm resets its internal registers to the older values <code>0x14</code>, <code>0x27</code>,
+<code>0x2F</code>, <code>0x3B</code>, <code>0x44</code>, and <code>0x4A</code>. The retail boot writes above replace every
+differing value before normal OS operation. Emulator reset defaults therefore
+must not be mistaken for TI-84 Plus OS policy. [standard]</p>
+<p>MAME accepts the later port-<code>0x20</code> speed write but drops all six boot writes to
+ports <code>0x29</code>–<code>0x2C</code>, <code>0x2E</code>, and <code>0x2F</code>. It therefore runs the ROM at the
+selected base clock without the programmable LCD or memory additions described
+below. A native patterned-write run reads zero from every port <code>0x29</code>–<code>0x2F</code>
+both before and after the writes. [standard]</p>
+<h2 id="lcd-instruction-delay--ports-0x290x2c"><a class="header" href="#lcd-instruction-delay--ports-0x290x2c">LCD instruction delay — ports <code>0x29</code>–<code>0x2C</code></a></h2>
+<p>TilEm and Wabbitemu add [standard]</p>
+<p>$$
+T_{\mathrm{LCD}} = D_s &gt;&gt; 2
+$$</p>
+<p>T-states to each Z80 <code>IN</code> or <code>OUT</code> instruction targeting LCD ports <code>0x10</code>–<code>0x13</code>.
+The two low bits do not contribute to this count; they gate memory waits.</p>
+<p>The OS bytes decode as follows:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Speed mode</th><th>Active port</th><th>OS byte</th><th>Added LCD T-states</th><th>Low-bit gates</th></tr>
+</thead>
+<tbody>
+<tr><td>0</td><td><code>0x29</code></td><td><code>0x17</code></td><td>5</td><td>Flash and RAM</td></tr>
+<tr><td>1</td><td><code>0x2A</code></td><td><code>0x27</code></td><td>9</td><td>Flash and RAM</td></tr>
+<tr><td>2</td><td><code>0x2B</code></td><td><code>0x2F</code></td><td>11</td><td>Flash and RAM</td></tr>
+<tr><td>3</td><td><code>0x2C</code></td><td><code>0x3B</code></td><td>14</td><td>Flash and RAM</td></tr>
+</tbody>
+</table>
+</div>
+<p>At nominal 6 MHz, five T-states are about 0.833 µs. At nominal 15 MHz, nine
+T-states are 0.6 µs. These are additions to the Z80 I/O instruction, not the
+complete interval between two LCD transfers. [standard]</p>
+<p>Published hardware tests report that values below <code>0x0C</code> can make LCD writes
+stop responding, while read behavior has a different lower boundary. The
+exact threshold and failure mode should be remeasured by controller and ASIC
+revision. [standard] for the published observation; [hypothesis] for
+cross-revision behavior.</p>
+<h2 id="memory-waits--port-0x2e"><a class="header" href="#memory-waits--port-0x2e">Memory waits — port <code>0x2E</code></a></h2>
+<p>Each selected bit adds one T-state to one memory-access class. Bits 0–2 apply
+only when active register $D_s$ has bit 0 set. Bits 4–6 apply only when $D_s$
+has bit 1 set. [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Port-<code>0x2E</code> bit</th><th>Memory</th><th>Access class</th><th>Emulator placement</th></tr>
+</thead>
+<tbody>
+<tr><td>0</td><td>Flash</td><td>opcode/M1 fetch</td><td>each fetched opcode or prefix byte</td></tr>
+<tr><td>1</td><td>Flash</td><td>non-opcode read</td><td>operands, data, and stack reads</td></tr>
+<tr><td>2</td><td>Flash</td><td>attempted write</td><td>every CPU write routed to Flash</td></tr>
+<tr><td>3</td><td>—</td><td>unused by the documented delay block</td><td>stored on readback</td></tr>
+<tr><td>4</td><td>RAM</td><td>opcode/M1 fetch</td><td>each fetched opcode or prefix byte</td></tr>
+<tr><td>5</td><td>RAM</td><td>non-opcode read</td><td>operands, data, and stack reads</td></tr>
+<tr><td>6</td><td>RAM</td><td>write</td><td>every CPU write routed to RAM</td></tr>
+<tr><td>7</td><td>—</td><td>unused by the documented delay block</td><td>stored on readback</td></tr>
+</tbody>
+</table>
+</div>
+<p>The boot value <code>0x45</code> sets bits 6, 2, and 0. Because all four active-register
+bytes have gate bits 0 and 1 set, the OS policy in every speed mode is:
+[confirmed] for register values; [standard] for the access decode.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Access</th><th>Flash addition</th><th>RAM addition</th></tr>
+</thead>
+<tbody>
+<tr><td>opcode/M1 fetch</td><td>1 T-state</td><td>0</td></tr>
+<tr><td>non-opcode read</td><td>0</td><td>0</td></tr>
+<tr><td>write</td><td>1 T-state</td><td>1 T-state</td></tr>
+</tbody>
+</table>
+</div>
+<p>A CB-, ED-, DD-, or FD-prefixed Z80 instruction performs two M1 fetches. Both
+TilEm and Wabbitemu apply the opcode wait to the prefix and following opcode.
+A repeated DD or FD prefix adds another M1 fetch in both cores. [standard] for
+the Z80 bus cycle and pinned emulator source paths.</p>
+<p>Indexed CB instructions expose a model difference. The Z80 fetches DD or FD
+and CB with M1 signaling, then reads the displacement and final opcode without
+M1. TilEm follows this split in <code>z80main.h:674</code> and <code>z80ddfd.h:301</code>.
+Wabbitemu routes the final opcode through <code>CPU_opcode_fetch</code> at <code>core/core.c:832</code>,
+then decrements <code>R</code> at line 836. Its wait model therefore counts three opcode
+waits while its visible refresh count remains two. The hash-guarded
+<code>describe_prefix_fetch_models.py</code> CLI reproduces this result from the pinned
+source trees. The exact assembled <code>HWPFX</code> program also reproduces the split in
+the pinned Wabbitemu runtime: its indexed-CB row adds 30 timer ticks, compared
+with 25 for the three ordinary one-prefix rows and 29 for repeated DD.
+[confirmed] for the emulator run; physical ASIC placement remains open.</p>
+<p>The delay follows the physical page selected by the mapper in TilEm. An opcode
+executed from banked RAM uses the RAM M1 bit; the same logical address backed
+by Flash uses the Flash bit. See <a href="paging.html">Paging</a> for physical-page
+resolution. [standard]</p>
+<p>One T-state is about 0.167 µs at nominal 6 MHz and 0.067 µs at nominal 15 MHz.
+The register therefore preserves a <em>cycle</em> margin, not a fixed wall-time
+margin, when CPU speed changes. [standard]</p>
+<h2 id="lcd-ready-interval--port-0x2f"><a class="header" href="#lcd-ready-interval--port-0x2f">LCD-ready interval — port <code>0x2F</code></a></h2>
+<p>The LCD instruction delay above slows the I/O instruction itself. Port <code>0x2F</code>
+controls a second mechanism: at high speed, the ASIC deasserts port-<code>0x02</code> bit
+1 for a longer programmable interval after an LCD transaction. The OS
+<code>lcd_wait</code> helper polls that bit before accessing the controller. See
+<a href="lcd-hardware.html#asic-side-wait-timing">LCD controller and display bus</a>.
+[standard]</p>
+<p>Speed mode selects one field: [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Speed mode</th><th>Field</th><th>Width</th></tr>
+</thead>
+<tbody>
+<tr><td>0</td><td>no high-speed ready hold</td><td>—</td></tr>
+<tr><td>1</td><td>bits 0–1</td><td>2 bits</td></tr>
+<tr><td>2</td><td>bits 2–4</td><td>3 bits</td></tr>
+<tr><td>3</td><td>bits 5–7</td><td>3 bits</td></tr>
+</tbody>
+</table>
+</div>
+<p>For a selected field $f$, TilEm and Wabbitemu use [standard]</p>
+<p>$$
+T_{ready} = 48 + 64f
+$$</p>
+<p>The boot value <code>0x4B</code> produces:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Speed mode</th><th>Field value</th><th>Ready hold</th><th>Nominal interpretation</th></tr>
+</thead>
+<tbody>
+<tr><td>0</td><td>—</td><td>none</td><td>CPU and per-access delay provide the low-speed spacing</td></tr>
+<tr><td>1</td><td>3</td><td>240 T-states</td><td>16 µs at 15 MHz</td></tr>
+<tr><td>2</td><td>2</td><td>176 T-states</td><td>mode not used by the traced OS path</td></tr>
+<tr><td>3</td><td>2</td><td>176 T-states</td><td>mode not used by the traced OS path</td></tr>
+</tbody>
+</table>
+</div>
+<p>TilEm restarts this ready timer on every modeled access to ports <code>0x10</code>–<code>0x13</code>,
+including reads. Wabbitemu derives readiness from the last successful LCD
+write. This disagreement matters for read-heavy code and requires a physical
+test. [standard] for emulator behavior; [hypothesis] for ASIC read behavior.</p>
+<p>The guarded Wabbitemu initialized-core run sets speed mode 1 and field 3, then
+writes the LCD at T-state 2,000. Port <code>0x02</code> reads <code>0xE1</code> at T-state 2,240 and
+<code>0xE3</code> at 2,241. An accepted status read at 2,241 leaves the write timestamp at
+2,000 and leaves port <code>0x02</code> at <code>0xE3</code>. The comparison is strict rather than
+inclusive: readiness requires elapsed time greater than 240 T-states in this
+implementation. [standard]</p>
+<h2 id="programmable-timer-mode-3-divisor"><a class="header" href="#programmable-timer-mode-3-divisor">Programmable-timer mode-3 divisor</a></h2>
+<p>Public documentation assigns a second role to the selected port-<code>0x2F</code> field.
+For programmable-timer sources in the <code>0xC0</code> family, the field selects divisor
+$f+1$; speed mode 0 applies no divisor. [standard]</p>
+<p>With the OS byte <code>0x4B</code>, the documented divisors are 1, 4, 3, and 3 for speed
+modes 0–3. TilEm treats the <code>0xC0</code> family like its ordinary CPU-clock modes,
+and Wabbitemu’s timer-source update does not use port <code>0x2F</code>. The prescaler is
+therefore absent from both compared emulator paths. [standard]</p>
+<p>OS 2.55MP’s timer API can select <code>0xC0</code>-family sources. The prepared
+<a href="hardware-probes.html#programmable-timer-physical-probe"><code>HWTMR</code> probe</a> counts
+source-<code>0xE0</code> expiries against a crystal reference in CPU-speed modes 0–3. Its
+exact assembled image completes in pinned Wabbitemu and measures a prescaler
+near one, matching that emulator’s source implementation. No result from a
+physical calculator has been recorded. [confirmed] for the probe and emulator
+run; [hypothesis] for the physical divisor.</p>
+<h2 id="emulator-comparison"><a class="header" href="#emulator-comparison">Emulator comparison</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Behavior</th><th>TilEm</th><th>Wabbitemu</th><th>MAME 0.287</th><th>jsTIfied <code>20170706a</code></th></tr>
+</thead>
+<tbody>
+<tr><td>Port-<code>0x20</code> write</td><td>low two bits select modes 0–3; nonzero runs at 15 MHz</td><td>default TI-84 Plus state clamps modes 2–3 to mode 1; external <code>extraSpeed</code> enables 20/25 MHz</td><td>stores the raw byte; zero selects 6 MHz and any nonzero value selects 15 MHz</td><td>selects the browser emulator’s CPU-speed state</td></tr>
+<tr><td>Active <code>0x29</code>–<code>0x2C</code> register</td><td>indexed by port <code>0x20 &amp; 3</code></td><td>indexed by the accepted CPU-speed mode</td><td>registers absent</td><td>delay values are stored</td></tr>
+<tr><td>LCD instruction addition</td><td>active byte shifted right by two</td><td>same</td><td>absent</td><td>LCD uses its own busy interval</td></tr>
+<tr><td>Memory gates and <code>0x2E</code> bits</td><td>all six access classes</td><td>all six access classes</td><td>absent</td><td>no source-equivalent per-access wait insertion identified</td></tr>
+<tr><td>Port <code>0x2D</code></td><td>low-power control outside this block</td><td>raw fifth delay latch; no timer or low-power transition</td><td>absent</td><td>stored control state</td></tr>
+<tr><td>High-speed ready start</td><td>every LCD-port read or write</td><td>last successful LCD write</td><td>programmable interval absent</td><td>LCD readiness uses randomized controller timing</td></tr>
+<tr><td>LCD controller rejection</td><td>ready bit and controller model</td><td>also has a separate fixed 60-T-state controller-access guard</td><td>T6A04 device behavior without the ASIC delay block</td><td>controller transfers use the jsTIfied LCD timer</td></tr>
+<tr><td>Mode-3 timer prescaler</td><td>not modeled</td><td>not modeled in the compared timer path</td><td>not modeled</td><td>not modeled in the timer-source decoder</td></tr>
+</tbody>
+</table>
+</div>
+<p>The matching memory and LCD-instruction decode corroborates the public bit
+layout. MAME cannot corroborate that decode because it omits the block. The
+readiness, speed, and timer differences remain emulator policy, not proof of
+physical timing.</p>
+<p>The same guarded Wabbitemu run dynamically checks three linked cases. Port
+<code>0x2A = 0x27</code> adds nine T-states to a status read. With port <code>0x2E = 0x45</code>, the
+enabled additions are Flash opcode fetch, Flash write, and RAM write. A write
+of speed value 3 reads back mode 1 in the reset TI-84 Plus context because
+<code>timer_version = 0</code> disables the external extra-speed modes. [standard]</p>
+<p>A dedicated speed run reads all seven reset latches as zero and verifies raw
+byte readback across ports <code>0x29</code>–<code>0x2F</code>. With active-register values
+<code>0x00/0x01/0x02/0x03</code> and port <code>0x2E = 0x77</code>, modes 0–3 produce wait masks
+<code>0x00/0x07/0x38/0x3F</code>: none, all Flash classes, all RAM classes, and all six
+classes.
+Writing <code>0x5A</code> to port <code>0x2D</code> changes only that latch. The active wait mask,
+CPU frequency, timer version, programmable-timer state, LCD-active state,
+<code>HALT</code>, interrupt line, and T-state count remain unchanged. These observations
+describe Wabbitemu’s registered handler, not physical low-power behavior.
+[standard]</p>
+<h2 id="reproducing-the-decode"><a class="header" href="#reproducing-the-decode">Reproducing the decode</a></h2>
+<p><code>tools/bus_timing.py</code> is a pure register decoder.
+<code>tools/describe_bus_timing.py</code> prints all four speed modes from the boot values:</p>
+<pre><code class="language-sh">nix develop -c python tools/describe_bus_timing.py
+</code></pre>
+<p>The default documented profile reports:</p>
+<pre><code class="language-text">documented (WikiTI pages retrieved 2026-08-09): speed-mode=1 clock=15MHz port20=01/01
+  port2e=0x45 port2f=0x4B
+  mode  port value  MHz  LCD-I/O  Flash +1T      RAM +1T        LCD-ready  doc-div
+   0    0x29  0x17    6      5T     M1,write       write            0T       /1
+   1    0x2A  0x27   15      9T     M1,write       write          240T       /4
+   2    0x2B  0x2F   15     11T     M1,write       write          176T       /3
+   3    0x2C  0x3B   15     14T     M1,write       write          176T       /3
+</code></pre>
+<p><code>doc-div</code> is the public port-<code>0x2F</code> divisor decode. It is not an emulator claim.
+Compare the four pinned implementations, including ignored MAME writes and
+jsTIfied’s stored-delay model, with:</p>
+<pre><code class="language-sh">nix develop -c python tools/describe_bus_timing.py --compare
+nix develop -c python tools/describe_bus_timing.py --compare --json
+</code></pre>
+<p>Pass <code>--extra-speeds</code> to model Wabbitemu’s external 20/25 MHz option. The flag
+does not describe the default TI-84 Plus configuration.</p>
+<p>Repeated <code>--write PORT=VALUE</code> options make altered settings explicit. JSON is
+available for scripts:</p>
+<pre><code class="language-sh">nix develop -c python tools/describe_bus_timing.py \
+  --write 0x20=0 --write 0x29=0x17 --write 0x2e=0x45 --json
+</code></pre>
+<p>Run the native boundary checks with the pinned Wabbitemu adapter:</p>
+<pre><code class="language-sh">wabbit_lcd_parent=$(mktemp -d /tmp/ti84-wabbit-lcd.XXXXXX)
+python tools/run_wabbitemu_lcd_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_lcd_parent/run" --json
+
+wabbit_speed_parent=$(mktemp -d /tmp/ti84-wabbit-speed.XXXXXX)
+python tools/run_wabbitemu_speed_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_speed_parent/run" --json
+
+mame_asic_parent=$(mktemp -d /tmp/ti84-mame-asic.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_asic_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_asic_parent/run" --json
+</code></pre>
+<p>The manifest labels the run as initialized-core emulator evidence and records
+both input hashes. <code>tools/wabbitemu_lcd_probe.py</code> derives its pointer, latch,
+ready-hold, delay, wait-bit, and speed-clamp expectations from the reusable LCD
+and bus-timing libraries.</p>
+<p><code>tools/wabbitemu_speed_probe.py</code> derives speed, latch, and wait-mask
+expectations from <code>tools/bus_timing.py</code>. Its guarded CLI records both input
+hashes and labels the direct <code>timer_version = 1</code> configuration explicitly.
+<code>tools/mame_asic.py</code> reuses the MAME timing profile for raw readback, binary
+clock selection, and the absent delay block.</p>
+<p>The executed initialization can be recovered from a full boot trace:</p>
+<pre><code class="language-sh">nix develop -c python tools/tilem_trace_resolve.py /tmp/boot.trace \
+  --initial-mapping ti84p-reset --io-ports 20,29-2f
+</code></pre>
+<h2 id="open-physical-tests"><a class="header" href="#open-physical-tests">Open physical tests</a></h2>
+<p>The read-only <a href="hardware-probes.html#asic-register-snapshot">ASIC register snapshot</a>
+captures ports <code>0x20</code>, <code>0x29</code>–<code>0x2C</code>, <code>0x2E</code>, and <code>0x2F</code> before a mutating
+timing test. It does not measure any delay. No physical snapshot is recorded.
+[confirmed] for the probe bytes; [hypothesis] for pending readback values.</p>
+<p>The guarded <a href="hardware-probes.html#memory-bus-timing-probe">memory-bus timing probe</a>
+prepares paired timer-2 measurements for all six access classes. Its counted
+loops separate fixed-Flash opcode fetches, Flash data reads, safe Flash reset
+writes, RAM opcode fetches, RAM non-opcode reads, and idempotent RAM writes.
+It restores the entry timing byte and an initially idle timer 2. No exported
+physical result has been recorded. [confirmed] for the probe bytes and decoder;
+[hypothesis] for pending measurements.</p>
+<p>The guarded <a href="hardware-probes.html#prefix-m1-timing-probe">prefix-M1 timing probe</a>
+prepares paired RAM-M1 measurements for unprefixed, CB, ED, DD, repeated-DD,
+and indexed-CB shapes. The indexed-CB row distinguishes TilEm and documented
+Z80 M1 placement from Wabbitemu’s extra wait. The exact image completes through
+the cleanup boundary in pinned Wabbitemu and selects its three-wait model. No
+physical result has been recorded. [confirmed] for the probe bytes, decoder,
+and emulator run; [hypothesis] for pending measurements.</p>
+<p>The guarded <a href="hardware-probes.html#programmable-timer-physical-probe">programmable-timer probe</a>
+prepares the port-<code>0x2F</code> mode-3 measurement. It also distinguishes crystal
+divisor, counter-zero, and expiry-status models while timers 1 and 2 are idle.
+The exact image completes through cleanup in pinned Wabbitemu. No exported
+physical result has been recorded. [confirmed] for the probe bytes, decoder,
+and emulator run; [hypothesis] for pending measurements.</p>
+<ul>
+<li>Run all three prepared timing matrices on TA2 and TA3 units.</li>
+<li>Repeat the loop test with active-register gate bits 0 and 1 cleared to verify
+whether they disable all corresponding <code>0x2E</code> effects.</li>
+<li>Measure the interval from LCD writes and reads to port-<code>0x02</code> bit 1 becoming
+ready. This distinguishes TilEm’s every-access restart from Wabbitemu’s
+write-based model.</li>
+<li>Find the lowest reliable ports-<code>0x29</code>–<code>0x2C</code> values for each LCD controller
+revision without assuming the published <code>0x0C</code> threshold is universal.</li>
+<li>Compare the <code>HWTMR</code> port-<code>0x2F</code> results across CPU-speed modes and ASIC
+revisions.</li>
+<li>Compare nominal and measured T-state wall times on TA2 and TA3 ASICs.</li>
+</ul>
+<h2 id="sources"><a class="header" href="#sources">Sources</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Source</th><th>Use</th></tr>
+</thead>
+<tbody>
+<tr><td>OS 2.55MP <code>boot_bus_timing_init</code> and resolved boot trace</td><td>boot register values, write order, and later CPU-speed transitions</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:29">WikiTI ports <code>0x29</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2A"><code>0x2A</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2B"><code>0x2B</code></a>, and <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2C"><code>0x2C</code></a></td><td>speed selection, gate bits, LCD instruction delay, and published failure thresholds</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2E">WikiTI port <code>0x2E</code></a></td><td>six memory-access classes and prefix observation</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:2F">WikiTI port <code>0x2F</code></a></td><td>LCD-ready intervals and mode-3 timer prescaler</td></tr>
+<tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c"><code>x4_memory.c</code></a>, and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c"><code>x4_init.c</code></a></td><td>delay decode, cycle placement, ready timer, and reset defaults</td></tr>
+<tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code></a> and <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c"><code>core.c</code></a></td><td>independent delay decode, cycle placement, and readiness comparison</td></tr>
+<tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>mapped I/O ports, raw speed readback, binary clock selection, and absent delay block</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth CPU-speed, stored-delay, LCD-ready, and timer-source comparison</td></tr>
+</tbody>
+</table>
+</div>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="paging.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="asic-status-gpio.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="paging.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="asic-status-gpio.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-09f2665d.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
+        <script src="hljs-z80-e93ac716.js"></script>
+        <script src="katex-5e4f3b03.min.js"></script>
+        <script src="katex-auto-render-bb53eb95.min.js"></script>
+        <script src="katex-init-5efd21f9.js"></script>
+        <script src="pseudocode-695903c6.min.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
+
+
+
+    </div>
+    </body>
+</html>
