@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-75c5c404.js";
+            window.path_to_searchindex_js = "searchindex-2255016c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -363,14 +363,9 @@ outputs:</p>
 </tbody>
 </table>
 </div>
-<p>The evidence fixture in <code>tools/fixtures/ram-selector-workflows-tilem.json</code>
-records the ROM, emulator binary, analyzer, macro, trace, and screenshot hashes.
-It binds the result to OS 2.55MP ROM SHA-256
-<code>7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d</code>
-and TilEm commit <code>f56ad637</code>. The analyzer also byte-guards all nine computed
-selector sites. It finds no immediate-load sequence of <code>LD A,n</code> followed by
-<code>OUT</code> for selectors <code>84</code>–<code>87</code>, including values with ignored selector bits.
-[confirmed]</p>
+<p>A separate ROM scan covers all nine computed selector sites. It finds no
+immediate-load sequence of <code>LD A,n</code> followed by <code>OUT</code> for selectors <code>84</code>–<code>87</code>,
+including values with ignored selector bits. [confirmed]</p>
 <p>This matrix does not cover APD timeout, USB/link transfer, variable receive,
 forced archive garbage collection, execution inside a Flash App, or a physical
 48 KiB ASIC. The absence of selectors <code>84</code>–<code>87</code> is therefore bounded to these
@@ -545,18 +540,6 @@ python3 tools/analyze_ram_page_trace.py /tmp/page83-2plus3.trace --page 0x83
 python3 tools/analyze_ram_page_trace.py /tmp/page83-graph.trace --page 0x83
 python3 tools/analyze_ram_page_trace.py /tmp/page83-error-divzero.trace \
   --page 0x83 --initial-mapping ti84p-reset
-</code></pre>
-<p>To rebuild one row of the selector matrix, include its screenshot and pass all
-three artifacts to the bounded-evidence analyzer:</p>
-<pre><code class="language-sh">TILEM=/path/to/pinned/tilem2
-"$TILEM" --headless --rom "$ROM" --model ti84p --normal-speed --reset \
-  --macro tools/macros/ram-pages-stat-editor.macro \
-  --trace /tmp/ram-pages-stat-editor.trace --trace-range all
-python3 tools/ram_page_selector_usage.py --rom "$ROM" --tilem "$TILEM" \
-  --case stat-editor,tools/macros/ram-pages-stat-editor.macro,\
-/tmp/ram-pages-stat-editor.trace,/tmp/ram-pages-stat-editor.png
-python3 tools/ram_page_selector_usage.py \
-  --check tools/fixtures/ram-selector-workflows-tilem.json
 </code></pre>
 <p>The baseline idle trace writes:</p>
 <pre><code class="language-text">RAM page 0x83 writes: 1882
