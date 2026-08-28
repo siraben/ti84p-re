@@ -196,7 +196,7 @@ reconstructed. Cold TilEm and pinned Wabbitemu restart tests cover each phase,
 but do not establish physical timing or power-loss guarantees. [confirmed]
 
 A separate guarded Wabbitemu fixture exercises the failed stack preflight at
-`00:02BF`, its reset transfer, and the illegal-DQ7 worker failure. It prints
+`ram:02BF`, its reset transfer, and the illegal-DQ7 worker failure. It prints
 numeric status `0`, verifies zero source-image changes, and confines the worker
 case to allocated byte `0x20100`. Wabbitemu has no program-busy interval, so
 this does not close the physical interruption question. [confirmed] for pinned
@@ -271,7 +271,7 @@ Use the [memory-bus timing probe](hardware-probes.md#memory-bus-timing-probe),
 [prefix-M1 probe](hardware-probes.md#prefix-m1-timing-probe), and
 [programmable-timer probe](hardware-probes.md#programmable-timer-physical-probe).
 The [LCD-controller probe](hardware-probes.md#lcd-controller-probe) covers the
-digital ready and hidden-column cases without issuing analog or power commands.
+digital ready and visible-cell cases without issuing analog or power commands.
 The established decode and emulator differences are in
 [Bus timing and wait states](bus-timing.md) and
 [LCD controller and display bus](lcd-hardware.md).

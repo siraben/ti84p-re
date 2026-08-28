@@ -1810,8 +1810,8 @@ python tools/run_wabbitemu_flash_failure_fixture.py \
   --output-dir "$wabbit_failure_parent/run" --json
 ```
 
-The preflight case calls the exact `00:02BF` entry with `SP=0xBFFE`. It requires
-the gate to remain locked, observes the jump through `00:02CE` to `00:0000`,
+The preflight case calls the exact `ram:02BF` entry with `SP=0xBFFE`. It requires
+the gate to remain locked, observes the jump through `ram:02CE` to `ram:0000`,
 and compares the complete allocated Flash array with the input before and after
 a bounded CPU reset plus retail boot. Numeric status `0` means the expected
 failure path, zero Flash differences, and completed restart all passed.
