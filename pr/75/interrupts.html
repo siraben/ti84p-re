@@ -1,0 +1,725 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Interrupts (IM1) - TI-84 Plus OS — Reverse Engineering</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="katex-383e7b8d.min.css">
+        <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-a712ec86.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-359c0a17.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">TI-84 Plus OS — Reverse Engineering</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/siraben/ti84p-re" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="interrupts-im1"><a class="header" href="#interrupts-im1">Interrupts (IM1)</a></h1>
+<p><em>TI-84 Plus OS 2.55MP — Interrupt masks, status, acknowledgement, dispatch, and low-power wake.</em></p>
+<p>The TI-84 Plus OS runs the Z80 in interrupt mode 1 (IM1) and polls the ASIC’s interrupt status. This page separates the USB event gate from the legacy controller at ports <code>0x03</code> and <code>0x04</code>, then follows acknowledgement, priority, and <code>HALT</code> wake behavior.</p>
+<h2 id="evidence-layers"><a class="header" href="#evidence-layers">Evidence layers</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Evidence</th><th>Scope</th><th>Confidence</th></tr>
+</thead>
+<tbody>
+<tr><td>Page-0 bytes from <code>im1_vector</code> at <code>ram:0038</code> through <code>ram:0244</code></td><td>IM1 entry, USB and legacy gates, source-test order, handlers, acknowledgement, and exit</td><td>[confirmed]</td></tr>
+<tr><td>Power-cycle trace from <code>tools/macros/power-cycle.macro</code></td><td>OS mask writes, low-power <code>HALT</code>, ON wake, status read, debounce, and restoration</td><td>[confirmed]</td></tr>
+<tr><td>WikiTI ports <code>0x03</code> and <code>0x04</code></td><td>Bit-level enable, status, clear-on-zero, timer-rate, mapping, battery-selector, and low-power contract</td><td>[standard]</td></tr>
+<tr><td>TilEm commit <code>f56ad63</code> and Wabbitemu commit <code>48c2dc0</code></td><td>Two executable interpretations of the registers and their fidelity gaps</td><td>[standard]</td></tr>
+<tr><td>MAME 0.287 <code>ti84pv3</code> driver and Lua I/O trace</td><td>Third implementation, headless ON-wake execution, and explicit <code>MACHINE_NOT_WORKING</code> gaps</td><td>[standard]</td></tr>
+<tr><td>Guarded TilEm direct-core interrupt probe</td><td>Stored-mask readback, internal policy, acknowledgement, ON/link edges, timer callbacks, and reset ordering</td><td>[standard]</td></tr>
+<tr><td>Guarded TilEm direct-core link probe</td><td>Raw link-activity and assist idle, receive, and error interrupt transitions</td><td>[standard]</td></tr>
+<tr><td>Guarded Wabbitemu interrupt edge probe</td><td>Initialized-core mask, timer, acknowledgement, completion, and low-power transitions</td><td>[standard]</td></tr>
+<tr><td>Guarded MAME legacy-interrupt probe</td><td>CPU-I/O-space status, mask, ON-edge, fixed-timer, and soft-reset observations</td><td>[standard]</td></tr>
+</tbody>
+</table>
+</div>
+<p>The ROM proves how OS 2.55MP uses the registers. Public notes and emulators describe behavior inside the ASIC that the ROM cannot prove by itself. Emulator agreement is supporting evidence, not physical confirmation.</p>
+<h2 id="im1-entry-and-context"><a class="header" href="#im1-entry-and-context">IM1 entry and context</a></h2>
+<p>IM1 accepts a maskable interrupt at <code>im1_vector</code>, the fixed address <code>ram:0038</code>.
+The vector jumps to <code>int_entry_save_alt_regs</code> at <code>ram:006D</code>, which swaps <code>AF</code>,
+<code>BC</code>, <code>DE</code>, and <code>HL</code> with the alternate register set. The normal exit swaps
+them back, executes <code>EI</code>, and returns with <code>RETI</code>. [confirmed]</p>
+<pre><code class="language-z80">ram:0038  jr ram:006D
+ram:006D  ex af,af'
+ram:006E  exx
+ram:006F  in a,(0x55)
+ram:0071  xor 0xFF
+ram:0073  and 0x1F
+ram:0075  jr z,ram:003A
+</code></pre>
+<p>The handler uses the alternate general registers as its working context. It assumes <code>IY = flags</code> at <code>0x89F0</code> and uses the interrupted stack. It does not push <code>IY</code>, <code>IX</code>, or a complete register frame at entry. [confirmed]</p>
+<p>The normal exit restores the standard OS mask after source-specific work: [confirmed]</p>
+<pre><code class="language-z80">ram:00E4  ld a,0x0B
+ram:00E6  bit 0,(iy+0x16)
+ram:00EA  jr z,ram:00EE
+ram:00EC  add a,0x04          ; select 0x0F when timer 2 is wanted
+ram:00EE  out (0x03),a
+ram:00F0  ex af,af'
+ram:00F1  exx
+ram:00F2  ei
+ram:00F3  reti
+</code></pre>
+<h2 id="usb-gate-and-legacy-controller"><a class="header" href="#usb-gate-and-legacy-controller">USB gate and legacy controller</a></h2>
+<p>Port <code>0x55</code> is the active-low USB interrupt summary. The three instructions at
+<code>int_entry_save_alt_regs + 0x02</code> invert and mask its low five bits. A result of
+zero jumps directly to <code>interrupt_legacy_status</code> at <code>ram:003A</code>. A nonzero
+result enters the USB activity-hook and port-<code>0x56</code> event paths before the
+handler considers the legacy controller. [confirmed]</p>
+<p>This ordering does not make port <code>0x55</code> a summary of ON, standard-timer, or legacy link requests. Those sources appear at port <code>0x04</code>. Port <code>0x56</code> is a USB line-event bitmap, not the mask for port <code>0x04</code>. [confirmed] for the separate ROM paths; [standard] for the register roles.</p>
+<p>The disconnected TilEm x4 model returns <code>0x1F</code> from port <code>0x55</code> and zero from
+port <code>0x56</code>. Its ordinary trace therefore takes
+<code>int_entry_save_alt_regs + 0x02</code> → <code>interrupt_legacy_status</code> without USB event
+work. [standard]</p>
+<p>See <a href="sub-usb-asic.html#interrupt-integration-confirmed">USB ASIC and link assist</a> for the port-<code>0x56</code> event-bit branches and page-35 handlers.</p>
+<h2 id="port-0x03-mask-acknowledgement-and-power-mode"><a class="header" href="#port-0x03-mask-acknowledgement-and-power-mode">Port <code>0x03</code>: mask, acknowledgement, and power mode</a></h2>
+<p>Port <code>0x03</code> controls the four legacy interrupt sources and the ASIC’s behavior when the Z80 executes <code>HALT</code>. Public notes document readback for enable bits 0, 1, 2, and 4. TilEm and Wabbitemu return the complete stored byte, but physical readback of bit 3 is not documented. [standard] for the public fields and emulator behavior; [hypothesis] for physical bit-3 readback.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Bit</th><th>Meaning</th><th>Effect of writing zero</th><th>Evidence</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right">0</td><td>ON interrupt enabled</td><td>disable and acknowledge the ON request</td><td>Public register contract; OS writes and both emulators [standard]</td></tr>
+<tr><td style="text-align: right">1</td><td>standard timer 1 enabled</td><td>disable and acknowledge timer 1</td><td>Public register contract; OS writes and TilEm [standard]</td></tr>
+<tr><td style="text-align: right">2</td><td>standard timer 2 enabled</td><td>disable and acknowledge timer 2</td><td>Public register contract; OS writes and TilEm [standard]</td></tr>
+<tr><td style="text-align: right">3</td><td>write control: one keeps hardware powered during <code>HALT</code>; zero selects low power on <code>HALT</code></td><td>select low power for the next <code>HALT</code></td><td>Public register contract; OS shutdown sequence and both emulators [standard]</td></tr>
+<tr><td style="text-align: right">4</td><td>legacy link-activity interrupt enabled</td><td>disable and acknowledge link activity</td><td>Public register contract; OS shutdown mask and TilEm [standard]</td></tr>
+<tr><td style="text-align: right">5–7</td><td>no documented function</td><td>—</td><td>Public register contract [standard]</td></tr>
+</tbody>
+</table>
+</div>
+<p>Bit 3 changes what <code>HALT</code> does. A write with bit 3 clear does not enter low power by itself. The CPU must execute <code>HALT</code>, and an enabled wake source must later request an interrupt. [standard]</p>
+<p>The OS uses these values: [confirmed] for each ROM write and branch; [standard] for the hardware effect.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Value</th><th>Enabled legacy sources</th><th><code>HALT</code> behavior</th><th>OS use</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right"><code>0x08</code></td><td>none</td><td>powered</td><td>common clear-on-zero acknowledgement and shutdown cleanup</td></tr>
+<tr><td style="text-align: right"><code>0x09</code></td><td>ON</td><td>powered</td><td>transient standard-timer-1 acknowledgement path</td></tr>
+<tr><td style="text-align: right"><code>0x0A</code></td><td>standard timer 1</td><td>powered</td><td>transient ON acknowledgement path</td></tr>
+<tr><td style="text-align: right"><code>0x0B</code></td><td>ON and standard timer 1</td><td>powered</td><td>normal mask</td></tr>
+<tr><td style="text-align: right"><code>0x0F</code></td><td>ON and both standard timers</td><td>powered</td><td>normal exit when <code>(IY+0x16)</code> bit 0 requests timer 2</td></tr>
+<tr><td style="text-align: right"><code>0x11</code></td><td>ON and link activity</td><td>low power</td><td>shutdown and wake loop</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="port-0x04-read-source-and-on-status"><a class="header" href="#port-0x04-read-source-and-on-status">Port <code>0x04</code> read: source and ON status</a></h2>
+<p>Reading port <code>0x04</code> returns status. Bit 3 is the live active-low ON level; it is not an interrupt request. Bits 5–7 report programmable-timer completion even when the corresponding timer mode did not request a maskable interrupt. [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Bit</th><th>Read meaning</th><th>OS use</th><th>Evidence</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right">0</td><td>ON request pending</td><td>branch to <code>on_irq</code> at <code>ram:015B</code></td><td>ROM test at <code>ram:00D2</code>–<code>ram:00D5</code> [confirmed]; latch role [standard]</td></tr>
+<tr><td style="text-align: right">1</td><td>standard timer 1 pending</td><td>branch to <code>standard_timer1_irq</code> at <code>ram:0167</code></td><td>ROM test at <code>ram:00D6</code>–<code>ram:00D9</code> [confirmed]; pending role [standard]</td></tr>
+<tr><td style="text-align: right">2</td><td>standard timer 2 pending</td><td>branch to <code>ram:01F1</code></td><td>ROM test at <code>ram:00C8</code>–<code>ram:00CB</code> [confirmed]; pending role [standard]</td></tr>
+<tr><td style="text-align: right">3</td><td>one when ON is released, zero while pressed</td><td>debounce reads at <code>ram:0975</code></td><td>ROM interpretation [confirmed]; electrical level [standard]</td></tr>
+<tr><td style="text-align: right">4</td><td>legacy link activity pending</td><td>branch to <code>legacy_link_irq</code> at <code>ram:01E0</code></td><td>ROM test at <code>ram:00CD</code>–<code>ram:00D0</code> [confirmed]; pending role [standard]</td></tr>
+<tr><td style="text-align: right">5</td><td>programmable timer 1 finished</td><td>test timer-1 mode at port <code>0x31</code></td><td>ROM tests at <code>ram:0041</code> and <code>ram:013A</code> [confirmed]; completion role [standard]</td></tr>
+<tr><td style="text-align: right">6</td><td>programmable timer 2 finished</td><td>page-35 handler with <code>A = 0x0B</code></td><td>ROM tests at <code>ram:0046</code> and <code>ram:0154</code> [confirmed]; completion role [standard]</td></tr>
+<tr><td style="text-align: right">7</td><td>programmable timer 3 finished</td><td>test timer-3 mode at port <code>0x37</code></td><td>ROM tests at <code>ram:003C</code> and <code>ram:012C</code> [confirmed]; completion role [standard]</td></tr>
+</tbody>
+</table>
+</div>
+<p>The OS reads one status byte and retains it in <code>A</code> while testing the source bits. Programmable timers 1 and 3 receive an extra check of bit 1 in their own mode/status ports before the OS calls their banked handlers. A finished bit can therefore be visible without being eligible for interrupt service. [confirmed]</p>
+<h2 id="port-0x04-write-three-unrelated-controls"><a class="header" href="#port-0x04-write-three-unrelated-controls">Port <code>0x04</code> write: three unrelated controls</a></h2>
+<p>Writing port <code>0x04</code> does not acknowledge the status returned by a read. A write selects the memory-map mode, standard-timer rate, and battery-comparator input. [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Bits</th><th>Write meaning</th><th>Evidence</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right">0</td><td>zero selects independent mapping; one selects paired mapping</td><td>OS writes and mapper behavior [confirmed] for use; public contract and emulators [standard] for hardware</td></tr>
+<tr><td style="text-align: right">2–1</td><td>standard-timer rate index <code>0</code>–<code>3</code>, fastest to slowest</td><td>OS writes <code>0x06</code>; public formula and emulators [standard]</td></tr>
+<tr><td style="text-align: right">5–3</td><td>unused in the public contract</td><td>[standard]</td></tr>
+<tr><td style="text-align: right">7–6</td><td>raw battery-comparator selector</td><td>OS battery-test writes; public contract [standard]</td></tr>
+</tbody>
+</table>
+</div>
+<p>For TI-84 Plus standard timer 1, the published quartz-domain period is</p>
+<p>$$
+T_1 = \frac{64 + 80i}{32768}\text{ seconds},
+$$</p>
+<p>where $i$ is bits 2–1. Timer 2 runs at twice that frequency. OS value <code>0x06</code> selects independent mapping, rate index 3, and battery selector zero. [confirmed] for the OS value; [standard] for the field meanings and formula.</p>
+<p>The battery-selector bits identify comparator configurations. The ROM’s write order does not prove that the raw two-bit number is a monotonic voltage level. Physical threshold and bit-order measurements remain open. [hypothesis]</p>
+<p>See <a href="paging.html">Paging</a> for paired mapping and <a href="clock-timers-power.html#standard-hardware-timers">Clock, timers, and power</a> for exact timer rates.</p>
+<h2 id="dispatch-order-and-simultaneous-sources"><a class="header" href="#dispatch-order-and-simultaneous-sources">Dispatch order and simultaneous sources</a></h2>
+<p>The legacy-status path tests port-<code>0x04</code> bits in this order: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Priority</th><th style="text-align: right">Status bit</th><th>Candidate</th><th>Additional gate</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right">1</td><td style="text-align: right">7</td><td>programmable timer 3</td><td>port <code>0x37</code> bit 1</td></tr>
+<tr><td style="text-align: right">2</td><td style="text-align: right">5</td><td>programmable timer 1</td><td>port <code>0x31</code> bit 1</td></tr>
+<tr><td style="text-align: right">3</td><td style="text-align: right">6</td><td>programmable timer 2</td><td>handler selected through <code>ram:0154</code></td></tr>
+<tr><td style="text-align: right">4</td><td style="text-align: right">2</td><td>standard timer 2</td><td>none in the dispatcher</td></tr>
+<tr><td style="text-align: right">5</td><td style="text-align: right">4</td><td>legacy link activity</td><td>none in the dispatcher</td></tr>
+<tr><td style="text-align: right">6</td><td style="text-align: right">0</td><td>ON request</td><td>none in the dispatcher</td></tr>
+<tr><td style="text-align: right">7</td><td style="text-align: right">1</td><td>standard timer 1</td><td>none in the dispatcher</td></tr>
+</tbody>
+</table>
+</div>
+<pre><code class="language-z80">ram:003A  in a,(0x04)
+ram:003C  bit 7,a
+ram:0041  bit 5,a
+ram:0046  bit 6,a
+ram:00C8  bit 2,a
+ram:00CD  bit 4,a
+ram:00D2  rra                 ; original bit 0 enters carry
+ram:00D6  rra                 ; original bit 1 enters carry
+</code></pre>
+<p>An eligible handler exits through acknowledgement instead of resuming at the next lower-priority bit. Simultaneous eligible sources are therefore not all dispatched from one port-<code>0x04</code> read. A timer-1 or timer-3 completion bit whose mode gate is clear is skipped, allowing the next candidate to be tested. [confirmed]</p>
+<p>The common port-<code>0x03</code> write of <code>0x08</code> clears all four legacy source bits at once under the public clear-on-zero contract and TilEm’s model. Simultaneous lower-priority legacy requests can therefore be coalesced by the higher-priority service. A programmable-timer completion is acknowledged separately through its mode/status port. [standard] for latch behavior; [confirmed] for the OS write sequence.</p>
+<h2 id="clear-on-zero-acknowledgement"><a class="header" href="#clear-on-zero-acknowledgement">Clear-on-zero acknowledgement</a></h2>
+<p>The common acknowledgement helper preserves the handler-supplied byte in <code>A</code>, writes <code>0x08</code>, then writes the saved byte: [confirmed]</p>
+<pre><code class="language-z80">ram:00DC  push af
+ram:00DD  ld a,0x08
+ram:00DF  out (0x03),a
+ram:00E1  pop af
+ram:00E2  out (0x03),a
+</code></pre>
+<p>The first write clears the ON, standard-timer, and link source latches because their enable bits are all zero. Bit 3 remains one, so this acknowledgement does not request low power. The second write exposes the handler-supplied value only until the normal exit writes <code>0x0B</code> or <code>0x0F</code>. [confirmed] for values and ordering; [standard] for clear-on-zero semantics.</p>
+<p>Leaving a legacy pending bit uncleared causes another maskable request after <code>EI</code>. Rewriting the same all-enabled mask is not an acknowledgement because each set bit leaves its source enabled and pending. [standard]</p>
+<p>Programmable timers use a separate contract. Writing their mode/status ports <code>0x31</code>, <code>0x34</code>, or <code>0x37</code> clears finished/overflow state and removes that timer’s request in TilEm and the public hardware description. Port <code>0x03</code> does not clear bits 5–7. [standard]</p>
+<h2 id="standard-and-programmable-timer-distinction"><a class="header" href="#standard-and-programmable-timer-distinction">Standard and programmable timer distinction</a></h2>
+<p>The standard timers belong to the legacy mask block. Port-<code>0x03</code> bits 1 and 2 enable their interrupt requests, and clearing those bits acknowledges them. Their rate comes from port-<code>0x04</code> bits 2–1. [standard]</p>
+<p>The three programmable timers have source, mode/status, and counter triplets at ports <code>0x30</code>–<code>0x38</code>. Their port-<code>0x04</code> bits are completion observations, not enable bits. Timer mode bit 1 selects whether completion requests a maskable interrupt. [standard]</p>
+<p>OS 2.55MP uses programmable timer 1 for its timer bcall state machine and
+programmable timer 3 for a USB timeout path. <code>standard_timer1_irq</code> drives keypad
+scanning, cursor blink, the run indicator, and Auto Power Down (APD). [confirmed]</p>
+<p>See <a href="clock-timers-power.html">Clock, timers, and power</a> for programmable-timer modes, the bcall ABI, and kernel-tick consumers.</p>
+<h2 id="on-request-versus-on-level"><a class="header" href="#on-request-versus-on-level">ON request versus ON level</a></h2>
+<p>Port-<code>0x04</code> bit 0 is the ON interrupt latch. Bit 3 is the button’s current active-low level. The dispatcher selects the ON handler from bit 0, while <code>on_key_debounce_power</code> at <code>ram:0964</code> repeatedly samples bit 3 to classify a stable press or release. [confirmed]</p>
+<p>The power-cycle trace reads <code>0x01</code> after the injected ON press. Bit 0 reports the request and bit 3 clear reports the held key. The two meanings coincide in this event but remain independent fields. [confirmed]</p>
+<p>TilEm requests an ON interrupt on both press and release transitions when enabled. Wabbitemu latches only a transition into its pressed state. The ROM handles either stable level, but it cannot determine the physical ASIC’s edge policy. [standard] for emulator behavior; [hypothesis] for the unmeasured physical policy.</p>
+<p>See <a href="keypad-on-hardware.html#on-interrupt-and-level">Keypad and ON-key hardware</a> for debounce timing and the OS ON state machine.</p>
+<h2 id="link-interrupt-versus-periodic-link-polling"><a class="header" href="#link-interrupt-versus-periodic-link-polling">Link interrupt versus periodic link polling</a></h2>
+<p>Port-<code>0x03</code> bit 4 controls the legacy link-activity interrupt. The shutdown
+mask <code>0x11</code> uses it as a wake source. The port-<code>0x04</code> bit-4 dispatcher branch
+enters <code>legacy_link_irq</code>, the power-restoration path. [confirmed] for OS use;
+[standard] for the interrupt source.</p>
+<p>Normal operation uses mask <code>0x0B</code>, so legacy link interrupts are disabled. Standard timer 1 still performs a periodic silent-link check at <code>ram:01B1</code>: the raw path reads port <code>0x00</code>, and the assist path reads port <code>0x09</code>. This polling is separate from a direct port-<code>0x04</code> bit-4 request. [confirmed]</p>
+<p>See <a href="link-port-hardware.html#background-link-detection-and-interrupts">Two-wire link port hardware</a> for both detection paths.</p>
+<h2 id="low-power-entry-and-wake"><a class="header" href="#low-power-entry-and-wake">Low-power entry and wake</a></h2>
+<p><code>poweroff_shared_tail</code> at <code>ram:0A24</code> first acknowledges legacy sources with
+<code>0x08</code>. It then writes <code>0x06</code> to port <code>0x04</code>, writes <code>0x11</code> to port <code>0x03</code>,
+enables interrupts, and reaches <code>poweroff_halt_loop</code> at <code>ram:0A5C</code>. [confirmed]</p>
+<pre><code class="language-z80">ram:0A4B  out (0x04),a        ; A = 0x06
+ram:0A4F  out (0x03),a        ; A = 0x11
+ram:0A5B  ei
+ram:0A5C  halt
+ram:0A5D  jr ram:0A5C
+</code></pre>
+<p>Mask <code>0x11</code> disables both standard timers, enables ON and link activity, and clears the powered-<code>HALT</code> bit. The next <code>HALT</code> enters the ASIC low-power mode under the public contract. [confirmed] for the sequence; [standard] for the physical effect.</p>
+<p>A resolved TilEm trace records the transition and ON wake: [confirmed]</p>
+<pre><code class="language-text">clk=98010423   ram:0A29 OUT (0x03) &lt;- 0x08
+clk=99871166   ram:0A4B OUT (0x04) &lt;- 0x06
+clk=99871186   ram:0A4F OUT (0x03) &lt;- 0x11
+clk=99871258   ram:0A5C HALT
+clk=99915117   ON pressed
+clk=99915172   ram:006F IN  (0x55) -&gt; 0x1F
+clk=99915213   ram:003A IN  (0x04) -&gt; 0x01
+clk=99915377   ram:0964 ON wake/debounce path
+clk=100195536  ram:09B5 power-on restoration
+</code></pre>
+<p>TilEm prevents programmable timers from waking <code>HALT</code> when both standard-timer bits in port <code>0x03</code> are clear. A programmable timer can still interrupt a running CPU in that state. This is an emulator policy approximating public reports that programmable timers do not reliably wake a halted CPU; it does not identify the physical ASIC mechanism. [standard]</p>
+<h3 id="mame-on-wake-trace"><a class="header" href="#mame-on-wake-trace">MAME ON-wake trace</a></h3>
+<p>MAME 0.287 includes the <code>ti84pv3</code> machine and accepts a 1 MiB OS 2.55MP image. The repository ROM has SHA-1 <code>ffddb460d7d4e79cc8fbd288d6895fd113d7f3bf</code>, while MAME’s reference image has SHA-1 <code>d500540feca974f6e8fa269981cfb25dc951c338</code>. MAME warns about this difference because the repository image contains locally assembled boot pages. [confirmed]</p>
+<p>The Lua tap records the program counter after each I/O instruction. MAME reaches the shutdown mask, accepts an injected ON press, and enters the ROM debounce path: [confirmed]</p>
+<pre><code class="language-text">MAME_IO frame=20 pc_after=0DF3 OUT (0x03) &lt;- 0x08
+MAME_IO frame=20 pc_after=0DF6 OUT (0x03) &lt;- 0x00
+MAME_IO frame=20 pc_after=0C97 OUT (0x03) &lt;- 0x11
+MAME_KEY frame=30 ON press
+MAME_IO frame=31 pc_after=0071 IN (0x55) -&gt; 0x1F
+MAME_IO frame=31 pc_after=003C IN (0x04) -&gt; 0x01
+MAME_IO frame=31 pc_after=0977 IN (0x04) -&gt; 0x01
+</code></pre>
+<p>The trace confirms ROM control flow under MAME. It does not confirm MAME’s register semantics. The driver itself marks every monochrome TI-84 Plus configuration <code>MACHINE_NOT_WORKING</code>. [standard]</p>
+<h2 id="custom-handler-rules"><a class="header" href="#custom-handler-rules">Custom handler rules</a></h2>
+<p>A custom IM2 handler, or code that replaces OS interrupt service, must account for each controller independently: [standard]</p>
+<ul>
+<li>Preserve every register and mapping state that interrupted code can observe. The OS shadow-register convention is safe only while the interrupted program leaves those alternate registers to the OS.</li>
+<li>Read port <code>0x55</code> as an active-low USB gate and port <code>0x04</code> as legacy/completion status. Do not interpret port-<code>0x04</code> bit 3 as a pending source.</li>
+<li>Acknowledge legacy sources by clearing their port-<code>0x03</code> bits, then restore the intended mask. Acknowledge programmable timers through their own mode/status ports.</li>
+<li>Keep handler code and any data it requires in mapped memory. Banked calls must preserve the interrupted mapping or restore it before returning.</li>
+<li>Service or deliberately disable USB events. A port-<code>0x03</code> acknowledgement does not clear port-<code>0x55</code>/<code>0x56</code> state.</li>
+<li>Enable a source capable of waking the chosen power mode before executing <code>HALT</code>.</li>
+</ul>
+<p>Chaining to the OS handler also inherits its assumptions: <code>IY</code> points to <code>flags</code>, normal RAM and page mappings are active, and the alternate general registers are available. [confirmed]</p>
+<h2 id="emulator-comparison"><a class="header" href="#emulator-comparison">Emulator comparison</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Behavior</th><th>TilEm x4</th><th>Wabbitemu 83+SE/84+</th><th>jsTIfied <code>20170706a</code></th><th>Consequence</th></tr>
+</thead>
+<tbody>
+<tr><td>Port <code>0x03</code> read</td><td>returns stored mask</td><td>returns stored mask</td><td>stores the interrupt mask</td><td>mask reads agree [standard]</td></tr>
+<tr><td>Legacy clear-on-zero</td><td>clears ON, timer 1, timer 2, and link pending state on port-<code>0x03</code> writes</td><td>clears ON directly; disabling an overdue standard timer catches its phase up in the same port-<code>0x03</code> handler; port <code>0x02</code> can also catch it up</td><td>tracks standard-timer and ON latches in emulator state</td><td>OS-style acknowledgement is modeled with different internal policies [standard]</td></tr>
+<tr><td>Link status</td><td>implements port-<code>0x04</code> bit 4</td><td>omits bit 4 from port-<code>0x04</code> reads</td><td>link state participates in the interrupt model</td><td>software agreement does not establish electrical wake behavior [standard]</td></tr>
+<tr><td>Standard timers</td><td>explicit pending interrupt bits when enabled</td><td>derives status from elapsed phase while enabled</td><td>schedules timer state in emulator cycle counters</td><td>simultaneous-source and latch tests can differ [standard]</td></tr>
+<tr><td>Programmable completion</td><td>exposes finished bits 5–7 independently of interrupt mode</td><td>exposes timer-underflow bits 5–7</td><td>retains per-timer completion and loop state</td><td>all separate completion from mode, with different timer cores [standard]</td></tr>
+<tr><td><code>HALT</code> behavior</td><td>port-<code>0x03</code> bit 3 selects powered/low-power behavior; standard-timer mask controls programmable wake suppression</td><td>approximates low power by changing LCD activity and suppresses programmable-timer requests while halted</td><td>halted CPU state is part of the browser scheduler</td><td>no model proves physical ASIC power domains [standard]</td></tr>
+<tr><td>USB gate</td><td>disconnected fixed values <code>0x55 = 0x1F</code>, <code>0x56 = 0</code></td><td>partial <code>Fake USB</code> event model</td><td>fixed disconnected values</td><td>connected USB interrupt service needs another test target [standard]</td></tr>
+</tbody>
+</table>
+</div>
+<p>Wabbitemu’s source comments state uncertainty about its standard-interrupt write behavior. Its model is useful as an independent implementation comparison, but disagreement must remain explicit. [standard]</p>
+<h3 id="native-tilem-interrupt-edges"><a class="header" href="#native-tilem-interrupt-edges">Native TilEm interrupt edges</a></h3>
+<p>A guarded direct-core run compiles the complete TilEm tree at commit
+<code>f56ad637d0524ee841dd381be6ecbaf5b8975600</code>. It calls the registered x4 port
+handlers and timer callbacks, plus the public keypad, link, timer, and reset
+functions. It does not execute the ROM. [standard]</p>
+<p>Port <code>0x03</code> stores all eight written bits. Writes <code>00</code>, <code>01</code>, <code>02</code>, <code>04</code>, <code>08</code>,
+<code>10</code>, and <code>FF</code> produce identical readback. The same writes select internal ON,
+power-on-HALT, and link enables from bits 0, 3, and 4. Either standard-timer bit
+clears TilEm’s <code>NO_HALT_INT</code> flag on all three programmable timers; both bits
+clear set that flag. All three timer flags agree in every case. [standard]</p>
+<p>The probe seeds all four legacy latches, all three programmable completion
+flags, and all three programmable CPU requests. Applying the seven values
+above through port <code>0x03</code> produces status <code>E8 E9 EA EC E8 F8 FF</code>. Applying
+them through port <code>0x02</code> produces the same sequence. Both paths leave the
+three programmable requests at internal mask <code>0x38</code>, and port <code>0x03</code> leaves
+completion bits 5–7 visible. This directly checks TilEm’s two clear-on-zero
+implementations. [standard]</p>
+<p>The ON sequence produces <code>00 00 09 08 01 00 09 08 00</code>: masked press, enable
+while held, release, acknowledge released, press, acknowledge held, release,
+disable, and press while disabled. TilEm therefore latches both enabled
+transitions. Timer callbacks with both masks clear remain at <code>08</code>. With both
+enabled, timer 1, either timer-2 callback, and both sources produce <code>0A</code>,
+<code>0C</code>, <code>0C</code>, and <code>0E</code>. [standard]</p>
+<p>Reset schedules timer 1, timer 2A, and timer 2B at initial delays 1,600,
+1,300, and 1,000 µs with 9,277 µs periods. Port-<code>0x04</code> writes select periods
+<code>1953</code>, <code>4395</code>, <code>6836</code>, and <code>9277</code> µs for all three without changing the
+current interval. An enabled external link-line transition sets status <code>18</code>;
+either acknowledgement path clears it to <code>08</code>, and a disabled transition does
+not latch. [standard]</p>
+<p>With the CPU halted and both standard timers disabled, programmable-timer-1
+expiry leaves completion status <code>0x28</code> but no CPU request. Enabling either
+standard timer clears the gate and produces internal request <code>0x08</code>; a running
+CPU also receives the request when both standard timers are disabled. This is
+TilEm’s policy, not a physical wake measurement. [standard]</p>
+<p>TilEm reset writes stored port <code>0x03 = 0x0B</code> directly after the generic keypad
+reset clears the internal ON enable. A fresh core therefore reads <code>0x0B</code> while
+the internal ON enable is zero. Reset also retains <code>poweronhalt</code>; after the
+probe first clears it, reset again reads <code>0x0B</code> while the retained power field
+is zero. Writing <code>0x0B</code> through the port handler synchronizes both fields to
+one. This inconsistency affects experiments that begin at initialized-core
+reset without executing the ROM’s first mask write. [standard]</p>
+<p>A separate guarded link matrix checks the interrupt-facing parts of the same
+implementation while exercising complete raw and assist transactions. An
+enabled external peer-line transition asserts the raw link-activity request.
+Assist idle-ready reports <code>0x22</code>, receive-ready reports <code>0x31</code>, and both
+assert the CPU interrupt. Reading receive data changes status to <code>0x20</code>.
+Illegal both-low input reports <code>0x64</code>; its first status read clears the CPU
+request while retaining error status <code>0x60</code>. These are direct TilEm handler
+results, not physical interrupt-edge or acknowledgement measurements.
+[standard]</p>
+<p>Two isolated executions produce identical canonical native JSON with SHA-256
+<code>1c1209e9c3f625b07c42288c21e9a5dbadddb38f12aee995c1fbc8daf1f8e8ad</code>.
+The binary SHA-256 is
+<code>23037df0fee48b3ec15656aae80b6181d97211e8eec325c2be81eef02b1ff840</code>.
+[standard]</p>
+<h3 id="native-wabbitemu-interrupt-edges"><a class="header" href="#native-wabbitemu-interrupt-edges">Native Wabbitemu interrupt edges</a></h3>
+<p>A guarded initialized-core run checks the source model through the registered
+port handlers. Port <code>0x03</code> resets to <code>0x00</code> and stores all eight bits of
+<code>0xFF</code>. Writing <code>0xFE</code> clears a seeded ON latch while preserving <code>0xFE</code> as the
+mask readback. [standard]</p>
+<p>Wabbitemu selects standard-timer-1 rates of 512, 227, 158, and 108 Hz. The
+native periods round to 1,953,125, 4,405,286, 6,329,114, and 9,259,259 ns.
+Timer 2 at index 3 has a 4,629,630 ns period and starts 2,314,815 ns after
+timer 1. These are emulator intervals, not host-clock measurements or the
+documented physical formula. [standard]</p>
+<p>The expiry comparison is strict. At exactly one 108 Hz timer-1 period, port
+<code>0x04</code> reads released-ON status <code>0x08</code> and the CPU interrupt line remains
+clear. At the next representable emulator time, status is <code>0x0A</code> and the line
+asserts. The sequence <code>0x0A</code> → <code>0x08</code> → <code>0x0A</code> then reads <code>0x08</code>: disabling
+the overdue timer runs the handler’s catch-up loop before re-enabling it. A
+port-<code>0x02</code> zero write produces the same idle result through Wabbitemu’s second
+acknowledgement path. [standard]</p>
+<p>With all three programmable underflow flags seeded, port <code>0x04</code> reads <code>0xE8</code>.
+With the CPU halted, port-<code>0x03</code> bit 3 clear changes Wabbitemu’s LCD activity
+field from on to off; setting bit 3 restores it. This is its visual low-power
+approximation, not evidence that a physical ASIC powers down the controller.
+[standard]</p>
+<h3 id="native-wabbitemu-usb-interrupt-edges"><a class="header" href="#native-wabbitemu-usb-interrupt-edges">Native Wabbitemu USB interrupt edges</a></h3>
+<p>A separate initialized-core run checks Wabbitemu’s USB gate. With both USB
+request fields clear, port <code>0x55</code> reads <code>0x1F</code>. Directly selecting line,
+protocol, or both requests produces <code>0x1B</code>, <code>0x0F</code>, and <code>0x0B</code>. These values
+confirm active-low bits 2 and 4 in this emulator. [standard]</p>
+<p>Writing zero to port <code>0x57</code> does not mask a line event. A subsequent write of
+<code>0x08</code> to port <code>0x4A</code> raises the CPU interrupt, changes port <code>0x56</code> from
+<code>0x50</code> to <code>0x58</code>, and changes port <code>0x55</code> from <code>0x1F</code> to <code>0x1B</code>. Repeating the
+same write after clearing only the CPU interrupt raises it again. The run
+invokes Wabbitemu’s handlers directly; it does not execute the ROM dispatcher
+or establish physical interrupt acknowledgement behavior. [standard]</p>
+<p>MAME 0.287 provides a third comparison with larger known gaps: [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Area</th><th>MAME <code>ti84pv3</code> behavior</th><th>Difference from the public contract</th></tr>
+</thead>
+<tbody>
+<tr><td>Port <code>0x03</code> read</td><td>calls the same status reader used by port <code>0x04</code></td><td>returns status and ON level instead of the stored mask</td></tr>
+<tr><td>Port <code>0x03</code> write</td><td>masks ON and standard-timer pending fields with the written enable bits</td><td>models clear-on-zero for bits 0–2, but omits link bit 4 and low-power bit 3</td></tr>
+<tr><td>Port <code>0x02</code> write</td><td>writes ON and standard-timer status through a handler whose comment says it is being ignored</td><td>does not match the documented port-<code>0x03</code> acknowledgement ownership</td></tr>
+<tr><td>Standard timers</td><td>allocates fixed 256 Hz and 512 Hz callbacks</td><td>port-<code>0x04</code> rate writes do not select the published 107.79–512 Hz range</td></tr>
+<tr><td>Programmable timers</td><td>requests an interrupt when mode bit 1 is clear and sets the port-<code>0x04</code> completion field on that same branch</td><td>reverses the documented interrupt-enable polarity and loses independent completion visibility</td></tr>
+<tr><td>Link and low power</td><td>no legacy link-pending field or ASIC power-domain transition</td><td>can execute the ROM wake path but cannot test physical link wake or low-power behavior</td></tr>
+<tr><td>USB</td><td>returns fixed <code>0x1F</code> and zero from ports <code>0x55</code> and <code>0x56</code></td><td>disconnected path only</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="native-mame-interrupt-edges"><a class="header" href="#native-mame-interrupt-edges">Native MAME interrupt edges</a></h3>
+<p>The guarded MAME run parks the Z80 in a <code>DI</code> loop on page-0 RAM and disables
+the programmable timers. At reset, ports <code>0x03</code> and <code>0x04</code> both read released
+ON status <code>0x08</code>. Writes <code>00</code>, <code>01</code>, <code>02</code>, <code>04</code>, <code>08</code>, <code>10</code>, and <code>FF</code> to port
+<code>0x03</code> leave both reads at <code>0x08</code>; the driver does not return the written mask.
+[standard]</p>
+<p>Writing <code>0x07</code> to port <code>0x02</code> directly creates status <code>0x0F</code>. Subsequent
+port-<code>0x03</code> writes <code>0x01</code>, <code>0x06</code>, <code>0xFF</code>, and <code>0x00</code> retain ON only, retain
+both standard timers, retain all three fields, and clear all three fields.
+Port <code>0x04</code> consequently reads <code>09</code>, <code>0E</code>, <code>0F</code>, and <code>08</code>. Port <code>0x02</code> still
+reads ASIC status <code>0xC3</code>; its write and read handlers have unrelated meanings.
+[standard]</p>
+<p>The live-input sequence begins with ON masked. A press, enabling ON while the
+button remains held, release, enabled press, enabled release, and bit-0-clear
+acknowledgement produce <code>00</code>, <code>00</code>, <code>08</code>, <code>01</code>, <code>09</code>, and <code>08</code>. The adapter
+waits through both the video input update and a 256 Hz timer-1 sample after
+each forced transition. This confirms MAME’s press-only latch and release
+rearming without executing the ROM handler. [standard]</p>
+<p>One 20 ms frame with only timer 1, only timer 2, or both enabled produces
+status <code>0x0A</code>, <code>0x0C</code>, or <code>0x0E</code>. Timer-1 status reaches <code>0x0A</code> after both
+port-<code>0x04</code> configuration writes <code>0x00</code> and <code>0x06</code>. These frame-level results
+show that both callbacks run and that neither configuration suppresses timer
+1; the pinned source, rather than this coarse interval, establishes the exact
+fixed 256 Hz and 512 Hz rates. [standard]</p>
+<p>A scheduled soft reset retains seeded status <code>0x0F</code> through the reset callback.
+After a port-<code>0x02</code> zero write clears pending state, the retained standard-timer
+masks regenerate <code>0x0E</code>; a new ON press changes the status to <code>0x07</code>. MAME’s
+reset hook restores the mapper but does not restore these interrupt fields.
+This is emulator reset behavior, not physical warm-reset evidence. Two isolated
+runs produce identical canonical parsed native JSON with SHA-256
+<code>bb4b38d444692b5136d96264fa3acf9fe95ef2f6a1879ab72e9a2ad8077c1def</code>.
+[standard]</p>
+<h2 id="reusable-debugging-tools"><a class="header" href="#reusable-debugging-tools">Reusable debugging tools</a></h2>
+<p><code>tools/interrupt_controller.py</code> provides typed decoders, exact timer periods,
+clear-on-zero acknowledgement, ROM status-test order, USB active-low decoding,
+and immutable TilEm and MAME legacy-interrupt state models.
+<code>tools/describe_interrupt_controller.py</code> exposes focused CLI commands:
+[confirmed] for the ROM/public decoders; [standard] for the emulator model.</p>
+<pre><code class="language-sh">nix develop -c python tools/describe_interrupt_controller.py mask 0x0B
+nix develop -c python tools/describe_interrupt_controller.py status 0x8B
+nix develop -c python tools/describe_interrupt_controller.py config 0x06
+nix develop -c python tools/describe_interrupt_controller.py ack 0xF7 0x08
+</code></pre>
+<p>The trace command resolves mapper state, restricts output to interrupt ports, annotates each value, and collapses consecutive identical polls: [confirmed]</p>
+<pre><code class="language-sh">nix develop -c python tools/describe_interrupt_controller.py trace \
+  /tmp/tilem-power-cycle.trace --clock 97000000-101000000
+</code></pre>
+<p>Use <code>--all</code> to retain repeated ON-level polling and <code>--json</code> for machine-readable output.</p>
+<p><code>tools/wabbitemu_interrupt_probe.py</code> adds the pinned Wabbitemu timer-rate and
+edge oracle. Run its exact-ROM, hash-recording CLI with:</p>
+<pre><code class="language-sh">wabbit_interrupt_parent=$(mktemp -d /tmp/ti84-wabbit-interrupt.XXXXXX)
+python tools/run_wabbitemu_interrupt_edge_probe.py \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --output-dir "$wabbit_interrupt_parent/run" --json
+</code></pre>
+<p>The ROM is only a core-initialization fixture in this mode. No TI-OS
+instruction executes.</p>
+<p><code>tools/tilem_interrupt.py</code> supplies the typed direct-core report and checks it
+against the reusable TilEm state model. The guarded builder requires the exact
+clean source commit and tree. The runner requires the binary SHA-256 and
+refuses to reuse an output directory. The “Legacy interrupt matrix” section in
+<code>tools/dynamic-tracing.md</code> contains the reproduction commands.</p>
+<p><code>tools/tilem_link.py</code> checks the raw-activity and assist-interrupt transitions
+against the shared link model in <code>tools/link_port.py</code>. Its guarded builder and
+runner use the same clean-source and binary-hash requirements. The “Raw link
+and assist matrix” section in <code>tools/dynamic-tracing.md</code> contains the command.</p>
+<p><code>tools/mame_interrupt.py</code> parses the complete MAME report and checks it against
+the reusable state model. Its guarded CLI records the exact MAME, ROM, Lua,
+logs, and evidence scope:</p>
+<pre><code class="language-sh">mame_interrupt_parent=$(mktemp -d /tmp/ti84-mame-interrupt.XXXXXX)
+nix shell nixpkgs#mame --command python tools/run_mame_interrupt_probe.py \
+  --expected-mame-sha256 \
+    fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
+  --output-dir "$mame_interrupt_parent/run" --json
+</code></pre>
+<p><code>tools/mame_trace.py</code>, <code>tools/run_mame_io_trace.py</code>, and <code>tools/mame_io_trace.lua</code> provide the equivalent headless MAME path. The Lua tap accepts comma-separated ports and ranges, collapses identical polls, records post-I/O PCs, and can inject ON at selected video frames: [confirmed]</p>
+<pre><code class="language-sh">nix shell nixpkgs#mame -c python tools/run_mame_io_trace.py \
+  --seconds 2 --ports 03-04,55-56 \
+  --on-press-frame 30 --on-release-frame 34
+</code></pre>
+<p>MAME prints a checksum warning for the locally assembled ROM and identifies the expected and actual hashes. Keep that warning with captured evidence.</p>
+<h2 id="resolved-findings-and-open-hardware-tests"><a class="header" href="#resolved-findings-and-open-hardware-tests">Resolved findings and open hardware tests</a></h2>
+<ul>
+<li>[confirmed] OS 2.55MP tests USB activity before reading legacy status, but ports <code>0x55</code>/<code>0x56</code> remain separate from ports <code>0x03</code>/<code>0x04</code>.</li>
+<li>[confirmed] The port-<code>0x04</code> test order is programmable timer 3, timer 1, timer 2, standard timer 2, link, ON, then standard timer 1.</li>
+<li>[confirmed] The OS acknowledgement sequence is <code>0x08</code> → handler-supplied byte → <code>0x0B</code> or <code>0x0F</code>.</li>
+<li>[confirmed] Shutdown writes <code>0x11</code> and executes <code>HALT</code>; the trace wakes through port-<code>0x04</code> value <code>0x01</code> after an ON press.</li>
+<li>[standard] Programmable completion bits remain observable independently of their interrupt-mode bits.</li>
+<li>[standard] The guarded TilEm run verifies stored mask readback, both clear-on-zero paths, ON press and release latches, both timer-2 callbacks, link transitions, programmable-timer HALT gating, and the reset readback/internal-policy mismatch.</li>
+<li>[standard] The guarded TilEm link run independently verifies raw activity, assist idle and receive requests, data acknowledgement, and interrupt-only acknowledgement of a retained error flag.</li>
+<li>[standard] The guarded Wabbitemu run verifies complete mask readback, ON clearing, strict standard-timer expiry, both standard-timer acknowledgement paths, programmable completion readback, and its LCD-based low-power approximation.</li>
+<li>[standard] The guarded Wabbitemu USB run verifies its active-low line/protocol summary, mask-independent line event, and repeat-event path. It does not verify the ROM dispatcher or physical USB interrupt behavior.</li>
+<li>[standard] The guarded MAME run verifies shared status reads, three-bit mask behavior, direct port-<code>0x02</code> status injection, press-only ON sampling, both standard-timer pending bits within scheduled frames, and interrupt-field retention across soft reset.</li>
+<li>[hypothesis] Physical TA2 and TA3 tests should measure ON request edges, link wake transitions, simultaneous legacy-source coalescing, programmable-timer wake behavior, and battery-selector thresholds.</li>
+</ul>
+<h2 id="sources"><a class="header" href="#sources">Sources</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Source</th><th>Used for</th></tr>
+</thead>
+<tbody>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:03">WikiTI port <code>0x03</code></a></td><td>enable mask, clear-on-zero acknowledgement, normal value, and low-power-on-<code>HALT</code> contract</td></tr>
+<tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:04">WikiTI port <code>0x04</code></a></td><td>read-status fields, write controls, timer formula, and programmable completion distinction</td></tr>
+<tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_init.c"><code>x4_init.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/keypad.c"><code>keypad.c</code></a>, <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/link.c"><code>link.c</code></a>, and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/timers.c"><code>timers.c</code></a></td><td>legacy latches, reset ordering, ON/link edges, timer completion, <code>HALT</code> policy, and disconnected USB values</td></tr>
+<tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code></a></td><td>independent standard-interrupt, mapping, ON, timer, and low-power implementation</td></tr>
+<tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>TI-84 Plus machine status, I/O map, interrupt masks, standard timers, programmable timers, and fixed USB reads</td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth interrupt-mask, timer, ON, link, halted-state, and fixed-USB implementation</td></tr>
+<tr><td>Local OS 2.55MP page-0 bytes</td><td>entry, gates, test order, handlers, acknowledgement, and exit</td></tr>
+<tr><td><code>/tmp/tilem-power-cycle.trace</code></td><td>shutdown and ON-wake execution sequence</td></tr>
+</tbody>
+</table>
+</div>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="bcall-mechanism.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="clock-timers-power.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="bcall-mechanism.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="clock-timers-power.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-09f2665d.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
+        <script src="hljs-z80-e93ac716.js"></script>
+        <script src="katex-5e4f3b03.min.js"></script>
+        <script src="katex-auto-render-bb53eb95.min.js"></script>
+        <script src="katex-init-5efd21f9.js"></script>
+        <script src="pseudocode-695903c6.min.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
+
+
+
+    </div>
+    </body>
+</html>
