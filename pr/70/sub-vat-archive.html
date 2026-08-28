@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-de5f80e1.js";
+            window.path_to_searchindex_js = "searchindex-47f51819.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -235,9 +235,17 @@ pointer from the last lookup (<code>_Arc_Unarc</code> does <code>LD (981C),HL</c
 read/write routines are copied to run (you cannot execute from a Flash page while erasing it).</p>
 <hr>
 <h2 id="_findsym-and-vat-traversal-confirmed"><a class="header" href="#_findsym-and-vat-traversal-confirmed"><code>_FindSym</code> and VAT traversal [confirmed]</a></h2>
-<p><code>_FindSym</code> (<code>00:0E65</code>, = <code>RST 10h</code>) is a page-0 trampoline that cross-page-jumps to the real scanner
-<code>findsym_scan</code> @ <code>07:565F</code>. <code>_ChkFindSym</code> (<code>00:0E60</code>) first type-checks OP1 (<code>_CkOP1Real</code>)
-then falls into FindSym.</p>
+<p><code>_FindSym</code> (<code>00:0E65</code>, also reached through <code>RST 10h</code>) cross-page-jumps to
+<code>findsym_scan</code> at <code>07:565F</code>. That body calls the name classifier at <code>ram:20D6</code>.
+Length-prefixed names jump to <code>07:55D1</code>; fixed-token names continue at
+<code>07:5665</code>. <code>_FindSym</code> therefore handles both encodings when OP1 is formed
+correctly. [confirmed]</p>
+<p><code>_ChkFindSym</code> (<code>00:0E60</code>) calls the helper at <code>ram:2042</code>. The helper recognizes
+<code>AppVarObj</code>, <code>GroupObj</code>, <code>ProgObj</code>, <code>TempProgObj</code>, and <code>ProtProgObj</code>, then routes
+those classes directly to <code>07:55D1</code>. Other classes fall through the <code>_FindSym</code>
+entry. TI’s SDK recommends <code>_ChkFindSym</code> for Programs and AppVars; that public
+contract does not imply that this ROM’s <code>_FindSym</code> body lacks the named-object
+branch. [confirmed] for the ROM; [standard] for the SDK contract.</p>
 <p>The scanner keys off <code>OP1</code> at <code>8478</code>: <code>OP1.value.type</code>/<code>varType</code> and the name token at <code>8479</code> (=OP1+1),
 with the 2 name bytes at <code>847A</code>/<code>847B</code>:</p>
 <pre><code class="language-z80">findsym_scan (07:565F):
