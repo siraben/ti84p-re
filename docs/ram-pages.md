@@ -162,13 +162,43 @@ reported hardware revision. [confirmed]
 
 ## Per-page trace coverage
 
-The boot/home and `2+3` **ENTER** traces exercise startup, homescreen
-initialization, display capture, parsing, evaluation, and previous-entry
-storage. Separate traces cover graph drawing, a resident `_GetKey` wait
-interrupted by **ON**, and an OS error dialog. They do not exercise APD timeout,
-app launch, USB transfer, variable receive, archive cleanup,
-table/statistics/program editors, or a 48 KiB ASIC. Within the baseline scope,
-physical RAM-page writes for the executed selectors are:
+Eleven cold-reset, key-driven TilEm traces exercise startup, home evaluation,
+graph drawing, an error dialog, and matrix/list/statistics functions. They also
+cover program creation and archiving, the **Y=** and table editors, the
+**APPS** menu, and the **STAT** list editor. The selector analyzer reads every
+instruction and paging `OUT` in each complete `0000-FFFF` trace. It observed
+only selectors `80`–`83` across `37,285,626` instructions and `111,091` paging
+outputs:
+
+| Workflow | Instructions | Paging outputs | Normalized RAM selectors and counts |
+|---|---:|---:|---|
+| Boot idle | `1,753,714` | `4,480` | `80` (3), `81` (3), `82` (1), `83` (144) |
+| Home `2+3` | `2,222,816` | `5,559` | `80` (3), `81` (3), `82` (1), `83` (277) |
+| Graph Y1=X² | `7,136,174` | `18,863` | `80` (3), `81` (3), `82` (1), `83` (144) |
+| Divide-by-zero dialog | `2,336,448` | `5,557` | `80` (3), `81` (3), `82` (1), `83` (272) |
+| `randM(3,3)` | `3,533,102` | `10,266` | `80` (3), `81` (3), `82` (1), `83` (339) |
+| `seq(` list | `4,094,469` | `16,370` | `80` (3), `81` (3), `82` (1), `83` (345) |
+| `normalcdf(` | `2,751,741` | `9,621` | `80` (3), `81` (3), `82` (1), `83` (146) |
+| Program creation and archiving | `4,013,157` | `12,547` | `80` (3), `81` (3), `82` (1), `83` (661) |
+| **Y=** and table editors | `5,016,353` | `16,473` | `80` (3), `81` (3), `82` (1), `83` (80) |
+| **APPS** menu | `1,959,255` | `4,987` | `80` (3), `81` (3), `82` (1), `83` (208) |
+| **STAT** list editor | `2,468,397` | `6,368` | `80` (13), `81` (13), `82` (1), `83` (272) |
+
+A separate ROM scan covers all nine computed selector sites. It finds no
+immediate-load sequence of `LD A,n` followed by `OUT` for selectors `84`–`87`,
+including values with ignored selector bits. [confirmed]
+
+This matrix does not cover APD timeout, USB/link transfer, variable receive,
+forced archive garbage collection, execution inside a Flash App, or a physical
+48 KiB ASIC. The absence of selectors `84`–`87` is therefore bounded to these
+normal workflows; it is not a whole-OS unreachability proof. The generic pair
+helpers still accept `B = 2` or `B = 3`, which would select `84`/`85` or
+`86`/`87`.
+[confirmed] for the traces and static instruction forms; [hypothesis] that no
+other normal OS workflow supplies those values.
+
+Within the older boot/home baseline, mapped RAM-page writes for the executed
+selectors are:
 
 | RAM selector | Idle trace writes | `2+3` **ENTER** trace writes | Interpretation |
 |--------------|-------------------|--------------------------|----------------|
@@ -177,9 +207,9 @@ physical RAM-page writes for the executed selectors are:
 | `82` | No writes observed | No writes observed | Port `0x05` briefly selects raw value `02`, but the observed store uses selector `83` in bank B. [confirmed] |
 | `83` | `1882` writes to `43D9-44BD` and `5A7E-5DF2` | `3467` writes to `4373-4390`, `43D9-44BD`, `577E-5790`, and `5A7E-5DF2` | Shared OS scratch and state. See the range table below. [confirmed] |
 
-The traces never select `84`–`87`. That absence describes these scenarios; it does
-not establish how the selectors behave. Under the public 48 KiB contract, selectors
-`82`–`87` share one physical block rather than six independent pages. [standard]
+The traces never select `84`–`87`. That absence does not establish how the
+selectors behave. Under the public 48 KiB contract, selectors `82`–`87` share
+one physical block rather than six independent pages. [standard]
 
 The graph scenario in `tools/macros/graph-y1-x2.macro` reaches the graph screen and
 still only writes pages `80`, `81`, and `83`. It increases normal page-`80`/`81`
@@ -217,10 +247,10 @@ in a normal workflow." These paths are confirmed or have a concrete next scenari
 | `83` display capture | Run `boot-idle.macro` or `graph-y1-x2.macro`. | Ghidra shows `_SaveDisp` (`39:5DD8`) calls `lcd_read_block` (`ram:1890`) at the `39:5E03` call site; coverage hits both, and writes `5A7E-5D7D`. [confirmed] |
 | `83` homescreen previous-entry history | Run `home-2plus3.macro`. | The trace adds `577E-5790`, advances `lastEntryPTR` from `577E` to `5791`, and sets `numLastEntries` to `01`. [confirmed] |
 | `83` expression scratch copy | Run `home-2plus3.macro`. | The trace adds `4373-4390` through `flash_copy_block`; its page-select instruction is at `+0x14` (`ram:187C`). [confirmed] |
-| `83` split-screen/table copy | Enter a split-screen/table workflow that calls `screen_split`. | Ghidra shows `screen_split` at `05:7712` calls `flash_copy_block` at `05:772A`; this path is not hit by the current macros. [confirmed] |
-| `83` edit-buffer initialization | Enter an edit-buffer workflow that reaches `editbuf_init_buf`. | Ghidra shows `editbuf_init_buf` at `03:6BC4` calls `flash_copy_block` at `03:6BCD`; this path is not hit by the current macros. [confirmed] |
-| `83` app-menu state restore | Open an app/menu workflow that reaches `mnu_restore_app_state`. | Ghidra shows `mnu_restore_app_state` at `39:6D96` calls `flash_copy_block` at `39:6DA0`; this path is not hit by the current macros. [confirmed] |
-| `84`–`87` independent pages | Use a forced RAM-page probe or a ROM path that passes pair index `2` or `3` to the computed bank-pair helper. | The ROM can compute these selectors, but raw immediate selector scans and current traces do not show a normal OS path selecting or writing them. [hypothesis] |
+| `83` split-screen/table copy | Enter a split-screen/table workflow that calls `screen_split`. | Ghidra shows `screen_split` at `05:7712` calls `flash_copy_block` at `05:772A`; the bounded selector matrix does not establish that this exact callee ran. [confirmed] |
+| `83` edit-buffer initialization | Enter an edit-buffer workflow that reaches `editbuf_init_buf`. | Ghidra shows `editbuf_init_buf` at `03:6BC4` calls `flash_copy_block` at `03:6BCD`; the bounded selector matrix does not establish that this exact callee ran. [confirmed] |
+| `83` app-menu state restore | Open an app/menu workflow that reaches `mnu_restore_app_state`. | Ghidra shows `mnu_restore_app_state` at `39:6D96` calls `flash_copy_block` at `39:6DA0`; the bounded selector matrix does not establish that this exact callee ran. [confirmed] |
+| `84`–`87` independent pages | Use a forced RAM-page probe or a ROM path that passes pair index `2` or `3` to the computed bank-pair helper. | Nine byte-guarded ROM sites can compute these selectors, but the complete eleven-workflow matrix and immediate-selector scan do not observe them. [confirmed] for that bounded result; [hypothesis] for other normal paths. |
 
 The computed bank-pair helpers use this selector formula:
 
@@ -233,10 +263,10 @@ The computed bank-pair helpers use this selector formula:
     OUT (7),A        ; pair index 0/1/2/3 -> pages 81/83/85/87 in bank B
 ```
 
-Decoded callers set `B = 1`, selecting pages `82/83`; that explains the observed
-`port 5 = 02`, `port 7 = 83` sequence. Selectors `84`–`87` are reachable through the
-helper but are not selected on any observed OS path [hypothesis]. The `B = 1`
-caller pattern is confirmed for the decoded callers above. [confirmed]
+The matrix executes `37:44CC` with `B = 1`, selecting pages `82`/`83`, in every
+workflow. The STAT editor also executes `05:5B68` five times with `B = 0`.
+Selectors `84`–`87` remain reachable through the helpers but are absent from
+the bounded matrix. [confirmed]
 
 ## Page `83` use [standard]
 

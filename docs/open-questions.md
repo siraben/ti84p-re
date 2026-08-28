@@ -164,9 +164,10 @@ are documented. The following cases remain unresolved:
 - Isolate scratch-buffer writes by bcall. Complete a successful
   `_DisableApd`/`_DelRes` guard run through `_GetKey`, ON-key handling, an OS
   error, APD, archive collection, link/USB, and shell interrupts.
-- Run RAM-selector `0x83` guards through editor, graph, table, statistics, App,
-  archive-GC, and transfer contexts. Probe selectors `0x84`–`0x87` on
-  identified 48 KiB and 128 KiB calculators.
+- Run RAM-selector `0x83` guards through forced archive-GC, transfer, APD, and
+  execution inside a Flash App. Probe selectors `0x84`–`0x87` on identified
+  48 KiB and 128 KiB calculators; the bounded emulator matrix of normal
+  workflows does not observe those selectors.
 - Measure execution-protection ports and reset behavior on each ASIC. Recover
   Fullrene from an original artifact and test instruction fetch, operand read,
   stack access, and block copy at the same physical addresses.
