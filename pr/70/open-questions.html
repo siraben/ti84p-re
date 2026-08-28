@@ -1,0 +1,503 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Open questions and roadmap - TI-84 Plus OS — Reverse Engineering</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="katex-383e7b8d.min.css">
+        <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-45daf8f5.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-d9f1b932.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">TI-84 Plus OS — Reverse Engineering</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/siraben/ti84p-re" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="open-questions-and-roadmap"><a class="header" href="#open-questions-and-roadmap">Open questions and roadmap</a></h1>
+<p>The major ROM and hardware subsystems are mapped well enough to support focused
+follow-up work. This page records the audit boundary and the evidence needed to
+resolve the remaining behavior. Detailed reconstructions and emulator
+comparisons remain on the subsystem pages linked below.</p>
+<h2 id="static-analysis-work"><a class="header" href="#static-analysis-work">Static-analysis work</a></h2>
+<h3 id="symbol-types"><a class="header" href="#symbol-types">Symbol types</a></h3>
+<p>The Ghidra model assigns <code>TIKeyCode</code> to <code>kbdKey</code>, <code>kbdGetKy</code>, and <code>keyExtend</code>
+(<code>0x8444</code>–<code>0x8446</code>), and <code>TIError</code> to <code>errNo</code> (<code>0x86DD</code>). <code>TIVarType</code> remains
+on <code>curType</code> and <code>varType</code>. <code>stat_calc_command</code> remains inside the typed
+<code>SystemFlags</code> span. [confirmed]</p>
+<h3 id="floating-point-table-semantics"><a class="header" href="#floating-point-table-semantics">Floating-point table semantics</a></h3>
+<p>The <code>_SinCosRad</code> recurrence is mechanically reconstructed. Phase 1 extracts one
+redundant BCD digit per row of <code>02:7201</code> by non-restoring modulo-1 subtraction
+or addition of the row aligned at $10^{-(k+1)}$. Phase 2 builds
+$b_0\cdot\prod_k(1+10^{-2k})^{\lfloor(11-d_k)/2\rfloor}$ from the digits. The
+row values approach $1 - s^2/3$ for the aligned scale $s = 10^{-(k+1)}$, but
+they do not reduce to a clean rotation identity. This suggests tuned or
+truncated constants. [confirmed]</p>
+<p>Remaining: the closed-form interpretation of the phase-1 digit map — which
+function of the reduced argument the digit string represents, and how phase 3
+combines it with the phase-2 product and the residual to assemble the result.
+A second traced input (e.g. <code>sin(0.5)</code>, digits <code>3,9,9,3,8,4,4,2</code>, residual
+$3.81\times10^{-9}$) is available to constrain the fit. See
+<a href="floating-point.html#_sincosrad-sine-and-cosine-in-radians-02733e-confirmed">Floating point</a>.</p>
+<h3 id="graph-raster-details"><a class="header" href="#graph-raster-details">Graph raster details</a></h3>
+<p>Find a natural flag state that routes <code>Circle(</code> through <code>_DrawCirc2</code>, then
+compare its 60 emitted segments with the statically decoded schedule. Separately,
+find and trace a natural caller of <code>_GrphCirc</code>, adding a direct-call interval
+boundary to the current <code>_CircCmd</code> trace reducer. Extend the function-mode
+traces to thick, shade, animate, and dotted styles; <code>Xres&gt;1</code>; multiple selected
+equations; and polar, parametric, and sequence modes. The coordinate rounding,
+two ordinary function witnesses, and the clear-flag page-33 Circle path are
+pinned in <a href="sub-graphing.html#evidence-summary-and-open-items">Graphing</a>.</p>
+<h3 id="table-evaluation"><a class="header" href="#table-evaluation">TABLE evaluation</a></h3>
+<p>Driver <code>05:6205</code> loops over seven visible rows and calls bcall ID <code>4741h</code> →
+<code>35:7C7C</code> for each row. The <code>_ParseInp</code> region executes once per row; <code>_StoX</code>
+does not execute during the fill. The Ask-mode bodies are also decoded.
+<code>Indpnt=Ask</code> prompts through the editor at <code>05:7303</code>, with an OPS continuation
+at <code>05:7329</code>, and finalizes the row through the value-cache shift at <code>05:6032</code>.
+<code>Depend=Ask</code> evaluates one requested cell through <code>05:637C</code>, with an OPS
+continuation at <code>05:644E</code>. Both mode tests honor an override check at <code>05:74BE</code>.
+The <code>TblRng</code> validation at <code>38:72DA</code> and <code>38:7260</code> reduces to parse-boundary
+checking: the range variable must be followed by a legal statement delimiter.
+[confirmed]</p>
+<p>No remaining items for this subsystem.</p>
+<h3 id="statistics-command-families"><a class="header" href="#statistics-command-families">Statistics command families</a></h3>
+<p>The regression <code>r</code>/<code>r²</code> cluster is byte-pinned: <code>3A:6845</code>–<code>3A:6891</code> forms
+<code>r = num/den</code>, stores it to <code>Corr</code> (<code>_Sto_StatVar</code> id <code>0x12</code>), accumulates a
+column-weighted residual sum over the augmented matrix, and — when the
+denominator is nonzero — stores <code>r²</code> (id <code>0x35</code>, slot <code>0x8C05</code>) or <code>R²</code>
+(id <code>0x36</code>, slot <code>0x8C0E</code>). [confirmed]</p>
+<p>The STAT-TESTS engine occupies <code>3A:4A00</code>–<code>3A:7E60</code>. A raw operand scan finds
+about 50 candidate <code>PStat</code>–<code>SStat</code> references in that window. Byte-pinned
+evidence includes a T-Test output stage at <code>3A:5500</code> that stores <code>TStat</code> (id
+<code>0x24</code>), the Zelen–Severo normal-tail coefficient table at
+<code>3A:554F</code>–<code>3A:5584</code>, and the test-editor descriptor tables at
+<code>3A:7D00</code>–<code>3A:7E60</code>. The <code>normalcdf(</code> evaluation reaches the page-<code>39</code>
+floating-point core at <code>39:4A02</code>–<code>39:4F5B</code> and its helpers. [confirmed]</p>
+<p>Remaining: the per-test entry addresses (the parser’s execution dispatch into
+the page-<code>3A</code> engine — the page-<code>38</code> table is parse-side only), the
+menu-slot mapping of the <code>3A:7DF4</code> pointer array, and the algorithm identity
+of the page-<code>39</code> core. See <a href="sub-statistics.html#remaining-questions">Statistics</a>.</p>
+<h3 id="mathprint-runtime-paths"><a class="header" href="#mathprint-runtime-paths">MathPrint runtime paths</a></h3>
+<p>The action byte entering <code>eqdisp_layout_main</code> (<code>39:4F9A</code>) is a raw TI key code:
+<code>kLeft</code> opens the backward-walk path (<code>CP 2</code> at <code>39:5048</code>) and <code>kAlphaDown</code>
+opens window advance (<code>CP 8</code> at <code>39:507C</code>), which loops <code>CALL 39:5167</code>. The
+<code>kAlphaUp</code>/<code>kAlphaDown</code> codes come from a translator at <code>39:53A1</code> — get-key
+variant bcall ID <code>4A68h</code>, compare against <code>0xFB</code>, state byte <code>0x8446</code> selects up
+vs down. In-slot character scrolling bypasses <code>eqdisp_layout_main</code> entirely, as
+does nested-template insertion. [confirmed]</p>
+<p>Remaining: make get-key return <code>0xFB</code> inside a template editor state — neither
+sequential ALPHA-then-arrow keystrokes nor overlapping press/release chords do.
+Once it does, <code>39:5167</code>, its callees <code>39:5949</code>/<code>39:5B10</code>/<code>39:5B1D</code>, and the
+saved-operand dispatch through <code>39:59E0</code>/<code>39:59F9</code> to <code>_FindAlphaUp</code>/
+<code>_FindAlphaDn</code> become traceable; arbitrary VAT sequences and the two extension
+bytes in the page-<code>07</code> 11-byte OP scratch registers also remain open. See
+<a href="sub-equation-display.html#from-live-editor-state-to-settled-drawing">Equation display</a>.</p>
+<h3 id="matrix-and-list-paths"><a class="header" href="#matrix-and-list-paths">Matrix and list paths</a></h3>
+<p>Plain <code>augment(</code> enters the partial-pivoting engine at <code>02:4663</code> but never
+eliminates: the <code>0x91</code> branch sets carry (<code>02:6361 SCF</code>, restored by the
+<code>POP AF</code> at <code>02:6378</code>), and the engine gates its elimination body on that flag
+(<code>46DA POP AF</code><br><code>JR C,46EF</code>). The elimination pass belongs to the statistics
+regression path, which enters the same dispatcher through <code>3A:6398</code>. [confirmed]</p>
+<p>The <code>randM(</code> fill is decoded: <code>02:5CC1</code>–<code>02:5CE6</code> computes <code>int(19·rand)−9</code> per
+cell, drawing from <code>_Random</code> (<code>36:7DC9</code>) through the page 0 banked-call stub
+at <code>ram:392D</code>. The <code>ref(</code> driver dispatches at <code>02:609A</code> via bcall ID <code>4B85h</code>
+→ <code>35:7995</code>; the <code>rref(</code> executor runs through bcall ID <code>4B88h</code> → <code>02:7C23</code>
+from page-38 stubs at <code>38:514F</code>/<code>38:5157</code>; <code>SortA(</code>/<code>SortD(</code> share one body at
+<code>02:652F</code> with direction discriminators <code>0x0E</code>/<code>0x10</code>. The <code>seq(</code> collection is
+traced per element: entry <code>37:6E87</code>, expression eval through the standard
+parser, element append via <code>02:69BC</code> → <code>37:4260</code>–<code>37:4285</code>, list growth via page-<code>07</code>
+VAT routines, final <code>_CreateRList</code> through <code>37:70DC</code>. [confirmed]</p>
+<p>No remaining items for this subsystem.</p>
+<h3 id="parser-and-archive-residuals"><a class="header" href="#parser-and-archive-residuals">Parser and archive residuals</a></h3>
+<p>The <code>Asm(</code>/<code>AsmPrgm</code> setup before the <code>ram:9D95</code> payload handoff is
+byte-pinned at <code>07:5762</code>–<code>57D4</code>: <code>_ChkFindSym</code>, size checks against <code>0x2000</code>,
+<code>_InsertMem</code> growth of <code>userMem</code>, <code>LDIR</code> payload copy, USB port-<code>0x20</code> state
+save, cleanup handler <code>0x5800</code>, and the <code>07:57FD</code> jump to <code>0x9D95</code>. The entry
+gate compares the second body byte to <code>6D</code> (<code>07:5772</code>, <code>FE 6D</code>), while working
+fixtures emit <code>AsmPrgm</code> as <code>BB 6C</code> and still reach the payload — reconciling
+the gate byte remains open. [confirmed]</p>
+<p>Remaining: the meaning of the loop-record state word (it varies per fixture:
+<code>0012h</code> in one trace, <code>0007h</code> in another) and the per-iteration split between
+<code>parse_end_ops_record</code> re-entry and direct continuation jumps for <code>While</code>/
+<code>Repeat</code>. The record shapes themselves are pinned: all three loops share the
+5-byte form <code>00 | continuation word | state word</code>, with <code>For(</code> continuations
+<code>38:5836</code>/<code>38:587D</code> and the <code>While</code>/<code>Repeat</code> runtime continuation <code>38:57E7</code>.
+[confirmed]</p>
+<p>Also open: a direct assembly-to-TI-BASIC program-call entry beyond VAT lookup
+and the cooperative <code>Ans</code> callback. The generated <code>ZZRUN</code> negative probe
+resolves <code>prgmOO</code>, sets the observed parser interval, and enters <code>38:6910</code>, but
+the carry-guarded run terminates at <code>_ErrSyntax</code> (<code>ram:2700</code>) with the cursor
+inside the target body. An 80-byte layout of the same probe ended at
+<code>_ErrArgument</code> (<code>ram:2711</code>), so the terminal error depends on state outside the
+copied name and cursor interval. The remaining gap is the native caller’s
+stack, error-handler, FPS/OPS, and run-state setup around that private entry.
+[confirmed]</p>
+<p>The group receive path is resolved. Receiving a <code>.8xg</code> stores each member as an
+individual variable through the standard link variable-receive loop; no
+<code>0x17</code> object or page-<code>07</code> guard is involved. A mixed group confirms that the
+receiver honors the archive attribute per member. <code>HELLO</code> lands on Flash page
+<code>08</code>, while <code>FACTOR</code> remains in RAM. Invoking the archived program takes the
+page-byte guard to <code>ERR:ARCHIVED</code>. See
+<a href="sub-vat-archive.html#resolved-behavior-and-open-items">Variables, archive and unarchive</a>.
+[confirmed]</p>
+<h2 id="resident-runtime-experiments"><a class="header" href="#resident-runtime-experiments">Resident-runtime experiments</a></h2>
+<p>The compiled <code>Asm(</code> launcher, its <code>0x2000</code> internal-size cap, pointer repair,
+archived lookup, scratch-buffer observations, and normal bank-A bcall restore
+are documented. The following cases remain unresolved:</p>
+<ul>
+<li>Repeat the completed direct, unarchived compiled-launch heap snapshot under
+<code>_ExecAsm</code>, archived OS paths, and shell paths with boundary-size programs.</li>
+<li>Isolate scratch-buffer writes by bcall. Complete a successful
+<code>_DisableApd</code>/<code>_DelRes</code> guard run through <code>_GetKey</code>, ON-key handling, an OS
+error, APD, archive collection, link/USB, and shell interrupts.</li>
+<li>Run RAM-selector <code>0x83</code> guards through editor, graph, table, statistics, App,
+archive-GC, and transfer contexts. Probe selectors <code>0x84</code>–<code>0x87</code> on
+identified 48 KiB and 128 KiB calculators.</li>
+<li>Measure execution-protection ports and reset behavior on each ASIC. Recover
+Fullrene from an original artifact and test instruction fetch, operand read,
+stack access, and block copy at the same physical addresses.</li>
+<li>Repeat the direct-<code>Asm(</code> maximum-AppVar measurement with representative VAT
+states. Measure the same limit under shell move loaders and one- and
+multi-page Flash Apps.</li>
+<li>Force Flash-page, sector, and garbage-collection crossings while streaming an
+archived object. Reacquire its VAT result after each moving operation.</li>
+<li>Run one instrumented self-modifying payload under Ion, MirageOS, Doors CS, and
+zStart. Record peak RAM, self-lookup bytes, normal/error/forced-exit writeback,
+interrupt state, page selectors, and scratch restoration.</li>
+<li>Interrupt a two-slot AppVar update at each create, write, archive,
+garbage-collection, and delete boundary. Verify that startup selects the last
+committed generation.</li>
+</ul>
+<h2 id="physical-hardware-work"><a class="header" href="#physical-hardware-work">Physical-hardware work</a></h2>
+<p>The emulator pages distinguish ROM behavior from TilEm, Wabbitemu, and MAME
+behavior. The items below require calculator measurements; emulator agreement
+does not close them.</p>
+<h3 id="flash-commands-and-interrupted-collection"><a class="header" href="#flash-commands-and-interrupted-collection">Flash commands and interrupted collection</a></h3>
+<p>The Flash workers, top-boot geometry, archive-sector rotation,
+certificate-sector journal, and all six ROM-written collector phases are
+reconstructed. Cold TilEm and pinned Wabbitemu restart tests cover each phase,
+but do not establish physical timing or power-loss guarantees. [confirmed]</p>
+<p>On physical calculators:</p>
+<ul>
+<li>measure legal and illegal <code>0→1</code> programming, DQ toggle cadence, program and
+erase durations, erase suspend, and busy reads at all four top-boot boundaries;</li>
+<li>force DQ5 failure with <code>DE</code> first in Flash and then in restoring scratch RAM
+to test the worker’s undocumented reset write; and</li>
+<li>cut power at each phase boundary and during active program and erase commands.</li>
+</ul>
+<p>The reconstructed paths and emulator results are in <a href="flash-memory.html">Flash memory</a>
+and <a href="sub-vat-archive.html#flash-garbage-collector-confirmed">Variables, archive and unarchive</a>.</p>
+<h3 id="two-wire-link-and-usb"><a class="header" href="#two-wire-link-and-usb">Two-wire link and USB</a></h3>
+<p>Determine why the legacy backup path normalizes the restored system-flags word
+at <code>0x89F0</code> to <code>0x0063</code>. The destination, section bounds, checksum coverage, and
+affected indexed bits are pinned; the unresolved question is whether the value
+is a canonical post-restore state or a compatibility state. [confirmed]</p>
+<p>On physical calculators:</p>
+<ul>
+<li>measure port-<code>0x00</code> pull-ups, thresholds, rise times, both CPU-speed timeout
+durations, and the both-low pulse’s voltage and duration;</li>
+<li>run the read-only USB snapshot on identified TA2 and TA3 units, connected and
+disconnected, before testing ports <code>0x49</code>, <code>0x51</code>, and <code>0x52</code>;</li>
+<li>test the FDRC-family register hypothesis, port <code>0x4B</code>, and the port-<code>0x4F</code>/<code>0x50</code>
+setup sequence;</li>
+<li>capture port-<code>0x5A</code> presentation traffic to test the proposed two-byte
+endpoint-2 LCD packets and host-mode dependency; and</li>
+<li>exercise endpoint payload transfer and the connected boot receive path.</li>
+</ul>
+<p>The prepared <a href="hardware-probes.html#raw-two-wire-link-probe">raw two-wire link probe</a>
+measures digital settling but not analog voltage or pull-up behavior. See
+<a href="link-port-hardware.html#resolved-findings-and-open-hardware-tests">Two-wire link port hardware</a>,
+<a href="sub-link-transfer.html#open-items">Link transfer</a>, and
+<a href="sub-usb-asic.html#limits">USB ASIC and link assist</a>.</p>
+<h3 id="md5-accelerator"><a class="header" href="#md5-accelerator">MD5 accelerator</a></h3>
+<p>Run the <a href="hardware-probes.html#md5-edge-probe">MD5 edge probe</a> on TA2 and TA3 units.
+Add reset-retention and I/O wait-state measurements. The valid 64-step path,
+boot API, TilEm and Wabbitemu models, and MAME’s missing port block are already
+reconciled in <a href="md5-hardware.html">MD5 accelerator and boot API</a>.</p>
+<h3 id="memory-mapper-overlays"><a class="header" href="#memory-mapper-overlays">Memory-mapper overlays</a></h3>
+<p>Determine whether ports <code>0x27</code> and <code>0x28</code> remain active in paired mode, whether
+the <code>0xFB64</code> cutoff exists in the ASIC, and whether forced
+<a href="execution-protection.html#mapping-and-forced-overlays">execution-protection overlays</a>
+follow the underlying window or a forced RAM page. The boot transition, selector
+modes, and emulator differences are in <a href="paging.html">Paging</a>.</p>
+<h3 id="bus-timing-and-lcd-controller"><a class="header" href="#bus-timing-and-lcd-controller">Bus timing and LCD controller</a></h3>
+<p>On TA2 and TA3 controller revisions:</p>
+<ul>
+<li>measure every port-<code>0x2E</code> access class, CPU-speed readback, and actual clock
+frequency;</li>
+<li>characterize port-<code>0x2D</code> low-power behavior and the port-<code>0x2F</code> mode-3 timer
+prescaler;</li>
+<li>measure LCD read-versus-write ready timing and controller-specific minimum
+delays; and</li>
+<li>test hidden-column bounds and status-read pointer behavior.</li>
+</ul>
+<p>Use the <a href="hardware-probes.html#memory-bus-timing-probe">memory-bus timing probe</a>,
+<a href="hardware-probes.html#prefix-m1-timing-probe">prefix-M1 probe</a>, and
+<a href="hardware-probes.html#programmable-timer-physical-probe">programmable-timer probe</a>.
+The established decode and emulator differences are in
+<a href="bus-timing.html">Bus timing and wait states</a> and
+<a href="lcd-hardware.html">LCD controller and display bus</a>.</p>
+<h3 id="asic-identity-ram-protection-and-gpio"><a class="header" href="#asic-identity-ram-protection-and-gpio">ASIC identity, RAM, protection, and GPIO</a></h3>
+<p>Run the <a href="hardware-probes.html#battery-level-probe">battery-level probe</a> and
+<a href="hardware-probes.html#raw-battery-selector-probe">raw battery-selector probe</a>
+through upward and downward voltage sweeps on TA1, TA2, and TA3 units. Correlate
+the <a href="hardware-probes.html#ram-alias-probe">RAM alias probe</a> results and port-<code>0x15</code>
+byte with PCB date and ASIC marking rather than assuming that a TA label fixes
+RAM capacity.</p>
+<p>Also test protected-register readback and high-value behavior, violation and
+warm/cold reset behavior, the <a href="hardware-probes.html#execution-protection-fetch-probes">execution-fetch suite</a>,
+port-<code>0x39</code> direction polarity, and port-<code>0x3A</code> electrical signals. See
+<a href="asic-status-gpio.html">ASIC status, identity, protection, and GPIO</a> and
+<a href="execution-protection.html">Execution protection</a>.</p>
+<h3 id="timers-keypad-and-interrupts"><a class="header" href="#timers-keypad-and-interrupts">Timers, keypad, and interrupts</a></h3>
+<p>On TA2 and TA3 units:</p>
+<ul>
+<li>distinguish timer divisors <code>33</code>/<code>328</code>/<code>3277</code> from the emulator values
+<code>32</code>/<code>327</code>/<code>3276</code>;</li>
+<li>test the port-<code>0x2F</code> prescaler, counter zero, first- versus second-expiry
+status bit 2, programmable-timer <code>HALT</code> behavior, disabled RTC reads, and
+rollover coherence;</li>
+<li>run the <a href="hardware-probes.html#keypad-settling-probe">keypad settling probe</a> with
+worst-case chords, then measure switch bounce and ON-key edges separately;</li>
+<li>determine which ON and link transitions wake low power; and</li>
+<li>test whether simultaneous legacy requests are coalesced by the port-<code>0x03</code>
+clear-on-zero sequence and which timer configurations wake <code>HALT</code>.</li>
+</ul>
+<p>See <a href="clock-timers-power.html">Clock, timers, and power</a>,
+<a href="keypad-on-hardware.html#resolved-findings-and-open-hardware-tests">Keypad and ON-key hardware</a>,
+and <a href="interrupts.html#emulator-comparison">Interrupts</a>.</p>
+<h2 id="closed-audit-boundary"><a class="header" href="#closed-audit-boundary">Closed audit boundary</a></h2>
+<p>The ROM-wide I/O census is complete. It classifies all 35 aligned
+non-descriptor immediate candidates and all 37 register/block-I/O opcode pairs;
+no unresolved immediate or computed-<code>C</code> candidate remains. [confirmed]</p>
+<h2 id="reproduction-paths"><a class="header" href="#reproduction-paths">Reproduction paths</a></h2>
+<p>Static work can extend the headless pipeline in <code>tools/</code> and rebuild with
+<code>tools/build.sh</code>. Regions the decompiler leaves unanalyzed should be reduced
+from raw bytes and reconciled with the generated database. Hardware work should
+use the restoring probes in <a href="hardware-probes.html">Hardware probes</a> and record the
+calculator revision, PCB date, and ASIC marking with each result.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="token-tables.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="token-tables.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-09f2665d.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
+        <script src="hljs-z80-e93ac716.js"></script>
+        <script src="katex-5e4f3b03.min.js"></script>
+        <script src="katex-auto-render-bb53eb95.min.js"></script>
+        <script src="katex-init-5efd21f9.js"></script>
+        <script src="pseudocode-695903c6.min.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
+
+
+
+    </div>
+    </body>
+</html>
