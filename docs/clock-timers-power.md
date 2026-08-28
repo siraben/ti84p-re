@@ -162,7 +162,7 @@ The keypad mechanism is covered in [Keypad and ON-key hardware](keypad-on-hardwa
 
 ### Auto Power Down timing
 
-`_ApdSetup = 4C93` has body `ram:03AE`. It reloads only the high byte: [confirmed]
+`_ApdSetup = 4C93h` has body `ram:03AE`. It reloads only the high byte: [confirmed]
 
 ```z80
 ; bytes 21 49 84 36 74 C9
@@ -189,17 +189,23 @@ $$
 N = d + 115 \times 256
 $$
 
-standard timer-1 ticks. The tick range is exact for the ROM counter arithmetic.
-The seconds and minutes below use the nominal 32.768 kHz oscillator. [confirmed]
-for the counter arithmetic; [standard] for the nominal wall-time conversion.
+standard timer-1 ticks. The ROM arithmetic gives the exact tick range.
+[confirmed]
 
-| Nominal quantity | Minimum | Maximum |
-|------------------|--------:|--------:|
+The seconds and minutes below use the nominal 32.768 kHz oscillator. [standard]
+
+| Quantity | Minimum | Maximum |
+|----------|--------:|--------:|
 | Timer ticks | 29,441 | 29,696 |
 | Seconds | 273.134277 | 275.500000 |
 | Minutes | 4.552238 | 4.591667 |
 
-The low byte's free-running phase explains the roughly 2.37-second spread after a reload. The high-byte constant alone therefore does not encode one exact number of minutes. [confirmed]
+The low byte's free-running phase gives the 255-tick span after a reload.
+[confirmed]
+
+This is nominally 2.37 seconds. [standard]
+
+The high-byte constant alone does not encode one exact tick count. [confirmed]
 
 On expiry, `ram:0374` performs display/context cleanup, clears `apdRunning`,
 sets `apdWarmStart`, and jumps to `poweroff_shared_tail` at `ram:0A24`.
@@ -211,14 +217,15 @@ sets `apdWarmStart`, and jumps to `poweroff_shared_tail` at `ram:0A24`.
 `cursor_blink_tick` decrements it, toggles `curOn` on expiry, and reloads the
 same value. [confirmed]
 
-At the OS standard-timer setting, the nominal visible-state interval is
-[confirmed] for the tick count and [standard] for wall time.
+Converting the 50-tick interval through the nominal standard-timer period gives
+the following wall time: [standard]
 
 $$
 50 \times \frac{304}{32768} = 0.4638671875\text{ seconds}
 $$
 
-A complete on/off cycle is 0.927734375 seconds. The run indicator has a separate counter at `0x8476`; it does not share the APD word. [confirmed]
+The nominal on/off cycle is 0.927734375 seconds. [standard] The run indicator
+has a separate counter at `0x8476`; it does not share the APD word. [confirmed]
 
 Pinned emulator schedulers produce different wall times from the same ROM
 counters. These rows apply the 29,441–29,696 APD ticks and 50-tick cursor toggle
@@ -673,7 +680,26 @@ not physical timer periods or retention. [standard]
 
 ## Reusable timer tools
 
-`tools/ti84re/hardware/timer.py` exposes exact rational source rates, first-expiry timing, callback outcomes, APD and cursor cadence, the ROM's radix-255 chunks, RTC implementation profiles, and the physical-probe discriminator. `tools/describe_timer_hardware.py` is a JSON-capable front end. The TilEm, Wabbitemu, and MAME report oracles validate native observations against reusable source models; `tools/jstified_hardware.py` supplies a separately hash-guarded source profile without claiming a native run. `tools/tilem_timer.py` adds the complete direct-core programmable-timer and deterministic RTC matrix. `tools/tilem_interrupt.py` adds direct standard-timer scheduling and programmable-timer HALT-gate observations. `tools/mame_interrupt.py` adds fixed standard-timer and reset-retention observations through the immutable MAME state in `tools/interrupt_controller.py`. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-`0x2D` implementation edges use `tools/wabbitemu_speed_probe.py` and its guarded CLI. `tools/run_wabbitemu_timer_physical_probe.py` executes the assembled physical discriminator through the shared injected-program runner. These are emulator-comparison tools, not physical-hardware simulators.
+`tools/ti84re/hardware/timer.py` exposes exact rational source rates, first-expiry
+timing, callback outcomes, APD and cursor cadence, the ROM's radix-255 chunks,
+RTC implementation profiles, and the physical-probe discriminator.
+`tools/ti84re/hardware/describe_timer.py` is its JSON-capable front end.
+
+The TilEm, Wabbitemu, and MAME report oracles validate native observations
+against reusable source models. `tools/ti84re/emulators/jstified.py` supplies a
+separately hash-guarded source profile without claiming a native run.
+`tools/ti84re/emulators/tilem/timer.py` adds the complete direct-core programmable-timer and
+deterministic RTC matrix. `tools/ti84re/emulators/tilem/interrupt.py` adds direct standard-timer
+scheduling and programmable-timer HALT-gate observations.
+`tools/ti84re/emulators/mame/interrupt.py` adds fixed standard-timer and reset-retention
+observations through the immutable MAME state in `tools/ti84re/hardware/interrupt_controller.py`.
+
+The guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope
+identities. CPU-speed and port-`0x2D` implementation edges use
+`tools/ti84re/emulators/wabbitemu/speed_probe.py` and its guarded CLI.
+`tools/ti84re/emulators/wabbitemu/run_timer_physical_probe.py` executes the assembled physical
+discriminator through the shared injected-program runner. These tools compare
+emulators; they do not simulate physical hardware.
 
 ```sh
 nix develop -c python3 -m ti84re.hardware.describe_timer \
@@ -688,11 +714,11 @@ nix develop -c python3 -m ti84re.hardware.describe_timer \
 nix develop -c python3 -m ti84re.hardware.describe_timer chunks 0x0100 0x0101
 nix develop -c python3 -m ti84re.hardware.describe_timer --json rtc
 
-nix develop -c python tools/describe_timer_hardware.py os-cadence \
+nix develop -c python3 -m ti84re.hardware.describe_timer os-cadence \
   --profile Documented --profile TilEm --profile Wabbitemu --profile MAME
 
 # Replace 32760 with a frequency measured on the target calculator.
-nix develop -c python tools/describe_timer_hardware.py os-cadence \
+nix develop -c python3 -m ti84re.hardware.describe_timer os-cadence \
   --profile Documented --crystal-hz 32760
 
 timer_probe_parent=$(mktemp -d /tmp/ti84-timer-probe.XXXXXX)
