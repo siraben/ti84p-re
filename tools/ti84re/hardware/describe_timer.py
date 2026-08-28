@@ -12,6 +12,7 @@ import sys
 from ti84re.hardware.timer import (
     TIMER_IMPLEMENTATION_PROFILES,
     decode_timer_source,
+    os_cadence,
     rom_timer_chunks,
     rom_timer_ticks,
     timer_duration,
@@ -21,6 +22,10 @@ from ti84re.hardware.timer import (
 
 def integer(value: str) -> int:
     return int(value, 0)
+
+
+def rational(value: str) -> Fraction:
+    return Fraction(value)
 
 
 def _profiles(values: list[str] | None) -> list[str]:
@@ -69,6 +74,13 @@ def build_parser() -> argparse.ArgumentParser:
     expiry.add_argument("--no-standard-timer", action="store_true")
 
     commands.add_parser("rtc", help="compare RTC implementation policy")
+
+    cadence = commands.add_parser(
+        "os-cadence", help="derive APD and cursor timing from the kernel tick"
+    )
+    cadence.add_argument("--profile", action="append")
+    cadence.add_argument("--crystal-hz", type=rational, default=Fraction(32_768))
+    cadence.add_argument("--apd-sub-timer", type=integer)
     return parser
 
 
@@ -128,6 +140,19 @@ def report(args: argparse.Namespace) -> dict[str, object]:
                         already_completed=args.already_completed,
                         halted=args.halted,
                         standard_timer_enabled=not args.no_standard_timer,
+                    )
+                )
+                for profile in _profiles(args.profile)
+            ]
+        }
+    if args.command == "os-cadence":
+        return {
+            "os_cadence": [
+                asdict(
+                    os_cadence(
+                        profile,
+                        crystal_hz=args.crystal_hz,
+                        apd_sub_timer=args.apd_sub_timer,
                     )
                 )
                 for profile in _profiles(args.profile)
@@ -197,6 +222,23 @@ def print_text(data: dict[str, object]) -> None:
                 f"interrupt={interrupt} running={row['running_after_expiry']}"
             )
             print(f"  {row['note']}")
+        return
+    if "os_cadence" in data:
+        for row in data["os_cadence"]:
+            print(f"{row['profile']} ({row['revision']})")
+            print(
+                f"  kernel tick={float(row['kernel_tick_period_seconds']):.12g} s; "
+                f"{row['clock_basis']}"
+            )
+            print(
+                f"  APD={row['apd_min_ticks']}-{row['apd_max_ticks']} ticks, "
+                f"{float(row['apd_min_seconds']):.12g}-"
+                f"{float(row['apd_max_seconds']):.12g} s"
+            )
+            print(
+                f"  cursor toggle={float(row['cursor_toggle_seconds']):.12g} s; "
+                f"cycle={float(row['cursor_cycle_seconds']):.12g} s"
+            )
         return
     for row in data["rtc"]:
         support = "mapped" if row["ports_0x40_0x48"] else "unmapped"
