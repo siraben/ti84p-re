@@ -73,6 +73,7 @@
             python3 -m tests.tifiles.test_fixture_tools
             python3 -m tests.wiki.test_wiki_style
             python3 -m tests.rom.test_symbol_tables
+            python3 -m tests.rom.test_enum_types
             python3 -m unittest \
               tests.tibasic.test_tibasic_coverage tests.tibasic.test_tibasic_for_paren \
               tests.tibasic.test_tibasic_saturation tests.tibasic.test_tibasic_numeric_errors \
