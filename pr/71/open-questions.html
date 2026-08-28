@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-27724e82.js";
+            window.path_to_searchindex_js = "searchindex-238a9834.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-359c0a17.js"></script>
@@ -288,14 +288,16 @@ The page-06 editor maintains left and right token spans around a movable gap,
 then hands accepted text to <code>38:5978</code> → <code>38:5B2B</code>. Four TilEm cases cover an
 empty retry, wrapped edit/cursor redraw, <strong>[ON]</strong> cleanup, <code>Prompt</code>, and the
 separate <code>Menu(</code> route. [confirmed]</p>
-<p>One ASM/BASIC residual remains. The bounded public-candidate search finds no
-standalone ASM-to-BASIC program-call ABI. T042 saves and restores the parser,
-VAT, FPS/OPS, flag, and error state; an incomplete direct call raises
-<code>E_DataType</code> before <code>38:6910</code>, while the ordinary <code>prgmNAME</code> caller reaches
-<code>38:6910</code>, <code>38:6914</code>, and <code>38:778F</code> and returns normally. A future experiment
-could construct every private grammar/type and return record, but doing so may
-only duplicate the ordinary BASIC caller. The supported route remains an ASM
-result through <code>Ans</code>, followed by a BASIC-owned <code>prgmNAME</code> call. [confirmed]</p>
+<p>The ASM/BASIC boundary is resolved within an exact bounded census. All 1,732
+main bcall slots, all 825 raw cross-page-call descriptors, and every direct
+edge in <code>38:4100</code>–<code>38:77FF</code> expose no separate ASM-to-BASIC program-call ABI.
+T042 saves and restores the parser, VAT, FPS/OPS, flag, and error state; an
+incomplete direct call raises <code>E_DataType</code> before <code>38:6910</code>, while the ordinary
+<code>prgmNAME</code> caller reaches <code>38:6910</code>, <code>38:6914</code>, and <code>38:778F</code> and returns
+normally. Fully constructing every private grammar/type and return record is
+the ordinary caller reproduced in ASM, not a distinct ABI. The supported route
+remains an ASM result through <code>Ans</code>, followed by a BASIC-owned <code>prgmNAME</code> call.
+[confirmed]</p>
 <p>The group receive path is resolved. Receiving a <code>.8xg</code> stores each member as an
 individual variable through the standard link variable-receive loop; no
 <code>0x17</code> object or page-<code>07</code> guard is involved. A mixed group confirms that the

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-27724e82.js";
+            window.path_to_searchindex_js = "searchindex-238a9834.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-359c0a17.js"></script>
@@ -634,13 +634,18 @@ hits <code>userMem</code>, <code>_OP1Set2</code> (<code>00:1B50</code>), <code>_
 <tr><td>ASM → BASIC callback</td><td>ASM stores a signal/result such as <code>Ans=1</code>, returns, and the BASIC wrapper conditionally runs <code>prgmNAME</code>.</td><td>BASIC must own the actual <code>prgm</code> call; this is cooperative, not an arbitrary ASM bcall into BASIC.</td></tr>
 <tr><td>ASM → BASIC value return</td><td>ASM stores a numeric result in <code>Ans</code> with <code>_StoAns</code>; BASIC resumes and evaluates <code>Ans</code>.</td><td>This returns data to BASIC, not control into a BASIC program body.</td></tr>
 <tr><td>ASM → VAT lookup</td><td><code>ASMFIND</code> builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym</code>.</td><td>Lookup is not execution; the wrapper returns and <code>ZZBASIC</code> does not display <code>CALLED</code>.</td></tr>
-<tr><td>Direct ASM → BASIC</td><td>No working public bcall sequence is proven in this repo.</td><td><code>ASMPARSE</code> reaches <code>_ParseInpLastEnt</code>/<code>_ParseInp</code> and then <code>ERR:INVALID</code>; <code>ASMFORM</code> reaches <code>_Find_Parse_Formula</code> and then <code>ERR:UNDEFINED</code>; <code>ZZRUN</code> reaches the private evaluator and then <code>ERR:SYNTAX</code>; forced-command/edit-buffer probes did not call the target BASIC program successfully.</td></tr>
+<tr><td>Direct ASM → BASIC</td><td>The bounded OS 2.55MP census finds no distinct callable ABI.</td><td>A private construction must reproduce the ordinary parser, VAT, FPS/OPS, error, and return records; supported applications should return to a BASIC-owned <code>prgmNAME</code> call.</td></tr>
 </tbody>
 </table>
 </div>
 <h3 id="asm-to-basic"><a class="header" href="#asm-to-basic">ASM to BASIC</a></h3>
-<p>Direct ASM-initiated BASIC program execution is not yet run-confirmed in this
-repository. Two apparent candidates are not that entry point:</p>
+<p>OS 2.55MP has no distinct public or private-funnel ABI for calling a BASIC
+program from arbitrary ASM within the bounded search described below. ASM can
+enter private parser addresses after constructing their state, but the required
+parser, VAT, FPS, OPS, error, and return records are the ordinary BASIC caller
+frame. Constructing all of them duplicates that caller rather than invoking a
+separate ABI. [confirmed]</p>
+<p>Four apparent public candidates are not that entry point:</p>
 <ul>
 <li><code>_ExecutePrgm</code> is the <code>AsmPrgm</code> executor reached by <code>Asm(prgmNAME)</code>, not a
 general “run a BASIC program” entry.</li>
@@ -649,6 +654,9 @@ from an arbitrary <code>AsmPrgm</code> either. It expects OS state beyond a name
 pointer.</li>
 <li><code>_ParsePrgmName</code> (<code>4E82</code>, target <code>38:40D4</code>) only consumes a <code>prgmNAME</code> token
 from the current parser cursor and builds the name object used by <code>Asm(</code>.</li>
+<li><code>_SetParseVarProg</code> (<code>4C5A</code>, target <code>3B:73F5</code>) preserves <code>AF</code>, stores <code>06h</code>
+at <code>basic_prog</code> (<code>ram:9652</code>), and returns. It constructs none of the caller
+frame.</li>
 </ul>
 <p>The confirmed BASIC subprogram path is different: the <code>CALLSUB</code>/<code>SUBRT</code> trace
 does not hit <code>_ParsePrgmName</code>, <code>_ExecutePrgm</code>, <code>_Find_Parse_Formula</code>, or
@@ -657,7 +665,7 @@ parser/VAT path, enters the program-body evaluator at <code>38:6914</code> →
 <code>38:778F</code>, and lets <code>Return</code> unwind to the caller. Calling that same machinery
 from arbitrary ASM requires more than loading OP1 and bcalling a single public
 entry; it needs the same parser cursor, stack, error, and run-state setup that a
-live BASIC caller already has. [hypothesis]</p>
+live BASIC caller already has. [confirmed]</p>
 <p>A typed two-program trace of <code>prgmPP</code> calling <code>prgmOO</code> captures the live parser
 frame at each <code>38:6914</code> entry through shadow-memory replay. The reproduction
 macro is <code>tools/macros/run-callsub-typed.macro</code>.</p>
@@ -767,11 +775,52 @@ hits <code>_ExecuteNewPrgm</code>, the copy tail at <code>00:268A</code>, and th
 It still ends at <code>ERR:SYNTAX</code> and never runs the target body. That makes
 <code>_ExecuteNewPrgm</code> another stateful OS helper, not a standalone program executor
 ABI for <code>AsmPrgm</code> payloads. [confirmed]</p>
-<p>The bounded public-candidate search covers <code>_ExecutePrgm</code>, <code>_ExecuteNewPrgm</code>,
-<code>_ParsePrgmName</code>, <code>_ParseInpLastEnt</code>, <code>_Find_Parse_Formula</code>, <code>_JForceCmd</code>,
-<code>_PutTokString</code>, and <code>_rclToQueue</code>. None is a standalone direct-call ABI.
-[confirmed] This is a scoped negative result, not proof that no private state
-construction can execute a token stream.</p>
+<h4 id="bounded-abi-census"><a class="header" href="#bounded-abi-census">Bounded ABI census</a></h4>
+<p><code>tools/asm_basic_call_audit.py</code> makes the negative result reproducible against
+the pinned ROM and a listing produced by
+<code>tools/ExportTiBasicInstructionStarts.java</code>. Its exhaustive bounds are:</p>
+<ul>
+<li>all 1,732 three-byte main bcall slots from <code>4000h</code> through <code>5449h</code>;</li>
+<li>all 825 raw <code>CALL 2B09h</code> cross-page-call descriptors in the 1 MiB ROM; and</li>
+<li>every direct control-flow edge in the disassembled page-38 parser region
+<code>38:4100</code>–<code>38:77FF</code>.</li>
+</ul>
+<p>None of the 1,732 public slots and none of the 825 cross-page descriptors
+targets <code>38:59C5</code>, <code>38:6910</code>, <code>38:6914</code>, or <code>38:778F</code>. Of the 95 public slots
+whose target is on page <code>38</code>, only six land in the conservative 613-instruction
+direct reverse slice of <code>38:778F</code>:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Bcall</th><th>Target</th><th>Role</th></tr>
+</thead>
+<tbody>
+<tr><td><code>_FetchQuotedString</code> (<code>4AF8</code>)</td><td><code>38:5E11</code></td><td>Consume a quoted parser operand.</td></tr>
+<tr><td><code>_ParseNameTokens</code> (<code>4AFE</code>)</td><td><code>38:5F4D</code></td><td>Parse name tokens within an existing expression.</td></tr>
+<tr><td><code>_ExecClassCToken</code> (<code>50D7</code>)</td><td><code>38:7010</code></td><td>Dispatch an existing class-C token.</td></tr>
+<tr><td><code>_ExecClass1Token</code> (<code>5215</code>)</td><td><code>38:6FEC</code></td><td>Dispatch an existing class-1 token.</td></tr>
+<tr><td><code>_HandleMathTokenParse</code> (<code>5218</code>)</td><td><code>38:6963</code></td><td>Continue an existing math-token parse.</td></tr>
+<tr><td><code>_RestartParseOP1Result</code> (<code>521E</code>)</td><td><code>38:5CA7</code></td><td>Resume parsing with an existing OP1 result.</td></tr>
+</tbody>
+</table>
+</div>
+<p>These are mid-parser helpers, not frame constructors. The exact incoming-edge
+census further narrows the private funnel: <code>38:59C5</code> has the local
+<code>38:5C03</code> jump and the <code>38:59C2</code> fallthrough; <code>38:6910</code> has the conditional
+<code>38:59CE</code> jump and <code>38:690D</code> fallthrough; <code>38:6914</code> follows <code>38:6911</code>; and
+only <code>38:6914</code> calls <code>38:778F</code>. [confirmed]</p>
+<p>The separate semantic-candidate experiments cover <code>_ExecutePrgm</code>,
+<code>_ExecuteNewPrgm</code>, <code>_SetParseVarProg</code>, <code>_ParsePrgmName</code>,
+<code>_ParseInpLastEnt</code>, <code>_Find_Parse_Formula</code>, <code>_JForceCmd</code>, <code>_PutTokString</code>, and
+<code>_rclToQueue</code>. They either execute compiled ASM, modify only part of parser or
+editor state, or enter the parser with a malformed caller frame. None is a
+standalone direct-call ABI. [confirmed]</p>
+<p>This is a scoped negative result for the complete public table, standard
+cross-page-call descriptors, and the declared page-38 direct graph on OS
+2.55MP. It does not claim that manually reproducing every private caller record
+cannot execute a token stream; that construction is specifically excluded
+because it is a reimplementation of the ordinary BASIC caller, not a distinct
+callable ABI.</p>
 <h4 id="private-frame-comparison"><a class="header" href="#private-frame-comparison">Private-frame comparison</a></h4>
 <p>The T042 probe compares an incomplete direct call with the ordinary caller in
 one reset-origin TilEm run. <code>ZZFRAME</code> saves four state groups before the
