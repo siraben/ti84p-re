@@ -7,10 +7,17 @@ from fractions import Fraction
 
 from ti84re.hardware.describe_timer import build_parser, report
 from ti84re.hardware.timer import (
+    APD_COUNTDOWN_SIGNATURE,
+    APD_HIGH_RELOAD,
+    APD_SETUP_SIGNATURE,
+    CURSOR_TOGGLE_TICKS,
     PHYSICAL_TIMER_MEASUREMENT_SIZE,
     TIMER_IMPLEMENTATION_PROFILES,
     decode_physical_timer_measurements,
     decode_timer_source,
+    apd_ticks_until_expiry,
+    kernel_tick_period,
+    os_cadence,
     rom_timer_chunks,
     rom_timer_ticks,
     timer_duration,
@@ -20,12 +27,71 @@ from ti84re.hardware.timer import (
 
 
 class TimerHardwareTests(unittest.TestCase):
+    def test_apd_signatures_decode_rom_addresses_and_reload(self):
+        self.assertEqual(bytes.fromhex("21 49 84 36 74 C9"), APD_SETUP_SIGNATURE)
+        self.assertEqual(0x8449, int.from_bytes(APD_SETUP_SIGNATURE[1:3], "little"))
+        self.assertEqual(0x74, APD_SETUP_SIGNATURE[4])
+        self.assertEqual(APD_SETUP_SIGNATURE[4], APD_HIGH_RELOAD)
+        self.assertEqual(
+            bytes.fromhex("21 48 84 35 C0 23 35 C0"),
+            APD_COUNTDOWN_SIGNATURE,
+        )
+        self.assertEqual(
+            0x8448, int.from_bytes(APD_COUNTDOWN_SIGNATURE[1:3], "little")
+        )
+        self.assertEqual(0x32, CURSOR_TOGGLE_TICKS)
+
+    def test_apd_phase_range_and_exact_phase(self):
+        self.assertEqual(29_441, apd_ticks_until_expiry(1))
+        self.assertEqual(29_696, apd_ticks_until_expiry(0))
+        self.assertEqual(29_568, apd_ticks_until_expiry(0x80))
+
+        exact = os_cadence("Documented", apd_sub_timer=0x80)
+        self.assertEqual(exact.apd_min_ticks, exact.apd_max_ticks)
+        self.assertEqual(29_568, exact.apd_min_ticks)
+
+    def test_nominal_os_cadence_is_exact(self):
+        cadence = os_cadence("Documented")
+        self.assertEqual(Fraction(304, 32_768), cadence.kernel_tick_period_seconds)
+        self.assertEqual(Fraction(559_379, 2_048), cadence.apd_min_seconds)
+        self.assertEqual(Fraction(551, 2), cadence.apd_max_seconds)
+        self.assertEqual(Fraction(3_800, 8_192), cadence.cursor_toggle_seconds)
+        self.assertEqual(Fraction(7_600, 8_192), cadence.cursor_cycle_seconds)
+
+    def test_physical_crystal_frequency_scales_documented_profile(self):
+        slow = os_cadence("Documented", crystal_hz=32_760)
+        nominal = os_cadence("Documented")
+        self.assertEqual(Fraction(304, 32_760), slow.kernel_tick_period_seconds)
+        self.assertGreater(slow.apd_min_seconds, nominal.apd_min_seconds)
+        self.assertIn("measured unit frequency", slow.clock_basis)
+
+    def test_emulator_os_cadence_uses_pinned_scheduler_rates(self):
+        tilem = os_cadence("TilEm")
+        wabbit = os_cadence("Wabbitemu")
+        mame = os_cadence("MAME")
+        self.assertEqual(Fraction(9_277, 1_000_000), tilem.kernel_tick_period_seconds)
+        self.assertEqual(Fraction(1, 108), wabbit.kernel_tick_period_seconds)
+        self.assertEqual(Fraction(1, 256), mame.kernel_tick_period_seconds)
+        self.assertEqual(Fraction(273_124_157, 1_000_000), tilem.apd_min_seconds)
+        self.assertEqual(Fraction(29_441, 108), wabbit.apd_min_seconds)
+        self.assertEqual(Fraction(29_441, 256), mame.apd_min_seconds)
+
+    def test_kernel_tick_rejects_invalid_inputs(self):
+        with self.assertRaises(ValueError):
+            kernel_tick_period("Documented", crystal_hz=0)
+        with self.assertRaises(ValueError):
+            kernel_tick_period("unknown")
+        with self.assertRaises(ValueError):
+            apd_ticks_until_expiry(0x100)
+
     def test_profiles_are_pinned_and_mame_has_no_rtc(self):
         self.assertEqual(
             4, len({profile.name for profile in TIMER_IMPLEMENTATION_PROFILES})
         )
         self.assertFalse(timer_implementation_profile("mame").rtc_ports)
         self.assertTrue(timer_implementation_profile("public").rtc_ports)
+        self.assertEqual("Documented", timer_implementation_profile("nominal").name)
+        self.assertEqual("Wabbitemu", timer_implementation_profile("wabbit").name)
 
     def test_documented_crystal_divisors_differ_from_wabbitemu_and_mame(self):
         documented = decode_timer_source("documented", 0x41)
@@ -126,6 +192,13 @@ class TimerHardwareTests(unittest.TestCase):
         )
         rows = report(args)["sources"]
         self.assertEqual([33, 32], [row["divisor"] for row in rows])
+
+        cadence_args = parser.parse_args(
+            ["os-cadence", "--profile", "Documented", "--apd-sub-timer", "0"]
+        )
+        cadence = report(cadence_args)["os_cadence"][0]
+        self.assertEqual(29_696, cadence["apd_min_ticks"])
+        self.assertEqual(cadence["apd_min_ticks"], cadence["apd_max_ticks"])
 
     def test_rejects_out_of_range_values(self):
         with self.assertRaises(ValueError):

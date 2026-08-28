@@ -77,7 +77,7 @@
               tests.tibasic.test_tibasic_coverage tests.tibasic.test_tibasic_for_paren \
               tests.tibasic.test_tibasic_saturation tests.tibasic.test_tibasic_numeric_errors \
               tests.rom.test_rom_provenance tests.boot.test_compare_boot_pages \
-              tests.rom.test_database_health_report
+              tests.rom.test_database_health_report tests.hardware.test_timer_hardware
           '';
           dontInstall = true;
           dontFixup = true;
