@@ -223,77 +223,55 @@ only the latter opens a block. Nested `Else` tokens are ignored until the depth
 returns to zero. The comparisons and counter changes are visible at
 `38:4137–417E`; the counter is the 16-bit `DE` register. [confirmed]
 
-### Natural loops use a page-38 OPS record
-
-The public page-33 routine behind bcall `grf_435f = 5140h` subtracts `20h`,
-accepts 13 indices, and jumps through the table at `33:4381`. Three ABI probes
-confirm both bounds outcomes at `33:436D` and `33:4372`, but natural stored
-programs do not enter it. It is not the `For(`/`End` transition. [confirmed]
+### Natural loops use FPS and OPS records
 
 Natural `For(` execution reaches `parse_for_production` (`38:41E5`). Natural
-`End` execution reaches `parse_end_ops_record` (`38:4200`), which consumes a
-5-byte loop record from the operator stack at `OPS + 1`. All three structured
-loops share the shape — sentinel byte, continuation word, state word: [confirmed]
-
-```c
-#pragma pack(push, 1)
-typedef struct {
-    uint8_t sentinel;       /* 00h */
-    uint16_t continuation;  /* where the End token jumps back to */
-    uint16_t state;         /* varies per fixture; meaning open */
-} TILoopOpsRecord;
-#pragma pack(pop)
-```
-
-A shadow-memory replay of the headless trace records the loop state for a
-program that runs `For(θ,1,3)`, `While θ<3`, and `Repeat θ≥2` in sequence. The
-reproduction macro is `tools/macros/run-loops-typed.macro`.
-
-| Loop | Record at `End` | Continuation | State |
-|------|-----------------|--------------|-------|
-| `For(` first `End` | `00 36 58 07 00` | `for_first_update` (`38:5836`) | `0007h` |
-| `For(` later `End`s | `00 7D 58 07 00` | `for_steady_update` (`38:587D`) | `0007h` |
-| `Repeat` `End` | `00 E7 57 23 00` | `38:57E7` | `0023h` |
-
-The continuation field selects the loop mechanics. Observed state words include
-`0012h` and `0007h`, so the field is not a fixed constant; its exact role is
-still open. [confirmed]
-
-`While` and `Repeat` push their records in a parse-time form with continuation
-`38:5AC1`. Three observed pushes carry marker bytes `F0 58`, `11 58`, and
-`2A 58`. The first condition evaluation rewrites the record to the runtime form
-above. That evaluation runs through
-`38:41CC` or `38:41D9` — each guards with `CALL 7203`, calls `71B4`, pops the
-saved value into `HL`, and jumps to `38:57A8` or `38:57E1` respectively;
-`38:57E1` sits immediately before the `Repeat` continuation `38:57E7`.
+`End` execution reaches `parse_end_ops_record` (`38:4200`). Each loop owns
+floating-point operands on the FPS and three control words on the OPS.
 [confirmed]
 
-A single trace does not establish which loop re-enters through
-`parse_end_ops_record` on each iteration and which jumps directly from its
-continuation. [hypothesis]
+| Loop | Offset below body `FPS` | Meaning | OPS continuation |
+|------|-------------------------:|---------|------------------|
+| `For(` | `-36` | loop-variable descriptor | `38:5836` |
+| `For(` | `-27` | initial value | — |
+| `For(` | `-18` | limit | — |
+| `For(` | `-9` | step | — |
+| `While` | `-9` | condition operand | `38:57C3` |
+| `Repeat` | `-9` | condition operand | `38:57E7` |
 
-```mermaid
-flowchart LR
-    F["For( token"] --> P["parse_for_production<br/>create production state"]
-    P --> B["execute loop body"]
-    B --> E["End token<br/>parse_end_ops_record"]
-    E --> O["pop sentinel + continuation + state word"]
-    O --> I["for_first_update"]
-    O --> S["for_steady_update"]
-    I --> B
-    S --> B
-```
+Each OPS record contains three little-endian words. Offset `+0` is the
+continuation address. Offset `+2` is the one-based parse offset. Offset `+4`
+is the previous `cleanTmp` depth. OPS grows downward, so transient evaluator
+objects can precede the record in an ascending RAM dump. [confirmed]
 
-The continuation path resolves the loop variable through the VAT, applies the
-floating-point increment, compares the updated value, and either revisits the
-body or removes the record. The paired trace confirms the record bytes and the
-two continuations. The complete layout of the associated limit, step, and
-temporary floating-point values is not yet decoded. [confirmed]
+`38:595A` computes `nextParseByte - basic_start + 1`. The path at `38:5965`
+restores the cursor as `basic_start + offset`, then pushes the offset and
+continuation through `38:7511`. A `For(I,1,3)` trace records offset `7`; the
+tracked `While` and `Repeat` cases record offset `8`. [confirmed]
 
-The optional closing `)` in `For(` changes marker-to-marker work and parser
-buffer state. Neither spelling reaches the page-02 finalization gate in the
-paired trace, so the exact causal transition remains open. The measured effect
-is covered in [the `For(` parenthesis trap](sub-tibasic-for-paren.md).
+`38:58CE` pushes the condition for `While` and `Repeat`, then saves the cleanup
+link. `For(` enters the same save path at `38:58D1` because its parsed operands
+already occupy the FPS. `38:58DF` restores the previous cleanup depth.
+[confirmed]
+
+A terminating `For(` removes `0x24` FPS bytes at `38:582A`. Its complete FPS
+record is 36 bytes, but the handler grows FPS by 27 bytes because it adopts the
+parsed loop-variable descriptor. A false `While` takes `38:57B0`, scans to the
+matching `End`, drops one FPS slot at `38:57B7`, and restores the cleanup link.
+`Repeat` reverses the condition at `38:57F8`. [confirmed]
+
+Nested-loop traces observe saved `cleanTmp` depths `1`, `2`, and `3`. A
+`Return` inside `For(` reaches `38:5836`, removes the 36-byte FPS record, and
+restores the cleanup link. `Stop` inside `While` bypasses `38:57C3` and exits
+the program chain. Divide-by-zero inside `Repeat` bypasses `38:57E7`; the OS
+error cleanup resets `cleanTmp`, FPS, and OPS before displaying the error.
+[confirmed]
+
+Six TilEm cases cover normal `For(`, `While`, and `Repeat`, nesting,
+`Return`/`Stop`, and an OS error. [confirmed]
+
+The optional closing `)` in `For(` changes parser work. The measured effect is
+covered in [the `For(` parenthesis trap](sub-tibasic-for-paren.md).
 
 ### Labels rescan instead of indexing
 
@@ -338,7 +316,7 @@ the operation itself:
 |---------|-------------------------|----------------------|
 | `Disp` | page-38 statement handler | `_Disp` at `37:51D3`, then `_NewLine` |
 | `Output(` | `38:6AE6`, page-02 handler | `_OutputExpr` at `03:4AF2` |
-| `Input` | `02:54EF` | entry editor, `_ParseInp`, variable store |
+| `Input` | `02:54EF` | entry editor, `_ParseInpGraphReset`, variable store |
 | `Prompt` | `02:562F` | repeated named-variable entry and store |
 | `Menu(` | `02:555D` | `_DispMenuTitle` at `39:4D21`, then label transfer |
 | `Pause` | `02:55E7` | display and key-wait loop |
@@ -346,9 +324,33 @@ the operation itself:
 
 `Input` accepts either an optional prompt string or a row/column prefix before
 one store target. `Prompt` loops over comma-separated variables and generates
-the `NAME=` labels itself. `Menu(` parses a title followed by option-string and
-label pairs. These argument-order boundaries are [confirmed]; the entry
-editor's internal cursor and redraw state are not yet mapped.
+the `NAME=` labels itself. Accepted text enters `_ParseInpGraphReset` (bcall
+`4B04h`, body `38:5978`) and continues through the parser handoff at `38:5B2B`.
+It does not enter `_ParseInp` at `38:5987` in the tracked cases. [confirmed]
+
+The entry editor stores tokenized text in a split buffer: [confirmed]
+
+| Word | Address | Boundary |
+|------|---------|----------|
+| `editTop` | `0x96F4` | start of the left span |
+| `editCursor` | `0x96F6` | end of the left span and start of the gap |
+| `editTail` | `0x96F8` | end of the gap and start of the right span |
+| `editBtm` | `0x96FA` | end of the right span |
+
+Insertion at `06:4341` writes at the cursor. Cursor movement transfers tokens
+across the gap through `06:441E`/`06:445C`; `06:43CA` and `06:472F` repack the
+two sides. Delete and redraw run through `06:45F8` and `06:46AF`. The
+`EDINPUT` trace submits an empty line, retries, edits an expression that wraps
+from row 0 to row 1, and displays `45` after parser handoff. [confirmed]
+
+The **[ON]** cancellation fixture reaches `_ErrBreak` at `ram:273D` and the
+error cleanup at `ram:2793`. It never reaches the parser handoff or the later
+`Disp 99`. Both `editOpen` (`0x89F1` bit 2) and `promptEdit` (`0x8A01` bit 0)
+are clear after cleanup. `Menu(` uses its separate title/key path at
+`39:4D21`/`39:5955`; the tracked numeric selection reaches the label scanner
+at `38:4870` and displays `22`. [confirmed]
+
+Four TilEm cases cover `Input`, `Prompt`, cancellation, and `Menu(`. [confirmed]
 
 `getKey` is an expression value, not a statement. The table at `37:6700` is a
 token-attribute table; returned key codes come from `_GetKey` on page 06. This
