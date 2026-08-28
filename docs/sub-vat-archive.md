@@ -60,9 +60,18 @@ read/write routines are copied to run (you cannot execute from a Flash page whil
 
 ## `_FindSym` and VAT traversal [confirmed]
 
-`_FindSym` (`00:0E65`, = `RST 10h`) is a page-0 trampoline that cross-page-jumps to the real scanner
-`findsym_scan` @ `07:565F`. `_ChkFindSym` (`00:0E60`) first type-checks OP1 (`_CkOP1Real`)
-then falls into FindSym.
+`_FindSym` (`00:0E65`, also reached through `RST 10h`) cross-page-jumps to
+`findsym_scan` at `07:565F`. That body calls the name classifier at `ram:20D6`.
+Length-prefixed names jump to `07:55D1`; fixed-token names continue at
+`07:5665`. `_FindSym` therefore handles both encodings when OP1 is formed
+correctly. [confirmed]
+
+`_ChkFindSym` (`00:0E60`) calls the helper at `ram:2042`. The helper recognizes
+`AppVarObj`, `GroupObj`, `ProgObj`, `TempProgObj`, and `ProtProgObj`, then routes
+those classes directly to `07:55D1`. Other classes fall through the `_FindSym`
+entry. TI's SDK recommends `_ChkFindSym` for Programs and AppVars; that public
+contract does not imply that this ROM's `_FindSym` body lacks the named-object
+branch. [confirmed] for the ROM; [standard] for the SDK contract.
 
 The scanner keys off `OP1` at `8478`: `OP1.value.type`/`varType` and the name token at `8479` (=OP1+1),
 with the 2 name bytes at `847A`/`847B`:

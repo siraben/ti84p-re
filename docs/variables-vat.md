@@ -29,8 +29,8 @@ The OS passes variable identity through `OP1` as a "name string": `OP1[0]` = typ
 
 | Routine | Addr | Role |
 |---------|------|------|
-| `_FindSym` | `00:0E65` | find the VAT entry named by OP1; returns ptr/page (also the `RST 10h` fast path: vector `00:0010` → `JP 0E65`) |
-| `_ChkFindSym` | `00:0E60` | type-classify OP1 (via the helper at `ram:2042`, which calls `_CkOP1Real` `00:1942` then checks the findable var classes) then `_FindSym` |
+| `_FindSym` | `00:0E65` | find the VAT entry named by OP1; its page-`07` body selects fixed-token or length-prefixed scanning from the OP1 name encoding; also the `RST 10h` fast path |
+| `_ChkFindSym` | `00:0E60` | route `AppVarObj`, `GroupObj`, `ProgObj`, `TempProgObj`, and `ProtProgObj` directly to the length-prefixed scanner; other classes fall through `_FindSym` |
 | `_CreateReal` | `00:10B8` | make a RealObj named by OP1 |
 | `_CreateReal`/`_CreateCplx`/`_CreateRList`/`_CreateCList`/`_CreateRMat`/`_CreateStrng`/`_CreateProg`/`_CreateAppVar`/… | `00:10B0-00:1153` | one exported creator bcall per *creatable* variable class — ~13 `_Create*` routines covering the creatable classes, not one per `TIVarType` (no `_CreateList`/`_CreateMat`/`_CreateStr`); some object types are made only by internal routines with no public `_Create*` bcall (e.g. the `GroupObj` creator at `00:1157`, called from `39:73AF`) |
 | `_DelVar`/`_DelVarArc` | `00:1308`/`00:12D9` | delete (and handle archived copies) |
@@ -53,7 +53,7 @@ typedef struct { TIFloat re, im; } TIComplex;                   /* 18 bytes */
 
 /* ── aggregate data (what the VAT entry's dataAddr points at) ──────── */
 struct List   { uint16_t count;       TIFloat elem[/* count */];         }; /* ListObj 1; CListObj 0x0D uses TIComplex[] */
-struct Matrix { uint8_t  rows, cols;  TIFloat elem[/* rows * cols */];  }; /* MatObj 2, column-major; dim0=rows first (byte-confirmed in sub-matrix-list.md; the TIMatrixHdr DB type labels these cols,rows — reversed) */
+struct Matrix { uint8_t  columns, rows; TIFloat elem[/* rows * columns */]; }; /* MatObj 2, row-major */
 struct Tokens { uint16_t size;        uint8_t body[/* size */];          }; /* EquObj 3, StrngObj 4, ProgObj 5/6 — tokenized */
 struct AppVar { uint16_t size;        uint8_t data[/* size */];          }; /* AppVarObj 0x15 — RAW bytes, not tokenized     */
 ```
@@ -65,7 +65,7 @@ Per object type:
 | `RealObj` | `0` | one `TIFloat` | 9 |
 | `CplxObj` | `0x0C` | one `TIComplex` (`re`, `im`) | 18 |
 | `ListObj` / `CListObj` | `1` / `0x0D` | `count` word + `count`×`TIFloat`/`TIComplex` | 2 + 9·n / 2 + 18·n |
-| `MatObj` | `2` | `rows`,`cols` bytes (`dim0`=rows) + `TIFloat[]`, column-major (index math in [Matrices & Lists](sub-matrix-list.md)) | 2 + 9·r·c |
+| `MatObj` | `2` | `columns`,`rows` bytes + row-major `TIFloat[]` (index math in [Matrices and lists](sub-matrix-list.md)) | 2 + 9·r·c |
 | `EquObj` | `3` | `size` word + tokenized formula — *system* var, carries a selection/style byte, auto-evaluated ([Graphing](sub-graphing.md), [Table](sub-table-yvars.md)) | 2 + size |
 | `StrngObj` | `4` | `size` word + tokenized text — *inert* (see [Strings](#strings-str1str0--a-distinct-object-type-confirmed)) | 2 + size |
 | `ProgObj` / `ProtProgObj` | `5` / `6` | `size` word + tokenized program (6 = edit-locked) | 2 + size |
@@ -80,7 +80,23 @@ Aggregate creators size their data region (= count × element-size + 2-byte head
 
 ## The VAT entry [confirmed]
 
-The VAT grows downward from `symTable` (`0xFE66`); `_FindSym` (`00:0E65` → `findsym_scan` `07:565F`) scans down, matching the name in `OP1`. Fixed-token names (reals, complex, `L`-lists, `[A]`-matrices, system vars) are matched by a short 1–3 byte compare against `OP1`'s `0x8479`–`0x847B`; length-prefixed names (programs, appvars, groups) branch to a separate name scanner at `07:55D1` that compares the full name. On a match it reads the entry's metadata at fixed offsets relative to the matched name pointer `N`:
+The VAT grows downward from `symTable` (`0xFE66`). `_FindSym` (`00:0E65` →
+`findsym_scan` at `07:565F`) selects the scanner from the OP1 name encoding.
+Fixed-token names, including reals, complex values, `L`-lists, `[A]`-matrices,
+and system variables, use a short one- to three-byte comparison against
+`0x8479`–`0x847B`. Length-prefixed program, AppVar, and Group names branch to
+`07:55D1` for a full-name comparison. `_ChkFindSym` takes the same named branch
+earlier for object types `0x05`, `0x06`, `0x15`, `0x16`, and `0x17`.
+[confirmed]
+
+TI's public SDK directs callers to `_ChkFindSym` for Programs and AppVars. The
+OS 2.55MP `_FindSym` body can still reach the length-prefixed scanner when OP1
+has a matching name encoding. The public recommendation and the target ROM's
+internal dispatch are separate claims. [standard] for the SDK contract;
+[confirmed] for this ROM.
+
+On a match the scanner reads the entry metadata at fixed offsets relative to
+the matched name pointer `N`:
 
 | Location (vs name ptr `N`) | Field |
 |----------------------------|-------|
