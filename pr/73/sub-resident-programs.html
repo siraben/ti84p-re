@@ -1,0 +1,920 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Resident assembly programs - TI-84 Plus OS — Reverse Engineering</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="katex-383e7b8d.min.css">
+        <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-60e9087d.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-d9f1b932.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">TI-84 Plus OS — Reverse Engineering</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/siraben/ti84p-re" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="resident-assembly-programs"><a class="header" href="#resident-assembly-programs">Resident assembly programs</a></h1>
+<p>TI-OS copies a compiled assembly program to <code>userMem</code> (<code>0x9D95</code>), executes it,
+and removes that copy when it returns. This page documents the OS 2.55MP launch
+path, the memory limit enforced by the ROM, pointer stability during variable
+allocation, and archived-data access for long-running runtimes. It also
+compares third-party launchers’ movement, archive-writeback, and cleanup
+policies.</p>
+<h2 id="compiled-asm-launch"><a class="header" href="#compiled-asm-launch">Compiled <code>Asm(</code> launch</a></h2>
+<p>The compiled-program path starts at <code>_ExecutePrgm</code> (<code>07:5758</code>). [confirmed]
+The routine finds the program, reads its two-byte internal data size, and
+requires the <code>BB 6D</code> marker at the start of that data. The following steps are
+visible at <code>07:5762</code>–<code>07:57D1</code>:</p>
+<ol>
+<li><code>07:5766</code> loads the internal data size into <code>BC</code>.</li>
+<li><code>07:576A</code> and <code>07:5771</code> check the <code>BB 6D</code> marker.</li>
+<li><code>07:577B</code> subtracts the internal size from <code>0x2000</code> and raises an error on
+borrow.</li>
+<li><code>_ErrNotEnoughMem</code> at <code>ram:1735</code> checks that the complete internal size fits
+in free RAM.</li>
+<li><code>_InsertMem</code> at <code>ram:0F81</code> opens that many bytes at <code>ram:9D95</code>.</li>
+<li><code>07:579C</code> adds the allocation size to the saved source pointer because the
+insertion moved the source variable upward.</li>
+<li>The <code>LDIR</code> at <code>07:579D</code> copies to <code>ram:9D95</code>.</li>
+<li><code>07:57FD</code> jumps to <code>ram:9D95</code> through the error-context wrapper at
+<code>ram:27DA</code>.</li>
+</ol>
+<p>The internal size excludes the variable’s two-byte size field. It includes the
+two-byte <code>BB 6D</code> marker. The largest marker-plus-payload value accepted by this
+path is therefore <code>0x2000</code>, leaving at most <code>0x1FFE</code> bytes after the marker.
+[confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Quantity</th><th style="text-align: right">Maximum</th></tr>
+</thead>
+<tbody>
+<tr><td>Internal program-data size</td><td style="text-align: right"><code>0x2000</code> = 8,192 bytes</td></tr>
+<tr><td><code>BB 6D</code> marker inside that size</td><td style="text-align: right">2 bytes</td></tr>
+<tr><td>Bytes after the marker inside the variable</td><td style="text-align: right"><code>0x1FFE</code> = 8,190 bytes</td></tr>
+<tr><td>Execution allocation</td><td style="text-align: right"><code>0x2000</code> = 8,192 bytes</td></tr>
+<tr><td>Last allocated byte</td><td style="text-align: right"><code>ram:BD94</code></td></tr>
+<tr><td>Full <code>ram:9D95</code>–<code>ram:BFFF</code> span</td><td style="text-align: right"><code>0x226B</code> = 8,811 bytes</td></tr>
+</tbody>
+</table>
+</div>
+<p>The often-quoted 8,811-byte span describes the address range through
+<code>ram:BFFF</code>; it is not this launcher’s accepted-size limit. The launcher leaves
+the final 619 bytes of that span outside its maximum allocation. [confirmed]</p>
+<p>The copy begins after the <code>BB 6D</code> marker but uses the complete internal size as
+its length. It consequently reads two bytes beyond the size-described program
+data. Those bytes occupy the final two bytes of the execution allocation.
+[confirmed] A boundary fixture should place guard bytes after the variable to
+record their exact values at <code>ram:BD93</code> and <code>ram:BD94</code>.</p>
+<p>The builders and TilEm runner in <code>tools/launch-fixtures/</code> exercise the three
+adjacent boundary sizes. Each accepted trace reaches <code>_ExecutePrgm</code>, the limit
+test, the <code>_InsertMem</code> call site, the payload handoff, and <code>ram:9D95</code>. The
+rejected trace reaches the <code>E_Invalid</code> shim at <code>ram:2729</code> before insertion.
+[confirmed]</p>
+<p><code>tools/data/launch-boundary-results.csv</code> records the ROM, fixture, and trace
+hashes together with instruction counts and reached checkpoints. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right">Internal size</th><th style="text-align: right">Bytes after marker</th><th>TilEm result</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right"><code>0x1FFF</code></td><td style="text-align: right">8,189</td><td>Accepted</td></tr>
+<tr><td style="text-align: right"><code>0x2000</code></td><td style="text-align: right">8,190</td><td>Accepted</td></tr>
+<tr><td style="text-align: right"><code>0x2001</code></td><td style="text-align: right">8,191</td><td>Rejected with <code>ERR:INVALID</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Internal sizes of 8,808–8,814 bytes are all above this ROM limit, so they cannot
+distinguish the boundary. The fixture uses adjacent sizes instead.</p>
+<h2 id="text-asmprgm-launch"><a class="header" href="#text-asmprgm-launch">Text <code>AsmPrgm</code> launch</a></h2>
+<p>The <code>BB 6C</code> text path begins at <code>07:57D4</code>. <code>07:5717</code>–<code>07:5731</code> counts decoded
+hex-byte pairs while ignoring <code>?</code> separators, then applies the same <code>0x2000</code>
+limit to the decoded length. <code>_InsertMem</code> allocates that decoded length and
+<code>07:5734</code>–<code>07:5755</code> writes the decoded bytes at <code>ram:9D95</code>. [confirmed]</p>
+<p>The source variable remains in RAM while the execution gap exists. Its hex
+text and the decoded copy both consume free memory, so <code>_EnoughMem</code> may impose
+a lower practical limit than the ROM’s 8,192-byte decoded cap. [confirmed]</p>
+<h2 id="return-and-error-cleanup"><a class="header" href="#return-and-error-cleanup">Return and error cleanup</a></h2>
+<p><code>asm_prgm_size</code> at <code>0x89EC</code> records the execution allocation length. Normal
+return clears it at <code>07:57C4</code>–<code>07:57CB</code>, then calls <code>_DelMem</code> with
+<code>HL=ram:9D95</code> at <code>07:57CE</code>–<code>07:57D1</code>. The error handler at
+<code>07:5800</code>–<code>07:581A</code> performs the same clear and deletion before entering the OS
+error path. [confirmed]</p>
+<p>An assembly program must not move its execution copy. <code>_InsertMem</code> and
+<code>_DelMem</code> repair OS pointer slots and VAT data pointers, but they cannot repair
+the program counter, return addresses, or arbitrary runtime pointers. Cleanup
+also assumes that the copy still begins at <code>ram:9D95</code>. [confirmed]</p>
+<h2 id="observed-handoff-state"><a class="header" href="#observed-handoff-state">Observed handoff state</a></h2>
+<p>A headless TilEm trace of <code>Asm(prgmASMRET)</code> on a TI-84 Plus with OS 2.55MP
+reaches <code>asm_payload_handoff</code> at <code>07:57B4</code>, then executes <code>RET</code> at logical
+<code>0x9D95</code>. TLMT instruction records contain the register state after the named
+instruction. The <code>CALL 07:57FD</code> record at <code>07:57B4</code> and the <code>JP ram:9D95</code>
+record at <code>07:57FD</code> both report payload-entry <code>SP=0xFFC9</code>. The <code>RET</code> record at
+<code>ram:9D95</code> reports <code>SP=0xFFCB</code> after popping the launcher return. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Register</th><th style="text-align: right">Post-instruction <code>RET</code> record at <code>ram:9D95</code></th></tr>
+</thead>
+<tbody>
+<tr><td><code>AF</code></td><td style="text-align: right"><code>0x01BB</code></td></tr>
+<tr><td><code>BC</code></td><td style="text-align: right"><code>0xFCCD</code></td></tr>
+<tr><td><code>DE</code></td><td style="text-align: right"><code>0xFFEC</code></td></tr>
+<tr><td><code>HL</code></td><td style="text-align: right"><code>0x57B4</code></td></tr>
+<tr><td><code>SP</code></td><td style="text-align: right"><code>0xFFCB</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>These registers are observations, not an ABI. The payload should initialize
+every register it needs and return with the hardware stack balanced.</p>
+<p>The trace resolver may label the first instruction <code>page_??:5D95</code> when no
+port-7 write has occurred since capture began. The logical PC is <code>0x9D95</code>, and
+the launcher’s <code>JP 0x9D95</code> establishes that the instruction is in RAM. This is
+a trace-reconstruction limitation. [confirmed]</p>
+<h2 id="timed-heap-and-stack-snapshots"><a class="header" href="#timed-heap-and-stack-snapshots">Timed heap and stack snapshots</a></h2>
+<p>The <code>RTSNAP</code> fixture records the heap fields from inside the payload, while a
+TLMT v2 replay applies every logical-memory write and samples the same fields
+at OS-side checkpoints. The trace used TI-84 Plus OS 2.55MP, an unarchived
+compiled program launched by <code>Asm(prgmRTSNAP)</code>, and the ROM with SHA-256
+<code>dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09</code>.
+[confirmed]</p>
+<p>That complete-image identity is the BootFree 11.259 variant, not the canonical
+retail-boot image. The launch implementation on Flash page <code>0x07</code> is
+byte-identical in both images; page <code>0x07</code> has SHA-256
+<code>6335c5f15cb5d534423b8d018dd412d21905e5ca448cc3f84d6c53d15b3aa60e</code>.
+The trace therefore supports the page-<code>0x07</code> launch result, but no retail-boot
+claim. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Checkpoint</th><th style="text-align: right"><code>FPS</code></th><th style="text-align: right"><code>OPS</code></th><th style="text-align: right"><code>pTemp</code></th><th style="text-align: right"><code>progPtr</code></th><th style="text-align: right"><code>SP</code></th><th style="text-align: right"><code>_MemChk</code></th></tr>
+</thead>
+<tbody>
+<tr><td><code>_ExecutePrgm</code> entry</td><td style="text-align: right"><code>0x9FFA</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFD7</code></td><td style="text-align: right"><code>0x5CC1</code></td></tr>
+<tr><td>First payload instruction</td><td style="text-align: right"><code>0xA171</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFC9</code></td><td style="text-align: right"><code>0x5B4A</code></td></tr>
+<tr><td>Nested <code>_MemChk</code> entry</td><td style="text-align: right"><code>0xA171</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFC3</code></td><td style="text-align: right"><code>0x5B4A</code></td></tr>
+<tr><td>Final payload <code>RET</code> (post-instruction)</td><td style="text-align: right"><code>0xA171</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFCB</code></td><td style="text-align: right"><code>0x5B4A</code></td></tr>
+<tr><td>Cleanup entry</td><td style="text-align: right"><code>0xA171</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFD7</code></td><td style="text-align: right"><code>0x5B4A</code></td></tr>
+<tr><td>Cleanup return</td><td style="text-align: right"><code>0x9FFA</code></td><td style="text-align: right"><code>0xFCBA</code></td><td style="text-align: right"><code>0xFCCE</code></td><td style="text-align: right"><code>0xFD34</code></td><td style="text-align: right"><code>0xFFD9</code></td><td style="text-align: right"><code>0x5CC1</code></td></tr>
+</tbody>
+</table>
+</div>
+<p><code>fpBase</code> moves from <code>0x9FE8</code> to <code>0xA15F</code>, and <code>FPS</code> moves from <code>0x9FFA</code>
+to <code>0xA171</code>. Both shifts are the fixture’s <code>0x0177</code>-byte internal program
+size. <code>OPBase</code>, <code>OPS</code>, <code>pTemp</code>, <code>progPtr</code>, and <code>symTable</code> remain unchanged at
+these checkpoints; cleanup restores the two shifted fields. The nested bcall
+uses six more stack bytes than payload entry, but does not change the measured
+heap pointers or <code>_MemChk</code>. [confirmed]</p>
+<p>The fixture, decoder, analyzer, capture recipe, and compact provenance rows are
+under <code>tools/launch-probes/</code> and <code>tools/data/resident-launch-snapshot.csv</code>.
+These observations do not establish an entry ABI or cover <code>_ExecAsm</code>, an
+archived launcher path, shell launchers, other OS releases, or hardware.
+[confirmed]</p>
+<h2 id="free-ram-and-stack-headroom"><a class="header" href="#free-ram-and-stack-headroom">Free RAM and stack headroom</a></h2>
+<p><code>_MemChk</code> at <code>ram:0E20</code> returns <code>(OPS - FPS) + 1</code> when <code>OPS &gt;= FPS</code>; otherwise
+it returns zero. <code>_EnoughMem</code> at <code>ram:0FA6</code> compares a request with that result
+and may delete reclaimable temporary variables before retrying. [confirmed]</p>
+<p>Neither routine reads the hardware <code>SP</code>. The launch capacity check therefore
+does not reserve hardware-stack headroom or detect a collision between the Z80
+stack and OS data. [confirmed] A resident runtime must impose its own stack
+limit or guard region. The available margin depends on current VAT and
+temporary state, so a single OS-wide stack-headroom number is not supported.</p>
+<h2 id="variable-relocation-while-resident"><a class="header" href="#variable-relocation-while-resident">Variable relocation while resident</a></h2>
+<p><code>_InsertMem</code> and <code>_DelMem</code> move the OS data region and update a fixed set of
+OS-owned pointers. The repair list includes <code>iMathPtr1</code>–<code>iMathPtr5</code>,
+<code>asm_data_ptr1</code>, <code>asm_data_ptr2</code>, <code>newDataPtr</code>, and other delete, edit, and
+floating-output pointers. The VAT scan adjusts a data pointer only for a RAM
+entry whose data lies on the moved side of the gap. Archived entries are not
+RAM-relocated. [confirmed]</p>
+<p>The repair code does not scan arbitrary memory for pointers. A runtime’s
+absolute pointer into a program, AppVar, or workspace can become stale after a
+create, delete, resize, archive, unarchive, temporary cleanup, variable receive,
+or archive garbage collection. [confirmed]</p>
+<h2 id="explicit-source-writeback"><a class="header" href="#explicit-source-writeback">Explicit source writeback</a></h2>
+<p>Changing bytes in the direct <code>Asm(</code> execution copy does not change the named
+program variable. RUNCOUNT 16, whose release describes itself as
+self-modifying, handles that distinction explicitly: it relies on OP1 still
+naming the running program, calls <code>_ChkFindSym</code>, and increments two BCD counter
+bytes through the returned source pointer. It performs a second lookup before
+converting the counter to <code>Ans</code>. [confirmed] for the identified community
+source.</p>
+<p>Viewed from the data-size pointer returned in <code>DE</code>, RUNCOUNT’s fixed prefix is:</p>
+<pre><code class="language-c">#pragma pack(push, 1)
+typedef struct {
+    uint16_t data_size;       /* +0x00 */
+    uint8_t asm_marker[2];    /* +0x02, BB 6D */
+    uint8_t entry_jump[3];    /* +0x04, JP start */
+    uint8_t count_msb_bcd;    /* +0x07 */
+    uint8_t count_lsb_bcd;    /* +0x08 */
+    uint8_t code[];           /* +0x09 */
+} RunCountVariablePrefix;     /* 9-byte fixed prefix */
+#pragma pack(pop)
+</code></pre>
+<p>The first lookup increments <code>count_lsb_bcd</code> and carries into
+<code>count_msb_bcd</code>. The second lookup passes the address of <code>count_msb_bcd</code> to
+the BCD-to-<code>Ans</code> conversion. [confirmed]</p>
+<p>The raw 136-byte source build is SHA-256
+<code>3e506c4330cd5499a031ae56c73d0487f811278b5fc3d52949bc0f56a69b2f05</code>.
+The packaged program body is exactly <code>BB 6D</code> followed by that build, so this
+writeback design is also confirmed for the identified release binary. The
+archive <code>programs/runcounter16.zip</code> has SHA-256
+<code>736212242e2e9a97e90908ce42fa051b27dff52a84ef1141546d58cd4e5eaf08</code>;
+member <code>Source/RunCounter16.z80</code> has SHA-256
+<code>2ea3efc9d4764813f6f57fa19ae4a3564ef2f3855f4daf997619ff29f54316d5</code>,
+and <code>RUNCOUNT.8xp</code> has SHA-256
+<code>41615816759a6cb2df1aee41f906956a6823aa09c19e4ec8e79712868c1d889a</code>.
+[confirmed]</p>
+<p>An instrumented TI-84 Plus OS 2.55MP direct <code>Asm(</code> run executes this packaged
+program twice. Both passes reach the store at <code>ram:9DAC</code>; <code>_ChkFindSym</code> returns
+the named variable’s data-size pointer at <code>ram:9EBD</code>, and the program advances
+to <code>count_lsb_bcd</code> at <code>ram:9EC5</code>. The attributed writes store <code>1</code>, then <code>2</code>, at
+that source field. The result dynamically confirms explicit source writeback
+for this unarchived route rather than mutation of the separate execution copy.
+The ROM, program, wrapper, macro, emulator, and trace hashes are pinned in
+<code>tools/data/community-loader-traces.csv</code>. [confirmed]</p>
+<p>The source does not test the returned page byte in <code>B</code>. Its direct store is
+therefore supported only when lookup returns a RAM source. An archived source
+or a shell that moves the named body can produce a Flash pointer or a
+shell-defined in-flight representation instead. Persistent self-modification
+must follow the launcher’s lookup and writeback contract, not merely reuse this
+fixed-offset pattern. [confirmed] for the missing guard; [hypothesis] for
+untraced launcher outcomes.</p>
+<p>Repeating the same link-only fixture with RUNCOUNT’s archive flag set does not
+reach <code>ram:9D95</code> under this OS and headless launch macro. It therefore confirms
+non-execution for that exact emulator scenario, not the result of an archived
+source store. Shell-mediated archived launches remain open. [confirmed] for
+the observed boundary.</p>
+<h2 id="resident-allocation-trace"><a class="header" href="#resident-allocation-trace">Resident allocation trace</a></h2>
+<p>The fixture under <code>tools/allocation-probes/</code> calls <code>_EnoughMem</code>,
+<code>_CreateAppVar</code>, <code>_DelVar</code>, <code>_CreateProg</code>, <code>_InsertMem</code>, and <code>_DelMem</code> from a
+compiled program at <code>ram:9D95</code>. Its trace replays RAM writes at ten timed
+checkpoints. [confirmed]</p>
+<p>A 32-byte AppVar or program moves <code>FPS</code> from <code>0xA076</code> to <code>0xA098</code> and <code>OPS</code>,
+<code>OPBase</code>, and <code>pTemp</code> downward by 12 bytes. <code>_MemChk</code> falls from <code>0x5C44</code> to
+<code>0x5C16</code>. Deleting either object restores all recorded heap pointers.
+[confirmed]</p>
+<p>The direct <code>_InsertMem</code> probe opens 16 bytes at the source variable’s data
+pointer. <code>_ChkFindSym</code> then returns <code>0x9F3B</code> instead of <code>0x9F2B</code>. <code>_DelMem</code>
+restores <code>0x9F2B</code>. An eight-byte guard in the execution copy remains unchanged,
+and every payload checkpoint remains at its assembled <code>ram:9D95</code>-relative
+address. TI-OS repairs the source VAT pointer; it does not move the executing
+copy. [confirmed]</p>
+<p>The ROM repair pass at <code>ram:11E8</code>–<code>ram:128A</code> conditionally adjusts 24 OS pointer
+slots. Named slots include <code>iMathPtr1</code>–<code>iMathPtr5</code>, <code>asm_data_ptr1</code>,
+<code>asm_data_ptr2</code>, <code>fmtMatMem</code>, <code>newDataPtr</code>, <code>EQS</code>, <code>insDelPtr</code>, <code>editDat</code>,
+<code>chkDelPtr1</code>, <code>chkDelPtr2</code>, <code>XOutDat</code>, <code>YOutDat</code>, <code>fOutDat</code>, and <code>inputDat</code>.
+The adjacent pass at <code>ram:11C7</code> repairs <code>basic_start</code>, <code>nextParseByte</code>, and
+<code>basic_end</code>. The VAT scan at <code>ram:139D</code> repairs each affected RAM entry’s data
+pointer. [confirmed]</p>
+<p>The reset-state run, with only the required wrapper and probe variables,
+measures <code>_MemChk=0x5C44</code> before its maximum AppVar.
+For the five-character name <code>ALMAX</code>, <code>_CreateAppVar</code> consumes a 14-byte
+overhead: two data-size bytes plus a 12-byte VAT entry. A payload request of
+<code>0x5C36</code> succeeds, producing <code>FPS=0xFCAE</code>, <code>OPS=0xFCAD</code>, and <code>_MemChk=0</code>.
+The hardware stack remains at <code>SP=0xFFC9</code>; the creator does not include that
+remaining stack-to-VAT distance in its capacity decision. [confirmed]</p>
+<p><code>tools/data/resident-allocation.csv</code> records the checkpoints, ROM and trace
+hashes, model, and OS version. This run covers the direct-<code>Asm(</code> reset state.
+It does not measure representative user-variable populations, shell
+move-loaders, Flash Apps, or physical hardware. [confirmed]</p>
+<h2 id="stable-ram-appvar-protocol"><a class="header" href="#stable-ram-appvar-protocol">Stable RAM AppVar protocol</a></h2>
+<p>A long-running runtime can use a RAM AppVar as a movable workspace if it treats
+the VAT lookup as a handle operation:</p>
+<ol>
+<li>Keep the AppVar name and expected type in program-owned storage.</li>
+<li>Rebuild OP1 and call <code>_ChkFindSym</code> immediately before access.</li>
+<li>Require carry clear and <code>B=0</code>. <code>DE</code> points to the two-byte data-size field;
+the payload begins at <code>DE+2</code>.</li>
+<li>Do not retain <code>DE</code>, the payload base, or an interior pointer across a call
+that can move variables or reclaim temporaries.</li>
+<li>Reacquire the base afterward. Store internal references as offsets from the
+payload base.</li>
+<li>If a stored image contains absolute pointers, relocate every pointer after
+reacquisition and before use.</li>
+</ol>
+<p>This protocol keeps no data pointer across a moving operation; it does not make
+an update transactional. A reset-tolerant format can add a version, length,
+checksum, and commit marker. Two records or copy-on-write storage can preserve
+the last committed generation during an interrupted update.</p>
+<h2 id="archived-lookup-contract"><a class="header" href="#archived-lookup-contract">Archived lookup contract</a></h2>
+<p>The VAT scanner reached through <code>_ChkFindSym</code> returns the archive page in <code>B</code>
+and the data pointer in <code>DE</code>. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Result</th><th>Meaning</th></tr>
+</thead>
+<tbody>
+<tr><td>Carry set</td><td>No matching VAT entry</td></tr>
+<tr><td>Carry clear, <code>B=0</code></td><td><code>DE</code> is a RAM pointer to the two-byte data-size field</td></tr>
+<tr><td>Carry clear, <code>B!=0</code></td><td><code>B:DE</code> identifies Flash data through bank A</td></tr>
+</tbody>
+</table>
+</div>
+<p>An archived <code>DE</code> value is not a flat RAM pointer. Direct access must preserve
+port <code>0x06</code>, map page <code>B</code>, handle the <code>0x8000</code> → next-page crossing, and restore
+the caller’s mapping. Any operation that can run archive garbage collection
+invalidates a saved <code>B:DE</code>; call <code>_ChkFindSym</code> again afterward. [confirmed]</p>
+<h2 id="streaming-archived-data"><a class="header" href="#streaming-archived-data">Streaming archived data</a></h2>
+<p>The three useful access strategies have different memory and paging costs:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Strategy</th><th>Full object must fit free RAM</th><th>Page crossing</th><th>Bank-A restoration</th></tr>
+</thead>
+<tbody>
+<tr><td>Direct page mapping</td><td>No</td><td>Caller handles it</td><td>Caller handles it</td></tr>
+<tr><td>Chunked <code>_FlashToRam</code></td><td>No</td><td>OS handles it</td><td>OS restores port <code>0x06</code></td></tr>
+<tr><td><code>_Arc_Unarc</code>, then RAM access</td><td>Yes</td><td>OS handles it</td><td>Not exposed</td></tr>
+</tbody>
+</table>
+</div>
+<p><code>_FlashToRam</code> has bcall ID <code>5017h</code> and body <code>3D:6745</code>. Its copier saves port
+<code>0x06</code>, maps the source page, advances from <code>0x8000</code> to <code>0x4000</code> on the next
+Flash page, and restores the saved mapping. A streaming interpreter can copy
+repeated bounded chunks into a RAM buffer and process a source larger than free
+RAM. [confirmed]</p>
+<p><code>_Arc_Unarc</code> at <code>07:6248</code> enters the unarchive path at <code>07:61F4</code> when <code>B</code> is
+nonzero. Unarchiving requires enough RAM for the complete variable and cannot
+stream an object larger than free RAM. [confirmed]</p>
+<p>Direct mapping and <code>_FlashToRam</code> reads do not themselves make a saved archive
+location stable. Reacquire it after an operation that may write or collect the
+archive.</p>
+<h2 id="shell-loaders-and-writeback"><a class="header" href="#shell-loaders-and-writeback">Shell loaders and writeback</a></h2>
+<p>Ion, Plasma, TSE, MirageOS, Doors CS, and zStart all place assembly code at
+<code>userMem</code> (<code>0x9D95</code>), but they do not preserve the source variable in the same
+way. This section compares their RAM cost, writeback policy, lookup behavior, and
+cleanup contract using identified original releases.</p>
+<h3 id="comparison"><a class="header" href="#comparison">Comparison</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Launcher</th><th>RAM-resident input</th><th>Archived input</th><th>Archive writeback</th><th>Error cleanup</th><th>Evidence</th></tr>
+</thead>
+<tbody>
+<tr><td>Ion 1.6</td><td>Moves the original body</td><td>Unarchives the original, then moves its body</td><td>Always rearchives</td><td>No Ion-owned error handler</td><td>Identified original source; runtime untraced</td></tr>
+<tr><td>Plasma 1.4</td><td>Copies the body into the current <code>userMem</code> execution allocation</td><td>Copies the body from Flash with <code>_FlashToRam</code></td><td>None; clients can save to an AppVar</td><td>No Plasma-owned error handler</td><td>Byte-matched release source; release entry traced, client paths untraced</td></tr>
+<tr><td>TSE 1.5/1.6</td><td>Moves the active body and task state between the variable and <code>userMem</code></td><td>Unarchives the original, then uses the RAM task path</td><td>Leaves the program in RAM</td><td>Cooperative switch and exit paths only</td><td>Byte-matched release source; infrastructure loader traced, task switching untraced</td></tr>
+<tr><td>MirageOS 1.2</td><td>Uses a symmetric move loader</td><td>Creates a named <code>TempProgObj</code> RAM copy, then moves its body</td><td>Rewrites only if changed</td><td>Installs an OS error handler</td><td>Identified release-binary disassembly; runtime untraced</td></tr>
+<tr><td>Doors CS 7.4</td><td>Moves the original body</td><td>Creates a complete RAM variable under a derived temporary name</td><td>Compares the temporary variable with the archive; replaces the archive only if changed</td><td>Routes OS errors through reverse-swap cleanup</td><td>Identified source commit; runtime untraced</td></tr>
+<tr><td>zStart 1.3.013</td><td>Moves the original body</td><td>Copies the body into a raw <code>userMem</code> allocation</td><td>Uses a 16-bit checksum; replaces the archive only if changed</td><td>Routes OS errors through local cleanup</td><td>Identified source commit; runtime untraced</td></tr>
+</tbody>
+</table>
+</div>
+<p>Unless a trace is stated explicitly below, <code>[confirmed]</code> in these launcher
+subsections refers to the identified source or release-binary control flow,
+not a replicated runtime outcome.</p>
+<p>The three source-available move loaders show that “run at <code>userMem</code>” does not
+imply “make a second complete copy.” Ion, Doors CS, and zStart move a
+RAM-resident body in chunks through a 768-byte shuttle. Plasma copies the body
+and relocates its shell tail around it. TSE moves the body together with an
+appended task-state area. Archived inputs also differ: Ion and TSE first
+unarchive the original, MirageOS and Doors CS build named temporary variables,
+Plasma copies from Flash into its current execution allocation, and zStart
+builds an unnamed execution allocation. [confirmed] for the identified source
+and release-binary control flow.</p>
+<p>The source identity, execution strategy, and open evidence boundary for the
+original four comparison rows are also recorded in
+<code>tools/data/shell-loader-observations.csv</code>. Plasma and TSE are pinned below by
+release-archive and member hashes.</p>
+<h3 id="the-move-loader-pattern"><a class="header" href="#the-move-loader-pattern">The move-loader pattern</a></h3>
+<p>Ion, Doors CS, and zStart use the same broad transformation for a RAM-resident
+program:</p>
+<ol>
+<li>Copy at most 768 bytes of the variable body to a screen buffer.</li>
+<li>Call <code>_DelMem</code> to remove that source chunk.</li>
+<li>Call <code>_InsertMem</code> to open space at the destination.</li>
+<li>Copy the buffered chunk into the new space.</li>
+<li>Repeat until the body is at <code>0x9D95</code>.</li>
+<li>Reverse the operation after the program returns.</li>
+</ol>
+<p>Ion and Doors CS use <code>plotSScreen</code> (<code>0x9340</code>) as the shuttle. zStart uses
+<code>saveSScreen</code> (<code>0x86EC</code>). The original-source implementations confirm this
+structure. [confirmed]</p>
+<p>The operation preserves only one complete body for a RAM-resident input. The
+VAT entry and name can remain findable while the bytes described by that entry
+are being moved. A successful <code>_ChkFindSym</code> therefore does not prove that its
+returned data pointer identifies a valid, contiguous copy of the running
+program. [confirmed]</p>
+<h3 id="ion-16"><a class="header" href="#ion-16">Ion 1.6</a></h3>
+<p>Ion’s <code>ionm.z80</code> first calls <code>_EnoughRam</code> and <code>_Arc_Unarc</code> for an archived
+program. The complete original variable must therefore fit in RAM before the
+move loader starts. The loader then moves the body to <code>0x9D95</code> through
+<code>plotSScreen</code>, using <code>_DelMem</code> and <code>_InsertMem</code> rather than allocating a second
+complete execution copy. [confirmed]</p>
+<p>On return, Ion reverses the move. If the input was originally archived, it
+calls <code>_Arc_Unarc</code> again, so modified bytes persist but an archive write occurs
+even when the program did not change. [confirmed]</p>
+<p>Ion calls the client without installing an Ion-owned OS error handler. The
+source therefore provides no cleanup path for an OS error or nonlocal exit
+that bypasses the normal return. [confirmed] The resulting calculator state
+still needs a dynamic trace. [hypothesis]</p>
+<p>The loader stages its preloader in <code>appBackUpScreen</code> (<code>0x9872</code>) and its move
+routine in <code>cmdShadow</code> (<code>0x966E</code>). It uses <code>plotSScreen</code> during the forward and
+reverse moves. The client may reuse <code>plotSScreen</code> while it runs; the reverse
+move overwrites that buffer before Ion redraws its interface. [confirmed]</p>
+<h3 id="plasma-14"><a class="header" href="#plasma-14">Plasma 1.4</a></h3>
+<p>Plasma’s documentation says that programs “run right from flash” and that the
+shell does not perform program writeback. The first phrase describes the
+storage of the source variable, not the address executed by the CPU. The
+included <code>plasma.asm</code> copies the client into a RAM image at <code>userMem</code> and jumps
+there. [confirmed]</p>
+<p>For an archived input, <code>exec_prog_real</code> obtains the page and data pointer from
+<code>_ChkFindSym</code>. It installs <code>Prog_Loader</code> in <code>saferam3</code>, prepares
+<code>DE=userMem-2</code>, and passes the source page, pointer, and size to the loader.
+<code>Prog_Loader</code> calls <code>_FlashToRam</code>, copies the Ion library block after the
+client, and jumps to <code>userMem+1</code>. The named source remains archived. For a RAM
+input, the same path calls <code>_FlashToRam</code> with <code>A=0</code>; the fixed-RAM source
+address is copied without moving the original variable. [confirmed]</p>
+<p>Plasma relocates the shell code and Ion-library jump table around the client
+inside the current execution allocation. It calls <code>_InsertMem</code> only when the
+client and library tail need more space than the shell image already occupies.
+This is a copy loader, but its peak allocation is not the sum of two fixed,
+complete program images. The allocation structure is [confirmed]. The exact
+peak still needs a dynamic trace. [hypothesis]</p>
+<p>Normal return does not compare or rewrite the source program. Plasma instead
+exports <code>savedata</code> and <code>fetchdata</code>: the first replaces a named AppVar with
+<code>_CreateAppVar</code>, and the second reads a RAM or archived AppVar through
+<code>_FlashToRam</code>. A client that needs persistent data must use an explicit storage
+path such as this one. [confirmed]</p>
+<p>No Plasma-owned OS error handler appears in the release source. [confirmed]
+The state after an OS error or nonlocal exit remains [hypothesis].</p>
+<p>The release archive has SHA-256
+<code>62965a41fe071902043ebcbbd1254f710d29729bf86a78f20b6f14d6974f5d5a</code>.
+Within it, <code>Plasma/plasma.asm</code> has SHA-256
+<code>b424980285adf3f16225239c3ba3f133a42efb38d0666d968eee4b1fe24b810f</code>,
+<code>Plasma/plasma.txt</code> has SHA-256
+<code>970ec3908da27bdbabc630c38c9546eade19059a9902f111bd116e3d3c77a750</code>,
+and <code>Plasma/PLASMA.8XP</code> has SHA-256
+<code>a55816b3ea9462c4e7ef16750d3ad6f8955b0a51de6a096c8b7e59f1242f0df1</code>.
+SPASM-ng with <code>TI83P</code> defined produces a 2,447-byte body that matches the
+packaged program byte for byte. [confirmed]</p>
+<p>An instrumented TI-84 Plus OS 2.55MP run reaches the packaged Plasma entry at
+<code>ram:9D95</code>. The deterministic keyboard macro does not reach the protected Ion
+client, so the RAM and archived client-copy paths above remain static results.
+It also does not reach the copied raw-key hook’s <code>RST 28h</code> at <code>ram:9881</code> or
+<code>_newContext</code> at <code>ram:077E</code>. The <code>4030h</code> nonlocal context transition is
+therefore interaction-blocked rather than dynamically confirmed. The trace,
+ROM, link-file, macro, and emulator hashes are pinned in
+<code>tools/data/community-loader-traces.csv</code>. [confirmed] for the observed entry
+and boundary.</p>
+<h3 id="tse-1516"><a class="header" href="#tse-1516">TSE 1.5/1.6</a></h3>
+<p>TSE is a cooperative task-switching runtime rather than a normal-return shell
+loader. Its release README identifies version 1.5, while the byte-matched
+kernel source returns version 1.6. The combined label records that release
+inconsistency. [confirmed]</p>
+<p><code>starttask</code> appends the program’s requested external-data area followed by a
+62-byte state tail. The tail contains a saved <code>SP</code> word and 60 bytes copied
+from <code>flags</code> at <code>0x89F0</code>. Its packed layout is:</p>
+<pre><code class="language-c">#pragma pack(push, 1)
+typedef struct {
+    uint16_t saved_sp;       /* +0x00 */
+    uint8_t flags[60];       /* +0x02, copy of 0x89F0-0x8A2B */
+} TSETaskStateTail;          /* 62 bytes */
+#pragma pack(pop)
+</code></pre>
+<p>The tail begins immediately after the requested external-data area. TSE writes
+the initial code address into the last two bytes of that area as the first
+stack return address, while <code>saved_sp</code> records the resulting stack pointer.
+[confirmed] for the byte-matched source layout; live save and restore remain
+untraced.</p>
+<p><code>cpy_prgm_in</code> reduces the stored variable to its three-byte <code>BB 6D C9</code> header,
+then moves the remaining body and task state to <code>userMem</code> in chunks no larger
+than <code>0x100</code>. Each chunk opens the destination with <code>_InsertMem</code>, copies the
+bytes, and closes the source with <code>_DelMem</code>. <code>cpy_prgm_out</code> reverses the move.
+Only one active body is retained, and the named VAT entry describes the
+three-byte dormant header while its task is active. [confirmed]</p>
+<p>Before a task switch, TSE stores the live <code>SP</code> and flag bytes in the active
+task block. The reverse move writes the complete active image back to its RAM
+variable, including client modifications. TSE then moves the selected task to
+<code>userMem</code>, restores its flags and <code>SP</code>, and resumes it with <code>RET</code>. Ending a task
+removes the external-data area and 62-byte state tail. [confirmed] for the
+byte-matched source control flow; a live task switch and writeback remain
+untraced.</p>
+<p>Utopia handles an archived TSE program by calling <code>_Arc_Unarc</code> before
+<code>_tseStartTask</code>. It does not rearchive that program when the task ends. The
+separate <code>LOADTSE</code> program can stream the archived <code>TSEKRNL</code> and <code>TSELIBS</code>
+variables into <code>saferam1</code> and <code>saferam2</code> with <code>_FlashToRam</code>; that infrastructure
+path does not make an archived client execute in place. [confirmed]</p>
+<p>The mover requires a <code>0x100</code>-byte free-RAM buffer. The release documentation
+warns that a task block can be created when too little memory remains for a
+later switch. The buffer requirement is [confirmed]. The exact peak RAM cost,
+machine state after an error, and every low-memory failure path still need
+dynamic traces. [hypothesis]</p>
+<p>The matched release archive <code>shells/old/tsekrnl.zip</code> has SHA-256
+<code>d640729fcb4ebf2a166fe37f3ae59741a50a571578e5091863295bb08dba6a3b</code>;
+its <code>Tse.8xg</code> member has SHA-256
+<code>4cde52eb0ec37c16a5ac17f2f6eb94c7e3f4ebc4020b577b70d32ac34b29f3cf</code>.
+Its <code>tse.txt</code> and <code>tsedev.txt</code> members have SHA-256 values
+<code>d0b8e033eef29e370ea8bac145019c5f369a789daf03b753c69b1e83d52f60ae</code>
+and <code>b8b566b5dac0f7084a7eb0a6cae259b70151bb3457dfe7849f5e708141d75c8e</code>.
+The source archive <code>source/tsesrc.zip</code> has SHA-256
+<code>d16407c2125133b24a86ad8e88819b3ae0fcc826a55ded5cb4155c19e6239592</code>.
+Its <code>tsekrnl.asm</code>, <code>loadtse.asm</code>, and <code>tselibs.asm</code> members have SHA-256 values
+<code>02eb4c0723ac5d3a74bcbdd3283c44fb7a87a5e509083aa6e68080398c6a4cc0</code>,
+<code>34578f59f6324a4e82764ab38d5406eed6591019abf0a8e3bc78130cbe9b9f0e</code>,
+and <code>ca55ca2ae6bf64dc5f944e79ad9fbc4f23c349c2bb15d88836830d5e3d9d62e2</code>.
+SPASM-ng rejects the unused <code>kX-1</code> equate in the release <code>tse.inc</code>. Renaming
+that unused equate for parser compatibility makes those sources reproduce the
+packaged <code>TSEKRNL</code>, <code>LOADTSE</code>, and <code>TSELIBS</code> bodies byte for byte. [confirmed]</p>
+<p>The packaged <code>TSELIBS</code> entry contains a two-byte internal size and a 391-byte
+program body. <code>LOADTSE</code> skips the size, <code>BB 6D</code>, and leading <code>C9</code>, leaving 388
+library-code bytes, but loads a fixed 531 bytes into <code>saferam2</code> (<code>ram:8A3A</code>). It
+therefore reads and writes 143 bytes beyond the packaged library code. This is
+not merely dead source: two instrumented RAM-path runs enter <code>loadRAM</code> four
+times, execute 2,598 <code>LDIR</code> iterations in total, and record 1,062 writes to the
+531-byte <code>saferam2</code> range, including 286 writes beyond the 388-byte code extent.
+[confirmed]</p>
+<p>The archived fixture changes only the archive flags of the byte-identical
+<code>TSEKRNL</code> and <code>TSELIBS</code> entries. Two runs enter <code>streamFlash</code> four times, reach
+its <code>_FlashToRam</code> call site at <code>ram:9DDD</code> four times, make the same 1,062 range
+writes including 286 beyond-code writes, and enter the packaged kernel at
+<code>ram:9872</code> twice. The traces confirm both infrastructure loader paths and the
+143-byte over-read on each run. They do not start a cooperative client task,
+so <code>cpy_prgm_in</code>, <code>cpy_prgm_out</code>, task writeback, and low-memory switching
+remain static results. Hashes and counts are in
+<code>tools/data/community-loader-traces.csv</code>. [confirmed]</p>
+<h3 id="mirageos-12"><a class="header" href="#mirageos-12">MirageOS 1.2</a></h3>
+<p>MirageOS 1.2 is a one-page, binary-only Flash App. Static disassembly of the
+original App shows a symmetric loader at mapped bank-A logical addresses
+<code>0x75CF</code>–<code>0x76C0</code>. It uses <code>saveSScreen</code> as a 768-byte shuttle, calls <code>_DelMem</code>
+and <code>_InsertMem</code>, and
+moves the client to <code>0x9D95</code>. [confirmed]</p>
+<p>For archived input, mapped bank-A logical addresses <code>0x7899</code>–<code>0x78FD</code> create a
+program named <code>Z,1.</code>, change its VAT type to <code>TempProgObj</code> (<code>0x16</code>), and copy
+the archived object into it
+with <code>_FlashToRam</code>. The original name continues to identify the archived
+object while the temporary object’s body is moved to <code>0x9D95</code>. Before creating
+the temporary, the loader deletes any existing <code>Z,1.</code> program. [confirmed]</p>
+<p>The writeback path at mapped bank-A logical addresses <code>0x77D5</code>–<code>0x7870</code>
+compares RAM bytes with archive bytes through a temporary page-read thunk. It
+replaces and rearchives
+the program only when the comparison differs. The release changelog describes
+the same smart-writeback policy. [confirmed]</p>
+<p>The launch wrapper installs an OS error handler and conditionally prepares the
+MirageOS tasker before calling the client. With tasker flag bit 6 at <code>0x9689</code>
+set, mapped bank-A logical addresses <code>0x7176</code>–<code>0x71E9</code> install IM2. The path
+writes tasker state beginning at <code>0x8A3A</code>, code at <code>0x8A4F</code>–<code>0x8A88</code> and
+<code>0x8A8A</code>–<code>0x8AFE</code>, and an IM2 handler
+at <code>0x8C01</code>–<code>0x8C1B</code>. It also builds the 257-byte IM2 vector table at
+<code>0x8B00</code>–<code>0x8C00</code>. It uses the word at <code>0x966F</code> as an optional custom interrupt
+target. These <code>statVars</code> ranges are not client scratch while the tasker or
+custom interrupt is active. [confirmed]</p>
+<p>The changelog states that <strong>ON</strong>+<strong>^</strong> quits immediately without writeback.
+[confirmed] for the identified changelog text. Whether that path restores
+every intermediate body and mapping remains [hypothesis].</p>
+<h3 id="doors-cs-74"><a class="header" href="#doors-cs-74">Doors CS 7.4</a></h3>
+<p>Doors CS classifies TI-OS assembly, Ion, MirageOS, Doors CS assembly, BASIC,
+and associated program types in <code>runprog.asm</code>. For a RAM-resident assembly
+program, <code>hook1</code> and the <code>swap1</code>–<code>swap4</code> routines move its body between
+the variable and <code>0x9D95</code> through <code>plotSScreen</code>. [confirmed]</p>
+<p>For an archived assembly program, <code>initTmpASM</code> checks available memory,
+creates a complete RAM temporary variable under a derived name, and calls
+<code>_FlashToRam</code> before invoking the same move loader. The name is made by adding
+the program-chain size to the original name’s first byte. <code>initTmpASM</code> deletes
+an existing variable on collision, so the name is not globally unique. This
+path needs space for one complete RAM variable plus loader state; it does not
+retain another complete execution copy after the move. [confirmed]</p>
+<p>The <code>asmcheckwriteback</code> path behaves differently according to the original
+storage class:</p>
+<ul>
+<li>For a RAM-resident input, the reverse move has already put modified bytes
+back into the original variable.</li>
+<li>For an archived input, it compares the complete RAM temporary variable with
+the archived original page by page. An unchanged temporary variable is
+deleted. A changed one replaces the archive under the original name.</li>
+</ul>
+<p>Both behaviors are confirmed by <code>writeback.asm</code>. Doors CS also installs
+<code>AppOnErr(hook1reterror)</code>, which routes an ordinary OS error through the
+reverse move. [confirmed]</p>
+<p>The shell’s <code>mos_quittoshell</code> path manually rewrites <code>SP</code> and returns through
+a thunk in <code>cmdShadow</code>. Whether every forced shell-to-shell exit reaches the
+archive comparison still needs a dynamic trace. [hypothesis]</p>
+<h3 id="zstart-13013"><a class="header" href="#zstart-13013">zStart 1.3.013</a></h3>
+<p>zStart’s <code>runPrograms.z80</code> handles archived input without creating a named RAM
+temporary variable. It checks space, opens a raw allocation at <code>0x9D95</code>, copies
+the archived body there, and records a 16-bit additive checksum. The archived
+original remains present while this execution image runs. [confirmed]</p>
+<p>For RAM-resident input, zStart temporarily reduces the stored body to its
+two-byte header and uses <code>moveMemory</code> to transfer the rest to <code>0x9D95</code> through
+<code>saveSScreen</code> in chunks no larger than <code>0x300</code>. Normal return reverses the move
+and restores the stored size. [confirmed]</p>
+<p>The client runs inside <code>errHandOn(programRet)</code>, so ordinary TI-OS errors reach
+the same cleanup path. For an archived input, zStart deletes the raw allocation
+when its checksum is unchanged. When it differs, zStart deletes the archived
+original, creates a new program containing the <code>BB 6D</code> marker and changed
+body, then archives the replacement. [confirmed]</p>
+<p>zStart also places a shell-call thunk at <code>0x8000</code>, installs Ion-compatible
+vectors in <code>cmdShadow</code>, and selects IM1 for the client. A nonlocal jump into
+another shell can bypass the local error frame; that path remains untraced.
+[hypothesis]</p>
+<h3 id="lookup-and-persistence-consequences"><a class="header" href="#lookup-and-persistence-consequences">Lookup and persistence consequences</a></h3>
+<p>Self-lookup has several distinct outcomes across these loaders:</p>
+<ul>
+<li>A RAM-resident input can remain named in the VAT while its body is moved and
+is not a valid contiguous self-image.</li>
+<li>A MirageOS archived input keeps the archived original name and uses the
+<code>TempProgObj</code> named <code>Z,1.</code> for the RAM body that is moved during execution.</li>
+<li>A Doors CS archived input has an immutable archived original plus a
+derived-name temporary variable whose body is moved during execution. A
+collision with that derived name is deleted during setup.</li>
+<li>A zStart archived input has an immutable archived original plus an unnamed
+execution allocation.</li>
+<li>A Plasma input keeps the complete named source and runs a copied image. The
+source may be in RAM or Flash, but <code>_ChkFindSym</code> does not return the execution
+image.</li>
+<li>An active TSE task keeps a named three-byte header in its variable while the
+remaining body and appended task state occupy <code>userMem</code>.</li>
+</ul>
+<p>Code that needs its running image should use a shell-defined pointer or a
+position-independent scheme rather than assume that <code>_ChkFindSym</code> returns it.</p>
+<p>Writeback also changes the persistence guarantee. Ion writes every originally
+archived input back to Flash; MirageOS, Doors CS, and zStart avoid a Flash
+rewrite on their confirmed unchanged paths. Plasma never writes the source
+program back. TSE writes an active image back to its RAM variable on a
+cooperative switch and leaves an automatically unarchived program in RAM.
+Forced shell exits can bypass writeback under at least the documented MirageOS
+<strong>ON</strong>+<strong>^</strong> path, and nonlocal exit behavior remains launcher-specific.</p>
+<h3 id="evidence-limits"><a class="header" href="#evidence-limits">Evidence limits</a></h3>
+<p>The Ion, Plasma, TSE, Doors CS, and zStart results above come from source
+included in an identified release, byte-matched release source, or an
+identified source commit. MirageOS results come from its identified original
+binary and release changelog. TSE’s RAM and archived infrastructure copies and
+Plasma’s release entry also have the dynamic boundaries described above.
+These artifacts do not confirm peak free-RAM measurements or the machine state
+after every abnormal exit.</p>
+<p>The following questions still require a common instrumented payload under all
+six launcher and runtime designs:</p>
+<ul>
+<li>the exact peak RAM cost for RAM-resident and archived inputs;</li>
+<li><code>_ChkFindSym</code> results and pointed-to bytes while each client is running;</li>
+<li>self-modification persistence on normal return, OS error, <strong>ON</strong>+<strong>^</strong>, and
+shell-to-shell exit;</li>
+<li>restoration of the stack, interrupt mode, page mapping, and scratch RAM on
+every abnormal path.</li>
+</ul>
+<p>The loader-source numeric bcall scan finds <code>4F66h</code> for <code>_SetGetKeyHook</code> and
+<code>4030h</code> for <code>_newContext</code> in Plasma. Both IDs already have those names in the
+current bcall map. No absent or misnamed numeric bcall was found in Plasma,
+TSE, or RUNCOUNT. [confirmed]</p>
+<h3 id="source-provenance"><a class="header" href="#source-provenance">Source provenance</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Artifact</th><th>Exact identity</th><th>Source</th></tr>
+</thead>
+<tbody>
+<tr><td>Ion 1.6 release archive</td><td>SHA-256 <code>b5a5ba97f325f8779aa35cda23e38152087930298ff8b7b8573905710230e6e6</code></td><td><a href="https://www.ticalc.org/pub/83plus/asm/shells/ion.zip">ion.zip</a></td></tr>
+<tr><td>Plasma 1.4 release archive</td><td>SHA-256 <code>62965a41fe071902043ebcbbd1254f710d29729bf86a78f20b6f14d6974f5d5a</code></td><td><a href="https://www.ticalc.org/pub/83plus/asm/shells/plasma141.zip">plasma141.zip</a></td></tr>
+<tr><td>TSE 1.5/1.6 matched release archive</td><td>SHA-256 <code>d640729fcb4ebf2a166fe37f3ae59741a50a571578e5091863295bb08dba6a3b</code></td><td><a href="https://www.ticalc.org/pub/83plus/asm/shells/old/tsekrnl.zip">tsekrnl.zip</a></td></tr>
+<tr><td>TSE matched source archive</td><td>SHA-256 <code>d16407c2125133b24a86ad8e88819b3ae0fcc826a55ded5cb4155c19e6239592</code></td><td><a href="https://www.ticalc.org/pub/83plus/asm/source/tsesrc.zip">tsesrc.zip</a></td></tr>
+<tr><td>MirageOS 1.2 release archive</td><td>SHA-256 <code>38dc70173818972de8c5eb78099e8870c7acb9ad4c62d290f6c6f5840c71d43b</code></td><td><a href="https://www.ticalc.org/pub/83plus/flash/shells/mirageos.zip">mirageos.zip</a></td></tr>
+<tr><td>Doors CS 7.4 release archive</td><td>SHA-256 <code>3a16161ce1d091438b0ea9f5e72774f8e8b4fdfba9ab1024bad0b55569555230</code></td><td><a href="https://www.ticalc.org/pub/83plus/flash/shells/dcs7.zip">dcs7.zip</a></td></tr>
+<tr><td>Doors CS source repository</td><td>Commit <code>33af4f5ede199eee77cf2f89b5463a0a6ec9a1af</code></td><td><a href="https://github.com/KermMartian/Doors_CS_7/tree/33af4f5ede199eee77cf2f89b5463a0a6ec9a1af">Doors CS 7 commit</a></td></tr>
+<tr><td>zStart 1.3.013 release archive</td><td>SHA-256 <code>7a1b7c69c85030b412bb6ea11ae71ac608b9882a9de3ab7dbef1faf69519c5e9</code></td><td><a href="https://www.ticalc.org/pub/83plus/flash/shells/zstart.zip">zstart.zip</a></td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="evidence-limits-1"><a class="header" href="#evidence-limits-1">Evidence limits</a></h2>
+<p>The ROM and traces on this page cover the compiled and text <code>Asm(</code> paths,
+timed unarchived compiled-launch heap snapshots, RUNCOUNT’s unarchived source
+writeback, its archived non-execution boundary, normal cleanup bytes,
+pointer-repair code, VAT results, and Flash-page copying on TI-84 Plus OS
+2.55MP. They do not establish behavior for <code>_ExecAsm</code>, an archived shell
+launch, another OS version, a 48 KiB ASIC, or a physical calculator.</p>
+<p>Useful next fixtures should guard the two-byte over-read, repeat the timed
+snapshots for archived, <code>_ExecAsm</code>, and shell routes, and force archive garbage
+collection followed by a fresh lookup.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="sub-vat-archive.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="sub-resident-scratch.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="sub-vat-archive.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="sub-resident-scratch.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-09f2665d.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
+        <script src="hljs-z80-e93ac716.js"></script>
+        <script src="katex-5e4f3b03.min.js"></script>
+        <script src="katex-auto-render-bb53eb95.min.js"></script>
+        <script src="katex-init-5efd21f9.js"></script>
+        <script src="pseudocode-695903c6.min.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
+
+
+
+    </div>
+    </body>
+</html>
