@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c5feb52e.js";
+            window.path_to_searchindex_js = "searchindex-4b1e36ce.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-3a621010.js"></script>
@@ -343,7 +343,7 @@ certificate-sector journal, and all six ROM-written collector phases are
 reconstructed. Cold TilEm and pinned Wabbitemu restart tests cover each phase,
 but do not establish physical timing or power-loss guarantees. [confirmed]</p>
 <p>A separate guarded Wabbitemu fixture exercises the failed stack preflight at
-<code>00:02BF</code>, its reset transfer, and the illegal-DQ7 worker failure. It prints
+<code>ram:02BF</code>, its reset transfer, and the illegal-DQ7 worker failure. It prints
 numeric status <code>0</code>, verifies zero source-image changes, and confines the worker
 case to allocated byte <code>0x20100</code>. Wabbitemu has no program-busy interval, so
 this does not close the physical interruption question. [confirmed] for pinned
@@ -408,7 +408,7 @@ delays; and</li>
 <a href="hardware-probes.html#prefix-m1-timing-probe">prefix-M1 probe</a>, and
 <a href="hardware-probes.html#programmable-timer-physical-probe">programmable-timer probe</a>.
 The <a href="hardware-probes.html#lcd-controller-probe">LCD-controller probe</a> covers the
-digital ready and hidden-column cases without issuing analog or power commands.
+digital ready and visible-cell cases without issuing analog or power commands.
 The established decode and emulator differences are in
 <a href="bus-timing.html">Bus timing and wait states</a> and
 <a href="lcd-hardware.html">LCD controller and display bus</a>.</p>

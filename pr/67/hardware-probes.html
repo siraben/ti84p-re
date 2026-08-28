@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c5feb52e.js";
+            window.path_to_searchindex_js = "searchindex-4b1e36ce.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-3a621010.js"></script>
@@ -564,14 +564,14 @@ return early instead. [confirmed] from the assembled probe and the ROM path at
 <code>33:4EDC</code>–<code>33:4EE8</code>.</p>
 <p>After each sequence, the probe reproduces the cleanup at <code>33:4EEB</code>–<code>33:4F00</code>:
 it sets port-<code>0x39</code> bit 4, pulses port-<code>0x3A</code> bit 4 around
-<code>CALL 00:0CED</code> with <code>A = 0x40</code>, and clears port-<code>0x3A</code> bits 4 and 7. The
+<code>CALL ram:0CED</code> with <code>A = 0x40</code>, and clears port-<code>0x3A</code> bits 4 and 7. The
 31-byte payload has pre-state at offsets 0–3, outcome at offset 4, raw masks at
 offsets 5–20, post-sequence state at offsets 21–25, restored state at offsets
 26–29, and final status at offset 30. The decoder rejects masks above <code>0x0F</code>.
 It reports a 16-bin histogram, a stable mask only when all samples agree, pass
 counts for each selector, and <code>cleanup_matches</code>. [confirmed]</p>
 <p>Before the first I/O write, the artifact requires canonical <code>IY</code>, the exact OS
-signature at <code>ram:0BD9</code>, the exact 17-byte helper body at <code>00:0CEB</code>, and the
+signature at <code>ram:0BD9</code>, the exact 17-byte helper body at <code>ram:0CEB</code>, and the
 readable independent mapping context. Outcomes 1–4 identify those four guard
 families. Port <code>0x04</code> readback is status, not a saved selector latch. Cleanup
 therefore writes selector <code>0x06</code> explicitly and records that write, while
@@ -1046,7 +1046,7 @@ The packaged 1,938-byte <code>HWPRTC.8xp</code> has SHA-256
 paired mapper mode. Its entry and post-AppVar guards require ports <code>0x05</code>,
 <code>0x06</code>, <code>0x07</code>, <code>0x0E</code>, <code>0x0F</code>, <code>0x27</code>, and <code>0x28</code> to match the unmodified OS
 2.55MP direct-<code>Asm(</code> baseline. The program verifies the fixed-page helper at
-<code>00:0CE6</code>, creates pending <code>HWPMAP01</code>, and only then seeds test bytes.
+<code>ram:0CE6</code>, creates pending <code>HWPMAP01</code>, and only then seeds test bytes.
 [confirmed]</p>
 <p>The worker executes from a physical-page-1 alias and performs no stack access
 while window C is remapped. It tests port <code>0x28 = 0x01</code> around <code>0x8000</code> and port
@@ -1159,7 +1159,7 @@ records port <code>0x04</code>, programmable mode, count, and handler count, the
 both sources. [confirmed]</p>
 <p>The Z80 cannot report its current interrupt mode. Run <code>HWPIRQ</code> only through
 direct <code>Asm(</code> on unmodified OS 2.55MP, not from a shell or resident hook. The
-program guards <code>IY = 0x89F0</code>, the six-byte IM1 vector signature at <code>00:0038</code>,
+program guards <code>IY = 0x89F0</code>, the six-byte IM1 vector signature at <code>ram:0038</code>,
 entry IFF2, ON release, idle timer 1, no pending interrupt or completion, and
 the inactive USB gate. It creates pending <code>HWPIRQ01</code> before installing its
 257-byte uniform IM2 table and repeats the live-source guards after the bcall.</p>
@@ -1168,8 +1168,8 @@ canonical OS port-<code>0x03</code> mask, returns to IM1, restores <code>I</code
 state, updates the pending frame, and restores entry interrupt enable state.
 Guard-only outcomes never reach those writes: a <code>state_touched</code> flag keeps the
 timer, interrupt mask, <code>I</code>, and interrupt mode unchanged, then compares all six
-readable entry and exit bytes. [confirmed]
-If neither source wakes the CPU, a reset may be required; export the
+readable entry and exit bytes. [confirmed]</p>
+<p>If neither source wakes the CPU, a reset may be required; export the
 still-pending AppVar before another attempt. The lack of a displayed code in
 that case is expected.</p>
 <p>The identical assembled bytes completed in pinned TilEm with a
@@ -1189,8 +1189,8 @@ still leave a changed byte or lose volatile recovery data. Use a replaceable,
 backed-up test calculator and stable power.</p>
 <p>The snapshot, battery, raw-battery, raw-link, keypad, bus-timing, prefix-M1,
 programmable-timer, and alias probes restore interrupt enable state before
-creating the result AppVar.
-The battery-level probe retains its original restoration contract. The
+creating the result AppVar.</p>
+<p>The battery-level probe retains its original restoration contract. The
 raw-battery probe restores ports <code>0x39</code>, <code>0x3A</code>, and <code>traceFlags</code>, executes the
 ROM selector cleanup after every sample, and explicitly normalizes the
 port-<code>0x04</code> write-side selector to <code>0x06</code>; readback cannot restore that latch.
@@ -1200,18 +1200,20 @@ keypad probe normalizes port <code>0x01</code> to the OS’s all-groups-unselect
 <code>0xFF</code>. The bus and prefix timing probes restore port <code>0x2E</code> and an initially
 idle timer 2. The programmable-timer probe restores CPU speed, port <code>0x2F</code>,
 and the initially idle timer-1 and timer-2 triplets. It snapshots port <code>0x2D</code>
-but does not write it.
-The RTC rollover probe does not write its register block. It enters its final
+but does not write it.</p>
+<p>The RTC rollover probe does not write its register block. It enters its final
 wait only when interrupts were enabled and reenables them before creating the
-result AppVar.
-The mapper probe pre-creates a pending AppVar, guards its readable mapping
+result AppVar.</p>
+<p>The mapper probe pre-creates a pending AppVar, guards its readable mapping
 twice, restores all marker bytes, and verifies four marker groups in supported
 emulator models. Physical paired-mode execution remains blocked because an
-unknown mapping can unmap the worker before cleanup. The LCD probe uses no analog or power commands and verifies its entire
-touched-cell union. The interrupt probe pre-creates a pending AppVar, uses a
+unknown mapping can unmap the worker before cleanup.</p>
+<p>The LCD probe uses no analog or power commands and verifies its entire
+touched-cell union.</p>
+<p>The interrupt probe pre-creates a pending AppVar, uses a
 uniform IM2 table, supplies a standard-timer watchdog, and restores IM1, <code>I</code>,
-timer state, and the interrupt mask before returning.
-The bus-timing probe’s direct Flash writes are <code>0xF0</code> read-array resets, not
+timer state, and the interrupt mask before returning.</p>
+<p>The bus-timing probe’s direct Flash writes are <code>0xF0</code> read-array resets, not
 program or erase sequences. The prefix-M1 probe accesses only user RAM and I/O.
 A denied fetch may reset before cleanup instructions. The result AppVar is the
 intended persistent data write.

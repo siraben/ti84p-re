@@ -37,7 +37,7 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-c5feb52e.js";
+            window.path_to_searchindex_js = "../searchindex-4b1e36ce.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-3a621010.js"></script>
@@ -180,7 +180,7 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="guarded-mapper-lcd-and-interrupt-probes"><a class="header" href="#guarded-mapper-lcd-and-interrupt-probes">Guarded mapper, LCD, and interrupt probes</a></h1>
-<p>The three previously missing digital experiments now have SPASM-ng sources,
+<p>The mapper, LCD, and interrupt experiments have SPASM-ng sources,
 builder validators, result decoders, and exact-byte emulator runners. Their
 AppVars remain physical measurements only after export from an identified
 calculator. [confirmed] for the assembled artifacts and emulator executions;
@@ -203,7 +203,7 @@ records an even-Flash paired-window discriminator. [confirmed]</p>
 <code>0x06</code>, <code>0x07</code>, <code>0x0E</code>, <code>0x0F</code>, <code>0x27</code>, and <code>0x28</code> must read <code>0x00</code>,
 <code>0x3F</code>, <code>0x81</code>, <code>0x00</code>, <code>0x00</code>, <code>0x00</code>, and <code>0x00</code>. It also verifies the
 fixed-page helper at
-<code>00:0CE6</code>. Port <code>0x04</code> readback is interrupt status, not mapper-mode
+<code>ram:0CE6</code>. Port <code>0x04</code> readback is interrupt status, not mapper-mode
 readback, so the program does not pretend to save mode from that port. It
 normalizes independent mode with port <code>0x04 = 0x06</code> during cleanup.</p>
 <p>Before any marker write, the program creates a pending <code>HWPMAP01</code> AppVar and
@@ -323,7 +323,7 @@ standard-timer watchdog. [confirmed]</p>
 <p>A Z80 program cannot read the current interrupt mode. This artifact therefore
 requires direct <code>Asm(</code> on unmodified OS 2.55MP in IM1; do not launch it through
 a shell, hook, or resident interrupt replacement. It guards <code>IY = 0x89F0</code>,
-the six-byte IM1 vector signature at <code>00:0038</code>, enabled entry interrupts, an
+the six-byte IM1 vector signature at <code>ram:0038</code>, enabled entry interrupts, an
 unheld ON key, idle programmable timer 1, no pending legacy/completion source,
 and an inactive USB interrupt gate.</p>
 <p>The program creates pending <code>HWPIRQ01</code> before changing interrupt mode and

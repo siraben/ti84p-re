@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c5feb52e.js";
+            window.path_to_searchindex_js = "searchindex-4b1e36ce.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-3a621010.js"></script>
@@ -2041,10 +2041,10 @@ path. [confirmed] for the pinned native run.</p>
 with one legal worker control and one DQ5 worker failure. It requires the exact
 OS 2.55MP image. The adapter reads that file into allocated emulator memory and
 never writes an output ROM. [confirmed]</p>
-<p>The preflight case checks the 18 bytes beginning at <code>00:02BF</code> in both the input
+<p>The preflight case checks the 18 bytes beginning at <code>ram:02BF</code> in both the input
 image and the mapped page. A four-byte RAM harness calls that unmodified entry
 with <code>SP=0xBFFE</code>. The saved stack pointer therefore fails the <code>0xC000</code>–<code>0xFFFF</code>
-test. Execution visits <code>00:02BF</code>, <code>00:02CE</code>, and the reset vector at <code>00:0000</code>
+test. Execution visits <code>ram:02BF</code>, <code>ram:02CE</code>, and the reset vector at <code>ram:0000</code>
 once each. It does not return to the harness. [confirmed] for the pinned native
 run.</p>
 <p>The Flash gate remains locked and the device remains in array-read state.
