@@ -75,7 +75,7 @@ The pipeline (`build.sh`) reads its registries from `tools/symbols/`:
 7. `FixInlineBjumps.java` — fix the currently disassembled inline `CALL cross_page_jump` tail-jumps
 8. `ParserTable.java` — the page-0x38 parser handler dispatch
 9. `RenameFns.java` — apply the accumulated function names in `names.txt`
-10. `BuildTypes.java` — TI-OS enums, structures, typed regions, and reviewed scalar equates
+10. `BuildTypes.java` — TI-OS enums, structures, typed regions, and reviewed enum-backed scalar operands
 11. `ApplyLabels.java` — apply reviewed ROM-data and internal-entry labels from `labels.txt`
 12. `ApplyOffsetRefs.java` — render reviewed structure-field references from `poffsets.txt`
 13. `FixInlineBjumps.java` — repeat the fix-up after seeded code and checked metadata are installed
