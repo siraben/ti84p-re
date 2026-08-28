@@ -115,6 +115,29 @@ class JournalInitialization:
 
 
 @dataclass(frozen=True)
+class ArchiveCommandCase:
+    """One immediate selector and target in the archive command dispatcher."""
+
+    value: int
+    target: RomLocation
+    condition: str
+
+
+@dataclass(frozen=True)
+class ArchiveCommandDispatch:
+    """Validated entry, cross-page stub, callers, and selector branches."""
+
+    entry: RomLocation
+    stub: RomLocation
+    raw_stub_page: int
+    cases: tuple[ArchiveCommandCase, ...]
+    callers: tuple[RomLocation, ...]
+    gc_check_entry: RomLocation
+    former_relocation_candidate: RomLocation
+    screen_entry: RomLocation
+
+
+@dataclass(frozen=True)
 class GcJournalAnalysis:
     """Validated static description of the OS 2.55MP GC journal."""
 
@@ -130,6 +153,7 @@ class GcJournalAnalysis:
     sector_state_writer: RomLocation
     sector_state_writes: tuple[SectorStateWrite, ...]
     initialization: JournalInitialization
+    archive_commands: ArchiveCommandDispatch
 
 
 FIELDS = (
@@ -300,7 +324,67 @@ SECTOR_STATE_WRITES = (
 )
 
 
+ARCHIVE_COMMAND_CASES = (
+    ArchiveCommandCase(0x05, RomLocation(PAGE, 0x76EF), "always"),
+    ArchiveCommandCase(0x06, RomLocation(PAGE, 0x7F16), "always"),
+    ArchiveCommandCase(
+        0x03,
+        RomLocation(PAGE, 0x720D),
+        "only while bit 2 of IY + 0x25 is clear",
+    ),
+    ArchiveCommandCase(
+        0x04,
+        RomLocation(PAGE, 0x7213),
+        "only while bit 2 of IY + 0x25 is clear",
+    ),
+    ArchiveCommandCase(
+        0x01,
+        RomLocation(PAGE, 0x71EF),
+        "only while bit 2 of IY + 0x25 is clear",
+    ),
+    ArchiveCommandCase(
+        0x00,
+        RomLocation(PAGE, 0x7204),
+        "only while bit 2 of IY + 0x25 is clear and B equals zero",
+    ),
+)
+
+
+_ARCHIVE_COMMAND_CALLERS = (
+    RomLocation(0x07, 0x61CE),
+    RomLocation(0x36, 0x5C8F),
+    RomLocation(0x38, 0x5754),
+    RomLocation(0x3D, 0x68CA),
+    RomLocation(0x3D, 0x7066),
+    RomLocation(0x3D, 0x709B),
+    RomLocation(0x3D, 0x7456),
+    RomLocation(0x3D, 0x7483),
+    RomLocation(0x3D, 0x7890),
+    RomLocation(0x3D, 0x7968),
+    RomLocation(0x3D, 0x7F01),
+)
+
+
 _SIGNATURES = (
+    (
+        RomLocation(PAGE, 0x7121),
+        bytes.fromhex(
+            "FE05CAEF76FE06CA167FFDCB25562019FE03CA0D72FE04CA1372"
+            "FE01CAEF71FE00C078FE00CA0472"
+        ),
+    ),
+    (
+        RomLocation(PAGE, 0x7BC7),
+        bytes.fromhex(
+            "110E00CD487ECD057FCDE52F47E601281D78E6042027CD6B7ECD107C"
+            "CD0D7EFDCB25E6CD1F7CCD047CFDCB25A6C9"
+        ),
+    ),
+    (
+        RomLocation(PAGE, 0x7E0D),
+        bytes.fromhex("CD367E2126413E7200CD2B7ECD753C212E413E731808"),
+    ),
+    (RomLocation(0x00, 0x2FFD), bytes.fromhex("CD092B21717C")),
     (
         RomLocation(PAGE, 0x72A5),
         bytes.fromhex(
@@ -396,6 +480,20 @@ def _validate_bytes(rom: RomImage, location: RomLocation, expected: bytes) -> No
         )
 
 
+def _raw_call_locations(rom: RomImage, target: int) -> tuple[RomLocation, ...]:
+    """Return byte-exact direct-CALL candidates for one logical address."""
+
+    pattern = bytes((0xCD, target & 0xFF, target >> 8))
+    locations = []
+    for page in range(rom.page_count):
+        data = rom.page(page)
+        origin = 0 if page == 0 else 0x4000
+        for offset in range(len(data) - len(pattern) + 1):
+            if data[offset : offset + len(pattern)] == pattern:
+                locations.append(RomLocation(page, origin + offset))
+    return tuple(locations)
+
+
 def sector_state_index(page: int) -> int:
     """Return the journal index for a 64 KiB archive-sector start page."""
 
@@ -424,6 +522,13 @@ def analyze_gc_journal(rom: RomImage) -> GcJournalAnalysis:
         )
     for location, expected in _SIGNATURES:
         _validate_bytes(rom, location, expected)
+    archive_command_callers = _raw_call_locations(rom, 0x2FFD)
+    if archive_command_callers != _ARCHIVE_COMMAND_CALLERS:
+        raise GcJournalSignatureError(
+            "archive command stub callers differ: expected "
+            f"{tuple(map(str, _ARCHIVE_COMMAND_CALLERS))}, got "
+            f"{tuple(map(str, archive_command_callers))}"
+        )
     return GcJournalAnalysis(
         rom_sha256=sha256(rom.data).hexdigest(),
         block_offset=GC_BLOCK_OFFSET,
@@ -458,6 +563,16 @@ def analyze_gc_journal(rom: RomImage) -> GcJournalAnalysis:
             maximum_live_sector_state_count=sector_state_count(
                 MAX_ARCHIVE_LIMIT
             ),
+        ),
+        archive_commands=ArchiveCommandDispatch(
+            entry=RomLocation(PAGE, 0x7121),
+            stub=RomLocation(0x00, 0x2FFD),
+            raw_stub_page=0x7C,
+            cases=ARCHIVE_COMMAND_CASES,
+            callers=archive_command_callers,
+            gc_check_entry=RomLocation(PAGE, 0x7BC7),
+            former_relocation_candidate=RomLocation(PAGE, 0x7BD0),
+            screen_entry=RomLocation(PAGE, 0x7E0D),
         ),
     )
 

@@ -43,6 +43,27 @@ def build_report(analysis, trace_events=()) -> dict[str, Any]:
             for field in analysis.fields
         ],
         "dispatch_entry": str(analysis.dispatch_entry),
+        "archive_command_dispatch": {
+            "entry": str(analysis.archive_commands.entry),
+            "stub": str(analysis.archive_commands.stub),
+            "raw_stub_page": analysis.archive_commands.raw_stub_page,
+            "cases": [
+                {
+                    "value": case.value,
+                    "target": str(case.target),
+                    "condition": case.condition,
+                }
+                for case in analysis.archive_commands.cases
+            ],
+            "callers": [
+                str(location) for location in analysis.archive_commands.callers
+            ],
+            "gc_check_entry": str(analysis.archive_commands.gc_check_entry),
+            "former_relocation_candidate": str(
+                analysis.archive_commands.former_relocation_candidate
+            ),
+            "screen_entry": str(analysis.archive_commands.screen_entry),
+        },
         "phase_cases": [
             {
                 "value": case.value,
@@ -154,6 +175,25 @@ def print_text(report: dict[str, Any]) -> None:
             f"certificate=0x{field['certificate_offset']:04X} "
             f"helper={field['helper']} RAM={addresses}; {field['role']}"
         )
+    command_dispatch = report["archive_command_dispatch"]
+    print(
+        f"archive command dispatch: {command_dispatch['entry']} via "
+        f"{command_dispatch['stub']} raw-page=0x"
+        f"{command_dispatch['raw_stub_page']:02X}"
+    )
+    for case in command_dispatch["cases"]:
+        print(
+            f"  A=0x{case['value']:02X} -> {case['target']}; "
+            f"{case['condition']}"
+        )
+    print(
+        "  callers: " + ", ".join(command_dispatch["callers"])
+    )
+    print(
+        f"  {command_dispatch['former_relocation_candidate']} is inside "
+        f"{command_dispatch['gc_check_entry']}; screen entry="
+        f"{command_dispatch['screen_entry']}"
+    )
     initialization = report["initialization"]
     retained_tail_end = (
         initialization["retained_tail_offset"]
