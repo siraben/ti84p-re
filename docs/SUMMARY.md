@@ -44,6 +44,7 @@
 - [Tokenizer and TI-BASIC tokens](tokenizer-basic.md)
   - [TI-BASIC execution](sub-tibasic.md)
     - [TI-BASIC programming patterns](sub-tibasic-programming.md)
+      - [TI-BASIC examples and ASM interop](sub-tibasic-examples.md)
     - [TI-BASIC dynamic tracing](sub-tibasic-tracing.md)
     - [TI-BASIC `For(` parenthesis trap](sub-tibasic-for-paren.md)
 - [Display and LCD](display-lcd.md)

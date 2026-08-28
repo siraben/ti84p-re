@@ -326,7 +326,7 @@ working BASIC call frame. The negative fixtures end at `ERR:INVALID` and
 `ERR:UNDEFINED`, respectively. [confirmed]
 
 For source-level conventions and the `Ans`/scalar/list calling fixture, see
-[TI-BASIC programming patterns](sub-tibasic-programming.md#subprogram-interfaces).
+[TI-BASIC examples and ASM interop](sub-tibasic-examples.md#subprogram-interfaces).
 
 ## Commands parse arguments, then hand off
 
