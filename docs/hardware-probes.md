@@ -1153,8 +1153,9 @@ physical execution and reset retention.
 | `tools/ti84re/emulators/wabbitemu/run_prefix_m1_probe.py` | exact-ROM guarded assembled-probe execution CLI |
 | `tools/ti84re/emulators/wabbitemu/run_timer_physical_probe.py` | exact-ROM guarded assembled timer-probe execution CLI |
 | `tools/ti84re/hardware/mapper_probe_evidence.py` | deterministic exact-run normalization and freshness checks for `HWPMAP` |
-| `tools/ti84re/emulators/tilem/build_exact_probe.py` | pinned TilEm generic exact-probe runner build CLI |
-| `tools/ti84re/emulators/wabbitemu/build_exact_probe.py` | pinned Wabbitemu generic exact-probe runner build CLI |
+| `tools/ti84re/emulators/probe_build.py` | shared guarded build CLI implementation for pinned emulator adapters |
+| `tools/ti84re/emulators/tilem/build_exact_probe.py` | thin TilEm generic exact-probe build entry point |
+| `tools/ti84re/emulators/wabbitemu/build_exact_probe.py` | thin Wabbitemu generic exact-probe build entry point |
 | `tools/ti84re/hardware/run_exact_probe.py` | normalized exact-byte runner for every displayed physical probe |
 | `tools/ti84re/hardware/run_compact_probe_e2e.py` | cross-emulator compact-code validation and Wabbitemu small-font rendering |
 | `tools/ti84re/hardware/build_lcd_hidden_lab_probe.py` | backup-bound device-specific hidden-LCD artifact builder |

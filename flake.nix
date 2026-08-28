@@ -78,7 +78,8 @@
               tests.tibasic.test_tibasic_saturation tests.tibasic.test_tibasic_numeric_errors \
               tests.rom.test_rom_provenance tests.boot.test_compare_boot_pages \
               tests.rom.test_database_health_report \
-              tests.hardware.test_hardware_probe tests.hardware.test_build_hardware_probes tests.wiki.test_needed_probe_docs tests.hardware.test_exact_hardware_probe
+              tests.hardware.test_hardware_probe tests.hardware.test_build_hardware_probes tests.wiki.test_needed_probe_docs tests.hardware.test_exact_hardware_probe \
+              tests.emulators.test_emulator_probe_build
           '';
           dontInstall = true;
           dontFixup = true;

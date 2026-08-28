@@ -12,8 +12,9 @@
     "tools/ti84re/hardware/compact_probe_code.py": "70beaf028c4f5065f352375bba4046e7f166c1b275abedbf0ca434e007d5f3ec",
     "tools/ti84re/hardware/probe.py": "bb72b76b38e6cf765c62742cfd7c803166f2b5b5bac707e10018ebcac49a8932",
     "tools/ti84re/hardware/build_probes.py": "0daf46f96991e97135be33ae481e0c97b15963bc4e1f17f87f9524a8bcc3e20b",
-    "tools/ti84re/emulators/tilem/build_compact_probe.py": "d3a9df87d3c56e492c03689712c59d3bf229379590676a85f846f33cbe5bdcf6",
-    "tools/ti84re/emulators/wabbitemu/build_compact_probe.py": "0c31a8c8a9f28b919e51bdf3cdd84bcc9d9adaff52f3c4e0be818b8e35195f5a",
+    "tools/ti84re/emulators/probe_build.py": "d2dd45cb8be931c16fe60175e3a8daff62482beea7fdfad530a5fd1093aa4427",
+    "tools/ti84re/emulators/tilem/build_compact_probe.py": "84e51ebe59481d4d2e8040e66552f0480f82521b119e341e503dd3c225ca1982",
+    "tools/ti84re/emulators/wabbitemu/build_compact_probe.py": "1e0660ca9a45a849f21c0479629c300ba5a3c51ed3465ad1b721bc88682645fd",
     "tools/probes/tilem/tilem_compact_probe.c": "4cfe40c7c19f3ce2e21ee39f1fb3696dc119991c2a77dfccddfdc2cafaa80ecf",
     "tools/probes/tilem/tilem_probe_support.c": "cf9e554bab3cfe90b9faf034bf98003263638a18d276355e1cca16da339bb8a5",
     "tools/probes/tilem/tilem_probe_support.h": "039bac054d23ad54d6bbd5955bf2a8dab955d10a2fcc221cde96bd3c6d52a068",
@@ -21,7 +22,7 @@
     "tools/probes/wabbitemu/wabbitemu_compact_probe.cpp": "db4a4143990f5bea85bb013c74521f97a24dc977e7f4cc628845b9e00453be0f",
     "tools/probes/wabbitemu/wabbitemu_headless.cpp": "ef681a7477b44da303e35fcbb325b388e6f47f34397332da31a4abdadf92c766",
     "tools/ti84re/emulators/wabbitemu/headless.py": "c719c7fb7160ef71946aa13dd8013879c5f578d81cc34a24e80ff3b1da9081df",
-    "tools/ti84re/hardware/run_compact_probe_e2e.py": "68039c73cd28336f9bc229570fba352ad74a25ecc853fd3674621dab4b7b6476",
+    "tools/ti84re/hardware/run_compact_probe_e2e.py": "1ef5aefe52f0299fd16763095f2f016588376aa6a3c081ceed7ee8085a9dc73d",
     "tools/probes/hardware/timer-physical.asm": "17c9b71fba3463a39de4d56a8c6003cd5b051beb6c25f563a6a8cb5b906fcd8d"
   },
   "emulator_sources": {
