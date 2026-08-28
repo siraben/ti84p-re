@@ -38,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-20c81d26.js";
+            window.path_to_searchindex_js = "searchindex-f7a8b752.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-91efa25b.js"></script>
+        <script src="toc-d9f1b932.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -498,173 +498,12 @@ instructions present in that member, but does not prove that the distributed
 calculator variable was assembled from it or that the code works on physical
 hardware. Cite both archive and member hashes for a source finding, and retain
 the wiki’s existing hardware or ROM evidence boundary. [confirmed]</p>
-<h2 id="asmin28days-snapshot"><a class="header" href="#asmin28days-snapshot">ASMin28Days snapshot</a></h2>
-<p>The <a href="#asmin28days-source-audit">ASMin28Days source audit</a> uses a complete authored
-mirror of the live Version 2.0 tutorial. The 92-file archive has SHA-256
-<code>be525f651b940443e874b9f630e07e25353ddae34772d17e3908a1cda7816a99</code>.
-The mirror remains outside this repository. <code>tools/asmin28days-claims.json</code>
-records exact hashes for the table of contents and all 28 lesson pages.
-[confirmed]</p>
-<p>Tutorial prose and example code are external claims. The audit separates Z80
-manual facts, TI SDK contracts, target-ROM bytes, emulator execution, and
-physical-hardware questions. A page hash identifies the reviewed text; it does
-not validate that text. [confirmed]</p>
 <h2 id="evidence-limit"><a class="header" href="#evidence-limit">Evidence limit</a></h2>
 <p>A matching hash proves byte identity, not how the image was obtained. The
 environment, ASIC, and emulator-profile fields keep physical and emulator
 evidence separate. They do not turn emulator behavior into hardware evidence.
 Git and script-tree identities make an analysis run reproducible; they do not
 by themselves validate the analysis conclusion.</p>
-<div style="break-before: page; page-break-before: always;"></div>
-<h1 id="asmin28days-source-audit"><a class="header" href="#asmin28days-source-audit">ASMin28Days source audit</a></h1>
-<p>ASMin28Days Version 2.0 is a TI-83 Plus assembly course published in 2004.
-This audit separates its Z80 lessons, historical TI-83 Plus conventions, and
-claims that apply to TI-84 Plus OS 2.55MP. It also records the claims checked
-against the target ROM and a pinned TilEm run.</p>
-<h2 id="source-identity"><a class="header" href="#source-identity">Source identity</a></h2>
-<p>The audited source is the live <a href="https://tutorials.eeems.ca/ASMin28Days/lesson/toc.html">ASMin28Days table of
-contents</a>. The complete
-authored mirror contains 92 files and has archive SHA-256
-<code>be525f651b940443e874b9f630e07e25353ddae34772d17e3908a1cda7816a99</code>.
-It includes every file in the known Version 2.0 distribution plus the live
-favicon. The source record in <code>tools/asmin28days-claims.json</code> binds the table of
-contents and all 28 lesson pages reviewed below. [confirmed]</p>
-<p>The maintained <a href="https://gitlab.com/taricorp/83pa28d">Version 3 source</a> is a
-separate edition. Its existence does not change the Version 2.0 byte record or
-the target-ROM results on this page.</p>
-<h2 id="source-integrity"><a class="header" href="#source-integrity">Source integrity</a></h2>
-<p>The table-of-contents crawl reaches 82 authored files. The known Version 2.0
-source tree contains 91 files; all 91 remain available, including ten files
-that the live link graph does not reach. The live favicon makes the complete
-mirror 92 files and 1,260,127 bytes. Directory indexing is disabled, so this
-coverage is complete relative to both the reachable graph and the known
-Version 2.0 tree. [confirmed]</p>
-<p>The live copy has three broken relative-link patterns: Day 9 points to
-<code>z80is.html</code> instead of <code>../ref/z80is.html</code>, Day 20 points to <code>day19html</code>
-instead of <code>day19.html</code>, and <code>ref/direct.html</code> points to <code>day03.html</code> instead
-of <code>../lesson/day03.html</code>. Day 15 also targets a missing Day 8 <code>bol</code> fragment.
-Day 16 and <code>ref/direct.html</code> define several anchor names with a literal leading
-<code>#</code>, so the intended fragments do not resolve. [confirmed]</p>
-<p>The host copy contains six replacement characters where the Version 2.0
-source has four middle dots on Day 5 and multiplication and division signs on
-Day 27. The audit evaluates the intended characters from the versioned source
-when those examples depend on the corrupted symbols. [confirmed]</p>
-<h2 id="evidence-lanes"><a class="header" href="#evidence-lanes">Evidence lanes</a></h2>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Evidence</th><th>Scope</th><th>Result</th></tr>
-</thead>
-<tbody>
-<tr><td><code>tools/asmin28days_claims.py</code></td><td>exact tutorial-page hashes and seven OS 2.55MP ROM signatures</td><td>source and ROM boundaries reproduce [confirmed]</td></tr>
-<tr><td><code>tools/asmin28days-probes/z80-corrections.asm</code></td><td>corrected instruction sequences</td><td>SPASM-ng accepts the sequences and emits the guarded opcodes [confirmed]</td></tr>
-<tr><td><code>tools/asmin28days-probes/matrix-layout.asm</code> and <code>tools/fixtures/asmin28days-matrix-tilem.json</code></td><td><code>_AdrMEle</code> and <code>_AdrMRow</code> register convention</td><td>pinned TilEm returns row-major offsets for a 2×3 buffer [confirmed]</td></tr>
-<tr><td><a href="https://www.zilog.com/docs/z80/um0080.pdf">Zilog Z80 CPU User Manual</a></td><td>instruction legality, flags, interrupt modes, and block transfers</td><td>CPU claims marked standard below [standard]</td></tr>
-<tr><td><a href="https://education.ti.com/html/eguides/discontinued/computer-software/EN/SDK-TI-83-Developer-Guide_EN.pdf">TI-83 Plus Developer Guide</a></td><td>TI-83 Plus object layouts and public APIs</td><td>historical TI contract [standard]</td></tr>
-<tr><td>OS 2.55MP disassembly</td><td>TI-84 Plus behavior in the target ROM</td><td>target-specific claims [confirmed]</td></tr>
-</tbody>
-</table>
-</div>
-<p>Emulator execution proves the fixture and this ROM take the recorded path. It
-does not establish keypad settling, LCD analog timing, or interrupt-bus values
-on a physical calculator.</p>
-<h2 id="matrix-storage-correction"><a class="header" href="#matrix-storage-correction">Matrix storage correction</a></h2>
-<p>ASMin28Days <a href="https://tutorials.eeems.ca/ASMin28Days/lesson/day19.html">Day
-19</a> gives the matrix
-header as columns followed by rows and stores elements row-major. The target
-ROM agrees. <code>_CreateRMat</code> receives <code>H=rows</code> and <code>L=columns</code>; the common writer
-at <code>ram:10EE</code> stores <code>L</code> before <code>H</code>. <code>_AdrMEle</code> at <code>02:4002</code> takes <code>B=row</code> and
-<code>C=column</code> and computes:</p>
-<p>$$
-((\mathit{row}-1)\cdot\mathit{columns}+(\mathit{column}-1))\cdot 9
-$$</p>
-<p>The dynamic witness uses header bytes <code>03 02</code>. It records offsets 2, 20, 29,
-and 47 for <code>(1,1)</code>, <code>(1,3)</code>, <code>(2,1)</code>, and <code>(2,3)</code>. <code>_AdrMRow</code> returns offset 29
-for row 2. These offsets include the two-byte header. [confirmed]</p>
-<p>Day 5 presents its generic row-major and column-major formulas in the opposite
-order. Day 19 supplies the correct TI matrix representation. The formulas are
-therefore assessed separately rather than treating the tutorial as internally
-consistent.</p>
-<h2 id="symbol-lookup-qualification"><a class="header" href="#symbol-lookup-qualification">Symbol lookup qualification</a></h2>
-<p>The TI SDK recommends <code>_ChkFindSym</code> for Programs and AppVars. OS 2.55MP keeps
-that public distinction but implements overlapping internal capability.
-<code>_ChkFindSym</code> at <code>00:0E60</code> recognizes the five named classes at <code>ram:2042</code> and
-routes them to the length-prefixed scanner at <code>07:55D1</code>. <code>_FindSym</code> at
-<code>00:0E65</code> reaches <code>findsym_scan</code> at <code>07:565F</code>, whose name classifier can also
-select <code>07:55D1</code>. [confirmed]</p>
-<p>The SDK recommendation is valid API guidance. It is not evidence that this
-ROM’s <code>_FindSym</code> body cannot process a correctly formed length-prefixed OP1.</p>
-<h2 id="lcd-qualification"><a class="header" href="#lcd-qualification">LCD qualification</a></h2>
-<p>ASMin28Days <a href="https://tutorials.eeems.ca/ASMin28Days/lesson/day26.html">Day
-26</a> correctly
-separates command port <code>0x10</code> from data port <code>0x11</code>. It sends contrast as a
-<code>0xC0</code>–<code>0xFF</code> command. The target ROM’s <code>lcd_write_data</code> at <code>01:5A59</code> and
-<code>lcd_read_data</code> at <code>01:5A60</code> use port <code>0x11</code> for pixel data; they are not
-contrast helpers. <code>_LCD_DRIVERON</code> builds the contrast command from the OS byte
-at <code>0x8447</code>. [confirmed]</p>
-<p>Day 26 describes the Toshiba T6A04. That controller’s commands and dummy-read
-pipeline are useful historical evidence. Controller identity, hidden width,
-busy duration, and out-of-range aliases vary across TI-84 Plus revisions and
-remain separate hardware questions.</p>
-<h2 id="lesson-assessment"><a class="header" href="#lesson-assessment">Lesson assessment</a></h2>
-<p>The table classifies the principal technical claims. <em>Historical</em> means the
-claim fits the original direct-ASM TI-83 Plus context but is not a general
-TI-84 Plus rule.</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th style="text-align: right">Lesson</th><th>Assessment</th><th>Validation result</th></tr>
-</thead>
-<tbody>
-<tr><td style="text-align: right">1</td><td>historical</td><td><code>ram:9D93</code>/<code>ram:9D95</code> and the 8,811-byte region describe one classic launcher; they are not universal variable or relocated-code limits</td></tr>
-<tr><td style="text-align: right">2</td><td>historical</td><td>the wrapper and bcall mechanism fit that launcher; the target OS has additional execution paths</td></tr>
-<tr><td style="text-align: right">3</td><td>incorrect examples</td><td>the printed machine bytes do not encode its instructions; IX/IY do not implement every HL form [standard]</td></tr>
-<tr><td style="text-align: right">4</td><td>incorrect flags</td><td>S and Z retain instruction results rather than continuously describing <code>A</code>; bits 3 and 5 are observable; signed overflow is defined by operand and result signs [standard]</td></tr>
-<tr><td style="text-align: right">5</td><td>incorrect examples</td><td>16-bit <code>INC rr</code>/<code>DEC rr</code> leave flags unchanged; <code>ADD HL,rr</code> does not set S, Z, or P/V; the array-order formulas are reversed [standard]</td></tr>
-<tr><td style="text-align: right">6</td><td>qualified</td><td>push/pop and the downward-growing stack are correct; safe stack capacity is still bounded by the OS context</td></tr>
-<tr><td style="text-align: right">7</td><td>incorrect branch</td><td><code>CP 100</code> followed by <code>JR C,end</code> exits the stated <code>while A&lt;100</code> loop at <code>A=0</code></td></tr>
-<tr><td style="text-align: right">8</td><td>incorrect flags</td><td>a 16-bit OR test is nonzero when either byte is nonzero; <code>BIT</code> sets P/V like Z, and <code>BIT 7</code> supplies S [standard]</td></tr>
-<tr><td style="text-align: right">9</td><td>incorrect shift description</td><td>SLA shifts zero into bit 0 and copies old bit 7 to Carry [standard]</td></tr>
-<tr><td style="text-align: right">10</td><td>qualified</td><td>IX/IY substitution and R-register advancement are more restricted than stated [standard]</td></tr>
-<tr><td style="text-align: right">11</td><td>accepted</td><td>the monochrome text, pen, shadow, and graph-buffer model is suitable for the original platform [standard]</td></tr>
-<tr><td style="text-align: right">12</td><td>minor ABI issue</td><td>preserving BC around <code>_GetKey</code> is harmless, but the TI routine guide documents DE and HL as destroyed</td></tr>
-<tr><td style="text-align: right">13</td><td>incorrect code</td><td><code>.dw</code> lookup needs a doubled byte index; <code>LD HL,HL</code> is illegal, while <code>ADD HL,HL</code> assembles [confirmed]</td></tr>
-<tr><td style="text-align: right">14</td><td>accepted</td><td>CALL pushes the return address; register saves and local frames remain calling-convention choices [standard]</td></tr>
-<tr><td style="text-align: right">15</td><td>incorrect comparison</td><td>its little-endian multi-byte comparison begins with the least-significant byte despite requiring numerical order</td></tr>
-<tr><td style="text-align: right">16</td><td>incorrect block-copy cases</td><td>the overlap rule is reversed in one explanation, one case uses <code>LDIR</code> where <code>LDDR</code> is required, and the 768-byte zero-fill overruns by one</td></tr>
-<tr><td style="text-align: right">17</td><td>incorrect set routines</td><td>the union loop does not advance its pointers; <code>A∩B=A</code> means A is a subset of B</td></tr>
-<tr><td style="text-align: right">18</td><td>typographical error</td><td><code>_Random</code> produces <code>0&lt;OP1&lt;1</code>, not <code>0&gt;OP1&gt;1</code> [standard]</td></tr>
-<tr><td style="text-align: right">19</td><td>mixed</td><td>matrix layout is correct; the <code>L1</code> OP1 example needs <code>ListObj</code>; the <code>_FindSym</code> restriction requires the target-ROM qualification above</td></tr>
-<tr><td style="text-align: right">20</td><td>incorrect copy length</td><td>the creator allocates from <code>prog_data</code> but copies from <code>prog_data_start</code>, leaving two allocated bytes unwritten</td></tr>
-<tr><td style="text-align: right">21</td><td>historical</td><td>downward VAT growth and backward names are useful; exact entry classes and bounds come from the target ROM</td></tr>
-<tr><td style="text-align: right">22</td><td>hardware-dependent</td><td>the active-low matrix model is useful; fixed settling delays and ghosting behavior are not revision-independent physical facts</td></tr>
-<tr><td style="text-align: right">23</td><td>incorrect CPU claims</td><td>IM1 vectors to <code>0038h</code>, not <code>RST 28h</code>; IM2 uses an externally supplied low vector byte; fixed TI bus values require hardware evidence [standard]</td></tr>
-<tr><td style="text-align: right">24</td><td>endpoint error</td><td>the vertical-line count excludes the documented final endpoint and draws nothing when both endpoints are equal</td></tr>
-<tr><td style="text-align: right">25</td><td>non-assembling code</td><td><code>LD 8</code> is invalid, the documented y register is ignored, and the aligned and unaligned mask conventions differ [confirmed]</td></tr>
-<tr><td style="text-align: right">26</td><td>historical and hardware-dependent</td><td>T6A04 commands are useful; fitted controllers and physical timing vary across TI-84 Plus revisions</td></tr>
-<tr><td style="text-align: right">27</td><td>incorrect code</td><td>the normal character table is overwritten by the next load, and <code>ConvHex8</code> leaks pushed AF values</td></tr>
-<tr><td style="text-align: right">28</td><td>unsafe generalization</td><td><code>BIT</code> does not set Carry, the overlap direction is reversed, and <code>0x8000</code>–<code>0xBFFF</code> can map Flash or RAM</td></tr>
-</tbody>
-</table>
-</div>
-<h2 id="reproduction"><a class="header" href="#reproduction">Reproduction</a></h2>
-<p>Validate the source mirror and ROM anchors:</p>
-<pre><code class="language-sh">nix develop -c python tools/asmin28days_claims.py \
-  --rom tools/rom.bin \
-  --tutorial-root "$TUTORIAL_ROOT" \
-  --output /tmp/asmin28days-claims.json
-</code></pre>
-<p>Run the matrix witness through the pinned headless TilEm build:</p>
-<pre><code class="language-sh">nix develop -c python tools/run_asmin28days_matrix_probe.py \
-  --rom tools/rom.bin \
-  --tilem "$TILEM" \
-  --output /tmp/asmin28days-matrix
-</code></pre>
-<p>The runner checks the ROM and emulator hashes, builds the payload with
-SPASM-ng, transfers it through the OS link receiver, executes it through
-<code>Asm(</code>, resolves the full trace, and checks the logical-RAM result. Raw traces
-and the proprietary ROM remain outside Git. The reduced fixture retains their
-hashes.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="glossary"><a class="header" href="#glossary">Glossary</a></h1>
 <p>This glossary defines the TI-specific terms and key RAM symbols used throughout
@@ -4934,7 +4773,7 @@ closes the protected gate, and enters a power/HALT loop. [confirmed]</p>
 <p>This split matters when interpreting a normal trace: reaching the installed
 OS proves that the two RAM markers passed on that boot, not that the trace
 executed a fresh certificate or cryptographic validation. [confirmed]</p>
-<h2 id="reproduction-1"><a class="header" href="#reproduction-1">Reproduction</a></h2>
+<h2 id="reproduction"><a class="header" href="#reproduction">Reproduction</a></h2>
 <p>Capture each macro from reset with the pinned TilEm build, <code>--normal-speed</code>,
 and <code>--trace-range all</code>, as described in <code>tools/dynamic-tracing.md</code>. Reduce the
 four TLMT files with: [confirmed]</p>
