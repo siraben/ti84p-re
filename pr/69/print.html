@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-c3d7dba2.js";
+            window.path_to_searchindex_js = "searchindex-35d6b585.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d9f1b932.js"></script>
@@ -5703,10 +5703,10 @@ preflight branch at <code>3C:7232</code> sees carry set and returns through <cod
 recovery dispatcher during this normal run. [confirmed]</p>
 <h3 id="archive-command-dispatcher"><a class="header" href="#archive-command-dispatcher">Archive command dispatcher</a></h3>
 <p><code>flash_cmd_dispatch</code> starts at <code>3C:7121</code>, immediately after the <code>RET</code> at
-<code>3C:7120</code>. The page-0 stub at <code>00:2FFD</code> contains
+<code>3C:7120</code>. The page-0 stub at <code>ram:2FFD</code> contains
 <code>CD 09 2B 21 71 7C</code>: a call to the cross-page dispatcher followed by logical
 address <code>0x7121</code> and raw page byte <code>0x7C</code>. The cross-page helper masks the page
-byte to <code>0x3C</code>. A ROM-wide scan finds 11 direct callers of <code>00:2FFD</code>, including
+byte to <code>0x3C</code>. A ROM-wide scan finds 11 direct callers of <code>ram:2FFD</code>, including
 the RAM-to-Flash archive path at <code>07:61CE</code> and the catalog path at <code>38:5754</code>.
 [confirmed]</p>
 <p>The entry decodes selector <code>A</code> as follows: [confirmed]</p>
@@ -5725,11 +5725,10 @@ the RAM-to-Flash archive path at <code>07:61CE</code> and the catalog path at <c
 </tbody>
 </table>
 </div>
-<p><code>3C:7BD0</code> is the <code>CALL 00:2FE5</code> instruction inside
-<code>gc_check_interrupted</code>, whose entry is <code>3C:7BC7</code>. It has no independent call
-reference or function entry. The candidate name <code>flash_gc_relocate</code> therefore
-does not describe a separate routine. <code>gc_show_screen</code> remains the independent
-entry at <code>3C:7E0D</code>. [confirmed]</p>
+<p><code>3C:7BD0</code> is the <code>CALL ram:2FE5</code> instruction inside
+<code>gc_check_interrupted</code>, whose entry is <code>3C:7BC7</code>. No call reference or function
+entry begins at <code>3C:7BD0</code>. <code>gc_show_screen</code> is the independent entry at
+<code>3C:7E0D</code>. [confirmed]</p>
 <p><code>tools/analyze_gc_journal.py</code> validates the dispatcher bytes, the page-0 stub,
 all 11 callers, the <code>3C:7BC7</code> function body, and the <code>3C:7E0D</code> display entry.
 Its JSON report retains selectors, targets, and conditions separately from the
@@ -6129,7 +6128,7 @@ page. The catalog <strong>MEM</strong> path runs through <code>3C:7121</code>. [
 <tr><td><code>3D:7DEA</code></td><td><code>flash_find_nonff</code></td><td>scan 13-byte header for all-0xFF (free slot)</td></tr>
 <tr><td><code>00:1837</code> / <code>00:182F</code></td><td><code>probe_hw_model_keep_a</code> / <code>probe_port21_keep_a</code></td><td>model bits: port 2 bit7 / port 0x21 low</td></tr>
 <tr><td><code>3D:6B6D</code> / <code>3D:6B9B</code></td><td><code>flash_write_bounds_check</code> / <code>flash_write_byte_bounds_check</code></td><td>enforce page <code>08</code> and dynamic App-boundary limits before block or byte writes</td></tr>
-<tr><td><code>3C:7121</code></td><td><code>flash_cmd_dispatch</code></td><td>dispatch archive command selector <code>A</code> through the cross-page stub at <code>00:2FFD</code></td></tr>
+<tr><td><code>3C:7121</code></td><td><code>flash_cmd_dispatch</code></td><td>dispatch archive command selector <code>A</code> through the cross-page stub at <code>ram:2FFD</code></td></tr>
 <tr><td><code>3C:71F8</code></td><td><code>gc_command</code></td><td>display the Garbage Collecting screen, run recovery preflight, and call the collector</td></tr>
 <tr><td><code>3C:7219</code></td><td><code>gc_recovery_preflight</code></td><td>inspect persistent GC state and enter recovery only when needed</td></tr>
 <tr><td><code>3C:7733</code></td><td><code>archive_gc_collect</code></td><td>normal collector entry and Flash-unlock wrapper</td></tr>
