@@ -13,10 +13,13 @@ map). Flag bits use the `ti83plus.inc` equates; the SystemFlags base is
 
 ## Flash Apps — find and launch
 
-This ROM ships with zero bundled apps in the local ROM-byte scan (zero `80 0F` headers found at page starts) [hypothesis],
-but the entire find/launch machinery is present on `page 0x3D` (`_FindApp*`) and
-`page 0x3B` (`_AppInit` glue / app-quit). Apps are TI Flash Applications: a contiguous
-run of 16 KiB flash pages whose first page begins with a TLV app header.
+This ROM contains no bundled Flash Apps. A complete-image scan finds no
+`80 0F` header at any byte offset in the 1 MiB image, including its 64 page
+boundaries. [confirmed]
+
+Flash page `3D` contains the `_FindApp*` routines, and Flash page `3B` contains
+the `_AppInit` glue and App quit handling. A Flash App occupies a contiguous run
+of 16 KiB Flash pages whose first page begins with a TLV App header.
 
 ### App header format (TLV) [confirmed]
 
@@ -187,7 +190,8 @@ scratch (`0x9C87`='i' selects the in-RAM "temp app" search variant).
 
 ### Launching an app as a context [confirmed]
 
-`_AppInit` (`ram:0936`, bcall `0x404B`) installs a context from an app header:
+`_AppInit` (ID `404Bh`, body `ram:0936`) installs a context from an App header:
+
 ```text
 _AppInit(byte *hdr):                 # HL -> 13-byte vector block in the header
   copy 12 bytes hdr[0..11] -> cxMain (0x858D)   # the 6 context vectors
@@ -448,8 +452,8 @@ not as proof that the complete `ram:9D95`–`ram:BFFF` range is available.
 ## RAM clearing and memory reset
 
 The **MEM** menu (`[2nd][+]`, "MEMORY MANAGEMENT/DELETE" + "RESET") and its messages are on
-`page 0x01` (text/homescreen page). The reset *engine* is on `page 0x35`; the user-RAM
-re-init lands in page-0 boot code.
+Flash page `01` (text/homescreen page). The reset engine is on Flash page `35`;
+the user-RAM reinitialization lands in fixed page-`00` boot code.
 
 ### User-facing strings on page `01` [confirmed]
 
@@ -540,8 +544,8 @@ This zeroes the *entire* 32 KiB RAM and does the deepest re-init.
 
 ### `_CleanAll` and `cleanup_temp_ram` (`07:52CF`) [confirmed]
 
-Distinct from the MEM reset. `_CleanAll` (bcall `0x4A50`) only compacts temporary RAM
-after a command finishes: it shifts the FP stack (`fpBase`/`FPS`) down to `tempMem`, resets
+`_CleanAll` (ID `4A50h`) is distinct from the **MEM** reset. It only compacts
+temporary RAM after a command finishes: it shifts the FP stack (`fpBase`/`FPS`) down to `tempMem`, resets
 the `OPBase`/`OPS`/`pTemp` scratch pointers, and clears `pTempCnt`/`cleanTmp`. It does not
 clear the VAT, user vars, or Flash (see [Memory management](memory-management.md)). `_FixTempCnt` (`07:4FEC`) marks temps
 ≥ a count reclaimable then tail-calls the same compaction.
@@ -576,8 +580,8 @@ radians; the degree paths convert first).
 
 ### Graph type in `grfModeFlags` (`IY+0x02`) [confirmed]
 
-The four graph-mode setters on `page 0x36` are mutually exclusive: each first clears
-all four bits via `clr_grfmode (36:7D00)`, then ORs in its own bit, then calls
+The four graph-mode setters on Flash page `36` are mutually exclusive: each first clears
+all four bits via `clr_grfmode` (`36:7D00`), then ORs in its own bit, then calls
 `_SetTblGraphDraw`. `param_1` is `IY`, so `*(param_1+2)` = `grfModeFlags`.
 
 ```text
@@ -621,9 +625,9 @@ Float vs Fix N is not in `fmtFlags` — it is the separate byte `fmtDigits` =
 ### MODE screen plumbing
 
 The MODE screen is a menu context (`cxMode`/`kMode`=0x45) reached via the event/key router
-([Boot contexts & errors](boot-contexts-errors.md)). Its row strings live as token names on page 0x01 (`RadianN`/`DegreeO`/`NormalP`/
+([Boot contexts & errors](boot-contexts-errors.md)). Its row strings live as token names on Flash page `01` (`RadianN`/`DegreeO`/`NormalP`/
 `Float` at `01:49E4`–`01:4A06`; trailing letters are token-id bytes) and full-caps menu
-labels on page 0x37 (`DEGREE` `4A85`, `RADIAN` `4A8C`). The setters and inc
+labels on Flash page `37` (`DEGREE` at `37:4A85`, `RADIAN` at `37:4A8C`). The setters and inc
 equates confirm the target bits and bytes. [confirmed] The per-row path through
 the menu dispatcher to the corresponding `SET`/`RES` or `fmtDigits` store has
 not been traced line by line. [hypothesis]

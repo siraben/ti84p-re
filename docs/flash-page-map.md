@@ -36,7 +36,12 @@ targets and per-page function counts.
 
 ## Blank, boot, and system pages
 
-No Flash-App headers (`80 0F`) appear at any page boundary; the image is OS-only [hypothesis]. Byte-level notes on the empty page range and the boot/system pages (some of which, e.g. `34-39`/`3B`/`3C`, also carry the bcalls listed above):
+The complete 1 MiB image contains no `80 0F` Flash App header at any byte
+offset, including its 64 page boundaries. The image therefore contains no
+bundled Flash App. [confirmed]
+
+Byte-level notes on the empty page range and the boot/system pages, some of
+which also carry the bcalls listed above:
 
 | Page | Verified contents |
 |------|-------------------|
@@ -45,11 +50,18 @@ No Flash-App headers (`80 0F`) appear at any page boundary; the image is OS-only
 | `34`–`39` | More OS code (parser scan, USB, graph, mode, menu, and RTC); fill 0.2–17% `0xFF`. |
 | `3B` | bcall jump table — starts `99 27 00` = entry 0 (`_JErrorNo` → `ram:2799`). |
 | `3C` | Link code, archive garbage collection, and the OS version string — page starts with ASCII `32 2E 35 35 4D 50` = `"2.55MP"`; `archive_gc_collect` is at `3C:7733`. |
-| `3E` | Certification page and GC journal — two physical 8 KiB sectors. `_GetCertificateStart` (bcall `0x8057`) selects the active half; `_GetCertificateEnd` (`0x802D`) bounds it; `_FindFirstCertField` (`0x8027`) and `_FindNextCertField` (`0x8078`) walk TLV fields. GC transactionally copies the used tail through the inactive half and stores phase bytes near its end. [confirmed] for the ROM and GC trace. |
-| `3F` | Retail boot page — the pinned base already matches the checksum- and hash-validated local `D84PBE1.8Xv` payload byte for byte; starts `3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81`, carries boot version `1.03`, and hosts the `0x8xxx` boot bcall table. Boot and hardware-version bcalls resolve to `_getBootVer` `3F:477C` (`0x80B7`) and `_getHardwareVersion` `3F:4781` (`0x80BA`). [confirmed] |
+| `3E` | Certification page and GC journal — two physical 8 KiB sectors. `_GetCertificateStart` (ID `8057h`) selects the active half; `_GetCertificateEnd` (ID `802Dh`) bounds it; `_FindFirstCertField` (ID `8027h`) and `_FindNextCertField` (ID `8078h`) walk TLV fields. GC transactionally copies the used tail through the inactive half and stores phase bytes near its end. [confirmed] |
+| `3F` | Retail boot page — the pinned base matches the checksum- and hash-validated local `D84PBE1.8Xv` payload byte for byte; starts `3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81`, carries boot version `1.03`, and hosts the boot bcall table. Boot and hardware-version bcalls resolve to `_getBootVer` (ID `80B7h`, body `3F:477C`) and `_getHardwareVersion` (ID `80BAh`, body `3F:4781`). [confirmed] |
 
-The large-font glyph table is on page `0x07` (see [Display and LCD](display-lcd.md#large-font-text)). Alternate large fonts live on pages `0x01` and `0x36` (selected by `IY+0x35` bits 5 and 1). Page `0x07` is the busiest data page: archive code, list and matrix code, error messages, and the large font. [confirmed]
+The large-font glyph table is on Flash page `07`; see
+[Display and LCD](display-lcd.md#large-font-text). Alternate large fonts live
+on Flash pages `01` and `36`, selected by `IY+0x35` bits 5 and 1. Flash page
+`07` contains archive code, list and matrix code, error messages, and the large
+font. [confirmed]
 
 ## Page specialization
 
-The OS is page-specialized: kernel + math on page 0, one subsystem per low page. A bcall is really "run subsystem X's routine on its page" — the page map *is* the subsystem decomposition, physically.
+The OS is page-specialized: kernel and math routines occupy page `00`, while
+most low pages hold one subsystem. A bcall switches to the target routine's
+page, so the physical page map also describes the OS subsystem layout.
+[confirmed]
