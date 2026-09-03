@@ -501,18 +501,18 @@ difference does not affect the traced boot and homescreen paths. [confirmed]
 
 ## Reproducing the mapping
 
-`tools/memory_mapper.py` contains explicit `documented`, `tilem`, `wabbitemu`,
-and `mame` profiles. `tools/describe_memory_mapping.py` applies writes and
+`tools/ti84re/hardware/memory_mapper.py` contains explicit `documented`, `tilem`, `wabbitemu`,
+and `mame` profiles. `tools/ti84re/hardware/describe_memory_mapping.py` applies writes and
 reads, compares profiles, and can emit JSON. List the pinned coverage first:
 
 ```sh
-nix develop -c python tools/describe_memory_mapping.py profiles
+nix develop -c python3 -m ti84re.hardware.describe_memory_mapping profiles
 ```
 
 This reproduces the final TilEm boot state shown above:
 
 ```sh
-nix develop -c python tools/describe_memory_mapping.py \
+nix develop -c python3 -m ti84re.hardware.describe_memory_mapping \
   map --profile tilem \
   --write 0x0e=3 --write 6=0x7f \
   --write 0x0f=3 --write 7=0x7f --write 4=6 \
@@ -524,7 +524,7 @@ An even paired selector exposes Wabbitemu's duplicated B page while also
 showing MAME's ignored high-selector and overlay writes:
 
 ```sh
-nix develop -c python tools/describe_memory_mapping.py compare \
+nix develop -c python3 -m ti84re.hardware.describe_memory_mapping compare \
   --write 4=1 --write 6=2 \
   --write 0x0e=3 --write 0x27=0xff --write 0x28=1
 ```
@@ -532,14 +532,14 @@ nix develop -c python tools/describe_memory_mapping.py compare \
 To reproduce MAME's fixed-page read latch and machine-read the result:
 
 ```sh
-nix develop -c python tools/describe_memory_mapping.py --json \
+nix develop -c python3 -m ti84re.hardware.describe_memory_mapping --json \
   map --profile mame --read 0x4000
 ```
 
 The trace resolver uses the same library. To show the executed boot writes:
 
 ```sh
-nix develop -c python tools/tilem_trace_resolve.py /tmp/boot.trace \
+nix develop -c python3 -m ti84re.trace.resolve /tmp/boot.trace \
   --initial-mapping ti84p-reset --page-switches \
   --io-ports 04-07,0e-0f,27-28
 ```
@@ -549,21 +549,21 @@ instructions. Add context and verify control flow before treating a hit as
 code:
 
 ```sh
-nix develop -c python tools/analyze_rom_io.py \
+nix develop -c python3 -m ti84re.rom.analyze_io \
   --before 8 --after 8 0x0e-0x0f,0x27-0x28
 ```
 
-`tools/wabbitemu_mapper_probe.py` derives the native edge expectations from
-the same mapper profile. `tools/run_wabbitemu_mapper_edge_probe.py` requires
+`tools/ti84re/emulators/wabbitemu/mapper_probe.py` derives the native edge expectations from
+the same mapper profile. `tools/ti84re/emulators/wabbitemu/run_mapper_edge_probe.py` requires
 the exact OS 2.55MP ROM and writes a hash-complete JSON manifest.
 
-`tools/mame_mapper.py` derives the corresponding MAME oracle from the reusable
+`tools/ti84re/emulators/mame/mapper.py` derives the corresponding MAME oracle from the reusable
 profile and pinned ROM prefixes. The guarded CLI runs every latch case from a
 fresh machine:
 
 ```sh
 mame_mapper_parent=$(mktemp -d /tmp/ti84-mame-mapper.XXXXXX)
-nix shell nixpkgs#mame --command python tools/run_mame_mapper_probe.py \
+nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_mapper_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_mapper_parent/run" --json
@@ -595,5 +595,5 @@ nix shell nixpkgs#mame --command python tools/run_mame_mapper_probe.py \
 | [TilEm `x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) and [`x4_memory.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c) | mapping modes, 64-page masks, overlays, and protection order |
 | [Wabbitemu `83psehw.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c) and [`core.c`](https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c) | extended selectors, paired mode, overlays, and independent comparison |
 | [MAME 0.287 `ti85.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp) and [`ti85_m.cpp`](https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp) | mapped ports, bank backing, selector writes, reset mapping, and read-latch behavior |
-| [jsTIfied deployed `20170706a` artifact](https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a) and [readable mirror](https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js) | fourth source implementation of selector, paired-mode, and overlay routing; the deployed artifact is pinned by `tools/jstified_hardware.py` |
+| [jsTIfied deployed `20170706a` artifact](https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a) and [readable mirror](https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js) | fourth source implementation of selector, paired-mode, and overlay routing; the deployed artifact is pinned by `tools/ti84re/emulators/jstified.py` |
 | [WikiTI port `0x04`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:04), [`0x0E`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:0E), [`0x0F`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:0F), [`0x27`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:27), and [`0x28`](https://wikiti.brandonw.net/index.php?title=83Plus:Ports:28) | historical public register descriptions checked against ROM and emulators |

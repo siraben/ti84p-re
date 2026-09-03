@@ -114,7 +114,7 @@ The full helper cluster is documented below.
 
 ### The FP helper cluster [confirmed]
 
-These five page-0 primitives are shared by add/sub/mult/div and the transcendentals. All were decompiled and disassembled in this ROM; the `fp_*` names below are the project's labels (in `tools/names.txt`). They operate on the OP-register guard region (`OP1EXT`/`OP2EXT` are 2 bytes each, at `0x8481`–`0x8482`/`0x848C`–`0x848D` — `fp_clear_guard` zeroes all four) and the 7-byte mantissas of `OP1` / `OP2` (`OP1M` `0x847A` / `OP2M` `0x8485`, two bytes past the type/exponent bytes at `0x8478`/`0x8483`).
+These five page-0 primitives are shared by add/sub/mult/div and the transcendentals. All were decompiled and disassembled in this ROM; the `fp_*` names below are the project's labels (in `tools/symbols/names.txt`). They operate on the OP-register guard region (`OP1EXT`/`OP2EXT` are 2 bytes each, at `0x8481`–`0x8482`/`0x848C`–`0x848D` — `fp_clear_guard` zeroes all four) and the 7-byte mantissas of `OP1` / `OP2` (`OP1M` `0x847A` / `OP2M` `0x8485`, two bytes past the type/exponent bytes at `0x8478`/`0x8483`).
 
 | Helper | Addr | Role [confirmed] |
 |--------|------|------|

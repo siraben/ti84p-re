@@ -132,7 +132,7 @@ describe software behavior and do not select the correct physical ASIC contract.
 The JSON-capable mapper CLI can reproduce Wabbitemu's optional alias branch:
 
 ```sh
-python tools/describe_memory_mapping.py --json map \
+python3 -m ti84re.hardware.describe_memory_mapping --json map \
   --profile wabbitemu --ram-alias-from 2 \
   --write 4=0 --write 5=7 --write 6=0x87 --write 7=0x87
 ```
@@ -150,9 +150,9 @@ highest-numbered selector in that class. The two expected endpoints and a
 partial-alias example are reproducible without a calculator:
 
 ```sh
-python tools/describe_ram_topology.py --observed 112233445566
-python tools/describe_ram_topology.py --observed 666666666666
-python tools/describe_ram_topology.py \
+python3 -m ti84re.hardware.describe_ram_topology --observed 112233445566
+python3 -m ti84re.hardware.describe_ram_topology --observed 666666666666
+python3 -m ti84re.hardware.describe_ram_topology \
   --simulate-backings 0,0,1,1,2,3 --json
 ```
 
@@ -336,10 +336,10 @@ tilem2 --headless --rom "$ROM" --model ti84p --normal-speed --reset \
 tilem2 --headless --rom "$ROM" --model ti84p --normal-speed --reset \
   --macro tools/macros/page83-error-divzero.macro \
   --trace /tmp/page83-error-divzero.trace --trace-range all
-python3 tools/analyze_ram_page_trace.py /tmp/page83-idle.trace --page 0x83
-python3 tools/analyze_ram_page_trace.py /tmp/page83-2plus3.trace --page 0x83
-python3 tools/analyze_ram_page_trace.py /tmp/page83-graph.trace --page 0x83
-python3 tools/analyze_ram_page_trace.py /tmp/page83-error-divzero.trace \
+python3 -m ti84re.trace.analyze_ram_page /tmp/page83-idle.trace --page 0x83
+python3 -m ti84re.trace.analyze_ram_page /tmp/page83-2plus3.trace --page 0x83
+python3 -m ti84re.trace.analyze_ram_page /tmp/page83-graph.trace --page 0x83
+python3 -m ti84re.trace.analyze_ram_page /tmp/page83-error-divzero.trace \
   --page 0x83 --initial-mapping ti84p-reset
 ```
 

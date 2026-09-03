@@ -15,7 +15,7 @@ RAM page `83` and restore rules.
 | `8000-BFFF` | Window B | Port `0x07` in independent mode; odd half of the port-`0x06` pair in paired mode | Normally RAM page `81`; boot executes page `3F` here in paired mode. [confirmed] |
 | `C000-FFFF` | Window C | Port `0x05` RAM in independent mode; port `0x07` in paired mode | Normally RAM page `80`; the stack lives near the top. [confirmed] |
 
-In this OS the system RAM variables all live at `8000+`, so the static RE model treats `8000-FFFF` as one RAM block (see `tools/BuildTI84Full.java`).
+In this OS the system RAM variables all live at `8000+`, so the static RE model treats `8000-FFFF` as one RAM block (see `tools/ghidra/BuildTI84Full.java`).
 
 ## Flash layout (physical, 1 MiB = 64 × 16 KiB pages)
 
@@ -32,7 +32,7 @@ In this OS the system RAM variables all live at `8000+`, so the static RE model 
 
 Pages `01-3F` are loaded in Ghidra as overlays `page_01 … page_3F` (each at `4000`). Goto e.g. `01:5b4c` for `_PutC`.
 
-The assembled `tools/rom.bin` is the Ghidra build input. `tools/assemble_local_rom.py`
+The assembled `tools/rom.bin` is the Ghidra build input. `tools/ti84re/rom/assemble_local_rom.py`
 starts with `ti84plus_patched.rom`, validates the complete TI AppVar containers,
 installs `D84PBE2.8Xv` as page `2F`, and installs `D84PBE1.8Xv` as page `3F`.
 The first installation changes 8,615 bytes; the second changes none because the

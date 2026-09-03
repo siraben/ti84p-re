@@ -406,7 +406,7 @@ then stores the count at `0x9834` and invokes dispatcher mode `3`. Its RAM
 branch at `36:416C` uses the same endpoint helper with chunks of at most 64
 bytes and does not call the Flash flush. [confirmed]
 
-`tools/analyze_link_flash_staging.py` checks the ROM signatures and complete
+`tools/ti84re/link/analyze_flash_staging.py` checks the ROM signatures and complete
 caller sets. Its importable model also reports page classification, RAM-direct
 versus Flash-buffered routing, block counts, destination crossing, and the
 equality quirk.
@@ -569,7 +569,7 @@ model or OS-version compatibility. [hypothesis]
 The audit is reproducible without subsystem-specific parsing:
 
 ```console
-python3 tools/describe_backup.py legacy-flags
+python3 -m ti84re.link.describe_backup legacy-flags
 ```
 
 **External format evidence.** [standard] tilibs commit
@@ -657,7 +657,7 @@ The ordinary timeout, checksum, and unexpected-command paths collapse to
 `0x1F`; pointer entry `07:6B08` selects `07:6C55`, the string `LINK`.
 `_JError(0x22)` uses pointer entry `07:6B0E`, which selects the same string.
 The two raw codes therefore produce the same visible `ERR:LINK` message.
-`error_table.py` decodes this ROM table, and `describe_error.py 0x22 0x9F`
+`tools/ti84re/rom/error_table.py` decodes this ROM table, and `python3 -m ti84re.rom.describe_error 0x22 0x9F`
 reproduces both lookups. [confirmed]
 
 The include file labels `0x22`–`0x25` as `E_LinkIOChkSum`,

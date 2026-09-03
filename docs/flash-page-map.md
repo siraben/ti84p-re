@@ -41,7 +41,7 @@ No Flash-App headers (`80 0F`) appear at any page boundary; the image is OS-only
 | Page | Verified contents |
 |------|-------------------|
 | `08`–`2E`, `30`–`32` | Blank or unused in this OS image — 100% `0xFF` in `tools/rom.bin`. No app headers. |
-| `2F` | Retail USB boot support installed from the checksum- and hash-validated local `D84PBE2.8Xv`. This installation changes 8,615 bytes of the pinned base. The page-`3F` boot table maps `_AttemptUSBOSReceive`, `_ReceiveOS_USB`, `_USBErrorCleanup`, `_InitUSB`, and `_KillUSB` here; `tools/rom.bin` contains the payload and `tools/bcalls8x_targets.txt` records their bodies. [confirmed] |
+| `2F` | Retail USB boot support installed from the checksum- and hash-validated local `D84PBE2.8Xv`. This installation changes 8,615 bytes of the pinned base. The page-`3F` boot table maps `_AttemptUSBOSReceive`, `_ReceiveOS_USB`, `_USBErrorCleanup`, `_InitUSB`, and `_KillUSB` here; `tools/rom.bin` contains the payload and `tools/symbols/bcalls8x_targets.txt` records their bodies. [confirmed] |
 | `34`–`39` | More OS code (parser scan, USB, graph, mode, menu, and RTC); fill 0.2–17% `0xFF`. |
 | `3B` | bcall jump table — starts `99 27 00` = entry 0 (`_JErrorNo` → `ram:2799`). |
 | `3C` | Link code, archive garbage collection, and the OS version string — page starts with ASCII `32 2E 35 35 4D 50` = `"2.55MP"`; `archive_gc_collect` is at `3C:7733`. |

@@ -58,7 +58,7 @@ bytes, receives it into `0x983A`, and calls the page-`3C` Flash-staging
 dispatcher in mode `3` at `36:415C`. RAM destinations use chunks of up to 64
 bytes and skip that Flash flush. [confirmed]
 
-The project-local `tools/ports.txt` names the observed assist, USB-control, and
+The project-local `tools/symbols/ports.txt` names the observed assist, USB-control, and
 USB-interrupt ports so future Ghidra rebuilds show the same surface in the
 database. Neutral labels retain `Unknown` for ports `0x4F` and `0x50` because
 the ROM does not identify their signals. The file also applies the FDRC-family
@@ -78,7 +78,7 @@ use through a confirmed I/O instruction:
 
 The complete immediate-port and conservative literal-`C` scan initially
 reports six candidates for these ports. Raw descriptor decoding accounts for
-four of them. `tools/analyze_rom_io.py` attaches this classification to each
+four of them. `tools/ti84re/rom/analyze_io.py` attaches this classification to each
 report and `--exclude-descriptors` removes the four structural overlaps:
 [confirmed]
 
@@ -165,8 +165,8 @@ restriction, so those details remain [hypothesis].
 TilEm, Wabbitemu, MAME, and jsTIfied do not implement port `0x5A` or a connected
 endpoint-2 transfer for this calculator. Emulator execution therefore cannot
 validate the mirroring behavior. The port accesses above were regenerated from
-the retail OS 2.55MP bytes with `tools/analyze_rom_io.py`; the surrounding
-instructions come from the same page through `tools/z80_disassembly.py`.
+the retail OS 2.55MP bytes with `tools/ti84re/rom/analyze_io.py`; the surrounding
+instructions come from the same page through `tools/ti84re/rom/z80_disassembly.py`.
 Physical validation requires a presentation-link adapter or a controlled USB
 capture. [standard] for the emulator implementations; [confirmed] for the ROM
 sequence.
@@ -424,7 +424,7 @@ mask to physical page `0x35`.
 
 ## Boot-page OS receive API
 
-The retail boot table on page `3F` also exposes a USB stack whose bodies run on page `2F`. This stack receives an operating-system image. It is separate from the page-35 application-facing API above. The table bytes and entry prologues can be reproduced with `tools/inspect_bcall.py`. [confirmed]
+The retail boot table on page `3F` also exposes a USB stack whose bodies run on page `2F`. This stack receives an operating-system image. It is separate from the page-35 application-facing API above. The table bytes and entry prologues can be reproduced with `tools/ti84re/rom/inspect_bcall.py`. [confirmed]
 
 | Bcall | ID | Table bytes | Body | Observed role |
 |-------|---:|-------------|------|---------------|
@@ -438,8 +438,8 @@ The retail boot table on page `3F` also exposes a USB stack whose bodies run on 
 Inspect a named entry and the unnamed slot directly:
 
 ```sh
-nix develop -c python tools/inspect_bcall.py 0x8108 --bytes 24
-nix develop -c python tools/inspect_bcall.py 0x810B --bytes 24
+nix develop -c python3 -m ti84re.rom.inspect_bcall 0x8108 --bytes 24
+nix develop -c python3 -m ti84re.rom.inspect_bcall 0x810B --bytes 24
 ```
 
 ### `_AttemptUSBOSReceive` input and dispatch
@@ -675,58 +675,58 @@ natural progress persistence, or a physical calculator. [standard]
 
 ## Reusable USB tools
 
-`tools/usb_hardware.py` contains the FDRC offset map, the common HDRC comparison map, pinned source
+`tools/ti84re/hardware/usb.py` contains the FDRC offset map, the common HDRC comparison map, pinned source
 provenance, imported global bit names, link-assist rate fields, page-35 and boot-event decoders,
 paired line-state decoder, emulator profiles, and pure functions for Wabbitemu's USB read handlers.
-`tools/describe_usb_hardware.py` exposes the general models as text or JSON.
-`tools/wabbitemu_usb_receive.py` decodes the transport frames and enforces the
+`tools/ti84re/hardware/describe_usb.py` exposes the general models as text or JSON.
+`tools/ti84re/emulators/wabbitemu/usb_receive.py` decodes the transport frames and enforces the
 exact receive packets, ROM transmissions, execution boundaries, calling
 context, intervention, and whole-Flash result. The guarded
-`tools/run_wabbitemu_usb_receive_probe.py` CLI checks both ROM and adapter
+`tools/ti84re/emulators/wabbitemu/run_usb_receive_probe.py` CLI checks both ROM and adapter
 hashes and writes a JSON manifest. The native runner stores packet payloads and
 fixed counters only; it does not emit an instruction-by-instruction trace.
-`tools/wabbitemu_usb_probe.py` validates native reports against the reusable handler model, while
-`tools/run_wabbitemu_usb_edge_probe.py` provides the exact-ROM guard and writes a hashed JSON
-manifest. `tools/wabbitemu_usb_rom.py` contains the byte-derived boot-ROM
-oracle, and `tools/run_wabbitemu_usb_rom_probe.py` exposes its four controlled
-cases as a hash-guarded JSON CLI. The link-assist state model remains in `tools/link_port.py`;
-`tools/tilem_link.py` and `tools/run_tilem_link_probe.py` add the guarded TilEm
-native report and manifest. `tools/port_definitions.py` parses the project port
-labels with duplicate checks. `tools/analyze_rom_io.py` uses that library to
+`tools/ti84re/emulators/wabbitemu/usb_probe.py` validates native reports against the reusable handler model, while
+`tools/ti84re/emulators/wabbitemu/run_usb_edge_probe.py` provides the exact-ROM guard and writes a hashed JSON
+manifest. `tools/ti84re/emulators/wabbitemu/usb_rom.py` contains the byte-derived boot-ROM
+oracle, and `tools/ti84re/emulators/wabbitemu/run_usb_rom_probe.py` exposes its four controlled
+cases as a hash-guarded JSON CLI. The link-assist state model remains in `tools/ti84re/link/port.py`;
+`tools/ti84re/emulators/tilem/link.py` and `tools/ti84re/emulators/tilem/run_link_probe.py` add the guarded TilEm
+native report and manifest. `tools/ti84re/rom/port_definitions.py` parses the project port
+labels with duplicate checks. `tools/ti84re/rom/analyze_io.py` uses that library to
 attach labels to static I/O reports and can restrict output to ports absent
-from the label file. `tools/rom_io_coverage.py` pins and reconciles the complete
+from the label file. `tools/ti84re/rom/io_coverage.py` pins and reconciles the complete
 ROM-wide set of aligned non-descriptor candidates absent from that file.
 
 ```sh
 # Map global, indexed, dynamic-sizing, and FIFO registers.
-nix develop -c python tools/describe_usb_hardware.py \
+nix develop -c python3 -m ti84re.hardware.describe_usb \
   register 0x80 0x91 0x9F 0xA2
 
 # Compare the FDRC hypothesis with the common HDRC byte layout.
-nix develop -c python tools/describe_usb_hardware.py layouts
-nix develop -c python tools/describe_usb_hardware.py --json layouts
+nix develop -c python3 -m ti84re.hardware.describe_usb layouts
+nix develop -c python3 -m ti84re.hardware.describe_usb --json layouts
 
 # Keep active-low port-0x55 and port-0x56 interpretations separate.
-nix develop -c python tools/describe_usb_hardware.py events 0x1F 0x50
+nix develop -c python3 -m ti84re.hardware.describe_usb events 0x1F 0x50
 
-nix develop -c python tools/describe_usb_hardware.py assist 0x97 0xB4 0xE0
-nix develop -c python tools/describe_usb_hardware.py line 0xA5 0xE5
-nix develop -c python tools/describe_usb_hardware.py reads 0x4C 0x4D 0x55 0x56 0x57 0x80
-nix develop -c python tools/describe_usb_hardware.py wabbit-port4a 0x08
+nix develop -c python3 -m ti84re.hardware.describe_usb assist 0x97 0xB4 0xE0
+nix develop -c python3 -m ti84re.hardware.describe_usb line 0xA5 0xE5
+nix develop -c python3 -m ti84re.hardware.describe_usb reads 0x4C 0x4D 0x55 0x56 0x57 0x80
+nix develop -c python3 -m ti84re.hardware.describe_usb wabbit-port4a 0x08
 
 # Audit direct page-35 accesses whose ports lack project-local labels.
-nix develop -c python tools/analyze_rom_io.py \
+nix develop -c python3 -m ti84re.rom.analyze_io \
   --page 0x35 --direct-only --unlisted --summary 0x40-0x7F
 
 # Retain only the two table-shaped candidates for unobserved USB ports.
-nix develop -c python tools/analyze_rom_io.py \
+nix develop -c python3 -m ti84re.rom.analyze_io \
   --direct-only --exclude-descriptors 0x49 0x51 0x52
 
 # Verify every candidate for every port absent from tools/ports.txt.
-nix develop -c python tools/describe_rom_io_coverage.py --json
+nix develop -c python3 -m ti84re.rom.describe_io_coverage --json
 
 usb_rom_parent=$(mktemp -d /tmp/ti84-usb-rom.XXXXXX)
-nix develop -c python tools/run_wabbitemu_usb_rom_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_usb_rom_probe \
   --rom tools/rom.bin \
   --binary /path/to/wabbitemu-headless \
   --expected-binary-sha256 \
@@ -734,7 +734,7 @@ nix develop -c python tools/run_wabbitemu_usb_rom_probe.py \
   --output-dir "$usb_rom_parent/run" --json
 
 usb_receive_parent=$(mktemp -d /tmp/ti84-usb-receive.XXXXXX)
-nix develop -c python tools/run_wabbitemu_usb_receive_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_usb_receive_probe \
   --rom tools/rom.bin \
   --binary /path/to/wabbitemu-headless \
   --expected-binary-sha256 \
@@ -835,7 +835,7 @@ Practical rules:
 | Source | Use |
 |--------|-----|
 | Retail OS 2.55MP and boot 1.03 ROM bytes | Main and boot bcall tables, page-`2F`/`35` bodies, ports, branches, and RAM state |
-| `tools/ti83plus.inc` | Historical public names and comments, checked against table entries and bodies |
+| `tools/symbols/ti83plus.inc` | Historical public names and comments, checked against table entries and bodies |
 | [TilEm `x4_io.c` at `f56ad63`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) | Link-assist implementation and fixed disconnected USB reads |
 | [Mentor `mu_fdrdf.h` revision 1.7 as preserved in `lightcube`](https://github.com/illusionlee/lightcube/blob/ac49c480c45c4106cba46a93fd4ae09969db5a1e/beken378/driver/usb/src/cd/mu_fdrdf.h) | Mentor-authored 2004 FDRC register offsets and bit masks. The header labels itself proprietary; the mirror is controller-family evidence, not TI silicon identification. |
 | [VSF FDRC register structure at `4327394`](https://github.com/vsfteam/vsf/blob/4327394b125aae68f67ed48b3aa891fd203a6ca8/source/component/usb/driver/otg/musb/fdrc/vsf_musb_fdrc_hw.h) | Independent implementation that corroborates the compact FDRC byte ordering; not TI-84 Plus evidence |

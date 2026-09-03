@@ -21,7 +21,7 @@ reset sequence and the destructive hardware diagnostics.
 | Full 2007 `ti83plus.inc` | official names for 83 of the 87 callable table entries | [confirmed] |
 | Physical calculator with a sending peer | electrical link/USB behavior and a complete installer transaction | [hypothesis] until measured |
 
-The checked trace reduction is `tools/retail-boot-traces.json`. Its ROM hash,
+The checked trace reduction is `tools/oracles/boot/retail-boot-traces.json`. Its ROM hash,
 emulator source commit, emulator-binary hash, trace hashes, visit counts, and
 first-visit clocks keep each dynamic claim tied to a specific run. The raw
 TLMT traces are too large for the repository and remain external.
@@ -42,7 +42,7 @@ Boot version `1.03` partitions page `3F` as follows: [confirmed]
 
 The table therefore has 87 populated three-byte entries in two ranges, not
 one continuous range. Treating `3F:40D5`–`3F:40E3` as five more entries
-decodes executable stub bytes as bogus targets. `tools/bcall_tables.py` rejects
+decodes executable stub bytes as bogus targets. `tools/ti84re/rom/bcall_tables.py` rejects
 those reserved IDs. [confirmed]
 
 Each real entry stores a little-endian target address followed by a page byte.
@@ -185,17 +185,17 @@ executed a fresh certificate or cryptographic validation. [confirmed]
 ## Reproduction
 
 Capture each macro from reset with the pinned TilEm build, `--normal-speed`,
-and `--trace-range all`, as described in `tools/dynamic-tracing.md`. Reduce the
+and `--trace-range all`, as described in `tools/notes/dynamic-tracing.md`. Reduce the
 four TLMT files with: [confirmed]
 
 ```sh
-PYTHONPATH=tools python tools/analyze_retail_boot.py \
+PYTHONPATH=tools python3 -m ti84re.boot.analyze_retail_boot \
   --rom tools/rom.bin \
   --trace normal=/tmp/retail-boot-normal.trace \
   --trace del=/tmp/retail-boot-del.trace \
   --trace stat=/tmp/retail-boot-stat.trace \
   --trace mode_ignored=/tmp/retail-boot-mode-ignored.trace \
-  --output tools/retail-boot-traces.json
+  --output tools/oracles/boot/retail-boot-traces.json
 ```
 
 The corresponding macros are `tools/macros/boot-idle.macro`,

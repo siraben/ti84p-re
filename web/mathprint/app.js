@@ -2062,7 +2062,7 @@ async function main() {
 
 if (typeof document !== 'undefined') main();
 
-// Node-side hook for tools/test-mathprint.js (headless layout verification).
+// Node-side hook for tools/js/test-mathprint.js (headless layout verification).
 if (typeof module !== 'undefined') {
   module.exports = {
     setFont: f => { FONT = f; },

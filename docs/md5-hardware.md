@@ -12,7 +12,7 @@ The port block is internal to the ASIC, so public descriptions and emulator code
 |-------|---------------|---------------------|
 | Retail boot ROM | `3F:68ED`–`3F:6BF5` and `3F:723F`–`3F:72EA` | bcall ABI, buffers, descriptor format, exact port order, padding, length accounting, and hash transformation [confirmed] |
 | Dynamic execution | `tools/tibasic-samples/MD5TEST.8xp`, a complete resolved TilEm trace, and guarded TilEm, Wabbitemu, and MAME probes | 64 valid operations for `MD5("abc")`, implementing-emulator edge semantics, and MAME's live unmapped-port behavior [confirmed] |
-| Independent calculation | `tools/md5_hardware.py` | every recorded result agrees with the 32-bit operation derived from the ROM and RFC 1321 [confirmed] |
+| Independent calculation | `tools/ti84re/hardware/md5.py` | every recorded result agrees with the 32-bit operation derived from the ROM and RFC 1321 [confirmed] |
 | Public hardware notes | WikiTI port `0x18` and MD5 bcall pages | historical port and ABI descriptions checked against the local ROM [standard] |
 | Emulator models | TilEm `f56ad63`, Wabbitemu `48c2dc0`, and MAME 0.287 | shift-register policy, masking, reset policy, implemented undefined reads, and MAME's missing port block [standard] |
 | Algorithm specification | RFC 1321 | MD5 state, Boolean functions, constants, rotations, padding, and test vectors [standard] |
@@ -341,22 +341,22 @@ The smoke runner checks both visible execution and the 16 bytes at dump offset `
 Run the fixture and then decode its accelerator operations: [confirmed]
 
 ```sh
-nix develop -c python tools/tibasic_smoke.py \
+nix develop -c python3 -m ti84re.tibasic.smoke \
   --tilem /path/to/headless/tilem2 \
   --case asmmd5 --keep-trace
 
-nix develop -c python tools/analyze_md5_trace.py \
+nix develop -c python3 -m ti84re.hardware.analyze_md5_trace \
   /tmp/tibasic-smoke/asmmd5.trace \
   --initial-mapping ti84p-reset \
   --expect-steps 64
 
-nix develop -c python tools/inspect_ram_dump.py \
+nix develop -c python3 -m ti84re.trace.inspect_ram_dump \
   /tmp/md5-abc.ram --address 0x8292 \
   --expect 900150983cd24fb0d6963f7d28e17f72 \
   --name MD5Hash
 ```
 
-The decoder reports 64 complete operations, 16 in each mode. It reconstructs every operand from the actual little-endian writes and compares every read word with an independent calculation in `tools/md5_hardware.py`. All 64 match. [confirmed]
+The decoder reports 64 complete operations, 16 in each mode. It reconstructs every operand from the actual little-endian writes and compares every read word with an independent calculation in `tools/ti84re/hardware/md5.py`. All 64 match. [confirmed]
 
 | Event | Per step | Whole block |
 |-------|---------:|------------:|
@@ -456,7 +456,7 @@ ROM trace or imply that a physical TI-84 Plus lacks the accelerator.
 
 ## Reusable implementation model
 
-`tools/md5_hardware.py` separates the independent arithmetic and trace decoder
+`tools/ti84re/hardware/md5.py` separates the independent arithmetic and trace decoder
 from pinned emulator I/O profiles. Its shared edge-case oracle derives both
 implementing-emulator reports. `Md5AssistImplementation` models the six
 sliding registers, control masks, read-time recalculation, undefined operand
@@ -467,15 +467,15 @@ accepts replacement operands, mode, and rotate count. Its JSON report keeps
 unmapped ports distinct from a numeric read value:
 
 ```sh
-nix develop -c python tools/describe_md5_hardware.py
-nix develop -c python tools/describe_md5_hardware.py --json
-nix develop -c python tools/describe_md5_hardware.py \
+nix develop -c python3 -m ti84re.hardware.describe_md5
+nix develop -c python3 -m ti84re.hardware.describe_md5 --json
+nix develop -c python3 -m ti84re.hardware.describe_md5 \
   --profile tilem --mode 3 --shift 0x1F --a 0x01234567
 ```
 
 TilEm and Wabbitemu return `0xD6D117B4` for the default step. The MAME profile
 reports all eight ports as unmapped rather than assigning a portable open-bus
-byte. `tools/mame_md5.py` separately parses and validates MAME 0.287's observed
+byte. `tools/ti84re/emulators/mame/md5.py` separately parses and validates MAME 0.287's observed
 zero reads against the pinned I/O map and the independent arithmetic model.
 
 The guarded TilEm CLI validates the exact source commit, Git tree, and native
@@ -489,12 +489,12 @@ git -C "$tilem_md5_tmp/tilem" checkout \
   f56ad637d0524ee841dd381be6ecbaf5b8975600
 nix shell \
   github:NixOS/nixpkgs/f13ff45afd1bb73e640eaa08a7066dbed07e3238#gcc \
-  --command python tools/build_tilem_md5_probe.py \
+  --command python3 -m ti84re.emulators.tilem.build_probe --probe md5 \
   --source "$tilem_md5_tmp/tilem" \
   --output "$tilem_md5_tmp/tilem-md5-probe" --json
 
 tilem_md5_parent=$(mktemp -d /tmp/ti84-tilem-md5-report.XXXXXX)
-python tools/run_tilem_md5_probe.py \
+python3 -m ti84re.emulators.tilem.run_md5_probe \
   --binary "$tilem_md5_tmp/tilem-md5-probe" \
   --expected-binary-sha256 \
     b461e9720e0c304b26ab95ca814943eddfba670dd7bd1e41b48d53a0f8c689c5 \
@@ -506,7 +506,7 @@ It retains the native output, error log, input identities, and parsed report:
 
 ```sh
 mame_md5_parent=$(mktemp -d /tmp/ti84-mame-md5.XXXXXX)
-nix shell nixpkgs#mame --command python tools/run_mame_md5_probe.py \
+nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_md5_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_md5_parent/run" --json

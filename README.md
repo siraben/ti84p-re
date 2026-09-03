@@ -13,15 +13,30 @@ Read the rendered wiki: <https://siraben.github.io/ti84p-re/>
 
 ```text
 docs/                  reverse-engineering notes, one file per subsystem (the rendered wiki)
-tools/                 build pipeline (Ghidra headless scripts) + derived symbol tables
+web/                   standalone MathPrint renderer and graphing demo deployed beside the wiki
+tools/ghidra/          headless Ghidra pipeline scripts
+tools/symbols/         checked symbol, label, type, and SDK-equate registries
+tools/ti84re/          Python package: ROM access, hardware models, emulator probes, analyzers
+tools/tests/           unittest suite for ti84re
+tools/{oracles,data}/  checked JSON reports and CSV observations cited by the wiki
+tools/{probes,macros}/ probe sources (asm, C, Lua) and headless TilEm macros
+tools/notes/           tooling guides: dynamic tracing, fixtures, MathPrint specs
 .codex/skills/         repository writing and review guidance
 flake.nix · book.toml  mdBook build/serve + vendored KaTeX/Mermaid/pseudocode assets
 ```
 
-The ROM and Ghidra project (`*.gpr`/`*.rep`) are gitignored. Put the three pinned local inputs under `tools/roms/`, then run `python3 tools/assemble_local_rom.py --check` to validate them without writing or `python3 tools/assemble_local_rom.py` to create `tools/rom.bin` plus the 16 KiB page-0 slice at `tools/ti84_page00.bin`. The validator decodes the two TI AppVar containers, checks their internal lengths and checksums, and requires the exact hashes recorded in `tools/rom_signatures.py`.
+[`tools/README.md`](tools/README.md) maps the `ti84re` packages and the module
+naming vocabulary. Run Python tools as modules with `tools/` on the module
+path (`export PYTHONPATH=$PWD/tools`; `nix develop` sets it):
 
-Generate a result manifest with `nix develop -c python3
-tools/rom_provenance.py manifest --rom tools/rom.bin`; use its `verify`
+```sh
+python3 -m ti84re.link.describe_port profiles
+```
+
+The ROM and Ghidra project (`*.gpr`/`*.rep`) are gitignored. Put the three pinned local inputs under `tools/roms/`, then run `python3 -m ti84re.rom.assemble_local_rom --check` to validate them without writing or `python3 -m ti84re.rom.assemble_local_rom` to create `tools/rom.bin` plus the 16 KiB page-0 slice at `tools/ti84_page00.bin`. The validator decodes the two TI AppVar containers, checks their internal lengths and checksums, and requires the exact hashes recorded in `tools/ti84re/rom/signatures.py`.
+
+Generate a result manifest with `nix develop -c python3 -m
+ti84re.rom.provenance manifest --rom tools/rom.bin`; use its `verify`
 subcommand to reject CSV or JSON evidence produced from a different ROM. The
 [provenance page](docs/provenance.md) distinguishes the canonical retail image
 from the BootFree runtime-trace variant and records the reproducible Ghidra
@@ -49,9 +64,9 @@ nix develop -c tools/build.sh   # rebuilds ti84.gpr
 `tools/build.sh` also discovers Homebrew and upstream Ghidra installations. Set
 `GHIDRA_ANALYZE_HEADLESS` when the launcher is installed in another location.
 
-The pipeline (`build.sh`):
+The pipeline (`build.sh`) reads its registries from `tools/symbols/`:
 
-1. `resolve_bcalls.py` — resolve the main bcall jump table (`0x4xxx`→page `0x3B`), the retail boot bcall table (`0x8xxx`→pages `0x3F`/`0x2F` when present), and the bjump trampoline table from the ROM
+1. `ti84re.rom.resolve_bcalls` — resolve the main bcall jump table (`0x4xxx`→page `0x3B`), the retail boot bcall table (`0x8xxx`→pages `0x3F`/`0x2F` when present), and the bjump trampoline table from the ROM
 2. `BuildTI84Full.java` — load all 64 flash pages (page 0 + overlays `page_01..3F`), RAM/IO blocks, symbols from `ti83plus.inc`, BCD-float detection, `rst 28h` fix-ups
 3. `ApplyBcalls.java` — disassemble and name the resolved main and retail boot bcall routines at their real `(page,addr)`
 4. `DeepenPass.java` — flow analysis + name remaining bcall sites
@@ -69,6 +84,17 @@ The pipeline (`build.sh`):
 
 Then open `ti84.gpr` in Ghidra for interactive analysis.
 
+## Tests
+
+```sh
+cd tools && python3 -m unittest discover -s tests -t .   # Python suite
+node tools/js/test-mathprint.js                          # MathPrint corpus + fuzz
+```
+
+`nix build` renders the wiki and runs the ROM-independent checks; tests that
+need `tools/rom.bin`, `z80dasm`, or the retail artifacts under `tools/roms/`
+error out without them.
+
 ## Current state
 
 | Metric | Value |
@@ -79,7 +105,7 @@ Then open `ti84.gpr` in Ghidra for interactive analysis.
 | parser handlers | 84 (page 0x38 dispatch table) |
 | Defined data (strings/floats/typed) | 618 |
 | Flash pages loaded | 64 (1 MiB) |
-| Docs | 46 rendered content pages |
+| Docs | 55 rendered content pages |
 
 The checked [database-health report](tools/data/database-health.json) records
 coverage and concrete cleanup locations for the current BootFree-derived
@@ -127,7 +153,7 @@ Reference pages include the [glossary](docs/glossary.md), [conventions and evide
 
 ## Contributing
 
-The repository [writing standard](.codex/skills/ti84-re-writing/SKILL.md) defines prose structure, sentence-case headings, address notation, confidence flags, function naming, and mdBook mechanics. [Conventions and evidence](docs/conventions.md) explains the reader-facing notation. Check static claims against the generated Ghidra database and raw `tools/rom.bin` bytes; cross-page trampolines can leave otherwise valid routines undefined during automatic analysis. For dynamic evidence, run the ROM under headless TilEm and map coverage differences back to the `page_NN:addr` model with [the tracing guide](tools/dynamic-tracing.md). Run `nix build` before committing to validate math, diagrams, assets, and local links.
+The repository [writing standard](.codex/skills/ti84-re-writing/SKILL.md) defines prose structure, sentence-case headings, address notation, confidence flags, function naming, and mdBook mechanics. [Conventions and evidence](docs/conventions.md) explains the reader-facing notation. Check static claims against the generated Ghidra database and raw `tools/rom.bin` bytes; cross-page trampolines can leave otherwise valid routines undefined during automatic analysis. For dynamic evidence, run the ROM under headless TilEm and map coverage differences back to the `page_NN:addr` model with [the tracing guide](tools/notes/dynamic-tracing.md). Run `nix build` before committing to validate math, diagrams, assets, and local links.
 
 ## Legal
 

@@ -710,7 +710,7 @@ ordinary `prgmNAME` handler creates them. Reproducing all of that state would
 duplicate the BASIC caller rather than expose a separate supported ABI.
 [confirmed]
 
-`tools/fixtures/asm-basic-frames-tilem.json` records the pinned TilEm run,
+`tools/probes/scratch-guard/asm-basic-frames-tilem.json` records the pinned TilEm run,
 screen contract, ROM spans, SPASM-ng output, and source/program hashes. The
 supported application pattern remains `Asm(` → `_ExecutePrgm` → `ram:9D95`,
 return a value through `Ans`, and let BASIC perform `prgmNAME`.

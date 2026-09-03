@@ -448,7 +448,7 @@ current interpreter model.
 
 ## What the coverage model establishes
 
-`tools/analyze_tibasic_coverage.py` ties eight finite models to byte signatures
+`tools/ti84re/tibasic/analyze_coverage.py` ties eight finite models to byte signatures
 in the pinned ROM. It exhausts 591,360 states across token width, delimiters,
 one scan step, one block-depth transition, the extended-class fold, precedence
 family selection, command finalization, and page-33 table bounds. Z3 proves a
@@ -472,7 +472,7 @@ declared computed jumps are expanded over their ROM-defined valid domains, but
 corrupted or otherwise out-of-domain dispatch state is not modeled. Calls into
 display, graphing, and other ROM pages leave the declared regions, and arbitrary
 token streams, recursion depths, VAT layouts, and floating-point values remain
-open. The compact `tools/tibasic-saturation.json` report records those
+open. The compact `tools/oracles/tibasic/tibasic-saturation.json` report records those
 boundaries explicitly.
 
 ## Address map
@@ -500,7 +500,7 @@ boundaries explicitly.
 | `02:5676` | Command finalization gate |
 | `33:435F` | Bounded control-flow command dispatcher |
 
-The local finite-model evidence is `tools/tibasic-coverage.json`. The broader
-direct-CFG evidence is `tools/tibasic-saturation.json`. The selected backward
-error slices are in `tools/tibasic-numeric-errors.json`. All three generators
+The local finite-model evidence is `tools/oracles/tibasic/tibasic-coverage.json`. The broader
+direct-CFG evidence is `tools/oracles/tibasic/tibasic-saturation.json`. The selected backward
+error slices are in `tools/oracles/tibasic/tibasic-numeric-errors.json`. All three generators
 verify the pinned ROM before producing a report.

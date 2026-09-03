@@ -341,17 +341,17 @@ unmeasured. [hypothesis]
 
 ## Reproducing the checks
 
-`tools/boot_hardware.py` contains the timing arithmetic, ordered write
+`tools/ti84re/boot/hardware.py` contains the timing arithmetic, ordered write
 manifest, exact Flash-gate wrapper classifier, and RAM-test pattern model.
-`tools/describe_boot_hardware.py` exposes guarded text and JSON reports:
+`tools/ti84re/boot/describe_hardware.py` exposes guarded text and JSON reports:
 
 ```sh
-python tools/describe_boot_hardware.py delay
-python tools/describe_boot_hardware.py --json manifest
-python tools/describe_boot_hardware.py protected-writes
-python tools/describe_boot_hardware.py trace /path/to/full-reset.trace
-python tools/describe_boot_hardware.py ram-pattern 0x200
-python tools/describe_boot_hardware.py --json lcd-diagnostic
+python3 -m ti84re.boot.describe_hardware delay
+python3 -m ti84re.boot.describe_hardware --json manifest
+python3 -m ti84re.boot.describe_hardware protected-writes
+python3 -m ti84re.boot.describe_hardware trace /path/to/full-reset.trace
+python3 -m ti84re.boot.describe_hardware ram-pattern 0x200
+python3 -m ti84re.boot.describe_hardware --json lcd-diagnostic
 ```
 
 The trace analyzer reads binary TLMT records in one streaming pass, retains
@@ -365,12 +365,12 @@ The saved full-reset TilEm trace matches all 35 ordered output events from
 at logical `0x8000` under the TI-84 Plus reset mapping and resolves every
 banked instruction in this interval. [confirmed] for the pinned emulator run.
 
-`tools/run_wabbitemu_lcd_diagnostic_probe.py` builds a hash-bearing evidence
+`tools/ti84re/emulators/wabbitemu/run_lcd_diagnostic_probe.py` builds a hash-bearing evidence
 manifest for the explicit helper calls. It requires the pinned native runner
 and exact OS 2.55MP ROM:
 
 ```sh
-python tools/run_wabbitemu_lcd_diagnostic_probe.py \
+python3 -m ti84re.emulators.wabbitemu.run_lcd_diagnostic_probe \
   --binary /path/to/wabbitemu-headless \
   --output-dir /tmp/ti84-lcd-diagnostic --json
 ```

@@ -406,7 +406,7 @@ jr nz,.write_byte
 addresses with descending current-time ports. `OUTI` applies the same register
 updates to the staged set ports. [confirmed]
 
-`tools/describe_rom_io_coverage.py` reproduces this result from the pinned ROM.
+`tools/ti84re/rom/describe_io_coverage.py` reproduces this result from the pinned ROM.
 Its raw scan covers all 37 possible register and block-I/O opcode pairs in the
 image, including pairs inside operands and data. It also verifies that no
 16 KiB page ends with an `ED` prefix. Only `37:58A9` and `37:5944` survive as
@@ -498,9 +498,9 @@ $TILEM --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
   --trace /tmp/tilem-power-cycle.trace --trace-range all \
   --trace-limit 500000000
 
-nix develop -c python tools/tilem_trace_resolve.py \
+nix develop -c python3 -m ti84re.trace.resolve \
   /tmp/tilem-power-cycle.trace --initial-mapping ti84p-reset \
-  --names tools/names.txt --only-space ram \
+  --names tools/symbols/names.txt --only-space ram \
   --only-addr 09e6-0a5d --print 180
 ```
 
@@ -642,29 +642,29 @@ not physical timer periods or retention. [standard]
 
 ## Reusable timer tools
 
-`tools/timer_hardware.py` exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM's radix-255 chunks, RTC implementation profiles, and the physical-probe discriminator. `tools/describe_timer_hardware.py` is a JSON-capable front end. The TilEm, Wabbitemu, and MAME report oracles validate native observations against reusable source models; `tools/jstified_hardware.py` supplies a separately hash-guarded source profile without claiming a native run. `tools/tilem_timer.py` adds the complete direct-core programmable-timer and deterministic RTC matrix. `tools/tilem_interrupt.py` adds direct standard-timer scheduling and programmable-timer HALT-gate observations. `tools/mame_interrupt.py` adds fixed standard-timer and reset-retention observations through the immutable MAME state in `tools/interrupt_controller.py`. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-`0x2D` implementation edges use `tools/wabbitemu_speed_probe.py` and its guarded CLI. `tools/run_wabbitemu_timer_physical_probe.py` executes the assembled physical discriminator through the shared injected-program runner. These are emulator-comparison tools, not physical-hardware simulators.
+`tools/ti84re/hardware/timer.py` exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM's radix-255 chunks, RTC implementation profiles, and the physical-probe discriminator. `tools/ti84re/hardware/describe_timer.py` is a JSON-capable front end. The TilEm, Wabbitemu, and MAME report oracles validate native observations against reusable source models; `tools/ti84re/emulators/jstified.py` supplies a separately hash-guarded source profile without claiming a native run. `tools/ti84re/emulators/tilem/timer.py` adds the complete direct-core programmable-timer and deterministic RTC matrix. `tools/ti84re/emulators/tilem/interrupt.py` adds direct standard-timer scheduling and programmable-timer HALT-gate observations. `tools/ti84re/emulators/mame/interrupt.py` adds fixed standard-timer and reset-retention observations through the immutable MAME state in `tools/ti84re/hardware/interrupt_controller.py`. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-`0x2D` implementation edges use `tools/ti84re/emulators/wabbitemu/speed_probe.py` and its guarded CLI. `tools/ti84re/emulators/wabbitemu/run_timer_physical_probe.py` executes the assembled physical discriminator through the shared injected-program runner. These are emulator-comparison tools, not physical-hardware simulators.
 
 ```sh
-nix develop -c python tools/describe_timer_hardware.py \
+nix develop -c python3 -m ti84re.hardware.describe_timer \
   source 0x41 0x80 0xC0 --mode3-prescaler 4
 
-nix develop -c python tools/describe_timer_hardware.py \
+nix develop -c python3 -m ti84re.hardware.describe_timer \
   duration --source 0x41 --counter 0xFF
 
-nix develop -c python tools/describe_timer_hardware.py \
+nix develop -c python3 -m ti84re.hardware.describe_timer \
   expiry --mode 0x02 --halted --no-standard-timer
 
-nix develop -c python tools/describe_timer_hardware.py chunks 0x0100 0x0101
-nix develop -c python tools/describe_timer_hardware.py --json rtc
+nix develop -c python3 -m ti84re.hardware.describe_timer chunks 0x0100 0x0101
+nix develop -c python3 -m ti84re.hardware.describe_timer --json rtc
 
 timer_probe_parent=$(mktemp -d /tmp/ti84-timer-probe.XXXXXX)
-nix develop -c python tools/run_wabbitemu_timer_edge_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_timer_edge_probe \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$timer_probe_parent/run" --json
 
 physical_timer_parent=$(mktemp -d /tmp/ti84-physical-timer.XXXXXX)
-nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_timer_physical_probe \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --expected-binary-sha256 \
@@ -672,7 +672,7 @@ nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
   --output-dir "$physical_timer_parent/run" --json
 
 mame_timer_parent=$(mktemp -d /tmp/ti84-mame-timer.XXXXXX)
-nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
+nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_timer_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_timer_parent/run" --json

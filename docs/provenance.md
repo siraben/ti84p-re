@@ -21,7 +21,7 @@ The canonical image starts from `ti84plus_patched.rom`, whose SHA-256 is
 `D84PBE2.8Xv` supplies page `0x2F`; `D84PBE1.8Xv` supplies page `0x3F`, although
 that decoded retail page is byte-identical to the base image's page `0x3F`.
 The exact AppVar and decoded-page identities are pinned in
-`tools/rom_signatures.py`. [confirmed]
+`tools/ti84re/rom/signatures.py`. [confirmed]
 
 The BootFree image matches the patched base on pages `0x00`–`0x3E`. Only page
 `0x3F` differs, with SHA-256
@@ -62,14 +62,14 @@ matched function-entry recovery for both images. [confirmed]
 
 ## Generate a manifest
 
-`tools/rom_provenance.py` records the complete ROM identity, target model,
+`tools/ti84re/rom/provenance.py` records the complete ROM identity, target model,
 hardware or emulator environment, ASIC revision, emulator profile, OS version,
 boot-page classification, component page ranges, the 2007 include-file
 identity, Ghidra version, Git revision, dirty-tree state, and a digest over the
 top-level analysis scripts.
 
 ```sh
-nix develop -c python3 tools/rom_provenance.py manifest \
+nix develop -c python3 -m ti84re.rom.provenance manifest \
   --rom tools/rom.bin --model 'TI-84 Plus' --environment emulator \
   --asic unknown --emulator-profile 'TilEm x4' \
   --output /tmp/ti84p-provenance.json
@@ -87,7 +87,7 @@ evidence identity instead. JSON reports use either a `rom_sha256` field or a
 before reuse:
 
 ```sh
-nix develop -c python3 tools/rom_provenance.py verify \
+nix develop -c python3 -m ti84re.rom.provenance verify \
   --manifest /tmp/ti84p-provenance.json \
   tools/data/launch-boundary-results.csv \
   tools/data/resident-launch-snapshot.csv
@@ -99,13 +99,13 @@ sidecar rather than treating the trace filename as evidence. [confirmed]
 
 ## Audit the Ghidra database
 
-`tools/DatabaseHealth.java` makes database coverage and cleanup debt
+`tools/ghidra/DatabaseHealth.java` makes database coverage and cleanup debt
 machine-readable. Run it against the existing project without analysis or
 writes:
 
 ```sh
 nix develop -c ghidra-analyzeHeadless "$PWD" ti84 \
-  -process -noanalysis -readOnly -scriptPath "$PWD/tools" \
+  -process -noanalysis -readOnly -scriptPath "$PWD/tools/ghidra" \
   -postScript DatabaseHealth.java tools/data/database-health.json
 ```
 
@@ -124,7 +124,7 @@ specific analysis task, not evidence that the ROM's control flow is invalid.
 
 The health report is deterministic for a given database, script revision, and
 Ghidra version. Its `rom_sha256` field can be checked with
-`tools/rom_provenance.py verify`; use a separately rebuilt retail project when
+`tools/ti84re/rom/provenance.py verify`; use a separately rebuilt retail project when
 auditing retail boot and USB pages. [confirmed]
 
 ## Community assembly archive snapshot
@@ -145,7 +145,7 @@ Run the same inventory and safe extraction process from the development
 environment:
 
 ```sh
-nix develop -c python3 tools/community_archive.py \
+nix develop -c python3 -m ti84re.community.archive \
   "$COMMUNITY_ARCHIVE/mirror/pub/83plus/asm" \
   --archive-csv tools/data/community-archive-inventory.csv \
   --member-csv /tmp/community-archive-members.csv \

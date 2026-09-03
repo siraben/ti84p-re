@@ -197,7 +197,7 @@ The exact artifacts are:
 | `programs/programtoappvar.zip` | `4e27be8774fca769f26f1ce9984026f250fc8c4e9222277d3458a67e7fb25dc9` | `Hide.asm`: `65d290071a4ca2837f2e7ad08b3614939ec024a946057c75452f7b174b081a57` | `HIDE.8XP`: `0b03d6d7c97322140eb051844458adba1acf95009bf28d827c510e38f545e756` |
 | `programs/prgmappv.zip` | `33ba32795488b17e316f2efe556f5b323b6ca5b9fa9a1bf08db8dc59bac44ddf` | `PRGMAPPV.z80`: `5d75239635d4791b08519e366276aebef3de51d1fe81f68c8cd5ee59f65f97bb` | `PRGMAPPV.8XP`: `a035c67a56e31dd8504d9d2f293d955a0ce56638a4506b0fcdd8ed9b27d54eb0` |
 
-The reproducible macros and analyzer are in `tools/community-vat-probes/`.
+The reproducible macros and analyzer are in `tools/probes/community/vat/`.
 `tools/data/community-vat-dynamic-observations.csv` records the complete trace,
 snapshot, input-ROM, output-ROM, and emulator hashes. The ROM hash is
 `dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09`;
@@ -694,12 +694,12 @@ The `GCFLASH` trace takes a short path. The master byte at `3E:7DED` receives
 
 The rebuild worker also issues program commands with data `0xFF` while copying
 the block. Those commands cannot clear NOR bits and are not phase transitions.
-`tools/gc_journal.py` separates them from state-changing commands. Its CLI can
+`tools/ti84re/flash/gc_journal.py` separates them from state-changing commands. Its CLI can
 report the static structure alone or correlate a trace: [confirmed]
 
 ```sh
-python tools/analyze_gc_journal.py --json
-python tools/analyze_gc_journal.py \
+python3 -m ti84re.flash.analyze_gc_journal --json
+python3 -m ti84re.flash.analyze_gc_journal \
   --trace /tmp/tibasic-smoke/gcflash.trace --json
 ```
 
@@ -710,9 +710,9 @@ an erased status and skips the branch to `3C:7BDD` and `3C:7C1F`.
 ### TilEm restart at six journal boundaries
 
 The `GCFLASH` command trace can produce interrupted Flash images without
-guessing archive contents. `tools/flash_replay.py` applies decoded byte-program
+guessing archive contents. `tools/ti84re/flash/replay.py` applies decoded byte-program
 commands as `old & requested` and applies sector erases with the top-boot
-geometry. `tools/replay_flash_trace.py` stops when an initialized journal phase
+geometry. `tools/ti84re/flash/replay_trace.py` stops when an initialized journal phase
 belongs to the sole certificate half whose base marker is `0x00`. [confirmed]
 
 This replay treats the command-shaped CPU writes as accepted device commands.
@@ -752,8 +752,8 @@ for TilEm.
 
 Two controlled archive topologies reach the other dispatcher states. The first
 starts with only two synthetic bytes: page `08`'s erased header becomes `0xFE`,
-and page `28`'s erased header becomes `0xF0`. `tools/gc_layout.py` builds the
-copy without modifying its source; `tools/build_gc_layout.py` requires the
+and page `28`'s erased header becomes `0xF0`. `tools/ti84re/flash/gc_layout.py` builds the
+copy without modifying its source; `tools/ti84re/flash/build_gc_layout.py` requires the
 source hash, refuses existing output by default, and reports every mutation.
 The pinned-ROM input and controlled output hashes are: [confirmed]
 
@@ -783,7 +783,7 @@ page-`08` and page-`0C` sectors. Three 17,000-byte records and one 14,454-byte
 record fill each sector, leaving one erased trailing byte. Normal archive-UI
 runs and successful OS Flash-worker traces produce SHA-256
 `389ed80fe8635740f855c7b8ffec6312a5182027dd0605e8a6e2b094c8481452`.
-`tools/archive_fixture.py` independently serializes the observed record header
+`tools/ti84re/flash/archive_fixture.py` independently serializes the observed record header
 and first-fit placement into erased 64 KiB sectors. Its guarded CLI reproduces
 that complete image byte for byte from `tools/rom.bin` and the eight ordered
 name/size pairs. [confirmed]
@@ -849,7 +849,7 @@ The `0xF0` run starts from the deterministically reconstructed `df49d6…` phase
 image. It executes 20,000,000 instructions and 231,942,592 t-states before
 reaching ten unchanged Flash samples. Its complete 1 MiB output equals both the
 TilEm recovery and the normalized uninterrupted result.
-`tools/compare_flash_images.py` enforces the input hashes and complete-image
+`tools/ti84re/flash/compare_images.py` enforces the input hashes and complete-image
 equality for all six Wabbitemu command-boundary runs. [confirmed] Cuts during
 busy commands and physical power loss remain untested. [hypothesis]
 
@@ -865,23 +865,23 @@ retail startup and recovery path under Wabbitemu, with no injected CPU state or
 direct assignment to `flash_locked`. [confirmed]
 
 The native adapter, importable orchestration library, and guarded build/run
-CLIs are documented in `tools/dynamic-tracing.md`. Their JSON reports include
+CLIs are documented in `tools/notes/emulator-probes.md`. Their JSON reports include
 typed gate writes and transitions, retail-bcall and copied-worker coverage,
 input and output hashes, exact dispatcher visits, instruction and t-state
 counts, changed-byte counts, wake completion, and Flash-settling status.
 
 ### Reproducing the command timeline
 
-`tools/flash_trace.py` is the importable AMD-command decoder. The CLI resolves mapping changes,
+`tools/ti84re/flash/trace.py` is the importable AMD-command decoder. The CLI resolves mapping changes,
 decodes command sequences, and compacts adjacent program operations: [confirmed]
 
 ```sh
-python tools/analyze_flash_trace.py \
+python3 -m ti84re.flash.analyze_trace \
   /tmp/tibasic-smoke/gcflash.trace \
   --clock 321347460-344829074 \
   --timeline
 
-python tools/analyze_trace_points.py \
+python3 -m ti84re.trace.analyze_points \
   /tmp/tibasic-smoke/gcflash.trace \
   --point page_3C:71f8 \
   --point page_3C:7733 \

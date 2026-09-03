@@ -419,19 +419,19 @@ normal interrupt mask `0x0B` at `ram:0C9E` and sends LCD commands
 The resolver can print injected key events and restrict both key and I/O output to an inclusive trace-clock window.
 
 ```sh
-nix develop -c python tools/tilem_trace_resolve.py \
+nix develop -c python3 -m ti84re.trace.resolve \
   /tmp/tilem-power-cycle.trace \
-  --initial-mapping ti84p-reset --names tools/names.txt \
+  --initial-mapping ti84p-reset --names tools/symbols/names.txt \
   --key-events
 
-nix develop -c python tools/tilem_trace_resolve.py \
+nix develop -c python3 -m ti84re.trace.resolve \
   /tmp/tilem-power-cycle.trace \
-  --initial-mapping ti84p-reset --names tools/names.txt \
+  --initial-mapping ti84p-reset --names tools/symbols/names.txt \
   --io-ports 01 --event-clock 93285080-93450000
 
-nix develop -c python tools/tilem_trace_resolve.py \
+nix develop -c python3 -m ti84re.trace.resolve \
   /tmp/tilem-power-cycle.trace \
-  --initial-mapping ti84p-reset --names tools/names.txt \
+  --initial-mapping ti84p-reset --names tools/symbols/names.txt \
   --io-ports 03,04,10,20 --event-clock 95965000-95967000
 ```
 
@@ -510,21 +510,21 @@ These discrepancies are emulator behavior, not competing physical measurements. 
 
 ## Reusable keypad tools
 
-`tools/keypad_hardware.py` exposes the three source-pinned matrix algorithms,
+`tools/ti84re/hardware/keypad.py` exposes the three source-pinned matrix algorithms,
 ON-edge policies, and byte-confirmed App mouse movement model.
-`tools/describe_keypad_hardware.py` accepts numeric `GROUP,BIT` positions,
+`tools/ti84re/hardware/describe_keypad.py` accepts numeric `GROUP,BIT` positions,
 which keeps ghost and unwired-position experiments independent of UI key names.
-`tools/tilem_keypad.py` derives an ordered native case report from that model.
+`tools/ti84re/emulators/tilem/keypad.py` derives an ordered native case report from that model.
 Its builder validates the pinned TilEm commit and tree before compilation.
-`tools/run_tilem_keypad_probe.py` guards the exact binary and writes the
+`tools/ti84re/emulators/tilem/run_keypad_probe.py` guards the exact binary and writes the
 observations, source-model comparison, input identities, and evidence scope.
-`tools/wabbitemu_keypad_probe.py` provides the independent case oracle.
-`tools/run_wabbitemu_keypad_edge_probe.py` guards the native report with the
+`tools/ti84re/emulators/wabbitemu/keypad_probe.py` provides the independent case oracle.
+`tools/ti84re/emulators/wabbitemu/run_keypad_edge_probe.py` guards the native report with the
 exact OS 2.55MP ROM hash and writes a JSON manifest containing both binary
-hashes and evidence scope. `tools/mame_keypad.py` parses and checks the MAME
-matrix against the reusable source model. `tools/run_mame_keypad_probe.py`
+hashes and evidence scope. `tools/ti84re/emulators/mame/keypad.py` parses and checks the MAME
+matrix against the reusable source model. `tools/ti84re/emulators/mame/run_keypad_probe.py`
 guards the exact MAME executable, ROM, Lua adapter, and isolated runtime.
-`tools/mame_interrupt.py` adds the independent timer-sampled ON-edge sequence.
+`tools/ti84re/emulators/mame/interrupt.py` adds the independent timer-sampled ON-edge sequence.
 The [physical keypad settling probe](hardware-probes.md#keypad-settling-probe)
 uses the same numeric group order but does not apply an emulator matrix model.
 It records every raw byte so held-key metadata and ASIC revision can be compared
@@ -532,17 +532,17 @@ without assuming one of the three source algorithms.
 
 ```sh
 # Three-key rectangle: TilEm/Wabbitemu read 0xFC; MAME reads 0xFE.
-nix develop -c python tools/describe_keypad_hardware.py matrix \
+nix develop -c python3 -m ti84re.hardware.describe_keypad matrix \
   --mask 0xFE --key 0,0 --key 1,0 --key 1,1
 
 # Transitive chain: TilEm reaches bit 2; Wabbitemu stops at bit 1.
-nix develop -c python tools/describe_keypad_hardware.py matrix \
+nix develop -c python3 -m ti84re.hardware.describe_keypad matrix \
   --mask 0xFE --key 0,0 --key 1,0 --key 1,1 --key 2,1 --key 2,2
 
-nix develop -c python tools/describe_keypad_hardware.py on press release
-nix develop -c python tools/describe_keypad_hardware.py mouse 0xF5 \
+nix develop -c python3 -m ti84re.hardware.describe_keypad on press release
+nix develop -c python3 -m ti84re.hardware.describe_keypad mouse 0xF5 \
   --row 0x1F --column 0x30
-nix develop -c python tools/describe_keypad_hardware.py --json profiles
+nix develop -c python3 -m ti84re.hardware.describe_keypad --json profiles
 
 tilem_keypad_tmp=$(mktemp -d /tmp/ti84-tilem-keypad.XXXXXX)
 git clone https://github.com/debrouxl/tilem.git "$tilem_keypad_tmp/tilem"
@@ -550,35 +550,35 @@ git -C "$tilem_keypad_tmp/tilem" checkout \
   f56ad637d0524ee841dd381be6ecbaf5b8975600
 nix shell \
   github:NixOS/nixpkgs/f13ff45afd1bb73e640eaa08a7066dbed07e3238#gcc \
-  --command python tools/build_tilem_keypad_probe.py \
+  --command python3 -m ti84re.emulators.tilem.build_probe --probe keypad \
   --source "$tilem_keypad_tmp/tilem" \
   --output "$tilem_keypad_tmp/tilem-keypad-probe" --json
 
 tilem_keypad_parent=$(mktemp -d /tmp/ti84-tilem-keypad-report.XXXXXX)
-python tools/run_tilem_keypad_probe.py \
+python3 -m ti84re.emulators.tilem.run_keypad_probe \
   --binary "$tilem_keypad_tmp/tilem-keypad-probe" \
   --expected-binary-sha256 \
     9553bdafadf042dd9af634221b52b8795b572d0c047f839e119dabc957063323 \
   --output-dir "$tilem_keypad_parent/run" --json
 
 keypad_probe_parent=$(mktemp -d /tmp/ti84-keypad-probe.XXXXXX)
-nix develop -c python tools/run_wabbitemu_keypad_edge_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_keypad_edge_probe \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$keypad_probe_parent/run" --json
 
 mame_keypad_parent=$(mktemp -d /tmp/ti84-mame-keypad.XXXXXX)
-nix shell nixpkgs#mame --command python tools/run_mame_keypad_probe.py \
+nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_keypad_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_keypad_parent/run" --json
 ```
 
-`tools/indexed_flags.py` provides the page-aware raw signature scan used for
+`tools/ti84re/rom/indexed_flags.py` provides the page-aware raw signature scan used for
 the flag-lifecycle audit. Its CLI accepts a ROM hash guard and emits JSON:
 
 ```sh
-nix develop -c python tools/analyze_rom_flags.py \
+nix develop -c python3 -m ti84re.rom.analyze_flags \
   --offset 0x2C --bit 0 --index iy \
   --expect-sha256 \
   7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d

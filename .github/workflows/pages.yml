@@ -24,7 +24,7 @@ jobs:
       - name: Test MathPrint browser input
         run: >-
           nix develop .#browser-tests -c playwright test
-          tools/test-mathprint-browser.spec.js --reporter=line --workers=1
+          tools/js/test-mathprint-browser.spec.js --reporter=line --workers=1
           --output="$RUNNER_TEMP/mathprint-playwright"
       - name: Deploy production site
         run: |

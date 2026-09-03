@@ -652,7 +652,7 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 
 ## Corpus coverage and map provenance
 
-`tools/audit_community_bcalls.py` scans the extracted community corpus for
+`tools/ti84re/community/audit_bcalls.py` scans the extracted community corpus for
 numeric bcall macros, raw `rst 28h` plus word sequences, and complete
 `EF low high` instruction bytes. The pinned snapshot contains 112 such uses of
 56 IDs. Three uses encode `_CursorOn`, `_KeyToString`, and `_CursorOff` as raw
@@ -718,7 +718,7 @@ Plus replacement ID where applicable.
 The retail table has 87 populated entries across IDs `0x8018`–`0x80D2` and
 `0x80E4`–`0x8129`. The full 2007 `ti83plus.inc` defines 83 of them; the four
 snake-case rows below are project-inferred names for otherwise unnamed slots.
-`tools/resolve_bcalls.py` emits the public-name target file only when page `3F`
+`tools/ti84re/rom/resolve_bcalls.py` emits the public-name target file only when page `3F`
 has the retail boot prefix, not when it sees BootFree. See
 [Retail boot page](retail-boot.md#physical-layout) for the intervening dispatch
 stub and evidence behind the inferred rows. [confirmed]

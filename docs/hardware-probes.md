@@ -44,7 +44,7 @@ SPASM-ng is part of the Nix development shell. Build all transfer files and a
 hash manifest with:
 
 ```sh
-nix develop -c python tools/build_hardware_probes.py \
+nix develop -c python3 -m ti84re.hardware.build_probes \
   --output-dir /tmp/hardware-probes
 ```
 
@@ -94,8 +94,8 @@ internal size word, the `HWP1` frame version, and the payload length before it
 interprets measurements. [confirmed]
 
 ```sh
-python tools/decode_hardware_probe.py HWPMD511.8xv
-python tools/decode_hardware_probe.py --json \
+python3 -m ti84re.hardware.decode_probe HWPMD511.8xv
+python3 -m ti84re.hardware.decode_probe --json \
   HWPASIC1.8xv HWBATT01.8xv HWBRAW01.8xv HWPUSB01.8xv \
   HWLINK01.8xv HWKEYS01.8xv HWBUS001.8xv HWPFX001.8xv HWTMR001.8xv \
   HWPMD511.8xv HWPRAM21.8xv
@@ -173,8 +173,8 @@ The standalone CLI accepts the six observed bytes or simulates an explicit
 selector-to-backing assignment:
 
 ```sh
-python tools/describe_ram_topology.py --observed 666666666666
-python tools/describe_ram_topology.py \
+python3 -m ti84re.hardware.describe_ram_topology --observed 666666666666
+python3 -m ti84re.hardware.describe_ram_topology \
   --simulate-backings 0,0,1,1,2,3 --json
 ```
 
@@ -586,7 +586,7 @@ fetch. The reusable source analyzer requires TilEm commit
 It reports no physical result. [standard]
 
 ```sh
-python tools/describe_prefix_fetch_models.py \
+python3 -m ti84re.emulators.describe_prefix_fetch_models \
   --tilem-source /path/to/tilem \
   --wabbitemu-source /path/to/wabbitemu --json
 ```
@@ -699,7 +699,7 @@ completion windows; the program never executes `HALT`. [confirmed]
 Run and decode a physical result with:
 
 ```sh
-python tools/decode_hardware_probe.py --json HWTMR001.8xv
+python3 -m ti84re.hardware.decode_probe --json HWTMR001.8xv
 ```
 
 The decoder reports raw counters and status bytes alongside the nearest source
@@ -729,7 +729,7 @@ and binary SHA-256
 Run the same guarded path with:
 
 ```sh
-nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_timer_physical_probe \
   --binary /path/to/wabbitemu-headless \
   --expected-binary-sha256 3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
   --output-dir /tmp/wabbitemu-timer-physical --json
@@ -778,30 +778,30 @@ physical execution and reset retention.
 
 | Path | Purpose |
 |------|---------|
-| `tools/hardware-probes/common.inc` | OP1 setup, `_CreateAppVar`, and frame copy |
-| `tools/hardware-probes/asic-snapshot.asm` | read-only ASIC, timing, and GPIO register snapshot |
-| `tools/hardware-probes/battery-level.asm` | repeated retail battery-level bcall and restoring state audit |
-| `tools/hardware-probes/battery-raw.asm` | repeated raw comparator-selector sequence and restoring state audit |
-| `tools/hardware-probes/link-raw.asm` | disconnected two-wire link readback and instruction-spaced settling matrix |
-| `tools/hardware-probes/keypad-settle.asm` | held-key and chord matrix-settling measurements |
-| `tools/hardware-probes/bus-timing.asm` | six-class Flash/RAM wait-state timing matrix |
-| `tools/hardware-probes/prefix-m1.asm` | prefixed-instruction RAM-M1 timing matrix |
-| `tools/hardware-probes/timer-physical.asm` | guarded programmable-timer divisor, prescaler, zero-counter, and expiry matrix |
-| `tools/hardware-probes/usb-snapshot.asm` | read-only low-USB control and status snapshot |
-| `tools/hardware-probes/md5-edge.asm` | calculator-side MD5 measurements |
-| `tools/hardware-probes/ram-alias.asm` | calculator-side RAM alias and restoration measurements |
-| `tools/hardware-probes/execution-fetch.asm` | parameterized read-only Flash and RAM fetch measurement |
-| `tools/hardware_probe.py` | reusable TI container, frame, and payload library |
-| `tools/bus_timing.py` | timing-register models and physical counter-pair decoder |
-| `tools/prefix_fetch_models.py` | hash-guarded emulator prefix-fetch source analysis |
-| `tools/timer_hardware.py` | reusable source, duration, RTC, and physical timer-result models |
-| `tools/describe_prefix_fetch_models.py` | text and JSON prefix-fetch comparison CLI |
-| `tools/run_wabbitemu_prefix_m1_probe.py` | exact-ROM guarded assembled-probe execution CLI |
-| `tools/run_wabbitemu_timer_physical_probe.py` | exact-ROM guarded assembled timer-probe execution CLI |
-| `tools/battery_hardware.py` | ROM decision tree and emulator threshold-region model |
-| `tools/describe_battery_hardware.py` | text and JSON threshold/sample model CLI |
-| `tools/build_hardware_probes.py` | SPASM runner, artifact validator, packager, and manifest CLI |
-| `tools/decode_hardware_probe.py` | text and JSON result CLI |
+| `tools/probes/hardware/common.inc` | OP1 setup, `_CreateAppVar`, and frame copy |
+| `tools/probes/hardware/asic-snapshot.asm` | read-only ASIC, timing, and GPIO register snapshot |
+| `tools/probes/hardware/battery-level.asm` | repeated retail battery-level bcall and restoring state audit |
+| `tools/probes/hardware/battery-raw.asm` | repeated raw comparator-selector sequence and restoring state audit |
+| `tools/probes/hardware/link-raw.asm` | disconnected two-wire link readback and instruction-spaced settling matrix |
+| `tools/probes/hardware/keypad-settle.asm` | held-key and chord matrix-settling measurements |
+| `tools/probes/hardware/bus-timing.asm` | six-class Flash/RAM wait-state timing matrix |
+| `tools/probes/hardware/prefix-m1.asm` | prefixed-instruction RAM-M1 timing matrix |
+| `tools/probes/hardware/timer-physical.asm` | guarded programmable-timer divisor, prescaler, zero-counter, and expiry matrix |
+| `tools/probes/hardware/usb-snapshot.asm` | read-only low-USB control and status snapshot |
+| `tools/probes/hardware/md5-edge.asm` | calculator-side MD5 measurements |
+| `tools/probes/hardware/ram-alias.asm` | calculator-side RAM alias and restoration measurements |
+| `tools/probes/hardware/execution-fetch.asm` | parameterized read-only Flash and RAM fetch measurement |
+| `tools/ti84re/hardware/probe.py` | reusable TI container, frame, and payload library |
+| `tools/ti84re/hardware/bus_timing.py` | timing-register models and physical counter-pair decoder |
+| `tools/ti84re/emulators/prefix_fetch_models.py` | hash-guarded emulator prefix-fetch source analysis |
+| `tools/ti84re/hardware/timer.py` | reusable source, duration, RTC, and physical timer-result models |
+| `tools/ti84re/emulators/describe_prefix_fetch_models.py` | text and JSON prefix-fetch comparison CLI |
+| `tools/ti84re/emulators/wabbitemu/run_prefix_m1_probe.py` | exact-ROM guarded assembled-probe execution CLI |
+| `tools/ti84re/emulators/wabbitemu/run_timer_physical_probe.py` | exact-ROM guarded assembled timer-probe execution CLI |
+| `tools/ti84re/hardware/battery.py` | ROM decision tree and emulator threshold-region model |
+| `tools/ti84re/hardware/describe_battery.py` | text and JSON threshold/sample model CLI |
+| `tools/ti84re/hardware/build_probes.py` | SPASM runner, artifact validator, packager, and manifest CLI |
+| `tools/ti84re/hardware/decode_probe.py` | text and JSON result CLI |
 
 Generated `.8xp` files are build artifacts and are not required in the
 repository. A physical evidence record should retain the exact exported

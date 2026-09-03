@@ -7,7 +7,7 @@
 #     --headless-record /tmp/calc.gif \
 #     --trace /tmp/b.trace --trace-range all
 # Isolate the evaluation path with a coverage diff against
-# tools/macros/boot-idle.macro (see tools/dynamic-tracing.md).
+# tools/macros/boot-idle.macro (see tools/notes/dynamic-tracing.md).
 #
 # NOTE: comments must be on their own line - the parser treats a trailing
 # "# ..." after a command as a (bad) hold-time argument.

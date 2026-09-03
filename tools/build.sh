@@ -7,6 +7,7 @@ set -euo pipefail
 T="$(cd "$(dirname "$0")" && pwd)"          # this tools/ dir
 PROJ="$(dirname "$T")"                        # repo root
 NAME=ti84
+SYMBOLS="$T/symbols"                          # checked symbol/type registries
 
 # Nixpkgs exposes the headless launcher as `ghidra-analyzeHeadless`; the
 # upstream archive and Homebrew use `support/analyzeHeadless`.  An explicit
@@ -27,28 +28,28 @@ else
   exit 1
 fi
 
-python3 "$T/resolve_bcalls.py"          # regenerate bcall_targets.txt (page&0x3F)
+PYTHONPATH="$T" python3 -m ti84re.rom.resolve_bcalls   # regenerate symbols/bcall_targets.txt (page&0x3F)
 rm -rf "$PROJ/$NAME.gpr" "$PROJ/$NAME.rep"
 GHIDRA_BUILD_LOG="$(mktemp -t ti84-ghidra-build.XXXXXX)"
 trap 'rm -f "$GHIDRA_BUILD_LOG"' EXIT
 "$ANALYZE_HEADLESS" "$PROJ" "$NAME" \
   -import "$T/ti84_page00.bin" -processor z80:LE:16:default \
   -loader BinaryLoader -loader-baseAddr 0x0000 \
-  -scriptPath "$T" \
-  -postScript BuildTI84Full.java "$T" \
-  -postScript ApplyBcalls.java "$T" \
-  -postScript DeepenPass.java "$T" \
-  -postScript RamRoutines.java "$T" \
-  -postScript ApplyBjumpTargets.java "$T" \
-  -postScript FixInlineBjumps.java "$T" \
-  -postScript ParserTable.java "$T" \
-  -postScript RenameFns.java "$T" \
-  -postScript BuildTypes.java "$T" \
-  -postScript ApplyLabels.java "$T" \
-  -postScript ApplyOffsetRefs.java "$T" \
-  -postScript FixInlineBjumps.java "$T" \
-  -postScript ApplyOffsetRefs.java "$T" \
-  -postScript RenameVars.java "$T" 2>&1 | tee "$GHIDRA_BUILD_LOG"
+  -scriptPath "$T/ghidra" \
+  -postScript BuildTI84Full.java "$SYMBOLS" "$T/rom.bin" \
+  -postScript ApplyBcalls.java "$SYMBOLS" \
+  -postScript DeepenPass.java "$SYMBOLS" \
+  -postScript RamRoutines.java "$SYMBOLS" \
+  -postScript ApplyBjumpTargets.java "$SYMBOLS" \
+  -postScript FixInlineBjumps.java "$SYMBOLS" \
+  -postScript ParserTable.java "$SYMBOLS" \
+  -postScript RenameFns.java "$SYMBOLS" \
+  -postScript BuildTypes.java "$SYMBOLS" \
+  -postScript ApplyLabels.java "$SYMBOLS" \
+  -postScript ApplyOffsetRefs.java "$SYMBOLS" \
+  -postScript FixInlineBjumps.java "$SYMBOLS" \
+  -postScript ApplyOffsetRefs.java "$SYMBOLS" \
+  -postScript RenameVars.java "$SYMBOLS" 2>&1 | tee "$GHIDRA_BUILD_LOG"
 if grep -q "REPORT SCRIPT ERROR" "$GHIDRA_BUILD_LOG"; then
   echo "Ghidra post-script failure; see output above" >&2
   exit 1

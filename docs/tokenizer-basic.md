@@ -122,14 +122,14 @@ bounded token-width and scan models.
 
 ## Reproducible samples
 
-`tools/tibasic_samples.py` generates readable `.bas`, raw `.tok`, and loadable
+`tools/ti84re/tibasic/samples.py` generates readable `.bas`, raw `.tok`, and loadable
 `.8xp` forms from one definition. Treat `.bas` as the review form, `.tok` as
 the exact interpreter input, and `.8xp` as the calculator fixture. A compact,
 diverse subset is used for dynamic coverage; the generator retains the broader
 fixture library for targeted subsystem investigations.
 
 ```sh
-tools/tibasic_samples.py --write-dir tools/tibasic-samples
+python3 -m ti84re.tibasic.samples --write-dir tools/tibasic-samples
 ```
 
 The generator's byte assertions catch accidental changes between the readable

@@ -455,7 +455,7 @@ The inferential-statistics commands execute in their own engine on page `3A`, sh
 with `_OneVar` but distinct from it. Three byte-pinned structures locate it:
 
 **Candidate `PStat`–`SStat` references.** A ROM-wide byte-pattern scan
-(`tools/scan_stat_writers.py`, immediate or absolute operands landing in
+(`tools/ti84re/rom/scan_stat_writers.py`, immediate or absolute operands landing in
 `0x8B5A`–`0x8C37`) finds about 50 opcode-shaped candidates on page `3A`
 (`3A:4B15`–`3A:6BDC`) plus candidates on pages `06`, `35`, `37`, and `39`.
 Because the scan does not recover instruction boundaries, these hits locate a

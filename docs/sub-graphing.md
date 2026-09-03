@@ -96,7 +96,7 @@ increments the exponent. `_ConvOP1` (`38:7433`) then converts up to four
 integer digits into `DE`, returns `E` in `A`, and raises a dimension error for
 an exponent above `0x83`. [confirmed]
 
-`tools/graph-coordinate.js` translates this operand order and finishing path.
+`tools/js/graph-coordinate.js` translates this operand order and finishing path.
 Its test pins the three ROM spans and compares 220,000 packed-BCD OP1 states
 against an independent transcription. [confirmed]
 
@@ -217,7 +217,7 @@ pointer by 18 bytes. [confirmed]
 The loop consumes seven consecutive constants at `35:79F5`, alternating sine
 and cosine values for 6°, 12°, 18°, and finally sine 24°. The adjacent
 cosine 24° constant is present but is not consumed by this loop. The static
-schedule and helper ABI are checked in `tools/graph_circle.py`; the latter is
+schedule and helper ABI are checked in `tools/ti84re/graphing/circle.py`; the latter is
 compared with the pinned helper bytes for all 65,536 16-bit test seeds.
 [confirmed]
 
@@ -330,7 +330,7 @@ joins the shared evaluator tail at `38:59A4`. Evaluation passes through
 Official `_ParseInp` at `38:5987` is a sibling entry with additional state
 cleanup; neither graph trace executes it. [confirmed]
 
-`tools/graph-regraph.json` records ROM and TilEm provenance, raw-trace hashes,
+`tools/oracles/graphing/graph-regraph.json` records ROM and TilEm provenance, raw-trace hashes,
 and final-buffer hashes for two reset-origin TilEm traces: [confirmed]
 
 | Function-mode observation | `Y1=X²` | `Y1=X⁻¹` |
@@ -352,7 +352,7 @@ not a line across the asymptote. [confirmed]
 
 These traces cover line style 0, `Xres=1`, and one selected equation. They do
 not establish the thick, shade, trace, animate, or dotted paths; `Xres>1`;
-multiple selected equations; or other graph modes. `tools/analyze_graph_regraph.py`
+multiple selected equations; or other graph modes. `tools/ti84re/graphing/analyze_regraph.py`
 regenerates the compact report from raw TLMT traces, which remain outside the
 repository.
 

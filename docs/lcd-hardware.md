@@ -383,9 +383,9 @@ Display-disable command `0x02` blanks the panel but leaves controller video RAM 
 The trace resolver can print decoded I/O instructions after resolving every banked program counter:
 
 ```sh
-nix develop -c python tools/tilem_trace_resolve.py \
+nix develop -c python3 -m ti84re.trace.resolve \
   /tmp/tilem-validation-home2plus3.trace \
-  --initial-mapping ti84p-reset --names tools/names.txt \
+  --initial-mapping ti84p-reset --names tools/symbols/names.txt \
   --io-ports 10-13,2f --io-count 360
 ```
 
@@ -532,13 +532,13 @@ Ports `0x29`–`0x2F` return seven zero bytes before and after patterned writes.
 
 ### Reproducing pointer differences
 
-`tools/lcd_controller.py` provides the source-attributed T6K04 specification,
+`tools/ti84re/hardware/lcd_controller.py` provides the source-attributed T6K04 specification,
 vendor busy-time calculation, command decoding, status composition, the
 dummy-read latch, and source-modeled pointer walks. The hardware report keeps
 the module attribution and its photographic limit together:
 
 ```console
-$ python tools/describe_lcd_controller.py hardware
+$ python3 -m ti84re.hardware.describe_lcd_controller hardware
 reported controller: Toshiba T6K04
   calculator evidence: Datamath caption for a March 2004 TI-84 Plus module
   limit: controller die is hidden under epoxy; no marking is visible
@@ -552,7 +552,7 @@ The exact data-sheet formula can be evaluated at Toshiba's four example
 oscillator choices:
 
 ```console
-$ python tools/describe_lcd_controller.py busy
+$ python3 -m ti84re.hardware.describe_lcd_controller busy
 fOSC=28.56 kHz: 70.028-140.056 us
 fOSC=57.12 kHz: 35.014-70.028 us
 fOSC=228.48 kHz: 8.754-17.507 us
@@ -562,7 +562,7 @@ fOSC=456.96 kHz: 4.377-8.754 us
 The pointer CLI compares an increment starting at hidden column 14:
 
 ```console
-$ python tools/describe_lcd_controller.py walk --row 0 --column 14 --movement 7 --count 3
+$ python3 -m ti84re.hardware.describe_lcd_controller walk --row 0 --column 14 --movement 7 --count 3
 TilEm
   0: requested=(0,14) access=(0,14) index=14 next=(0,15)
   1: requested=(0,15) access=(0,15) index=15 next=(0,16)
@@ -581,25 +581,25 @@ The `hardware`, `busy`, `decode`, `profiles`, `status`, and `latch` subcommands
 accept `--json` for scripts. Transfer reports distinguish a controller column
 outside the modeled row from an index outside the complete backing array.
 
-`tools/run_wabbitemu_lcd_edge_probe.py` runs the guarded dynamic matrix. It
+`tools/ti84re/emulators/wabbitemu/run_lcd_edge_probe.py` runs the guarded dynamic matrix. It
 requires the exact OS 2.55MP ROM, records the ROM and native-binary hashes, and
-checks every field through `tools/wabbitemu_lcd_probe.py`. The ROM is only an
+checks every field through `tools/ti84re/emulators/wabbitemu/lcd_probe.py`. The ROM is only an
 initialized-core fixture in this mode; no TI-OS instruction executes.
 
-`tools/run_wabbitemu_lcd_diagnostic_probe.py` is a separate direct-entry mode.
+`tools/ti84re/emulators/wabbitemu/run_lcd_diagnostic_probe.py` is a separate direct-entry mode.
 It boots the exact ROM to its protection baseline, then executes
 `boot_lcd_initialize`, `boot_lcd_fill_pattern`, `boot_lcd_write_row`, and
 `boot_lcd_write_contrast` from an injected RAM harness.
 Its manifest labels the run as direct entry and retains compact counters and
 screen hashes rather than an instruction log.
 
-`tools/mame_lcd.py` parses the MAME state, pointer, latch, packing, and port-map
-matrix against `tools/lcd_controller.py`. The guarded CLI retains the exact
+`tools/ti84re/emulators/mame/lcd.py` parses the MAME state, pointer, latch, packing, and port-map
+matrix against `tools/ti84re/hardware/lcd_controller.py`. The guarded CLI retains the exact
 MAME, ROM, Lua-adapter, output, and evidence-scope identities:
 
 ```sh
 mame_lcd_parent=$(mktemp -d /tmp/ti84-mame-lcd.XXXXXX)
-nix shell nixpkgs#mame --command python tools/run_mame_lcd_probe.py \
+nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_lcd_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_lcd_parent/run" --json

@@ -47,7 +47,7 @@ $$
 Wabbitemu uses the equivalent expression `((L | P) & 3) ^ 3`. Both models put the local output latch in read bits 4–5, giving `(L << 4) | H`. WikiTI documents the same latch behavior. [standard]
 
 The ROM masks reads with `AND 0x03`, so the raw byte routines do not depend on
-bits 2–7. The reusable model in `tools/link_port.py` keeps the physical contract
+bits 2–7. The reusable model in `tools/ti84re/link/port.py` keeps the physical contract
 separate from implementation profiles. Its TilEm and Wabbitemu profiles use the
 two line bits and bits 4–5 latch directly; its MAME profile also preserves the
 internal PCR byte needed to reproduce that driver's expressions.
@@ -338,7 +338,7 @@ acknowledgement and simultaneous-source behavior. [confirmed]
 
 ### Callback provenance
 
-`3C:618D` has one genuine direct caller, at `3C:614E`. Raw searches also find six `CALL 0x618D` instructions on page `05`, but those resolve to unrelated page-`05` code because both the call sites and destination occupy the same banked window. They are not callers of `3C:618D`. `analyze_rom_calls.py` now reports this inferred physical destination as `resolved_target`, which keeps same-address routines on different pages distinct. [confirmed]
+`3C:618D` has one genuine direct caller, at `3C:614E`. Raw searches also find six `CALL 0x618D` instructions on page `05`, but those resolve to unrelated page-`05` code because both the call sites and destination occupy the same banked window. They are not callers of `3C:618D`. `ti84re.rom.analyze_calls` reports this inferred physical destination as `resolved_target`, which keeps same-address routines on different pages distinct. [confirmed]
 
 The real entry chain starts at page-0 bjump stub `00:2D51`, whose inline descriptor resolves to `3C:6136`. Six higher-level paths load `HL=0x2D51` and call the error-callback installer at `00:27DA`: `36:4BAD`, `36:5B7D`, `3D:6D77`, `3D:6EE3`, `3D:6F10`, and `3D:6F40`. The callback examines `sndRecState` at `0x8672`. State `0x0A` immediately rethrows the pending error. State `0x15` follows an `ioFlag` bit-1 branch without reaching the pulse. Other states fall through `3C:614C`, call `3C:618D`, and then invoke page-0 stub `00:2F31`, which resolves to `07:7AC3` and stores `1` in `ioErrState`. This makes the routine part of installed link-error cleanup rather than an arbitrary command delay. [confirmed]
 
@@ -547,24 +547,24 @@ Plus. Those analog details remain hypotheses until measured. [hypothesis]
 
 ## Reusable debugging tools
 
-`tools/link_port.py` provides the wired-AND model, port-read decoder, byte
+`tools/ti84re/link/port.py` provides the wired-AND model, port-read decoder, byte
 encoding, receive assembly, four-phase trace, and pinned implementation
-profiles. `tools/describe_link_port.py` exposes those operations as a CLI:
+profiles. `tools/ti84re/link/describe_port.py` exposes those operations as a CLI:
 
 ```sh
-nix develop -c python tools/describe_link_port.py profiles
-nix develop -c python tools/describe_link_port.py drive 0x02
-nix develop -c python tools/describe_link_port.py wire --local 1 --peer 2
-nix develop -c python tools/describe_link_port.py byte 0xA5
-nix develop -c python tools/describe_link_port.py receive 1 2 1 2 2 1 2 1
-nix develop -c python tools/describe_link_port.py compare 1 2 0
-nix develop -c python tools/describe_link_port.py emulator mame 0x14 0x28
-nix develop -c python tools/describe_link_port.py abort-pulse
-nix develop -c python tools/describe_link_port.py keyboard \
+nix develop -c python3 -m ti84re.link.describe_port profiles
+nix develop -c python3 -m ti84re.link.describe_port drive 0x02
+nix develop -c python3 -m ti84re.link.describe_port wire --local 1 --peer 2
+nix develop -c python3 -m ti84re.link.describe_port byte 0xA5
+nix develop -c python3 -m ti84re.link.describe_port receive 1 2 1 2 2 1 2 1
+nix develop -c python3 -m ti84re.link.describe_port compare 1 2 0
+nix develop -c python3 -m ti84re.link.describe_port emulator mame 0x14 0x28
+nix develop -c python3 -m ti84re.link.describe_port abort-pulse
+nix develop -c python3 -m ti84re.link.describe_port keyboard \
   --prefix 0xE0 --delimiter-error --command 0x01 --data 0x42
-nix develop -c python tools/describe_link_port.py keyboard-path \
+nix develop -c python3 -m ti84re.link.describe_port keyboard-path \
   --assist-status 0x50 --buffered 0xE0
-nix develop -c python tools/describe_link_port.py keyboard-rom
+nix develop -c python3 -m ti84re.link.describe_port keyboard-rom
 ```
 
 Add `--json` before the subcommand for machine-readable output. The model uses neutral line numbers so a trace remains valid even when the physical contact mapping is under review.
@@ -596,20 +596,20 @@ git -C "$tilem_link_tmp/tilem" checkout \
   f56ad637d0524ee841dd381be6ecbaf5b8975600
 nix shell \
   github:NixOS/nixpkgs/f13ff45afd1bb73e640eaa08a7066dbed07e3238#gcc \
-  --command python tools/build_tilem_link_probe.py \
+  --command python3 -m ti84re.emulators.tilem.build_probe --probe link \
   --source "$tilem_link_tmp/tilem" \
   --output "$tilem_link_tmp/tilem-link-probe" --json
 
 tilem_link_parent=$(mktemp -d /tmp/ti84-tilem-link-report.XXXXXX)
-python tools/run_tilem_link_probe.py \
+python3 -m ti84re.emulators.tilem.run_link_probe \
   --binary "$tilem_link_tmp/tilem-link-probe" \
   --expected-binary-sha256 \
     b878d9be860a92da72c5712e82a4c2974fb3cad125e078e61f8444172b887896 \
   --output-dir "$tilem_link_parent/run" --json
 ```
 
-`tools/tilem_link.py` derives the expected raw matrix, byte order, assist
-status, acknowledgement, and reset boundary from `tools/link_port.py`. The
+`tools/ti84re/emulators/tilem/link.py` derives the expected raw matrix, byte order, assist
+status, acknowledgement, and reset boundary from `tools/ti84re/link/port.py`. The
 guarded runner records the source tree, exact binary, native report, and
 evidence scope.
 
@@ -617,13 +617,13 @@ Run the guarded Wabbitemu matrix with:
 
 ```sh
 wabbit_link_parent=$(mktemp -d /tmp/ti84-wabbit-link.XXXXXX)
-python tools/run_wabbitemu_link_edge_probe.py \
+python3 -m ti84re.emulators.wabbitemu.run_link_edge_probe \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$wabbit_link_parent/run" --json
 ```
 
-`tools/wabbitemu_link_probe.py` derives the raw matrix, byte order, mapped
+`tools/ti84re/emulators/wabbitemu/link_probe.py` derives the raw matrix, byte order, mapped
 ports, and assist status from the reusable model. The guarded CLI requires the
 exact ROM and records the ROM and binary hashes.
 
@@ -631,14 +631,14 @@ Run the guarded MAME raw-link matrix with:
 
 ```sh
 mame_link_parent=$(mktemp -d /tmp/ti84-mame-link.XXXXXX)
-nix shell nixpkgs#mame --command python tools/run_mame_link_probe.py \
+nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_link_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_link_parent/run" --json
 ```
 
-`tools/mame_link.py` derives every expected read and connector output from
-`tools/link_port.py`. The guarded CLI retains the exact MAME, ROM, Lua script,
+`tools/ti84re/emulators/mame/link.py` derives every expected read and connector output from
+`tools/ti84re/link/port.py`. The guarded CLI retains the exact MAME, ROM, Lua script,
 native report, and parsed oracle identities. It does not execute a TI-OS
 transfer or attach a virtual cable.
 
