@@ -722,7 +722,7 @@ nix develop -c python3 -m ti84re.rom.analyze_io \
 nix develop -c python3 -m ti84re.rom.analyze_io \
   --direct-only --exclude-descriptors 0x49 0x51 0x52
 
-# Verify every candidate for every port absent from tools/ports.txt.
+# Verify every candidate for every port absent from tools/symbols/ports.txt.
 nix develop -c python3 -m ti84re.rom.describe_io_coverage --json
 
 usb_rom_parent=$(mktemp -d /tmp/ti84-usb-rom.XXXXXX)

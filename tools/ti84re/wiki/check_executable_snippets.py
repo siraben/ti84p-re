@@ -15,7 +15,7 @@ from ti84re.wiki.executable_snippets import (
 )
 from ti84re.paths import ROOT, PROBES
 
-DEFAULT_MARKDOWN = ROOT / "docs" / "flash-memory.md"
+DEFAULT_MARKDOWN = ROOT / "docs" / "flash-bcall-guide.md"
 DEFAULT_ASSEMBLY = PROBES / "emulator" / "flash-bcall-usage.asm"
 
 
