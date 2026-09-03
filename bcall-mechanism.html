@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a712ec86.js";
+            window.path_to_searchindex_js = "searchindex-87a3f2ca.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-359c0a17.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -203,26 +203,26 @@
 <li>Resolution method (<code>tools/</code> Python): scored all 64 pages by how many named IDs produced a valid <code>(addr∈4000..7FFF or page-0, page&lt;0x40)</code> entry; page <code>0x3B</code> scored highest (the page-selection heuristic uses a conservative validity filter chosen only to pick the table). Once <code>0x3B</code> is selected and applied, 645 entries resolve and are live-confirmed. Of those IDs, 623 also appear in the included SDK equates and 22 are project-inferred additions.</li>
 <li>Validation: known bcalls land exactly where expected — <code>_PutS</code>→<code>01:5C39</code>, <code>_GetKey</code>→<code>06:491E</code>, <code>_ClrLCDFull</code>→<code>01:60E4</code>, <code>_GetCSC</code>→<code>00:04B2</code>, <code>_CreateReal</code>→<code>00:10B8</code>.</li>
 </ul>
-<p><code>tools/bcall_targets.txt</code> holds 645 resolved main-table bcall rows.
-The retail boot table has 87 populated entries. <code>tools/bcalls8x_targets.txt</code>
+<p><code>tools/symbols/bcall_targets.txt</code> holds 645 resolved main-table bcall rows.
+The retail boot table has 87 populated entries. <code>tools/symbols/bcalls8x_targets.txt</code>
 holds the 83 rows with official SDK names; four populated slots have only
 project-inferred names in the <a href="bcall-index.html#retail-boot-0x8xxx-bcalls">bcall index</a>.
-<code>tools/resolve_bcalls.py</code> emits the official-name rows only when page <code>3F</code> has
+<code>tools/ti84re/rom/resolve_bcalls.py</code> emits the official-name rows only when page <code>3F</code> has
 the retail prefix and page <code>2F</code> contains the companion USB payload; its
 BootFree guard otherwise leaves only diagnostic comments.
-<code>tools/ApplyBcalls.java</code> disassembles and names the confirmed bodies.
-<code>tools/BcallEvidenceStudy.java</code> then provides a read-only listing, reference,
+<code>tools/ghidra/ApplyBcalls.java</code> disassembles and names the confirmed bodies.
+<code>tools/ghidra/BcallEvidenceStudy.java</code> then provides a read-only listing, reference,
 and decompiler dump for a selected set of IDs. For example:</p>
 <pre><code class="language-sh">nix develop -c ghidra-analyzeHeadless "$PWD" ti84 \
-  -process -noanalysis -readOnly -scriptPath tools \
-  -postScript BcallEvidenceStudy.java tools/bcall_targets.txt \
+  -process -noanalysis -readOnly -scriptPath tools/ghidra \
+  -postScript BcallEvidenceStudy.java tools/symbols/bcall_targets.txt \
   /tmp/bcall-evidence.txt 4030 4ED6 50C8
 </code></pre>
 <h2 id="jump-table-id-ranges"><a class="header" href="#jump-table-id-ranges">Jump-table ID ranges</a></h2>
 <p>The dispatcher (<code>bcall_dispatcher</code>) decodes the ID’s top two bits to pick the table page: bit 15 set → page-byte <code>0x7F</code> (masked <code>&amp; 0x3F</code> → page <code>0x3F</code>); bit 14 set → <code>0x7B</code> (→ page <code>0x3B</code>); with <em>neither</em> bit set it falls through to <code>lookup_bcall_table_page</code> (<code>ram:2ADA</code>). The two tables real bcall IDs use:</p>
 <ul>
 <li><code>0x4xxx</code>–<code>0x7FFF</code> (bit 14 set): the main table on flash page <code>0x3B</code>, entry at offset <code>ID − 0x4000</code> (645 live-confirmed bcalls: 623 IDs also present in the included SDK equates and 22 project-inferred additions).</li>
-<li><code>0x8xxx</code> (bit 15 set): the retail boot table is on physical page <code>3F</code>, indexed by <code>ID &amp; 0x7FFF</code>. Its real entries occupy IDs <code>0x8018</code>–<code>0x80D2</code> and <code>0x80E4</code>–<code>0x8129</code>; bytes <code>3F:40D5</code>–<code>3F:40E3</code> between those ranges are executable dispatch-stub bytes, not five table entries. <code>D84PBE1.8Xv</code> supplies the retail page <code>3F</code>; <code>D84PBE2.8Xv</code> supplies the companion USB boot support page <code>2F</code>. Most entries resolve to <code>3F:addr</code>; USB entries such as <code>_AttemptUSBOSReceive</code> (<code>80E4</code>) and <code>_InitUSB</code> (<code>8108</code>) resolve to <code>2F:addr</code>. <code>tools/resolve_bcalls.py</code> refuses to emit these targets from a BootFree-substituted page. [confirmed]</li>
+<li><code>0x8xxx</code> (bit 15 set): the retail boot table is on physical page <code>3F</code>, indexed by <code>ID &amp; 0x7FFF</code>. Its real entries occupy IDs <code>0x8018</code>–<code>0x80D2</code> and <code>0x80E4</code>–<code>0x8129</code>; bytes <code>3F:40D5</code>–<code>3F:40E3</code> between those ranges are executable dispatch-stub bytes, not five table entries. <code>D84PBE1.8Xv</code> supplies the retail page <code>3F</code>; <code>D84PBE2.8Xv</code> supplies the companion USB boot support page <code>2F</code>. Most entries resolve to <code>3F:addr</code>; USB entries such as <code>_AttemptUSBOSReceive</code> (<code>80E4</code>) and <code>_InitUSB</code> (<code>8108</code>) resolve to <code>2F:addr</code>. <code>tools/ti84re/rom/resolve_bcalls.py</code> refuses to emit these targets from a BootFree-substituted page. [confirmed]</li>
 </ul>
 <p>Both resolved table formats are 3-byte entries: target address (little endian) plus page byte masked with <code>&amp; 0x3F</code>.</p>
 <h2 id="rst-shortcuts-fast-inlined-bcalls-confirmed"><a class="header" href="#rst-shortcuts-fast-inlined-bcalls-confirmed">RST shortcuts (fast inlined bcalls) [confirmed]</a></h2>
@@ -256,12 +256,12 @@ page from the inline descriptor there, rewrites the return frame past those 3
 bytes, banks the page (<code>&amp; 0x3F</code>), and returns into the target. The target’s
 <code>RET</code> then returns to <em>the bjump’s caller</em>, so it behaves like a call that
 consumes the 3 inline bytes.</p>
-<p>There is a trampoline table in the page-0 address range <code>ram:3B01</code>–<code>ram:3D0A</code>: 87 packed 6-byte entries, each a bjump to a hot OS routine on another page (<code>ram:3D0B</code> already begins a separate <code>CALL ram:2B49</code> table). The static Ghidra database models it in the page-0/ROM address space; whether the table is copied to RAM at runtime remains a hypothesis. Code invokes a routine by <code>CALL ram:3Bxx</code> into the table. <code>tools/bjumps.txt</code> lists every entry’s <code>(offset → page:addr)</code>; <code>tools/RamRoutines.java</code> marks the inline <code>.dw/.db</code> as data and comments each target.</p>
+<p>There is a trampoline table in the page-0 address range <code>ram:3B01</code>–<code>ram:3D0A</code>: 87 packed 6-byte entries, each a bjump to a hot OS routine on another page (<code>ram:3D0B</code> already begins a separate <code>CALL ram:2B49</code> table). The static Ghidra database models it in the page-0/ROM address space; whether the table is copied to RAM at runtime remains a hypothesis. Code invokes a routine by <code>CALL ram:3Bxx</code> into the table. <code>tools/symbols/bjumps.txt</code> lists every entry’s <code>(offset → page:addr)</code>; <code>tools/ghidra/RamRoutines.java</code> marks the inline <code>.dw/.db</code> as data and comments each target.</p>
 <p>Example: <code>_PutMap</code>’s glyph blitter is reached via the trampoline at <code>ram:3B3D → 07:4588</code>.</p>
 <p><strong>Inline bjumps.</strong> Besides this trampoline table, the three-line bjump encoding
 above appears in packed dispatch tables and inside OS routines. The target returns
 to the bjump caller, so <code>cross_page_jump</code> consumes the three inline descriptor
-bytes as a non-returning tail-jump. <code>tools/FixInlineBjumps.java</code> runs before and
+bytes as a non-returning tail-jump. <code>tools/ghidra/FixInlineBjumps.java</code> runs before and
 after the scripts that seed parser handlers and reviewed function entries. Each
 pass marks every disassembled inline site, including the 87 trampoline-table
 entries. Raw byte matches outside disassembled code are not counted. [confirmed]</p>

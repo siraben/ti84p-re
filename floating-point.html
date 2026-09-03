@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a712ec86.js";
+            window.path_to_searchindex_js = "searchindex-87a3f2ca.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-359c0a17.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -276,7 +276,7 @@ and takes the opposite-sign branch into <code>fp_sub_mantissa</code> (<code>ram:
 subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
 </blockquote>
 <h3 id="the-fp-helper-cluster-confirmed"><a class="header" href="#the-fp-helper-cluster-confirmed">The FP helper cluster [confirmed]</a></h3>
-<p>These five page-0 primitives are shared by add/sub/mult/div and the transcendentals. All were decompiled and disassembled in this ROM; the <code>fp_*</code> names below are the project’s labels (in <code>tools/names.txt</code>). They operate on the OP-register guard region (<code>OP1EXT</code>/<code>OP2EXT</code> are 2 bytes each, at <code>0x8481</code>–<code>0x8482</code>/<code>0x848C</code>–<code>0x848D</code> — <code>fp_clear_guard</code> zeroes all four) and the 7-byte mantissas of <code>OP1</code> / <code>OP2</code> (<code>OP1M</code> <code>0x847A</code> / <code>OP2M</code> <code>0x8485</code>, two bytes past the type/exponent bytes at <code>0x8478</code>/<code>0x8483</code>).</p>
+<p>These five page-0 primitives are shared by add/sub/mult/div and the transcendentals. All were decompiled and disassembled in this ROM; the <code>fp_*</code> names below are the project’s labels (in <code>tools/symbols/names.txt</code>). They operate on the OP-register guard region (<code>OP1EXT</code>/<code>OP2EXT</code> are 2 bytes each, at <code>0x8481</code>–<code>0x8482</code>/<code>0x848C</code>–<code>0x848D</code> — <code>fp_clear_guard</code> zeroes all four) and the 7-byte mantissas of <code>OP1</code> / <code>OP2</code> (<code>OP1M</code> <code>0x847A</code> / <code>OP2M</code> <code>0x8485</code>, two bytes past the type/exponent bytes at <code>0x8478</code>/<code>0x8483</code>).</p>
 <div class="table-wrapper">
 <table>
 <thead>

@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a712ec86.js";
+            window.path_to_searchindex_js = "searchindex-87a3f2ca.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-359c0a17.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -610,7 +610,7 @@ unwind_error(error_code):
 error-screen <code>Goto</code> editor and every nested-error caller remain outside the
 current interpreter model.</p>
 <h2 id="what-the-coverage-model-establishes"><a class="header" href="#what-the-coverage-model-establishes">What the coverage model establishes</a></h2>
-<p><code>tools/analyze_tibasic_coverage.py</code> ties eight finite models to byte signatures
+<p><code>tools/ti84re/tibasic/analyze_coverage.py</code> ties eight finite models to byte signatures
 in the pinned ROM. It exhausts 591,360 states across token width, delimiters,
 one scan step, one block-depth transition, the extended-class fold, precedence
 family selection, command finalization, and page-33 table bounds. Z3 proves a
@@ -631,7 +631,7 @@ declared computed jumps are expanded over their ROM-defined valid domains, but
 corrupted or otherwise out-of-domain dispatch state is not modeled. Calls into
 display, graphing, and other ROM pages leave the declared regions, and arbitrary
 token streams, recursion depths, VAT layouts, and floating-point values remain
-open. The compact <code>tools/tibasic-saturation.json</code> report records those
+open. The compact <code>tools/oracles/tibasic/tibasic-saturation.json</code> report records those
 boundaries explicitly.</p>
 <h2 id="address-map"><a class="header" href="#address-map">Address map</a></h2>
 <div class="table-wrapper">
@@ -663,9 +663,9 @@ boundaries explicitly.</p>
 </tbody>
 </table>
 </div>
-<p>The local finite-model evidence is <code>tools/tibasic-coverage.json</code>. The broader
-direct-CFG evidence is <code>tools/tibasic-saturation.json</code>. The selected backward
-error slices are in <code>tools/tibasic-numeric-errors.json</code>. All three generators
+<p>The local finite-model evidence is <code>tools/oracles/tibasic/tibasic-coverage.json</code>. The broader
+direct-CFG evidence is <code>tools/oracles/tibasic/tibasic-saturation.json</code>. The selected backward
+error slices are in <code>tools/oracles/tibasic/tibasic-numeric-errors.json</code>. All three generators
 verify the pinned ROM before producing a report.</p>
 
                     </main>

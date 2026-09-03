@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a712ec86.js";
+            window.path_to_searchindex_js = "searchindex-87a3f2ca.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-359c0a17.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -204,7 +204,7 @@ different boot support. [confirmed]</p>
 <code>D84PBE2.8Xv</code> supplies page <code>0x2F</code>; <code>D84PBE1.8Xv</code> supplies page <code>0x3F</code>, although
 that decoded retail page is byte-identical to the base image’s page <code>0x3F</code>.
 The exact AppVar and decoded-page identities are pinned in
-<code>tools/rom_signatures.py</code>. [confirmed]</p>
+<code>tools/ti84re/rom/signatures.py</code>. [confirmed]</p>
 <p>The BootFree image matches the patched base on pages <code>0x00</code>–<code>0x3E</code>. Only page
 <code>0x3F</code> differs, with SHA-256
 <code>b3ae75aa81231de15e5931746d79834863132d5e4dca01010e3a8e24aabd3003</code>.
@@ -242,12 +242,12 @@ page <code>0x2F</code> all map to BootFree’s bare-<code>RET</code> stub. [conf
 entry in either page. A complete internal-routine comparison still requires
 matched function-entry recovery for both images. [confirmed]</p>
 <h2 id="generate-a-manifest"><a class="header" href="#generate-a-manifest">Generate a manifest</a></h2>
-<p><code>tools/rom_provenance.py</code> records the complete ROM identity, target model,
+<p><code>tools/ti84re/rom/provenance.py</code> records the complete ROM identity, target model,
 hardware or emulator environment, ASIC revision, emulator profile, OS version,
 boot-page classification, component page ranges, the 2007 include-file
 identity, Ghidra version, Git revision, dirty-tree state, and a digest over the
 top-level analysis scripts.</p>
-<pre><code class="language-sh">nix develop -c python3 tools/rom_provenance.py manifest \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.rom.provenance manifest \
   --rom tools/rom.bin --model 'TI-84 Plus' --environment emulator \
   --asic unknown --emulator-profile 'TilEm x4' \
   --output /tmp/ti84p-provenance.json
@@ -260,7 +260,7 @@ both identities, and tables derived from external source or hardware record an
 evidence identity instead. JSON reports use either a <code>rom_sha256</code> field or a
 <code>rom.sha256</code> object. Verify a single-ROM artifact against the current manifest
 before reuse:</p>
-<pre><code class="language-sh">nix develop -c python3 tools/rom_provenance.py verify \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.rom.provenance verify \
   --manifest /tmp/ti84p-provenance.json \
   tools/data/launch-boundary-results.csv \
   tools/data/resident-launch-snapshot.csv
@@ -269,11 +269,11 @@ before reuse:</p>
 do not embed a ROM hash, so they require a JSON provenance sidecar; verify the
 sidecar rather than treating the trace filename as evidence. [confirmed]</p>
 <h2 id="audit-the-ghidra-database"><a class="header" href="#audit-the-ghidra-database">Audit the Ghidra database</a></h2>
-<p><code>tools/DatabaseHealth.java</code> makes database coverage and cleanup debt
+<p><code>tools/ghidra/DatabaseHealth.java</code> makes database coverage and cleanup debt
 machine-readable. Run it against the existing project without analysis or
 writes:</p>
 <pre><code class="language-sh">nix develop -c ghidra-analyzeHeadless "$PWD" ti84 \
-  -process -noanalysis -readOnly -scriptPath "$PWD/tools" \
+  -process -noanalysis -readOnly -scriptPath "$PWD/tools/ghidra" \
   -postScript DatabaseHealth.java tools/data/database-health.json
 </code></pre>
 <p>The checked report identifies the BootFree runtime-trace image by its complete
@@ -289,7 +289,7 @@ specific analysis task, not evidence that the ROM’s control flow is invalid.
 [confirmed]</p>
 <p>The health report is deterministic for a given database, script revision, and
 Ghidra version. Its <code>rom_sha256</code> field can be checked with
-<code>tools/rom_provenance.py verify</code>; use a separately rebuilt retail project when
+<code>tools/ti84re/rom/provenance.py verify</code>; use a separately rebuilt retail project when
 auditing retail boot and USB pages. [confirmed]</p>
 <h2 id="community-assembly-archive-snapshot"><a class="header" href="#community-assembly-archive-snapshot">Community assembly archive snapshot</a></h2>
 <p>The community-source audit uses a 2026-08-24 mirror of the
@@ -304,7 +304,7 @@ members with recognized assembly or implementation-source suffixes. Of the
 ZIPs, 897 contain at least one such member. [confirmed]</p>
 <p>Run the same inventory and safe extraction process from the development
 environment:</p>
-<pre><code class="language-sh">nix develop -c python3 tools/community_archive.py \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.community.archive \
   "$COMMUNITY_ARCHIVE/mirror/pub/83plus/asm" \
   --archive-csv tools/data/community-archive-inventory.csv \
   --member-csv /tmp/community-archive-members.csv \
