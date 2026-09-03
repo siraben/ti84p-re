@@ -1,7 +1,7 @@
 // Minimal Linux runner for the pinned Wabbitemu TI-84 Plus core.
 //
 // This file deliberately uses Wabbitemu's core interfaces and exposed context
-// structures.  Build it with tools/build_wabbitemu_headless.py; do not compile
+// structures.  Build it with python3 -m ti84re.emulators.wabbitemu.build_headless; do not compile
 // it against an unpinned checkout when collecting evidence.
 
 #include "stdafx.h"

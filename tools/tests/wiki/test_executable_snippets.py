@@ -17,7 +17,7 @@ from ti84re.paths import ROOT, PROBES
 class ExecutableSnippetTests(unittest.TestCase):
     def test_flash_document_examples_match_executable_probe(self):
         manifest = compare_snippets(
-            load_markdown_snippets(ROOT / "docs" / "flash-memory.md"),
+            load_markdown_snippets(ROOT / "docs" / "flash-bcall-guide.md"),
             load_assembly_snippets(PROBES / "emulator" / "flash-bcall-usage.asm"),
         )
 

@@ -290,6 +290,61 @@ second 8 KiB certificate sector. [confirmed] for pinned Wabbitemu execution.
     .dw $8060
 ```
 
+## `_SetFlashLowerBound` bcall
+
+`_SetFlashLowerBound = 80CFh` takes the new bound in `A`. The official name is
+misleading on the TI-84 Plus: the body writes port `0x23`, which is the upper
+end of the modeled forbidden Flash-execution interval. It does not program or
+erase the Flash array. Its complete body is: [confirmed]
+
+```z80
+3F:4784  nop
+3F:4785  nop
+3F:4786  im 1
+3F:4788  di
+3F:4789  out (0x23),a
+3F:478B  di
+3F:478C  ret
+```
+
+The leading bytes form the protected-port sequence. Flash must already be
+unlocked for port `0x23` to accept the write. The routine preserves `A`, the
+flags, and the other general registers. It selects interrupt mode 1 and leaves
+maskable interrupts disabled. A caller must restore its prior interrupt-enable
+state and must already accept IM1 as the OS interrupt mode. [confirmed] for
+the routine; [standard] for the write gate.
+
+The executable probe writes the boot default upper bound:
+
+<!-- executable-snippet: set-flash-lower-bound -->
+```z80
+    ld a,$2A
+    rst $28
+    .dw $80CF
+```
+
+The guarded runner requires port `0x23 = 0x2A` and IFF2 clear after the call.
+[confirmed] for pinned Wabbitemu execution.
+
+This wrapper records IFF2 through `LD A,I`, calls the bcall, then conditionally
+restores interrupts. `POP AF` also restores the caller's original `AF`:
+
+```z80
+    ld a,i
+    push af                     ; P/V records the prior IFF2 value
+    ld a,0x2A
+    rst 0x28
+    .dw 0x80CF                  ; _SetFlashLowerBound; returns with DI
+    pop af
+    jp po,interrupts_restored   ; prior IFF2 was clear
+    ei
+interrupts_restored:
+```
+
+The example assumes that trusted code already opened the protected-write gate
+and will close it. See [Execution protection](execution-protection.md#_setflashlowerbound)
+for the cross-emulator boundary comparison.
+
 ## Return and side-effect matrix
 
 | Path | Returned `A` and flags | Other visible state |
