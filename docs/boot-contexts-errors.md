@@ -262,7 +262,7 @@ The error screen shows `ERR:<MESSAGE>`; the `ERR:` prefix is at `01:4008`. The h
 | … | … | UNDEFINED, MEMORY, INVALID, ILLEGAL NEST, BOUND, WINDOW RANGE, ZOOM, LABEL, STAT, SOLVER, … |
 | 31–35 | link-error aliases | LINK (`6C55`) |
 
-The `Code` column is each error's low 7 bits. Re-editable errors set the `E_EDIT` (`0x80`) bit on top — `E_Overflow equ 1+E_EDIT`, `E_DivBy0 equ 2+E_EDIT`, … — while non-editable ones (`E_Label equ 20`, `E_Stat equ 21`, …) carry no such bit. The handler masks the code (`AND 0x7F`) before indexing. Thus `_JError(0x22)` and `_JError(0x9F)` both select `LINK` at `07:6C55`, through pointer entries `07:6B0E` and `07:6B08`. `tools/describe_error.py` reproduces the table lookup from the ROM. [confirmed]
+The `Code` column is each error's low 7 bits. Re-editable errors set the `E_EDIT` (`0x80`) bit on top — `E_Overflow equ 1+E_EDIT`, `E_DivBy0 equ 2+E_EDIT`, … — while non-editable ones (`E_Label equ 20`, `E_Stat equ 21`, …) carry no such bit. The handler masks the code (`AND 0x7F`) before indexing. Thus `_JError(0x22)` and `_JError(0x9F)` both select `LINK` at `07:6C55`, through pointer entries `07:6B0E` and `07:6B08`. `tools/ti84re/rom/describe_error.py` reproduces the table lookup from the ROM. [confirmed]
 
 ## Confirmed details
 

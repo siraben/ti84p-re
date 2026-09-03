@@ -195,7 +195,7 @@ M1. TilEm follows this split in `z80main.h:674` and `z80ddfd.h:301`.
 Wabbitemu routes the final opcode through `CPU_opcode_fetch` at `core/core.c:832`,
 then decrements `R` at line 836. Its wait model therefore counts three opcode
 waits while its visible refresh count remains two. The hash-guarded
-`describe_prefix_fetch_models.py` CLI reproduces this result from the pinned
+`ti84re.emulators.describe_prefix_fetch_models` CLI reproduces this result from the pinned
 source trees. The exact assembled `HWPFX` program also reproduces the split in
 the pinned Wabbitemu runtime: its indexed-CB row adds 30 timer ticks, compared
 with 25 for the three ordinary one-prefix rows and 29 for repeated DD.
@@ -311,11 +311,11 @@ describe Wabbitemu's registered handler, not physical low-power behavior.
 
 ## Reproducing the decode
 
-`tools/bus_timing.py` is a pure register decoder.
-`tools/describe_bus_timing.py` prints all four speed modes from the boot values:
+`tools/ti84re/hardware/bus_timing.py` is a pure register decoder.
+`tools/ti84re/hardware/describe_bus_timing.py` prints all four speed modes from the boot values:
 
 ```sh
-nix develop -c python tools/describe_bus_timing.py
+nix develop -c python3 -m ti84re.hardware.describe_bus_timing
 ```
 
 The default documented profile reports:
@@ -335,8 +335,8 @@ Compare the four pinned implementations, including ignored MAME writes and
 jsTIfied's stored-delay model, with:
 
 ```sh
-nix develop -c python tools/describe_bus_timing.py --compare
-nix develop -c python tools/describe_bus_timing.py --compare --json
+nix develop -c python3 -m ti84re.hardware.describe_bus_timing --compare
+nix develop -c python3 -m ti84re.hardware.describe_bus_timing --compare --json
 ```
 
 Pass `--extra-speeds` to model Wabbitemu's external 20/25 MHz option. The flag
@@ -346,7 +346,7 @@ Repeated `--write PORT=VALUE` options make altered settings explicit. JSON is
 available for scripts:
 
 ```sh
-nix develop -c python tools/describe_bus_timing.py \
+nix develop -c python3 -m ti84re.hardware.describe_bus_timing \
   --write 0x20=0 --write 0x29=0x17 --write 0x2e=0x45 --json
 ```
 
@@ -354,39 +354,39 @@ Run the native boundary checks with the pinned Wabbitemu adapter:
 
 ```sh
 wabbit_lcd_parent=$(mktemp -d /tmp/ti84-wabbit-lcd.XXXXXX)
-python tools/run_wabbitemu_lcd_edge_probe.py \
+python3 -m ti84re.emulators.wabbitemu.run_lcd_edge_probe \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$wabbit_lcd_parent/run" --json
 
 wabbit_speed_parent=$(mktemp -d /tmp/ti84-wabbit-speed.XXXXXX)
-python tools/run_wabbitemu_speed_edge_probe.py \
+python3 -m ti84re.emulators.wabbitemu.run_speed_edge_probe \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$wabbit_speed_parent/run" --json
 
 mame_asic_parent=$(mktemp -d /tmp/ti84-mame-asic.XXXXXX)
-nix shell nixpkgs#mame --command python tools/run_mame_asic_probe.py \
+nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_asic_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_asic_parent/run" --json
 ```
 
 The manifest labels the run as initialized-core emulator evidence and records
-both input hashes. `tools/wabbitemu_lcd_probe.py` derives its pointer, latch,
+both input hashes. `tools/ti84re/emulators/wabbitemu/lcd_probe.py` derives its pointer, latch,
 ready-hold, delay, wait-bit, and speed-clamp expectations from the reusable LCD
 and bus-timing libraries.
 
-`tools/wabbitemu_speed_probe.py` derives speed, latch, and wait-mask
-expectations from `tools/bus_timing.py`. Its guarded CLI records both input
+`tools/ti84re/emulators/wabbitemu/speed_probe.py` derives speed, latch, and wait-mask
+expectations from `tools/ti84re/hardware/bus_timing.py`. Its guarded CLI records both input
 hashes and labels the direct `timer_version = 1` configuration explicitly.
-`tools/mame_asic.py` reuses the MAME timing profile for raw readback, binary
+`tools/ti84re/emulators/mame/asic.py` reuses the MAME timing profile for raw readback, binary
 clock selection, and the absent delay block.
 
 The executed initialization can be recovered from a full boot trace:
 
 ```sh
-nix develop -c python tools/tilem_trace_resolve.py /tmp/boot.trace \
+nix develop -c python3 -m ti84re.trace.resolve /tmp/boot.trace \
   --initial-mapping ti84p-reset --io-ports 20,29-2f
 ```
 

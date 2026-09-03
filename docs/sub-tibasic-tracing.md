@@ -17,7 +17,7 @@ layers is whole-interpreter coverage.
 | Internal-entry probe | Exact ROM execution distinguishes a selected internal state | A supported ABI or natural caller for that state |
 | RAM or LCD assertion | The fixture produces its expected machine or visible result | Which internal path is uniquely responsible |
 
-`tools/analyze_tibasic_coverage.py` refuses a ROM whose SHA-256 differs from
+`tools/ti84re/tibasic/analyze_coverage.py` refuses a ROM whose SHA-256 differs from
 the pinned OS 2.55MP image, then verifies short byte signatures at every modeled
 decision family. [confirmed]
 
@@ -193,7 +193,7 @@ retains 30 traces. The three omitted traces remain useful semantic examples.
 Generate the source/token/link fixtures first:
 
 ```sh
-tools/tibasic_samples.py --write-dir tools/tibasic-samples
+python3 -m ti84re.tibasic.samples --write-dir tools/tibasic-samples
 ```
 
 The TilEm binary must support loading command-line `.8xp` files before the
@@ -201,7 +201,7 @@ macro starts. Run the natural cases while retaining their temporary traces:
 
 ```sh
 TILEM=/path/to/patched/tilem2
-python3 tools/tibasic_smoke.py \
+python3 -m ti84re.tibasic.smoke \
   --tilem "$TILEM" --rom tools/rom.bin \
   --out-dir /tmp/tibasic-coverage --keep-trace \
   --case hello --case factorial --case data \
@@ -216,7 +216,7 @@ python3 tools/tibasic_smoke.py \
 Run the probe cases in the same output directory:
 
 ```sh
-python3 tools/tibasic_smoke.py \
+python3 -m ti84re.tibasic.smoke \
   --tilem "$TILEM" --rom tools/rom.bin \
   --out-dir /tmp/tibasic-coverage --keep-trace \
   --case cflowlow --case cflowhigh --case cflowvalid \
@@ -230,7 +230,7 @@ oracles where the displayed result is part of the behavior.
 
 Build the compact report through the Nix shell so `z80dasm` and Z3 are pinned.
 The checked command passes all 33 `LABEL=PATH` pairs; the complete ordered label
-list is the `dynamic.traces` array in `tools/tibasic-coverage.json`.
+list is the `dynamic.traces` array in `tools/oracles/tibasic/tibasic-coverage.json`.
 
 ```sh
 set --
@@ -246,8 +246,8 @@ for label in \
 do
   set -- "$@" --trace "$label=/tmp/tibasic-coverage/$label.trace"
 done
-nix develop -c python3 tools/analyze_tibasic_coverage.py "$@" \
-  --output tools/tibasic-coverage.json
+nix develop -c python3 -m ti84re.tibasic.analyze_coverage "$@" \
+  --output tools/oracles/tibasic/tibasic-coverage.json
 ```
 
 Export exact instruction boundaries from the rebuilt Ghidra database, then
@@ -256,13 +256,13 @@ reuse the same trace arguments for the expanded report:
 ```sh
 ghidra-analyzeHeadless "$PWD" ti84 \
   -process ti84_page00.bin -noanalysis -readOnly \
-  -scriptPath "$PWD/tools" \
+  -scriptPath "$PWD/tools/ghidra" \
   -postScript ExportTiBasicInstructionStarts.java \
   /tmp/tibasic-instruction-starts.tsv
 
-nix develop -c python3 tools/analyze_tibasic_saturation.py \
+nix develop -c python3 -m ti84re.tibasic.analyze_saturation \
   --instruction-list /tmp/tibasic-instruction-starts.tsv \
-  "$@" --output tools/tibasic-saturation.json
+  "$@" --output tools/oracles/tibasic/tibasic-saturation.json
 ```
 
 Capture and reduce the selected numeric-error paths separately. This keeps
@@ -270,7 +270,7 @@ their semantic provenance without adding redundant traces to the branch-only
 minimum corpus:
 
 ```sh
-python3 tools/tibasic_smoke.py \
+python3 -m ti84re.tibasic.smoke \
   --tilem "$TILEM" --rom tools/rom.bin \
   --out-dir /tmp/tibasic-numeric-errors --keep-trace \
   --case divzero --case overflow --case muloverflow \
@@ -279,7 +279,7 @@ python3 tools/tibasic_smoke.py \
   --case lateincrement --case negfactdomain --case ncrdomain
 
 nix develop -c env PYTHONPATH=tools \
-  python3 tools/analyze_tibasic_numeric_errors.py \
+  python3 -m ti84re.tibasic.analyze_numeric_errors \
   --trace divzero=/tmp/tibasic-numeric-errors/divzero.trace \
   --trace overflow=/tmp/tibasic-numeric-errors/overflow.trace \
   --trace muloverflow=/tmp/tibasic-numeric-errors/muloverflow.trace \
@@ -292,7 +292,7 @@ nix develop -c env PYTHONPATH=tools \
   --trace lateincrement=/tmp/tibasic-numeric-errors/lateincrement.trace \
   --trace negfactdomain=/tmp/tibasic-numeric-errors/negfactdomain.trace \
   --trace ncrdomain=/tmp/tibasic-numeric-errors/ncrdomain.trace \
-  --output tools/tibasic-numeric-errors.json
+  --output tools/oracles/tibasic/tibasic-numeric-errors.json
 ```
 
 Delete the temporary traces after regeneration. They are reproducible evidence,
@@ -323,4 +323,4 @@ The next useful coverage expansion starts with the unresolved caller census:
 5. update the relevant interpreter model with the established transition.
 
 Lower-level trace formats and memory-write decoding are documented in
-`tools/dynamic-tracing.md`.
+`tools/notes/dynamic-tracing.md`.

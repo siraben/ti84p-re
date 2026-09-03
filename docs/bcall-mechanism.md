@@ -28,21 +28,21 @@ From the decompiler:
 - Resolution method (`tools/` Python): scored all 64 pages by how many named IDs produced a valid `(addr∈4000..7FFF or page-0, page<0x40)` entry; page `0x3B` scored highest (the page-selection heuristic uses a conservative validity filter chosen only to pick the table). Once `0x3B` is selected and applied, 645 entries resolve and are live-confirmed. Of those IDs, 623 also appear in the included SDK equates and 22 are project-inferred additions.
 - Validation: known bcalls land exactly where expected — `_PutS`→`01:5C39`, `_GetKey`→`06:491E`, `_ClrLCDFull`→`01:60E4`, `_GetCSC`→`00:04B2`, `_CreateReal`→`00:10B8`.
 
-`tools/bcall_targets.txt` holds 645 resolved main-table bcall rows.
-The retail boot table has 87 populated entries. `tools/bcalls8x_targets.txt`
+`tools/symbols/bcall_targets.txt` holds 645 resolved main-table bcall rows.
+The retail boot table has 87 populated entries. `tools/symbols/bcalls8x_targets.txt`
 holds the 83 rows with official SDK names; four populated slots have only
 project-inferred names in the [bcall index](bcall-index.md#retail-boot-0x8xxx-bcalls).
-`tools/resolve_bcalls.py` emits the official-name rows only when page `3F` has
+`tools/ti84re/rom/resolve_bcalls.py` emits the official-name rows only when page `3F` has
 the retail prefix and page `2F` contains the companion USB payload; its
 BootFree guard otherwise leaves only diagnostic comments.
-`tools/ApplyBcalls.java` disassembles and names the confirmed bodies.
-`tools/BcallEvidenceStudy.java` then provides a read-only listing, reference,
+`tools/ghidra/ApplyBcalls.java` disassembles and names the confirmed bodies.
+`tools/ghidra/BcallEvidenceStudy.java` then provides a read-only listing, reference,
 and decompiler dump for a selected set of IDs. For example:
 
 ```sh
 nix develop -c ghidra-analyzeHeadless "$PWD" ti84 \
-  -process -noanalysis -readOnly -scriptPath tools \
-  -postScript BcallEvidenceStudy.java tools/bcall_targets.txt \
+  -process -noanalysis -readOnly -scriptPath tools/ghidra \
+  -postScript BcallEvidenceStudy.java tools/symbols/bcall_targets.txt \
   /tmp/bcall-evidence.txt 4030 4ED6 50C8
 ```
 
@@ -50,7 +50,7 @@ nix develop -c ghidra-analyzeHeadless "$PWD" ti84 \
 
 The dispatcher (`bcall_dispatcher`) decodes the ID's top two bits to pick the table page: bit 15 set → page-byte `0x7F` (masked `& 0x3F` → page `0x3F`); bit 14 set → `0x7B` (→ page `0x3B`); with *neither* bit set it falls through to `lookup_bcall_table_page` (`ram:2ADA`). The two tables real bcall IDs use:
 - `0x4xxx`–`0x7FFF` (bit 14 set): the main table on flash page `0x3B`, entry at offset `ID − 0x4000` (645 live-confirmed bcalls: 623 IDs also present in the included SDK equates and 22 project-inferred additions).
-- `0x8xxx` (bit 15 set): the retail boot table is on physical page `3F`, indexed by `ID & 0x7FFF`. Its real entries occupy IDs `0x8018`–`0x80D2` and `0x80E4`–`0x8129`; bytes `3F:40D5`–`3F:40E3` between those ranges are executable dispatch-stub bytes, not five table entries. `D84PBE1.8Xv` supplies the retail page `3F`; `D84PBE2.8Xv` supplies the companion USB boot support page `2F`. Most entries resolve to `3F:addr`; USB entries such as `_AttemptUSBOSReceive` (`80E4`) and `_InitUSB` (`8108`) resolve to `2F:addr`. `tools/resolve_bcalls.py` refuses to emit these targets from a BootFree-substituted page. [confirmed]
+- `0x8xxx` (bit 15 set): the retail boot table is on physical page `3F`, indexed by `ID & 0x7FFF`. Its real entries occupy IDs `0x8018`–`0x80D2` and `0x80E4`–`0x8129`; bytes `3F:40D5`–`3F:40E3` between those ranges are executable dispatch-stub bytes, not five table entries. `D84PBE1.8Xv` supplies the retail page `3F`; `D84PBE2.8Xv` supplies the companion USB boot support page `2F`. Most entries resolve to `3F:addr`; USB entries such as `_AttemptUSBOSReceive` (`80E4`) and `_InitUSB` (`8108`) resolve to `2F:addr`. `tools/ti84re/rom/resolve_bcalls.py` refuses to emit these targets from a BootFree-substituted page. [confirmed]
 
 Both resolved table formats are 3-byte entries: target address (little endian) plus page byte masked with `& 0x3F`.
 
@@ -87,14 +87,14 @@ bytes, banks the page (`& 0x3F`), and returns into the target. The target's
 `RET` then returns to *the bjump's caller*, so it behaves like a call that
 consumes the 3 inline bytes.
 
-There is a trampoline table in the page-0 address range `ram:3B01`–`ram:3D0A`: 87 packed 6-byte entries, each a bjump to a hot OS routine on another page (`ram:3D0B` already begins a separate `CALL ram:2B49` table). The static Ghidra database models it in the page-0/ROM address space; whether the table is copied to RAM at runtime remains a hypothesis. Code invokes a routine by `CALL ram:3Bxx` into the table. `tools/bjumps.txt` lists every entry's `(offset → page:addr)`; `tools/RamRoutines.java` marks the inline `.dw/.db` as data and comments each target.
+There is a trampoline table in the page-0 address range `ram:3B01`–`ram:3D0A`: 87 packed 6-byte entries, each a bjump to a hot OS routine on another page (`ram:3D0B` already begins a separate `CALL ram:2B49` table). The static Ghidra database models it in the page-0/ROM address space; whether the table is copied to RAM at runtime remains a hypothesis. Code invokes a routine by `CALL ram:3Bxx` into the table. `tools/symbols/bjumps.txt` lists every entry's `(offset → page:addr)`; `tools/ghidra/RamRoutines.java` marks the inline `.dw/.db` as data and comments each target.
 
 Example: `_PutMap`'s glyph blitter is reached via the trampoline at `ram:3B3D → 07:4588`.
 
 **Inline bjumps.** Besides this trampoline table, the three-line bjump encoding
 above appears in packed dispatch tables and inside OS routines. The target returns
 to the bjump caller, so `cross_page_jump` consumes the three inline descriptor
-bytes as a non-returning tail-jump. `tools/FixInlineBjumps.java` runs before and
+bytes as a non-returning tail-jump. `tools/ghidra/FixInlineBjumps.java` runs before and
 after the scripts that seed parser handlers and reviewed function entries. Each
 pass marks every disassembled inline site, including the 87 trampoline-table
 entries. Raw byte matches outside disassembled code are not counted. [confirmed]

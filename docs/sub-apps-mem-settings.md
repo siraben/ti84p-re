@@ -130,7 +130,7 @@ JP 4097
 JP 4548
 ```
 
-`tools/app_header_re.py` reproduces this pass: `--fetch-known` downloads a
+`tools/ti84re/community/app_headers.py` reproduces this pass: `--fetch-known` downloads a
 local corpus from ticalc.org into ignored `tools/app-samples/`, and `--markdown` prints
 the decoded header table. The corpus keeps the same parser boundary rule:
 
@@ -297,7 +297,7 @@ The run uses OS image SHA-256
 and patched TilEm commit `d1bdc58dd321ae462a701e556fcb62bb925a78b1`.
 [confirmed] for this emulator fixture.
 
-Build the App with `tools/community-probes/truvid_probe.asm` and run
+Build the App with `tools/probes/community/truvid/truvid_probe.asm` and run
 `tools/macros/community-truvid-cleanup.macro`. The wrapper resumes once at
 `page_29:4095` after the RAM core returns. The trace does not exercise an
 existing archived settings AppVar, the media page-wrap branch, an error, a
@@ -387,7 +387,7 @@ protocol. [confirmed]
 
 ### Minimal developer-key fixture
 
-`tools/flash-apps/minimal_flash_app.asm` builds a one-page App named `REPROBE`.
+`tools/probes/flash-apps/minimal_flash_app.asm` builds a one-page App named `REPROBE`.
 It immediately exits through
 `_JForceCmdNoChar`; it is a packaging and launch fixture, not yet a RAM-budget
 probe.
@@ -396,7 +396,7 @@ The source uses SPASM-ng's `app.inc` and `ti83plus.inc`:
 
 ```sh
 spasm -N -I path/to/spasm-ng/inc \
-  tools/flash-apps/minimal_flash_app.asm /tmp/minimal-flash-app.8xk
+  tools/probes/flash-apps/minimal_flash_app.asm /tmp/minimal-flash-app.8xk
 ```
 
 Use a SPASM-ng build with GMP and OpenSSL App signing enabled. A build compiled

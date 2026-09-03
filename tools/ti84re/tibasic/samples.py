@@ -1,0 +1,983 @@
+#!/usr/bin/env python3
+"""Print small tokenized TI-BASIC sample programs for tracing.
+
+These are raw program bodies: the bytes after a ProgObj's two-byte size word.
+They are useful for checking parser traces and for building .8xp fixtures.
+"""
+
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+from ti84re.tifiles.program import encode_program_file
+
+T = {
+    "store": 0x04,
+    "lbrace": 0x08,
+    "rbrace": 0x09,
+    "lbracket": 0x06,
+    "rbracket": 0x07,
+    "lparen": 0x10,
+    "rparen": 0x11,
+    "recip": 0x0C,
+    "fact": 0x2D,
+    "string": 0x2A,
+    "comma": 0x2B,
+    "equal": 0x6A,
+    "enter": 0x3F,
+    "space": 0x29,
+    "add": 0x70,
+    "sub": 0x71,
+    "mul": 0x82,
+    "div": 0x83,
+    "neg": 0xB0,
+    "sqrt": 0xBC,
+    "ln": 0xBE,
+    "asin": 0xC3,
+    "acos": 0xC5,
+    "ncr": 0x95,
+    "power": 0xF0,
+    "0": 0x30,
+    "1": 0x31,
+    "2": 0x32,
+    "3": 0x33,
+    "4": 0x34,
+    "5": 0x35,
+    "6": 0x36,
+    "7": 0x37,
+    "8": 0x38,
+    "9": 0x39,
+    "ee": 0x3B,
+    "A": 0x41,
+    "B": 0x42,
+    "C": 0x43,
+    "D": 0x44,
+    "E": 0x45,
+    "F": 0x46,
+    "G": 0x47,
+    "H": 0x48,
+    "I": 0x49,
+    "J": 0x4A,
+    "K": 0x4B,
+    "L": 0x4C,
+    "M": 0x4D,
+    "N": 0x4E,
+    "O": 0x4F,
+    "P": 0x50,
+    "R": 0x52,
+    "S": 0x53,
+    "T": 0x54,
+    "U": 0x55,
+    "V": 0x56,
+    "W": 0x57,
+    "X": 0x58,
+    "Y": 0x59,
+    "Z": 0x5A,
+    "varlst": 0x5D,
+    "prog": 0x5F,
+    "varsys": 0x63,
+    "eq": 0x6A,
+    "ans": 0x72,
+    "clrdraw": 0x85,
+    "text": 0x93,
+    "line": 0x9C,
+    "circle": 0xA5,
+    "int": 0xB1,
+    "sum": 0xB6,
+    "if": 0xCE,
+    "then": 0xCF,
+    "else": 0xD0,
+    "while": 0xD1,
+    "repeat": 0xD2,
+    "for": 0xD3,
+    "end": 0xD4,
+    "return": 0xD5,
+    "stop": 0xD9,
+    "prompt": 0xDD,
+    "disp": 0xDE,
+    "dispgraph": 0xDF,
+    "output": 0xE0,
+    "clrhome": 0xE1,
+    "sorta": 0xE3,
+    "2byte": 0xBB,
+    "cumsum": 0x29,
+    "asm": 0x6A,
+    "asmprgm": 0x6C,
+    "archive": 0x68,
+    "unarchive": 0x69,
+    "garbagecollect": 0xCE,
+}
+
+SYSVAR = {
+    "Xmin": 0x0A,
+    "Xmax": 0x0B,
+    "Ymin": 0x0C,
+    "Ymax": 0x0D,
+}
+
+
+def letters(text: str) -> list[int]:
+    out: list[int] = []
+    for ch in text:
+        if ch == " ":
+            out.append(T["space"])
+        elif ch == ",":
+            out.append(T["comma"])
+        else:
+            out.append(T[ch.upper()])
+    return out
+
+
+def string_literal(text: str) -> list[int]:
+    return [T["string"], *letters(text), T["string"]]
+
+
+def hex_literal(text: str) -> list[int]:
+    return [T[ch] for ch in text.upper() if ch.strip()]
+
+
+def asm_payload(machine_hex: str) -> tuple[str, list[int]]:
+    return (
+        f"AsmPrgm\n{machine_hex}",
+        [T["2byte"], T["asmprgm"], T["enter"], *hex_literal(machine_hex), T["enter"]],
+    )
+
+
+def asm_to_basic_transplant() -> tuple[str, list[int]]:
+    """Build the ZZRUN private evaluator-entry experiment for prgmOO."""
+    user_mem = 0x9D95
+    payload = bytearray.fromhex(
+        "210000117884010900EDB0EFF142D86B624E234623E5225B96225D9609225F96"
+        "3E01326196217884115296010900EDB03E38D306CD10693E81D306EF5845"
+    )
+
+    ok_pointer_offset = len(payload) + 1
+    payload.extend(bytes.fromhex("210000EF0A45C9"))
+    ok_offset = len(payload)
+    payload.extend(b"OK\0")
+    target_offset = len(payload)
+    payload.extend(bytes([0x05, *b"OO", 0, 0, 0, 0, 0, 0]))
+
+    payload[1:3] = (user_mem + target_offset).to_bytes(2, "little")
+    payload[ok_pointer_offset:ok_pointer_offset + 2] = (
+        user_mem + ok_offset
+    ).to_bytes(2, "little")
+    return asm_payload(payload.hex().upper())
+
+
+def asm_wrapper(program: str) -> tuple[str, list[int]]:
+    return (
+        f'Asm(prgm{program})\nDisp "RETURN"',
+        [
+            T["2byte"], T["asm"], T["prog"], *letters(program), T["rparen"], T["enter"],
+            T["disp"], *string_literal("RETURN"), T["enter"],
+        ],
+    )
+
+
+SAMPLES: dict[str, tuple[str, list[int]]] = {
+    "hello": (
+        'ClrHome\nDisp "HELLO, WORLD"',
+        [
+            T["clrhome"], T["enter"],
+            T["disp"], *string_literal("HELLO, WORLD"), T["enter"],
+        ],
+    ),
+    "factorial": (
+        "Prompt N\n1->F\nFor(I,1,N)\nF*I->F\nEnd\nDisp F",
+        [
+            T["prompt"], T["N"], T["enter"],
+            T["1"], T["store"], T["F"], T["enter"],
+            T["for"], T["I"], T["comma"], T["1"], T["comma"], T["N"], T["rparen"], T["enter"],
+            T["F"], T["mul"], T["I"], T["store"], T["F"], T["enter"],
+            T["end"], T["enter"],
+            T["disp"], T["F"], T["enter"],
+        ],
+    ),
+    "data": (
+        "{3,1,4,1,5}->L1\nSortA(L1)\ncumSum(L1)->L2\nsum(L1)->S\nDisp L1\nDisp L2\nDisp S",
+        [
+            T["lbrace"], T["3"], T["comma"], T["1"], T["comma"], T["4"], T["comma"],
+            T["1"], T["comma"], T["5"], T["rbrace"], T["store"], T["varlst"], 0x00, T["enter"],
+            T["sorta"], T["varlst"], 0x00, T["rparen"], T["enter"],
+            T["2byte"], T["cumsum"], T["varlst"], 0x00, T["rparen"], T["store"], T["varlst"], 0x01, T["enter"],
+            T["sum"], T["varlst"], 0x00, T["rparen"], T["store"], T["S"], T["enter"],
+            T["disp"], T["varlst"], 0x00, T["enter"],
+            T["disp"], T["varlst"], 0x01, T["enter"],
+            T["disp"], T["S"], T["enter"],
+        ],
+    ),
+    "gcflash": (
+        'Disp "BEFORE"\n1->A\n2->B\nArchive A\nArchive B\nUnArchive A\nGarbageCollect\nDisp "GC DONE"',
+        [
+            T["disp"], *string_literal("BEFORE"), T["enter"],
+            T["1"], T["store"], T["A"], T["enter"],
+            T["2"], T["store"], T["B"], T["enter"],
+            T["2byte"], T["archive"], T["A"], T["enter"],
+            T["2byte"], T["archive"], T["B"], T["enter"],
+            T["2byte"], T["unarchive"], T["A"], T["enter"],
+            T["2byte"], T["garbagecollect"], T["enter"],
+            T["disp"], *string_literal("GC DONE"), T["enter"],
+        ],
+    ),
+    "asmret": (
+        "AsmPrgm\nC9",
+        [
+            T["2byte"], T["asmprgm"], T["enter"],
+            T["C"], T["9"], T["enter"],
+        ],
+    ),
+    "zmark": (
+        "AsmPrgm\nC9",
+        [
+            T["2byte"], T["asmprgm"], T["enter"],
+            T["C"], T["9"], T["enter"],
+        ],
+    ),
+    "md5test": (
+        "AsmPrgm\nEF8D8021B09D010300EF9080EF188021928211C09D011000EDB0C9616263",
+        [
+            T["2byte"], T["asmprgm"], T["enter"],
+            *hex_literal(
+                "EF8D8021B09D010300EF9080EF188021928211C09D011000EDB0C9616263"
+            ),
+            T["enter"],
+        ],
+    ),
+    "asmmd5": (
+        'Disp "BEFORE"\nAsm(prgmMD5TEST)\nDisp "MD5 DONE"',
+        [
+            T["disp"], *string_literal("BEFORE"), T["enter"],
+            T["2byte"], T["asm"], T["prog"], T["M"], T["D"], T["5"],
+            T["T"], T["E"], T["S"], T["T"], T["rparen"], T["enter"],
+            T["disp"], *string_literal("MD5 DONE"), T["enter"],
+        ],
+    ),
+    "asmcall": (
+        'Disp "BEFORE"\nAsm(prgmASMRET)\nDisp "AFTER"',
+        [
+            T["disp"], *string_literal("BEFORE"), T["enter"],
+            T["2byte"], T["asm"], T["prog"], T["A"], T["S"], T["M"], T["R"], T["E"], T["T"], T["rparen"], T["enter"],
+            T["disp"], *string_literal("AFTER"), T["enter"],
+        ],
+    ),
+    "asmsig": (
+        "AsmPrgm\nEF9B41EFBF4AC9",
+        [
+            T["2byte"], T["asmprgm"], T["enter"],
+            T["E"], T["F"], T["9"], T["B"], T["4"], T["1"],
+            T["E"], T["F"], T["B"], T["F"], T["4"], T["A"],
+            T["C"], T["9"], T["enter"],
+        ],
+    ),
+    "asmbridge": (
+        'Disp "BEFORE"\nAsm(prgmASMSIG)\nIf Ans\nprgmZZBASIC\nDisp "AFTER"',
+        [
+            T["disp"], *string_literal("BEFORE"), T["enter"],
+            T["2byte"], T["asm"], T["prog"], T["A"], T["S"], T["M"], T["S"], T["I"], T["G"], T["rparen"], T["enter"],
+            T["if"], T["ans"], T["enter"],
+            T["prog"], T["Z"], T["Z"], T["B"], T["A"], T["S"], T["I"], T["C"], T["enter"],
+            T["disp"], *string_literal("AFTER"), T["enter"],
+        ],
+    ),
+    "asmval": (
+        "AsmPrgm\nEFA741EFBF4AC9",
+        [
+            T["2byte"], T["asmprgm"], T["enter"],
+            T["E"], T["F"], T["A"], T["7"], T["4"], T["1"],
+            T["E"], T["F"], T["B"], T["F"], T["4"], T["A"],
+            T["C"], T["9"], T["enter"],
+        ],
+    ),
+    "asmreturn": (
+        "Asm(prgmASMVAL)\nAns+3->A\nDisp A",
+        [
+            T["2byte"], T["asm"], T["prog"], T["A"], T["S"], T["M"], T["V"], T["A"], T["L"], T["rparen"], T["enter"],
+            T["ans"], T["add"], T["3"], T["store"], T["A"], T["enter"],
+            T["disp"], T["A"], T["enter"],
+        ],
+    ),
+    "zzbasic": (
+        'Disp "CALLED"',
+        [
+            T["disp"], *string_literal("CALLED"), T["enter"],
+        ],
+    ),
+    "zzfind": (
+        "AsmPrgm\n21A49D117884010900EDB0EFF142C9055A5A424153494300",
+        [
+            T["2byte"], T["asmprgm"], T["enter"],
+            *hex_literal("21A49D117884010900EDB0EFF142C9055A5A424153494300"),
+            T["enter"],
+        ],
+    ),
+    "asmfind": (
+        'Disp "BEFORE"\nAsm(prgmZZFIND)\nDisp "AFTER"',
+        [
+            T["disp"], *string_literal("BEFORE"), T["enter"],
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["Z"], T["F"], T["I"], T["N"], T["D"], T["rparen"], T["enter"],
+            T["disp"], *string_literal("AFTER"), T["enter"],
+        ],
+    ),
+    "zzparse": (
+        "AsmPrgm\n21A49D117884010900EDB0EF074BC9055A5A424153494300",
+        [
+            T["2byte"], T["asmprgm"], T["enter"],
+            *hex_literal("21A49D117884010900EDB0EF074BC9055A5A424153494300"),
+            T["enter"],
+        ],
+    ),
+    "asmparse": (
+        'Disp "BEFORE"\nAsm(prgmZZPARSE)\nDisp "AFTER"',
+        [
+            T["disp"], *string_literal("BEFORE"), T["enter"],
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["Z"], T["P"], T["A"], T["R"], T["S"], T["E"], T["rparen"], T["enter"],
+            T["disp"], *string_literal("AFTER"), T["enter"],
+        ],
+    ),
+    "zzformula": (
+        "AsmPrgm\n21A49D117884010900EDB0EFF24AC9055A5A424153494300",
+        [
+            T["2byte"], T["asmprgm"], T["enter"],
+            *hex_literal("21A49D117884010900EDB0EFF24AC9055A5A424153494300"),
+            T["enter"],
+        ],
+    ),
+    "asmformula": (
+        'Disp "BEFORE"\nAsm(prgmZZFORM)\nDisp "AFTER"',
+        [
+            T["disp"], *string_literal("BEFORE"), T["enter"],
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["Z"], T["F"], T["O"], T["R"], T["M"], T["rparen"], T["enter"],
+            T["disp"], *string_literal("AFTER"), T["enter"],
+        ],
+    ),
+    "ootarget": (
+        'Disp "SUB"',
+        [
+            T["disp"], *string_literal("SUB"), T["enter"],
+        ],
+    ),
+    "zzrun": asm_to_basic_transplant(),
+    "zzrunwr": (
+        "Asm(prgmZZRUN)",
+        [
+            T["2byte"], T["asm"], T["prog"], *letters("ZZRUN"),
+            T["rparen"], T["enter"],
+        ],
+    ),
+    "animtext": (
+        'ClrHome\nFor(I,1,8)\nOutput(1,I,"X")\nEnd\nDisp "DONE"',
+        [
+            T["clrhome"], T["enter"],
+            T["for"], T["I"], T["comma"], T["1"], T["comma"], T["8"], T["rparen"], T["enter"],
+            T["output"], T["1"], T["comma"], T["I"], T["comma"], *string_literal("X"), T["rparen"], T["enter"],
+            T["end"], T["enter"],
+            T["disp"], *string_literal("DONE"), T["enter"],
+        ],
+    ),
+    "graphviz": (
+        'ClrDraw\n'
+        '0->Xmin\n94->Xmax\n0->Ymin\n62->Ymax\n'
+        'Line(0,0,94,62)\n'
+        'Line(0,31,94,31)\n'
+        'Line(47,0,47,62)\n'
+        'Circle(47,31,10)\n'
+        'Text(0,0,"DFS")\n'
+        'DispGraph',
+        [
+            T["clrdraw"], T["enter"],
+            T["0"], T["store"], T["varsys"], SYSVAR["Xmin"], T["enter"],
+            T["9"], T["4"], T["store"], T["varsys"], SYSVAR["Xmax"], T["enter"],
+            T["0"], T["store"], T["varsys"], SYSVAR["Ymin"], T["enter"],
+            T["6"], T["2"], T["store"], T["varsys"], SYSVAR["Ymax"], T["enter"],
+            T["line"], T["0"], T["comma"], T["0"], T["comma"], T["9"], T["4"], T["comma"], T["6"], T["2"], T["rparen"], T["enter"],
+            T["line"], T["0"], T["comma"], T["3"], T["1"], T["comma"], T["9"], T["4"], T["comma"], T["3"], T["1"], T["rparen"], T["enter"],
+            T["line"], T["4"], T["7"], T["comma"], T["0"], T["comma"], T["4"], T["7"], T["comma"], T["6"], T["2"], T["rparen"], T["enter"],
+            T["circle"], T["4"], T["7"], T["comma"], T["3"], T["1"], T["comma"], T["1"], T["0"], T["rparen"], T["enter"],
+            T["text"], T["0"], T["comma"], T["0"], T["comma"], *string_literal("DFS"), T["rparen"], T["enter"],
+            T["dispgraph"], T["enter"],
+        ],
+    ),
+    "graphdfs": (
+        'ClrDraw\n'
+        '0->Xmin\n94->Xmax\n0->Ymin\n62->Ymax\n'
+        'Line(10,44,35,54)\n'
+        'Line(10,44,35,14)\n'
+        'Line(35,54,55,29)\n'
+        'Circle(10,44,3)\n'
+        'Circle(35,54,3)\n'
+        'Circle(35,14,3)\n'
+        'Circle(55,29,3)\n'
+        'Text(16,8,"1")\n'
+        'Text(6,33,"2")\n'
+        'Text(46,33,"3")\n'
+        'Text(31,53,"4")\n'
+        'DispGraph',
+        [
+            T["clrdraw"], T["enter"],
+            T["0"], T["store"], T["varsys"], SYSVAR["Xmin"], T["enter"],
+            T["9"], T["4"], T["store"], T["varsys"], SYSVAR["Xmax"], T["enter"],
+            T["0"], T["store"], T["varsys"], SYSVAR["Ymin"], T["enter"],
+            T["6"], T["2"], T["store"], T["varsys"], SYSVAR["Ymax"], T["enter"],
+            T["line"], T["1"], T["0"], T["comma"], T["4"], T["4"], T["comma"], T["3"], T["5"], T["comma"], T["5"], T["4"], T["rparen"], T["enter"],
+            T["line"], T["1"], T["0"], T["comma"], T["4"], T["4"], T["comma"], T["3"], T["5"], T["comma"], T["1"], T["4"], T["rparen"], T["enter"],
+            T["line"], T["3"], T["5"], T["comma"], T["5"], T["4"], T["comma"], T["5"], T["5"], T["comma"], T["2"], T["9"], T["rparen"], T["enter"],
+            T["circle"], T["1"], T["0"], T["comma"], T["4"], T["4"], T["comma"], T["3"], T["rparen"], T["enter"],
+            T["circle"], T["3"], T["5"], T["comma"], T["5"], T["4"], T["comma"], T["3"], T["rparen"], T["enter"],
+            T["circle"], T["3"], T["5"], T["comma"], T["1"], T["4"], T["comma"], T["3"], T["rparen"], T["enter"],
+            T["circle"], T["5"], T["5"], T["comma"], T["2"], T["9"], T["comma"], T["3"], T["rparen"], T["enter"],
+            T["text"], T["1"], T["6"], T["comma"], T["8"], T["comma"], *string_literal("1"), T["rparen"], T["enter"],
+            T["text"], T["6"], T["comma"], T["3"], T["3"], T["comma"], *string_literal("2"), T["rparen"], T["enter"],
+            T["text"], T["4"], T["6"], T["comma"], T["3"], T["3"], T["comma"], *string_literal("3"), T["rparen"], T["enter"],
+            T["text"], T["3"], T["1"], T["comma"], T["5"], T["3"], T["comma"], *string_literal("4"), T["rparen"], T["enter"],
+            T["dispgraph"], T["enter"],
+        ],
+    ),
+    "graphlist": (
+        'ClrDraw\n'
+        '0->Xmin\n94->Xmax\n0->Ymin\n62->Ymax\n'
+        '{10,10,35}->L1\n'
+        '{44,44,54}->L2\n'
+        '{35,35,55}->L3\n'
+        '{54,14,29}->L4\n'
+        '{10,35,35,55}->L5\n'
+        '{44,54,14,29}->L6\n'
+        'For(I,1,3)\n'
+        'Line(L1(I),L2(I),L3(I),L4(I))\n'
+        'End\n'
+        'For(I,1,4)\n'
+        'Circle(L5(I),L6(I),3)\n'
+        'End\n'
+        'Text(16,8,"1")\n'
+        'Text(6,33,"2")\n'
+        'Text(46,33,"3")\n'
+        'Text(31,53,"4")\n'
+        'DispGraph',
+        [
+            T["clrdraw"], T["enter"],
+            T["0"], T["store"], T["varsys"], SYSVAR["Xmin"], T["enter"],
+            T["9"], T["4"], T["store"], T["varsys"], SYSVAR["Xmax"], T["enter"],
+            T["0"], T["store"], T["varsys"], SYSVAR["Ymin"], T["enter"],
+            T["6"], T["2"], T["store"], T["varsys"], SYSVAR["Ymax"], T["enter"],
+            T["lbrace"], T["1"], T["0"], T["comma"], T["1"], T["0"], T["comma"], T["3"], T["5"], T["rbrace"], T["store"], T["varlst"], 0x00, T["enter"],
+            T["lbrace"], T["4"], T["4"], T["comma"], T["4"], T["4"], T["comma"], T["5"], T["4"], T["rbrace"], T["store"], T["varlst"], 0x01, T["enter"],
+            T["lbrace"], T["3"], T["5"], T["comma"], T["3"], T["5"], T["comma"], T["5"], T["5"], T["rbrace"], T["store"], T["varlst"], 0x02, T["enter"],
+            T["lbrace"], T["5"], T["4"], T["comma"], T["1"], T["4"], T["comma"], T["2"], T["9"], T["rbrace"], T["store"], T["varlst"], 0x03, T["enter"],
+            T["lbrace"], T["1"], T["0"], T["comma"], T["3"], T["5"], T["comma"], T["3"], T["5"], T["comma"], T["5"], T["5"], T["rbrace"], T["store"], T["varlst"], 0x04, T["enter"],
+            T["lbrace"], T["4"], T["4"], T["comma"], T["5"], T["4"], T["comma"], T["1"], T["4"], T["comma"], T["2"], T["9"], T["rbrace"], T["store"], T["varlst"], 0x05, T["enter"],
+            T["for"], T["I"], T["comma"], T["1"], T["comma"], T["3"], T["rparen"], T["enter"],
+            T["line"], T["varlst"], 0x00, T["lparen"], T["I"], T["rparen"], T["comma"],
+            T["varlst"], 0x01, T["lparen"], T["I"], T["rparen"], T["comma"],
+            T["varlst"], 0x02, T["lparen"], T["I"], T["rparen"], T["comma"],
+            T["varlst"], 0x03, T["lparen"], T["I"], T["rparen"], T["rparen"], T["enter"],
+            T["end"], T["enter"],
+            T["for"], T["I"], T["comma"], T["1"], T["comma"], T["4"], T["rparen"], T["enter"],
+            T["circle"], T["varlst"], 0x04, T["lparen"], T["I"], T["rparen"], T["comma"],
+            T["varlst"], 0x05, T["lparen"], T["I"], T["rparen"], T["comma"], T["3"], T["rparen"], T["enter"],
+            T["end"], T["enter"],
+            T["text"], T["1"], T["6"], T["comma"], T["8"], T["comma"], *string_literal("1"), T["rparen"], T["enter"],
+            T["text"], T["6"], T["comma"], T["3"], T["3"], T["comma"], *string_literal("2"), T["rparen"], T["enter"],
+            T["text"], T["4"], T["6"], T["comma"], T["3"], T["3"], T["comma"], *string_literal("3"), T["rparen"], T["enter"],
+            T["text"], T["3"], T["1"], T["comma"], T["5"], T["3"], T["comma"], *string_literal("4"), T["rparen"], T["enter"],
+            T["dispgraph"], T["enter"],
+        ],
+    ),
+    "subrt": (
+        'Disp "SUB"\nA+1->A\nReturn',
+        [
+            T["disp"], *string_literal("SUB"), T["enter"],
+            T["A"], T["add"], T["1"], T["store"], T["A"], T["enter"],
+            T["return"], T["enter"],
+        ],
+    ),
+    "callsub": (
+        "0->A\nprgmSUBRT\nDisp A",
+        [
+            T["0"], T["store"], T["A"], T["enter"],
+            T["prog"], T["S"], T["U"], T["B"], T["R"], T["T"], T["enter"],
+            T["disp"], T["A"], T["enter"],
+        ],
+    ),
+    "abisub": (
+        "Ans+L1(2)->A\n9->L1(3)\nA\nReturn",
+        [
+            T["ans"], T["add"], T["varlst"], 0x00, T["lparen"], T["2"], T["rparen"],
+            T["store"], T["A"], T["enter"],
+            T["9"], T["store"], T["varlst"], 0x00, T["lparen"], T["3"], T["rparen"], T["enter"],
+            T["A"], T["enter"],
+            T["return"], T["enter"],
+        ],
+    ),
+    "callabi": (
+        "{2,4,6}->L1\n7\nprgmABISUB\nDisp A\nDisp L1\nDisp Ans",
+        [
+            T["lbrace"], T["2"], T["comma"], T["4"], T["comma"], T["6"], T["rbrace"],
+            T["store"], T["varlst"], 0x00, T["enter"],
+            T["7"], T["enter"],
+            T["prog"], T["A"], T["B"], T["I"], T["S"], T["U"], T["B"], T["enter"],
+            T["disp"], T["A"], T["enter"],
+            T["disp"], T["varlst"], 0x00, T["enter"],
+            T["disp"], T["ans"], T["enter"],
+        ],
+    ),
+    "stopsub": (
+        'Disp "STOP"\nStop',
+        [
+            T["disp"], *string_literal("STOP"), T["enter"],
+            T["stop"], T["enter"],
+        ],
+    ),
+    "callstop": (
+        'Disp "BEFORE"\nprgmSTOPSUB\nDisp "AFTER"',
+        [
+            T["disp"], *string_literal("BEFORE"), T["enter"],
+            T["prog"], T["S"], T["T"], T["O"], T["P"], T["S"], T["U"], T["B"], T["enter"],
+            T["disp"], *string_literal("AFTER"), T["enter"],
+        ],
+    ),
+    "bigadd": (
+        "{5,4,3,2,1}->L1\n"
+        "{5,6,7,8,9}->L2\n"
+        "{0,0,0,0,0,0}->L3\n"
+        "0->C\n"
+        "For(I,1,5)\n"
+        "L1(I)+L2(I)+C->S\n"
+        "int(S/10)->C\n"
+        "S-10*C->L3(I)\n"
+        "End\n"
+        "C->L3(6)\n"
+        "Disp L3\n"
+        "Disp L3(6)",
+        [
+            T["lbrace"], T["5"], T["comma"], T["4"], T["comma"], T["3"], T["comma"],
+            T["2"], T["comma"], T["1"], T["rbrace"], T["store"], T["varlst"], 0x00, T["enter"],
+            T["lbrace"], T["5"], T["comma"], T["6"], T["comma"], T["7"], T["comma"],
+            T["8"], T["comma"], T["9"], T["rbrace"], T["store"], T["varlst"], 0x01, T["enter"],
+            T["lbrace"], T["0"], T["comma"], T["0"], T["comma"], T["0"], T["comma"],
+            T["0"], T["comma"], T["0"], T["comma"], T["0"], T["rbrace"], T["store"], T["varlst"], 0x02, T["enter"],
+            T["0"], T["store"], T["C"], T["enter"],
+            T["for"], T["I"], T["comma"], T["1"], T["comma"], T["5"], T["rparen"], T["enter"],
+            T["varlst"], 0x00, T["lparen"], T["I"], T["rparen"], T["add"],
+            T["varlst"], 0x01, T["lparen"], T["I"], T["rparen"], T["add"], T["C"], T["store"], T["S"], T["enter"],
+            T["int"], T["S"], T["div"], T["1"], T["0"], T["rparen"], T["store"], T["C"], T["enter"],
+            T["S"], T["sub"], T["1"], T["0"], T["mul"], T["C"], T["store"],
+            T["varlst"], 0x02, T["lparen"], T["I"], T["rparen"], T["enter"],
+            T["end"], T["enter"],
+            T["C"], T["store"], T["varlst"], 0x02, T["lparen"], T["6"], T["rparen"], T["enter"],
+            T["disp"], T["varlst"], 0x02, T["enter"],
+            T["disp"], T["varlst"], 0x02, T["lparen"], T["6"], T["rparen"], T["enter"],
+        ],
+    ),
+    "bigmul": (
+        "{3,2,1}->L1\n"
+        "{5,4}->L2\n"
+        "{0,0,0,0,0}->L3\n"
+        "For(I,1,3)\n"
+        "For(J,1,2)\n"
+        "L3(I+J-1)+L1(I)*L2(J)->S\n"
+        "int(S/10)->C\n"
+        "S-10*C->L3(I+J-1)\n"
+        "L3(I+J)+C->L3(I+J)\n"
+        "End\n"
+        "End\n"
+        "Disp L3\n"
+        "Disp L3(4)",
+        [
+            T["lbrace"], T["3"], T["comma"], T["2"], T["comma"], T["1"],
+            T["rbrace"], T["store"], T["varlst"], 0x00, T["enter"],
+            T["lbrace"], T["5"], T["comma"], T["4"],
+            T["rbrace"], T["store"], T["varlst"], 0x01, T["enter"],
+            T["lbrace"], T["0"], T["comma"], T["0"], T["comma"], T["0"], T["comma"],
+            T["0"], T["comma"], T["0"], T["rbrace"], T["store"], T["varlst"], 0x02, T["enter"],
+            T["for"], T["I"], T["comma"], T["1"], T["comma"], T["3"], T["rparen"], T["enter"],
+            T["for"], T["J"], T["comma"], T["1"], T["comma"], T["2"], T["rparen"], T["enter"],
+            T["varlst"], 0x02, T["lparen"], T["I"], T["add"], T["J"], T["sub"], T["1"], T["rparen"], T["add"],
+            T["varlst"], 0x00, T["lparen"], T["I"], T["rparen"], T["mul"],
+            T["varlst"], 0x01, T["lparen"], T["J"], T["rparen"], T["store"], T["S"], T["enter"],
+            T["int"], T["S"], T["div"], T["1"], T["0"], T["rparen"], T["store"], T["C"], T["enter"],
+            T["S"], T["sub"], T["1"], T["0"], T["mul"], T["C"], T["store"],
+            T["varlst"], 0x02, T["lparen"], T["I"], T["add"], T["J"], T["sub"], T["1"], T["rparen"], T["enter"],
+            T["varlst"], 0x02, T["lparen"], T["I"], T["add"], T["J"], T["rparen"], T["add"], T["C"], T["store"],
+            T["varlst"], 0x02, T["lparen"], T["I"], T["add"], T["J"], T["rparen"], T["enter"],
+            T["end"], T["enter"],
+            T["end"], T["enter"],
+            T["disp"], T["varlst"], 0x02, T["enter"],
+            T["disp"], T["varlst"], 0x02, T["lparen"], T["4"], T["rparen"], T["enter"],
+        ],
+    ),
+    "dfs": (
+        "{1,1,2}->L1\n"
+        "{2,3,4}->L2\n"
+        "{0,0,0,0}->L3\n"
+        "{1,0,0,0}->L4\n"
+        "1->P\n"
+        "While P\n"
+        "L4(P)->V\n"
+        "P-1->P\n"
+        "If L3(V)=0\n"
+        "Then\n"
+        "1->L3(V)\n"
+        "Disp V\n"
+        "For(E,1,3)\n"
+        "If L1(E)=V\n"
+        "Then\n"
+        "P+1->P\n"
+        "L2(E)->L4(P)\n"
+        "End\n"
+        "End\n"
+        "End\n"
+        "End\n"
+        "Disp L3",
+        [
+            T["lbrace"], T["1"], T["comma"], T["1"], T["comma"], T["2"], T["rbrace"], T["store"], T["varlst"], 0x00, T["enter"],
+            T["lbrace"], T["2"], T["comma"], T["3"], T["comma"], T["4"], T["rbrace"], T["store"], T["varlst"], 0x01, T["enter"],
+            T["lbrace"], T["0"], T["comma"], T["0"], T["comma"], T["0"], T["comma"], T["0"], T["rbrace"], T["store"], T["varlst"], 0x02, T["enter"],
+            T["lbrace"], T["1"], T["comma"], T["0"], T["comma"], T["0"], T["comma"], T["0"], T["rbrace"], T["store"], T["varlst"], 0x03, T["enter"],
+            T["1"], T["store"], T["P"], T["enter"],
+            T["while"], T["P"], T["enter"],
+            T["varlst"], 0x03, T["lparen"], T["P"], T["rparen"], T["store"], T["V"], T["enter"],
+            T["P"], T["sub"], T["1"], T["store"], T["P"], T["enter"],
+            T["if"], T["varlst"], 0x02, T["lparen"], T["V"], T["rparen"], T["eq"], T["0"], T["enter"],
+            T["then"], T["enter"],
+            T["1"], T["store"], T["varlst"], 0x02, T["lparen"], T["V"], T["rparen"], T["enter"],
+            T["disp"], T["V"], T["enter"],
+            T["for"], T["E"], T["comma"], T["1"], T["comma"], T["3"], T["rparen"], T["enter"],
+            T["if"], T["varlst"], 0x00, T["lparen"], T["E"], T["rparen"], T["eq"], T["V"], T["enter"],
+            T["then"], T["enter"],
+            T["P"], T["add"], T["1"], T["store"], T["P"], T["enter"],
+            T["varlst"], 0x01, T["lparen"], T["E"], T["rparen"], T["store"],
+            T["varlst"], 0x03, T["lparen"], T["P"], T["rparen"], T["enter"],
+            T["end"], T["enter"],
+            T["end"], T["enter"],
+            T["end"], T["enter"],
+            T["end"], T["enter"],
+            T["disp"], T["varlst"], 0x02, T["enter"],
+        ],
+    ),
+    "branchmatrix": (
+        'If 0\nThen\nDisp "DEAD\nIf 1\nThen\nDisp "INNER"\nElse\nDisp "ALT"\nEnd\n'
+        'While 0\nDisp "LOOP"\nEnd\nRepeat 1\nDisp "REPEAT"\nEnd\n'
+        'For(I,2,1)\nDisp "FOR"\nEnd\nIf 0\nDisp "ONE"\nElse\nAsm(prgmZPASS)\nDisp "BRANCH"\nEnd',
+        [
+            T["if"], T["0"], T["enter"],
+            T["then"], T["enter"],
+            T["disp"], T["string"], *letters("DEAD"), T["enter"],
+            T["if"], T["1"], T["enter"],
+            T["then"], T["enter"],
+            T["disp"], *string_literal("INNER"), T["enter"],
+            T["else"], T["enter"],
+            T["disp"], *string_literal("ALT"), T["enter"],
+            T["end"], T["enter"],
+            T["while"], T["0"], T["enter"],
+            T["disp"], *string_literal("LOOP"), T["enter"],
+            T["end"], T["enter"],
+            T["repeat"], T["1"], T["enter"],
+            T["disp"], *string_literal("REPEAT"), T["enter"],
+            T["end"], T["enter"],
+            T["for"], T["I"], T["comma"], T["2"], T["comma"], T["1"], T["rparen"], T["enter"],
+            T["disp"], *string_literal("FOR"), T["enter"],
+            T["end"], T["enter"],
+            T["if"], T["0"], T["enter"],
+            T["disp"], *string_literal("ONE"), T["enter"],
+            T["else"], T["enter"],
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["P"], T["A"], T["S"], T["S"], T["rparen"], T["enter"],
+            T["disp"], *string_literal("BRANCH"), T["enter"],
+            T["end"], T["enter"],
+        ],
+    ),
+    "forparen": (
+        "Asm(prgmZMARK)\nFor(I,1,25)\nIf 0\n1\nEnd\nAsm(prgmZMARK)\nIf I=26\nAsm(prgmZPASS)",
+        [
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["M"], T["A"], T["R"], T["K"], T["rparen"], T["enter"],
+            T["for"], T["I"], T["comma"], T["1"], T["comma"], T["2"], T["5"], T["rparen"], T["enter"],
+            T["if"], T["0"], T["enter"],
+            T["1"], T["enter"],
+            T["end"], T["enter"],
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["M"], T["A"], T["R"], T["K"], T["rparen"], T["enter"],
+            T["if"], T["I"], T["equal"], T["2"], T["6"], T["enter"],
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["P"], T["A"], T["S"], T["S"], T["rparen"], T["enter"],
+        ],
+    ),
+    "forimplicit": (
+        "Asm(prgmZMARK)\nFor(I,1,25\nIf 0\n1\nEnd\nAsm(prgmZMARK)\nIf I=26\nAsm(prgmZPASS)",
+        [
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["M"], T["A"], T["R"], T["K"], T["rparen"], T["enter"],
+            T["for"], T["I"], T["comma"], T["1"], T["comma"], T["2"], T["5"], T["enter"],
+            T["if"], T["0"], T["enter"],
+            T["1"], T["enter"],
+            T["end"], T["enter"],
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["M"], T["A"], T["R"], T["K"], T["rparen"], T["enter"],
+            T["if"], T["I"], T["equal"], T["2"], T["6"], T["enter"],
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["P"], T["A"], T["S"], T["S"], T["rparen"], T["enter"],
+        ],
+    ),
+    "zcflowlow": (
+        "AsmPrgm\n3E1FEF4051C9",
+        [T["2byte"], T["asmprgm"], T["enter"], *hex_literal("3E1FEF4051C9"), T["enter"]],
+    ),
+    "cflowlow": (
+        'Asm(prgmZCFLOWL)\nDisp "RETURN"',
+        [
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["C"], T["F"], T["L"], T["O"], T["W"], T["L"], T["rparen"], T["enter"],
+            T["disp"], *string_literal("RETURN"), T["enter"],
+        ],
+    ),
+    "zcflowhigh": (
+        "AsmPrgm\n3E2DEF4051C9",
+        [T["2byte"], T["asmprgm"], T["enter"], *hex_literal("3E2DEF4051C9"), T["enter"]],
+    ),
+    "cflowhigh": (
+        'Asm(prgmZCFLOWH)\nDisp "RETURN"',
+        [
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["C"], T["F"], T["L"], T["O"], T["W"], T["H"], T["rparen"], T["enter"],
+            T["disp"], *string_literal("RETURN"), T["enter"],
+        ],
+    ),
+    "zcflowvalid": (
+        "AsmPrgm\n3E20EF4051C9",
+        [T["2byte"], T["asmprgm"], T["enter"], *hex_literal("3E20EF4051C9"), T["enter"]],
+    ),
+    "cflowvalid": (
+        'Asm(prgmZCFLOWV)\nDisp "RETURN"',
+        [
+            T["2byte"], T["asm"], T["prog"], T["Z"], T["C"], T["F"], T["L"], T["O"], T["W"], T["V"], T["rparen"], T["enter"],
+            T["disp"], *string_literal("RETURN"), T["enter"],
+        ],
+    ),
+    "zcmdclose": asm_payload("F33E02D3060E1121A49DCD7656FBC9C9"),
+    "cmdclose": asm_wrapper("ZCMDCLOS"),
+    "zcmdopen": asm_payload("F33E02D3060E1021A49DCD7656FBC9C9"),
+    "cmdopen": asm_wrapper("ZCMDOPEN"),
+    "zcmdunit": asm_payload("F33E02D3060E0121A49DCD7656FBC9C9"),
+    "cmdunit": asm_wrapper("ZCMDUNIT"),
+    "zcmdbad": asm_payload("F33E02D3060E0021A99DCD76560E02CD7656FBC9C9"),
+    "cmdbad": asm_wrapper("ZCMDBAD"),
+    "missingend": (
+        'If 0\nThen\nDisp "DEAD"',
+        [
+            T["if"], T["0"], T["enter"],
+            T["then"], T["enter"],
+            T["disp"], *string_literal("DEAD"), T["enter"],
+        ],
+    ),
+    "terminalif": (
+        "If 0\nThen\nIf 1",
+        [
+            T["if"], T["0"], T["enter"],
+            T["then"], T["enter"],
+            T["if"], T["1"], T["enter"],
+        ],
+    ),
+    "syntaxerr": (
+        "Disp 1+",
+        [T["disp"], T["1"], T["add"], T["enter"]],
+    ),
+    "divzero": (
+        "Disp 1/0",
+        [T["disp"], T["1"], T["div"], T["0"], T["enter"]],
+    ),
+    "overflow": (
+        "Disp 10^100",
+        [
+            T["disp"], T["1"], T["0"], T["power"],
+            T["1"], T["0"], T["0"], T["enter"],
+        ],
+    ),
+    "lndomain": (
+        "Disp ln(0)",
+        [T["disp"], T["ln"], T["0"], T["rparen"], T["enter"]],
+    ),
+    "muloverflow": (
+        "Disp 1E99*1E99",
+        [
+            T["disp"], T["1"], T["ee"], T["9"], T["9"], T["mul"],
+            T["1"], T["ee"], T["9"], T["9"], T["enter"],
+        ],
+    ),
+    "increment": (
+        "For(I,1,3,0)\nEnd",
+        [
+            T["for"], T["I"], T["comma"], T["1"], T["comma"], T["3"],
+            T["comma"], T["0"], T["rparen"], T["enter"],
+            T["end"], T["enter"],
+        ],
+    ),
+    "asindomain": (
+        "Disp sin^-1(2)",
+        [T["disp"], T["asin"], T["2"], T["rparen"], T["enter"]],
+    ),
+    "sqrtnonreal": (
+        "Disp sqrt(-1)",
+        [
+            T["disp"], T["sqrt"], T["neg"], T["1"], T["rparen"],
+            T["enter"],
+        ],
+    ),
+    "singular": (
+        "Disp [[1,2][2,4]]^-1",
+        [
+            T["disp"], T["lbracket"],
+            T["lbracket"], T["1"], T["comma"], T["2"], T["rbracket"],
+            T["lbracket"], T["2"], T["comma"], T["4"], T["rbracket"],
+            T["rbracket"], T["recip"], T["enter"],
+        ],
+    ),
+    "lateincrement": (
+        "For(I,1E99,1E99)\nEnd",
+        [
+            T["for"], T["I"], T["comma"], T["1"], T["ee"], T["9"],
+            T["9"], T["comma"], T["1"], T["ee"], T["9"], T["9"],
+            T["rparen"], T["enter"], T["end"], T["enter"],
+        ],
+    ),
+    "acosdomain": (
+        "Disp cos^-1(2)",
+        [T["disp"], T["acos"], T["2"], T["rparen"], T["enter"]],
+    ),
+    "negfactdomain": (
+        "Disp (-1)!",
+        [
+            T["disp"], T["lparen"], T["neg"], T["1"], T["rparen"],
+            T["fact"], T["enter"],
+        ],
+    ),
+    "ncrdomain": (
+        "Disp (-1) nCr 1",
+        [
+            T["disp"], T["lparen"], T["neg"], T["1"], T["rparen"],
+            T["ncr"], T["1"], T["enter"],
+        ],
+    ),
+    "zpass": asm_payload("3EA5324093C9"),
+    "zgramlow": asm_payload("F33E38D3063EF1CDBA6FFBC9"),
+    "gramlow": asm_wrapper("ZGRAMLOW"),
+    "zgramhigh": asm_payload("F33E38D3063EF2CDBA6FFBC9"),
+    "gramhigh": asm_wrapper("ZGRAMHI"),
+    "zgramflag": asm_payload("F33E38D306FDCB36CE3E000E02CD1070FBC9"),
+    "gramflag": asm_wrapper("ZGRAMFLG"),
+    "zgramnonzero": asm_payload("F33E38D3063E01B7CD3270FBC9"),
+    "gramnonzero": asm_wrapper("ZGRAMNZ"),
+}
+
+PROGRAM_NAMES = {
+    "hello": "HELLO",
+    "factorial": "FACTOR",
+    "data": "DATA",
+    "gcflash": "GCFLASH",
+    "asmret": "ASMRET",
+    "zmark": "ZMARK",
+    "md5test": "MD5TEST",
+    "asmmd5": "ASMMD5",
+    "asmcall": "ASMCALL",
+    "asmsig": "ASMSIG",
+    "asmbridge": "ASMBRIDG",
+    "asmval": "ASMVAL",
+    "asmreturn": "ASMRTN",
+    "zzbasic": "ZZBASIC",
+    "zzfind": "ZZFIND",
+    "asmfind": "ASMFIND",
+    "zzparse": "ZZPARSE",
+    "asmparse": "ASMPARSE",
+    "zzformula": "ZZFORM",
+    "asmformula": "ASMFORM",
+    "ootarget": "OO",
+    "zzrun": "ZZRUN",
+    "zzrunwr": "ZZRUNWR",
+    "animtext": "ANIMTXT",
+    "graphviz": "GRAPHV",
+    "graphdfs": "GRAPHDFS",
+    "graphlist": "GRAPHLST",
+    "subrt": "SUBRT",
+    "callsub": "CALLSUB",
+    "abisub": "ABISUB",
+    "callabi": "ABICALL",
+    "stopsub": "STOPSUB",
+    "callstop": "CALLSTOP",
+    "bigadd": "BIGADD",
+    "bigmul": "BIGMUL",
+    "dfs": "DFS",
+    "branchmatrix": "BRANCHES",
+    "forparen": "FORPAREN",
+    "forimplicit": "FORIMPL",
+    "zcflowlow": "ZCFLOWL",
+    "cflowlow": "CFLOWLO",
+    "zcflowhigh": "ZCFLOWH",
+    "cflowhigh": "CFLOWHI",
+    "zcflowvalid": "ZCFLOWV",
+    "cflowvalid": "CFLOWOK",
+    "zcmdclose": "ZCMDCLOS",
+    "cmdclose": "CMDCLOS",
+    "zcmdopen": "ZCMDOPEN",
+    "cmdopen": "CMDOPEN",
+    "zcmdunit": "ZCMDUNIT",
+    "cmdunit": "CMDUNIT",
+    "zcmdbad": "ZCMDBAD",
+    "cmdbad": "CMDBAD",
+    "missingend": "MISSEND",
+    "terminalif": "TERMIF",
+    "syntaxerr": "SYNERR",
+    "divzero": "DIVZERO",
+    "overflow": "OVRFLOW",
+    "lndomain": "LNDOM",
+    "muloverflow": "MULOVR",
+    "increment": "INCERR",
+    "asindomain": "ASINDOM",
+    "sqrtnonreal": "SQRTNEG",
+    "singular": "SINGULAR",
+    "lateincrement": "LATEINC",
+    "acosdomain": "ACOSDOM",
+    "negfactdomain": "NEGFACT",
+    "ncrdomain": "NCRDOM",
+    "zpass": "ZPASS",
+    "zgramlow": "ZGRAMLOW",
+    "gramlow": "GRAMLOW",
+    "zgramhigh": "ZGRAMHI",
+    "gramhigh": "GRAMHIGH",
+    "zgramflag": "ZGRAMFLG",
+    "gramflag": "GRAMFLAG",
+    "zgramnonzero": "ZGRAMNZ",
+    "gramnonzero": "GRAMNZ",
+}
+
+
+def hex_bytes(data: list[int]) -> str:
+    return " ".join(f"{b:02X}" for b in data)
+
+
+def ti83p_program_file(name: str, body: list[int]) -> bytes:
+    """Return a TI-83+/84+ .8xp file for a tokenized program body."""
+    return encode_program_file(
+        name,
+        body,
+        comment="Codex TI-BASIC trace sample",
+    )
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--write-dir",
+        type=Path,
+        help="write NAME.bas, NAME.tok, and TI-OS program NAME.8xp files",
+    )
+    args = parser.parse_args()
+
+    for name, (source, body) in SAMPLES.items():
+        print(f"{name} / prgm{PROGRAM_NAMES[name]}: {len(body)} bytes")
+        print(source)
+        print(hex_bytes(body))
+        print()
+
+    if args.write_dir:
+        args.write_dir.mkdir(parents=True, exist_ok=True)
+        for name, (source, body) in SAMPLES.items():
+            (args.write_dir / f"{name}.bas").write_text(source + "\n", encoding="ascii")
+            (args.write_dir / f"{name}.tok").write_text(hex_bytes(body) + "\n", encoding="ascii")
+            (args.write_dir / f"{PROGRAM_NAMES[name]}.8xp").write_bytes(
+                ti83p_program_file(PROGRAM_NAMES[name], body)
+            )
+
+
+if __name__ == "__main__":
+    main()

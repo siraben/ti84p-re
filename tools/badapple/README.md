@@ -31,7 +31,7 @@ out (0x00),a
 
 The port-`0x00` value over time is the link-port drive state. Channel 4 is
 randomized (`ld a,r`), so short raw captures can be dominated by noise.
-`ti84_music.py` decodes the upstream `.mmp` tracker file with the same
+`ti84re.badapple.music` decodes the upstream `.mmp` tracker file with the same
 note-count conversion as `util/audio.py`, imports standard MIDI files, writes
 the four `track*.asm` files the application includes, and synthesizes all four
 interrupt-rate voices. The default `tracker` profile is the listening render.
@@ -46,7 +46,7 @@ constant is a software assumption, not the rate selected by the timer-register
 values. The distinction is detailed under [Sound ISR rate](#sound-isr-rate).
 [confirmed]
 
-`extract_linkport_audio.py` remains a dynamic trace tool. It replays every
+`ti84re.badapple.extract_linkport_audio` remains a dynamic trace tool. It replays every
 `OUT (0x00),A` in the trace, holds each level until the next write (zero-order
 hold), and resamples to 44.1 kHz. Use it to verify that the ROM writes the link
 port, not as the primary music decoder. [standard]
@@ -57,7 +57,7 @@ The full app is a 58-page signed Flash application that needs an SE-class
 (2 MiB) calculator. On a 1 MiB TI-84 Plus, the OS-only image has 43 erased
 pages (`0x08`–`0x32`)—
 enough for the first ~2.5 min of the dynamic run. The app is relocatable
-(`in a,(0x06)` at entry), so `badapple_inject.py` writes its pages starting at
+(`in a,(0x06)` at entry), so `ti84re.badapple.inject` writes its pages starting at
 Flash page `0x08`.
 
 Headless TilEm has no link/file transfer, and the OS app-loader path (page 0x3D)
@@ -142,7 +142,7 @@ display output or timer cadence. [standard]
 
 ## Files
 
-- [`../badapple_inject.py`](../badapple_inject.py) — inject app + launch hook + open protection.
-- [`../ti84_music.py`](../ti84_music.py) — `.mmp`/MIDI/JSON music → track ASM and WAV.
-- [`../extract_linkport_audio.py`](../extract_linkport_audio.py) — trace → debug link-port WAV.
+- [`ti84re/badapple/inject.py`](../ti84re/badapple/inject.py) — inject app + launch hook + open protection.
+- [`ti84re/badapple/music.py`](../ti84re/badapple/music.py) — `.mmp`/MIDI/JSON music → track ASM and WAV.
+- [`ti84re/badapple/extract_linkport_audio.py`](../ti84re/badapple/extract_linkport_audio.py) — trace → debug link-port WAV.
 - [`build_and_capture.sh`](build_and_capture.sh) — the full pipeline.

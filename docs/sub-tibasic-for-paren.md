@@ -120,10 +120,10 @@ that selects reuse versus `0x0E`-byte growth remains [hypothesis].
 Generate the programs, run both cases, and retain their traces:
 
 ```sh
-tools/tibasic_samples.py --write-dir tools/tibasic-samples
+python3 -m ti84re.tibasic.samples --write-dir tools/tibasic-samples
 
 TILEM=/path/to/patched/tilem2
-python3 tools/tibasic_smoke.py \
+python3 -m ti84re.tibasic.smoke \
   --tilem "$TILEM" --rom tools/rom.bin \
   --out-dir /tmp/tibasic-for-paren --keep-trace \
   --case forparen --case forimplicit
@@ -132,13 +132,13 @@ python3 tools/tibasic_smoke.py \
 Reduce the traces to the checked compact report:
 
 ```sh
-PYTHONPATH=tools python3 tools/analyze_tibasic_for_paren.py \
+PYTHONPATH=tools python3 -m ti84re.tibasic.analyze_for_paren \
   --explicit /tmp/tibasic-for-paren/forparen.trace \
   --implicit /tmp/tibasic-for-paren/forimplicit.trace \
-  --output tools/tibasic-for-paren.json
+  --output tools/oracles/tibasic/tibasic-for-paren.json
 ```
 
-`tools/tibasic-for-paren.json` stores the hashes, marker intervals, pointer-write
+`tools/oracles/tibasic/tibasic-for-paren.json` stores the hashes, marker intervals, pointer-write
 counts, high-state sequence, `FPS` summary, and decoded OPS record variants.
 The smoke check reads the completion marker from a logical-RAM dump. Raw traces
 remain outside the repository.

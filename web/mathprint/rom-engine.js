@@ -4764,7 +4764,7 @@
   // It selects a pointer table from D, transforms/clamps index E, and reads a
   // pointer to one metadata byte followed by a counted display-code string.
   // The proprietary ROM is absent from the web build, so
-  // export-token-strings.py commits those immutable decoded tables.
+  // tools/ti84re/mathprint/export_token_strings.py commits those immutable decoded tables.
   // Translate the complete D:E selector at 01:6702–6781. This raw ABI maps
   // every lead byte, including values that _IsA2ByteTok never emits. It stops
   // before the pointer read at 01:6782 so out-of-table indices remain visible

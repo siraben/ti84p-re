@@ -51,7 +51,7 @@ data. Those bytes occupy the final two bytes of the execution allocation.
 [confirmed] A boundary fixture should place guard bytes after the variable to
 record their exact values at `ram:BD93` and `ram:BD94`.
 
-The builders and TilEm runner in `tools/launch-fixtures/` exercise the three
+The builders and TilEm runner in `tools/probes/launch-fixtures/` exercise the three
 adjacent boundary sizes. Each accepted trace reaches `_ExecutePrgm`, the limit
 test, the `_InsertMem` call site, the payload handoff, and `ram:9D95`. The
 rejected trace reaches the `E_Invalid` shim at `ram:2729` before insertion.
@@ -151,7 +151,7 @@ uses six more stack bytes than payload entry, but does not change the measured
 heap pointers or `_MemChk`. [confirmed]
 
 The fixture, decoder, analyzer, capture recipe, and compact provenance rows are
-under `tools/launch-probes/` and `tools/data/resident-launch-snapshot.csv`.
+under `tools/probes/launch/` and `tools/data/resident-launch-snapshot.csv`.
 These observations do not establish an entry ABI or cover `_ExecAsm`, an
 archived launcher path, shell launchers, other OS releases, or hardware.
 [confirmed]
@@ -248,7 +248,7 @@ the observed boundary.
 
 ## Resident allocation trace
 
-The fixture under `tools/allocation-probes/` calls `_EnoughMem`,
+The fixture under `tools/probes/allocation/` calls `_EnoughMem`,
 `_CreateAppVar`, `_DelVar`, `_CreateProg`, `_InsertMem`, and `_DelMem` from a
 compiled program at `ram:9D95`. Its trace replays RAM writes at ten timed
 checkpoints. [confirmed]

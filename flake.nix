@@ -48,35 +48,36 @@
             pkgs.chromium pkgs.nodejs pkgs.z3 z80dasm
           ];
           buildPhase = ''
+            export PYTHONPATH=$PWD/tools
             mdbook-mermaid install .       # generate mermaid.min.js + mermaid-init.js
             ${setupAssets}                  # vendor KaTeX (css/js/fonts)
             mdbook build --dest-dir $out
             cp -r web/mathprint $out/mathprint   # standalone renderer, outside the book
             cp -r web/graphing $out/graphing     # standalone graph pipeline demo
-            python3 tools/cachebust-mathprint.py $out/mathprint
-            python3 tools/check-mdbook-output.py $out
-            python3 tools/check-katex-output.py $out
-            python3 tools/check-wiki-rendering.py docs $out
-            node tools/test-mathprint.js
-            python3 tools/test_trace_lcd.py
-            python3 tools/test_mathprint_extractors.py
-            python3 tools/test_mathprint_draw_trace.py
-            python3 tools/test_analyze_mathprint_records.py
-            python3 tools/test_mathprint_saturation.py
-            PYTHONPATH=tools python3 tools/test_analyze_retail_boot.py
-            PYTHONPATH=tools python3 tools/test_bcall_tables.py
-            node tools/test-graph-coordinate.js
-            node tools/test-graphing-demo.js
-            python3 tools/test_analyze_graph_regraph.py
-            PYTHONPATH=tools python3 tools/test_graph_circle.py
-            PYTHONPATH=tools python3 tools/test_fixture_tools.py
-            python3 tools/test_wiki_style.py
-            python3 tools/test_symbol_tables.py
-            PYTHONPATH=tools python3 -m unittest \
-              tools.test_tibasic_coverage tools.test_tibasic_for_paren \
-              tools.test_tibasic_saturation tools.test_tibasic_numeric_errors \
-              tools.test_rom_provenance tools.test_compare_boot_pages \
-              tools.test_database_health_report
+            python3 -m ti84re.wiki.cachebust_mathprint $out/mathprint
+            python3 -m ti84re.wiki.check_mdbook_output $out
+            python3 -m ti84re.wiki.check_katex_output $out
+            python3 -m ti84re.wiki.check_rendering docs $out
+            node tools/js/test-mathprint.js
+            python3 -m tests.trace.test_trace_lcd
+            python3 -m tests.mathprint.test_mathprint_extractors
+            python3 -m tests.mathprint.test_mathprint_draw_trace
+            python3 -m tests.mathprint.test_analyze_mathprint_records
+            python3 -m tests.mathprint.test_mathprint_saturation
+            python3 -m tests.boot.test_analyze_retail_boot
+            python3 -m tests.rom.test_bcall_tables
+            node tools/js/test-graph-coordinate.js
+            node tools/js/test-graphing-demo.js
+            python3 -m tests.graphing.test_analyze_graph_regraph
+            python3 -m tests.graphing.test_graph_circle
+            python3 -m tests.tifiles.test_fixture_tools
+            python3 -m tests.wiki.test_wiki_style
+            python3 -m tests.rom.test_symbol_tables
+            python3 -m unittest \
+              tests.tibasic.test_tibasic_coverage tests.tibasic.test_tibasic_for_paren \
+              tests.tibasic.test_tibasic_saturation tests.tibasic.test_tibasic_numeric_errors \
+              tests.rom.test_rom_provenance tests.boot.test_compare_boot_pages \
+              tests.rom.test_database_health_report
           '';
           dontInstall = true;
           dontFixup = true;
@@ -109,6 +110,7 @@
           # In the dev shell, run:  setup-wiki-assets   (vendors KaTeX before `mdbook serve`)
           shellHook = ''
             export KATEX_DIR=${katexDir}
+            export PYTHONPATH=$PWD/tools''${PYTHONPATH:+:$PYTHONPATH}
             alias setup-wiki-assets='bash tools/setup-wiki-assets.sh'
           '';
         };

@@ -84,7 +84,7 @@ instructions from their preceding literal loads and `DEC C`. No other raw pair
 is an I/O instruction, so this ROM has no hidden computed-`C` access to an
 unlisted, status, GPIO, or USB port. [confirmed]
 
-`tools/rom_io_coverage.py` contains the reusable scanner and review manifest.
+`tools/ti84re/rom/io_coverage.py` contains the reusable scanner and review manifest.
 The manifest pins retail ROM SHA-256
 `7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d`.
 The CLI fails on a different ROM, a missing or duplicate review, a stale
@@ -92,9 +92,9 @@ location, or changed instruction bytes. `--trace` uses the constant-memory
 point counter instead of constructing an object for every instruction:
 
 ```sh
-nix develop -c python tools/describe_rom_io_coverage.py
-nix develop -c python tools/describe_rom_io_coverage.py --json
-nix develop -c python tools/describe_rom_io_coverage.py \
+nix develop -c python3 -m ti84re.rom.describe_io_coverage
+nix develop -c python3 -m ti84re.rom.describe_io_coverage --json
+nix develop -c python3 -m ti84re.rom.describe_io_coverage \
   --trace /tmp/trace-benchmark.tlmt
 ```
 
@@ -541,60 +541,60 @@ physical ASIC measurements.
 
 ## Reusable analysis tools
 
-`tools/asic_control.py` decodes port-`0x02` values, generic immediate-port
+`tools/ti84re/hardware/asic_control.py` decodes port-`0x02` values, generic immediate-port
 consumers and raw-opcode coverage, the public port-`0x15` table, port-`0x21`
 modes, TilEm's battery selector, and adjacent GPIO read-modify-write sequences.
 Its raw audit distinguishes aligned instructions, operand overlaps, reviewed
-data, and unclassified pairs. `tools/describe_asic_control.py` exposes those
-operations as text or JSON. `tools/wabbitemu_asic_probe.py` validates
+data, and unclassified pairs. `tools/ti84re/hardware/describe_asic_control.py` exposes those
+operations as text or JSON. `tools/ti84re/emulators/wabbitemu/asic_probe.py` validates
 native results against the reusable source model.
-`tools/rom_io_coverage.py` and `tools/describe_rom_io_coverage.py` separately
+`tools/ti84re/rom/io_coverage.py` and `tools/ti84re/rom/describe_io_coverage.py` separately
 reconcile every direct candidate for ports absent from the project port map.
-`tools/run_wabbitemu_asic_edge_probe.py`
+`tools/ti84re/emulators/wabbitemu/run_asic_edge_probe.py`
 guards the exact ROM and native binary identities and writes a JSON manifest.
-`tools/wabbitemu_protection_port_probe.py` applies the adjacent boundary-port
-model from `tools/execution_protection.py`; its guarded CLI records the same
-two identities. `tools/mame_asic.py` combines the ASIC and bus-timing profiles
-with a typed native report. `tools/run_mame_asic_probe.py` guards the MAME,
+`tools/ti84re/emulators/wabbitemu/protection_port_probe.py` applies the adjacent boundary-port
+model from `tools/ti84re/hardware/execution_protection.py`; its guarded CLI records the same
+two identities. `tools/ti84re/emulators/mame/asic.py` combines the ASIC and bus-timing profiles
+with a typed native report. `tools/ti84re/emulators/mame/run_asic_probe.py` guards the MAME,
 ROM, and Lua identities and retains the soft-reset output.
-`tools/battery_hardware.py` formalizes the ROM result tree and threshold
-regions. `tools/describe_battery_hardware.py` exposes voltage and raw-sample
-queries as text or JSON. `tools/tilem_battery.py` validates a typed native
+`tools/ti84re/hardware/battery.py` formalizes the ROM result tree and threshold
+regions. `tools/ti84re/hardware/describe_battery.py` exposes voltage and raw-sample
+queries as text or JSON. `tools/ti84re/emulators/tilem/battery.py` validates a typed native
 comparator sweep against the same model.
 [confirmed] for the ROM-analysis tools; [standard] for the emulator oracle.
 
 ```sh
-nix develop -c python tools/describe_asic_control.py
-nix develop -c python tools/describe_asic_control.py --status 0xE7 --port21 0x20
-nix develop -c python tools/describe_asic_control.py --implementations --json
-nix develop -c python tools/describe_asic_control.py \
+nix develop -c python3 -m ti84re.hardware.describe_asic_control
+nix develop -c python3 -m ti84re.hardware.describe_asic_control --status 0xE7 --port21 0x20
+nix develop -c python3 -m ti84re.hardware.describe_asic_control --implementations --json
+nix develop -c python3 -m ti84re.hardware.describe_asic_control \
   --scan-status-consumers --json
-nix develop -c python tools/describe_asic_control.py \
+nix develop -c python3 -m ti84re.hardware.describe_asic_control \
   --scan-port21-consumers --scan-gpio --json
-nix develop -c python tools/describe_asic_control.py \
+nix develop -c python3 -m ti84re.hardware.describe_asic_control \
   --audit-port 0x21 --audit-port 0x39 --audit-port 0x3A
-nix develop -c python tools/analyze_rom_io.py \
+nix develop -c python3 -m ti84re.rom.analyze_io \
   0x02 0x15 0x21 0x39 0x3A --summary
-nix develop -c python tools/disassemble_rom.py 0x33 \
+nix develop -c python3 -m ti84re.rom.disassemble 0x33 \
   --start 0x4E9B --end 0x4F02
-nix develop -c python tools/describe_battery_hardware.py --json
-nix develop -c python tools/describe_battery_hardware.py --voltage 3.6
-nix develop -c python tools/describe_battery_hardware.py --samples 1010
+nix develop -c python3 -m ti84re.hardware.describe_battery --json
+nix develop -c python3 -m ti84re.hardware.describe_battery --voltage 3.6
+nix develop -c python3 -m ti84re.hardware.describe_battery --samples 1010
 
 asic_probe_parent=$(mktemp -d /tmp/ti84-asic-probe.XXXXXX)
-nix develop -c python tools/run_wabbitemu_asic_edge_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_asic_edge_probe \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$asic_probe_parent/run" --json
 
 protected_port_parent=$(mktemp -d /tmp/ti84-protected-port.XXXXXX)
-nix develop -c python tools/run_wabbitemu_protection_port_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_protection_port_probe \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$protected_port_parent/run" --json
 
 mame_asic_parent=$(mktemp -d /tmp/ti84-mame-asic.XXXXXX)
-nix shell nixpkgs#mame --command python tools/run_mame_asic_probe.py \
+nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_asic_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_asic_parent/run" --json

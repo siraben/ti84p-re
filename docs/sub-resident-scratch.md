@@ -12,7 +12,7 @@ The measurements are in `tools/data/scratch-ram-observations.csv` and
 Regenerate a row set from a full-range TilEm trace with:
 
 ```sh
-nix develop --command python3 tools/analyze_scratch_trace.py TRACE \
+nix develop --command python3 -m ti84re.trace.analyze_scratch TRACE \
   --initial-port-5 0 --initial-port-7 0x81 \
   --scenario NAME --model ti84p --os-version 2.55MP --format csv
 ```
@@ -176,8 +176,8 @@ this emulator result; the trace does not independently identify every ROM page.
 [confirmed]
 
 Build the TI-BASIC `Asm(prgmSCRPROBE)` wrapper with
-`tools/build_scratch_probe_wrapper.py`; then assemble
-`tools/fixtures/scratch_guard_probe.asm` and run
+`tools/ti84re/tibasic/build_scratch_probe_wrapper.py`; then assemble
+`tools/probes/scratch-guard/scratch_guard_probe.asm` and run
 `tools/macros/scratch-guard-probe.macro`. The full trace executes 14,736
 instructions in the payload range, including the 767- and 530-byte fill
 `LDIR`s and the complete 768- and 531-byte comparison loops. The fixture halts
@@ -355,7 +355,7 @@ hardware; doing so keeps the helper transparent and portable to related models.
 
 | Source | Use here |
 |--------|----------|
-| OS 2.55MP ROM and `tools/analyze_scratch_trace.py` | ROM ownership and trace write attribution |
+| OS 2.55MP ROM and `tools/ti84re/trace/analyze_scratch.py` | ROM ownership and trace write attribution |
 | `tools/data/scratch-ram-observations.csv` | launch scenarios, selector assumptions, and write counts |
 | `tools/data/scratch-guard-results.csv` | guard trace identity, shell-owned ranges, and evidence limits |
 | [TI-83 Plus Developer Guide](https://education.ti.com/download/en/ed-tech/830D08FF31804AEAA2F03B8F5E89AD14/672891A1E98349CAB91C11B4928C253C/sdk83pguide.pdf) | documented `saveSScreen`, `statVars`, `_DisableApd`, and `_DelRes` conditions |

@@ -607,23 +607,23 @@ path. It does not emulate any boundary or violation response. [standard]
 MAME therefore cannot test any boundary or violation described on this page.
 The driver is marked `MACHINE_NOT_WORKING`, so this omission is a driver limit,
 not evidence that the physical ASIC lacks execution protection. See
-[Flash memory](flash-memory.md#mame-behavior-and-limits) for the resulting
+[Flash emulator comparison](flash-emulator-comparison.md#mame-behavior-and-limits) for the resulting
 Flash-command behavior. [standard]
 
 ## Reproducing the models
 
-`tools/execution_protection.py` contains side-effect-free predicates and RAM
+`tools/ti84re/hardware/execution_protection.py` contains side-effect-free predicates and RAM
 coverage enumeration. The focused CLI prints both emulator results:
 
 ```console
-$ python tools/describe_execution_protection.py flash
+$ python3 -m ti84re.hardware.describe_execution_protection flash
 Flash bounds 0x08-0x29
 page 0x07: TilEm=allow Wabbitemu=allow
 page 0x08: TilEm=deny Wabbitemu=allow
 ```
 
 ```console
-$ python tools/describe_execution_protection.py ram --compare-wabbitemu
+$ python3 -m ti84re.hardware.describe_execution_protection ram --compare-wabbitemu
 RAM chunks 0x10-0x20
 mode 0 TilEm-mask=0x7C00
   page 0x80: TilEm=- Wabbitemu=-
@@ -640,19 +640,19 @@ TilEm predicate:
 
 ```sh
 probe_parent=$(mktemp -d)
-nix develop -c python tools/run_execution_protection_probe.py \
+nix develop -c python3 -m ti84re.hardware.run_execution_protection_probe \
   --tilem "$TILEM" --output-dir "$probe_parent/run" --json
 ```
 
-`tools/execution_protection_fixture.py` holds the exact-ROM patching,
+`tools/ti84re/hardware/execution_protection_fixture.py` holds the exact-ROM patching,
 machine-code validation, reusable assembler entry point, packaging, and trace
 classifier. The CLI retains each derived ROM, program pair, log, trace, and a
 hash-complete `manifest.json` in the requested directory.
 
 The direct reset probe supplies the missing single-opcode control. Its build
 and run commands are under “Reset and execution exception” in the repository's
-`tools/dynamic-tracing.md`. The shared `tools/tilem_core.py` library validates
-the source tree and runs the binary. `tools/tilem_reset.py` parses the native
+`tools/notes/emulator-probes.md`. The shared `tools/ti84re/emulators/tilem/core.py` library validates
+the source tree and runs the binary. `tools/ti84re/emulators/tilem/reset.py` parses the native
 report and checks the reset and retention vectors against the source model.
 
 The Wabbitemu CLI uses the same fixture library and adds page `09` to
@@ -660,7 +660,7 @@ distinguish the two lower-edge predicates:
 
 ```sh
 wabbit_probe_parent=$(mktemp -d)
-nix develop -c python tools/run_wabbitemu_execution_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_execution_probe \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$wabbit_probe_parent/run" --json
 ```
@@ -674,11 +674,11 @@ Their defaults cover the cross-emulator disagreements and all Wabbitemu modes:
 
 ```sh
 tilem_ram_parent=$(mktemp -d)
-nix develop -c python tools/run_tilem_ram_execution_probe.py \
+nix develop -c python3 -m ti84re.emulators.tilem.run_ram_execution_probe \
   --tilem "$TILEM" --output-dir "$tilem_ram_parent/run" --json
 
 wabbit_ram_parent=$(mktemp -d)
-nix develop -c python tools/run_wabbitemu_ram_execution_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_ram_execution_probe \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$wabbit_ram_parent/run" --json
 ```
@@ -688,14 +688,14 @@ values. The `0x40` wrap case is reproducible with:
 
 ```sh
 wrap_parent=$(mktemp -d)
-nix develop -c python tools/run_wabbitemu_ram_execution_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_ram_execution_probe \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$wrap_parent/run" \
   --lower-chunk 0x40 --upper-chunk 0x40 \
   --target 0:0:0 --target 0:2:0 --json
 
 protected_port_parent=$(mktemp -d /tmp/ti84-protected-port.XXXXXX)
-nix develop -c python tools/run_wabbitemu_protection_port_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_protection_port_probe \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$protected_port_parent/run" --json
@@ -704,8 +704,8 @@ nix develop -c python tools/run_wabbitemu_protection_port_probe.py \
 The boot bytes can be recovered independently:
 
 ```console
-$ python tools/disassemble_rom.py 0x3f --start 0x41d5 --end 0x4206
-$ python tools/analyze_rom_io.py 0x21 0x22 0x23 0x24 0x25 0x26 --summary
+$ python3 -m ti84re.rom.disassemble 0x3f --start 0x41d5 --end 0x4206
+$ python3 -m ti84re.rom.analyze_io 0x21 0x22 0x23 0x24 0x25 0x26 --summary
 ```
 
 ## Flash write-disable bcall [confirmed]

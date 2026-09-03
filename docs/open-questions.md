@@ -94,7 +94,7 @@ Once it does, `39:5167`, its callees `39:5949`/`39:5B10`/`39:5B1D`, and the
 saved-operand dispatch through `39:59E0`/`39:59F9` to `_FindAlphaUp`/
 `_FindAlphaDn` become traceable; arbitrary VAT sequences and the two extension
 bytes in the page-`07` 11-byte OP scratch registers also remain open. See
-[Equation display](sub-equation-display.md#from-live-editor-state-to-settled-drawing).
+[Equation display](sub-mathprint-editor.md#from-live-editor-state-to-settled-drawing).
 
 ### Matrix and list paths
 

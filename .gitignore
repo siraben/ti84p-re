@@ -17,7 +17,7 @@ tools/roms/
 !flake.lock
 *.ghidra
 
-# offline WikiTI dump (regenerate via tools/dump-wikiti.py)
+# offline WikiTI dump (regenerate via python3 -m ti84re.wiki.dump_wikiti)
 /wikiti-dump/
 
 # generated mdBook HTML output
