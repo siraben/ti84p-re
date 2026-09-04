@@ -150,6 +150,9 @@ interrupts_restored:
     ld hl,frame
     ld bc,frame_end-frame
     call create_probe_appvar
+    ld bc,frame_end-frame
+    ld hl,display_label
+    call display_created_probe_code
     ret
 
 ; Every timed loop has 12,288 iterations. DEC BC, LD A,B, OR C, and JR NZ
@@ -281,6 +284,10 @@ store_measurement:
     ld a,(payload_pre_port2e)
     out ($2E),a
     ret
+
+display_label:
+    .db "HWPFX CODE ",0
+#include "display.inc"
 
 appvar_name:
     .db AppVarObj,"HWPFX001"

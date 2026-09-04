@@ -18,6 +18,7 @@ from ti84re.hardware.probe import (
     decode_probe_appvar,
     decode_probe_frame,
     decode_probe_measurements,
+    probe_verification_code,
     decode_ti_variable_file,
     encode_probe_appvar,
     encode_ti_variable_file,
@@ -374,6 +375,36 @@ class HardwareProbeTests(unittest.TestCase):
         self.assertEqual("measurement-timeout", report["outcome"])
         self.assertIsNone(report["measurements"])
 
+    def test_rtc_rollover_probe_decodes_coherent_transition(self):
+        frame = ProbeFrame(
+            probe_id=13,
+            asic_id=0x55,
+            status=0xE3,
+            payload=(
+                bytes.fromhex("0100")
+                + bytes.fromhex("00FFFFFF")
+                + bytes.fromhex("01000000")
+                + bytes.fromhex("00000001")
+                + bytes.fromhex("01000000")
+                + bytes.fromhex("01")
+            ),
+        )
+
+        report = decode_probe_measurements(frame)
+
+        self.assertEqual("completed", report["outcome"])
+        self.assertEqual("0x00FFFFFF", report["last_low_ff"])
+        self.assertEqual("0x01000000", report["first_high_to_low_after"])
+        self.assertTrue(report["first_transition_coherent"])
+        self.assertTrue(report["later_reads_monotonic"])
+        self.assertTrue(report["control_unchanged"])
+
+    def test_rtc_rollover_probe_rejects_wrong_payload_size(self):
+        frame = ProbeFrame(probe_id=13, asic_id=0x55, status=0xE3, payload=b"x")
+
+        with self.assertRaisesRegex(ProbeFormatError, "19 bytes"):
+            decode_probe_measurements(frame)
+
     def test_keypad_settle_probe_reports_rows_and_reference_differences(self):
         samples = bytearray()
         for group_index, _group_write in enumerate(KEYPAD_SETTLE_GROUP_WRITES):
@@ -540,6 +571,83 @@ class HardwareProbeTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ProbeFormatError, "63 bytes"):
             decode_probe_measurements(frame)
+
+    def test_mapper_probe_decodes_tilem_routing_and_restoration(self):
+        pre = bytes.fromhex("0B08003F8100000000")
+        independent = bytes.fromhex("A1A2B3414445464748")
+        independent_writes = bytes.fromhex("B1C141D1")
+        paired = bytes.fromhex("A1A2E3414445464748")
+        paired_writes = bytes.fromhex("E1C241D2")
+        frame = ProbeFrame(
+            probe_id=14,
+            asic_id=0x45,
+            status=0xE3,
+            payload=(
+                pre
+                + b"\0"
+                + independent
+                + independent_writes
+                + paired
+                + paired_writes
+                + bytes((0x7B, 0x0F))
+                + pre
+            ),
+        )
+
+        report = decode_probe_measurements(frame)
+
+        self.assertEqual("completed", report["outcome"])
+        self.assertEqual("tilem", report["closest_emulator_profile"])
+        self.assertTrue(report["all_marker_pages_restored"])
+        self.assertTrue(report["readable_ports_restored"])
+
+    def test_lcd_probe_decodes_three_row_models(self):
+        pre = bytes.fromhex("C308630314272F3B01444B2080")
+        post = bytes.fromhex("C308630314272F3B01444B")
+        models = {
+            "tilem-16-column": bytes.fromhex("A600A4A5000000"),
+            "wabbitemu-15-column-wrap": bytes.fromhex("A5A6A400000000"),
+            "mame-15-byte-spill": bytes.fromhex("0000A400A5A600"),
+        }
+        for expected, cells in models.items():
+            with self.subTest(model=expected):
+                payload = (
+                    pre
+                    + b"\0"
+                    + bytes.fromhex("010002000300")
+                    + bytes.fromhex("0080")
+                    + cells
+                    + bytes.fromhex("000001")
+                    + post
+                )
+                report = decode_probe_measurements(
+                    ProbeFrame(15, 0x45, 0xE3, payload)
+                )
+                self.assertEqual(expected, report["row_model"])
+                self.assertTrue(report["restore_ok"])
+
+    def test_interrupt_probe_classifies_watchdog_wake(self):
+        payload = bytes.fromhex(
+            "0B08000000AA00012A06000800000B08000000AA01"
+        )
+        report = decode_probe_measurements(ProbeFrame(16, 0x45, 0xE3, payload))
+
+        self.assertEqual("completed", report["outcome"])
+        self.assertEqual("standard-timer-watchdog", report["wake_class"])
+        self.assertTrue(report["restore_ok"])
+        self.assertTrue(report["i_register_restored"])
+
+    def test_verification_code_is_exposed_in_appvar_report(self):
+        frame = ProbeFrame(16, 0x45, 0xE3, bytes(21))
+        blob = encode_probe_appvar("HWPIRQ01", frame)
+
+        report = probe_appvar_report(blob)
+
+        self.assertEqual(probe_verification_code(frame), report["verification_code_decimal"])
+        self.assertEqual(
+            f"0x{probe_verification_code(frame):04X}",
+            report["verification_code_hex"],
+        )
 
 
 if __name__ == "__main__":

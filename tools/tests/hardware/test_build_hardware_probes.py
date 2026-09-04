@@ -3,11 +3,16 @@
 
 import tempfile
 import unittest
+
+from ti84re.paths import PROBES as PROBE_SOURCES
 from pathlib import Path
 
 
 from ti84re.hardware.build_probes import (
     CREATE_APPVAR_COPY,
+    DISPLAY_BCALLS,
+    DISPLAY_CRC_SIGNATURE,
+    DISPLAY_IFF_GUARD,
     PROBE_START,
     PROBES,
     build_probes,
@@ -39,7 +44,12 @@ def fixture_machine_code(probe_name: str) -> bytes:
     return (
         bytes((0xC3, PROBE_START & 0xFF, PROBE_START >> 8))
         + CREATE_APPVAR_COPY
+        + DISPLAY_IFF_GUARD
+        + DISPLAY_CRC_SIGNATURE
+        + b"".join(DISPLAY_BCALLS)
         + b"\0"
+        + (probe.appvar if probe.probe_id == 4 else probe.program).encode("ascii")
+        + b" CODE \0"
         + bytes((APPVAR_TYPE,))
         + probe.appvar.encode("ascii")
         + b"\0"
@@ -101,7 +111,7 @@ class HardwareProbeBuilderTests(unittest.TestCase):
 
     def test_probe_definitions_use_stable_names_and_ids(self):
         self.assertEqual(
-            {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
+            {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
             {probe.probe_id for probe in PROBES.values()},
         )
         for probe in PROBES.values():
@@ -120,6 +130,23 @@ class HardwareProbeBuilderTests(unittest.TestCase):
         self.assertEqual(0x08, execution["exec-flash-08"]["TARGET_SELECTOR"])
         self.assertEqual(0x0400, execution["exec-ram-82-chunk0"]["SCAN_LENGTH"])
         self.assertEqual(0x4400, execution["exec-ram-82-chunk1"]["SCAN_START"])
+
+    def test_every_probe_source_calls_the_shared_display_after_result_creation(self):
+        source_names = {probe.source_name for probe in PROBES.values()}
+
+        for source_name in source_names:
+            with self.subTest(source=source_name):
+                text = (PROBE_SOURCES / "hardware" / source_name).read_text()
+                self.assertIn('#include "display.inc"', text)
+                self.assertIn("call display_", text)
+
+    def test_display_include_guards_bcalls_and_uses_appvar_frame_helper(self):
+        text = (PROBE_SOURCES / "hardware" / "display.inc").read_text()
+
+        self.assertIn("ld a,i\n    ret po", text)
+        self.assertIn("display_created_probe_code:", text)
+        self.assertIn("sbc hl,bc", text)
+        self.assertIn("pop ix", text)
 
     def test_packaged_program_decodes_to_original_machine_code(self):
         machine_code = fixture_machine_code("md5-edge")
@@ -181,6 +208,13 @@ class HardwareProbeBuilderTests(unittest.TestCase):
             validate_machine_code(
                 "usb-snapshot",
                 fixture_machine_code("usb-snapshot"),
+            )
+
+    def test_rtc_probe_requires_read_only_rollover_sampling(self):
+        with self.assertRaisesRegex(ValueError, "must read port 0x40"):
+            validate_machine_code(
+                "rtc-rollover",
+                fixture_machine_code("rtc-rollover"),
             )
 
     def test_battery_probe_requires_bcall_samples_and_restoration(self):
