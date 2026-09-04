@@ -82,11 +82,14 @@ Reading port `0x04` reports legacy pending state, live ON level, and programmabl
 | 6 | programmable timer 2 complete | `ram:0154` path |
 | 7 | programmable timer 3 complete | status check at `ram:012C`; handler `35:4792` |
 
-The two status handlers visible in this dispatch are unrelated to the kernel's APD tick: [confirmed]
+The two banked handlers visible in this dispatch are unrelated to the kernel's
+APD tick: [confirmed]
 
-- `33:5EB4` continues the OS timer API's programmable-timer-1 countdown.
-- `35:4792` stops programmable timer 3 and services a USB timeout/event structure through ports `0x8E`, `0x91`, and `0x92`.
-- `standard_timer1_irq` handles the tick that reaches keypad scanning, cursor blink, the run indicator, and APD.
+| Source | Dispatch target | Handler purpose |
+|--------|-----------------|-----------------|
+| Programmable timer 3 | `ram:3FB1` → `35:4792` | stop timer 3 and service a USB timeout/event structure through ports `0x8E`, `0x91`, and `0x92` |
+| Programmable timer 1 | `ram:3FB7` → `33:5EB4` | continue the OS timer API's programmable-timer-1 countdown |
+| Standard timer 1 | `standard_timer1_irq` at `ram:0167` | advance keypad scanning, cursor blink, the run indicator, and APD |
 
 The status-test order is programmable timer 3, timer 1, timer 2, standard timer 2, link, ON, then standard timer 1. Programmable completion bits remain visible when their timer mode does not request an interrupt, so timers 1 and 3 receive an additional mode-bit check before their handlers run. [confirmed] for the test order and mode checks; [standard] for completion visibility.
 
@@ -110,6 +113,13 @@ and timer 2 runs at twice its frequency. [standard]
 | `11` | 3 | 9.27734375 ms | 107.789474 Hz | 215.578947 Hz |
 
 TI-OS writes `0x06` to port `0x04` at several setup sites, including `ram:09B7`. Bit 0 is clear, selecting memory-map mode 0, and bits 1–2 select the slowest standard-timer rate. The kernel tick period is therefore exactly $304/32768$ seconds under the documented quartz model. [confirmed] for the write; [standard] for the physical rate.
+
+The value $32768$ Hz is a nominal oscillator frequency. If a unit's measured
+oscillator frequency is $f_{\mathrm{xtal}}$, its kernel tick is
+$304/f_{\mathrm{xtal}}$ seconds. Every APD and cursor wall time below scales by
+$32768/f_{\mathrm{xtal}}$. The ROM fixes the divider selection, but neither the
+ROM nor an emulator establishes a physical unit's oscillator tolerance.
+[confirmed] for the divider selection; [standard] for the oscillator model.
 
 Wabbitemu instead stores a rounded rate table of 512, 227, 158, and 108 Hz.
 Its index-2 value differs from the documented 146.285714 Hz, while the other
@@ -152,9 +162,10 @@ The keypad mechanism is covered in [Keypad and ON-key hardware](keypad-on-hardwa
 
 ### Auto Power Down timing
 
-`_ApdSetup = 4C93` has body `ram:03AE`. It reloads only the high byte: [confirmed]
+`_ApdSetup = 4C93h` has body `ram:03AE`. It reloads only the high byte: [confirmed]
 
 ```z80
+; bytes 21 49 84 36 74 C9
 ram:03AE  ld hl,0x8449       ; apdTimer
 ram:03B1  ld (hl),0x74
 ram:03B3  ret
@@ -163,6 +174,7 @@ ram:03B3  ret
 When `apdAble` and `apdRunning` are set, `ram:036C` decrements the low byte first and the high byte only when the low byte reaches zero: [confirmed]
 
 ```z80
+; bytes 21 48 84 35 C0 23 35 C0
 ram:036C  ld hl,0x8448       ; apdSubTimer
 ram:036F  dec (hl)
 ram:0370  ret nz
@@ -177,7 +189,10 @@ $$
 N = d + 115 \times 256
 $$
 
-standard timer-1 ticks. The exact range is: [confirmed] for the counter arithmetic; [standard] for conversion through the documented timer rate.
+standard timer-1 ticks. The ROM arithmetic gives the exact tick range.
+[confirmed]
+
+The seconds and minutes below use the nominal 32.768 kHz oscillator. [standard]
 
 | Quantity | Minimum | Maximum |
 |----------|--------:|--------:|
@@ -185,7 +200,12 @@ standard timer-1 ticks. The exact range is: [confirmed] for the counter arithmet
 | Seconds | 273.134277 | 275.500000 |
 | Minutes | 4.552238 | 4.591667 |
 
-The low byte's free-running phase explains the roughly 2.37-second spread after a reload. The high-byte constant alone therefore does not encode one exact number of minutes. [confirmed]
+The low byte's free-running phase gives the 255-tick span after a reload.
+[confirmed]
+
+This is nominally 2.37 seconds. [standard]
+
+The high-byte constant alone does not encode one exact tick count. [confirmed]
 
 On expiry, `ram:0374` performs display/context cleanup, clears `apdRunning`,
 sets `apdWarmStart`, and jumps to `poweroff_shared_tail` at `ram:0A24`.
@@ -197,13 +217,31 @@ sets `apdWarmStart`, and jumps to `poweroff_shared_tail` at `ram:0A24`.
 `cursor_blink_tick` decrements it, toggles `curOn` on expiry, and reloads the
 same value. [confirmed]
 
-At the OS standard-timer setting, one visible-state interval is [confirmed] for the tick count; [standard] for wall time.
+Converting the 50-tick interval through the nominal standard-timer period gives
+the following wall time: [standard]
 
 $$
 50 \times \frac{304}{32768} = 0.4638671875\text{ seconds}
 $$
 
-A complete on/off cycle is 0.927734375 seconds. The run indicator has a separate counter at `0x8476`; it does not share the APD word. [confirmed]
+The nominal on/off cycle is 0.927734375 seconds. [standard] The run indicator
+has a separate counter at `0x8476`; it does not share the APD word. [confirmed]
+
+Pinned emulator schedulers produce different wall times from the same ROM
+counters. These rows apply the 29,441–29,696 APD ticks and 50-tick cursor toggle
+to each implementation's timer-1 period: [standard]
+
+| Timing model | Kernel tick | APD range | Cursor toggle | Full cursor cycle |
+|--------------|------------:|----------:|--------------:|------------------:|
+| Nominal quartz model | 9.27734375 ms | 273.134277–275.500000 s | 0.463867 s | 0.927734 s |
+| TilEm `f56ad63` | 9.277 ms | 273.124157–275.489792 s | 0.463850 s | 0.927700 s |
+| Wabbitemu `48c2dc0` | 9.259259 ms | 272.601852–274.962963 s | 0.462963 s | 0.925926 s |
+| MAME 0.287 | 3.90625 ms | 115.003906–116.000000 s | 0.195313 s | 0.390625 s |
+
+TilEm rounds the selected period to whole microseconds. Wabbitemu uses 108 Hz.
+MAME keeps timer 1 fixed at 256 Hz and marks the TI-84 Plus driver not working.
+The emulator rows describe those schedulers; none measures a calculator's
+oscillator.
 
 ## Programmable timers
 
@@ -642,7 +680,26 @@ not physical timer periods or retention. [standard]
 
 ## Reusable timer tools
 
-`tools/ti84re/hardware/timer.py` exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM's radix-255 chunks, RTC implementation profiles, and the physical-probe discriminator. `tools/ti84re/hardware/describe_timer.py` is a JSON-capable front end. The TilEm, Wabbitemu, and MAME report oracles validate native observations against reusable source models; `tools/ti84re/emulators/jstified.py` supplies a separately hash-guarded source profile without claiming a native run. `tools/ti84re/emulators/tilem/timer.py` adds the complete direct-core programmable-timer and deterministic RTC matrix. `tools/ti84re/emulators/tilem/interrupt.py` adds direct standard-timer scheduling and programmable-timer HALT-gate observations. `tools/ti84re/emulators/mame/interrupt.py` adds fixed standard-timer and reset-retention observations through the immutable MAME state in `tools/ti84re/hardware/interrupt_controller.py`. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-`0x2D` implementation edges use `tools/ti84re/emulators/wabbitemu/speed_probe.py` and its guarded CLI. `tools/ti84re/emulators/wabbitemu/run_timer_physical_probe.py` executes the assembled physical discriminator through the shared injected-program runner. These are emulator-comparison tools, not physical-hardware simulators.
+`tools/ti84re/hardware/timer.py` exposes exact rational source rates, first-expiry
+timing, callback outcomes, APD and cursor cadence, the ROM's radix-255 chunks,
+RTC implementation profiles, and the physical-probe discriminator.
+`tools/ti84re/hardware/describe_timer.py` is its JSON-capable front end.
+
+The TilEm, Wabbitemu, and MAME report oracles validate native observations
+against reusable source models. `tools/ti84re/emulators/jstified.py` supplies a
+separately hash-guarded source profile without claiming a native run.
+`tools/ti84re/emulators/tilem/timer.py` adds the complete direct-core programmable-timer and
+deterministic RTC matrix. `tools/ti84re/emulators/tilem/interrupt.py` adds direct standard-timer
+scheduling and programmable-timer HALT-gate observations.
+`tools/ti84re/emulators/mame/interrupt.py` adds fixed standard-timer and reset-retention
+observations through the immutable MAME state in `tools/ti84re/hardware/interrupt_controller.py`.
+
+The guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope
+identities. CPU-speed and port-`0x2D` implementation edges use
+`tools/ti84re/emulators/wabbitemu/speed_probe.py` and its guarded CLI.
+`tools/ti84re/emulators/wabbitemu/run_timer_physical_probe.py` executes the assembled physical
+discriminator through the shared injected-program runner. These tools compare
+emulators; they do not simulate physical hardware.
 
 ```sh
 nix develop -c python3 -m ti84re.hardware.describe_timer \
@@ -656,6 +713,13 @@ nix develop -c python3 -m ti84re.hardware.describe_timer \
 
 nix develop -c python3 -m ti84re.hardware.describe_timer chunks 0x0100 0x0101
 nix develop -c python3 -m ti84re.hardware.describe_timer --json rtc
+
+nix develop -c python3 -m ti84re.hardware.describe_timer os-cadence \
+  --profile Documented --profile TilEm --profile Wabbitemu --profile MAME
+
+# Replace 32760 with a frequency measured on the target calculator.
+nix develop -c python3 -m ti84re.hardware.describe_timer os-cadence \
+  --profile Documented --crystal-hz 32760
 
 timer_probe_parent=$(mktemp -d /tmp/ti84-timer-probe.XXXXXX)
 nix develop -c python3 -m ti84re.emulators.wabbitemu.run_timer_edge_probe \
@@ -684,6 +748,7 @@ nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_timer_prob
 - [confirmed] `33:5EB4` is the programmable-timer API interrupt handler; `35:4792` is a USB timer-3 handler.
 - [confirmed] APD expires 29,441–29,696 kernel ticks after `_ApdSetup`, depending on the untouched low-byte phase.
 - [confirmed] The cursor toggles every 50 kernel ticks.
+- [standard] Nominal wall times use 32.768 kHz; physical wall times scale with the measured oscillator frequency of the target unit.
 - [confirmed] The timer bcall API exposes only ID `0x70`, uses radix-255 duration chunking, and keeps a saturating expiry count.
 - [confirmed] The Bad Apple application writes timer-1 tuple `0x82`/`0x03`/`120`; the documented CPU-clock decode gives 31.25 kHz at nominal 15 MHz, while its companion encoder assumes 33,333.3 Hz.
 - [confirmed] Explicit power-off and APD share `poweroff_shared_tail`.
