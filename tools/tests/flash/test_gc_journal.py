@@ -50,6 +50,24 @@ class GcJournalTests(unittest.TestCase):
         ):
             analyze_gc_journal(RomImage(bytes(data)))
 
+    def test_rejects_archive_command_signature_mismatch(self):
+        rom = RomImage.from_path(ROM)
+        data = bytearray(rom.data)
+        data[0x3C * 0x4000 + 0x3121] ^= 0xFF
+        with self.assertRaisesRegex(
+            GcJournalSignatureError, "signature mismatch at 3C:7121"
+        ):
+            analyze_gc_journal(RomImage(bytes(data)))
+
+    def test_rejects_archive_command_caller_mismatch(self):
+        rom = RomImage.from_path(ROM)
+        data = bytearray(rom.data)
+        data[0x07 * 0x4000 + 0x21CE] ^= 0xFF
+        with self.assertRaisesRegex(
+            GcJournalSignatureError, "archive command stub callers differ"
+        ):
+            analyze_gc_journal(RomImage(bytes(data)))
+
     def test_pinned_rom_reports_layout_and_dispatch(self):
         result = analyze_gc_journal(RomImage.from_path(ROM))
 
@@ -65,6 +83,21 @@ class GcJournalTests(unittest.TestCase):
         self.assertEqual(
             (0xFF, 0xFE, 0xFC, 0xF8, 0xF0, 0xE0),
             tuple(case.value for case in result.phase_cases),
+        )
+        self.assertEqual(
+            RomLocation(0x3C, 0x7121), result.archive_commands.entry
+        )
+        self.assertEqual(
+            (0x05, 0x06, 0x03, 0x04, 0x01, 0x00),
+            tuple(case.value for case in result.archive_commands.cases),
+        )
+        self.assertEqual(11, len(result.archive_commands.callers))
+        self.assertEqual(
+            RomLocation(0x3C, 0x7BC7), result.archive_commands.gc_check_entry
+        )
+        self.assertEqual(
+            RomLocation(0x3C, 0x7BD0),
+            result.archive_commands.former_relocation_candidate,
         )
 
     def test_pinned_rom_reports_model_selected_initialization(self):
@@ -179,6 +212,12 @@ class GcJournalTests(unittest.TestCase):
         self.assertEqual(0x1DEA, report["block"]["offset"])
         self.assertEqual(0xFF, report["phase_cases"][0]["value"])
         self.assertEqual(0xFE, report["transitions"][0]["destination"])
+        self.assertEqual(
+            0x05, report["archive_command_dispatch"]["cases"][0]["value"]
+        )
+        self.assertEqual(
+            "3C:7121", report["archive_command_dispatch"]["entry"]
+        )
 
 
 if __name__ == "__main__":

@@ -545,6 +545,37 @@ The deterministic `GCFLASH` fixture archives `A` and `B`, unarchives `A`, accept
 preflight branch at `3C:7232` sees carry set and returns through `3C:7246`; it does not enter the
 recovery dispatcher during this normal run. [confirmed]
 
+### Archive command dispatcher
+
+`flash_cmd_dispatch` starts at `3C:7121`, immediately after the `RET` at
+`3C:7120`. The page-0 stub at `ram:2FFD` contains
+`CD 09 2B 21 71 7C`: a call to the cross-page dispatcher followed by logical
+address `0x7121` and raw page byte `0x7C`. The cross-page helper masks the page
+byte to `0x3C`. A ROM-wide scan finds 11 direct callers of `ram:2FFD`, including
+the RAM-to-Flash archive path at `07:61CE` and the catalog path at `38:5754`.
+[confirmed]
+
+The entry decodes selector `A` as follows: [confirmed]
+
+| `A` | Additional condition | Target |
+|----:|----------------------|--------|
+| `0x05` | none | `3C:76EF` |
+| `0x06` | none | `3C:7F16` |
+| `0x03` | bit 2 of `IY + 0x25` clear | `3C:720D` |
+| `0x04` | bit 2 of `IY + 0x25` clear | `3C:7213` |
+| `0x01` | bit 2 of `IY + 0x25` clear | `3C:71EF` |
+| `0x00` | bit 2 of `IY + 0x25` clear and `B = 0` | `3C:7204` |
+
+`3C:7BD0` is the `CALL ram:2FE5` instruction inside
+`gc_check_interrupted`, whose entry is `3C:7BC7`. No call reference or function
+entry begins at `3C:7BD0`. `gc_show_screen` is the independent entry at
+`3C:7E0D`. [confirmed]
+
+`tools/analyze_gc_journal.py` validates the dispatcher bytes, the page-0 stub,
+all 11 callers, the `3C:7BC7` function body, and the `3C:7E0D` display entry.
+Its JSON report retains selectors, targets, and conditions separately from the
+master-phase recovery dispatcher at `3C:7C1F`.
+
 ### Four-page archive sectors
 
 `3C:749C` groups the current archive page into one physical 64 KiB sector: [confirmed]
@@ -946,6 +977,7 @@ archive operation at `3C:7F1C`. [confirmed]
 | `3D:7DEA` | `flash_find_nonff` | scan 13-byte header for all-0xFF (free slot) |
 | `00:1837` / `00:182F` | `probe_hw_model_keep_a` / `probe_port21_keep_a` | model bits: port 2 bit7 / port 0x21 low |
 | `3D:6B6D` / `3D:6B9B` | `flash_write_bounds_check` / `flash_write_byte_bounds_check` | enforce page `08` and dynamic App-boundary limits before block or byte writes |
+| `3C:7121` | `flash_cmd_dispatch` | dispatch archive command selector `A` through the cross-page stub at `ram:2FFD` |
 | `3C:71F8` | `gc_command` | display the Garbage Collecting screen, run recovery preflight, and call the collector |
 | `3C:7219` | `gc_recovery_preflight` | inspect persistent GC state and enter recovery only when needed |
 | `3C:7733` | `archive_gc_collect` | normal collector entry and Flash-unlock wrapper |
