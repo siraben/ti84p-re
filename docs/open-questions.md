@@ -126,13 +126,16 @@ gate compares the second body byte to `6D` (`07:5772`, `FE 6D`), while working
 fixtures emit `AsmPrgm` as `BB 6C` and still reach the payload — reconciling
 the gate byte remains open. [confirmed]
 
-Remaining: the meaning of the loop-record state word (it varies per fixture:
-`0012h` in one trace, `0007h` in another) and the per-iteration split between
-`parse_end_ops_record` re-entry and direct continuation jumps for `While`/
-`Repeat`. The record shapes themselves are pinned: all three loops share the
-5-byte form `00 | continuation word | state word`, with `For(` continuations
-`38:5836`/`38:587D` and the `While`/`Repeat` runtime continuation `38:57E7`.
-[confirmed]
+The loop records are resolved. `For(` owns four 9-byte FPS slots; `While` and
+`Repeat` own one. Their OPS records contain the continuation, one-based parser
+offset, and previous `cleanTmp` depth. Six TilEm cases cover normal loops,
+nesting, `Return`, `Stop`, and error cleanup. [confirmed]
+
+The `Input`/`Prompt` entry editor is also resolved at the requested boundary.
+The page-06 editor maintains left and right token spans around a movable gap,
+then hands accepted text to `38:5978` → `38:5B2B`. Four TilEm cases cover an
+empty retry, wrapped edit/cursor redraw, **[ON]** cleanup, `Prompt`, and the
+separate `Menu(` route. [confirmed]
 
 Also open: a direct assembly-to-TI-BASIC program-call entry beyond VAT lookup
 and the cooperative `Ans` callback. The generated `ZZRUN` negative probe
