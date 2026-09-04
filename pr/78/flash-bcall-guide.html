@@ -1,0 +1,634 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Flash bcall programming guide - TI-84 Plus OS — Reverse Engineering</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="katex-383e7b8d.min.css">
+        <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-a0c9f7d2.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-d4b8a020.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">TI-84 Plus OS — Reverse Engineering</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/siraben/ti84p-re" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="flash-bcall-programming-guide"><a class="header" href="#flash-bcall-programming-guide">Flash bcall programming guide</a></h1>
+<p><em>TI-84 Plus OS 2.55MP — the Flash bcalls a program can call, and what each one checks.</em></p>
+<p>These bcalls expose the command workers. They do not provide the allocation,
+battery policy, ownership checks, transaction journal, or gate management used
+by the archive subsystem. A normal program that wants to archive or unarchive
+a variable should use <code>_Arc_Unarc</code> rather than choose a raw Flash address.
+Low-level calls are appropriate only when the caller owns the target region and
+also owns the surrounding recovery policy. [confirmed] for the bcall behavior;
+[standard] for using the public variable API.</p>
+<h2 id="shared-preconditions-and-hygiene"><a class="header" href="#shared-preconditions-and-hygiene">Shared preconditions and hygiene</a></h2>
+<p>Every modifying bcall below has these caller obligations: [confirmed] for the
+ROM behavior unless marked otherwise.</p>
+<ul>
+<li>Open the protected port-<code>0x14</code> gate before the call and close it on every
+exit. The Flash bcalls do neither operation. Code executing from ordinary RAM
+cannot satisfy the privileged-fetch sequence by copying its bytes into RAM.</li>
+<li>Check battery state before opening the gate. The OS archive path calls
+<code>_Chk_Batt_Low</code> before its own Flash transaction, but the boot workers do not.</li>
+<li>Establish ownership of the complete physical sector. Flash programming can
+only clear bits from one to zero. Restoring a zero bit to one requires an
+erase, which affects 64 KiB for ordinary pages and the smaller top-boot
+sectors shown under <a href="flash-memory.html#sector-geometry">Sector geometry</a>. [standard]</li>
+<li>Keep a recovery record outside the sector being changed if interruption must
+be survivable. The raw bcalls have no power-loss journal.</li>
+<li>Use <code>rst 28h</code> with the bcall ID. Do not call the page-<code>3F</code> body address. The
+raw write and erase cores reject a direct caller whose immediate return
+address is at or above <code>0x8000</code>.</li>
+<li>Keep the stack, source, and destination buffers away from <code>0x8100</code>–<code>0x817B</code>.
+The launcher overwrites that range with the block-program worker. The erase
+worker occupies <code>0x8100</code>–<code>0x8151</code>. The launcher also writes its saved IFF
+state at <code>0x82A2</code>.</li>
+<li>Keep <code>IY</code> at the OS <code>flags</code> base for the write calls. The accepted block path
+clears <code>(IY+0x25).1</code>; its unused low-source branch can set the same unnamed
+scratch bit. <code>_WriteAByte</code> additionally overwrites the first byte of <code>OP1</code> at
+<code>0x8478</code>.</li>
+<li>Treat <code>A</code>, <code>BC</code>, <code>DE</code>, <code>HL</code>, flags, <code>OP1</code>, and the scratch locations above as
+clobbered when their selected path uses them. The launchers preserve <code>IX</code> and
+restore the interrupt-enabled state that existed on entry.</li>
+<li>Validate the arguments before interpreting the result. Several rejected or
+no-op paths return flags that resemble success. After a validated nonempty
+call, require <code>A=0</code>, then read back the complete programmed span or erased
+sector. A locked write can return <code>A=0</code>, Z in TilEm without changing Flash.</li>
+</ul>
+<p>The labels “safe” and “unsafe” describe only the page-<code>3E</code> software guard.
+Neither safe entry checks the port-<code>0x14</code> gate, physical protection, archive
+ownership, destination address, length, battery, or power-loss state.
+[confirmed]</p>
+<h2 id="choosing-a-write-bcall"><a class="header" href="#choosing-a-write-bcall">Choosing a write bcall</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Need</th><th>Entry</th><th>Programmer-visible differences</th></tr>
+</thead>
+<tbody>
+<tr><td>Program a RAM block outside the certificate and boot pages</td><td><code>_WriteFlash</code></td><td>Rejects starting pages <code>3E</code> and <code>3F</code>; still requires complete span validation.</td></tr>
+<tr><td>Program a RAM block in certificate page <code>3E</code></td><td><code>_WriteFlashUnsafe</code></td><td>Permits starting page <code>3E</code>; intended only for an owner of certificate update policy.</td></tr>
+<tr><td>Clear bits in one ordinary byte</td><td><code>_WriteAByteSafe</code></td><td>Copies <code>B</code> through <code>OP1</code>; rejects pages <code>3E</code> and <code>3F</code>.</td></tr>
+<tr><td>Clear bits in one certificate byte</td><td><code>_WriteAByte</code></td><td>Copies <code>B</code> through <code>OP1</code>; permits page <code>3E</code> and rejects page <code>3F</code>.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The block worker expects <code>DE</code> in <code>0x4000</code>–<code>0x7FFF</code> and a RAM source with
+<code>HL &gt;= 0x8000</code>. The ROM does not enforce either condition. For nonzero length
+$n$, validate the final target before the call:</p>
+<p>$$
+p_{final} = p + \left\lfloor
+\frac{(DE - 0x4000) + n - 1}{0x4000}
+\right\rfloor
+$$</p>
+<p>Also require <code>DE</code> in the banked window, ensure the RAM source plus $n$ does not
+wrap, and keep the source outside the worker and scratch ranges. For
+<code>_WriteFlash</code>, require every page through $p_{final}$ to stay below <code>3E</code>.
+Crossing from page <code>3D</code> toward <code>3E</code> does not stop cleanly: the worker wraps
+<code>DE</code> to <code>0x4000</code> but leaves page <code>3D</code> mapped. [confirmed]</p>
+<h2 id="_writeflash"><a class="header" href="#_writeflash"><code>_WriteFlash</code></a></h2>
+<p><code>_WriteFlash = 80C9h</code> is the ordinary block entry. Inputs are <code>A=page</code>,
+<code>DE=destination</code>, <code>BC=length</code>, and <code>HL=RAM source</code>. It masks the page with
+<code>0x3F</code>, rejects page <code>3E</code>, and then enters <code>_WriteFlashUnsafe</code>, which rejects
+page <code>3F</code>. A validated, nonempty successful call returns <code>A=0</code>, Z. A worker
+failure returns <code>A=0x3F</code>, NZ. [confirmed]</p>
+<p>On success, <code>BC=0</code>, while <code>HL</code> and <code>DE</code> point one byte beyond the source and
+destination spans. On a program failure, <code>HL</code> and <code>DE</code> identify the failing
+bytes and <code>BC</code> retains the decrement already performed by <code>LDI</code>. The page
+guards are exceptional: they return nonzero <code>A</code> with Z. A zero-length accepted
+call returns the masked page and NZ without launching the worker. [confirmed]</p>
+<p>Use this entry only after validating the entire span. Its initial page check
+does not protect a call that begins below page <code>3E</code> and later crosses a page or
+sector boundary.</p>
+<p>The executable example programs two bytes from RAM at <code>08:4100</code>:</p>
+<!-- executable-snippet: write-flash -->
+<pre><code class="language-z80">    ld a,$08
+    ld de,$4100
+    ld hl,writeflash_payload
+    ld bc,writeflash_payload_end-writeflash_payload
+    rst $28
+    .dw $80C9
+    or a
+    jp nz,flash_failed
+</code></pre>
+<p>The guarded runner seeds both target bytes to <code>0xFF</code>, requires <code>AF=0x0044</code>,
+and verifies <code>A5 5A</code> in both the Flash array and a <code>_FlashToRam</code> buffer.
+[confirmed] for pinned Wabbitemu execution.</p>
+<h2 id="_writeflashunsafe"><a class="header" href="#_writeflashunsafe"><code>_WriteFlashUnsafe</code></a></h2>
+<p><code>_WriteFlashUnsafe = 8087h</code> has the same block ABI and worker results as
+<code>_WriteFlash</code>. It omits only the page-<code>3E</code> rejection. The core still masks
+<code>A</code> to six bits, rejects page <code>3F</code>, checks the call frame, and accepts a zero
+length as a no-op. [confirmed]</p>
+<p>The guarded retail-ROM usage probe calls this entry with <code>A=0x3E</code>, programs
+<code>3C C3</code> at <code>3E:4100</code>, and reads the same pair back through <code>_FlashToRam</code>.
+The bcall returns <code>AF=0x0044</code>. [confirmed] for pinned Wabbitemu execution.</p>
+<!-- executable-snippet: write-flash-unsafe -->
+<pre><code class="language-z80">    ld a,$3E
+    ld de,$4100
+    ld hl,writeflashunsafe_payload
+    ld bc,writeflashunsafe_payload_end-writeflashunsafe_payload
+    rst $28
+    .dw $8087
+    or a
+    jp nz,flash_failed
+</code></pre>
+<p>“Unsafe” does not mean that the routine bypasses physical protection. Port
+<code>0x14</code>, the port-<code>0x21</code> sector group, and the Flash chip still decide whether
+the command reaches and changes the array. Its page-<code>3E</code> access makes this
+entry suitable for OS-owned certificate work, not for ordinary archive data.
+[confirmed] for the software entry; [standard] for the hardware gates.</p>
+<h2 id="_writeabytesafe"><a class="header" href="#_writeabytesafe"><code>_WriteAByteSafe</code></a></h2>
+<p><code>_WriteAByteSafe = 80C6h</code> takes <code>A=page</code>, <code>DE=destination</code>, and <code>B=byte</code>.
+It masks the page, rejects page <code>3E</code>, and falls into <code>_WriteAByte</code>. The shared
+unsafe core later rejects page <code>3F</code>. Its accepted path therefore has the same
+page exclusions as <code>_WriteFlash</code>. [confirmed]</p>
+<p>An early page-<code>3E</code> rejection leaves <code>BC</code>, <code>DE</code>, <code>HL</code>, and <code>OP1</code> untouched.
+Page <code>3F</code> reaches the byte wrapper first, so that rejection has already stored
+<code>B</code> at <code>OP1</code>, set <code>BC=1</code>, and set <code>HL=0x8478</code>. This difference matters to a
+caller that tries to infer whether scratch state changed from the flags.
+[confirmed]</p>
+<p>The guarded retail-ROM usage probe exercises the accepted path at <code>08:4102</code>.
+It programs <code>0xFE → 0xFC</code>, returns <code>AF=0x0044</code>, and obtains <code>0xFC</code> through
+<code>_FlashToRam</code>. [confirmed] for pinned Wabbitemu execution.</p>
+<!-- executable-snippet: write-a-byte-safe -->
+<pre><code class="language-z80">    ld a,$08
+    ld de,$4102
+    ld b,$FC
+    rst $28
+    .dw $80C6
+    or a
+    jp nz,flash_failed
+</code></pre>
+<h2 id="_writeabyte"><a class="header" href="#_writeabyte"><code>_WriteAByte</code></a></h2>
+<p><code>_WriteAByte = 8021h</code> takes <code>A=page</code>, <code>DE=destination</code>, and <code>B=byte</code>.
+It stores <code>B</code> in <code>OP1</code>, sets <code>HL=0x8478</code> and <code>BC=1</code>, then enters
+<code>_WriteFlashUnsafe</code>. It permits page <code>3E</code> and rejects page <code>3F</code>. A successful
+call returns <code>A=0</code>, Z, <code>BC=0</code>, <code>HL=0x8479</code>, and <code>DE</code> one byte beyond the
+target. <code>OP1</code> retains the programmed byte. [confirmed]</p>
+<p>The guarded retail-ROM usage probe calls this entry on page <code>3E</code>, programs
+<code>0xFE → 0xF8</code> at <code>3E:4102</code>, leaves <code>OP1=0xF8</code>, and returns <code>AF=0x0044</code>.
+<code>_FlashToRam</code> returns <code>0xF8</code>. [confirmed] for pinned Wabbitemu execution.</p>
+<!-- executable-snippet: write-a-byte -->
+<pre><code class="language-z80">    ld a,$3E
+    ld de,$4102
+    ld b,$F8
+    rst $28
+    .dw $8021
+    or a
+    jp nz,flash_failed
+</code></pre>
+<p>Use the byte entries for monotonic state changes such as <code>0xFE → 0xFC</code> or
+<code>0xFC → 0xF0</code>. A request that needs any <code>0→1</code> transition requires sector
+erase and reconstruction. A requested byte with the same DQ7 as the stored
+byte can produce false success when the ASIC gate blocks the command, so verify
+the byte after every call. [confirmed] for the ROM and pinned TilEm result;
+[standard] for NOR programming direction.</p>
+<h2 id="_eraseflashpage"><a class="header" href="#_eraseflashpage"><code>_EraseFlashPage</code></a></h2>
+<p><code>_EraseFlashPage = 8084h</code> takes <code>A=page</code>. It masks the page to six bits,
+chooses address <code>0x4000</code>, rejects page <code>3E</code>, and enters <code>_EraseFlash</code>. For page
+zero it changes the address to <code>0x0000</code>. It does not reject page <code>3F</code>.
+[confirmed]</p>
+<p>The name refers to the logical page used to select a sector. It does not limit
+the erase to 16 KiB. On an ordinary archive page, the command erases the
+containing 64 KiB sector. Initialize <code>DE</code> to a writable Flash address in the
+same mapping before the call; the DQ5 failure tail writes reset byte <code>0xF0</code>
+through undocumented <code>DE</code>. [confirmed] for the worker; [standard] for erase
+geometry.</p>
+<p>A successful erase returns <code>A=0</code>, Z. A worker failure returns <code>A=0xF1</code>, NZ.
+The page-<code>3E</code> rejection instead returns <code>A=0x3E</code>, Z. Prevalidate the page,
+check <code>A=0</code>, and verify the complete physical sector. [confirmed]</p>
+<p>The guarded retail-ROM usage probe erases through page <code>0C</code>, returns
+<code>AF=0x0044</code>, and reads <code>0xFF</code> back at <code>0C:4000</code>. [confirmed] for pinned
+Wabbitemu execution.</p>
+<!-- executable-snippet: erase-flash-page -->
+<pre><code class="language-z80">    ld a,$0C
+    ld de,$4000
+    rst $28
+    .dw $8084
+    or a
+    jp nz,flash_failed
+</code></pre>
+<h2 id="_eraseflash"><a class="header" href="#_eraseflash"><code>_EraseFlash</code></a></h2>
+<p><code>_EraseFlash = 8024h</code> takes <code>A=page</code> and <code>HL=an address in the selected sector</code>. It performs no page mask or page guard. The worker maps <code>A</code>, issues a
+sector-erase command through <code>HL</code>, and returns the same success or failure
+values as <code>_EraseFlashPage</code>. <code>BC</code>, <code>DE</code>, and <code>HL</code> are otherwise retained by
+the erase path, but failure can write <code>0xF0</code> to the address in <code>DE</code>.
+[confirmed]</p>
+<p>Choose this entry when the target must be an address other than the page start,
+including a top-boot sector boundary. Set <code>DE=HL</code> defensively so the failure
+reset targets Flash rather than arbitrary RAM. This convention avoids the
+worker’s underspecified failure write; the public ABI itself does not require
+or synthesize it. [confirmed] for the write; [standard] for the Flash reset
+command.</p>
+<p>The guarded retail-ROM usage probe passes <code>HL=DE=0x4567</code> on page <code>10</code>.
+The bcall returns <code>AF=0x0044</code>, and <code>_FlashToRam</code> reads <code>0xFF</code> from the same
+interior sector address. [confirmed] for pinned Wabbitemu execution.</p>
+<!-- executable-snippet: erase-flash -->
+<pre><code class="language-z80">    ld a,$10
+    ld hl,$4567
+    ld de,$4567
+    rst $28
+    .dw $8024
+    or a
+    jp nz,flash_failed
+</code></pre>
+<h2 id="_erasecertificatesector"><a class="header" href="#_erasecertificatesector"><code>_EraseCertificateSector</code></a></h2>
+<p><code>_EraseCertificateSector = 8060h</code> accepts any <code>HL</code> whose high byte is <code>0x40</code>
+or <code>0x60</code>. It does not require <code>L=0</code>. It loads page <code>3E</code> and calls
+<code>_EraseFlash</code>, selecting one of the two 8 KiB certificate sectors. Other high
+bytes return without work. [confirmed]</p>
+<p>The wrapper restores the caller’s <code>AF</code> after both accepted and rejected calls.
+It therefore hides worker success and failure as well as its own input
+rejection. Preserve the certificate through its OS-owned rebuild protocol and
+verify the selected sector; flags are not a result channel for this bcall.
+[confirmed]</p>
+<p>The guarded retail-ROM usage probe seeds <code>AF=0xA545</code> and passes <code>HL=DE=0x6001</code>.
+The returned <code>AF</code> remains <code>0xA545</code>, while <code>_FlashToRam</code> reads <code>0xFF</code> from
+<code>3E:6001</code>. This dynamically exercises the accepted nonzero-<code>L</code> path and the
+second 8 KiB certificate sector. [confirmed] for pinned Wabbitemu execution.</p>
+<!-- executable-snippet: erase-certificate-sector -->
+<pre><code class="language-z80">    ld hl,$A545
+    push hl
+    pop af
+    ld hl,$6001
+    ld de,$6001
+    rst $28
+    .dw $8060
+</code></pre>
+<h2 id="_setflashlowerbound-bcall"><a class="header" href="#_setflashlowerbound-bcall"><code>_SetFlashLowerBound</code> bcall</a></h2>
+<p><code>_SetFlashLowerBound = 80CFh</code> takes the new bound in <code>A</code>. The official name is
+misleading on the TI-84 Plus: the body writes port <code>0x23</code>, which is the upper
+end of the modeled forbidden Flash-execution interval. It does not program or
+erase the Flash array. Its complete body is: [confirmed]</p>
+<pre><code class="language-z80">3F:4784  nop
+3F:4785  nop
+3F:4786  im 1
+3F:4788  di
+3F:4789  out (0x23),a
+3F:478B  di
+3F:478C  ret
+</code></pre>
+<p>The leading bytes form the protected-port sequence. Flash must already be
+unlocked for port <code>0x23</code> to accept the write. The routine preserves <code>A</code>, the
+flags, and the other general registers. It selects interrupt mode 1 and leaves
+maskable interrupts disabled. A caller must restore its prior interrupt-enable
+state and must already accept IM1 as the OS interrupt mode. [confirmed] for
+the routine; [standard] for the write gate.</p>
+<p>The executable probe writes the boot default upper bound:</p>
+<!-- executable-snippet: set-flash-lower-bound -->
+<pre><code class="language-z80">    ld a,$2A
+    rst $28
+    .dw $80CF
+</code></pre>
+<p>The guarded runner requires port <code>0x23 = 0x2A</code> and IFF2 clear after the call.
+[confirmed] for pinned Wabbitemu execution.</p>
+<p>This wrapper records IFF2 through <code>LD A,I</code>, calls the bcall, then conditionally
+restores interrupts. <code>POP AF</code> also restores the caller’s original <code>AF</code>:</p>
+<pre><code class="language-z80">    ld a,i
+    push af                     ; P/V records the prior IFF2 value
+    ld a,0x2A
+    rst 0x28
+    .dw 0x80CF                  ; _SetFlashLowerBound; returns with DI
+    pop af
+    jp po,interrupts_restored   ; prior IFF2 was clear
+    ei
+interrupts_restored:
+</code></pre>
+<p>The example assumes that trusted code already opened the protected-write gate
+and will close it. See <a href="execution-protection.html#_setflashlowerbound">Execution protection</a>
+for the cross-emulator boundary comparison.</p>
+<h2 id="return-and-side-effect-matrix"><a class="header" href="#return-and-side-effect-matrix">Return and side-effect matrix</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Path</th><th>Returned <code>A</code> and flags</th><th>Other visible state</th></tr>
+</thead>
+<tbody>
+<tr><td>block or byte program succeeds</td><td><code>A=0</code>, Z</td><td><code>BC=0</code>; <code>HL</code>/<code>DE</code> advanced; page worker ends on page <code>3F</code> before bcall mapping restoration</td></tr>
+<tr><td>block or byte program fails DQ polling</td><td><code>A=0x3F</code>, NZ</td><td><code>HL</code>/<code>DE</code> at failing byte; <code>BC</code> already decremented</td></tr>
+<tr><td>safe write rejects page <code>3E</code></td><td><code>A=0x3E</code>, Z</td><td>wrapper-specific scratch changes described above</td></tr>
+<tr><td>unsafe core rejects page <code>3F</code></td><td><code>A=0x3F</code>, Z</td><td>no worker; byte wrapper may already have changed <code>OP1</code>, <code>BC</code>, and <code>HL</code></td></tr>
+<tr><td>accepted zero-length block</td><td>masked page, NZ</td><td>no worker; write scratch bit unchanged</td></tr>
+<tr><td>erase succeeds</td><td><code>A=0</code>, Z</td><td>caller <code>BC</code>, <code>DE</code>, and <code>HL</code> retained by the erase worker</td></tr>
+<tr><td>erase fails DQ polling</td><td><code>A=0xF1</code>, NZ</td><td>writes <code>0xF0</code> through incoming <code>DE</code></td></tr>
+<tr><td><code>_EraseFlashPage</code> rejects page <code>3E</code></td><td><code>A=0x3E</code>, Z</td><td>no worker</td></tr>
+<tr><td><code>_EraseCertificateSector</code> returns</td><td>caller’s original <code>AF</code></td><td>accepted and rejected cases are indistinguishable through flags</td></tr>
+</tbody>
+</table>
+</div>
+<p>This matrix explains why <code>jr z,success</code> is insufficient. Validate page,
+address, span, and nonzero length first. Then test <code>A=0</code> and verify the array.</p>
+<h2 id="checking-results"><a class="header" href="#checking-results">Checking results</a></h2>
+<p>The executable examples above assume that trusted OS or boot code already
+opened port <code>0x14</code>, checked the battery, established sector ownership and
+recovery state, and will relock Flash on every exit. Copying an unlock byte
+sequence into RAM does not satisfy the ASIC’s privileged-fetch rule.</p>
+<p>After a validated nonempty program or erase call, require <code>A=0</code>. Save the
+target page and address before the call because the write worker advances
+registers. Read the programmed span through <code>_FlashToRam</code> and compare every
+byte with the source. For erase, inspect the complete physical sector, not
+only the selected address. Every failure and success path must reach the
+trusted owner’s relock and recovery epilogue. [confirmed] for the return and
+clobber rules; [standard] for physical erase scope.</p>
+<h2 id="reading-back-with-_flashtoram"><a class="header" href="#reading-back-with-_flashtoram">Reading back with <code>_FlashToRam</code></a></h2>
+<p><code>_FlashToRam = 5017h</code>, body <code>3D:6745</code>, copies <code>BC</code> bytes from Flash at
+<code>A:HL</code> to RAM at <code>DE</code>. It advances the mapped Flash page when <code>HL</code> crosses
+<code>0x8000</code> and restores the previous port-<code>0x06</code> mapping after its RAM worker
+returns. It does not need the Flash write gate for ordinary readable pages.
+[confirmed]</p>
+<p>The call consumes <code>BC</code> and advances <code>HL</code> and <code>DE</code>. It uses worker RAM beginning
+at <code>0x8100</code> and page scratch at <code>0x9868</code>, so a verification buffer must avoid
+those locations while the copier runs. Locked certificate-page reads remain
+subject to the ASIC’s separate read protection. [confirmed] for the ROM
+scratch and worker; [standard] for the read gate.</p>
+<p>The executable example reads back the complete two-byte <code>_WriteFlash</code> vector:</p>
+<!-- executable-snippet: flash-to-ram -->
+<pre><code class="language-z80">    ld a,$08
+    ld hl,$4100
+    ld de,writeflash_copy
+    ld bc,writeflash_payload_end-writeflash_payload
+    rst $28
+    .dw $5017
+</code></pre>
+<h2 id="executable-example-validation"><a class="header" href="#executable-example-validation">Executable example validation</a></h2>
+<p><code>tools/probes/emulator/flash-bcall-usage.asm</code> is the guarded executable form of
+the examples above. It invokes <code>_WriteFlash</code>, <code>_WriteFlashUnsafe</code>,
+<code>_WriteAByteSafe</code>, <code>_WriteAByte</code>, <code>_EraseFlashPage</code>, <code>_EraseFlash</code>,
+<code>_EraseCertificateSector</code>, and <code>_SetFlashLowerBound</code>. It reads every changed
+location through <code>_FlashToRam</code>. The six calls with result-bearing <code>A</code> values
+branch to a failure loop unless <code>A=0</code>; the probe also stores every return so
+the runner can check the complete result. [confirmed]</p>
+<p>The nine short bcall call sequences on this page carry an
+<code>executable-snippet</code> tag. The reusable <code>tools/ti84re/wiki/executable_snippets.py</code> parser
+requires their text to match the same tagged regions in the assembled probe
+byte for byte. The <code>tools/ti84re/wiki/check_executable_snippets.py</code> CLI exposes that
+check. This catches documentation drift; Wabbitemu execution supplies the
+runtime result below.</p>
+<p>On 2026-08-10, the hash-guarded Wabbitemu adapter booted the exact OS 2.55MP
+ROM, established the retail protection state, injected the 264-byte program
+into RAM, and opened only Wabbitemu’s in-memory Flash gate. The run reached
+every named public entry. The shared <code>_WriteFlashUnsafe</code> core ran four times,
+the <code>_WriteAByte</code> body twice, and the <code>_EraseFlash</code> core three times because
+their safe and specialized wrappers fall through or call into them. Seven
+<code>_FlashToRam</code> calls brought the total to 14 RAM-worker entries. No execution
+violation occurred. [confirmed] for this pinned emulator run.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Observation</th><th>Guarded result</th></tr>
+</thead>
+<tbody>
+<tr><td><code>_WriteFlash</code> return and readback</td><td><code>AF=0x0044</code>; array and copied bytes both <code>A5 5A</code></td></tr>
+<tr><td><code>_WriteFlashUnsafe</code> page-<code>3E</code> return and readback</td><td><code>AF=0x0044</code>; array and copied bytes both <code>3C C3</code></td></tr>
+<tr><td><code>_WriteAByteSafe</code> return and readback</td><td><code>AF=0x0044</code>; array and copied byte both <code>FC</code></td></tr>
+<tr><td><code>_WriteAByte</code> page-<code>3E</code> return, scratch, and readback</td><td><code>AF=0x0044</code>; <code>OP1=0xF8</code>; array and copied byte both <code>F8</code></td></tr>
+<tr><td><code>_EraseFlashPage</code> return and readback</td><td><code>AF=0x0044</code>; <code>0C:4000</code> array and copied byte both <code>FF</code></td></tr>
+<tr><td><code>_EraseFlash</code> return and readback</td><td><code>AF=0x0044</code>; <code>10:4567</code> array and copied byte both <code>FF</code></td></tr>
+<tr><td><code>_EraseCertificateSector</code> return and readback</td><td>caller <code>AF=0xA545</code> preserved; <code>3E:6001</code> array and copied byte both <code>FF</code></td></tr>
+<tr><td>shared write scratch</td><td><code>(IY+0x25).1</code> clear after the accepted paths</td></tr>
+<tr><td><code>_SetFlashLowerBound</code> result</td><td>port-<code>0x23</code> upper bound <code>0x2A</code>; IFF2 clear</td></tr>
+</tbody>
+</table>
+</div>
+<p>The assembly source SHA-256 was
+<code>ba91fa8a4d1d7c816b742a426dbb0216f927ec209f368534a13748d4683b42e7</code>;
+the assembled machine-code SHA-256 was
+<code>8f9ca5975c418871ba831c3536cba6e7e4f9f368520e1ad37650ef9c54d9249c</code>.
+See “Retail Flash bcall usage probe” in <code>tools/notes/emulator-probes.md</code> for the
+guarded reproduction command. This execution validates the snippets against
+the original ROM bodies under pinned Wabbitemu. It does not validate the
+privileged port-<code>0x14</code> sequence, allocation or journaling, interruption,
+timing, or behavior of a physical Flash device.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="flash-memory.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="flash-emulator-comparison.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="flash-memory.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="flash-emulator-comparison.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-09f2665d.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
+        <script src="hljs-z80-e93ac716.js"></script>
+        <script src="katex-5e4f3b03.min.js"></script>
+        <script src="katex-auto-render-bb53eb95.min.js"></script>
+        <script src="katex-init-5efd21f9.js"></script>
+        <script src="pseudocode-695903c6.min.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
+
+
+
+    </div>
+    </body>
+</html>

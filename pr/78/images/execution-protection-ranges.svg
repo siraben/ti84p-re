@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="730" viewBox="0 0 1200 730" role="img" aria-labelledby="title desc">
+  <title id="title">Modeled Flash and RAM execution ranges after TI-84 Plus boot</title>
+  <desc id="desc">Two Flash page strips compare TilEm and Wabbitemu at the lower boundary. Both allow pages 00 through 07 and 2A through 3F and deny pages 09 through 29. TilEm denies page 08 while Wabbitemu permits it. A lower panel shows RAM execution bounds in one KiB chunks and explains that the mode changes how the interval repeats over physical RAM.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f8fafc}.panel{fill:#fff;stroke:#94a3b8;stroke-width:2}.title{fill:#0f172a;font:700 30px system-ui,sans-serif}.head{fill:#0f172a;font:700 20px system-ui,sans-serif}.text{fill:#334155;font:16px system-ui,sans-serif}.mono{fill:#0f172a;font:600 16px ui-monospace,SFMono-Regular,Consolas,monospace}.allow{fill:#dcfce7;stroke:#16a34a;stroke-width:2}.deny{fill:#fee2e2;stroke:#dc2626;stroke-width:2}.edge{fill:#fef3c7;stroke:#d97706;stroke-width:3}.port{fill:#ede9fe;stroke:#7c3aed;stroke-width:2}.dash{fill:#f8fafc;stroke:#64748b;stroke-width:2;stroke-dasharray:7 6}
+    </style>
+  </defs>
+  <rect class="bg" width="1200" height="730" rx="18"/>
+  <text class="title" x="60" y="54">Execution protection is a fetch predicate over physical addresses</text>
+  <text class="text" x="60" y="84">These are emulator predicates, not measured hardware behavior; the models disagree at key boundaries.</text>
+
+  <rect class="panel" x="60" y="120" width="1080" height="330" rx="14"/>
+  <text class="head" x="90" y="158">Emulator Flash predicates · boot bounds port 22 = 08h, port 23 = 29h</text>
+  <g transform="translate(220 195)">
+    <text class="head" x="-25" y="38" text-anchor="end">TilEm</text>
+    <rect class="allow" x="0" y="0" width="112" height="70" rx="8"/>
+    <rect class="edge" x="112" y="0" width="14" height="70"/>
+    <rect class="deny" x="126" y="0" width="462" height="70"/>
+    <rect class="allow" x="588" y="0" width="308" height="70" rx="8"/>
+    <text class="mono" x="56" y="31" text-anchor="middle">00–07</text><text class="text" x="56" y="55" text-anchor="middle">allow</text>
+    <text class="mono" x="119" y="-8" text-anchor="middle">08</text>
+    <path d="M119 -5 V0" stroke="#d97706" stroke-width="2"/>
+    <text class="mono" x="357" y="31" text-anchor="middle">09–29</text><text class="text" x="357" y="55" text-anchor="middle">deny</text>
+    <text class="mono" x="742" y="31" text-anchor="middle">2A–3F</text><text class="text" x="742" y="55" text-anchor="middle">allow</text>
+
+    <text class="head" x="-25" y="148" text-anchor="end">Wabbitemu</text>
+    <rect class="allow" x="0" y="110" width="126" height="70" rx="8"/>
+    <rect class="deny" x="126" y="110" width="462" height="70"/>
+    <rect class="allow" x="588" y="110" width="308" height="70" rx="8"/>
+    <text class="mono" x="63" y="141" text-anchor="middle">00–08</text><text class="text" x="63" y="165" text-anchor="middle">allow</text>
+    <text class="mono" x="357" y="141" text-anchor="middle">09–29</text><text class="text" x="357" y="165" text-anchor="middle">deny</text>
+    <text class="mono" x="742" y="141" text-anchor="middle">2A–3F</text><text class="text" x="742" y="165" text-anchor="middle">allow</text>
+  </g>
+  <text class="text" x="600" y="405" text-anchor="middle">Page 08 is the unresolved physical boundary: the public contract agrees with TilEm; hardware remains unmeasured.</text>
+  <text class="text" x="600" y="432" text-anchor="middle">Each strip spans pages 00–3F; widths are proportional to the number of 16 KiB pages.</text>
+
+  <rect class="panel" x="60" y="485" width="1080" height="185" rx="14"/>
+  <text class="head" x="90" y="523">Emulator RAM predicates · boot bounds port 25 = 10h, port 26 = 20h</text>
+  <rect class="port" x="90" y="550" width="300" height="82" rx="10"/>
+  <text class="mono" x="240" y="580" text-anchor="middle">10h × 400h → lower</text>
+  <text class="mono" x="240" y="608" text-anchor="middle">20h × 400h → upper</text>
+  <rect class="dash" x="450" y="550" width="650" height="82" rx="10"/>
+  <text class="text" x="775" y="575" text-anchor="middle">Port 21 bits 4–5 select the address mask.</text>
+  <text class="text" x="775" y="599" text-anchor="middle">TilEm repeats the interval by mode.</text>
+  <text class="text" x="775" y="623" text-anchor="middle">Wabbitemu uses a different global-range predicate.</text>
+  <g transform="translate(90 685)"><rect class="allow" width="20" height="20" rx="4"/><text class="text" x="30" y="16">allowed fetch</text><rect class="deny" x="180" width="20" height="20" rx="4"/><text class="text" x="210" y="16">denied fetch</text><rect class="edge" x="360" width="20" height="20"/><text class="text" x="390" y="16">disputed boundary</text></g>
+</svg>
