@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-27040c52.js";
+            window.path_to_searchindex_js = "searchindex-da0ddc2a.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3a621010.js"></script>
+        <script src="toc-7dda4e5a.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -230,7 +230,7 @@ path at <code>00:1129</code>–<code>00:112F</code>.</p>
 <h2 id="build-and-transfer"><a class="header" href="#build-and-transfer">Build and transfer</a></h2>
 <p>SPASM-ng is part of the Nix development shell. Build all transfer files and a
 hash manifest with:</p>
-<pre><code class="language-sh">nix develop -c python tools/build_hardware_probes.py \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.hardware.build_probes \
   --output-dir /tmp/hardware-probes
 </code></pre>
 <p>The command emits the 15 snapshot, edge, and timing probes, ten single-fetch
@@ -285,8 +285,8 @@ map the MD5 port block. [standard]</p>
 <p>The decoder verifies the TI link checksum, both TI entry lengths, the AppVar’s
 internal size word, the <code>HWP1</code> frame version, and the payload length before it
 interprets measurements. [confirmed]</p>
-<pre><code class="language-sh">python tools/decode_hardware_probe.py HWPMD511.8xv
-python tools/decode_hardware_probe.py --json \
+<pre><code class="language-sh">python3 -m ti84re.hardware.decode_probe HWPMD511.8xv
+python3 -m ti84re.hardware.decode_probe --json \
   HWPASIC1.8xv HWBATT01.8xv HWBRAW01.8xv HWPUSB01.8xv \
   HWLINK01.8xv HWKEYS01.8xv HWBUS001.8xv HWPFX001.8xv HWTMR001.8xv \
   HWPRTC01.8xv HWPMAP01.8xv HWPLCD02.8xv HWPIRQ01.8xv \
@@ -311,7 +311,7 @@ using a transcription-safe alphabet. Compression reduces repeated state but
 cannot guarantee a one-page result for a high-entropy frame. [confirmed] by exact
 assembly execution and an independent host encoder and decoder.</p>
 <p>Use the host decoder to reconstruct the exact frame:</p>
-<pre><code class="language-sh">python tools/compact_probe_code.py 'HWPZ1-...'
+<pre><code class="language-sh">python3 -m ti84re.hardware.compact_probe_code 'HWPZ1-...'
 </code></pre>
 <p>The shared routine skips all display and key bcalls when entry interrupts were
 disabled. A decimal CRC match verifies that the exported file and visible run
@@ -328,7 +328,7 @@ captures; preserve those in the physical metadata and attachments.</p>
 Their normal-return path updates the resident outcome and computes the CRC
 from that updated frame. A protection reset does not return to the display
 path; the pending AppVar and visible reset form the recovery record.</p>
-<p>Use <code>tools/physical_probe_evidence.py</code> to combine the original AppVar, exact
+<p>Use <code>tools/ti84re/hardware/physical_probe_evidence.py</code> to combine the original AppVar, exact
 build manifest, physical metadata, and instrument captures. The tool requires
 the context fields relevant to that probe and embeds every input byte. It
 refuses artifacts marked <code>blocked</code>, preserves failed observations without
@@ -413,8 +413,8 @@ highest member, produce <code>mixed-or-unexpected</code>. [confirmed]</p>
 reads differ from the saved bytes and invalidates a claim of successful cleanup.</p>
 <p>The standalone CLI accepts the six observed bytes or simulates an explicit
 selector-to-backing assignment:</p>
-<pre><code class="language-sh">python tools/describe_ram_topology.py --observed 666666666666
-python tools/describe_ram_topology.py \
+<pre><code class="language-sh">python3 -m ti84re.hardware.describe_ram_topology --observed 666666666666
+python3 -m ti84re.hardware.describe_ram_topology \
   --simulate-backings 0,0,1,1,2,3 --json
 </code></pre>
 <p>The pinned SPASM-ng build produces 928 machine-code bytes with SHA-256
@@ -839,7 +839,7 @@ fetch. The reusable source analyzer requires TilEm commit
 <code>58316afe35d69e69353f0f743698144153051d4a</code>, and Wabbitemu tree SHA-256
 <code>a8a4f97fc7952770bed317b4a477f80345894da38d14fad8f0bf0ee60aae71ba</code>.
 It reports no physical result. [standard]</p>
-<pre><code class="language-sh">python tools/describe_prefix_fetch_models.py \
+<pre><code class="language-sh">python3 -m ti84re.emulators.describe_prefix_fetch_models \
   --tilem-source /path/to/tilem \
   --wabbitemu-source /path/to/wabbitemu --json
 </code></pre>
@@ -950,7 +950,7 @@ completion windows; the program never executes <code>HALT</code>. [confirmed]</p
 </table>
 </div>
 <p>Run and decode a physical result with:</p>
-<pre><code class="language-sh">python tools/decode_hardware_probe.py --json HWTMR001.8xv
+<pre><code class="language-sh">python3 -m ti84re.hardware.decode_probe --json HWTMR001.8xv
 </code></pre>
 <p>The decoder reports raw counters and status bytes alongside the nearest source
 model. A nearest-model label describes that sample; it does not establish an
@@ -974,7 +974,7 @@ field compared equal. [confirmed] for the pinned Wabbitemu run.</p>
 and binary SHA-256
 <code>3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e</code>.
 Run the same guarded path with:</p>
-<pre><code class="language-sh">nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.emulators.wabbitemu.run_timer_physical_probe \
   --binary /path/to/wabbitemu-headless \
   --expected-binary-sha256 3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
   --output-dir /tmp/wabbitemu-timer-physical --json
@@ -1069,7 +1069,7 @@ TilEm selected its active-paired-overlay profile and printed verification code
 <code>21062</code>. Every marker and readable selector restoration check passed in both
 runs. These are emulator results, not physical mapper conclusions. [confirmed]</p>
 <p>The portable run record is
-<code>tools/fixtures/mapper-overlays-emulators.json</code>. It retains the exact machine
+<code>tools/oracles/hardware/mapper-overlays-emulators.json</code>. It retains the exact machine
 image, ROM, emulator, runner, frame, and source hashes. MAME 0.287 completed
 only the guarded Lua device-handler profile: exact execution of the <code>HWPMAP</code>
 machine image is unsupported because no guarded MAME injection adapter exists.
@@ -1226,45 +1226,45 @@ physical execution and reset retention.</p>
 <tr><th>Path</th><th>Purpose</th></tr>
 </thead>
 <tbody>
-<tr><td><code>tools/hardware-probes/common.inc</code></td><td>OP1 setup, <code>_CreateAppVar</code>, and frame copy</td></tr>
-<tr><td><code>tools/hardware-probes/asic-snapshot.asm</code></td><td>read-only ASIC, timing, and GPIO register snapshot</td></tr>
-<tr><td><code>tools/hardware-probes/battery-level.asm</code></td><td>repeated retail battery-level bcall and restoring state audit</td></tr>
-<tr><td><code>tools/hardware-probes/battery-raw.asm</code></td><td>repeated raw comparator-selector sequence and restoring state audit</td></tr>
-<tr><td><code>tools/hardware-probes/link-raw.asm</code></td><td>disconnected two-wire link readback and instruction-spaced settling matrix</td></tr>
-<tr><td><code>tools/hardware-probes/keypad-settle.asm</code></td><td>held-key and chord matrix-settling measurements</td></tr>
-<tr><td><code>tools/hardware-probes/bus-timing.asm</code></td><td>six-class Flash/RAM wait-state timing matrix</td></tr>
-<tr><td><code>tools/hardware-probes/prefix-m1.asm</code></td><td>prefixed-instruction RAM-M1 timing matrix</td></tr>
-<tr><td><code>tools/hardware-probes/timer-physical.asm</code></td><td>guarded programmable-timer divisor, prescaler, zero-counter, and expiry matrix</td></tr>
-<tr><td><code>tools/hardware-probes/rtc-rollover.asm</code></td><td>read-only natural RTC low-byte rollover-coherence measurement</td></tr>
-<tr><td><code>tools/hardware-probes/mapper-overlays.asm</code></td><td>guarded restoring overlay and paired-mapper matrix</td></tr>
-<tr><td><code>tools/hardware-probes/lcd-controller.asm</code></td><td>guarded ready-trigger and visible-cell status measurement</td></tr>
-<tr><td><code>tools/hardware-probes/lcd-hidden-lab.asm</code></td><td>separately gated hidden-column geometry and restoration experiment</td></tr>
-<tr><td><code>tools/hardware-probes/interrupt-halt.asm</code></td><td>guarded programmable-timer <code>HALT</code> wake with watchdog</td></tr>
-<tr><td><code>tools/hardware-probes/display.inc</code></td><td>post-cleanup decimal CRC and reversible small-font <code>HWPZ1</code> display</td></tr>
-<tr><td><code>tools/hardware-probes/usb-snapshot.asm</code></td><td>no-I/O-write low-USB control and status snapshot</td></tr>
-<tr><td><code>tools/hardware-probes/md5-edge.asm</code></td><td>calculator-side MD5 measurements</td></tr>
-<tr><td><code>tools/hardware-probes/ram-alias.asm</code></td><td>calculator-side RAM alias and restoration measurements</td></tr>
-<tr><td><code>tools/hardware-probes/execution-fetch.asm</code></td><td>parameterized read-only Flash and RAM fetch measurement</td></tr>
-<tr><td><code>tools/hardware_probe.py</code></td><td>reusable TI container, frame, and payload library</td></tr>
-<tr><td><code>tools/compact_probe_code.py</code></td><td>reversible compact text encoder and decoder for complete <code>HWP1</code> frames</td></tr>
-<tr><td><code>tools/bus_timing.py</code></td><td>timing-register models and physical counter-pair decoder</td></tr>
-<tr><td><code>tools/prefix_fetch_models.py</code></td><td>hash-guarded emulator prefix-fetch source analysis</td></tr>
-<tr><td><code>tools/timer_hardware.py</code></td><td>reusable source, duration, RTC, and physical timer-result models</td></tr>
-<tr><td><code>tools/describe_prefix_fetch_models.py</code></td><td>text and JSON prefix-fetch comparison CLI</td></tr>
-<tr><td><code>tools/run_wabbitemu_prefix_m1_probe.py</code></td><td>exact-ROM guarded assembled-probe execution CLI</td></tr>
-<tr><td><code>tools/run_wabbitemu_timer_physical_probe.py</code></td><td>exact-ROM guarded assembled timer-probe execution CLI</td></tr>
-<tr><td><code>tools/mapper_probe_evidence.py</code></td><td>deterministic exact-run normalization and freshness checks for <code>HWPMAP</code></td></tr>
-<tr><td><code>tools/emulator_probe_build.py</code></td><td>shared guarded build CLI implementation for pinned emulator adapters</td></tr>
-<tr><td><code>tools/build_tilem_exact_probe.py</code></td><td>thin TilEm generic exact-probe build entry point</td></tr>
-<tr><td><code>tools/build_wabbitemu_exact_probe.py</code></td><td>thin Wabbitemu generic exact-probe build entry point</td></tr>
-<tr><td><code>tools/run_exact_hardware_probe.py</code></td><td>normalized exact-byte runner for every displayed physical probe</td></tr>
-<tr><td><code>tools/run_compact_probe_e2e.py</code></td><td>cross-emulator compact-code validation and Wabbitemu small-font rendering</td></tr>
-<tr><td><code>tools/build_lcd_hidden_lab_probe.py</code></td><td>backup-bound device-specific hidden-LCD artifact builder</td></tr>
-<tr><td><code>tools/run_lcd_hidden_lab_emulator.py</code></td><td>exact hidden-LCD image runner for TilEm and Wabbitemu</td></tr>
-<tr><td><code>tools/battery_hardware.py</code></td><td>ROM decision tree and emulator threshold-region model</td></tr>
-<tr><td><code>tools/describe_battery_hardware.py</code></td><td>text and JSON threshold/sample model CLI</td></tr>
-<tr><td><code>tools/build_hardware_probes.py</code></td><td>SPASM runner, artifact validator, packager, and manifest CLI</td></tr>
-<tr><td><code>tools/decode_hardware_probe.py</code></td><td>text and JSON result CLI</td></tr>
+<tr><td><code>tools/probes/hardware/common.inc</code></td><td>OP1 setup, <code>_CreateAppVar</code>, and frame copy</td></tr>
+<tr><td><code>tools/probes/hardware/asic-snapshot.asm</code></td><td>read-only ASIC, timing, and GPIO register snapshot</td></tr>
+<tr><td><code>tools/probes/hardware/battery-level.asm</code></td><td>repeated retail battery-level bcall and restoring state audit</td></tr>
+<tr><td><code>tools/probes/hardware/battery-raw.asm</code></td><td>repeated raw comparator-selector sequence and restoring state audit</td></tr>
+<tr><td><code>tools/probes/hardware/link-raw.asm</code></td><td>disconnected two-wire link readback and instruction-spaced settling matrix</td></tr>
+<tr><td><code>tools/probes/hardware/keypad-settle.asm</code></td><td>held-key and chord matrix-settling measurements</td></tr>
+<tr><td><code>tools/probes/hardware/bus-timing.asm</code></td><td>six-class Flash/RAM wait-state timing matrix</td></tr>
+<tr><td><code>tools/probes/hardware/prefix-m1.asm</code></td><td>prefixed-instruction RAM-M1 timing matrix</td></tr>
+<tr><td><code>tools/probes/hardware/timer-physical.asm</code></td><td>guarded programmable-timer divisor, prescaler, zero-counter, and expiry matrix</td></tr>
+<tr><td><code>tools/probes/hardware/rtc-rollover.asm</code></td><td>read-only natural RTC low-byte rollover-coherence measurement</td></tr>
+<tr><td><code>tools/probes/hardware/mapper-overlays.asm</code></td><td>guarded restoring overlay and paired-mapper matrix</td></tr>
+<tr><td><code>tools/probes/hardware/lcd-controller.asm</code></td><td>guarded ready-trigger and visible-cell status measurement</td></tr>
+<tr><td><code>tools/probes/hardware/lcd-hidden-lab.asm</code></td><td>separately gated hidden-column geometry and restoration experiment</td></tr>
+<tr><td><code>tools/probes/hardware/interrupt-halt.asm</code></td><td>guarded programmable-timer <code>HALT</code> wake with watchdog</td></tr>
+<tr><td><code>tools/probes/hardware/display.inc</code></td><td>post-cleanup decimal CRC and reversible small-font <code>HWPZ1</code> display</td></tr>
+<tr><td><code>tools/probes/hardware/usb-snapshot.asm</code></td><td>no-I/O-write low-USB control and status snapshot</td></tr>
+<tr><td><code>tools/probes/hardware/md5-edge.asm</code></td><td>calculator-side MD5 measurements</td></tr>
+<tr><td><code>tools/probes/hardware/ram-alias.asm</code></td><td>calculator-side RAM alias and restoration measurements</td></tr>
+<tr><td><code>tools/probes/hardware/execution-fetch.asm</code></td><td>parameterized read-only Flash and RAM fetch measurement</td></tr>
+<tr><td><code>tools/ti84re/hardware/probe.py</code></td><td>reusable TI container, frame, and payload library</td></tr>
+<tr><td><code>tools/ti84re/hardware/compact_probe_code.py</code></td><td>reversible compact text encoder and decoder for complete <code>HWP1</code> frames</td></tr>
+<tr><td><code>tools/ti84re/hardware/bus_timing.py</code></td><td>timing-register models and physical counter-pair decoder</td></tr>
+<tr><td><code>tools/ti84re/emulators/prefix_fetch_models.py</code></td><td>hash-guarded emulator prefix-fetch source analysis</td></tr>
+<tr><td><code>tools/ti84re/hardware/timer.py</code></td><td>reusable source, duration, RTC, and physical timer-result models</td></tr>
+<tr><td><code>tools/ti84re/emulators/describe_prefix_fetch_models.py</code></td><td>text and JSON prefix-fetch comparison CLI</td></tr>
+<tr><td><code>tools/ti84re/emulators/wabbitemu/run_prefix_m1_probe.py</code></td><td>exact-ROM guarded assembled-probe execution CLI</td></tr>
+<tr><td><code>tools/ti84re/emulators/wabbitemu/run_timer_physical_probe.py</code></td><td>exact-ROM guarded assembled timer-probe execution CLI</td></tr>
+<tr><td><code>tools/ti84re/hardware/mapper_probe_evidence.py</code></td><td>deterministic exact-run normalization and freshness checks for <code>HWPMAP</code></td></tr>
+<tr><td><code>tools/ti84re/emulators/probe_build.py</code></td><td>shared guarded build CLI implementation for pinned emulator adapters</td></tr>
+<tr><td><code>tools/ti84re/emulators/tilem/build_exact_probe.py</code></td><td>thin TilEm generic exact-probe build entry point</td></tr>
+<tr><td><code>tools/ti84re/emulators/wabbitemu/build_exact_probe.py</code></td><td>thin Wabbitemu generic exact-probe build entry point</td></tr>
+<tr><td><code>tools/ti84re/hardware/run_exact_probe.py</code></td><td>normalized exact-byte runner for every displayed physical probe</td></tr>
+<tr><td><code>tools/ti84re/hardware/run_compact_probe_e2e.py</code></td><td>cross-emulator compact-code validation and Wabbitemu small-font rendering</td></tr>
+<tr><td><code>tools/ti84re/hardware/build_lcd_hidden_lab_probe.py</code></td><td>backup-bound device-specific hidden-LCD artifact builder</td></tr>
+<tr><td><code>tools/ti84re/hardware/run_lcd_hidden_lab_emulator.py</code></td><td>exact hidden-LCD image runner for TilEm and Wabbitemu</td></tr>
+<tr><td><code>tools/ti84re/hardware/battery.py</code></td><td>ROM decision tree and emulator threshold-region model</td></tr>
+<tr><td><code>tools/ti84re/hardware/describe_battery.py</code></td><td>text and JSON threshold/sample model CLI</td></tr>
+<tr><td><code>tools/ti84re/hardware/build_probes.py</code></td><td>SPASM runner, artifact validator, packager, and manifest CLI</td></tr>
+<tr><td><code>tools/ti84re/hardware/decode_probe.py</code></td><td>text and JSON result CLI</td></tr>
 </tbody>
 </table>
 </div>

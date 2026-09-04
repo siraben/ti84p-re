@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-27040c52.js";
+            window.path_to_searchindex_js = "searchindex-da0ddc2a.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3a621010.js"></script>
+        <script src="toc-7dda4e5a.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -226,7 +226,7 @@ targets and per-page function counts.</p>
 </thead>
 <tbody>
 <tr><td><code>08</code>–<code>2E</code>, <code>30</code>–<code>32</code></td><td>Blank or unused in this OS image — 100% <code>0xFF</code> in <code>tools/rom.bin</code>. No app headers.</td></tr>
-<tr><td><code>2F</code></td><td>Retail USB boot support installed from the checksum- and hash-validated local <code>D84PBE2.8Xv</code>. This installation changes 8,615 bytes of the pinned base. The page-<code>3F</code> boot table maps <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>, <code>_USBErrorCleanup</code>, <code>_InitUSB</code>, and <code>_KillUSB</code> here; <code>tools/rom.bin</code> contains the payload and <code>tools/bcalls8x_targets.txt</code> records their bodies. [confirmed]</td></tr>
+<tr><td><code>2F</code></td><td>Retail USB boot support installed from the checksum- and hash-validated local <code>D84PBE2.8Xv</code>. This installation changes 8,615 bytes of the pinned base. The page-<code>3F</code> boot table maps <code>_AttemptUSBOSReceive</code>, <code>_ReceiveOS_USB</code>, <code>_USBErrorCleanup</code>, <code>_InitUSB</code>, and <code>_KillUSB</code> here; <code>tools/rom.bin</code> contains the payload and <code>tools/symbols/bcalls8x_targets.txt</code> records their bodies. [confirmed]</td></tr>
 <tr><td><code>34</code>–<code>39</code></td><td>More OS code (parser scan, USB, graph, mode, menu, and RTC); fill 0.2–17% <code>0xFF</code>.</td></tr>
 <tr><td><code>3B</code></td><td>bcall jump table — starts <code>99 27 00</code> = entry 0 (<code>_JErrorNo</code> → <code>ram:2799</code>).</td></tr>
 <tr><td><code>3C</code></td><td>Link code, archive garbage collection, and the OS version string — page starts with ASCII <code>32 2E 35 35 4D 50</code> = <code>"2.55MP"</code>; <code>archive_gc_collect</code> is at <code>3C:7733</code>.</td></tr>

@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-27040c52.js";
+            window.path_to_searchindex_js = "searchindex-da0ddc2a.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3a621010.js"></script>
+        <script src="toc-7dda4e5a.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -546,7 +546,7 @@ the page-0 bjump stub at <code>00:2E17</code>. The stub targets the endpoint hel
 then stores the count at <code>0x9834</code> and invokes dispatcher mode <code>3</code>. Its RAM
 branch at <code>36:416C</code> uses the same endpoint helper with chunks of at most 64
 bytes and does not call the Flash flush. [confirmed]</p>
-<p><code>tools/analyze_link_flash_staging.py</code> checks the ROM signatures and complete
+<p><code>tools/ti84re/link/analyze_flash_staging.py</code> checks the ROM signatures and complete
 caller sets. Its importable model also reports page classification, RAM-direct
 versus Flash-buffered routing, block counts, destination crossing, and the
 equality quirk.</p>
@@ -701,7 +701,7 @@ bit operation anywhere in this ROM. No TI source or older-ROM comparison has
 yet been found that establishes whether those three values instead encode
 model or OS-version compatibility. [hypothesis]</p>
 <p>The audit is reproducible without subsystem-specific parsing:</p>
-<pre><code class="language-console">python3 tools/describe_backup.py legacy-flags
+<pre><code class="language-console">python3 -m ti84re.link.describe_backup legacy-flags
 </code></pre>
 <p><strong>External format evidence.</strong> [standard] tilibs commit
 <code>791d2535813fa7ffef8f9feadf110998d4ae57fb</code> provides an independent format
@@ -790,7 +790,7 @@ doesn’t auto-power-down mid-transfer.</p>
 <code>0x1F</code>; pointer entry <code>07:6B08</code> selects <code>07:6C55</code>, the string <code>LINK</code>.
 <code>_JError(0x22)</code> uses pointer entry <code>07:6B0E</code>, which selects the same string.
 The two raw codes therefore produce the same visible <code>ERR:LINK</code> message.
-<code>error_table.py</code> decodes this ROM table, and <code>describe_error.py 0x22 0x9F</code>
+<code>tools/ti84re/rom/error_table.py</code> decodes this ROM table, and <code>python3 -m ti84re.rom.describe_error 0x22 0x9F</code>
 reproduces both lookups. [confirmed]</p>
 <p>The include file labels <code>0x22</code>–<code>0x25</code> as <code>E_LinkIOChkSum</code>,
 <code>E_LinkIOTimeOut</code>, <code>E_LinkIOBusy</code>, and <code>E_LinkIOVer</code>, but the same block marks

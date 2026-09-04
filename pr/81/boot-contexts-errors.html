@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-27040c52.js";
+            window.path_to_searchindex_js = "searchindex-da0ddc2a.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3a621010.js"></script>
+        <script src="toc-7dda4e5a.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -410,7 +410,7 @@ it is not a physical-hardware result. [confirmed]</p>
 </tbody>
 </table>
 </div>
-<p>The <code>Code</code> column is each error’s low 7 bits. Re-editable errors set the <code>E_EDIT</code> (<code>0x80</code>) bit on top — <code>E_Overflow equ 1+E_EDIT</code>, <code>E_DivBy0 equ 2+E_EDIT</code>, … — while non-editable ones (<code>E_Label equ 20</code>, <code>E_Stat equ 21</code>, …) carry no such bit. The handler masks the code (<code>AND 0x7F</code>) before indexing. Thus <code>_JError(0x22)</code> and <code>_JError(0x9F)</code> both select <code>LINK</code> at <code>07:6C55</code>, through pointer entries <code>07:6B0E</code> and <code>07:6B08</code>. <code>tools/describe_error.py</code> reproduces the table lookup from the ROM. [confirmed]</p>
+<p>The <code>Code</code> column is each error’s low 7 bits. Re-editable errors set the <code>E_EDIT</code> (<code>0x80</code>) bit on top — <code>E_Overflow equ 1+E_EDIT</code>, <code>E_DivBy0 equ 2+E_EDIT</code>, … — while non-editable ones (<code>E_Label equ 20</code>, <code>E_Stat equ 21</code>, …) carry no such bit. The handler masks the code (<code>AND 0x7F</code>) before indexing. Thus <code>_JError(0x22)</code> and <code>_JError(0x9F)</code> both select <code>LINK</code> at <code>07:6C55</code>, through pointer entries <code>07:6B0E</code> and <code>07:6B08</code>. <code>tools/ti84re/rom/describe_error.py</code> reproduces the table lookup from the ROM. [confirmed]</p>
 <h2 id="confirmed-details"><a class="header" href="#confirmed-details">Confirmed details</a></h2>
 <ul>
 <li><strong><code>cx*</code> vector layout — confirmed.</strong> The six 2-byte handler slots and <code>cxPage</code> offsets are pinned by tracing <code>_AppInit</code> (<code>ram:0936</code>): <code>LD DE,0x858D / LD BC,0x000C / LDIR</code> then <code>IN A,(6) / LD (0x8599),A</code>. See <a href="#context-block-layout-confirmed">Context block layout</a> above for the full offset table and <code>_AppInit</code> body. <code>_AppInit</code> installs the block; it is not the sole writer — <code>_POPCX</code> (bcall <code>0x49E1</code> → <code>07:6D1C</code>) restores a saved context into <code>cxMain</code>, and a save path at <code>07:5A8C</code> copies <code>cxMain</code> into the <code>cxPrev</code> shadow.</li>

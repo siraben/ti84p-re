@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-27040c52.js";
+            window.path_to_searchindex_js = "searchindex-da0ddc2a.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3a621010.js"></script>
+        <script src="toc-7dda4e5a.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -203,7 +203,7 @@ reset sequence and the destructive hardware diagnostics.</p>
 </tbody>
 </table>
 </div>
-<p>The checked trace reduction is <code>tools/retail-boot-traces.json</code>. Its ROM hash,
+<p>The checked trace reduction is <code>tools/oracles/boot/retail-boot-traces.json</code>. Its ROM hash,
 emulator source commit, emulator-binary hash, trace hashes, visit counts, and
 first-visit clocks keep each dynamic claim tied to a specific run. The raw
 TLMT traces are too large for the repository and remain external.</p>
@@ -227,7 +227,7 @@ TLMT traces are too large for the repository and remain external.</p>
 </div>
 <p>The table therefore has 87 populated three-byte entries in two ranges, not
 one continuous range. Treating <code>3F:40D5</code>–<code>3F:40E3</code> as five more entries
-decodes executable stub bytes as bogus targets. <code>tools/bcall_tables.py</code> rejects
+decodes executable stub bytes as bogus targets. <code>tools/ti84re/rom/bcall_tables.py</code> rejects
 those reserved IDs. [confirmed]</p>
 <p>Each real entry stores a little-endian target address followed by a page byte.
 Eighty-one targets stay on page <code>3F</code>; six enter the companion USB boot payload
@@ -355,15 +355,15 @@ OS proves that the two RAM markers passed on that boot, not that the trace
 executed a fresh certificate or cryptographic validation. [confirmed]</p>
 <h2 id="reproduction"><a class="header" href="#reproduction">Reproduction</a></h2>
 <p>Capture each macro from reset with the pinned TilEm build, <code>--normal-speed</code>,
-and <code>--trace-range all</code>, as described in <code>tools/dynamic-tracing.md</code>. Reduce the
+and <code>--trace-range all</code>, as described in <code>tools/notes/dynamic-tracing.md</code>. Reduce the
 four TLMT files with: [confirmed]</p>
-<pre><code class="language-sh">PYTHONPATH=tools python tools/analyze_retail_boot.py \
+<pre><code class="language-sh">PYTHONPATH=tools python3 -m ti84re.boot.analyze_retail_boot \
   --rom tools/rom.bin \
   --trace normal=/tmp/retail-boot-normal.trace \
   --trace del=/tmp/retail-boot-del.trace \
   --trace stat=/tmp/retail-boot-stat.trace \
   --trace mode_ignored=/tmp/retail-boot-mode-ignored.trace \
-  --output tools/retail-boot-traces.json
+  --output tools/oracles/boot/retail-boot-traces.json
 </code></pre>
 <p>The corresponding macros are <code>tools/macros/boot-idle.macro</code>,
 <code>tools/macros/boot-del-recovery.macro</code>,

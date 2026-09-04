@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-27040c52.js";
+            window.path_to_searchindex_js = "searchindex-da0ddc2a.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3a621010.js"></script>
+        <script src="toc-7dda4e5a.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -284,12 +284,12 @@ See <a href="sub-tibasic.html#expressions-are-nested-productions">TI-BASIC execu
 the evaluator and <a href="sub-tibasic-tracing.html">TI-BASIC dynamic tracing</a> for the
 bounded token-width and scan models.</p>
 <h2 id="reproducible-samples"><a class="header" href="#reproducible-samples">Reproducible samples</a></h2>
-<p><code>tools/tibasic_samples.py</code> generates readable <code>.bas</code>, raw <code>.tok</code>, and loadable
+<p><code>tools/ti84re/tibasic/samples.py</code> generates readable <code>.bas</code>, raw <code>.tok</code>, and loadable
 <code>.8xp</code> forms from one definition. Treat <code>.bas</code> as the review form, <code>.tok</code> as
 the exact interpreter input, and <code>.8xp</code> as the calculator fixture. A compact,
 diverse subset is used for dynamic coverage; the generator retains the broader
 fixture library for targeted subsystem investigations.</p>
-<pre><code class="language-sh">tools/tibasic_samples.py --write-dir tools/tibasic-samples
+<pre><code class="language-sh">python3 -m ti84re.tibasic.samples --write-dir tools/tibasic-samples
 </code></pre>
 <p>The generator’s byte assertions catch accidental changes between the readable
 source and the token body. Calculator execution is still required to establish

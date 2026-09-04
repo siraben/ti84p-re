@@ -37,10 +37,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-27040c52.js";
+            window.path_to_searchindex_js = "../searchindex-da0ddc2a.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-3a621010.js"></script>
+        <script src="../toc-7dda4e5a.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -279,7 +279,7 @@ small-font <code>HWPZ1-</code> code in pages of at most 144 characters. Photogra
 transcribe every page if the AppVar cannot be transferred immediately. The
 code includes the complete <code>HWP1</code> frame, its byte length, and a CRC; it does
 not omit unknown or reserved payload bytes. Decode it with:</p>
-<pre><code class="language-sh">python tools/compact_probe_code.py 'HWPZ1-...'
+<pre><code class="language-sh">python3 -m ti84re.hardware.compact_probe_code 'HWPZ1-...'
 </code></pre>
 <p>Spaces, line breaks, and grouping hyphens in the body are ignored. The decoder
 also accepts <code>O</code> for zero and <code>I</code> or <code>L</code> for one. A successful decode recovers
@@ -288,7 +288,7 @@ possible because its TI container checksum and file metadata provide evidence
 that the screen text alone does not carry.</p>
 <h2 id="self-contained-evidence-bundle"><a class="header" href="#self-contained-evidence-bundle">Self-contained evidence bundle</a></h2>
 <p>Build one canonical record after exporting the AppVar:</p>
-<pre><code class="language-sh">python tools/physical_probe_evidence.py \
+<pre><code class="language-sh">python3 -m ti84re.hardware.physical_probe_evidence \
   --appvar HWTMR001.8xv \
   --program /tmp/hardware-probes/HWTMR.8xp \
   --manifest /tmp/hardware-probes/manifest.json \
@@ -296,7 +296,7 @@ that the screen text alone does not carry.</p>
   --attachment calculator_backup=/path/to/pre-run-backup.8xg \
   --attachment unit_photo=lab-ta3-01.png \
   --output HWTMR001-evidence.json
-python tools/physical_probe_evidence.py --check HWTMR001-evidence.json
+python3 -m ti84re.hardware.physical_probe_evidence --check HWTMR001-evidence.json
 </code></pre>
 <p>Each <code>--attachment ROLE=PATH</code> argument embeds the complete capture. Use roles
 such as <code>unit_photo</code>, <code>pcb_photo</code>, <code>scope_trace</code>, <code>logic_trace</code>, and
@@ -315,7 +315,7 @@ embedded attachment. Preserve the standalone <code>.8xv</code> and raw captures 
 <h2 id="acceptance-checks"><a class="header" href="#acceptance-checks">Acceptance checks</a></h2>
 <p>Before using a result as evidence:</p>
 <ol>
-<li>Run <code>physical_probe_evidence.py --check</code> and retain its passing bundle.</li>
+<li>Run <code>python3 -m ti84re.hardware.physical_probe_evidence --check</code> and retain its passing bundle.</li>
 <li>Match both artifact hashes to the embedded build-manifest row.</li>
 <li>Decode the original AppVar without checksum, length, version, or probe-ID
 errors.</li>

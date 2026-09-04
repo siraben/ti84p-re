@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-27040c52.js";
+            window.path_to_searchindex_js = "searchindex-da0ddc2a.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3a621010.js"></script>
+        <script src="toc-7dda4e5a.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -219,20 +219,20 @@ throughout the wiki.</p>
 </ul>
 <p>The rebuilt Ghidra project keeps each kind of name in a separate checked registry:</p>
 <ul>
-<li><code>tools/names.txt</code> contains function entries. Its importer disassembles the entry and creates a function.</li>
-<li><code>tools/labels.txt</code> contains ROM data and internal code-entry labels. Rows marked <code>entry</code> seed and preserve disassembly without creating an overlapping function.</li>
-<li><code>tools/ram.txt</code> contains RAM symbols, including official SDK equates and carefully named inferred state.</li>
-<li><code>tools/ports.txt</code> contains I/O-port symbols.</li>
-<li><code>tools/poffsets.txt</code> contains reviewed base-plus-offset references. These make an operand such as <code>mathprintArenaState + 0x0D</code> render as a structure member without inventing a second global name for the field address.</li>
+<li><code>tools/symbols/names.txt</code> contains function entries. Its importer disassembles the entry and creates a function.</li>
+<li><code>tools/symbols/labels.txt</code> contains ROM data and internal code-entry labels. Rows marked <code>entry</code> seed and preserve disassembly without creating an overlapping function.</li>
+<li><code>tools/symbols/ram.txt</code> contains RAM symbols, including official SDK equates and carefully named inferred state.</li>
+<li><code>tools/symbols/ports.txt</code> contains I/O-port symbols.</li>
+<li><code>tools/symbols/poffsets.txt</code> contains reviewed base-plus-offset references. These make an operand such as <code>mathprintArenaState + 0x0D</code> render as a structure member without inventing a second global name for the field address.</li>
 </ul>
-<p><code>tools/ty_regions.txt</code> applies the C layouts built by <code>BuildTypes.java</code>. The prose can therefore use expressions such as <code>table_value_cache.band[1].value[row]</code> once it introduces the typed base and its concrete address. A physical boundary, trace target, or byte-level proof still keeps its concrete address. [confirmed]</p>
+<p><code>tools/symbols/ty_regions.txt</code> applies the C layouts built by <code>BuildTypes.java</code>. The prose can therefore use expressions such as <code>table_value_cache.band[1].value[row]</code> once it introduces the typed base and its concrete address. A physical boundary, trace target, or byte-level proof still keeps its concrete address. [confirmed]</p>
 <h2 id="math-notation"><a class="header" href="#math-notation">Math notation</a></h2>
 <p>Formulas are written in LaTeX and rendered by KaTeX (offline, client-side): <code>$…$</code> for inline math and <code>$$…$$</code> for display. Algorithms render as pseudocode blocks and data/control-flow diagrams as Mermaid.</p>
 <h2 id="evidence-and-reproducibility"><a class="header" href="#evidence-and-reproducibility">Evidence and reproducibility</a></h2>
 <ul>
 <li>The Ghidra database is rebuilt from the ROM by <code>tools/build.sh</code> (a 15-stage reproducible pipeline around Ghidra’s headless analyzer). It loads all 64 flash pages (page 0 + overlays at <code>4000</code>), then resolves routines, applies function and data symbols, and installs the checked C layouts and offset references.</li>
-<li><strong>Local ROM trust boundary.</strong> <code>tools/assemble_local_rom.py --check</code> validates the exact ignored base-ROM and AppVar hashes without writing output. Its reusable <code>tools/rom_assembly.py</code> library decodes each TI variable container, verifies its checksum, type, name, flags, duplicate length fields, internal 16 KiB size, and payload hash, then requires the assembled-ROM hash. This proves which bytes the analysis uses; it does not prove that the files were captured from a physical calculator. The pinned base already contains the <code>D84PBE1.8Xv</code> page-<code>3F</code> payload byte for byte. Only <code>D84PBE2.8Xv</code>, installed at page <code>2F</code>, changes the base image (8,615 bytes). [confirmed]</li>
-<li><strong>bcall table resolution.</strong> The main jump table page was found by <em>scoring</em> all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid <code>(addr, page)</code> entry. Page 0x3B scored highest for the <code>0x4xxx</code> table — more known bcall IDs resolve to a valid <code>(addr, page)</code> entry there than on any other page — and is confirmed by the documented RST shortcuts (all six matched) and by every entry resolving and live-confirming once 0x3B is applied. <code>0x8xxx</code> bcall IDs index 87 populated retail boot-table entries on page <code>3F</code>; several USB entries target page <code>2F</code>. The local <code>rom.bin</code> is assembled from the patched base plus the retail <code>D84PBE1.8Xv</code> and <code>D84PBE2.8Xv</code> payloads. <code>tools/bcalls8x_targets.txt</code> contains the 83 byte-resolved bodies with public SDK names; the remaining four entries have project-inferred names. The resolver rejects these targets when page <code>3F</code> has a BootFree prefix.</li>
+<li><strong>Local ROM trust boundary.</strong> <code>tools/ti84re/rom/assemble_local_rom.py --check</code> validates the exact ignored base-ROM and AppVar hashes without writing output. Its reusable <code>tools/ti84re/rom/assembly.py</code> library decodes each TI variable container, verifies its checksum, type, name, flags, duplicate length fields, internal 16 KiB size, and payload hash, then requires the assembled-ROM hash. This proves which bytes the analysis uses; it does not prove that the files were captured from a physical calculator. The pinned base already contains the <code>D84PBE1.8Xv</code> page-<code>3F</code> payload byte for byte. Only <code>D84PBE2.8Xv</code>, installed at page <code>2F</code>, changes the base image (8,615 bytes). [confirmed]</li>
+<li><strong>bcall table resolution.</strong> The main jump table page was found by <em>scoring</em> all 64 flash pages: for each candidate, count how many of the known bcall IDs produce a valid <code>(addr, page)</code> entry. Page 0x3B scored highest for the <code>0x4xxx</code> table — more known bcall IDs resolve to a valid <code>(addr, page)</code> entry there than on any other page — and is confirmed by the documented RST shortcuts (all six matched) and by every entry resolving and live-confirming once 0x3B is applied. <code>0x8xxx</code> bcall IDs index 87 populated retail boot-table entries on page <code>3F</code>; several USB entries target page <code>2F</code>. The local <code>rom.bin</code> is assembled from the patched base plus the retail <code>D84PBE1.8Xv</code> and <code>D84PBE2.8Xv</code> payloads. <code>tools/symbols/bcalls8x_targets.txt</code> contains the 83 byte-resolved bodies with public SDK names; the remaining four entries have project-inferred names. The resolver rejects these targets when page <code>3F</code> has a BootFree prefix.</li>
 <li><strong>Decompiler caveats.</strong> Ghidra’s Z80 decompiler can mis-render <code>SET b,(IY+d)</code> flag operations, <code>CALL cross_page_jump</code> (<code>ram:2B09</code>) trampolines, and register-passed arguments on banked pages. Raw disassembly and ROM bytes are authoritative for these cases.</li>
 </ul>
 <p>See the repository <code>README.md</code> for the exact build pipeline and tooling.</p>

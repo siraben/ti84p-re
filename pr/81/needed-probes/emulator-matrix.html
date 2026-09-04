@@ -37,10 +37,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-27040c52.js";
+            window.path_to_searchindex_js = "../searchindex-da0ddc2a.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-3a621010.js"></script>
+        <script src="../toc-7dda4e5a.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -229,7 +229,7 @@ failures in each backend. <code>HWKEYS</code> is recorded separately as
 to be released and then for an operator-held key or chord. The generic
 injection adapters do not synthesize that sequence. The guarded direct-core
 keypad cases remain the emulator evidence for that device family. The tracked
-summary <code>tools/fixtures/exact-hardware-probe-matrix.json</code> contains every
+summary <code>tools/oracles/hardware/exact-hardware-probe-matrix.json</code> contains every
 completed probe’s decimal verification code and both runner hashes.
 [confirmed]</p>
 <div class="table-wrapper">
@@ -247,7 +247,7 @@ completed probe’s decimal verification code and both runner hashes.
 </tbody>
 </table>
 </div>
-<p>The compact-display record <code>tools/fixtures/compact-probe-e2e.json</code> runs the
+<p>The compact-display record <code>tools/oracles/hardware/compact-probe-e2e.json</code> runs the
 current 1,385-byte <code>HWTMR</code> image through the complete decimal and <code>HWPZ1</code>
 paths. TilEm emitted a
 170-character code and Wabbitemu emitted a 182-character code. Both required
@@ -255,7 +255,7 @@ one decimal-screen key and two compact-page keys. Each assembly-produced code
 equaled the independent host encoding and decoded to the exact resident frame.
 The different strings preserve real differences between the two emulator
 frames. [confirmed]</p>
-<p><code>tools/fixtures/compact-probe-link-e2e.json</code> repeats the test with the 276-byte
+<p><code>tools/oracles/hardware/compact-probe-link-e2e.json</code> repeats the test with the 276-byte
 <code>HWLINK</code> frame. This crosses the compact encoder’s 8-bit frame-length boundary.
 Wabbitemu also traversed a compact-page boundary. [confirmed]</p>
 <p>Wabbitemu executed the OS <code>_VPutMap</code> small-font renderer and retained the final
@@ -267,13 +267,13 @@ This distinction is recorded as <code>rendered_small_font</code> for each backen
 the page-advance keys. They require the probe to return with its private stack
 balanced. This is exact probe and display control-flow evidence, not a link
 transfer or retail VAT-allocation test. Check the tracked record with:</p>
-<pre><code class="language-sh">python tools/run_compact_probe_e2e.py \
-  --check tools/fixtures/compact-probe-e2e.json
-python tools/run_compact_probe_e2e.py \
-  --check tools/fixtures/compact-probe-link-e2e.json
+<pre><code class="language-sh">python3 -m ti84re.hardware.run_compact_probe_e2e \
+  --check tools/oracles/hardware/compact-probe-e2e.json
+python3 -m ti84re.hardware.run_compact_probe_e2e \
+  --check tools/oracles/hardware/compact-probe-link-e2e.json
 </code></pre>
 <p>The deterministic <code>HWPMAP</code> record is
-<code>tools/fixtures/mapper-overlays-emulators.json</code>. It binds the two exact runs to
+<code>tools/oracles/hardware/mapper-overlays-emulators.json</code>. It binds the two exact runs to
 the 1,802-byte assembly image and preserves the displayed decimal codes, raw
 frames, decoded routing rows, restoration results, emulator revisions, and
 runner hashes. Its MAME row labels exact image execution <code>unsupported</code> and
@@ -284,7 +284,7 @@ keeps the completed direct-handler profile as a different evidence class.
 Both runs matched the AppVar-resident frame and the assembly CRC. Both also
 preserved the visible cell, movement bits, and wait-register snapshot.
 [confirmed]</p>
-<p>MAME 0.287 completed only <code>tools/run_mame_lcd_probe.py</code>. That adapter drives
+<p>MAME 0.287 completed only <code>tools/ti84re/emulators/mame/run_lcd_probe.py</code>. That adapter drives
 the LCD handlers directly from isolated CPU state. It did not execute the
 <code>HWPLCD</code> assembly image. Its guarded run reports a 15-byte linear-spill model,
 permanent busy-clear status, constant ASIC-ready state, and absent wait ports.
@@ -312,13 +312,13 @@ locally reproduced generic runner hashes are:</p>
 </ul>
 <p>Build either runner from its guarded source tree, then run any probe name
 through the normalized CLI:</p>
-<pre><code class="language-sh">nix develop -c python tools/build_tilem_exact_probe.py \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.emulators.tilem.build_exact_probe \
   --source /path/to/tilem-f56ad637 --output /tmp/tilem-exact
 
-nix develop -c python tools/build_wabbitemu_exact_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.build_exact_probe \
   --source /path/to/wabbitemu-48c2dc0 --output /tmp/wabbitemu-exact
 
-nix develop -c python tools/run_exact_hardware_probe.py \
+nix develop -c python3 -m ti84re.hardware.run_exact_probe \
   --backend tilem --binary /tmp/tilem-exact \
   --expected-binary-sha256 \
     ac280251dcda1cda083196abf88032502420351732cb689cac38d20348126408 \
@@ -326,7 +326,7 @@ nix develop -c python tools/run_exact_hardware_probe.py \
 </code></pre>
 <p>Run every non-interactive image without allowing one failure to hide later
 results:</p>
-<pre><code class="language-sh">nix develop -c python tools/run_exact_hardware_probe_matrix.py \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.hardware.run_exact_probe_matrix \
   --backend tilem --binary /tmp/tilem-exact \
   --expected-binary-sha256 \
     ac280251dcda1cda083196abf88032502420351732cb689cac38d20348126408 \
@@ -340,13 +340,13 @@ reported as a physical observation.</p>
 through a pinned Wabbitemu binary with
 SHA-256
 <code>3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e</code>:</p>
-<pre><code class="language-sh">nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.emulators.wabbitemu.run_timer_physical_probe \
   --binary /path/to/wabbitemu-headless \
   --expected-binary-sha256 \
     3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
   --output-dir /tmp/wabbitemu-hwtmr --json
 
-nix develop -c python tools/run_wabbitemu_prefix_m1_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_prefix_m1_probe \
   --binary /path/to/wabbitemu-headless \
   --expected-binary-sha256 \
     3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \

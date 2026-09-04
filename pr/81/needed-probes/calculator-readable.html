@@ -37,10 +37,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-27040c52.js";
+            window.path_to_searchindex_js = "../searchindex-da0ddc2a.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-3a621010.js"></script>
+        <script src="../toc-7dda4e5a.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -190,7 +190,7 @@ The <a href="safety-review.html">adversarial safety review</a> currently blocks 
 and <code>HWPMAP</code> and places several other artifacts in laboratory-only use.</p>
 <h2 id="prepared-artifacts"><a class="header" href="#prepared-artifacts">Prepared artifacts</a></h2>
 <p>All sources use the shared entry and AppVar writer in
-<code>tools/hardware-probes/common.inc</code>. The builder packages the sources below and
+<code>tools/probes/hardware/common.inc</code>. The builder packages the sources below and
 records their machine-code and transfer-file hashes. [confirmed]</p>
 <div class="table-wrapper">
 <table>
@@ -218,12 +218,12 @@ records their machine-code and transfer-file hashes. [confirmed]</p>
 </table>
 </div>
 <p>The last row expands one parameterized source into ten artifacts, for a total
-of 25 transfer files. <code>tools/test_needed_probe_docs.py</code> checks that this page
+of 25 transfer files. <code>tools/tests/wiki/test_needed_probe_docs.py</code> checks that this page
 names every builder definition, program, result AppVar, and source. [confirmed]</p>
 <h2 id="build-run-and-decode"><a class="header" href="#build-run-and-decode">Build, run, and decode</a></h2>
 <p>Build into a new directory:</p>
 <pre><code class="language-sh">probe_parent=$(mktemp -d /tmp/ti84-physical-probes.XXXXXX)
-nix develop -c python tools/build_hardware_probes.py \
+nix develop -c python3 -m ti84re.hardware.build_probes \
   --output-dir "$probe_parent/build"
 </code></pre>
 <p>Follow the ordering and safety instructions in <a href="../hardware-probes.html#build-and-transfer">Physical hardware
@@ -231,7 +231,7 @@ probes</a>. Delete an older result
 AppVar before each run. Export the result before running a reset-capable
 artifact.</p>
 <p>Decode one or more exported files without changing them:</p>
-<pre><code class="language-sh">python tools/decode_hardware_probe.py --json \
+<pre><code class="language-sh">python3 -m ti84re.hardware.decode_probe --json \
   HWPASIC1.8xv HWPRAM21.8xv HWTMR001.8xv
 </code></pre>
 <p>The decoder validates the TI container, both link lengths, checksum, AppVar

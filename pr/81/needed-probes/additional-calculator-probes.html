@@ -37,10 +37,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-27040c52.js";
+            window.path_to_searchindex_js = "../searchindex-da0ddc2a.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-3a621010.js"></script>
+        <script src="../toc-7dda4e5a.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -226,7 +226,7 @@ refuses it. [confirmed]</p>
 <p>Fresh exact-image runs selected the TilEm profile with decimal verification
 code <code>58756</code> and the Wabbitemu profile with code <code>21062</code>; all four restore
 flags and both derived restoration checks passed. The normalized record is
-<code>tools/fixtures/mapper-overlays-emulators.json</code>. MAME 0.287 completed a
+<code>tools/oracles/hardware/mapper-overlays-emulators.json</code>. MAME 0.287 completed a
 separate direct-handler Lua profile, but exact <code>HWPMAP</code> image execution is
 unsupported until a guarded MAME injection adapter exists. [confirmed] for
 the emulator runs; [hypothesis] for the still-unmeasured physical routing.</p>
@@ -304,7 +304,7 @@ every checked byte, and printed <code>42103</code>. The two images differ only i
 compiled expected-ASIC byte. These runs test probe control flow and emulator
 models; they do not establish physical safety. [confirmed]</p>
 <p>An operator-specific build has this form:</p>
-<pre><code class="language-sh">nix develop -c python tools/build_lcd_hidden_lab_probe.py \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.hardware.build_lcd_hidden_lab_probe \
   --output-dir /tmp/hwplab-build \
   --acknowledgement I_UNDERSTAND_HIDDEN_LCD_WRITES_CAN_REQUIRE_A_RESET \
   --expected-asic 0x45 \
