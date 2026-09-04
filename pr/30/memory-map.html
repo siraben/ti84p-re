@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a712ec86.js";
+            window.path_to_searchindex_js = "searchindex-87a3f2ca.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-359c0a17.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -199,7 +199,7 @@ RAM page <code>83</code> and restore rules.</p>
 </tbody>
 </table>
 </div>
-<p>In this OS the system RAM variables all live at <code>8000+</code>, so the static RE model treats <code>8000-FFFF</code> as one RAM block (see <code>tools/BuildTI84Full.java</code>).</p>
+<p>In this OS the system RAM variables all live at <code>8000+</code>, so the static RE model treats <code>8000-FFFF</code> as one RAM block (see <code>tools/ghidra/BuildTI84Full.java</code>).</p>
 <h2 id="flash-layout-physical-1-mib--64--16-kib-pages"><a class="header" href="#flash-layout-physical-1-mib--64--16-kib-pages">Flash layout (physical, 1 MiB = 64 × 16 KiB pages)</a></h2>
 <div class="table-wrapper">
 <table>
@@ -219,7 +219,7 @@ RAM page <code>83</code> and restore rules.</p>
 </table>
 </div>
 <p>Pages <code>01-3F</code> are loaded in Ghidra as overlays <code>page_01 … page_3F</code> (each at <code>4000</code>). Goto e.g. <code>01:5b4c</code> for <code>_PutC</code>.</p>
-<p>The assembled <code>tools/rom.bin</code> is the Ghidra build input. <code>tools/assemble_local_rom.py</code>
+<p>The assembled <code>tools/rom.bin</code> is the Ghidra build input. <code>tools/ti84re/rom/assemble_local_rom.py</code>
 starts with <code>ti84plus_patched.rom</code>, validates the complete TI AppVar containers,
 installs <code>D84PBE2.8Xv</code> as page <code>2F</code>, and installs <code>D84PBE1.8Xv</code> as page <code>3F</code>.
 The first installation changes 8,615 bytes; the second changes none because the

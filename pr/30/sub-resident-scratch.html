@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a712ec86.js";
+            window.path_to_searchindex_js = "searchindex-87a3f2ca.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-359c0a17.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -189,7 +189,7 @@ not touch them. [confirmed]</p>
 <p>The measurements are in <code>tools/data/scratch-ram-observations.csv</code> and
 <code>tools/data/scratch-guard-results.csv</code>.
 Regenerate a row set from a full-range TilEm trace with:</p>
-<pre><code class="language-sh">nix develop --command python3 tools/analyze_scratch_trace.py TRACE \
+<pre><code class="language-sh">nix develop --command python3 -m ti84re.trace.analyze_scratch TRACE \
   --initial-port-5 0 --initial-port-7 0x81 \
   --scenario NAME --model ti84p --os-version 2.55MP --format csv
 </code></pre>
@@ -341,8 +341,8 @@ complete-ROM sidecar. The recorded capture context and trace content establish
 this emulator result; the trace does not independently identify every ROM page.
 [confirmed]</p>
 <p>Build the TI-BASIC <code>Asm(prgmSCRPROBE)</code> wrapper with
-<code>tools/build_scratch_probe_wrapper.py</code>; then assemble
-<code>tools/fixtures/scratch_guard_probe.asm</code> and run
+<code>tools/ti84re/tibasic/build_scratch_probe_wrapper.py</code>; then assemble
+<code>tools/probes/scratch-guard/scratch_guard_probe.asm</code> and run
 <code>tools/macros/scratch-guard-probe.macro</code>. The full trace executes 14,736
 instructions in the payload range, including the 767- and 530-byte fill
 <code>LDIR</code>s and the complete 768- and 531-byte comparison loops. The fixture halts
@@ -523,7 +523,7 @@ hardware; doing so keeps the helper transparent and portable to related models.<
 <tr><th>Source</th><th>Use here</th></tr>
 </thead>
 <tbody>
-<tr><td>OS 2.55MP ROM and <code>tools/analyze_scratch_trace.py</code></td><td>ROM ownership and trace write attribution</td></tr>
+<tr><td>OS 2.55MP ROM and <code>tools/ti84re/trace/analyze_scratch.py</code></td><td>ROM ownership and trace write attribution</td></tr>
 <tr><td><code>tools/data/scratch-ram-observations.csv</code></td><td>launch scenarios, selector assumptions, and write counts</td></tr>
 <tr><td><code>tools/data/scratch-guard-results.csv</code></td><td>guard trace identity, shell-owned ranges, and evidence limits</td></tr>
 <tr><td><a href="https://education.ti.com/download/en/ed-tech/830D08FF31804AEAA2F03B8F5E89AD14/672891A1E98349CAB91C11B4928C253C/sdk83pguide.pdf">TI-83 Plus Developer Guide</a></td><td>documented <code>saveSScreen</code>, <code>statVars</code>, <code>_DisableApd</code>, and <code>_DelRes</code> conditions</td></tr>

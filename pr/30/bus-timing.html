@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a712ec86.js";
+            window.path_to_searchindex_js = "searchindex-87a3f2ca.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-359c0a17.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -372,7 +372,7 @@ M1. TilEm follows this split in <code>z80main.h:674</code> and <code>z80ddfd.h:3
 Wabbitemu routes the final opcode through <code>CPU_opcode_fetch</code> at <code>core/core.c:832</code>,
 then decrements <code>R</code> at line 836. Its wait model therefore counts three opcode
 waits while its visible refresh count remains two. The hash-guarded
-<code>describe_prefix_fetch_models.py</code> CLI reproduces this result from the pinned
+<code>ti84re.emulators.describe_prefix_fetch_models</code> CLI reproduces this result from the pinned
 source trees. The exact assembled <code>HWPFX</code> program also reproduces the split in
 the pinned Wabbitemu runtime: its indexed-CB row adds 30 timer ticks, compared
 with 25 for the three ordinary one-prefix rows and 29 for repeated DD.
@@ -486,9 +486,9 @@ CPU frequency, timer version, programmable-timer state, LCD-active state,
 describe Wabbitemu’s registered handler, not physical low-power behavior.
 [standard]</p>
 <h2 id="reproducing-the-decode"><a class="header" href="#reproducing-the-decode">Reproducing the decode</a></h2>
-<p><code>tools/bus_timing.py</code> is a pure register decoder.
-<code>tools/describe_bus_timing.py</code> prints all four speed modes from the boot values:</p>
-<pre><code class="language-sh">nix develop -c python tools/describe_bus_timing.py
+<p><code>tools/ti84re/hardware/bus_timing.py</code> is a pure register decoder.
+<code>tools/ti84re/hardware/describe_bus_timing.py</code> prints all four speed modes from the boot values:</p>
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.hardware.describe_bus_timing
 </code></pre>
 <p>The default documented profile reports:</p>
 <pre><code class="language-text">documented (WikiTI pages retrieved 2026-08-09): speed-mode=1 clock=15MHz port20=01/01
@@ -502,46 +502,46 @@ describe Wabbitemu’s registered handler, not physical low-power behavior.
 <p><code>doc-div</code> is the public port-<code>0x2F</code> divisor decode. It is not an emulator claim.
 Compare the four pinned implementations, including ignored MAME writes and
 jsTIfied’s stored-delay model, with:</p>
-<pre><code class="language-sh">nix develop -c python tools/describe_bus_timing.py --compare
-nix develop -c python tools/describe_bus_timing.py --compare --json
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.hardware.describe_bus_timing --compare
+nix develop -c python3 -m ti84re.hardware.describe_bus_timing --compare --json
 </code></pre>
 <p>Pass <code>--extra-speeds</code> to model Wabbitemu’s external 20/25 MHz option. The flag
 does not describe the default TI-84 Plus configuration.</p>
 <p>Repeated <code>--write PORT=VALUE</code> options make altered settings explicit. JSON is
 available for scripts:</p>
-<pre><code class="language-sh">nix develop -c python tools/describe_bus_timing.py \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.hardware.describe_bus_timing \
   --write 0x20=0 --write 0x29=0x17 --write 0x2e=0x45 --json
 </code></pre>
 <p>Run the native boundary checks with the pinned Wabbitemu adapter:</p>
 <pre><code class="language-sh">wabbit_lcd_parent=$(mktemp -d /tmp/ti84-wabbit-lcd.XXXXXX)
-python tools/run_wabbitemu_lcd_edge_probe.py \
+python3 -m ti84re.emulators.wabbitemu.run_lcd_edge_probe \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$wabbit_lcd_parent/run" --json
 
 wabbit_speed_parent=$(mktemp -d /tmp/ti84-wabbit-speed.XXXXXX)
-python tools/run_wabbitemu_speed_edge_probe.py \
+python3 -m ti84re.emulators.wabbitemu.run_speed_edge_probe \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$wabbit_speed_parent/run" --json
 
 mame_asic_parent=$(mktemp -d /tmp/ti84-mame-asic.XXXXXX)
-nix shell nixpkgs#mame --command python tools/run_mame_asic_probe.py \
+nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_asic_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_asic_parent/run" --json
 </code></pre>
 <p>The manifest labels the run as initialized-core emulator evidence and records
-both input hashes. <code>tools/wabbitemu_lcd_probe.py</code> derives its pointer, latch,
+both input hashes. <code>tools/ti84re/emulators/wabbitemu/lcd_probe.py</code> derives its pointer, latch,
 ready-hold, delay, wait-bit, and speed-clamp expectations from the reusable LCD
 and bus-timing libraries.</p>
-<p><code>tools/wabbitemu_speed_probe.py</code> derives speed, latch, and wait-mask
-expectations from <code>tools/bus_timing.py</code>. Its guarded CLI records both input
+<p><code>tools/ti84re/emulators/wabbitemu/speed_probe.py</code> derives speed, latch, and wait-mask
+expectations from <code>tools/ti84re/hardware/bus_timing.py</code>. Its guarded CLI records both input
 hashes and labels the direct <code>timer_version = 1</code> configuration explicitly.
-<code>tools/mame_asic.py</code> reuses the MAME timing profile for raw readback, binary
+<code>tools/ti84re/emulators/mame/asic.py</code> reuses the MAME timing profile for raw readback, binary
 clock selection, and the absent delay block.</p>
 <p>The executed initialization can be recovered from a full boot trace:</p>
-<pre><code class="language-sh">nix develop -c python tools/tilem_trace_resolve.py /tmp/boot.trace \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.trace.resolve /tmp/boot.trace \
   --initial-mapping ti84p-reset --io-ports 20,29-2f
 </code></pre>
 <h2 id="open-physical-tests"><a class="header" href="#open-physical-tests">Open physical tests</a></h2>

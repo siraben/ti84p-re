@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a712ec86.js";
+            window.path_to_searchindex_js = "searchindex-87a3f2ca.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-359c0a17.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -262,7 +262,7 @@ before conversion. A mantissa carry writes the canonical <code>10 00</code> pref
 increments the exponent. <code>_ConvOP1</code> (<code>38:7433</code>) then converts up to four
 integer digits into <code>DE</code>, returns <code>E</code> in <code>A</code>, and raises a dimension error for
 an exponent above <code>0x83</code>. [confirmed]</p>
-<p><code>tools/graph-coordinate.js</code> translates this operand order and finishing path.
+<p><code>tools/js/graph-coordinate.js</code> translates this operand order and finishing path.
 Its test pins the three ROM spans and compares 220,000 packed-BCD OP1 states
 against an independent transcription. [confirmed]</p>
 <p>The Y result is a 1-based, bottom-up graph coordinate. A reset-origin <code>Y1=X²</code>
@@ -361,7 +361,7 @@ pointer by 18 bytes. [confirmed]</p>
 <p>The loop consumes seven consecutive constants at <code>35:79F5</code>, alternating sine
 and cosine values for 6°, 12°, 18°, and finally sine 24°. The adjacent
 cosine 24° constant is present but is not consumed by this loop. The static
-schedule and helper ABI are checked in <code>tools/graph_circle.py</code>; the latter is
+schedule and helper ABI are checked in <code>tools/ti84re/graphing/circle.py</code>; the latter is
 compared with the pinned helper bytes for all 65,536 16-bit test seeds.
 [confirmed]</p>
 <h3 id="draw-menu-commands-page-0x04-handlers"><a class="header" href="#draw-menu-commands-page-0x04-handlers">DRAW menu commands (page 0x04 handlers)</a></h3>
@@ -460,7 +460,7 @@ joins the shared evaluator tail at <code>38:59A4</code>. Evaluation passes throu
 <code>eval_eqn_recursive</code> (<code>38:778F</code>) and <code>eval_eqn_finish_typecheck</code> (<code>38:77C2</code>).
 Official <code>_ParseInp</code> at <code>38:5987</code> is a sibling entry with additional state
 cleanup; neither graph trace executes it. [confirmed]</p>
-<p><code>tools/graph-regraph.json</code> records ROM and TilEm provenance, raw-trace hashes,
+<p><code>tools/oracles/graphing/graph-regraph.json</code> records ROM and TilEm provenance, raw-trace hashes,
 and final-buffer hashes for two reset-origin TilEm traces: [confirmed]</p>
 <div class="table-wrapper">
 <table>
@@ -486,7 +486,7 @@ The two missing evaluator completions therefore correspond to a visible break,
 not a line across the asymptote. [confirmed]</p>
 <p>These traces cover line style 0, <code>Xres=1</code>, and one selected equation. They do
 not establish the thick, shade, trace, animate, or dotted paths; <code>Xres&gt;1</code>;
-multiple selected equations; or other graph modes. <code>tools/analyze_graph_regraph.py</code>
+multiple selected equations; or other graph modes. <code>tools/ti84re/graphing/analyze_regraph.py</code>
 regenerates the compact report from raw TLMT traces, which remain outside the
 repository.</p>
 <h3 id="graph-databases-gdb-confirmed"><a class="header" href="#graph-databases-gdb-confirmed">Graph databases (GDB) [confirmed]</a></h3>

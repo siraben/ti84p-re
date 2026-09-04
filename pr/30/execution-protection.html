@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a712ec86.js";
+            window.path_to_searchindex_js = "searchindex-87a3f2ca.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-359c0a17.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -772,17 +772,17 @@ path. It does not emulate any boundary or violation response. [standard]</p>
 <p>MAME therefore cannot test any boundary or violation described on this page.
 The driver is marked <code>MACHINE_NOT_WORKING</code>, so this omission is a driver limit,
 not evidence that the physical ASIC lacks execution protection. See
-<a href="flash-memory.html#mame-behavior-and-limits">Flash memory</a> for the resulting
+<a href="flash-emulator-comparison.html#mame-behavior-and-limits">Flash emulator comparison</a> for the resulting
 Flash-command behavior. [standard]</p>
 <h2 id="reproducing-the-models"><a class="header" href="#reproducing-the-models">Reproducing the models</a></h2>
-<p><code>tools/execution_protection.py</code> contains side-effect-free predicates and RAM
+<p><code>tools/ti84re/hardware/execution_protection.py</code> contains side-effect-free predicates and RAM
 coverage enumeration. The focused CLI prints both emulator results:</p>
-<pre><code class="language-console">$ python tools/describe_execution_protection.py flash
+<pre><code class="language-console">$ python3 -m ti84re.hardware.describe_execution_protection flash
 Flash bounds 0x08-0x29
 page 0x07: TilEm=allow Wabbitemu=allow
 page 0x08: TilEm=deny Wabbitemu=allow
 </code></pre>
-<pre><code class="language-console">$ python tools/describe_execution_protection.py ram --compare-wabbitemu
+<pre><code class="language-console">$ python3 -m ti84re.hardware.describe_execution_protection ram --compare-wabbitemu
 RAM chunks 0x10-0x20
 mode 0 TilEm-mask=0x7C00
   page 0x80: TilEm=- Wabbitemu=-
@@ -795,22 +795,22 @@ emulator.</p>
 directory, runs them, and rejects a classification that disagrees with the
 TilEm predicate:</p>
 <pre><code class="language-sh">probe_parent=$(mktemp -d)
-nix develop -c python tools/run_execution_protection_probe.py \
+nix develop -c python3 -m ti84re.hardware.run_execution_protection_probe \
   --tilem "$TILEM" --output-dir "$probe_parent/run" --json
 </code></pre>
-<p><code>tools/execution_protection_fixture.py</code> holds the exact-ROM patching,
+<p><code>tools/ti84re/hardware/execution_protection_fixture.py</code> holds the exact-ROM patching,
 machine-code validation, reusable assembler entry point, packaging, and trace
 classifier. The CLI retains each derived ROM, program pair, log, trace, and a
 hash-complete <code>manifest.json</code> in the requested directory.</p>
 <p>The direct reset probe supplies the missing single-opcode control. Its build
 and run commands are under “Reset and execution exception” in the repository’s
-<code>tools/dynamic-tracing.md</code>. The shared <code>tools/tilem_core.py</code> library validates
-the source tree and runs the binary. <code>tools/tilem_reset.py</code> parses the native
+<code>tools/notes/emulator-probes.md</code>. The shared <code>tools/ti84re/emulators/tilem/core.py</code> library validates
+the source tree and runs the binary. <code>tools/ti84re/emulators/tilem/reset.py</code> parses the native
 report and checks the reset and retention vectors against the source model.</p>
 <p>The Wabbitemu CLI uses the same fixture library and adds page <code>09</code> to
 distinguish the two lower-edge predicates:</p>
 <pre><code class="language-sh">wabbit_probe_parent=$(mktemp -d)
-nix develop -c python tools/run_wabbitemu_execution_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_execution_probe \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$wabbit_probe_parent/run" --json
 </code></pre>
@@ -820,32 +820,32 @@ marker value, reset count, fixture hashes, and native-binary hash.</p>
 <p>The RAM runners accept repeatable <code>MODE:PHYSICAL_PAGE:PAGE_OFFSET</code> targets.
 Their defaults cover the cross-emulator disagreements and all Wabbitemu modes:</p>
 <pre><code class="language-sh">tilem_ram_parent=$(mktemp -d)
-nix develop -c python tools/run_tilem_ram_execution_probe.py \
+nix develop -c python3 -m ti84re.emulators.tilem.run_ram_execution_probe \
   --tilem "$TILEM" --output-dir "$tilem_ram_parent/run" --json
 
 wabbit_ram_parent=$(mktemp -d)
-nix develop -c python tools/run_wabbitemu_ram_execution_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_ram_execution_probe \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$wabbit_ram_parent/run" --json
 </code></pre>
 <p>The Wabbitemu CLI also accepts custom <code>--lower-chunk</code> and <code>--upper-chunk</code>
 values. The <code>0x40</code> wrap case is reproducible with:</p>
 <pre><code class="language-sh">wrap_parent=$(mktemp -d)
-nix develop -c python tools/run_wabbitemu_ram_execution_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_ram_execution_probe \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$wrap_parent/run" \
   --lower-chunk 0x40 --upper-chunk 0x40 \
   --target 0:0:0 --target 0:2:0 --json
 
 protected_port_parent=$(mktemp -d /tmp/ti84-protected-port.XXXXXX)
-nix develop -c python tools/run_wabbitemu_protection_port_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_protection_port_probe \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$protected_port_parent/run" --json
 </code></pre>
 <p>The boot bytes can be recovered independently:</p>
-<pre><code class="language-console">$ python tools/disassemble_rom.py 0x3f --start 0x41d5 --end 0x4206
-$ python tools/analyze_rom_io.py 0x21 0x22 0x23 0x24 0x25 0x26 --summary
+<pre><code class="language-console">$ python3 -m ti84re.rom.disassemble 0x3f --start 0x41d5 --end 0x4206
+$ python3 -m ti84re.rom.analyze_io 0x21 0x22 0x23 0x24 0x25 0x26 --summary
 </code></pre>
 <h2 id="flash-write-disable-bcall-confirmed"><a class="header" href="#flash-write-disable-bcall-confirmed">Flash write-disable bcall [confirmed]</a></h2>
 <p><code>_FlashWriteDisable = 0x4F3C</code>, body <code>3C:66D5</code>, controls Flash programming,
