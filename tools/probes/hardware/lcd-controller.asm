@@ -170,9 +170,28 @@ restore_controller_state:
     jr z,restore_movement
     ld a,(payload_outcome)
     or a
-    jr nz,restore_movement
+    jr nz,force_restore_controller
     ld a,4
     ld (payload_outcome),a
+force_restore_controller:
+    ; Once ASIC-ready has timed out, the safe helpers deliberately reject all
+    ; later accesses. Use bounded fixed-delay writes for the best-effort
+    ; movement and pointer recovery instead of silently skipping cleanup.
+    ld a,(pointer_safe)
+    or a
+    jr z,capture_post
+    ld a,(payload_pre_movement)
+    cp $04
+    jr c,force_restore_pointer
+    cp $08
+    jr nc,force_restore_pointer
+    call force_lcd_command
+force_restore_pointer:
+    ld a,(payload_pre_curxrow)
+    call force_lcd_command
+    ld a,(payload_pre_cury)
+    call force_lcd_command
+    jr capture_post
 restore_movement:
     ld a,(payload_pre_movement)
     cp $04
@@ -219,6 +238,15 @@ capture_post:
     ld a,(pointer_safe)
     or a
     jr z,finish_restore
+    ld a,(lcd_timeout)
+    or a
+    jr z,post_restore_safe
+    ld a,(payload_pre_curxrow)
+    call force_lcd_command
+    ld a,(payload_pre_cury)
+    call force_lcd_command
+    jr finish_restore
+post_restore_safe:
     ld a,(payload_pre_curxrow)
     call safe_lcd_command
     ld a,(payload_pre_cury)
@@ -336,6 +364,13 @@ long_lcd_delay_loop:
     or c
     jr nz,long_lcd_delay_loop
     pop bc
+    ret
+
+force_lcd_command:
+    push af
+    call long_lcd_delay
+    pop af
+    out ($10),a
     ret
 
 ; Return in HL the number of not-ready samples after one LCD access.

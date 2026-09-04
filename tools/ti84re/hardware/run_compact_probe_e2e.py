@@ -24,6 +24,7 @@ from ti84re.emulators.tilem.core import TILEM_COMMIT, TILEM_TREE
 from ti84re.emulators.wabbitemu.headless import WABBITEMU_COMMIT, WABBITEMU_TREE_SHA256
 from ti84re.paths import ROOT
 SCHEMA = "ti84p-re.compact-probe-emulator-evidence.v1"
+BACKEND_TIMEOUT_SECONDS = 30
 FIELD_PATTERN = re.compile(r"(?P<key>[a-z0-9_]+)=(?P<value>\S+)")
 SOURCE_PATHS = (
     "tools/probes/hardware/display.inc",
@@ -31,6 +32,7 @@ SOURCE_PATHS = (
     "tools/ti84re/hardware/compact_probe_code.py",
     "tools/ti84re/hardware/probe.py",
     "tools/ti84re/hardware/build_probes.py",
+    "tools/ti84re/emulators/probe_build.py",
     "tools/ti84re/emulators/tilem/build_compact_probe.py",
     "tools/ti84re/emulators/wabbitemu/build_compact_probe.py",
     "tools/probes/tilem/tilem_compact_probe.c",
@@ -186,22 +188,44 @@ def run_backend(
         str(probe.payload_size),
         "100000000" if backend == "tilem" else "10000000",
     ]
-    completed = subprocess.run(command, text=True, capture_output=True, check=False)
+    try:
+        completed = subprocess.run(
+            command,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=BACKEND_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise ValueError(
+            f"{backend} compact runner exceeded {BACKEND_TIMEOUT_SECONDS} seconds"
+        ) from error
     if completed.returncode != 0:
         detail = completed.stderr.strip() or completed.stdout.strip()
         raise ValueError(f"{backend} compact runner failed: {detail}")
     fields = parse_native_output(completed.stdout)
+    recorded_command = [
+        str(binary),
+        "--compact-probe",
+        f"rom-sha256:{file_sha256(rom)}",
+        f"probe-sha256:{hashlib.sha256(machine_code).hexdigest()}",
+        str(probe.probe_id),
+        str(probe.payload_size),
+        "100000000" if backend == "tilem" else "10000000",
+    ]
     return {
         "backend": backend,
         "binary_sha256": file_sha256(binary),
-        "command": command,
+        "command": recorded_command,
         **validate_native_fields(
             fields, probe_name=probe_name, machine_code=machine_code, backend=backend
         ),
     }
 
 
-def validate_evidence(evidence: Mapping[str, Any], *, root: Path = ROOT) -> None:
+def validate_evidence(
+    evidence: Mapping[str, Any], *, root: Path = ROOT, spasm: str = "spasm"
+) -> None:
     """Validate a tracked compact-code emulator record against current sources."""
 
     require(evidence.get("schema") == SCHEMA, "wrong compact evidence schema")
@@ -230,18 +254,23 @@ def validate_evidence(evidence: Mapping[str, Any], *, root: Path = ROOT) -> None
         "tracked emulator revisions differ",
     )
     machine_size = evidence.get("machine_code_size")
-    require(isinstance(machine_size, int), "tracked machine-code size is absent")
+    machine_code = assemble_machine_code(probe_name, spasm=spasm)
+    require(
+        machine_size == len(machine_code),
+        "tracked machine-code size differs from current assembly",
+    )
     machine_hash = evidence.get("machine_code_sha256")
     require(
-        isinstance(machine_hash, str)
-        and re.fullmatch(r"[0-9a-f]{64}", machine_hash) is not None,
-        "tracked machine-code hash is malformed",
+        machine_hash == hashlib.sha256(machine_code).hexdigest(),
+        "tracked machine-code hash differs from current assembly",
     )
     backends = evidence.get("backends")
     require(isinstance(backends, Mapping), "tracked backends are absent")
     for backend, mode in (("tilem", "tilem-compact"), ("wabbitemu", "wabbitemu-compact")):
         row = backends.get(backend)
         require(isinstance(row, Mapping), f"tracked {backend} result is absent")
+        require(row.get("backend") == backend, f"tracked {backend} backend differs")
+        require(row.get("status") == "completed", f"tracked {backend} status differs")
         fields = row.get("native_fields")
         require(isinstance(fields, Mapping), f"tracked {backend} fields are absent")
         require(fields.get("mode") == mode, f"tracked {backend} mode differs")
@@ -249,7 +278,23 @@ def validate_evidence(evidence: Mapping[str, Any], *, root: Path = ROOT) -> None
         require(fields.get("marker_visits") == "1", "compact marker count differs")
         require(fields.get("returned") == "1", "compact probe did not return")
         require(fields.get("final_sp") == "0xFF02", "compact final stack differs")
-        require(int(fields["probe_size"], 0) == machine_size, "machine size differs")
+        require(fields.get("completed") == "1", f"tracked {backend} completion differs")
+        require(
+            fields.get("appvar_matches") == "1",
+            f"tracked {backend} AppVar comparison differs",
+        )
+        require(
+            int(fields.get("probe_id", "-1"), 0) == probe.probe_id,
+            f"tracked {backend} native probe ID differs",
+        )
+        require(
+            int(fields.get("payload_size", "-1"), 0) == probe.payload_size,
+            f"tracked {backend} native payload size differs",
+        )
+        require(
+            int(fields.get("probe_size", "-1"), 0) == machine_size,
+            "machine size differs",
+        )
         frame_bytes = bytes.fromhex(str(row.get("frame_hex")))
         frame = decode_probe_frame(frame_bytes)
         require(frame.probe_id == probe.probe_id, "tracked frame probe ID differs")
@@ -288,16 +333,45 @@ def validate_evidence(evidence: Mapping[str, Any], *, root: Path = ROOT) -> None
             row.get("display_code_decimal") == probe_verification_code(frame),
             f"tracked {backend} decimal CRC differs",
         )
+        require(
+            int(fields.get("display_code", "-1"), 0)
+            == row.get("display_code_decimal"),
+            f"tracked {backend} native decimal CRC differs",
+        )
         expected_key_pages = 1 + math.ceil(len(compact_code) / 144)
         require(
             int(row.get("key_pages", 0)) == expected_key_pages,
             f"tracked {backend} compact pagination differs",
+        )
+        require(
+            int(fields.get("key_pages", "-1"), 0) == expected_key_pages,
+            f"tracked {backend} native pagination differs",
+        )
+        require(
+            fields.get("lcd_fnv1a64") == lcd_hash,
+            f"tracked {backend} native LCD hash differs",
         )
         binary_hash = row.get("binary_sha256")
         require(
             isinstance(binary_hash, str)
             and re.fullmatch(r"[0-9a-f]{64}", binary_hash) is not None,
             f"tracked {backend} binary hash is malformed",
+        )
+        command = row.get("command")
+        require(
+            isinstance(command, list)
+            and len(command) == 7
+            and isinstance(command[0], str)
+            and command[1:]
+            == [
+                "--compact-probe",
+                f"rom-sha256:{TI84_PLUS_OS_255MP_SHA256}",
+                f"probe-sha256:{machine_hash}",
+                str(probe.probe_id),
+                str(probe.payload_size),
+                "100000000" if backend == "tilem" else "10000000",
+            ],
+            f"tracked {backend} normalized command differs",
         )
         if backend == "wabbitemu":
             require(
@@ -347,7 +421,7 @@ def main() -> None:
             )
             evidence = json.loads(args.check.read_text(encoding="utf-8"))
             require(isinstance(evidence, dict), "evidence must be a JSON object")
-            validate_evidence(evidence)
+            validate_evidence(evidence, spasm=args.spasm)
             print(f"PASS {args.check}")
             return
         require(
@@ -409,7 +483,7 @@ def main() -> None:
             },
             "backends": {"tilem": tilem, "wabbitemu": wabbitemu},
         }
-        validate_evidence(evidence)
+        validate_evidence(evidence, spasm=args.spasm)
         if args.output.exists():
             raise ValueError(f"refusing to overwrite {args.output}")
         args.output.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")

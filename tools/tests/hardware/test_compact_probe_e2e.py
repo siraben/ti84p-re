@@ -4,12 +4,17 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import math
+import subprocess
 import unittest
+from pathlib import Path
+from unittest import mock
 
 
-from ti84re.hardware.run_compact_probe_e2e import validate_evidence
+from ti84re.hardware import run_compact_probe_e2e as compact_e2e
+from ti84re.hardware.run_compact_probe_e2e import run_backend, validate_evidence
 from ti84re.paths import ORACLES
 
 FIXTURE = ORACLES / "hardware" / "compact-probe-e2e.json"
@@ -21,6 +26,32 @@ class CompactProbeE2ETests(unittest.TestCase):
     def setUpClass(cls):
         cls.evidence = json.loads(FIXTURE.read_text(encoding="utf-8"))
         cls.link_evidence = json.loads(LINK_FIXTURE.read_text(encoding="utf-8"))
+
+    def normalized_evidence(self):
+        evidence = copy.deepcopy(self.evidence)
+        machine_code = b"current assembled machine code"
+        evidence["machine_code_size"] = len(machine_code)
+        evidence["machine_code_sha256"] = hashlib.sha256(machine_code).hexdigest()
+        for backend in ("tilem", "wabbitemu"):
+            evidence["backends"][backend]["native_fields"]["probe_size"] = str(
+                len(machine_code)
+            )
+        return evidence, machine_code
+
+    def validate_normalized(self, evidence, machine_code):
+        with (
+            mock.patch.object(
+                compact_e2e,
+                "source_hashes",
+                return_value=evidence["sources"],
+            ),
+            mock.patch.object(
+                compact_e2e,
+                "assemble_machine_code",
+                return_value=machine_code,
+            ),
+        ):
+            validate_evidence(evidence)
 
     def test_tracked_cross_emulator_result_is_current(self):
         validate_evidence(self.evidence)
@@ -97,6 +128,46 @@ class CompactProbeE2ETests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             validate_evidence(changed)
+
+    def test_strict_native_status_fields_are_required(self):
+        cases = (
+            ("completed", "0", "completion"),
+            ("appvar_matches", "0", "AppVar comparison"),
+            ("key_pages", "999", "native pagination"),
+            ("probe_id", "255", "native probe ID"),
+            ("payload_size", "65535", "native payload size"),
+            ("display_code", "0", "native decimal CRC"),
+            ("lcd_fnv1a64", "0000000000000000", "native LCD hash"),
+        )
+        for field, value, message in cases:
+            with self.subTest(field=field):
+                evidence, machine_code = self.normalized_evidence()
+                evidence["backends"]["tilem"]["native_fields"][field] = value
+                with self.assertRaisesRegex(ValueError, message):
+                    self.validate_normalized(evidence, machine_code)
+
+    def test_machine_hash_must_match_current_assembly(self):
+        evidence, machine_code = self.normalized_evidence()
+        evidence["machine_code_sha256"] = "0" * 64
+
+        with self.assertRaisesRegex(ValueError, "hash differs from current assembly"):
+            self.validate_normalized(evidence, machine_code)
+
+    def test_backend_timeout_is_reported_cleanly(self):
+        with mock.patch.object(
+            compact_e2e.subprocess,
+            "run",
+            side_effect=subprocess.TimeoutExpired(cmd="runner", timeout=30),
+        ):
+            with self.assertRaisesRegex(ValueError, "exceeded 30 seconds"):
+                run_backend(
+                    backend="tilem",
+                    binary=Path("/tmp/not-run-tilem"),
+                    rom=Path("/tmp/not-read-rom"),
+                    machine_path=Path("/tmp/not-read-probe"),
+                    probe_name="asic-snapshot",
+                    machine_code=b"",
+                )
 
 
 if __name__ == "__main__":

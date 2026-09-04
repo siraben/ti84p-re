@@ -23,6 +23,16 @@ from ti84re.hardware.probe import (
 SCHEMA = "ti84p-re.physical-probe-evidence.v1"
 METADATA_SCHEMA = "ti84p-re.physical-probe-metadata.v1"
 
+MUTATING_PROBE_IDS = frozenset((2, 4, 7, 10, 11, 12, 14, 15, 16, 17))
+RECOVERY_REQUIREMENTS: tuple[tuple[str, type], ...] = (
+    ("calculator.backup_verified", bool),
+    ("calculator.backup_artifact_sha256", str),
+    ("run.restore_rehearsal.utc_time", str),
+    ("run.restore_rehearsal.result", str),
+    ("run.restore_rehearsal.backup_sha256", str),
+    ("run.restore_rehearsal.notes", str),
+)
+
 BASE_REQUIREMENTS = (
     ("probe", str),
     ("program", str),
@@ -46,8 +56,9 @@ BASE_REQUIREMENTS = (
 )
 
 PROBE_REQUIREMENTS: dict[int, tuple[tuple[str, type], ...]] = {
+    2: RECOVERY_REQUIREMENTS,
     4: (
-        ("calculator.backup_verified", bool),
+        *RECOVERY_REQUIREMENTS,
         ("run.recovery_observation", str),
     ),
     5: (("run.usb_state", str),),
@@ -58,21 +69,26 @@ PROBE_REQUIREMENTS: dict[int, tuple[tuple[str, type], ...]] = {
         ("run.supply_sweep_direction", str),
     ),
     7: (
+        *RECOVERY_REQUIREMENTS,
         ("run.supply_volts", (int, float)),
         ("run.load_amps", (int, float)),
         ("run.temperature_c", (int, float)),
         ("run.supply_sweep_direction", str),
     ),
     8: (("run.link_connector_state", str),),
+    10: RECOVERY_REQUIREMENTS,
+    11: RECOVERY_REQUIREMENTS,
+    12: RECOVERY_REQUIREMENTS,
     13: (("run.rtc_configuration", str),),
-    14: (("calculator.backup_verified", bool),),
+    14: RECOVERY_REQUIREMENTS,
     15: (
-        ("calculator.backup_verified", bool),
+        *RECOVERY_REQUIREMENTS,
         ("calculator.lcd_controller_or_revision", str),
         ("run.panel_observation", str),
     ),
+    16: RECOVERY_REQUIREMENTS,
     17: (
-        ("calculator.backup_verified", bool),
+        *RECOVERY_REQUIREMENTS,
         ("calculator.lcd_controller_or_revision", str),
         ("run.panel_observation", str),
         ("run.recovery_notes", str),
@@ -151,6 +167,124 @@ def _decode_file(record: Mapping[str, Any], label: str) -> bytes:
     return blob
 
 
+def _is_sha256(value: Any) -> bool:
+    """Return whether *value* is one canonical SHA-256 hex digest."""
+
+    if not isinstance(value, str) or len(value) != 64:
+        return False
+    try:
+        int(value, 16)
+    except ValueError:
+        return False
+    return value == value.lower()
+
+
+def _acceptance(report: Mapping[str, Any]) -> dict[str, Any]:
+    """Classify one decoded run without discarding an unsuccessful observation."""
+
+    probe_id = report["probe_id"]
+    measurements = report["measurements"]
+    require(isinstance(measurements, Mapping), "decoded measurements are not an object")
+    predicates: list[dict[str, Any]] = []
+
+    def check(name: str, observed: Any, expected: Any = True) -> None:
+        predicates.append(
+            {
+                "name": name,
+                "passed": observed == expected,
+                "observed": observed,
+                "expected": expected,
+            }
+        )
+
+    def check_all(name: str, values: Any) -> None:
+        require(isinstance(values, Mapping), f"decoded {name} is not an object")
+        for field, value in values.items():
+            check(f"{name}.{field}", value)
+
+    if "outcome_code" in measurements:
+        check(
+            "outcome_code",
+            measurements["outcome_code"],
+            1 if probe_id == 17 else 0,
+        )
+    elif probe_id == 4:
+        check("outcome", measurements.get("outcome"), "returned")
+
+    if probe_id == 2:
+        check("restore_matches", measurements.get("restore_matches"))
+    elif probe_id in (6, 7):
+        check("cleanup_matches", measurements.get("cleanup_matches"))
+        pre = measurements.get("pre")
+        restored = measurements.get("restored")
+        require(isinstance(pre, Mapping), "decoded pre-state is not an object")
+        require(isinstance(restored, Mapping), "decoded restored state is not an object")
+        check("cleanup_status_matches", restored.get("status"), pre.get("status"))
+    elif probe_id == 8:
+        check("cleanup_idle_matches", measurements.get("cleanup_idle_matches"))
+        pre = measurements.get("pre")
+        cleanup = measurements.get("cleanup")
+        require(isinstance(pre, Mapping), "decoded pre-state is not an object")
+        require(isinstance(cleanup, Mapping), "decoded cleanup state is not an object")
+        check("cleanup_status_matches", cleanup.get("status"), pre.get("status"))
+    elif probe_id == 9:
+        for field in (
+            "measurements_valid",
+            "cleanup_all_columns_high",
+            "status_unchanged",
+            "interrupt_ports_unchanged",
+            "speed_unchanged",
+        ):
+            check(field, measurements.get(field))
+        check("operator_wait_timed_out", measurements.get("operator_wait_timed_out"), False)
+    elif probe_id in (10, 11):
+        check_all("restored", measurements.get("restored"))
+        check("speed_unchanged", measurements.get("speed_unchanged"))
+        check("timing_gates_unchanged", measurements.get("timing_gates_unchanged"))
+    elif probe_id == 12:
+        check_all("restored", measurements.get("restored"))
+    elif probe_id == 13:
+        for field in (
+            "control_unchanged",
+            "first_transition_coherent",
+            "later_reads_monotonic",
+        ):
+            check(field, measurements.get(field))
+    elif probe_id == 14:
+        check("all_marker_pages_restored", measurements.get("all_marker_pages_restored"))
+        check("readable_ports_restored", measurements.get("readable_ports_restored"))
+    elif probe_id == 15:
+        check("restore_ok", measurements.get("restore_ok"))
+        check("wait_registers_unchanged", measurements.get("wait_registers_unchanged"))
+        if measurements.get("schema") == "visible-cell-v2":
+            visible_cell = measurements.get("visible_cell")
+            require(isinstance(visible_cell, Mapping), "decoded visible cell is not an object")
+            check("visible_cell.matches", visible_cell.get("matches"))
+            check("movement_status_restored", measurements.get("movement_status_restored"))
+    elif probe_id == 16:
+        check("restore_ok", measurements.get("restore_ok"))
+        check("i_register_restored", measurements.get("i_register_restored"))
+    elif probe_id == 17:
+        restoration = measurements.get("restoration")
+        direct = measurements.get("direct_hidden_columns")
+        increment = measurements.get("increment_from_column_14")
+        require(isinstance(restoration, Mapping), "decoded restoration is not an object")
+        require(isinstance(direct, Mapping), "decoded direct result is not an object")
+        require(isinstance(increment, Mapping), "decoded increment result is not an object")
+        check("last_completed_stage", measurements.get("last_completed_stage"), 5)
+        check("restoration.matches", restoration.get("matches"))
+        check("direct_hidden_columns.change_count_matches", direct.get("change_count_matches"))
+        check("increment_from_column_14.change_count_matches", increment.get("change_count_matches"))
+
+    failed = [predicate["name"] for predicate in predicates if not predicate["passed"]]
+    return {
+        "accepted": not failed,
+        "classification": "accepted" if not failed else "failed",
+        "predicates": predicates,
+        "failed_predicates": failed,
+    }
+
+
 def _manifest_row(
     manifest: Mapping[str, Any], report: Mapping[str, Any]
 ) -> dict[str, Any]:
@@ -184,6 +318,7 @@ def _manifest_row(
         "probe",
         "program",
         "source",
+        "physical_use_class",
         "machine_code_size",
         "machine_code_sha256",
         "program_file_size",
@@ -197,8 +332,14 @@ def _validate_metadata(
     metadata: Mapping[str, Any],
     report: Mapping[str, Any],
     artifact: Mapping[str, Any],
+    attachments: Sequence[tuple[str, str, bytes]],
 ) -> dict[str, Any]:
     """Validate physical context and report the state-coverage contract."""
+
+    require(
+        artifact.get("physical_use_class") != "blocked",
+        "this artifact is blocked from physical evidence collection by its safety review",
+    )
 
     require(metadata.get("schema") == METADATA_SCHEMA, "wrong metadata schema")
     requirements = (*BASE_REQUIREMENTS, *PROBE_REQUIREMENTS.get(report["probe_id"], ()))
@@ -240,18 +381,79 @@ def _validate_metadata(
     if load_amps is not None:
         require(load_amps >= 0, "run.load_amps must not be negative")
     backup = _field(metadata, "calculator.backup_verified")
-    if report["probe_id"] in (4, 14, 15, 17):
+    if report["probe_id"] in MUTATING_PROBE_IDS:
         require(backup is True, "this probe requires a verified calculator backup")
+        backup_sha256 = _field(metadata, "calculator.backup_artifact_sha256")
+        rehearsal_sha256 = _field(metadata, "run.restore_rehearsal.backup_sha256")
+        require(
+            _is_sha256(backup_sha256),
+            "calculator.backup_artifact_sha256 must be canonical SHA-256 hex",
+        )
+        require(
+            rehearsal_sha256 == backup_sha256,
+            "restore rehearsal does not identify the embedded backup",
+        )
+        require(
+            _field(metadata, "run.restore_rehearsal.result") == "passed",
+            "restore rehearsal result must be passed",
+        )
+        backup_attachments = [
+            blob for role, _name, blob in attachments if role == "calculator_backup"
+        ]
+        require(
+            len(backup_attachments) == 1,
+            "this probe requires one calculator_backup attachment",
+        )
+        require(backup_attachments[0], "calculator_backup attachment must not be empty")
+        require(
+            hashlib.sha256(backup_attachments[0]).hexdigest() == backup_sha256,
+            "calculator_backup attachment SHA-256 does not match metadata",
+        )
+        recovery = artifact.get("recovery")
+        if report["probe_id"] == 17:
+            require(
+                isinstance(recovery, Mapping),
+                "laboratory manifest is missing recovery metadata",
+            )
+            recovery_backup = recovery.get("backup")
+            require(
+                isinstance(recovery_backup, Mapping)
+                and recovery_backup.get("sha256") == backup_sha256,
+                "laboratory manifest recovery backup does not match metadata",
+            )
 
+    run_datetime = None
+    rehearsal_datetime = None
     utc_time = _field(metadata, "run.utc_time")
     if isinstance(utc_time, str):
         try:
-            parsed = datetime.fromisoformat(utc_time.replace("Z", "+00:00"))
+            run_datetime = datetime.fromisoformat(utc_time.replace("Z", "+00:00"))
         except ValueError:
             missing.append("run.utc_time(valid ISO 8601 timestamp)")
         else:
-            if parsed.tzinfo is None:
+            if run_datetime.tzinfo is None:
                 missing.append("run.utc_time(timezone required)")
+    rehearsal_time = _field(metadata, "run.restore_rehearsal.utc_time")
+    if rehearsal_time is not None:
+        try:
+            rehearsal_datetime = datetime.fromisoformat(
+                rehearsal_time.replace("Z", "+00:00")
+            )
+        except (AttributeError, ValueError):
+            missing.append("run.restore_rehearsal.utc_time(valid ISO 8601 timestamp)")
+        else:
+            if rehearsal_datetime.tzinfo is None:
+                missing.append("run.restore_rehearsal.utc_time(timezone required)")
+    if (
+        run_datetime is not None
+        and run_datetime.tzinfo is not None
+        and rehearsal_datetime is not None
+        and rehearsal_datetime.tzinfo is not None
+    ):
+        require(
+            rehearsal_datetime < run_datetime,
+            "restore rehearsal must predate the physical probe run",
+        )
 
     reset = _field(metadata, "run.visible_reset") is True
     display_code = _field(metadata, "run.displayed_verification_code")
@@ -272,8 +474,10 @@ def _validate_metadata(
 
     missing = sorted(set(missing))
     require(not missing, "metadata is incomplete: " + ", ".join(missing))
+    acceptance = _acceptance(report)
     return {
-        "complete": True,
+        "complete": acceptance["accepted"],
+        "run_acceptance": acceptance,
         "calculator_observable_state": {
             "encoding": "complete HWP1 frame",
             "raw_frame_retained": True,
@@ -283,6 +487,11 @@ def _validate_metadata(
         "external_state": {
             "metadata_schema": METADATA_SCHEMA,
             "required_fields": [path for path, _expected in requirements],
+            "required_attachment_roles": (
+                ["calculator_backup"]
+                if report["probe_id"] in MUTATING_PROBE_IDS
+                else []
+            ),
             "missing_fields": [],
         },
         "scope": (
@@ -325,9 +534,9 @@ def build_evidence(
         artifact["program_file_sha256"] == hashlib.sha256(program_blob).hexdigest(),
         "program file SHA-256 does not match the manifest",
     )
-    coverage = _validate_metadata(metadata, report, artifact)
     roles = [role for role, _name, _blob in attachments]
     require(len(roles) == len(set(roles)), "attachment roles must be unique")
+    coverage = _validate_metadata(metadata, report, artifact, attachments)
     return {
         "schema": SCHEMA,
         "probe": {
@@ -391,6 +600,13 @@ def validate_evidence(evidence: Mapping[str, Any]) -> None:
         metadata_name=str(metadata_record.get("name")),
         attachments=decoded_attachments,
     )
+    claimed_coverage = evidence.get("state_coverage")
+    require(isinstance(claimed_coverage, Mapping), "evidence has no state coverage")
+    if claimed_coverage.get("complete") is True:
+        require(
+            expected["state_coverage"]["run_acceptance"]["accepted"] is True,
+            "evidence claims complete state coverage for a failed probe run",
+        )
     require(evidence == expected, "evidence content does not match embedded inputs")
 
 

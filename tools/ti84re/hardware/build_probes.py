@@ -68,6 +68,30 @@ TIMING_PROBE_EXPECTED_INPUTS = {
 }
 TIMING_PROBE_EXPECTED_OUTPUTS = {0x2E: 8, 0x33: 7, 0x34: 7, 0x35: 7}
 
+PHYSICAL_USE_CLASS = {
+    "battery-raw": "blocked",
+    "mapper-overlays": "blocked",
+    "ram-alias": "laboratory-only",
+    "bus-timing": "laboratory-only",
+    "lcd-controller": "laboratory-only",
+    "interrupt-halt": "laboratory-only",
+    **{
+        name: "laboratory-only"
+        for name in (
+            "exec-flash-07",
+            "exec-flash-08",
+            "exec-flash-09",
+            "exec-flash-29",
+            "exec-flash-2a",
+            "exec-ram-81",
+            "exec-ram-82-chunk0",
+            "exec-ram-82-chunk1",
+            "exec-ram-83",
+            "exec-ram-84",
+        )
+    },
+}
+
 
 @dataclass(frozen=True)
 class ProbeDefinition:
@@ -90,7 +114,7 @@ PROBES = {
         "md5-edge.asm", "HWPMD5", "HWPMD511", 1, 20
     ),
     "ram-alias": ProbeDefinition(
-        "ram-alias.asm", "HWPRAM", "HWPRAM21", 2, 18
+        "ram-alias.asm", "HWPRAM", "HWPRAM21", 2, 19
     ),
     "asic-snapshot": ProbeDefinition(
         "asic-snapshot.asm", "HWASIC", "HWPASIC1", 3, 11
@@ -106,7 +130,7 @@ PROBES = {
         "battery-level.asm", "HWBATT", "HWBATT01", 6, 30
     ),
     "battery-raw": ProbeDefinition(
-        "battery-raw.asm", "HWBRAW", "HWBRAW01", 7, 30
+        "battery-raw.asm", "HWBRAW", "HWBRAW01", 7, 31
     ),
     "link-raw": ProbeDefinition(
         "link-raw.asm", "HWLINK", "HWLINK01", 8,
@@ -232,9 +256,9 @@ def probe_definition(probe_name: str) -> ProbeDefinition:
 def initial_probe_payload(probe: ProbeDefinition) -> bytes:
     """Return the exact payload bytes expected at the end of an artifact."""
 
-    if probe.probe_id in (14, 16):
+    if probe.probe_id in (2, 14, 16):
         payload = bytearray(probe.payload_size)
-        payload[9 if probe.probe_id == 14 else 6] = 0xFF
+        payload[{2: 0, 14: 9, 16: 6}[probe.probe_id]] = 0xFF
         return bytes(payload)
     if probe.probe_id != 4:
         return bytes(probe.payload_size)
@@ -322,7 +346,15 @@ def validate_machine_code(probe_name: str, machine_code: bytes) -> None:
         required = (
             (bytes((0x21, scan_start & 0xFF, scan_start >> 8)), "scan start"),
             (bytes((0x01, scan_length & 0xFF, scan_length >> 8)), "scan length"),
-            (bytes.fromhex("E601"), "paired-mapping guard"),
+            (bytes.fromhex("DB05B7"), "port-05 mapping-context guard"),
+            (bytes.fromhex("DB06FE3F"), "port-06 mapping-context guard"),
+            (bytes.fromhex("DB07FE81"), "port-07 mapping-context guard"),
+            (bytes.fromhex("DB0EB7"), "port-0E mapping-context guard"),
+            (bytes.fromhex("DB0FB7"), "port-0F mapping-context guard"),
+            (
+                bytes.fromhex("3EC0D30031F7FFCD"),
+                "OS 2.55MP mapping-context signature",
+            ),
         )
         for sequence, label in required:
             if sequence not in machine_code:
@@ -348,6 +380,27 @@ def validate_machine_code(probe_name: str, machine_code: bytes) -> None:
         ):
             raise ValueError(
                 f"{probe_name} must derive its resident frame and outcome pointers"
+            )
+    if probe.probe_id == 2:
+        for sequence, label in (
+            (bytes.fromhex("DB05B7"), "port-05 mapping-context guard"),
+            (bytes.fromhex("DB06FE3F"), "port-06 mapping-context guard"),
+            (bytes.fromhex("DB07FE81"), "port-07 mapping-context guard"),
+            (bytes.fromhex("DB0EB7"), "port-0E mapping-context guard"),
+            (bytes.fromhex("DB0FB7"), "port-0F mapping-context guard"),
+            (bytes.fromhex("3EC0D30031F7FFCD"), "OS 2.55MP signature"),
+        ):
+            if sequence not in machine_code:
+                raise ValueError(f"{probe_name} omits its {label}")
+        create_call = bytes((0xCD, (USER_MEM + 3) & 0xFF, (USER_MEM + 3) >> 8))
+        first_test_write = bytes.fromhex("32007F")
+        if (
+            machine_code.count(create_call) != 2
+            or machine_code.count(first_test_write) != 2
+            or machine_code.index(create_call) > machine_code.index(first_test_write)
+        ):
+            raise ValueError(
+                f"{probe_name} must persist originals before its first test write"
             )
     if probe.probe_id == 5:
         for port in USB_SNAPSHOT_PORTS:
@@ -400,7 +453,7 @@ def validate_machine_code(probe_name: str, machine_code: bytes) -> None:
                 f"{probe_name} must loop over five calls to the delay worker"
             )
         expected_port_counts = {
-            0x04: (3, 3),
+            0x04: (2, 3),
             0x39: (4, 2),
             0x3A: (7, 5),
         }
@@ -423,6 +476,24 @@ def validate_machine_code(probe_name: str, machine_code: bytes) -> None:
                 raise ValueError(f"{probe_name} omits its {label}")
         if machine_code.count(bytes.fromhex("FD7718")) != 1:
             raise ValueError(f"{probe_name} must restore traceFlags exactly once")
+        for sequence, label in (
+            (bytes.fromhex("FDE5E111F089B7ED52"), "canonical IY context guard"),
+            (bytes.fromhex("21D90B"), "OS signature address guard"),
+            (bytes.fromhex("3EC0D30031F7FFCD"), "exact OS signature"),
+            (bytes.fromhex("21EB0C"), "delay-helper address guard"),
+            (
+                bytes.fromhex("3EFFF5CDBD0DF1CDE60C3D20FACD3718C0"),
+                "exact delay-helper signature",
+            ),
+            (bytes.fromhex("DB05B7"), "port-05 mapping-context guard"),
+            (bytes.fromhex("DB06FE3F"), "port-06 mapping-context guard"),
+            (bytes.fromhex("DB07FE81"), "port-07 mapping-context guard"),
+            (bytes.fromhex("DB0EB7"), "port-0E mapping-context guard"),
+            (bytes.fromhex("DB0FB7"), "port-0F mapping-context guard"),
+            (bytes.fromhex("3E06D30432"), "explicit selector-06 normalization"),
+        ):
+            if sequence not in machine_code:
+                raise ValueError(f"{probe_name} omits its {label}")
     if probe.probe_id == 8:
         expected_inputs = {0x00: 7, 0x02: 2, 0x03: 2, 0x04: 2, 0x20: 2}
         for port, count in expected_inputs.items():
@@ -488,10 +559,14 @@ def validate_machine_code(probe_name: str, machine_code: bytes) -> None:
             or bytes.fromhex("CB01DA") not in machine_code
         ):
             raise ValueError(f"{probe_name} must rotate through all eight group writes")
-        if bytes.fromhex("AFD301DB013C20") not in machine_code:
-            raise ValueError(f"{probe_name} must wait for the launch key release")
-        if bytes.fromhex("DB013C28") not in machine_code:
-            raise ValueError(f"{probe_name} must wait for a held key or chord")
+        if machine_code.count(bytes.fromhex("0680210000")) != 2:
+            raise ValueError(
+                f"{probe_name} must bound both operator waits with watchdogs"
+            )
+        if machine_code.count(bytes.fromhex("DB013C")) != 2:
+            raise ValueError(
+                f"{probe_name} must sample release and held-key conditions"
+            )
         if bytes.fromhex("11FFFF1B7AB320") not in machine_code:
             raise ValueError(f"{probe_name} must debounce the held chord")
         if machine_code.count(bytes.fromhex("3EFFD301")) != 1:
@@ -614,7 +689,7 @@ def validate_machine_code(probe_name: str, machine_code: bytes) -> None:
                     f"{probe_name} must contain its {label} exactly {count} times"
                 )
     if probe.probe_id == 13:
-        expected_inputs = {0x40: 2, 0x45: 3, 0x46: 2, 0x47: 2, 0x48: 2}
+        expected_inputs = {0x40: 2, 0x45: 4, 0x46: 2, 0x47: 2, 0x48: 2}
         for port, count in expected_inputs.items():
             if machine_code.count(bytes((0xDB, port))) != count:
                 raise ValueError(
@@ -627,8 +702,9 @@ def validate_machine_code(probe_name: str, machine_code: bytes) -> None:
                 )
         for sequence, label in (
             (bytes.fromhex("ED57E2"), "enabled-interrupt entry guard"),
-            (bytes.fromhex("E60128"), "enabled-RTC entry guard"),
-            (bytes.fromhex("DB45FEFF20"), "low-byte polling loop"),
+            (bytes.fromhex("E601"), "enabled-RTC entry guard"),
+            (bytes.fromhex("01FFFFDB45"), "bounded low-byte progress watchdog"),
+            (bytes.fromhex("11FFFF"), "bounded rollover watchdog"),
             (bytes.fromhex("F3"), "rollover-window interrupt mask"),
             (bytes.fromhex("FB"), "interrupt restoration"),
             (bytes.fromhex("E5DDE1"), "AppVar-resident verification frame"),
@@ -734,6 +810,7 @@ def package_probe(
         "program": probe.program,
         "result_appvar": probe.appvar,
         "payload_size": probe.payload_size,
+        "physical_use_class": PHYSICAL_USE_CLASS.get(probe_name, "conditional"),
         "defines": {name: value for name, value in probe.defines},
         "machine_code_size": len(machine_code),
         "machine_code_sha256": hashlib.sha256(machine_code).hexdigest(),

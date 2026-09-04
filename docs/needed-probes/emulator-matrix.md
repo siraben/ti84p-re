@@ -24,7 +24,7 @@ executed emulator paths.
 | Raw link and assist | direct-core pass | direct-core pass | Lua pass; assist block absent | logic-model results cannot provide voltage or rise time |
 | Keypad and ON | direct-core pass | direct-core pass | Lua matrix pass | electrical settling, bounce, and ON waveform remain open |
 | Flash | direct-core command/status pass | guarded command and restart runners exist | Lua command/status pass | no backend proves silicon timing or real power-loss atomicity |
-| Interrupt `HALT` wake | exact `HWPIRQ` pass wakes on programmable timer 1 | exact `HWPIRQ` pass reaches the standard-timer watchdog | Lua legacy-controller pass; no programmable-timer block | physical wake policy remains open |
+| Interrupt `HALT` wake | exact `HWPIRQ` pass wakes on programmable timer 1 | exact `HWPIRQ` pass reaches the standard-timer watchdog | ports `0x30`–`0x38` are modeled; mode `0x02` suppresses the timer interrupt in this implementation | physical wake policy remains open |
 | Reset and execution protection | direct-core reset/violation pass; exact boundary fixtures exist | exact boundary fixtures and reset runner exist | protection mechanism absent | physical exception ordering and retention remain open |
 
 jsTIfied is a hash-checked source profile, not a native runner. CEmu targets
@@ -101,8 +101,8 @@ runner hashes. Its MAME row labels exact image execution `unsupported` and
 keeps the completed direct-handler profile as a different evidence class.
 [confirmed]
 
-The exact `HWPLCD` rows use the same 1,257-byte image. Its SHA-256 is
-`e69f8a091a3c84f6cfb5dd46b0aebdb612b782657bd045b5f59f140dfa3bc031`.
+The exact `HWPLCD` rows use the same 1,319-byte image. Its SHA-256 is
+`e3312cd5b80691e7cec97a7a4fa0c32fa27da731e3b0190008dfdedbab8360c4`.
 Both runs matched the AppVar-resident frame and the assembly CRC. Both also
 preserved the visible cell, movement bits, and wait-register snapshot.
 [confirmed]

@@ -10,6 +10,7 @@ from ti84re.hardware.probe import (
     KEYPAD_SETTLE_GROUP_WRITES,
     KEYPAD_SETTLE_HOLD_LOOP_BASE_T_STATES,
     KEYPAD_SETTLE_HOLD_LOOP_ITERATIONS,
+    KEYPAD_SETTLE_SAMPLE_COUNT,
     KEYPAD_SETTLE_TRIALS,
     LINK_RAW_DELAY_NOPS,
     LINK_RAW_TRIALS,
@@ -151,6 +152,17 @@ class HardwareProbeTests(unittest.TestCase):
             report["measurements"]["alias_groups"],
         )
 
+    def test_current_ram_measurements_report_pending_recovery_frame(self):
+        original = bytes.fromhex("102030405060")
+        payload = bytes((0xFF,)) + original + bytes(6) + bytes(6)
+        frame = ProbeFrame(probe_id=2, asic_id=0x55, status=0xE3, payload=payload)
+
+        report = decode_probe_measurements(frame)
+
+        self.assertEqual("pending-reset-or-interruption", report["outcome"])
+        self.assertEqual("102030405060", report["original"])
+        self.assertFalse(report["restore_matches"])
+
     def test_ram_measurements_report_partial_alias_groups(self):
         original = bytes.fromhex("102030405060")
         observed = bytes.fromhex("222244445566")
@@ -172,7 +184,7 @@ class HardwareProbeTests(unittest.TestCase):
     def test_known_probe_rejects_wrong_payload_size(self):
         frame = ProbeFrame(probe_id=2, asic_id=0x55, status=0xE3, payload=b"x")
 
-        with self.assertRaisesRegex(ProbeFormatError, "18 bytes"):
+        with self.assertRaisesRegex(ProbeFormatError, "18 legacy bytes or 19 current"):
             decode_probe_measurements(frame)
 
     def test_asic_snapshot_maps_payload_bytes_to_ports(self):
@@ -215,7 +227,7 @@ class HardwareProbeTests(unittest.TestCase):
         self.assertEqual("0x1E", report["registers"]["0x5B"])
 
     def test_battery_probe_reports_stability_and_cleanup(self):
-        pre = bytes.fromhex("06F08020")
+        pre = bytes.fromhex("0BF08020")
         levels = bytes((3,)) * 16
         post = bytes.fromhex("E306F09000")
         restored = pre
@@ -242,18 +254,26 @@ class HardwareProbeTests(unittest.TestCase):
             decode_probe_measurements(frame)
 
     def test_raw_battery_probe_reports_masks_selectors_and_cleanup(self):
-        pre = bytes.fromhex("06F08020")
+        pre = bytes.fromhex("0BF08020")
         masks = bytes((0x0D,)) * 16
         post = bytes.fromhex("E306F09000")
         frame = ProbeFrame(
             probe_id=7,
             asic_id=0x45,
             status=0xE3,
-            payload=pre + masks + post + pre + bytes.fromhex("E3"),
+            payload=(
+                pre
+                + bytes((0,))
+                + masks
+                + post
+                + bytes.fromhex("06F08020")
+                + bytes.fromhex("E3")
+            ),
         )
 
         report = decode_probe_measurements(frame)
 
+        self.assertEqual("completed", report["outcome"])
         self.assertEqual(0x0D, report["stable_mask"])
         self.assertEqual(16, report["mask_histogram"]["13"])
         self.assertEqual(
@@ -263,7 +283,7 @@ class HardwareProbeTests(unittest.TestCase):
         self.assertTrue(report["cleanup_matches"])
 
     def test_raw_battery_probe_reports_unstable_masks_and_cleanup_mismatch(self):
-        pre = bytes.fromhex("06F08020")
+        pre = bytes.fromhex("0BF08020")
         masks = bytes((0x01, 0x03)) * 8
         post = bytes.fromhex("E306F09000")
         restored = bytes.fromhex("06F08021")
@@ -271,7 +291,7 @@ class HardwareProbeTests(unittest.TestCase):
             probe_id=7,
             asic_id=0x45,
             status=0xE3,
-            payload=pre + masks + post + restored + bytes.fromhex("E3"),
+            payload=pre + bytes((0,)) + masks + post + restored + bytes.fromhex("E3"),
         )
 
         report = decode_probe_measurements(frame)
@@ -282,11 +302,28 @@ class HardwareProbeTests(unittest.TestCase):
         self.assertFalse(report["cleanup_matches"])
 
     def test_raw_battery_probe_rejects_invalid_mask(self):
-        payload = bytes(4) + bytes((0x10,)) + bytes(15) + bytes(10)
+        payload = bytes(5) + bytes((0x10,)) + bytes(15) + bytes(10)
         frame = ProbeFrame(probe_id=7, asic_id=0x45, status=0xE3, payload=payload)
 
         with self.assertRaisesRegex(ProbeFormatError, "range 0 through 15"):
             decode_probe_measurements(frame)
+
+    def test_raw_battery_probe_decodes_prewrite_guard_failure(self):
+        pre = bytes.fromhex("0BF08020")
+        payload = (
+            pre
+            + bytes((2,))
+            + bytes(16)
+            + bytes.fromhex("E3")
+            + pre
+            + bytes.fromhex("FFF08020")
+            + bytes.fromhex("E3")
+        )
+
+        report = decode_probe_measurements(ProbeFrame(7, 0x45, 0xE3, payload))
+
+        self.assertEqual("helper-signature-mismatch", report["outcome"])
+        self.assertFalse(report["cleanup_matches"])
 
     def test_raw_link_probe_reports_disconnected_truth_table_and_cleanup(self):
         pre = bytes.fromhex("030B0601")
@@ -427,6 +464,14 @@ class HardwareProbeTests(unittest.TestCase):
         with self.assertRaisesRegex(ProbeFormatError, "19 bytes"):
             decode_probe_measurements(frame)
 
+    def test_rtc_rollover_probe_names_bounded_watchdog_outcomes(self):
+        for code, expected in ((4, "rtc-progress-timeout"), (5, "rollover-timeout")):
+            with self.subTest(code=code):
+                payload = bytes((1, code)) + bytes(16) + bytes((1,))
+                report = decode_probe_measurements(ProbeFrame(13, 0x55, 0xE3, payload))
+                self.assertEqual(expected, report["outcome"])
+                self.assertFalse(report["first_transition_coherent"])
+
     def test_keypad_settle_probe_reports_rows_and_reference_differences(self):
         samples = bytearray()
         for group_index, _group_write in enumerate(KEYPAD_SETTLE_GROUP_WRITES):
@@ -462,6 +507,8 @@ class HardwareProbeTests(unittest.TestCase):
         self.assertEqual(0xFE, report["points"][3]["stable_value"])
         self.assertEqual(0x01, report["points"][3]["stable_pressed_columns"])
         self.assertEqual(0x01, report["trigger_pressed_columns"])
+        self.assertFalse(report["operator_wait_timed_out"])
+        self.assertTrue(report["measurements_valid"])
         self.assertEqual(
             KEYPAD_SETTLE_HOLD_LOOP_ITERATIONS,
             report["pre_sample_hold_loop_iterations"],
@@ -507,6 +554,23 @@ class HardwareProbeTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ProbeFormatError, "523 bytes"):
             decode_probe_measurements(frame)
+
+    def test_keypad_settle_probe_marks_operator_timeout(self):
+        frame = ProbeFrame(
+            probe_id=9,
+            asic_id=0x45,
+            status=0xE3,
+            payload=(
+                bytes.fromhex("FFE30B0601FF")
+                + bytes(KEYPAD_SETTLE_SAMPLE_COUNT)
+                + bytes.fromhex("FFE30B0601")
+            ),
+        )
+
+        report = decode_probe_measurements(frame)
+
+        self.assertTrue(report["operator_wait_timed_out"])
+        self.assertFalse(report["measurements_valid"])
 
     def test_bus_timing_probe_reports_measurements_and_restoration(self):
         pre = bytes.fromhex("E30B080117272F3B454B0000AA")

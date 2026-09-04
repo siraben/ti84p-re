@@ -1,4 +1,4 @@
-; Non-destructive MD5-assist edge probe.
+; MD5-assist edge probe. The internal operand/control state is replaced.
 ; Result AppVar: HWPMD511, probe ID 1, payload 20 bytes.
 
 .org $9D95

@@ -18,6 +18,10 @@ restoration or cleanup instruction sequences have byte-level host validation.
 Physical execution of any program remains [hypothesis] until an exported
 result AppVar is decoded and tied to a calculator and ASIC revision.
 
+The [adversarial safety review](needed-probes/safety-review.md) blocks
+`HWBRAW` and `HWPMAP` from physical evidence collection. Other artifacts are
+conditional or laboratory-only. An emulator pass does not relax that gate.
+
 | Probe | Program | Result AppVar | Physical status |
 |-------|---------|---------------|-----------------|
 | MD5 edge behavior | `HWPMD5` | `HWPMD511` | Not run on a recorded unit |
@@ -72,9 +76,9 @@ a calculator backup before the first run. Then:
 4. Run `Asm(prgmHWKEYS)`, release the launch key, and hold the recorded test key
    or chord until the program returns.
 5. Run `Asm(prgmHWBATT)` for the restoring battery-level sample.
-6. Run `Asm(prgmHWBRAW)` for the higher-risk direct-selector sample only after
-   `HWBATT` succeeds and its result has been exported.
-7. Run `Asm(prgmHWPUSB)` for the read-only USB control snapshot.
+6. Do not run the current `HWBRAW` artifact physically. It remains blocked
+   until a device-specific power-fixture procedure defines electrical limits.
+7. Run `Asm(prgmHWPUSB)` disconnected for the no-I/O-write USB snapshot.
 8. Run `Asm(prgmHWPMD5)` for the MD5 probe.
 9. Run `Asm(prgmHWBUS)` on OS 2.55MP for the guarded bus-timing measurement.
    Export its result before another mutating probe.
@@ -82,15 +86,15 @@ a calculator backup before the first run. Then:
     its result before another mutating probe.
 11. Run `Asm(prgmHWTMR)` for the guarded programmable-timer edge measurement.
     Export its result before another mutating probe.
-12. Run `Asm(prgmHWPRTC)` for the read-only RTC rollover measurement. It can
-    wait up to 256 seconds for the required low-byte boundary.
-13. Run `Asm(prgmHWPMAP)` only on the guarded OS 2.55MP direct-`Asm(` path.
-    Export `HWPMAP01` immediately.
+12. Run `Asm(prgmHWPRTC)` for the no-I/O-write RTC rollover measurement. Its
+    progress and rollover watchdogs return timeout outcomes if the clock stalls.
+13. Do not run the current `HWPMAP` artifact physically. Its paired-mode
+    transition can unmap the worker if the unknown ASIC behavior differs.
 14. Run `Asm(prgmHWPLCD)` on an identified, backed-up test calculator. Export
     `HWPLCD02` immediately.
 15. Run `Asm(prgmHWPIRQ)` only through direct `Asm(` on unmodified OS 2.55MP.
     Record both displays if it returns; export pending `HWPIRQ01` after a reset.
-16. Run `Asm(prgmHWPRAM)` for the RAM probe only after the earlier transfer and
+16. Run `Asm(prgmHWPRAM)` for the RAM probe only after the preceding transfer and
     run path works on that unit.
 17. Run at most one `HWEF...` or `HWER...` execution probe before exporting its
     result. Record both displays if it returns. A denied fetch may reset the
@@ -165,7 +169,10 @@ path; the pending AppVar and visible reset form the recovery record.
 
 Use `tools/ti84re/hardware/physical_probe_evidence.py` to combine the original AppVar, exact
 build manifest, physical metadata, and instrument captures. The tool requires
-the context fields relevant to that probe and embeds every input byte. The
+the context fields relevant to that probe and embeds every input byte. It
+refuses artifacts marked `blocked`, preserves failed observations without
+calling them complete, and requires a hashed backup plus a prior restore
+rehearsal for mutating or reset-capable artifacts. The
 [physical-result recording contract](needed-probes/recording-results.md)
 defines the metadata and verification command.
 
@@ -208,20 +215,32 @@ the emulator comparison.
 
 The program disables interrupts while it uses ports `0x18`–`0x1F`. It clears
 all six operand registers and both controls before restoring the caller's
-interrupt state. It does not preserve an earlier internal MD5-assist state,
+interrupt state. It does not preserve the entry MD5-assist state,
 which the port interface cannot read back directly. [confirmed] for the
 assembled instruction sequence.
 
+Run it only when no MD5-dependent operation is active. Reset the calculator
+before a later OS operation that may assume a freshly initialized accelerator.
+
 ## RAM alias probe
 
-Probe ID 2 tests selectors `82`–`87` at bank-A address `0x7F00`. Its 18-byte
-payload contains six original bytes, six observed pattern bytes, and six bytes
-read after restoration.
+Probe ID 2 tests selectors `82`–`87` at bank-A address `0x7F00`. Its 19-byte
+payload contains an outcome, six original bytes, six observed pattern bytes,
+and six bytes read after restoration.
 
-The program saves port `0x06`, disables interrupts, and records the byte visible
-through each selector. It writes `11 22 33 44 55 66`, rereads all selectors,
-restores each saved byte, verifies the restored values, and restores port
-`0x06`. [confirmed] for the assembled instruction sequence.
+The program requires the OS 2.55MP direct-`Asm(` mapping context through ports
+`0x05`–`0x07`, `0x0E`, and `0x0F` plus the reset-tail signature. It creates a
+pending AppVar, repeats the mapping guard, records the byte visible through
+each selector, and copies those originals into the resident frame before the
+first pattern write. It writes `11 22 33 44 55 66`,
+rereads all selectors, restores each saved byte, verifies the restored values,
+and updates the resident frame. [confirmed] for the assembled instruction
+sequence.
+
+Outcome 0 is a completed run. Outcome 1 rejects the entry mapping, outcome 2
+rejects a mapping change after AppVar creation, and `0xFF` is the pending
+reset-or-interruption record. The pending AppVar improves recovery evidence;
+it does not guarantee that RAM or the AppVar survives a physical reset.
 
 An observed sequence of `11 22 33 44 55 66` distinguishes six independent
 selector backings for this address. `66 66 66 66 66 66` distinguishes a shared
@@ -243,10 +262,10 @@ python3 -m ti84re.hardware.describe_ram_topology \
   --simulate-backings 0,0,1,1,2,3 --json
 ```
 
-The pinned SPASM-ng build produces 765 machine-code bytes with SHA-256
-`8200dfbdb6cde8d5d5308457e99e34e0dd5df2c7e4c6d6a72181e889e737a588`.
-The packaged 1,610-byte `HWPRAM.8xp` has SHA-256
-`78159dfc4409678278f0362f35471356fc6de2d2b7895edbb6b3ed3434639bb4`.
+The pinned SPASM-ng build produces 928 machine-code bytes with SHA-256
+`375557196f08ea45b31640bdc0c7cdc6b0961c6436e62c5077b91e77cf5b7ee9`.
+The packaged 1,936-byte `HWPRAM.8xp` has SHA-256
+`e2288faff826c64d6f8c7b65d34a2bcd295c498bdfff06f4a3e6366ae736b0f6`.
 [confirmed]
 
 ## Execution-protection fetch probes
@@ -300,11 +319,13 @@ These outcomes assume the retail boot values: port `0x21` mode 0, Flash bounds
 emulator predicates, not physical results. The decoder reports ports `0x04`,
 `0x06`, `0x21`–`0x23`, `0x25`, and `0x26` from immediately before the test.
 
-In paired mapper mode, a port-`0x06` write remaps bank B with bank A. That can
-unmap the running probe. Every artifact therefore records
-`unsupported-paired-mapping` without writing port `0x06` or attempting the
-fetch when port `0x04` bit 0 is set. [standard] for the emulator predictions;
-[confirmed] for the artifact guard.
+In paired mapper mode, a port-`0x06` write can remap the running probe.
+Port `0x04` readback is interrupt status and cannot establish write-side
+mapper mode. Every artifact therefore requires the exact readable direct-OS
+context: ports `0x05 = 0x00`, `0x06 = 0x3F`, `0x07 = 0x81`,
+`0x0E = 0x00`, and `0x0F = 0x00`, plus the OS 2.55MP signature. It repeats
+that guard after AppVar creation and records `unsupported-mapping-context`
+without attempting the fetch on failure. [confirmed]
 
 The other outcomes are `no-ret-found` and `target-changed-before-fetch`.
 Neither measures execution protection. A pending AppVar after an observed
@@ -386,11 +407,19 @@ return early instead. [confirmed] from the assembled probe and the ROM path at
 
 After each sequence, the probe reproduces the cleanup at `33:4EEB`–`33:4F00`:
 it sets port-`0x39` bit 4, pulses port-`0x3A` bit 4 around
-`CALL 00:0CED` with `A = 0x40`, and clears port-`0x3A` bits 4 and 7. The common 30-byte
-state layout matches the battery-level probe, with raw masks at offsets
-`4`–`19` and post-sequence state at offsets `20`–`24`. The decoder rejects
-masks above `0x0F`. It reports a 16-bin histogram, a stable mask only when all
-samples agree, pass counts for each selector, and `cleanup_matches`. [confirmed]
+`CALL ram:0CED` with `A = 0x40`, and clears port-`0x3A` bits 4 and 7. The
+31-byte payload has pre-state at offsets 0–3, outcome at offset 4, raw masks at
+offsets 5–20, post-sequence state at offsets 21–25, restored state at offsets
+26–29, and final status at offset 30. The decoder rejects masks above `0x0F`.
+It reports a 16-bin histogram, a stable mask only when all samples agree, pass
+counts for each selector, and `cleanup_matches`. [confirmed]
+
+Before the first I/O write, the artifact requires canonical `IY`, the exact OS
+signature at `ram:0BD9`, the exact 17-byte helper body at `ram:0CEB`, and the
+readable independent mapping context. Outcomes 1–4 identify those four guard
+families. Port `0x04` readback is status, not a saved selector latch. Cleanup
+therefore writes selector `0x06` explicitly and records that write, while
+restoring ports `0x39`, `0x3A`, and `traceFlags`. [confirmed]
 
 Run `HWBATT` before this probe at each voltage point. Export both AppVars and
 record the externally measured rail voltage and load. Sweep upward and downward
@@ -400,14 +429,15 @@ comparators passed. Neither AppVar measures voltage. [hypothesis] for pending
 physical results.
 
 This probe directly manipulates battery-selection GPIO. An interruption or
-reset before cleanup can leave the selection state changed. Use a backed-up
-test calculator, stable externally current-limited power, and an independently
-verified voltage before running it. Do not run it as the first probe on a unit.
+reset before cleanup can leave the selection state changed. The current
+artifact is marked `blocked`: do not run it physically until a unit-specific
+procedure defines battery isolation, injection contacts, polarity protection,
+voltage and current limits, ramp rate, dwell, brownout cutoff, and recovery.
 
-The pinned SPASM-ng build produces 948 machine-code bytes with SHA-256
-`cdcef231902b81727112bc08d3a76c67564af8e74f83de18e55b1476e4e024c2`.
-The packaged 1,976-byte `HWBRAW.8xp` has SHA-256
-`ad4628adf4e44cfcb12e4494d0d53c33e101b08b636b21183adc3e2d8295080f`.
+The pinned SPASM-ng build produces 1,100 machine-code bytes with SHA-256
+`3d5295c6d898e3b0f8fe8ac738fbb9e8cfded2c077d8d85aff8ba2da01d74b78`.
+The packaged 2,280-byte `HWBRAW.8xp` has SHA-256
+`342d945d26441bbd2d36a6f22c4489e0bc879031550db91cde15341eb5918260`.
 [confirmed]
 
 ## USB control snapshot
@@ -417,7 +447,9 @@ Probe ID 5 reads ports `0x49`, `0x4A`–`0x4D`, `0x4F`–`0x52`,
 status remain in the common frame header. The 15-byte payload preserves this
 port order. [confirmed]
 
-The program performs no I/O writes. It disables interrupts across the reads so
+The program performs no I/O writes. That is a narrower claim than read-only:
+whether any physical event register acknowledges or advances state on a read
+remains unmeasured. Run the first capture disconnected. It disables interrupts across the reads so
 the OS interrupt handler cannot alter the sampled USB state between fields.
 It then restores the caller's interrupt-enable state before creating the
 result AppVar. The builder verifies one direct `IN` instruction for every
@@ -522,16 +554,18 @@ count; [standard] for the nominal clock conversion.
 
 Delete `HWKEYS01` before the run. Release the launch key, then hold the exact
 test key or chord until the program returns. Record every held key with the
-exported AppVar. The probe will wait indefinitely if no key is pressed. It
-disables interrupts during the wait and matrix, writes `0xFF` to unselect all
+exported AppVar. The release and held-key waits each use a finite nested
+watchdog. A timeout leaves trigger `0xFF`, skips the matrix, and makes
+`measurements_valid` false. The probe disables interrupts during the wait and
+matrix, writes `0xFF` to unselect all
 groups before restoring the caller's interrupt state, and records adjacent
 status, interrupt, and speed ports before and after. It does not measure switch
 bounce, analog voltage, or a logic-analyzer waveform.
 
-The pinned SPASM-ng build produces 1,373 machine-code bytes with SHA-256
-`d631096d68c4dfcac3a0a70022aabcdf29acb4b69d81f95d202c4007f98f782b`.
-The packaged 2,826-byte `HWKEYS.8xp` has SHA-256
-`b6c9b041fc93f65d7cd04d3195ff5c08f6d8823f0e1b0bff74ae344608db7014`.
+The pinned SPASM-ng build produces 1,410 machine-code bytes with SHA-256
+`758600e1016ad0710051ad28a48d64adbbc5705963d9ee13f34a54cd3178e641`.
+The packaged 2,900-byte `HWKEYS.8xp` has SHA-256
+`49a5d50d2310abf7f19984632da188a372bd8ef16b3391b99ddd10effc13e10c`.
 [confirmed]
 
 ## Memory-bus timing probe
@@ -660,7 +694,7 @@ The canonical JSON report has SHA-256
 `ac5c618269a5a097b2f23c0ac9fc3ed5ca20b1749673b1020206e5c447fbf61c`.
 [confirmed] for the hash-guarded source analysis.
 
-An earlier measurement-identical assembled revision completed in the pinned
+The 587-byte measurement-only image completed in the pinned
 Wabbitemu core after a retail OS 2.55MP boot. The guarded runner injected its
 587 bytes into RAM page `01` and stopped at `01:9EC2`, immediately before
 `_CreateAppVar`. It
@@ -773,7 +807,7 @@ model. A nearest-model label describes that sample; it does not establish an
 ASIC-wide rule. Retain the exported AppVar, manifest, calculator and ASIC
 identity, CPU-speed readbacks, and artifact hashes together.
 
-An earlier 835-byte measurement-identical revision completed in the pinned
+The 835-byte measurement-only image completed in the pinned
 Wabbitemu core after a retail OS 2.55MP boot. The shared injected-program
 runner stopped at `01:9EE4`, immediately before `_CreateAppVar`. It had run
 1,645,212 probe instructions and 12,937,610 modeled T-states. It recorded no
@@ -821,9 +855,11 @@ The packaged 2,850-byte `HWTMR.8xp` has SHA-256
 
 Probe ID 13 observes the natural carry from current-time port `0x45 = 0xFF`
 to its next value. It never writes ports `0x40`–`0x48`. The program leaves
-interrupts enabled while it waits for the low byte to reach `0xFF`, which can
-take up to 256 seconds. It then disables interrupts across only the final
-rollover window. [confirmed] for the assembled instruction sequence.
+interrupts enabled while it waits for the low byte to reach `0xFF`. A nested
+instruction watchdog rejects a clock that stops advancing, and a
+256-transition counter rejects a cycle that never reaches `0xFF`. It disables
+interrupts only across the final rollover window, which has a separate
+watchdog. [confirmed] for the assembled instruction sequence.
 
 The 19-byte payload contains the entry control byte, an outcome, four RTC
 samples, and the exit control byte:
@@ -843,7 +879,8 @@ disabled on entry, so the probe declined the multi-minute wait. Outcome 2
 means the low byte changed between the polling read and the first masked
 sample; rerun the artifact rather than interpreting its zero-filled transition
 fields. Outcome 3 means port `0x40` reported that the RTC was disabled, so the
-probe declined a wait that might never finish.
+probe declined a wait that might never finish. Outcome 4 is a progress timeout;
+outcome 5 is a timeout in the final masked rollover window.
 
 Normal and enabled-interrupt guard outcomes create `HWPRTC01`, print the
 AppVar-resident verification code, and page through its compact frame. Outcome
@@ -858,10 +895,10 @@ user's clock and requires a separate mutating probe with staged-register and
 time-restoration guards. [hypothesis] for physical coherence until an exported
 result is recorded.
 
-The pinned build produces 830 machine-code bytes with SHA-256
-`12cc2b44e6def421a6cb11111d815fbd8b3d51fc4615cdcc05d835eb58b2e03b`.
-The packaged 1,740-byte `HWPRTC.8xp` has SHA-256
-`3091da24f577ff091134cdc52229bf45f6dd26dd84a6587e3c2eb100ec0adaf9`.
+The pinned build produces 929 machine-code bytes with SHA-256
+`f657e1cc5a3fb7b3ceeb7e3272ea8657f04c6b8dae432f2ea26de8aab500d9d4`.
+The packaged 1,938-byte `HWPRTC.8xp` has SHA-256
+`9c749465a8c582dd35ca9636e49dc3ab1e7235a0a235e76723dc024cfb98633d`.
 [confirmed]
 
 ## Mapper-overlay probe
@@ -870,7 +907,7 @@ Probe ID 14 runs a restoring read/write matrix for forced RAM overlays and
 paired mapper mode. Its entry and post-AppVar guards require ports `0x05`,
 `0x06`, `0x07`, `0x0E`, `0x0F`, `0x27`, and `0x28` to match the unmodified OS
 2.55MP direct-`Asm(` baseline. The program verifies the fixed-page helper at
-`00:0CE6`, creates pending `HWPMAP01`, and only then seeds test bytes.
+`ram:0CE6`, creates pending `HWPMAP01`, and only then seeds test bytes.
 [confirmed]
 
 The worker executes from a physical-page-1 alias and performs no stack access
@@ -879,6 +916,12 @@ while window C is remapped. It tests port `0x28 = 0x01` around `0x8000` and port
 All tested mappings and writes remain in RAM. It backs up, restores, and
 verifies every seeded byte across pages 0–3 before restoring selectors and
 normalizing independent mode.
+
+That execution placement is validated only for the compared emulator models.
+If physical paired mode maps window C differently, the port-`0x04` transition
+can unmap the next instruction and make cleanup unreachable. The default
+manifest therefore marks `HWPMAP` `blocked` for physical evidence collection.
+The pending AppVar records an attempted run; it is not an execution watchdog.
 
 Outcome 0 plus restore flags `0x0F` is the required normal result. Outcome 8
 means AppVar creation changed the guarded mapping; outcome 9 means the fixed
@@ -920,7 +963,9 @@ sentinel. It reads one visible cell and rewrites the same value. It then
 rereads that cell and restores the value again. [confirmed]
 
 All ready polls and delays are bounded. A timeout suppresses the pending LCD
-transfer. The probe sends no power, test, contrast, row-shift, display-enable,
+transfer, then uses separately bounded fixed-delay writes to attempt movement
+and pointer recovery. That attempt cannot prove an exact controller-internal
+latch restoration. The probe sends no power, test, contrast, row-shift, display-enable,
 or OPA command. It does not write ports `0x02`, `0x03`, `0x20`, or
 `0x29`–`0x2F`. [confirmed]
 
@@ -950,10 +995,10 @@ permanent busy-clear status, constant ASIC-ready state, and absent wait ports.
 MAME did not execute the assembly image. Its hidden-column model is emulator
 evidence only. [confirmed]
 
-The pinned build produces 1,257 machine-code bytes with SHA-256
-`e69f8a091a3c84f6cfb5dd46b0aebdb612b782657bd045b5f59f140dfa3bc031`.
-The packaged 2,594-byte `HWPLCD.8xp` has SHA-256
-`39b84061aaf550bc3f37873ecbb86c89851916d753993d6b1b35210e4d38fa97`.
+The pinned build produces 1,319 machine-code bytes with SHA-256
+`e3312cd5b80691e7cec97a7a4fa0c32fa27da731e3b0190008dfdedbab8360c4`.
+The packaged 2,718-byte `HWPLCD.8xp` has SHA-256
+`ab8138157c6e82f2263a85d74017438a7d3fdb60a52821a258ab02ed094c7c21`.
 [confirmed]
 
 ## Hidden-column LCD laboratory probe
@@ -1002,7 +1047,7 @@ both sources. [confirmed]
 
 The Z80 cannot report its current interrupt mode. Run `HWPIRQ` only through
 direct `Asm(` on unmodified OS 2.55MP, not from a shell or resident hook. The
-program guards `IY = 0x89F0`, the six-byte IM1 vector signature at `00:0038`,
+program guards `IY = 0x89F0`, the six-byte IM1 vector signature at `ram:0038`,
 entry IFF2, ON release, idle timer 1, no pending interrupt or completion, and
 the inactive USB gate. It creates pending `HWPIRQ01` before installing its
 257-byte uniform IM2 table and repeats the live-source guards after the bcall.
@@ -1010,6 +1055,10 @@ the inactive USB gate. It creates pending `HWPIRQ01` before installing its
 Cleanup disables timer source and mode, restores the saved count and the
 canonical OS port-`0x03` mask, returns to IM1, restores `I`, verifies readable
 state, updates the pending frame, and restores entry interrupt enable state.
+Guard-only outcomes never reach those writes: a `state_touched` flag keeps the
+timer, interrupt mask, `I`, and interrupt mode unchanged, then compares all six
+readable entry and exit bytes. [confirmed]
+
 If neither source wakes the CPU, a reset may be required; export the
 still-pending AppVar before another attempt. The lack of a displayed code in
 that case is expected.
@@ -1019,42 +1068,52 @@ programmable-timer wake and verification `44737`. Wabbitemu reached the
 standard-timer watchdog and verification `19672`. Handler count, `I`, timer,
 and interrupt-mask restoration passed in both. [confirmed]
 
-The pinned build produces 1,593 machine-code bytes with SHA-256
-`36754ad0ca9b278a05065b899a67ae771cd6bab79ed0bcf1ca6f54eb1e53e893`.
-The packaged 3,266-byte `HWPIRQ.8xp` has SHA-256
-`b790d93b371eb7a52c8899e2876fb70c8a785e857bac9f9d8b50c7a0c1902db8`.
+The pinned build produces 1,850 machine-code bytes with SHA-256
+`c7dae6405e93870c42e60a2b3d8e790f23935723619e799493d4a9300d9813f1`.
+The packaged 3,780-byte `HWPIRQ.8xp` has SHA-256
+`2fb966e4e90a403b97c312ca0b0d363449e3c8e161206842bd3407e34e227209`.
 [confirmed]
 
 ## Safety boundary
 
 The RAM alias probe is designed to restore its writes, but it has not completed
-a physical run. A reset, power loss, assembly defect, or unexpected exception
-before the restoration loop can leave a changed byte. Use a backed-up test
-calculator and stable power. Do not run the RAM probe on a unit whose contents
-cannot be replaced.
+a physical run. Its pending AppVar stores the six original bytes before the
+first write. A reset, power loss, assembly defect, or unexpected exception can
+still leave a changed byte or lose volatile recovery data. Use a replaceable,
+backed-up test calculator and stable power.
 
 The snapshot, battery, raw-battery, raw-link, keypad, bus-timing, prefix-M1,
 programmable-timer, and alias probes restore interrupt enable state before
 creating the result AppVar.
-Both battery probes restore ports `0x04`, `0x39`, `0x3A`, and the complete
-saved `traceFlags` byte.
-The raw-battery probe also executes the ROM's selector cleanup after every
-sample sequence. The raw-link probe releases both link lines during cleanup. A
+
+The battery-level probe retains its original restoration contract. The
+raw-battery probe restores ports `0x39`, `0x3A`, and `traceFlags`, executes the
+ROM selector cleanup after every sample, and explicitly normalizes the
+port-`0x04` write-side selector to `0x06`; readback cannot restore that latch.
+The raw-link probe releases both link lines during cleanup. A
 returned execution probe restores port `0x06` and the interrupt state. The
 keypad probe normalizes port `0x01` to the OS's all-groups-unselected value
 `0xFF`. The bus and prefix timing probes restore port `0x2E` and an initially
 idle timer 2. The programmable-timer probe restores CPU speed, port `0x2F`,
 and the initially idle timer-1 and timer-2 triplets. It snapshots port `0x2D`
 but does not write it.
+
 The RTC rollover probe does not write its register block. It enters its final
 wait only when interrupts were enabled and reenables them before creating the
 result AppVar.
-The mapper probe pre-creates a pending AppVar, guards its mapping twice, keeps
-execution in mapped RAM, restores all marker bytes, and verifies four marker
-groups. The LCD probe uses no analog or power commands and verifies its entire
-touched-cell union. The interrupt probe pre-creates a pending AppVar, uses a
+
+The mapper probe pre-creates a pending AppVar, guards its readable mapping
+twice, restores all marker bytes, and verifies four marker groups in supported
+emulator models. Physical paired-mode execution remains blocked because an
+unknown mapping can unmap the worker before cleanup.
+
+The LCD probe uses no analog or power commands and verifies its entire
+touched-cell union.
+
+The interrupt probe pre-creates a pending AppVar, uses a
 uniform IM2 table, supplies a standard-timer watchdog, and restores IM1, `I`,
 timer state, and the interrupt mask before returning.
+
 The bus-timing probe's direct Flash writes are `0xF0` read-array resets, not
 program or erase sequences. The prefix-M1 probe accesses only user RAM and I/O.
 A denied fetch may reset before cleanup instructions. The result AppVar is the
@@ -1081,7 +1140,7 @@ physical execution and reset retention.
 | `tools/probes/hardware/lcd-hidden-lab.asm` | separately gated hidden-column geometry and restoration experiment |
 | `tools/probes/hardware/interrupt-halt.asm` | guarded programmable-timer `HALT` wake with watchdog |
 | `tools/probes/hardware/display.inc` | post-cleanup decimal CRC and reversible small-font `HWPZ1` display |
-| `tools/probes/hardware/usb-snapshot.asm` | read-only low-USB control and status snapshot |
+| `tools/probes/hardware/usb-snapshot.asm` | no-I/O-write low-USB control and status snapshot |
 | `tools/probes/hardware/md5-edge.asm` | calculator-side MD5 measurements |
 | `tools/probes/hardware/ram-alias.asm` | calculator-side RAM alias and restoration measurements |
 | `tools/probes/hardware/execution-fetch.asm` | parameterized read-only Flash and RAM fetch measurement |
@@ -1094,8 +1153,9 @@ physical execution and reset retention.
 | `tools/ti84re/emulators/wabbitemu/run_prefix_m1_probe.py` | exact-ROM guarded assembled-probe execution CLI |
 | `tools/ti84re/emulators/wabbitemu/run_timer_physical_probe.py` | exact-ROM guarded assembled timer-probe execution CLI |
 | `tools/ti84re/hardware/mapper_probe_evidence.py` | deterministic exact-run normalization and freshness checks for `HWPMAP` |
-| `tools/ti84re/emulators/tilem/build_exact_probe.py` | pinned TilEm generic exact-probe runner build CLI |
-| `tools/ti84re/emulators/wabbitemu/build_exact_probe.py` | pinned Wabbitemu generic exact-probe runner build CLI |
+| `tools/ti84re/emulators/probe_build.py` | shared guarded build CLI implementation for pinned emulator adapters |
+| `tools/ti84re/emulators/tilem/build_exact_probe.py` | thin TilEm generic exact-probe build entry point |
+| `tools/ti84re/emulators/wabbitemu/build_exact_probe.py` | thin Wabbitemu generic exact-probe build entry point |
 | `tools/ti84re/hardware/run_exact_probe.py` | normalized exact-byte runner for every displayed physical probe |
 | `tools/ti84re/hardware/run_compact_probe_e2e.py` | cross-emulator compact-code validation and Wabbitemu small-font rendering |
 | `tools/ti84re/hardware/build_lcd_hidden_lab_probe.py` | backup-bound device-specific hidden-LCD artifact builder |
