@@ -1,8 +1,14 @@
+import ghidra.app.plugin.core.equate.CreateEnumEquateCommand;
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressFactory;
+import ghidra.program.model.address.AddressSet;
 import ghidra.program.model.address.AddressSpace;
 import ghidra.program.model.data.*;
+import ghidra.program.model.listing.Instruction;
+import ghidra.program.model.scalar.Scalar;
+import ghidra.program.model.symbol.Equate;
+import ghidra.program.model.symbol.EquateTable;
 import java.nio.file.*;
 import java.util.*;
 
@@ -23,6 +29,7 @@ public class BuildTypes extends GhidraScript {
         mkCompound(flt);
         mkSystemFlags();
         println("Applied regions: " + applyRegions());
+        println("Applied enum operands: " + applyEnumOperands());
         println("BuildTypes complete.");
     }
 
@@ -93,7 +100,7 @@ public class BuildTypes extends GhidraScript {
         ctx.add(new PointerDataType(), "cxErrorEP", "error entry point");
         ctx.add(new PointerDataType(), "cxSizeWind", "window size handler");
         ctx.add(new ByteDataType(), "cxPage", "flash page of handlers");
-        ctx.add(new ByteDataType(), "cxCurApp", "current context id (= a key code)");
+        ctx.add(dtm.getDataType("/TIKeyCode"), "cxCurApp", "current context id");
         ctx.setDescription("14-byte active context block @0x858D; cxPrev begins its saved shadow");
         dtm.addDataType(ctx, DataTypeConflictHandler.REPLACE_HANDLER);
 
@@ -323,6 +330,82 @@ public class BuildTypes extends GhidraScript {
             }
         }
         return n;
+    }
+
+    int applyEnumOperands() throws Exception {
+        EquateTable table = currentProgram.getEquateTable();
+        int n = 0;
+        int lineNumber = 0;
+        for (String raw : Files.readAllLines(Paths.get(dir + "/ty_enum_operands.txt"))) {
+            lineNumber++;
+            String line = raw.trim();
+            if (line.isEmpty() || line.startsWith("#")) continue;
+            String[] p = line.split("\\s+");
+            if (p.length != 5)
+                throw new IllegalArgumentException(
+                    "ty_enum_operands.txt:" + lineNumber + ": malformed row: " + raw
+                );
+            try {
+                Address address = parseLocation(p[0]);
+                int operand = Integer.parseInt(p[1]);
+                String enumName = p[2];
+                String memberName = p[3];
+                DataType rawType = dtm.getDataType("/" + enumName);
+                if (!(rawType instanceof ghidra.program.model.data.Enum))
+                    throw new IllegalArgumentException("unknown enum: " + enumName);
+                ghidra.program.model.data.Enum enumType =
+                    (ghidra.program.model.data.Enum) rawType;
+                long expected = enumType.getValue(memberName);
+
+                Instruction instruction = currentProgram.getListing().getInstructionAt(address);
+                if (instruction == null) {
+                    disassemble(address);
+                    instruction = currentProgram.getListing().getInstructionAt(address);
+                }
+                if (instruction == null)
+                    throw new IllegalStateException("no instruction at " + p[0]);
+
+                Scalar scalar = null;
+                for (Object object : instruction.getOpObjects(operand)) {
+                    if (object instanceof Scalar) scalar = (Scalar) object;
+                }
+                if (scalar == null || scalar.getUnsignedValue() != expected)
+                    throw new IllegalStateException(
+                        "operand mismatch at " + p[0] + " for " + memberName
+                    );
+
+                byte[] expectedBytes = hexBytes(p[4]);
+                if (!Arrays.equals(instruction.getBytes(), expectedBytes))
+                    throw new IllegalStateException("instruction bytes changed at " + p[0]);
+
+                AddressSet singleton = new AddressSet(address, address);
+                CreateEnumEquateCommand command =
+                    new CreateEnumEquateCommand(singleton, enumType, false);
+                if (!command.applyTo(currentProgram, monitor))
+                    throw new IllegalStateException("enum application failed at " + p[0]);
+                Equate equate = table.getEquate(address, operand, expected);
+                if (equate == null || !equate.isEnumBased() || !equate.isValidUUID())
+                    throw new IllegalStateException("missing enum-backed equate at " + p[0]);
+                if (!enumType.getUniversalID().equals(equate.getEnumUUID()))
+                    throw new IllegalStateException("enum UUID mismatch at " + p[0]);
+                n++;
+            } catch (Exception exception) {
+                throw new IllegalArgumentException(
+                    "ty_enum_operands.txt:" + lineNumber + ": " + raw, exception
+                );
+            }
+        }
+        return n;
+    }
+
+    byte[] hexBytes(String text) {
+        if ((text.length() & 1) != 0)
+            throw new IllegalArgumentException("odd-length byte string: " + text);
+        byte[] result = new byte[text.length() / 2];
+        for (int i = 0; i < result.length; i++) {
+            result[i] = (byte) Integer.parseInt(text.substring(i * 2, i * 2 + 2), 16);
+        }
+        return result;
     }
 
     Address parseLocation(String text) {

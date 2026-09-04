@@ -14,6 +14,11 @@ The matrix keypad is read through port `0x01`: software writes an active-low gro
 
 Scan codes such as `skEnter` identify a matrix position. Cooked key codes such as `kEnter = 5` incorporate OS modifier and context policy. `_GetCSC` returns the former; `_GetKey` returns the latter. The complete matrix, scan-code formula, diagonal-arrow exception, five-sample release filter, repeat timing, modifier state, and 46.7 ms ON debounce are reconstructed in [Keypad and ON-key hardware](keypad-on-hardware.md).
 
+The Ghidra build types `kbdKey` at `0x8444` and `cxCurApp` at `0x859A` as
+`TIKeyCode`. It applies `kLeft` and `kAlphaDown` to the byte-checked comparisons
+at `39:5048` and `39:507C`. Other numeric operands keep their raw values unless
+their key-code role is established. [confirmed]
+
 ### Key → token translation [confirmed]
 
 `_KeyToString` (`01:6D10`) turns a key code into a TI-BASIC token for the editor. It's not a single flat table — it combines:

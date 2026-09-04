@@ -44,6 +44,11 @@ The rebuilt Ghidra project keeps each kind of name in a separate checked registr
 
 `tools/symbols/ty_regions.txt` applies the C layouts built by `BuildTypes.java`. The prose can therefore use expressions such as `table_value_cache.band[1].value[row]` once it introduces the typed base and its concrete address. A physical boundary, trace target, or byte-level proof still keeps its concrete address. [confirmed]
 
+`tools/symbols/ty_enum_operands.txt` applies enum-member equates only at reviewed scalar
+operands. Each row includes the instruction bytes, so a changed opcode or
+constant stops the database build instead of attaching a stale enum name.
+[confirmed]
+
 ## Math notation
 
 Formulas are written in LaTeX and rendered by KaTeX (offline, client-side): `$…$` for inline math and `$$…$$` for display. Algorithms render as pseudocode blocks and data/control-flow diagrams as Mermaid.
