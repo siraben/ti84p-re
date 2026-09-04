@@ -1,0 +1,69 @@
+{
+  "schema": "ti84p-re.exact-hardware-probe-matrix-summary.v1",
+  "source_rom_sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d",
+  "interactive_input_required": ["keypad-settle"],
+  "backends": {
+    "tilem": {
+      "binary_sha256": "ac280251dcda1cda083196abf88032502420351732cb689cac38d20348126408",
+      "completed": 24,
+      "failed": 0,
+      "verification_codes_decimal": {
+        "md5-edge": 35777,
+        "ram-alias": 53768,
+        "asic-snapshot": 29273,
+        "usb-snapshot": 23503,
+        "battery-level": 13101,
+        "battery-raw": 26424,
+        "link-raw": 7924,
+        "bus-timing": 21446,
+        "prefix-m1": 5747,
+        "timer-physical": 3397,
+        "rtc-rollover": 48865,
+        "mapper-overlays": 58756,
+        "lcd-controller": 21731,
+        "interrupt-halt": 44737,
+        "exec-flash-07": 26515,
+        "exec-flash-08": 40114,
+        "exec-flash-09": 12878,
+        "exec-flash-29": 44890,
+        "exec-flash-2a": 19583,
+        "exec-ram-81": 30463,
+        "exec-ram-82-chunk0": 8074,
+        "exec-ram-82-chunk1": 6695,
+        "exec-ram-83": 42212,
+        "exec-ram-84": 56435
+      }
+    },
+    "wabbitemu": {
+      "binary_sha256": "0f4cb971b3ff1475f2293c2e50db4c6207af92f69e670c0cf0c053901be90569",
+      "completed": 24,
+      "failed": 0,
+      "verification_codes_decimal": {
+        "md5-edge": 58905,
+        "ram-alias": 59323,
+        "asic-snapshot": 44789,
+        "usb-snapshot": 24668,
+        "battery-level": 25184,
+        "battery-raw": 13941,
+        "link-raw": 8314,
+        "bus-timing": 52836,
+        "prefix-m1": 23184,
+        "timer-physical": 41549,
+        "rtc-rollover": 27415,
+        "mapper-overlays": 21062,
+        "lcd-controller": 23959,
+        "interrupt-halt": 19672,
+        "exec-flash-07": 38818,
+        "exec-flash-08": 27779,
+        "exec-flash-09": 49791,
+        "exec-flash-29": 24427,
+        "exec-flash-2a": 48206,
+        "exec-ram-81": 34510,
+        "exec-ram-82-chunk0": 36696,
+        "exec-ram-82-chunk1": 35573,
+        "exec-ram-83": 21717,
+        "exec-ram-84": 11330
+      }
+    }
+  }
+}

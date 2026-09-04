@@ -50,3 +50,13 @@ the tested sector. Chip erase, fast-program mode, and forced DQ5 failure are
 laboratory procedures, not ordinary distributable `AsmPrgm` files. A failed
 run may destroy the OS, certificate data, archive contents, or the recovery
 path itself.
+
+Do not distribute a mutating hardware probe until all recovery gates exist.
+Verify a complete restorable backup on a second host, reserve an erased scratch
+sector that contains no user variables, and reject every address outside that
+sector before unlocking Flash. Exclude the OS, certificate, and boot sectors
+unconditionally. Use stable external power, keep a known recovery calculator
+and cable available, and store the pending/result record outside the sector
+under test. Restore the scratch sector after every completed run and verify its
+hash. A missing backup, failed restore rehearsal, unexpected sector byte, low
+battery indication, or absent external capture must abort before mutation.

@@ -3717,6 +3717,21 @@ int run_flash_worker_probe(int argc, char **argv) {
         returned_failure ? "failure" : bounded_poll ? "step-limit" :
         "indeterminate";
     const unsigned char stored = memory.flash[target_physical];
+    constexpr std::size_t archive_start = 0x20000;
+    constexpr std::size_t archive_end = 0xA8000;
+    constexpr std::size_t target_sector_start = 0x20000;
+    constexpr std::size_t target_sector_end = 0x30000;
+    const std::size_t flash_changed_bytes = count_differences(
+        input, memory.flash, 0, input.size()
+    );
+    const std::size_t target_sector_changed_bytes = count_differences(
+        input, memory.flash, target_sector_start, target_sector_end
+    );
+    const std::size_t protected_changed_bytes =
+        count_differences(input, memory.flash, 0, archive_start) +
+        count_differences(input, memory.flash, archive_end, input.size());
+    const std::size_t outside_target_changed_bytes = flash_changed_bytes -
+        static_cast<std::size_t>(input[target_physical] != stored);
     const bank_state_t final_bank = memory.banks[1];
     std::printf(
         "mode=flash-worker-probe target_page=0x%02X target_offset=0x%04X "
@@ -3778,7 +3793,9 @@ int run_flash_worker_probe(int argc, char **argv) {
         " stored=0x%02X flash_step=%s flash_error=%d "
         "flash_toggle=0x%02X return_af=0x%04X return_bc=0x%04X "
         "return_de=0x%04X return_hl=0x%04X port06=0x%02X "
-        "bank1_page=%s%02X final_pc=0x%04X classification=%s\n",
+        "bank1_page=%s%02X flash_changed_bytes=%zu "
+        "target_sector_changed_bytes=%zu protected_changed_bytes=%zu "
+        "outside_target_changed_bytes=%zu final_pc=0x%04X classification=%s\n",
         stored,
         flash_step_name(memory.step),
         static_cast<int>(memory.flash_error),
@@ -3790,10 +3807,234 @@ int run_flash_worker_probe(int argc, char **argv) {
         memory.port06,
         final_bank.ram ? "RAM:" : "",
         final_bank.page,
+        flash_changed_bytes,
+        target_sector_changed_bytes,
+        protected_changed_bytes,
+        outside_target_changed_bytes,
         cpu.pc,
         classification
     );
     return std::strcmp(classification, "indeterminate") == 0 ? 3 : 0;
+}
+
+int run_flash_preflight_probe(int argc, char **argv) {
+    if (argc < 3 || argc > 6) {
+        std::fprintf(
+            stderr,
+            "usage: %s --flash-preflight-probe INPUT.rom "
+            "[MAX_BOOT_STEPS [MAX_PROBE_STEPS [MAX_RESTART_STEPS]]]\n",
+            argv[0]
+        );
+        return 2;
+    }
+    const std::uint64_t max_boot_steps =
+        argc >= 4 ? parse_count(argv[3], "MAX_BOOT_STEPS") : UINT64_C(5000000);
+    const std::uint64_t max_probe_steps =
+        argc >= 5 ? parse_count(argv[4], "MAX_PROBE_STEPS") : UINT64_C(10000);
+    const std::uint64_t max_restart_steps =
+        argc >= 6 ? parse_count(argv[5], "MAX_RESTART_STEPS") : UINT64_C(5000000);
+    if (max_boot_steps == 0 || max_probe_steps == 0 || max_restart_steps == 0) {
+        fail("Flash preflight probe step bounds must be positive");
+    }
+
+    constexpr unsigned short preflight_address = 0x02BF;
+    constexpr unsigned short failure_address = 0x02CE;
+    constexpr unsigned short reset_address = 0x0000;
+    constexpr unsigned short configured_sp = 0xBFFE;
+    constexpr unsigned short return_address = kProbeOrigin + 3;
+    const unsigned char signature[] = {
+        0xC5, 0xE5, 0xED, 0x73, 0xE8, 0x83, 0x3A, 0xE9, 0x83,
+        0xE6, 0xC0, 0xFE, 0xC0, 0x28, 0x03, 0xC3, 0x00, 0x00,
+    };
+    const unsigned char harness[] = {0xCD, 0xBF, 0x02, 0x76};
+    const std::vector<unsigned char> input = read_image(argv[2]);
+    const bool source_signature_match = std::memcmp(
+        input.data() + preflight_address,
+        signature,
+        sizeof(signature)
+    ) == 0;
+    if (!source_signature_match) {
+        fail("input image lacks the exact page-00 Flash preflight signature");
+    }
+
+    memory_context_t memory;
+    timer_context_t timer;
+    CPU_t cpu;
+    initialize(input, &memory, &timer, &cpu);
+
+    std::uint64_t boot_steps = 0;
+    while (boot_steps < max_boot_steps && !boot_protection_ready(memory)) {
+        CPU_step(&cpu);
+        ++boot_steps;
+    }
+    if (!boot_protection_ready(memory)) {
+        fail("retail boot did not establish and relock the expected protection bounds");
+    }
+    const std::uint64_t boot_tstates = timer.tstates;
+    const unsigned short boot_pc = cpu.pc;
+    const bank_state_t boot_bank = memory.banks[mc_bank(boot_pc)];
+    const bool boot_flash_locked = memory.flash_locked != FALSE;
+
+    memory.boot_mapped = FALSE;
+    memory.banks = memory.normal_banks;
+    memory.port07 = 0x80 | kProbeRamPage;
+    change_page(&memory, 2, kProbeRamPage, TRUE);
+    const std::size_t harness_physical =
+        kProbeRamPage * PAGE_SIZE + mc_base(kProbeOrigin);
+    std::memcpy(memory.ram + harness_physical, harness, sizeof(harness));
+    if (std::memcmp(
+            memory.banks[2].addr + mc_base(kProbeOrigin),
+            harness,
+            sizeof(harness)
+        ) != 0) {
+        fail("injected Flash preflight harness does not read back from RAM");
+    }
+
+    const bool mapped_signature_match =
+        !memory.banks[0].ram && memory.banks[0].page == 0 &&
+        std::memcmp(
+            memory.banks[0].addr + preflight_address,
+            signature,
+            sizeof(signature)
+        ) == 0;
+    if (!mapped_signature_match) {
+        fail("retail boot did not map the exact Flash preflight in page 0");
+    }
+    if (!memory.flash_locked || memory.step != FLASH_READ) {
+        fail("Flash preflight probe requires a locked array-read state");
+    }
+
+    cpu.pc = kProbeOrigin;
+    cpu.sp = configured_sp;
+    cpu.halt = FALSE;
+    cpu.iff1 = FALSE;
+    cpu.iff2 = FALSE;
+    cpu.interrupt = FALSE;
+    cpu.ei_block = FALSE;
+    cpu.prefix = 0;
+    execution_violation_resets = 0;
+    cpu.exe_violation_callback = record_execution_violation;
+
+    unsigned int harness_visits = 0;
+    unsigned int preflight_visits = 0;
+    unsigned int failure_visits = 0;
+    unsigned int reset_visits = 0;
+    unsigned int return_visits = 0;
+    std::uint64_t probe_steps = 0;
+    for (; probe_steps < max_probe_steps; ++probe_steps) {
+        if (cpu.pc == reset_address) {
+            ++reset_visits;
+            break;
+        }
+        if (cpu.pc == return_address) {
+            ++return_visits;
+            break;
+        }
+        harness_visits += cpu.pc == kProbeOrigin;
+        preflight_visits += cpu.pc == preflight_address;
+        failure_visits += cpu.pc == failure_address;
+        CPU_step(&cpu);
+        if (execution_violation_resets != 0) {
+            ++probe_steps;
+            break;
+        }
+    }
+    const std::size_t flash_changed_before_restart = count_differences(
+        input,
+        memory.flash,
+        0,
+        input.size()
+    );
+    const bool gate_locked_before_restart = memory.flash_locked != FALSE;
+    const char *step_before_restart = flash_step_name(memory.step);
+
+    const bool failure_path_complete =
+        harness_visits == 1 && preflight_visits == 1 && failure_visits == 1 &&
+        reset_visits == 1 && return_visits == 0 &&
+        execution_violation_resets == 0 && flash_changed_before_restart == 0 &&
+        gate_locked_before_restart && memory.step == FLASH_READ;
+
+    if (CPU_reset(&cpu) != 0) {
+        fail("Wabbitemu CPU restart failed");
+    }
+    cpu.pio.lcd->reset(&cpu);
+    const unsigned short restart_reset_pc = cpu.pc;
+    bool restart_ready = false;
+    std::uint64_t restart_steps = 0;
+    const std::uint64_t restart_tstates_start = timer.tstates;
+    for (; restart_steps < max_restart_steps; ++restart_steps) {
+        CPU_step(&cpu);
+        const bank_state_t &pc_bank = memory.banks[mc_bank(cpu.pc)];
+        if (cpu.pc == boot_pc && pc_bank.ram == boot_bank.ram &&
+            pc_bank.page == boot_bank.page && boot_protection_ready(memory)) {
+            ++restart_steps;
+            restart_ready = true;
+            break;
+        }
+    }
+    const std::size_t flash_changed_after_restart = count_differences(
+        input,
+        memory.flash,
+        0,
+        input.size()
+    );
+    const bank_state_t restart_bank = memory.banks[mc_bank(cpu.pc)];
+    const bool passed = source_signature_match && mapped_signature_match &&
+        boot_flash_locked && failure_path_complete && restart_reset_pc == 0 &&
+        restart_ready && flash_changed_after_restart == 0;
+
+    std::printf(
+        "mode=flash-preflight-probe status=%d "
+        "preflight_address=0x%04X failure_address=0x%04X "
+        "reset_address=0x%04X configured_sp=0x%04X "
+        "signature_size=%zu source_signature_match=%d mapped_signature_match=%d "
+        "boot_steps=%" PRIu64 " boot_tstates=%" PRIu64 " "
+        "boot_pc=0x%04X boot_page=%s%02X boot_flash_locked=%d "
+        "max_probe_steps=%" PRIu64 " probe_steps=%" PRIu64 " "
+        "harness_visits=%u preflight_visits=%u failure_visits=%u "
+        "reset_visits=%u return_visits=%u violation_resets=%u "
+        "gate_locked_before_restart=%d step_before_restart=%s "
+        "flash_changed_before_restart=%zu restart_reset_pc=0x%04X "
+        "max_restart_steps=%" PRIu64 " restart_steps=%" PRIu64 " "
+        "restart_tstates=%" PRIu64 " restart_pc=0x%04X "
+        "restart_page=%s%02X restart_ready=%d "
+        "flash_changed_after_restart=%zu\n",
+        passed ? 0 : 1,
+        preflight_address,
+        failure_address,
+        reset_address,
+        configured_sp,
+        sizeof(signature),
+        source_signature_match ? 1 : 0,
+        mapped_signature_match ? 1 : 0,
+        boot_steps,
+        boot_tstates,
+        boot_pc,
+        boot_bank.ram ? "RAM:" : "",
+        boot_bank.page,
+        boot_flash_locked ? 1 : 0,
+        max_probe_steps,
+        probe_steps,
+        harness_visits,
+        preflight_visits,
+        failure_visits,
+        reset_visits,
+        return_visits,
+        execution_violation_resets,
+        gate_locked_before_restart ? 1 : 0,
+        step_before_restart,
+        flash_changed_before_restart,
+        restart_reset_pc,
+        max_restart_steps,
+        restart_steps,
+        timer.tstates - restart_tstates_start,
+        cpu.pc,
+        restart_bank.ram ? "RAM:" : "",
+        restart_bank.page,
+        restart_ready ? 1 : 0,
+        flash_changed_after_restart
+    );
+    return passed ? 0 : 3;
 }
 
 int run_flash_bcall_usage_probe(int argc, char **argv) {
@@ -4743,6 +4984,9 @@ int main(int argc, char **argv) {
     }
     if (argc >= 2 && std::strcmp(argv[1], "--flash-worker-probe") == 0) {
         return run_flash_worker_probe(argc, argv);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "--flash-preflight-probe") == 0) {
+        return run_flash_preflight_probe(argc, argv);
     }
     if (argc >= 2 && std::strcmp(argv[1], "--flash-bcall-usage-probe") == 0) {
         return run_flash_bcall_usage_probe(argc, argv);
