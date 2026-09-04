@@ -8,6 +8,7 @@ from ti84re.paths import ROOT
 
 
 INDEX = ROOT / "docs" / "needed-probes" / "calculator-readable.md"
+RECORDING = ROOT / "docs" / "needed-probes" / "recording-results.md"
 
 
 class NeededProbeDocumentationTests(unittest.TestCase):
@@ -27,6 +28,15 @@ class NeededProbeDocumentationTests(unittest.TestCase):
         for source_name in source_names:
             with self.subTest(source=source_name):
                 self.assertEqual(1, text.count(f"`{source_name}`"))
+
+    def test_recording_contract_preserves_raw_state_and_context(self):
+        text = RECORDING.read_text()
+
+        self.assertIn("physical_probe_evidence.py", text)
+        self.assertIn("frame_hex", text)
+        self.assertIn("appvar_file_sha256", text)
+        self.assertIn("ti84p-re.physical-probe-metadata.v1", text)
+        self.assertIn("all calculator-observable state", text)
 
 
 if __name__ == "__main__":
