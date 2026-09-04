@@ -31,6 +31,7 @@ artifacts, not physical conclusions. [confirmed]
 | USB control reset state | identified TA2 and TA3 calculators | `HWPUSB` | connected and disconnected AppVars plus codes |
 | Mapper overlays | backed-up test calculator | `HWPMAP` | AppVar plus displayed verification code |
 | LCD controller edges | identified LCD revision and backed-up test calculator | `HWPLCD` | AppVar plus displayed verification code |
+| LCD hidden geometry | identified, repairable LCD revision with verified backup and recovery notes | separately built `HWPLAB` | `HWPLAB01`, displayed code, and post-run panel inspection |
 | RTC rollover coherence | identified TA2 and TA3 calculators | `HWPRTC` | AppVar plus code after a natural low-byte rollover |
 | Interrupt wake edges | identified TA2 and TA3 calculators | `HWPIRQ` | AppVar plus displayed verification code |
 | Analog, boot, Flash, and power-loss behavior | calculator plus laboratory fixture | no ordinary standalone artifact | captured waveform, timing, or post-reset image |
@@ -54,7 +55,9 @@ mapped memory:
 5. One execution-fetch artifact runs between result exports.
 6. `HWPMAP`, `HWPLCD`, and `HWPIRQ` run one at a time on a backed-up test unit.
    Record every normal-return code and export each AppVar immediately.
-7. Flash, reset, and power-loss experiments use an expendable unit and their
+7. A device-specific `HWPLAB` build runs only after the safer LCD probe. Export
+   its AppVar before another experiment and follow its recovery manifest.
+8. Flash, reset, and power-loss experiments use an expendable unit and their
    experiment-specific fixture.
 
 This order reduces recovery cost. It does not make a physical run risk-free.
