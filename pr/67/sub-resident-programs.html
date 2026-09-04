@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4b1e36ce.js";
+            window.path_to_searchindex_js = "searchindex-092bf0a7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3a621010.js"></script>
+        <script src="toc-d4b8a020.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -232,7 +232,7 @@ its length. It consequently reads two bytes beyond the size-described program
 data. Those bytes occupy the final two bytes of the execution allocation.
 [confirmed] A boundary fixture should place guard bytes after the variable to
 record their exact values at <code>ram:BD93</code> and <code>ram:BD94</code>.</p>
-<p>The builders and TilEm runner in <code>tools/launch-fixtures/</code> exercise the three
+<p>The builders and TilEm runner in <code>tools/probes/launch-fixtures/</code> exercise the three
 adjacent boundary sizes. Each accepted trace reaches <code>_ExecutePrgm</code>, the limit
 test, the <code>_InsertMem</code> call site, the payload handoff, and <code>ram:9D95</code>. The
 rejected trace reaches the <code>E_Invalid</code> shim at <code>ram:2729</code> before insertion.
@@ -333,7 +333,7 @@ these checkpoints; cleanup restores the two shifted fields. The nested bcall
 uses six more stack bytes than payload entry, but does not change the measured
 heap pointers or <code>_MemChk</code>. [confirmed]</p>
 <p>The fixture, decoder, analyzer, capture recipe, and compact provenance rows are
-under <code>tools/launch-probes/</code> and <code>tools/data/resident-launch-snapshot.csv</code>.
+under <code>tools/probes/launch/</code> and <code>tools/data/resident-launch-snapshot.csv</code>.
 These observations do not establish an entry ABI or cover <code>_ExecAsm</code>, an
 archived launcher path, shell launchers, other OS releases, or hardware.
 [confirmed]</p>
@@ -412,7 +412,7 @@ non-execution for that exact emulator scenario, not the result of an archived
 source store. Shell-mediated archived launches remain open. [confirmed] for
 the observed boundary.</p>
 <h2 id="resident-allocation-trace"><a class="header" href="#resident-allocation-trace">Resident allocation trace</a></h2>
-<p>The fixture under <code>tools/allocation-probes/</code> calls <code>_EnoughMem</code>,
+<p>The fixture under <code>tools/probes/allocation/</code> calls <code>_EnoughMem</code>,
 <code>_CreateAppVar</code>, <code>_DelVar</code>, <code>_CreateProg</code>, <code>_InsertMem</code>, and <code>_DelMem</code> from a
 compiled program at <code>ram:9D95</code>. Its trace replays RAM writes at ten timed
 checkpoints. [confirmed]</p>

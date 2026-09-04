@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4b1e36ce.js";
+            window.path_to_searchindex_js = "searchindex-092bf0a7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3a621010.js"></script>
+        <script src="toc-d4b8a020.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -576,51 +576,51 @@ runs produce identical canonical parsed native JSON with SHA-256
 <code>bb4b38d444692b5136d96264fa3acf9fe95ef2f6a1879ab72e9a2ad8077c1def</code>.
 [standard]</p>
 <h2 id="reusable-debugging-tools"><a class="header" href="#reusable-debugging-tools">Reusable debugging tools</a></h2>
-<p><code>tools/interrupt_controller.py</code> provides typed decoders, exact timer periods,
+<p><code>tools/ti84re/hardware/interrupt_controller.py</code> provides typed decoders, exact timer periods,
 clear-on-zero acknowledgement, ROM status-test order, USB active-low decoding,
 and immutable TilEm and MAME legacy-interrupt state models.
-<code>tools/describe_interrupt_controller.py</code> exposes focused CLI commands:
+<code>tools/ti84re/hardware/describe_interrupt_controller.py</code> exposes focused CLI commands:
 [confirmed] for the ROM/public decoders; [standard] for the emulator model.</p>
-<pre><code class="language-sh">nix develop -c python tools/describe_interrupt_controller.py mask 0x0B
-nix develop -c python tools/describe_interrupt_controller.py status 0x8B
-nix develop -c python tools/describe_interrupt_controller.py config 0x06
-nix develop -c python tools/describe_interrupt_controller.py ack 0xF7 0x08
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.hardware.describe_interrupt_controller mask 0x0B
+nix develop -c python3 -m ti84re.hardware.describe_interrupt_controller status 0x8B
+nix develop -c python3 -m ti84re.hardware.describe_interrupt_controller config 0x06
+nix develop -c python3 -m ti84re.hardware.describe_interrupt_controller ack 0xF7 0x08
 </code></pre>
 <p>The trace command resolves mapper state, restricts output to interrupt ports, annotates each value, and collapses consecutive identical polls: [confirmed]</p>
-<pre><code class="language-sh">nix develop -c python tools/describe_interrupt_controller.py trace \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.hardware.describe_interrupt_controller trace \
   /tmp/tilem-power-cycle.trace --clock 97000000-101000000
 </code></pre>
 <p>Use <code>--all</code> to retain repeated ON-level polling and <code>--json</code> for machine-readable output.</p>
-<p><code>tools/wabbitemu_interrupt_probe.py</code> adds the pinned Wabbitemu timer-rate and
+<p><code>tools/ti84re/emulators/wabbitemu/interrupt_probe.py</code> adds the pinned Wabbitemu timer-rate and
 edge oracle. Run its exact-ROM, hash-recording CLI with:</p>
 <pre><code class="language-sh">wabbit_interrupt_parent=$(mktemp -d /tmp/ti84-wabbit-interrupt.XXXXXX)
-python tools/run_wabbitemu_interrupt_edge_probe.py \
+python3 -m ti84re.emulators.wabbitemu.run_interrupt_edge_probe \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$wabbit_interrupt_parent/run" --json
 </code></pre>
 <p>The ROM is only a core-initialization fixture in this mode. No TI-OS
 instruction executes.</p>
-<p><code>tools/tilem_interrupt.py</code> supplies the typed direct-core report and checks it
+<p><code>tools/ti84re/emulators/tilem/interrupt.py</code> supplies the typed direct-core report and checks it
 against the reusable TilEm state model. The guarded builder requires the exact
 clean source commit and tree. The runner requires the binary SHA-256 and
 refuses to reuse an output directory. The “Legacy interrupt matrix” section in
-<code>tools/dynamic-tracing.md</code> contains the reproduction commands.</p>
-<p><code>tools/tilem_link.py</code> checks the raw-activity and assist-interrupt transitions
-against the shared link model in <code>tools/link_port.py</code>. Its guarded builder and
+<code>tools/notes/emulator-probes.md</code> contains the reproduction commands.</p>
+<p><code>tools/ti84re/emulators/tilem/link.py</code> checks the raw-activity and assist-interrupt transitions
+against the shared link model in <code>tools/ti84re/link/port.py</code>. Its guarded builder and
 runner use the same clean-source and binary-hash requirements. The “Raw link
-and assist matrix” section in <code>tools/dynamic-tracing.md</code> contains the command.</p>
-<p><code>tools/mame_interrupt.py</code> parses the complete MAME report and checks it against
+and assist matrix” section in <code>tools/notes/emulator-probes.md</code> contains the command.</p>
+<p><code>tools/ti84re/emulators/mame/interrupt.py</code> parses the complete MAME report and checks it against
 the reusable state model. Its guarded CLI records the exact MAME, ROM, Lua,
 logs, and evidence scope:</p>
 <pre><code class="language-sh">mame_interrupt_parent=$(mktemp -d /tmp/ti84-mame-interrupt.XXXXXX)
-nix shell nixpkgs#mame --command python tools/run_mame_interrupt_probe.py \
+nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_interrupt_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_interrupt_parent/run" --json
 </code></pre>
-<p><code>tools/mame_trace.py</code>, <code>tools/run_mame_io_trace.py</code>, and <code>tools/mame_io_trace.lua</code> provide the equivalent headless MAME path. The Lua tap accepts comma-separated ports and ranges, collapses identical polls, records post-I/O PCs, and can inject ON at selected video frames: [confirmed]</p>
-<pre><code class="language-sh">nix shell nixpkgs#mame -c python tools/run_mame_io_trace.py \
+<p><code>tools/ti84re/emulators/mame/trace.py</code>, <code>tools/ti84re/emulators/mame/run_io_trace.py</code>, and <code>tools/probes/mame/mame_io_trace.lua</code> provide the equivalent headless MAME path. The Lua tap accepts comma-separated ports and ranges, collapses identical polls, records post-I/O PCs, and can inject ON at selected video frames: [confirmed]</p>
+<pre><code class="language-sh">nix shell nixpkgs#mame -c python3 -m ti84re.emulators.mame.run_io_trace \
   --seconds 2 --ports 03-04,55-56 \
   --on-press-frame 30 --on-release-frame 34
 </code></pre>

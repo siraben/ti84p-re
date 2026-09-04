@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4b1e36ce.js";
+            window.path_to_searchindex_js = "searchindex-092bf0a7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3a621010.js"></script>
+        <script src="toc-d4b8a020.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -201,7 +201,7 @@ layers is whole-interpreter coverage.</p>
 </tbody>
 </table>
 </div>
-<p><code>tools/analyze_tibasic_coverage.py</code> refuses a ROM whose SHA-256 differs from
+<p><code>tools/ti84re/tibasic/analyze_coverage.py</code> refuses a ROM whose SHA-256 differs from
 the pinned OS 2.55MP image, then verifies short byte signatures at every modeled
 decision family. [confirmed]</p>
 <h2 id="exhaustive-finite-models"><a class="header" href="#exhaustive-finite-models">Exhaustive finite models</a></h2>
@@ -372,12 +372,12 @@ retains 30 traces. The three omitted traces remain useful semantic examples.
 [confirmed]</p>
 <h2 id="reproduce-the-report"><a class="header" href="#reproduce-the-report">Reproduce the report</a></h2>
 <p>Generate the source/token/link fixtures first:</p>
-<pre><code class="language-sh">tools/tibasic_samples.py --write-dir tools/tibasic-samples
+<pre><code class="language-sh">python3 -m ti84re.tibasic.samples --write-dir tools/tibasic-samples
 </code></pre>
 <p>The TilEm binary must support loading command-line <code>.8xp</code> files before the
 macro starts. Run the natural cases while retaining their temporary traces:</p>
 <pre><code class="language-sh">TILEM=/path/to/patched/tilem2
-python3 tools/tibasic_smoke.py \
+python3 -m ti84re.tibasic.smoke \
   --tilem "$TILEM" --rom tools/rom.bin \
   --out-dir /tmp/tibasic-coverage --keep-trace \
   --case hello --case factorial --case data \
@@ -389,7 +389,7 @@ python3 tools/tibasic_smoke.py \
   --case lateincrement --case negfactdomain --case ncrdomain
 </code></pre>
 <p>Run the probe cases in the same output directory:</p>
-<pre><code class="language-sh">python3 tools/tibasic_smoke.py \
+<pre><code class="language-sh">python3 -m ti84re.tibasic.smoke \
   --tilem "$TILEM" --rom tools/rom.bin \
   --out-dir /tmp/tibasic-coverage --keep-trace \
   --case cflowlow --case cflowhigh --case cflowvalid \
@@ -401,7 +401,7 @@ probe cases use resolved trace anchors. Existing user-facing samples retain LCD
 oracles where the displayed result is part of the behavior.</p>
 <p>Build the compact report through the Nix shell so <code>z80dasm</code> and Z3 are pinned.
 The checked command passes all 33 <code>LABEL=PATH</code> pairs; the complete ordered label
-list is the <code>dynamic.traces</code> array in <code>tools/tibasic-coverage.json</code>.</p>
+list is the <code>dynamic.traces</code> array in <code>tools/oracles/tibasic/tibasic-coverage.json</code>.</p>
 <pre><code class="language-sh">set --
 for label in \
   hello factorial data dfs callabi callstop \
@@ -415,25 +415,25 @@ for label in \
 do
   set -- "$@" --trace "$label=/tmp/tibasic-coverage/$label.trace"
 done
-nix develop -c python3 tools/analyze_tibasic_coverage.py "$@" \
-  --output tools/tibasic-coverage.json
+nix develop -c python3 -m ti84re.tibasic.analyze_coverage "$@" \
+  --output tools/oracles/tibasic/tibasic-coverage.json
 </code></pre>
 <p>Export exact instruction boundaries from the rebuilt Ghidra database, then
 reuse the same trace arguments for the expanded report:</p>
 <pre><code class="language-sh">ghidra-analyzeHeadless "$PWD" ti84 \
   -process ti84_page00.bin -noanalysis -readOnly \
-  -scriptPath "$PWD/tools" \
+  -scriptPath "$PWD/tools/ghidra" \
   -postScript ExportTiBasicInstructionStarts.java \
   /tmp/tibasic-instruction-starts.tsv
 
-nix develop -c python3 tools/analyze_tibasic_saturation.py \
+nix develop -c python3 -m ti84re.tibasic.analyze_saturation \
   --instruction-list /tmp/tibasic-instruction-starts.tsv \
-  "$@" --output tools/tibasic-saturation.json
+  "$@" --output tools/oracles/tibasic/tibasic-saturation.json
 </code></pre>
 <p>Capture and reduce the selected numeric-error paths separately. This keeps
 their semantic provenance without adding redundant traces to the branch-only
 minimum corpus:</p>
-<pre><code class="language-sh">python3 tools/tibasic_smoke.py \
+<pre><code class="language-sh">python3 -m ti84re.tibasic.smoke \
   --tilem "$TILEM" --rom tools/rom.bin \
   --out-dir /tmp/tibasic-numeric-errors --keep-trace \
   --case divzero --case overflow --case muloverflow \
@@ -442,7 +442,7 @@ minimum corpus:</p>
   --case lateincrement --case negfactdomain --case ncrdomain
 
 nix develop -c env PYTHONPATH=tools \
-  python3 tools/analyze_tibasic_numeric_errors.py \
+  python3 -m ti84re.tibasic.analyze_numeric_errors \
   --trace divzero=/tmp/tibasic-numeric-errors/divzero.trace \
   --trace overflow=/tmp/tibasic-numeric-errors/overflow.trace \
   --trace muloverflow=/tmp/tibasic-numeric-errors/muloverflow.trace \
@@ -455,7 +455,7 @@ nix develop -c env PYTHONPATH=tools \
   --trace lateincrement=/tmp/tibasic-numeric-errors/lateincrement.trace \
   --trace negfactdomain=/tmp/tibasic-numeric-errors/negfactdomain.trace \
   --trace ncrdomain=/tmp/tibasic-numeric-errors/ncrdomain.trace \
-  --output tools/tibasic-numeric-errors.json
+  --output tools/oracles/tibasic/tibasic-numeric-errors.json
 </code></pre>
 <p>Delete the temporary traces after regeneration. They are reproducible evidence,
 not source assets.</p>
@@ -481,13 +481,13 @@ display or graph subsystem continuations.</p>
 <li>update the relevant interpreter model with the established transition.</li>
 </ol>
 <p>Lower-level trace formats and memory-write decoding are documented in
-<code>tools/dynamic-tracing.md</code>.</p>
+<code>tools/notes/dynamic-tracing.md</code>.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="sub-tibasic-programming.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="sub-tibasic-examples.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -501,7 +501,7 @@ display or graph subsystem continuations.</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="sub-tibasic-programming.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="sub-tibasic-examples.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

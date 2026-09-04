@@ -37,10 +37,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-4b1e36ce.js";
+            window.path_to_searchindex_js = "../searchindex-092bf0a7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-3a621010.js"></script>
+        <script src="../toc-d4b8a020.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -200,12 +200,12 @@ executed emulator paths.</p>
 <tr><td>Timers and RTC</td><td>direct-core pass; divisor 33 model and separately read RTC bytes</td><td>direct-core pass; exact <code>HWTMR</code> pass selects divisor 32, no port-<code>0x2F</code> prescaler, and first-expiry bit 2</td><td>direct Lua pass; divisor 32 model, different zero and mode behavior, RTC unmapped</td><td><code>HWTMR</code> distinguishes timer behavior; <code>HWPRTC</code> records RTC rollover coherence</td></tr>
 <tr><td>Prefix M1 waits</td><td>source model predicts the ordinary two-M1 indexed-CB interpretation</td><td>exact <code>HWPFX</code> pass selects <code>wabbitemu-three-m1</code>; all restoration fields match</td><td>delay-register block absent</td><td>physical indexed-CB timer delta remains open</td></tr>
 <tr><td>ASIC, protection, and GPIO</td><td>battery comparator direct-core pass; other handler behavior is source evidence</td><td>ASIC and protection direct-core passes</td><td>ASIC Lua pass; protection/GPIO ports absent</td><td>constant or absent reads are unsupported cases, not hardware values</td></tr>
-<tr><td>Mapper overlays</td><td>exact <code>HWPMAP</code> pass; overlays remain active in paired mode and cutoff starts at <code>0xFB40</code></td><td>exact <code>HWPMAP</code> pass; overlays are disabled in paired mode and the <code>0xFB64</code> cutoff is present</td><td>exact execution unsupported; direct Lua pass finds the overlay ports absent</td><td>physical paired-mode and cutoff behavior remain open</td></tr>
-<tr><td>LCD</td><td>exact <code>HWPLCD</code> pass reports ready counts 2/2/2 and three busy samples; exact <code>HWPLAB</code> selects 16 columns and prints <code>62131</code></td><td>exact <code>HWPLCD</code> pass reports ready counts 4/0/3 and busy set/clear/set; exact <code>HWPLAB</code> wraps into visible index 0 and prints <code>42103</code></td><td>direct Lua pass has no busy model, constant ASIC-ready state, and a 15-byte linear spill</td><td>physical timing and hidden geometry remain open</td></tr>
+<tr><td>Mapper overlays</td><td>exact <code>HWPMAP</code> pass; overlays remain active in paired mode and cutoff starts at <code>0xFB40</code></td><td>exact <code>HWPMAP</code> pass; overlays are disabled in paired mode and the <code>0xFB64</code> cutoff is present</td><td>Lua pass; overlay ports are absent</td><td>physical paired-mode and cutoff behavior remain open</td></tr>
+<tr><td>LCD</td><td>exact <code>HWPLCD</code> pass selects 16-column rows</td><td>exact <code>HWPLCD</code> pass selects 15-column wrap</td><td>Lua pass selects a 15-byte linear spill, with no busy model and absent delay ports</td><td>controller revision and physical timing remain open</td></tr>
 <tr><td>Raw link and assist</td><td>direct-core pass</td><td>direct-core pass</td><td>Lua pass; assist block absent</td><td>logic-model results cannot provide voltage or rise time</td></tr>
 <tr><td>Keypad and ON</td><td>direct-core pass</td><td>direct-core pass</td><td>Lua matrix pass</td><td>electrical settling, bounce, and ON waveform remain open</td></tr>
 <tr><td>Flash</td><td>direct-core command/status pass</td><td>guarded command and restart runners exist</td><td>Lua command/status pass</td><td>no backend proves silicon timing or real power-loss atomicity</td></tr>
-<tr><td>Interrupt <code>HALT</code> wake</td><td>exact <code>HWPIRQ</code> pass wakes on programmable timer 1</td><td>exact <code>HWPIRQ</code> pass reaches the standard-timer watchdog</td><td>ports <code>0x30</code>–<code>0x38</code> are modeled; mode <code>0x02</code> suppresses the timer interrupt in this implementation</td><td>physical wake policy remains open</td></tr>
+<tr><td>Interrupt <code>HALT</code> wake</td><td>exact <code>HWPIRQ</code> pass wakes on programmable timer 1</td><td>exact <code>HWPIRQ</code> pass reaches the standard-timer watchdog</td><td>Lua legacy-controller pass; no programmable-timer block</td><td>physical wake policy remains open</td></tr>
 <tr><td>Reset and execution protection</td><td>direct-core reset/violation pass; exact boundary fixtures exist</td><td>exact boundary fixtures and reset runner exist</td><td>protection mechanism absent</td><td>physical exception ordering and retention remain open</td></tr>
 </tbody>
 </table>
@@ -223,15 +223,6 @@ configuration to match and validate the resident outcome transition. Their
 displayed CRC is checked against that resident frame. The measurement,
 cleanup, frame update, and verification-number computation are therefore
 exact; OS variable allocation and rendered screen pixels are not. [confirmed]</p>
-<p>The exhaustive matrix completed all 24 non-interactive images with zero
-failures in each backend. <code>HWKEYS</code> is recorded separately as
-<code>interactive-input-required</code>: its calculator contract waits for the launch key
-to be released and then for an operator-held key or chord. The generic
-injection adapters do not synthesize that sequence. The guarded direct-core
-keypad cases remain the emulator evidence for that device family. The tracked
-summary <code>tools/fixtures/exact-hardware-probe-matrix.json</code> contains every
-completed probe’s decimal verification code and both runner hashes.
-[confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -239,64 +230,13 @@ completed probe’s decimal verification code and both runner hashes.
 </thead>
 <tbody>
 <tr><td><code>HWPMAP</code></td><td><code>tilem</code>; all restore flags set; <code>58756</code></td><td><code>wabbitemu</code>; all restore flags set; <code>21062</code></td></tr>
-<tr><td><code>HWPLCD</code></td><td>ready 2/2/2; busy set/set/set; restore true; <code>21731</code></td><td>ready 4/0/3; busy set/clear/set; restore true; <code>23959</code></td></tr>
-<tr><td><code>HWPLAB</code></td><td>hidden bytes <code>A5 5A C3 3C</code>; increment keeps <code>A1 A2</code> in hidden columns; restore true; <code>62131</code></td><td>hidden bytes <code>A5 5A C3 3C</code>; second increment reaches visible index 0; restore true; <code>42103</code></td></tr>
+<tr><td><code>HWPLCD</code></td><td><code>tilem-16-column</code>; restore true; <code>43477</code></td><td><code>wabbitemu-15-column-wrap</code>; restore true; <code>61237</code></td></tr>
 <tr><td><code>HWPIRQ</code></td><td>programmable-timer wake; restore true; <code>44737</code></td><td>standard-timer-watchdog wake; restore true; <code>19672</code></td></tr>
 <tr><td><code>HWEF07</code></td><td>returned; resident-frame code <code>26515</code></td><td>returned; resident-frame code <code>38818</code></td></tr>
 <tr><td><code>HWTMR</code></td><td>completed after 16,855,833 clocks; restore fields pass; <code>3397</code></td><td>completed; restore fields pass; <code>41549</code></td></tr>
 </tbody>
 </table>
 </div>
-<p>The compact-display record <code>tools/fixtures/compact-probe-e2e.json</code> runs the
-current 1,385-byte <code>HWTMR</code> image through the complete decimal and <code>HWPZ1</code>
-paths. TilEm emitted a
-170-character code and Wabbitemu emitted a 182-character code. Both required
-one decimal-screen key and two compact-page keys. Each assembly-produced code
-equaled the independent host encoding and decoded to the exact resident frame.
-The different strings preserve real differences between the two emulator
-frames. [confirmed]</p>
-<p><code>tools/fixtures/compact-probe-link-e2e.json</code> repeats the test with the 276-byte
-<code>HWLINK</code> frame. This crosses the compact encoder’s 8-bit frame-length boundary.
-Wabbitemu also traversed a compact-page boundary. [confirmed]</p>
-<p>Wabbitemu executed the OS <code>_VPutMap</code> small-font renderer and retained the final
-LCD hash. The TilEm adapter intercepted <code>_VPutMap</code> while validating the same
-assembly codec, pagination, and return control flow; it did not render pixels.
-This distinction is recorded as <code>rendered_small_font</code> for each backend.
-[confirmed]</p>
-<p>The adapters redirect <code>_CreateAppVar</code> to private emulator RAM and synthesize
-the page-advance keys. They require the probe to return with its private stack
-balanced. This is exact probe and display control-flow evidence, not a link
-transfer or retail VAT-allocation test. Check the tracked record with:</p>
-<pre><code class="language-sh">python tools/run_compact_probe_e2e.py \
-  --check tools/fixtures/compact-probe-e2e.json
-python tools/run_compact_probe_e2e.py \
-  --check tools/fixtures/compact-probe-link-e2e.json
-</code></pre>
-<p>The deterministic <code>HWPMAP</code> record is
-<code>tools/fixtures/mapper-overlays-emulators.json</code>. It binds the two exact runs to
-the 1,802-byte assembly image and preserves the displayed decimal codes, raw
-frames, decoded routing rows, restoration results, emulator revisions, and
-runner hashes. Its MAME row labels exact image execution <code>unsupported</code> and
-keeps the completed direct-handler profile as a different evidence class.
-[confirmed]</p>
-<p>The exact <code>HWPLCD</code> rows use the same 1,319-byte image. Its SHA-256 is
-<code>e3312cd5b80691e7cec97a7a4fa0c32fa27da731e3b0190008dfdedbab8360c4</code>.
-Both runs matched the AppVar-resident frame and the assembly CRC. Both also
-preserved the visible cell, movement bits, and wait-register snapshot.
-[confirmed]</p>
-<p>MAME 0.287 completed only <code>tools/run_mame_lcd_probe.py</code>. That adapter drives
-the LCD handlers directly from isolated CPU state. It did not execute the
-<code>HWPLCD</code> assembly image. Its guarded run reports a 15-byte linear-spill model,
-permanent busy-clear status, constant ASIC-ready state, and absent wait ports.
-[confirmed]</p>
-<p><code>HWPLAB</code> is outside the default 25-image matrix because its physical build is
-device-specific. <code>run_lcd_hidden_lab_emulator.py</code> compiles the expected ASIC
-byte for one emulator, runs the exact image, requires the AppVar and staging
-frames to match, and checks the displayed decimal CRC. The TilEm image has
-SHA-256 <code>c10676d8f7798d0ce92c5abac7cab49fe117805dc18bf34969b1137cb3cf326c</code>.
-The Wabbitemu image has SHA-256
-<code>2fd3f5605bc1df2b9ee274e869560b01c84fbc382d46a285332c2c2ced410190</code>.
-Each image is 3,904 bytes. [confirmed]</p>
 <p>The TilEm adapter runs in 10,000,000-clock slices until it reaches a display
 breakpoint, an exception, an unexpected stop reason, or its 100,000,000-clock
 runner limit. An ordinary zero stop reason ends one slice, not the probe. A
@@ -308,45 +248,33 @@ locally reproduced generic runner hashes are:</p>
 <li>TilEm <code>f56ad637</code> runner:
 <code>ac280251dcda1cda083196abf88032502420351732cb689cac38d20348126408</code>;</li>
 <li>Wabbitemu <code>48c2dc0</code> runner:
-<code>643607b5acee38813b221f3e91e24de31332acc8be25368e1d281e1a07c31d79</code>.</li>
+<code>0f4cb971b3ff1475f2293c2e50db4c6207af92f69e670c0cf0c053901be90569</code>.</li>
 </ul>
 <p>Build either runner from its guarded source tree, then run any probe name
 through the normalized CLI:</p>
-<pre><code class="language-sh">nix develop -c python tools/build_tilem_exact_probe.py \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.emulators.tilem.build_exact_probe \
   --source /path/to/tilem-f56ad637 --output /tmp/tilem-exact
 
-nix develop -c python tools/build_wabbitemu_exact_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.build_exact_probe \
   --source /path/to/wabbitemu-48c2dc0 --output /tmp/wabbitemu-exact
 
-nix develop -c python tools/run_exact_hardware_probe.py \
+nix develop -c python3 -m ti84re.hardware.run_exact_probe \
   --backend tilem --binary /tmp/tilem-exact \
   --expected-binary-sha256 \
     ac280251dcda1cda083196abf88032502420351732cb689cac38d20348126408 \
   --probe lcd-controller --output-dir /tmp/tilem-hwplcd --json
 </code></pre>
-<p>Run every non-interactive image without allowing one failure to hide later
-results:</p>
-<pre><code class="language-sh">nix develop -c python tools/run_exact_hardware_probe_matrix.py \
-  --backend tilem --binary /tmp/tilem-exact \
-  --expected-binary-sha256 \
-    ac280251dcda1cda083196abf88032502420351732cb689cac38d20348126408 \
-  --output-dir /tmp/tilem-hardware-matrix
-</code></pre>
-<p>The matrix manifest uses distinct <code>completed</code>, <code>failed</code>, and
-<code>interactive-input-required</code> statuses. It keeps each child manifest and both
-stdout/stderr streams. A timeout or unsupported handler is therefore never
-reported as a physical observation.</p>
 <p>The older exact <code>HWTMR</code> and <code>HWPFX</code> paths provide independent prior evidence
 through a pinned Wabbitemu binary with
 SHA-256
 <code>3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e</code>:</p>
-<pre><code class="language-sh">nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.emulators.wabbitemu.run_timer_physical_probe \
   --binary /path/to/wabbitemu-headless \
   --expected-binary-sha256 \
     3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
   --output-dir /tmp/wabbitemu-hwtmr --json
 
-nix develop -c python tools/run_wabbitemu_prefix_m1_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_prefix_m1_probe \
   --binary /path/to/wabbitemu-headless \
   --expected-binary-sha256 \
     3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
@@ -377,7 +305,7 @@ zero readback into a purported hardware observation.</p>
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="../needed-probes/evidence-closure.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../needed-probes/recording-results.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -391,7 +319,7 @@ zero readback into a purported hardware observation.</p>
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="../needed-probes/evidence-closure.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../needed-probes/recording-results.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

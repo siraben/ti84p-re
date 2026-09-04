@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4b1e36ce.js";
+            window.path_to_searchindex_js = "searchindex-092bf0a7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3a621010.js"></script>
+        <script src="toc-d4b8a020.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -475,15 +475,15 @@ controller model. They do not establish normal boot execution, analog
 contrast, controller timing, or panel appearance. Physical behavior remains
 unmeasured. [hypothesis]</p>
 <h2 id="reproducing-the-checks"><a class="header" href="#reproducing-the-checks">Reproducing the checks</a></h2>
-<p><code>tools/boot_hardware.py</code> contains the timing arithmetic, ordered write
+<p><code>tools/ti84re/boot/hardware.py</code> contains the timing arithmetic, ordered write
 manifest, exact Flash-gate wrapper classifier, and RAM-test pattern model.
-<code>tools/describe_boot_hardware.py</code> exposes guarded text and JSON reports:</p>
-<pre><code class="language-sh">python tools/describe_boot_hardware.py delay
-python tools/describe_boot_hardware.py --json manifest
-python tools/describe_boot_hardware.py protected-writes
-python tools/describe_boot_hardware.py trace /path/to/full-reset.trace
-python tools/describe_boot_hardware.py ram-pattern 0x200
-python tools/describe_boot_hardware.py --json lcd-diagnostic
+<code>tools/ti84re/boot/describe_hardware.py</code> exposes guarded text and JSON reports:</p>
+<pre><code class="language-sh">python3 -m ti84re.boot.describe_hardware delay
+python3 -m ti84re.boot.describe_hardware --json manifest
+python3 -m ti84re.boot.describe_hardware protected-writes
+python3 -m ti84re.boot.describe_hardware trace /path/to/full-reset.trace
+python3 -m ti84re.boot.describe_hardware ram-pattern 0x200
+python3 -m ti84re.boot.describe_hardware --json lcd-diagnostic
 </code></pre>
 <p>The trace analyzer reads binary TLMT records in one streaming pass, retains
 only counters and the 35 selected output events, and stops after the final
@@ -494,10 +494,10 @@ snapshot for every executed instruction. [confirmed]</p>
 <code>boot_link_assist_init</code>. The trace starts
 at logical <code>0x8000</code> under the TI-84 Plus reset mapping and resolves every
 banked instruction in this interval. [confirmed] for the pinned emulator run.</p>
-<p><code>tools/run_wabbitemu_lcd_diagnostic_probe.py</code> builds a hash-bearing evidence
+<p><code>tools/ti84re/emulators/wabbitemu/run_lcd_diagnostic_probe.py</code> builds a hash-bearing evidence
 manifest for the explicit helper calls. It requires the pinned native runner
 and exact OS 2.55MP ROM:</p>
-<pre><code class="language-sh">python tools/run_wabbitemu_lcd_diagnostic_probe.py \
+<pre><code class="language-sh">python3 -m ti84re.emulators.wabbitemu.run_lcd_diagnostic_probe \
   --binary /path/to/wabbitemu-headless \
   --output-dir /tmp/ti84-lcd-diagnostic --json
 </code></pre>

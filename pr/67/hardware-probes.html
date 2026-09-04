@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4b1e36ce.js";
+            window.path_to_searchindex_js = "searchindex-092bf0a7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3a621010.js"></script>
+        <script src="toc-d4b8a020.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -194,9 +194,6 @@ restoration or cleanup instruction sequences have byte-level host validation.
 [confirmed]
 Physical execution of any program remains [hypothesis] until an exported
 result AppVar is decoded and tied to a calculator and ASIC revision.</p>
-<p>The <a href="needed-probes/safety-review.html">adversarial safety review</a> blocks
-<code>HWBRAW</code> and <code>HWPMAP</code> from physical evidence collection. Other artifacts are
-conditional or laboratory-only. An emulator pass does not relax that gate.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -215,7 +212,7 @@ conditional or laboratory-only. An emulator pass does not relax that gate.</p>
 <tr><td>Programmable-timer edges</td><td><code>HWTMR</code></td><td><code>HWTMR001</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>RTC rollover coherence</td><td><code>HWPRTC</code></td><td><code>HWPRTC01</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>Mapper overlay routing</td><td><code>HWPMAP</code></td><td><code>HWPMAP01</code></td><td>Not run on a recorded unit</td></tr>
-<tr><td>LCD ready and status</td><td><code>HWPLCD</code></td><td><code>HWPLCD02</code></td><td>Not run on a recorded unit</td></tr>
+<tr><td>LCD controller edges</td><td><code>HWPLCD</code></td><td><code>HWPLCD01</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>Programmable-timer <code>HALT</code> wake</td><td><code>HWPIRQ</code></td><td><code>HWPIRQ01</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>USB control snapshot</td><td><code>HWPUSB</code></td><td><code>HWPUSB01</code></td><td>Not run on a recorded unit</td></tr>
 <tr><td>Flash execution boundaries</td><td><code>HWEF07</code>–<code>HWEF2A</code></td><td>matching <code>HWEF...01</code> names</td><td>Not run on a recorded unit</td></tr>
@@ -230,7 +227,7 @@ path at <code>00:1129</code>–<code>00:112F</code>.</p>
 <h2 id="build-and-transfer"><a class="header" href="#build-and-transfer">Build and transfer</a></h2>
 <p>SPASM-ng is part of the Nix development shell. Build all transfer files and a
 hash manifest with:</p>
-<pre><code class="language-sh">nix develop -c python tools/build_hardware_probes.py \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.hardware.build_probes \
   --output-dir /tmp/hardware-probes
 </code></pre>
 <p>The command emits the 15 snapshot, edge, and timing probes, ten single-fetch
@@ -243,17 +240,17 @@ artifacts; they do not establish that a calculator executed them.</p>
 a calculator backup before the first run. Then:</p>
 <ol>
 <li>Delete the probe’s result AppVar if it already exists.
-After any probe returns normally, record its labeled decimal CRC, press a
-key, then photograph or transcribe every <code>HWPZ1-</code> page.</li>
+After any probe returns normally, record its labeled decimal code before
+pressing a key.</li>
 <li>Run <code>Asm(prgmHWASIC)</code> for the read-only register snapshot.</li>
 <li>Disconnect the 2.5 mm link port, then run <code>Asm(prgmHWLINK)</code> for the raw-link
 sample with release-to-idle cleanup.</li>
 <li>Run <code>Asm(prgmHWKEYS)</code>, release the launch key, and hold the recorded test key
 or chord until the program returns.</li>
 <li>Run <code>Asm(prgmHWBATT)</code> for the restoring battery-level sample.</li>
-<li>Do not run the current <code>HWBRAW</code> artifact physically. It remains blocked
-until a device-specific power-fixture procedure defines electrical limits.</li>
-<li>Run <code>Asm(prgmHWPUSB)</code> disconnected for the no-I/O-write USB snapshot.</li>
+<li>Run <code>Asm(prgmHWBRAW)</code> for the higher-risk direct-selector sample only after
+<code>HWBATT</code> succeeds and its result has been exported.</li>
+<li>Run <code>Asm(prgmHWPUSB)</code> for the read-only USB control snapshot.</li>
 <li>Run <code>Asm(prgmHWPMD5)</code> for the MD5 probe.</li>
 <li>Run <code>Asm(prgmHWBUS)</code> on OS 2.55MP for the guarded bus-timing measurement.
 Export its result before another mutating probe.</li>
@@ -261,19 +258,19 @@ Export its result before another mutating probe.</li>
 its result before another mutating probe.</li>
 <li>Run <code>Asm(prgmHWTMR)</code> for the guarded programmable-timer edge measurement.
 Export its result before another mutating probe.</li>
-<li>Run <code>Asm(prgmHWPRTC)</code> for the no-I/O-write RTC rollover measurement. Its
-progress and rollover watchdogs return timeout outcomes if the clock stalls.</li>
-<li>Do not run the current <code>HWPMAP</code> artifact physically. Its paired-mode
-transition can unmap the worker if the unknown ASIC behavior differs.</li>
+<li>Run <code>Asm(prgmHWPRTC)</code> for the read-only RTC rollover measurement. It can
+wait up to 256 seconds for the required low-byte boundary.</li>
+<li>Run <code>Asm(prgmHWPMAP)</code> only on the guarded OS 2.55MP direct-<code>Asm(</code> path.
+Export <code>HWPMAP01</code> immediately.</li>
 <li>Run <code>Asm(prgmHWPLCD)</code> on an identified, backed-up test calculator. Export
-<code>HWPLCD02</code> immediately.</li>
+<code>HWPLCD01</code> immediately.</li>
 <li>Run <code>Asm(prgmHWPIRQ)</code> only through direct <code>Asm(</code> on unmodified OS 2.55MP.
-Record both displays if it returns; export pending <code>HWPIRQ01</code> after a reset.</li>
-<li>Run <code>Asm(prgmHWPRAM)</code> for the RAM probe only after the preceding transfer and
+Record its code if it returns; export pending <code>HWPIRQ01</code> after a reset.</li>
+<li>Run <code>Asm(prgmHWPRAM)</code> for the RAM probe only after the earlier transfer and
 run path works on that unit.</li>
 <li>Run at most one <code>HWEF...</code> or <code>HWER...</code> execution probe before exporting its
-result. Record both displays if it returns. A denied fetch may reset the
-calculator before either display path.</li>
+result. Record the code if it returns. A denied fetch may reset the
+calculator before the display path.</li>
 <li>Export the new result AppVar to the host.</li>
 <li>Record the calculator model, PCB or ASIC revision, boot version, OS version,
 exact held keys, and artifact hashes with the exported file.</li>
@@ -285,57 +282,30 @@ map the MD5 port block. [standard]</p>
 <p>The decoder verifies the TI link checksum, both TI entry lengths, the AppVar’s
 internal size word, the <code>HWP1</code> frame version, and the payload length before it
 interprets measurements. [confirmed]</p>
-<pre><code class="language-sh">python tools/decode_hardware_probe.py HWPMD511.8xv
-python tools/decode_hardware_probe.py --json \
+<pre><code class="language-sh">python3 -m ti84re.hardware.decode_probe HWPMD511.8xv
+python3 -m ti84re.hardware.decode_probe --json \
   HWPASIC1.8xv HWBATT01.8xv HWBRAW01.8xv HWPUSB01.8xv \
   HWLINK01.8xv HWKEYS01.8xv HWBUS001.8xv HWPFX001.8xv HWTMR001.8xv \
-  HWPRTC01.8xv HWPMAP01.8xv HWPLCD02.8xv HWPIRQ01.8xv \
+  HWPRTC01.8xv HWPMAP01.8xv HWPLCD01.8xv HWPIRQ01.8xv \
   HWPMD511.8xv HWPRAM21.8xv
 </code></pre>
-<p>The JSON form keeps the raw payload and complete <code>HWP1</code> frame, then adds named
-fields. It reports <code>compact_state_code</code>, its character length, and SHA-256
-identities for both the frame and original <code>.8xv</code> container. Preserve the
+<p>The JSON form keeps the raw payload and adds named fields. Preserve the
 original exported AppVar even when a report has been generated.</p>
-<p>Every normal-return probe first prints a labeled decimal verification number
-after cleanup and result creation or finalization. The decoder’s text output
+<p>Every normal-return probe prints a labeled decimal verification number after
+cleanup and result creation or finalization. The shared routine skips display
+and key bcalls when entry interrupts were disabled. The decoder’s text output
 labels the same value <code>verification</code>; JSON output uses
 <code>verification_code_decimal</code>. It is a CRC-16/CCITT-FALSE over the complete
-<code>HWP1</code> frame, initialized to <code>0xFFFF</code>. Record the number before advancing.</p>
-<p>The next display uses the OS small-font <code>_VPutMap</code> bcall to show a paged
-<code>HWPZ1-</code> code. It encodes the complete AppVar-resident frame, not a summary or
-selected bit field. Sixteen fixed-width cells fit each of nine rows; a key
-advances after each 144-character page. The encoding prepends the original
-length and CRC, applies deterministic <code>FF,count,value</code> escape runs, and uses
-unpadded Crockford Base32. This makes the text losslessly reversible while
-using a transcription-safe alphabet. Compression reduces repeated state but
-cannot guarantee a one-page result for a high-entropy frame. [confirmed] by exact
-assembly execution and an independent host encoder and decoder.</p>
-<p>Use the host decoder to reconstruct the exact frame:</p>
-<pre><code class="language-sh">python tools/compact_probe_code.py 'HWPZ1-...'
-</code></pre>
-<p>The shared routine skips all display and key bcalls when entry interrupts were
-disabled. A decimal CRC match verifies that the exported file and visible run
-agree; successful <code>HWPZ1</code> decoding additionally recovers every displayed frame
-byte and rejects a wrong length or CRC. The AppVar and manifest remain the
-canonical evidence record. <code>frame_sha256</code> and <code>appvar_file_sha256</code> provide
-strong identities, and <code>frame_hex</code> retains every calculator-observable result
-bit. The display routine reads the AppVar-resident frame rather than the
-staging copy. [confirmed]</p>
-<p><code>HWPZ1</code> covers every byte in the probe-defined frame. It does not contain
-calculator identity, launch conditions, analog readings, or instrument
-captures; preserve those in the physical metadata and attachments.</p>
+<code>HWP1</code> frame, initialized to <code>0xFFFF</code>. Record the screen value before pressing
+a key and compare it with the exported AppVar. A match verifies that the file
+and visible run agree, but the AppVar and manifest remain the evidence record.
+The display routine reads the AppVar-resident frame rather than the staging
+copy. [confirmed] by exact assembly execution and an independent host
+computation.</p>
 <p>Execution-fetch programs create the AppVar before the guarded opcode fetch.
 Their normal-return path updates the resident outcome and computes the CRC
 from that updated frame. A protection reset does not return to the display
 path; the pending AppVar and visible reset form the recovery record.</p>
-<p>Use <code>tools/physical_probe_evidence.py</code> to combine the original AppVar, exact
-build manifest, physical metadata, and instrument captures. The tool requires
-the context fields relevant to that probe and embeds every input byte. It
-refuses artifacts marked <code>blocked</code>, preserves failed observations without
-calling them complete, and requires a hashed backup plus a prior restore
-rehearsal for mutating or reset-capable artifacts. The
-<a href="needed-probes/recording-results.html">physical-result recording contract</a>
-defines the metadata and verification command.</p>
 <h2 id="result-frame"><a class="header" href="#result-frame">Result frame</a></h2>
 <p>The calculator stores the frame after the AppVar’s normal two-byte internal
 size word. Multi-byte lengths use little-endian order.</p>
@@ -381,27 +351,17 @@ physical [hypothesis]. See <a href="md5-hardware.html">MD5 accelerator and boot 
 the emulator comparison.</p>
 <p>The program disables interrupts while it uses ports <code>0x18</code>–<code>0x1F</code>. It clears
 all six operand registers and both controls before restoring the caller’s
-interrupt state. It does not preserve the entry MD5-assist state,
+interrupt state. It does not preserve an earlier internal MD5-assist state,
 which the port interface cannot read back directly. [confirmed] for the
 assembled instruction sequence.</p>
-<p>Run it only when no MD5-dependent operation is active. Reset the calculator
-before a later OS operation that may assume a freshly initialized accelerator.</p>
 <h2 id="ram-alias-probe"><a class="header" href="#ram-alias-probe">RAM alias probe</a></h2>
-<p>Probe ID 2 tests selectors <code>82</code>–<code>87</code> at bank-A address <code>0x7F00</code>. Its 19-byte
-payload contains an outcome, six original bytes, six observed pattern bytes,
-and six bytes read after restoration.</p>
-<p>The program requires the OS 2.55MP direct-<code>Asm(</code> mapping context through ports
-<code>0x05</code>–<code>0x07</code>, <code>0x0E</code>, and <code>0x0F</code> plus the reset-tail signature. It creates a
-pending AppVar, repeats the mapping guard, records the byte visible through
-each selector, and copies those originals into the resident frame before the
-first pattern write. It writes <code>11 22 33 44 55 66</code>,
-rereads all selectors, restores each saved byte, verifies the restored values,
-and updates the resident frame. [confirmed] for the assembled instruction
-sequence.</p>
-<p>Outcome 0 is a completed run. Outcome 1 rejects the entry mapping, outcome 2
-rejects a mapping change after AppVar creation, and <code>0xFF</code> is the pending
-reset-or-interruption record. The pending AppVar improves recovery evidence;
-it does not guarantee that RAM or the AppVar survives a physical reset.</p>
+<p>Probe ID 2 tests selectors <code>82</code>–<code>87</code> at bank-A address <code>0x7F00</code>. Its 18-byte
+payload contains six original bytes, six observed pattern bytes, and six bytes
+read after restoration.</p>
+<p>The program saves port <code>0x06</code>, disables interrupts, and records the byte visible
+through each selector. It writes <code>11 22 33 44 55 66</code>, rereads all selectors,
+restores each saved byte, verifies the restored values, and restores port
+<code>0x06</code>. [confirmed] for the assembled instruction sequence.</p>
 <p>An observed sequence of <code>11 22 33 44 55 66</code> distinguishes six independent
 selector backings for this address. <code>66 66 66 66 66 66</code> distinguishes a shared
 backing for selectors <code>82</code>–<code>87</code>. The decoder also infers partial equivalence
@@ -413,14 +373,14 @@ highest member, produce <code>mixed-or-unexpected</code>. [confirmed]</p>
 reads differ from the saved bytes and invalidates a claim of successful cleanup.</p>
 <p>The standalone CLI accepts the six observed bytes or simulates an explicit
 selector-to-backing assignment:</p>
-<pre><code class="language-sh">python tools/describe_ram_topology.py --observed 666666666666
-python tools/describe_ram_topology.py \
+<pre><code class="language-sh">python3 -m ti84re.hardware.describe_ram_topology --observed 666666666666
+python3 -m ti84re.hardware.describe_ram_topology \
   --simulate-backings 0,0,1,1,2,3 --json
 </code></pre>
-<p>The pinned SPASM-ng build produces 928 machine-code bytes with SHA-256
-<code>375557196f08ea45b31640bdc0c7cdc6b0961c6436e62c5077b91e77cf5b7ee9</code>.
-The packaged 1,936-byte <code>HWPRAM.8xp</code> has SHA-256
-<code>e2288faff826c64d6f8c7b65d34a2bcd295c498bdfff06f4a3e6366ae736b0f6</code>.
+<p>The pinned SPASM-ng build produces 311 machine-code bytes with SHA-256
+<code>ebb3a0b483d3ac2ef7f3a60067c901f39a079d9042d828eff65367d4aac2c728</code>.
+The packaged 702-byte <code>HWPRAM.8xp</code> has SHA-256
+<code>f1ab6e2466a60f46944aaaacf77e478fef1ed76d07f07fa0827135d29b69b667</code>.
 [confirmed]</p>
 <h2 id="execution-protection-fetch-probes"><a class="header" href="#execution-protection-fetch-probes">Execution-protection fetch probes</a></h2>
 <p>Probe ID 4 tests one bank-A selector per program. It scans the configured range
@@ -478,13 +438,11 @@ probe measures return-versus-reset behavior, not the precise exception point.
 <code>08</code>–<code>29</code>, and RAM chunk bounds <code>10</code>–<code>20</code>. They are predictions from the pinned
 emulator predicates, not physical results. The decoder reports ports <code>0x04</code>,
 <code>0x06</code>, <code>0x21</code>–<code>0x23</code>, <code>0x25</code>, and <code>0x26</code> from immediately before the test.</p>
-<p>In paired mapper mode, a port-<code>0x06</code> write can remap the running probe.
-Port <code>0x04</code> readback is interrupt status and cannot establish write-side
-mapper mode. Every artifact therefore requires the exact readable direct-OS
-context: ports <code>0x05 = 0x00</code>, <code>0x06 = 0x3F</code>, <code>0x07 = 0x81</code>,
-<code>0x0E = 0x00</code>, and <code>0x0F = 0x00</code>, plus the OS 2.55MP signature. It repeats
-that guard after AppVar creation and records <code>unsupported-mapping-context</code>
-without attempting the fetch on failure. [confirmed]</p>
+<p>In paired mapper mode, a port-<code>0x06</code> write remaps bank B with bank A. That can
+unmap the running probe. Every artifact therefore records
+<code>unsupported-paired-mapping</code> without writing port <code>0x06</code> or attempting the
+fetch when port <code>0x04</code> bit 0 is set. [standard] for the emulator predictions;
+[confirmed] for the artifact guard.</p>
 <p>The other outcomes are <code>no-ret-found</code> and <code>target-changed-before-fetch</code>.
 Neither measures execution protection. A pending AppVar after an observed
 reset is evidence only if the AppVar survived that reset unchanged. Export the
@@ -533,10 +491,10 @@ rail voltage and load externally, and delete the AppVar before the next point.
 An upward and downward sweep can locate OS-visible transitions and hysteresis.
 The result is the retail bcall’s level, not a direct voltage measurement or a
 raw comparator-bit trace. [hypothesis] for pending physical results.</p>
-<p>The pinned SPASM-ng build produces 855 machine-code bytes with SHA-256
-<code>08534b74bfd298748a8521b175ab1f889e83f2cc2fb194a4b6626b9b80f71d77</code>.
-The packaged 1,790-byte <code>HWBATT.8xp</code> has SHA-256
-<code>11d59fb3805ea425917c9bb0f6bc49312411beac81e1fbe9d8ef1317bd1a977c</code>.
+<p>The pinned SPASM-ng build produces 401 machine-code bytes with SHA-256
+<code>6894e59e772dc7ad81dba7e82a65cf832a22e2f9c0314c4f167b3c1a971d579d</code>.
+The packaged 882-byte <code>HWBATT.8xp</code> has SHA-256
+<code>e2acf9ca54324f070b4967a071855f65526d26274161564d1414ebbe29ab973c</code>.
 [confirmed]</p>
 <h2 id="raw-battery-selector-probe"><a class="header" href="#raw-battery-selector-probe">Raw battery-selector probe</a></h2>
 <p>Probe ID 7 samples the port-<code>0x02</code> comparator after each selector used by
@@ -564,18 +522,11 @@ return early instead. [confirmed] from the assembled probe and the ROM path at
 <code>33:4EDC</code>–<code>33:4EE8</code>.</p>
 <p>After each sequence, the probe reproduces the cleanup at <code>33:4EEB</code>–<code>33:4F00</code>:
 it sets port-<code>0x39</code> bit 4, pulses port-<code>0x3A</code> bit 4 around
-<code>CALL ram:0CED</code> with <code>A = 0x40</code>, and clears port-<code>0x3A</code> bits 4 and 7. The
-31-byte payload has pre-state at offsets 0–3, outcome at offset 4, raw masks at
-offsets 5–20, post-sequence state at offsets 21–25, restored state at offsets
-26–29, and final status at offset 30. The decoder rejects masks above <code>0x0F</code>.
-It reports a 16-bin histogram, a stable mask only when all samples agree, pass
-counts for each selector, and <code>cleanup_matches</code>. [confirmed]</p>
-<p>Before the first I/O write, the artifact requires canonical <code>IY</code>, the exact OS
-signature at <code>ram:0BD9</code>, the exact 17-byte helper body at <code>ram:0CEB</code>, and the
-readable independent mapping context. Outcomes 1–4 identify those four guard
-families. Port <code>0x04</code> readback is status, not a saved selector latch. Cleanup
-therefore writes selector <code>0x06</code> explicitly and records that write, while
-restoring ports <code>0x39</code>, <code>0x3A</code>, and <code>traceFlags</code>. [confirmed]</p>
+<code>CALL 00:0CED</code> with <code>A = 0x40</code>, and clears port-<code>0x3A</code> bits 4 and 7. The common 30-byte
+state layout matches the battery-level probe, with raw masks at offsets
+<code>4</code>–<code>19</code> and post-sequence state at offsets <code>20</code>–<code>24</code>. The decoder rejects
+masks above <code>0x0F</code>. It reports a 16-bin histogram, a stable mask only when all
+samples agree, pass counts for each selector, and <code>cleanup_matches</code>. [confirmed]</p>
 <p>Run <code>HWBATT</code> before this probe at each voltage point. Export both AppVars and
 record the externally measured rail voltage and load. Sweep upward and downward
 slowly enough to distinguish threshold crossings from noise and hysteresis.
@@ -583,32 +534,29 @@ slowly enough to distinguish threshold crossings from noise and hysteresis.
 comparators passed. Neither AppVar measures voltage. [hypothesis] for pending
 physical results.</p>
 <p>This probe directly manipulates battery-selection GPIO. An interruption or
-reset before cleanup can leave the selection state changed. The current
-artifact is marked <code>blocked</code>: do not run it physically until a unit-specific
-procedure defines battery isolation, injection contacts, polarity protection,
-voltage and current limits, ramp rate, dwell, brownout cutoff, and recovery.</p>
-<p>The pinned SPASM-ng build produces 1,100 machine-code bytes with SHA-256
-<code>3d5295c6d898e3b0f8fe8ac738fbb9e8cfded2c077d8d85aff8ba2da01d74b78</code>.
-The packaged 2,280-byte <code>HWBRAW.8xp</code> has SHA-256
-<code>342d945d26441bbd2d36a6f22c4489e0bc879031550db91cde15341eb5918260</code>.
+reset before cleanup can leave the selection state changed. Use a backed-up
+test calculator, stable externally current-limited power, and an independently
+verified voltage before running it. Do not run it as the first probe on a unit.</p>
+<p>The pinned SPASM-ng build produces 494 machine-code bytes with SHA-256
+<code>9bab70611592bee37f90a9e66c02729bddec3a12928ee5f0e84b45261d194d9a</code>.
+The packaged 1,068-byte <code>HWBRAW.8xp</code> has SHA-256
+<code>854b7087875b4c798da3e0b383b09a7ffcf0face75956007663fe1a92ef6c381</code>.
 [confirmed]</p>
 <h2 id="usb-control-snapshot"><a class="header" href="#usb-control-snapshot">USB control snapshot</a></h2>
 <p>Probe ID 5 reads ports <code>0x49</code>, <code>0x4A</code>–<code>0x4D</code>, <code>0x4F</code>–<code>0x52</code>,
 <code>0x54</code>–<code>0x57</code>, <code>0x5A</code>, and <code>0x5B</code>. Port <code>0x15</code> identity and port <code>0x02</code>
 status remain in the common frame header. The 15-byte payload preserves this
 port order. [confirmed]</p>
-<p>The program performs no I/O writes. That is a narrower claim than read-only:
-whether any physical event register acknowledges or advances state on a read
-remains unmeasured. Run the first capture disconnected. It disables interrupts across the reads so
+<p>The program performs no I/O writes. It disables interrupts across the reads so
 the OS interrupt handler cannot alter the sampled USB state between fields.
 It then restores the caller’s interrupt-enable state before creating the
 result AppVar. The builder verifies one direct <code>IN</code> instruction for every
 listed port. [confirmed] for source and assembled bytes; [hypothesis] for
 physical read values.</p>
-<p>The pinned SPASM-ng build produces 725 machine-code bytes with SHA-256
-<code>1cfae4bfae6e61bac62123c913a5afd31ae5b8cfb5c1dfd55bc0390d826bc8e6</code>.
-The packaged 1,530-byte <code>HWPUSB.8xp</code> has SHA-256
-<code>a75ebc608b016b5c77919a6fe6a7e68fb494919799bb1315d9ed668f153a0b76</code>.
+<p>The pinned SPASM-ng build produces 271 machine-code bytes with SHA-256
+<code>e0c3a1649ef7c51754827bf0bc9e4841e67726ece2ab822d553f32e27c1873a2</code>.
+The packaged 622-byte <code>HWPUSB.8xp</code> has SHA-256
+<code>653e8e39c312e5838c9800647622655423c482fbb36a400a0cda42e3b7f63524</code>.
 [confirmed]</p>
 <p>Ports <code>0x49</code>, <code>0x51</code>, and <code>0x52</code> test historical transceiver and enable-timer
 claims that have no confirmed OS 2.55MP transaction. Ports <code>0x4B</code>, <code>0x4F</code>,
@@ -658,10 +606,10 @@ creating the AppVar. Cleanup does not depend on the unverified bits-4–5 latch
 readback. A reset or interruption before cleanup can leave a line asserted. Use
 a backed-up test calculator. Do not attach another calculator, Graph Link,
 TI-Keyboard, speaker, or other peripheral.</p>
-<p>The pinned SPASM-ng build produces 1,033 machine-code bytes with SHA-256
-<code>a7d43b86bb770b23ee2eba793c8539c0394784ba61c7e532f8c4a3d535c12881</code>.
-The packaged 2,146-byte <code>HWLINK.8xp</code> has SHA-256
-<code>76517a1bb5de562f88ccf3717060927704a0b1f7395ba43eef8a371f9adb8d76</code>.
+<p>The pinned SPASM-ng build produces 579 machine-code bytes with SHA-256
+<code>6c687665e8584bc789d85d092f6917bd2043b3f2f73fe964bf4995906b42a223</code>.
+The packaged 1,238-byte <code>HWLINK.8xp</code> has SHA-256
+<code>64d8cb0be4c9c7aee378570bc45a43596affda66303a39aec433b07e17088454</code>.
 [confirmed]</p>
 <h2 id="keypad-settling-probe"><a class="header" href="#keypad-settling-probe">Keypad settling probe</a></h2>
 <p>Probe ID 9 measures port-<code>0x01</code> after keypad group-selection edges. It first
@@ -702,17 +650,15 @@ gaps rather than wall-clock measurements. [confirmed] for the instruction
 count; [standard] for the nominal clock conversion.</p>
 <p>Delete <code>HWKEYS01</code> before the run. Release the launch key, then hold the exact
 test key or chord until the program returns. Record every held key with the
-exported AppVar. The release and held-key waits each use a finite nested
-watchdog. A timeout leaves trigger <code>0xFF</code>, skips the matrix, and makes
-<code>measurements_valid</code> false. The probe disables interrupts during the wait and
-matrix, writes <code>0xFF</code> to unselect all
+exported AppVar. The probe will wait indefinitely if no key is pressed. It
+disables interrupts during the wait and matrix, writes <code>0xFF</code> to unselect all
 groups before restoring the caller’s interrupt state, and records adjacent
 status, interrupt, and speed ports before and after. It does not measure switch
 bounce, analog voltage, or a logic-analyzer waveform.</p>
-<p>The pinned SPASM-ng build produces 1,410 machine-code bytes with SHA-256
-<code>758600e1016ad0710051ad28a48d64adbbc5705963d9ee13f34a54cd3178e641</code>.
-The packaged 2,900-byte <code>HWKEYS.8xp</code> has SHA-256
-<code>49a5d50d2310abf7f19984632da188a372bd8ef16b3391b99ddd10effc13e10c</code>.
+<p>The pinned SPASM-ng build produces 919 machine-code bytes with SHA-256
+<code>7f8974964af78dd12c2f9e95c0c301e22cbb74da38d6a27d2313b4c00c21b639</code>.
+The packaged 1,918-byte <code>HWKEYS.8xp</code> has SHA-256
+<code>583c93f47f2a220e52bd80406c3e4d70478226ac6c5bcc6a63ec9a753396f94d</code>.
 [confirmed]</p>
 <h2 id="memory-bus-timing-probe"><a class="header" href="#memory-bus-timing-probe">Memory-bus timing probe</a></h2>
 <p>Probe ID 10 measures all six port-<code>0x2E</code> memory wait classes with programmable
@@ -797,10 +743,10 @@ timer 2, acknowledges its mode port, and restores port <code>0x2E</code>. At the
 restores the idle counter byte and the caller’s interrupt state. A reset during
 measurement can leave port <code>0x2E</code> or timer 2 changed. Use a backed-up OS 2.55MP
 calculator with stable power.</p>
-<p>The pinned SPASM-ng build produces 1,186 machine-code bytes with SHA-256
-<code>687f0106855c1c1e1a2a32d2a07927fd9d6976e58d76897d1885c268de433d11</code>.
-The packaged 2,452-byte <code>HWBUS.8xp</code> has SHA-256
-<code>cf1a4c16d9555d354239be68fad398144b6d1d5b5d243d54be550b589389c824</code>.
+<p>The pinned SPASM-ng build produces 732 machine-code bytes with SHA-256
+<code>9a8084f7852b5ba7f951878f941dc2bb98c81d6671c6bc0c5f75ed3565e9c75a</code>.
+The packaged 1,544-byte <code>HWBUS.8xp</code> has SHA-256
+<code>9e8a796b96db15b34fe9e91b5268efd630ee61980d6916acf575201e89ef49c7</code>.
 [confirmed]</p>
 <h2 id="prefix-m1-timing-probe"><a class="header" href="#prefix-m1-timing-probe">Prefix-M1 timing probe</a></h2>
 <p>Probe ID 11 measures how the RAM opcode-wait bit treats six instruction
@@ -839,17 +785,16 @@ fetch. The reusable source analyzer requires TilEm commit
 <code>58316afe35d69e69353f0f743698144153051d4a</code>, and Wabbitemu tree SHA-256
 <code>a8a4f97fc7952770bed317b4a477f80345894da38d14fad8f0bf0ee60aae71ba</code>.
 It reports no physical result. [standard]</p>
-<pre><code class="language-sh">python tools/describe_prefix_fetch_models.py \
+<pre><code class="language-sh">python3 -m ti84re.emulators.describe_prefix_fetch_models \
   --tilem-source /path/to/tilem \
   --wabbitemu-source /path/to/wabbitemu --json
 </code></pre>
 <p>The canonical JSON report has SHA-256
 <code>ac5c618269a5a097b2f23c0ac9fc3ed5ca20b1749673b1020206e5c447fbf61c</code>.
 [confirmed] for the hash-guarded source analysis.</p>
-<p>The 587-byte measurement-only image completed in the pinned
-Wabbitemu core after a retail OS 2.55MP boot. The guarded runner injected its
-587 bytes into RAM page <code>01</code> and stopped at <code>01:9EC2</code>, immediately before
-<code>_CreateAppVar</code>. It
+<p>The exact assembled image also completed in the pinned Wabbitemu core after a
+retail OS 2.55MP boot. The guarded runner injected all 587 bytes into RAM page
+<code>01</code> and stopped at <code>01:9EC2</code>, immediately before <code>_CreateAppVar</code>. It
 executed 737,692 probe instructions and 5,669,409 modeled T-states without an
 execution-violation reset. The baseline-to-enabled timer deltas were 21, 25,
 25, 25, 29, and 30 ticks in table order. The indexed-CB delta is one tick from
@@ -877,10 +822,10 @@ state. A complete nominal-6-MHz run masks interrupts for about one second.
 [confirmed]</p>
 <p>Delete <code>HWPFX001</code> before running <code>Asm(prgmHWPFX)</code>. Retain the exported AppVar,
 probe manifest, calculator model, PCB or ASIC revision, and OS version together.</p>
-<p>The pinned SPASM-ng build produces 1,137 machine-code bytes with SHA-256
-<code>bbab3ac9f0e61b84fcebe8b86c0480775bc53ff2fba51d9c2d5996c747ba4ae4</code>.
-The packaged 2,354-byte <code>HWPFX.8xp</code> has SHA-256
-<code>ce0aacc42a956cc444b893023ddb9007e51216721a82b69170fd24d42fb69720</code>.
+<p>The pinned SPASM-ng build produces 683 machine-code bytes with SHA-256
+<code>d124d7657a9ae1cb5322559bd6600133df1ebf642513f98dd5b0bbcaef52cbad</code>.
+The packaged 1,446-byte <code>HWPFX.8xp</code> has SHA-256
+<code>4a97a4c4def1a2fb2fd3a4e00e3ee0aaf1b4056c459a92c27f2ac2fbf636e255</code>.
 [confirmed]</p>
 <h2 id="programmable-timer-physical-probe"><a class="header" href="#programmable-timer-physical-probe">Programmable-timer physical probe</a></h2>
 <p>Probe ID 12 separates four programmable-timer edges on a physical ASIC:</p>
@@ -950,16 +895,16 @@ completion windows; the program never executes <code>HALT</code>. [confirmed]</p
 </table>
 </div>
 <p>Run and decode a physical result with:</p>
-<pre><code class="language-sh">python tools/decode_hardware_probe.py --json HWTMR001.8xv
+<pre><code class="language-sh">python3 -m ti84re.hardware.decode_probe --json HWTMR001.8xv
 </code></pre>
 <p>The decoder reports raw counters and status bytes alongside the nearest source
 model. A nearest-model label describes that sample; it does not establish an
 ASIC-wide rule. Retain the exported AppVar, manifest, calculator and ASIC
 identity, CPU-speed readbacks, and artifact hashes together.</p>
-<p>The 835-byte measurement-only image completed in the pinned
-Wabbitemu core after a retail OS 2.55MP boot. The shared injected-program
-runner stopped at <code>01:9EE4</code>, immediately before <code>_CreateAppVar</code>. It had run
-1,645,212 probe instructions and 12,937,610 modeled T-states. It recorded no
+<p>The exact 835-byte assembled image completed in the pinned Wabbitemu core after
+a retail OS 2.55MP boot. The shared injected-program runner stopped at
+<code>01:9EE4</code>, immediately before <code>_CreateAppVar</code>, after 1,645,212 probe
+instructions and 12,937,610 modeled T-states. It recorded no
 execution-violation reset. [confirmed] for this emulator execution.</p>
 <p>The four trials inferred divisor <code>3568/111</code>, or about 32.144. The decoder
 selected the Wabbitemu/MAME divisor-32 model. Speed requests 0–3 read back as
@@ -974,7 +919,7 @@ field compared equal. [confirmed] for the pinned Wabbitemu run.</p>
 and binary SHA-256
 <code>3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e</code>.
 Run the same guarded path with:</p>
-<pre><code class="language-sh">nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.emulators.wabbitemu.run_timer_physical_probe \
   --binary /path/to/wabbitemu-headless \
   --expected-binary-sha256 3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e \
   --output-dir /tmp/wabbitemu-timer-physical --json
@@ -983,23 +928,17 @@ Run the same guarded path with:</p>
 cleanup, and decoder against one emulator implementation. It does not execute
 AppVar creation, measure wall time or crystal accuracy, or establish physical
 ASIC behavior. No <code>HWTMR001</code> result from a calculator is available.</p>
-<p>The current image also completed the separate compact-display run in both
-TilEm and Wabbitemu. Each backend traversed two compact pages and reconstructed
-its AppVar-resident frame exactly. Wabbitemu executed the small-font renderer;
-the TilEm adapter intercepted its display bcalls. [confirmed]</p>
-<p>The pinned SPASM-ng build produces 1,385 machine-code bytes with SHA-256
-<code>2b7d5edec2d6df58fb3447312411ecaf26a1b8e75d1efb21e5b02761c21c38a1</code>.
-The packaged 2,850-byte <code>HWTMR.8xp</code> has SHA-256
-<code>b00477d0cd24a113bbf750a95fca95bab4d22af77dc0c08c0470b714b69e799a</code>.
+<p>The pinned SPASM-ng build produces 931 machine-code bytes with SHA-256
+<code>00891ce4ac0fb89a79f0b6251eccec7bb9f4d9c34f29411da407b5cf9443fe19</code>.
+The packaged 1,942-byte <code>HWTMR.8xp</code> has SHA-256
+<code>6a28ce4a13d9a24db6bcae95e2dedcb602cfe530e039c66b4a1da5fd82ed499c</code>.
 [confirmed]</p>
 <h2 id="rtc-rollover-coherence-probe"><a class="header" href="#rtc-rollover-coherence-probe">RTC rollover-coherence probe</a></h2>
 <p>Probe ID 13 observes the natural carry from current-time port <code>0x45 = 0xFF</code>
 to its next value. It never writes ports <code>0x40</code>–<code>0x48</code>. The program leaves
-interrupts enabled while it waits for the low byte to reach <code>0xFF</code>. A nested
-instruction watchdog rejects a clock that stops advancing, and a
-256-transition counter rejects a cycle that never reaches <code>0xFF</code>. It disables
-interrupts only across the final rollover window, which has a separate
-watchdog. [confirmed] for the assembled instruction sequence.</p>
+interrupts enabled while it waits for the low byte to reach <code>0xFF</code>, which can
+take up to 256 seconds. It then disables interrupts across only the final
+rollover window. [confirmed] for the assembled instruction sequence.</p>
 <p>The 19-byte payload contains the entry control byte, an outcome, four RTC
 samples, and the exit control byte:</p>
 <div class="table-wrapper">
@@ -1023,12 +962,11 @@ disabled on entry, so the probe declined the multi-minute wait. Outcome 2
 means the low byte changed between the polling read and the first masked
 sample; rerun the artifact rather than interpreting its zero-filled transition
 fields. Outcome 3 means port <code>0x40</code> reported that the RTC was disabled, so the
-probe declined a wait that might never finish. Outcome 4 is a progress timeout;
-outcome 5 is a timeout in the final masked rollover window.</p>
-<p>Normal and enabled-interrupt guard outcomes create <code>HWPRTC01</code>, print the
-AppVar-resident verification code, and page through its compact frame. Outcome
-1 preserves disabled interrupts and returns without calling the display
-bcalls, so verify that case from its exported AppVar.</p>
+probe declined a wait that might never finish.</p>
+<p>Normal and enabled-interrupt guard outcomes create <code>HWPRTC01</code> and print the
+AppVar-resident verification code. Outcome 1 preserves disabled interrupts and
+returns without calling the display bcalls, so verify that case from its
+exported AppVar.</p>
 <p>The decoder reports whether the first high-to-low value equals the final
 <code>0xFF</code> value plus one and whether the later reads remain monotonic. A coherent
 natural low-byte transition does not resolve the larger
@@ -1036,17 +974,17 @@ natural low-byte transition does not resolve the larger
 user’s clock and requires a separate mutating probe with staged-register and
 time-restoration guards. [hypothesis] for physical coherence until an exported
 result is recorded.</p>
-<p>The pinned build produces 929 machine-code bytes with SHA-256
-<code>f657e1cc5a3fb7b3ceeb7e3272ea8657f04c6b8dae432f2ea26de8aab500d9d4</code>.
-The packaged 1,938-byte <code>HWPRTC.8xp</code> has SHA-256
-<code>9c749465a8c582dd35ca9636e49dc3ab1e7235a0a235e76723dc024cfb98633d</code>.
+<p>The pinned build produces 376 machine-code bytes with SHA-256
+<code>07f2d73464c8666d89550081d50c6b76e3618ccd4d719d0210aea2a653ce071d</code>.
+The packaged 832-byte <code>HWPRTC.8xp</code> has SHA-256
+<code>6bcb62a520ae46e912da1df5484af769705736a49ccf663ea5367c97852ffa24</code>.
 [confirmed]</p>
 <h2 id="mapper-overlay-probe"><a class="header" href="#mapper-overlay-probe">Mapper-overlay probe</a></h2>
 <p>Probe ID 14 runs a restoring read/write matrix for forced RAM overlays and
 paired mapper mode. Its entry and post-AppVar guards require ports <code>0x05</code>,
 <code>0x06</code>, <code>0x07</code>, <code>0x0E</code>, <code>0x0F</code>, <code>0x27</code>, and <code>0x28</code> to match the unmodified OS
 2.55MP direct-<code>Asm(</code> baseline. The program verifies the fixed-page helper at
-<code>ram:0CE6</code>, creates pending <code>HWPMAP01</code>, and only then seeds test bytes.
+<code>00:0CE6</code>, creates pending <code>HWPMAP01</code>, and only then seeds test bytes.
 [confirmed]</p>
 <p>The worker executes from a physical-page-1 alias and performs no stack access
 while window C is remapped. It tests port <code>0x28 = 0x01</code> around <code>0x8000</code> and port
@@ -1054,11 +992,6 @@ while window C is remapped. It tests port <code>0x28 = 0x01</code> around <code>
 All tested mappings and writes remain in RAM. It backs up, restores, and
 verifies every seeded byte across pages 0–3 before restoring selectors and
 normalizing independent mode.</p>
-<p>That execution placement is validated only for the compared emulator models.
-If physical paired mode maps window C differently, the port-<code>0x04</code> transition
-can unmap the next instruction and make cleanup unreachable. The default
-manifest therefore marks <code>HWPMAP</code> <code>blocked</code> for physical evidence collection.
-The pending AppVar records an attempted run; it is not an execution watchdog.</p>
 <p>Outcome 0 plus restore flags <code>0x0F</code> is the required normal result. Outcome 8
 means AppVar creation changed the guarded mapping; outcome 9 means the fixed
 helper signature did not match. Outcomes 1–7 identify the individual entry
@@ -1068,89 +1001,40 @@ TilEm selected its active-paired-overlay profile and printed verification code
 <code>58756</code>; Wabbitemu selected its paired-disabled/<code>0xFB64</code> profile and printed
 <code>21062</code>. Every marker and readable selector restoration check passed in both
 runs. These are emulator results, not physical mapper conclusions. [confirmed]</p>
-<p>The portable run record is
-<code>tools/fixtures/mapper-overlays-emulators.json</code>. It retains the exact machine
-image, ROM, emulator, runner, frame, and source hashes. MAME 0.287 completed
-only the guarded Lua device-handler profile: exact execution of the <code>HWPMAP</code>
-machine image is unsupported because no guarded MAME injection adapter exists.
-The absent overlay ports in that profile are not a zero-valued <code>HWPMAP</code>
-result. [confirmed]</p>
-<p>The pinned build produces 1,802 machine-code bytes with SHA-256
-<code>8f8809709c7393b5f4c17f79e9b55d883f8fd13603b61ce5500775d42897fc26</code>.
-The packaged 3,684-byte <code>HWPMAP.8xp</code> has SHA-256
-<code>84b3a551b96d4d82109a98b52bf618a1568409f084eef038d4a65d0f65765d77</code>.
+<p>The pinned build produces 1,348 machine-code bytes with SHA-256
+<code>b8486d223aa48a336fc5d245d98abcf9cd875542c3c0def5cbdf6ed760d7d3ef</code>.
+The packaged 2,776-byte <code>HWPMAP.8xp</code> has SHA-256
+<code>e613c552450eff7698b59748cd8ef492a71271bef86bad5707e0fd398904b840</code>.
 [confirmed]</p>
 <h2 id="lcd-controller-probe"><a class="header" href="#lcd-controller-probe">LCD-controller probe</a></h2>
 <p>Probe ID 15 measures port-<code>0x02</code> ready intervals after a command write, data
-read, and data write. Separate immediate port-<code>0x10</code> samples expose the
-controller busy bit after each access. [confirmed]</p>
+read, and data write. It then writes three sentinels beginning at row 0,
+column 14 and reads a seven-cell alias union plus read-only column-16 and
+column-31 cases. The decoder distinguishes a 16-column row, 15-column wrap,
+and 15-byte linear spill. [confirmed]</p>
 <p>The entry guard requires eight-bit controller mode, no controller reset, and
-valid TI-OS tracked row and column commands. It accepts only the visible byte
-columns <code>0x20</code>–<code>0x2B</code> and rows <code>0x80</code>–<code>0xBF</code>. [confirmed]</p>
-<p>The transferable artifact never issues a hidden-column command or writes a
-sentinel. It reads one visible cell and rewrites the same value. It then
-rereads that cell and restores the value again. [confirmed]</p>
-<p>All ready polls and delays are bounded. A timeout suppresses the pending LCD
-transfer, then uses separately bounded fixed-delay writes to attempt movement
-and pointer recovery. That attempt cannot prove an exact controller-internal
-latch restoration. The probe sends no power, test, contrast, row-shift, display-enable,
-or OPA command. It does not write ports <code>0x02</code>, <code>0x03</code>, <code>0x20</code>, or
-<code>0x29</code>–<code>0x2F</code>. [confirmed]</p>
-<p>The probe reconstructs the entry movement command from status bits 0–1. It
-restores that command and the guarded TI-OS pointer before creating
-<code>HWPLCD02</code>. Some replacement controllers move the pointer on a status read,
-so cleanup restores the pointer again after the post-status sample.
+valid TI-OS tracked row and column commands. All polls and delays are bounded.
+The measurement issues no power, test, contrast, row-shift, display-enable, or
+OPA command and does not write the wait registers. It backs up the entire cell
+union before its first sentinel, restores and verifies every byte, returns to
+eight-bit normal movement, and restores the OS-tracked address before creating
+<code>HWPLCD01</code>.</p>
+<p>Outcome 4 means the ASIC ready condition timed out. Outcome 6 or a false
+<code>restore_ok</code> means the touched display-RAM union did not restore and the run
+must not be used as normal evidence. The controller’s entry pointer and output
+latch are not generally readable, so the program restores the OS-tracked
+address rather than claiming an unknowable controller-internal snapshot.</p>
+<p>The identical assembled bytes completed in pinned TilEm as
+<code>tilem-16-column</code>, verification <code>43477</code>, and in Wabbitemu as
+<code>wabbitemu-15-column-wrap</code>, verification <code>61237</code>. Cell restoration and wait
+register comparisons passed in both. The guarded MAME 0.287 direct-handler
+case separately selected a 15-byte linear spill; MAME did not execute this
+assembly image. [confirmed]</p>
+<p>The pinned build produces 849 machine-code bytes with SHA-256
+<code>64d0265cee502a17a182f17bdb79bb8182fc39ae82b8ad679d7f0cd35803afd7</code>.
+The packaged 1,778-byte <code>HWPLCD.8xp</code> has SHA-256
+<code>55908f9bee45ac0447b55d6e17e4a5812888ed7c8d854dc0afc4112e782022d0</code>.
 [confirmed]</p>
-<p>Outcome 4 means the ASIC-ready condition timed out. Outcome 5 means the saved
-TI-OS pointer selected a hidden column, so the probe performed no data write.
-Outcome 6 or a false <code>restore_ok</code> means the visible cell did not restore.
-Discard those runs as normal evidence. [confirmed]</p>
-<p>The entry pointer and output latch are not generally readable. The program
-therefore restores the TI-OS tracked address. It does not claim an exact
-controller-internal snapshot. [confirmed]</p>
-<p>The identical assembled bytes completed in pinned TilEm and Wabbitemu. TilEm
-reported ready counts 2, 2, and 2, with all three busy samples set. Its decimal
-verification code was <code>21731</code>. Wabbitemu reported 4, 0, and 3, with busy set,
-clear, and set. Its code was <code>23959</code>. Visible-cell, movement, and wait-register
-restoration checks passed in both. [confirmed]</p>
-<p>MAME 0.287 separately completed the guarded direct-handler cases. It reports
-permanent busy-clear status, constant ASIC-ready state, and absent wait ports.
-MAME did not execute the assembly image. Its hidden-column model is emulator
-evidence only. [confirmed]</p>
-<p>The pinned build produces 1,319 machine-code bytes with SHA-256
-<code>e3312cd5b80691e7cec97a7a4fa0c32fa27da731e3b0190008dfdedbab8360c4</code>.
-The packaged 2,718-byte <code>HWPLCD.8xp</code> has SHA-256
-<code>ab8138157c6e82f2263a85d74017438a7d3fdb60a52821a258ab02ed094c7c21</code>.
-[confirmed]</p>
-<h2 id="hidden-column-lcd-laboratory-probe"><a class="header" href="#hidden-column-lcd-laboratory-probe">Hidden-column LCD laboratory probe</a></h2>
-<p>Probe ID 17 is a separately built experiment, not one of the 25 default
-artifacts. <code>HWPLAB</code> snapshots the 768 visible LCD bytes and four addressed
-hidden bytes before writing columns <code>0x2C</code>–<code>0x2F</code>. It records direct-write and
-column-14 increment cases independently, restores the snapshots, and rereads
-every restored byte. [confirmed]</p>
-<p>The builder requires a real backup file with a matching operator-supplied
-SHA-256, a controller or test-unit identifier, recovery notes, an expected
-ASIC byte, and a literal risk acknowledgement. The program checks the ASIC,
-logical-<code>0x0BD9</code> OS signature, controller mode, reset status, and pointer
-guards before the first write or data transfer. It creates <code>HWPLAB01</code> before
-the first hidden write. Each completed stage is copied into that AppVar.
-[confirmed]</p>
-<p>The restore covers every visible byte and the four hidden bytes deliberately
-addressed at row <code>0xB8</code>. An unknown controller can alias a hidden command to a
-different hidden cell, so the artifact cannot promise universal restoration.
-Use it only on an identified, repairable calculator after <code>HWPLCD</code>. A pending
-outcome, timeout, or nonzero restore count is a failed run. [hypothesis] for
-unmeasured physical aliasing.</p>
-<p>A completed run prints <code>HWPLAB CODE nnnnn</code> after restoration, then pages
-through the compact frame code. The decimal number is the CRC-16/CCITT-FALSE
-value over the AppVar-resident frame. Compare both displays with the decoded
-<code>HWPLAB01</code>.</p>
-<p>Exact emulator runs completed with matching resident and staging frames.
-TilEm retained both incremented bytes in hidden columns and printed <code>62131</code>.
-Wabbitemu placed the second byte at visible index 0 and printed <code>42103</code>.
-Both reported zero visible and hidden restoration mismatches. [confirmed]</p>
-<p>The build and emulator commands are documented in <a href="needed-probes/additional-calculator-probes.html">Guarded mapper, LCD, and
-interrupt probes</a>.</p>
 <h2 id="interrupt-halt-probe"><a class="header" href="#interrupt-halt-probe">Interrupt-<code>HALT</code> probe</a></h2>
 <p>Probe ID 16 determines whether programmable timer 1 or standard timer 1 first
 wakes powered <code>HALT</code>. It arms programmable source <code>0x45</code>, mode <code>0x02</code>, count
@@ -1159,61 +1043,54 @@ records port <code>0x04</code>, programmable mode, count, and handler count, the
 both sources. [confirmed]</p>
 <p>The Z80 cannot report its current interrupt mode. Run <code>HWPIRQ</code> only through
 direct <code>Asm(</code> on unmodified OS 2.55MP, not from a shell or resident hook. The
-program guards <code>IY = 0x89F0</code>, the six-byte IM1 vector signature at <code>ram:0038</code>,
+program guards <code>IY = 0x89F0</code>, the six-byte IM1 vector signature at <code>00:0038</code>,
 entry IFF2, ON release, idle timer 1, no pending interrupt or completion, and
 the inactive USB gate. It creates pending <code>HWPIRQ01</code> before installing its
 257-byte uniform IM2 table and repeats the live-source guards after the bcall.</p>
 <p>Cleanup disables timer source and mode, restores the saved count and the
 canonical OS port-<code>0x03</code> mask, returns to IM1, restores <code>I</code>, verifies readable
 state, updates the pending frame, and restores entry interrupt enable state.
-Guard-only outcomes never reach those writes: a <code>state_touched</code> flag keeps the
-timer, interrupt mask, <code>I</code>, and interrupt mode unchanged, then compares all six
-readable entry and exit bytes. [confirmed]</p>
-<p>If neither source wakes the CPU, a reset may be required; export the
+If neither source wakes the CPU, a reset may be required; export the
 still-pending AppVar before another attempt. The lack of a displayed code in
 that case is expected.</p>
 <p>The identical assembled bytes completed in pinned TilEm with a
 programmable-timer wake and verification <code>44737</code>. Wabbitemu reached the
 standard-timer watchdog and verification <code>19672</code>. Handler count, <code>I</code>, timer,
 and interrupt-mask restoration passed in both. [confirmed]</p>
-<p>The pinned build produces 1,850 machine-code bytes with SHA-256
-<code>c7dae6405e93870c42e60a2b3d8e790f23935723619e799493d4a9300d9813f1</code>.
-The packaged 3,780-byte <code>HWPIRQ.8xp</code> has SHA-256
-<code>2fb966e4e90a403b97c312ca0b0d363449e3c8e161206842bd3407e34e227209</code>.
+<p>The pinned build produces 1,593 machine-code bytes with SHA-256
+<code>4c0aedd8fbe2bd2619dae01433b546e0ce74a9d67cea45fb1d7e479f11b66738</code>.
+The packaged 3,266-byte <code>HWPIRQ.8xp</code> has SHA-256
+<code>c31b199d5a51e99e01431db30373aa828877d10093ce85e053ea469e393f58d0</code>.
 [confirmed]</p>
 <h2 id="safety-boundary"><a class="header" href="#safety-boundary">Safety boundary</a></h2>
 <p>The RAM alias probe is designed to restore its writes, but it has not completed
-a physical run. Its pending AppVar stores the six original bytes before the
-first write. A reset, power loss, assembly defect, or unexpected exception can
-still leave a changed byte or lose volatile recovery data. Use a replaceable,
-backed-up test calculator and stable power.</p>
+a physical run. A reset, power loss, assembly defect, or unexpected exception
+before the restoration loop can leave a changed byte. Use a backed-up test
+calculator and stable power. Do not run the RAM probe on a unit whose contents
+cannot be replaced.</p>
 <p>The snapshot, battery, raw-battery, raw-link, keypad, bus-timing, prefix-M1,
 programmable-timer, and alias probes restore interrupt enable state before
-creating the result AppVar.</p>
-<p>The battery-level probe retains its original restoration contract. The
-raw-battery probe restores ports <code>0x39</code>, <code>0x3A</code>, and <code>traceFlags</code>, executes the
-ROM selector cleanup after every sample, and explicitly normalizes the
-port-<code>0x04</code> write-side selector to <code>0x06</code>; readback cannot restore that latch.
-The raw-link probe releases both link lines during cleanup. A
+creating the result AppVar.
+Both battery probes restore ports <code>0x04</code>, <code>0x39</code>, <code>0x3A</code>, and the complete
+saved <code>traceFlags</code> byte.
+The raw-battery probe also executes the ROM’s selector cleanup after every
+sample sequence. The raw-link probe releases both link lines during cleanup. A
 returned execution probe restores port <code>0x06</code> and the interrupt state. The
 keypad probe normalizes port <code>0x01</code> to the OS’s all-groups-unselected value
 <code>0xFF</code>. The bus and prefix timing probes restore port <code>0x2E</code> and an initially
 idle timer 2. The programmable-timer probe restores CPU speed, port <code>0x2F</code>,
 and the initially idle timer-1 and timer-2 triplets. It snapshots port <code>0x2D</code>
-but does not write it.</p>
-<p>The RTC rollover probe does not write its register block. It enters its final
+but does not write it.
+The RTC rollover probe does not write its register block. It enters its final
 wait only when interrupts were enabled and reenables them before creating the
-result AppVar.</p>
-<p>The mapper probe pre-creates a pending AppVar, guards its readable mapping
-twice, restores all marker bytes, and verifies four marker groups in supported
-emulator models. Physical paired-mode execution remains blocked because an
-unknown mapping can unmap the worker before cleanup.</p>
-<p>The LCD probe uses no analog or power commands and verifies its entire
-touched-cell union.</p>
-<p>The interrupt probe pre-creates a pending AppVar, uses a
+result AppVar.
+The mapper probe pre-creates a pending AppVar, guards its mapping twice, keeps
+execution in mapped RAM, restores all marker bytes, and verifies four marker
+groups. The LCD probe uses no analog or power commands and verifies its entire
+touched-cell union. The interrupt probe pre-creates a pending AppVar, uses a
 uniform IM2 table, supplies a standard-timer watchdog, and restores IM1, <code>I</code>,
-timer state, and the interrupt mask before returning.</p>
-<p>The bus-timing probe’s direct Flash writes are <code>0xF0</code> read-array resets, not
+timer state, and the interrupt mask before returning.
+The bus-timing probe’s direct Flash writes are <code>0xF0</code> read-array resets, not
 program or erase sequences. The prefix-M1 probe accesses only user RAM and I/O.
 A denied fetch may reset before cleanup instructions. The result AppVar is the
 intended persistent data write.
@@ -1226,44 +1103,38 @@ physical execution and reset retention.</p>
 <tr><th>Path</th><th>Purpose</th></tr>
 </thead>
 <tbody>
-<tr><td><code>tools/hardware-probes/common.inc</code></td><td>OP1 setup, <code>_CreateAppVar</code>, and frame copy</td></tr>
-<tr><td><code>tools/hardware-probes/asic-snapshot.asm</code></td><td>read-only ASIC, timing, and GPIO register snapshot</td></tr>
-<tr><td><code>tools/hardware-probes/battery-level.asm</code></td><td>repeated retail battery-level bcall and restoring state audit</td></tr>
-<tr><td><code>tools/hardware-probes/battery-raw.asm</code></td><td>repeated raw comparator-selector sequence and restoring state audit</td></tr>
-<tr><td><code>tools/hardware-probes/link-raw.asm</code></td><td>disconnected two-wire link readback and instruction-spaced settling matrix</td></tr>
-<tr><td><code>tools/hardware-probes/keypad-settle.asm</code></td><td>held-key and chord matrix-settling measurements</td></tr>
-<tr><td><code>tools/hardware-probes/bus-timing.asm</code></td><td>six-class Flash/RAM wait-state timing matrix</td></tr>
-<tr><td><code>tools/hardware-probes/prefix-m1.asm</code></td><td>prefixed-instruction RAM-M1 timing matrix</td></tr>
-<tr><td><code>tools/hardware-probes/timer-physical.asm</code></td><td>guarded programmable-timer divisor, prescaler, zero-counter, and expiry matrix</td></tr>
-<tr><td><code>tools/hardware-probes/rtc-rollover.asm</code></td><td>read-only natural RTC low-byte rollover-coherence measurement</td></tr>
-<tr><td><code>tools/hardware-probes/mapper-overlays.asm</code></td><td>guarded restoring overlay and paired-mapper matrix</td></tr>
-<tr><td><code>tools/hardware-probes/lcd-controller.asm</code></td><td>guarded ready-trigger and visible-cell status measurement</td></tr>
-<tr><td><code>tools/hardware-probes/lcd-hidden-lab.asm</code></td><td>separately gated hidden-column geometry and restoration experiment</td></tr>
-<tr><td><code>tools/hardware-probes/interrupt-halt.asm</code></td><td>guarded programmable-timer <code>HALT</code> wake with watchdog</td></tr>
-<tr><td><code>tools/hardware-probes/display.inc</code></td><td>post-cleanup decimal CRC and reversible small-font <code>HWPZ1</code> display</td></tr>
-<tr><td><code>tools/hardware-probes/usb-snapshot.asm</code></td><td>no-I/O-write low-USB control and status snapshot</td></tr>
-<tr><td><code>tools/hardware-probes/md5-edge.asm</code></td><td>calculator-side MD5 measurements</td></tr>
-<tr><td><code>tools/hardware-probes/ram-alias.asm</code></td><td>calculator-side RAM alias and restoration measurements</td></tr>
-<tr><td><code>tools/hardware-probes/execution-fetch.asm</code></td><td>parameterized read-only Flash and RAM fetch measurement</td></tr>
-<tr><td><code>tools/hardware_probe.py</code></td><td>reusable TI container, frame, and payload library</td></tr>
-<tr><td><code>tools/compact_probe_code.py</code></td><td>reversible compact text encoder and decoder for complete <code>HWP1</code> frames</td></tr>
-<tr><td><code>tools/bus_timing.py</code></td><td>timing-register models and physical counter-pair decoder</td></tr>
-<tr><td><code>tools/prefix_fetch_models.py</code></td><td>hash-guarded emulator prefix-fetch source analysis</td></tr>
-<tr><td><code>tools/timer_hardware.py</code></td><td>reusable source, duration, RTC, and physical timer-result models</td></tr>
-<tr><td><code>tools/describe_prefix_fetch_models.py</code></td><td>text and JSON prefix-fetch comparison CLI</td></tr>
-<tr><td><code>tools/run_wabbitemu_prefix_m1_probe.py</code></td><td>exact-ROM guarded assembled-probe execution CLI</td></tr>
-<tr><td><code>tools/run_wabbitemu_timer_physical_probe.py</code></td><td>exact-ROM guarded assembled timer-probe execution CLI</td></tr>
-<tr><td><code>tools/mapper_probe_evidence.py</code></td><td>deterministic exact-run normalization and freshness checks for <code>HWPMAP</code></td></tr>
-<tr><td><code>tools/build_tilem_exact_probe.py</code></td><td>pinned TilEm generic exact-probe runner build CLI</td></tr>
-<tr><td><code>tools/build_wabbitemu_exact_probe.py</code></td><td>pinned Wabbitemu generic exact-probe runner build CLI</td></tr>
-<tr><td><code>tools/run_exact_hardware_probe.py</code></td><td>normalized exact-byte runner for every displayed physical probe</td></tr>
-<tr><td><code>tools/run_compact_probe_e2e.py</code></td><td>cross-emulator compact-code validation and Wabbitemu small-font rendering</td></tr>
-<tr><td><code>tools/build_lcd_hidden_lab_probe.py</code></td><td>backup-bound device-specific hidden-LCD artifact builder</td></tr>
-<tr><td><code>tools/run_lcd_hidden_lab_emulator.py</code></td><td>exact hidden-LCD image runner for TilEm and Wabbitemu</td></tr>
-<tr><td><code>tools/battery_hardware.py</code></td><td>ROM decision tree and emulator threshold-region model</td></tr>
-<tr><td><code>tools/describe_battery_hardware.py</code></td><td>text and JSON threshold/sample model CLI</td></tr>
-<tr><td><code>tools/build_hardware_probes.py</code></td><td>SPASM runner, artifact validator, packager, and manifest CLI</td></tr>
-<tr><td><code>tools/decode_hardware_probe.py</code></td><td>text and JSON result CLI</td></tr>
+<tr><td><code>tools/probes/hardware/common.inc</code></td><td>OP1 setup, <code>_CreateAppVar</code>, and frame copy</td></tr>
+<tr><td><code>tools/probes/hardware/asic-snapshot.asm</code></td><td>read-only ASIC, timing, and GPIO register snapshot</td></tr>
+<tr><td><code>tools/probes/hardware/battery-level.asm</code></td><td>repeated retail battery-level bcall and restoring state audit</td></tr>
+<tr><td><code>tools/probes/hardware/battery-raw.asm</code></td><td>repeated raw comparator-selector sequence and restoring state audit</td></tr>
+<tr><td><code>tools/probes/hardware/link-raw.asm</code></td><td>disconnected two-wire link readback and instruction-spaced settling matrix</td></tr>
+<tr><td><code>tools/probes/hardware/keypad-settle.asm</code></td><td>held-key and chord matrix-settling measurements</td></tr>
+<tr><td><code>tools/probes/hardware/bus-timing.asm</code></td><td>six-class Flash/RAM wait-state timing matrix</td></tr>
+<tr><td><code>tools/probes/hardware/prefix-m1.asm</code></td><td>prefixed-instruction RAM-M1 timing matrix</td></tr>
+<tr><td><code>tools/probes/hardware/timer-physical.asm</code></td><td>guarded programmable-timer divisor, prescaler, zero-counter, and expiry matrix</td></tr>
+<tr><td><code>tools/probes/hardware/rtc-rollover.asm</code></td><td>read-only natural RTC low-byte rollover-coherence measurement</td></tr>
+<tr><td><code>tools/probes/hardware/mapper-overlays.asm</code></td><td>guarded restoring overlay and paired-mapper matrix</td></tr>
+<tr><td><code>tools/probes/hardware/lcd-controller.asm</code></td><td>guarded ready-trigger and hidden-column alias matrix</td></tr>
+<tr><td><code>tools/probes/hardware/interrupt-halt.asm</code></td><td>guarded programmable-timer <code>HALT</code> wake with watchdog</td></tr>
+<tr><td><code>tools/probes/hardware/display.inc</code></td><td>post-cleanup CRC-16 verification-number display</td></tr>
+<tr><td><code>tools/probes/hardware/usb-snapshot.asm</code></td><td>read-only low-USB control and status snapshot</td></tr>
+<tr><td><code>tools/probes/hardware/md5-edge.asm</code></td><td>calculator-side MD5 measurements</td></tr>
+<tr><td><code>tools/probes/hardware/ram-alias.asm</code></td><td>calculator-side RAM alias and restoration measurements</td></tr>
+<tr><td><code>tools/probes/hardware/execution-fetch.asm</code></td><td>parameterized read-only Flash and RAM fetch measurement</td></tr>
+<tr><td><code>tools/ti84re/hardware/probe.py</code></td><td>reusable TI container, frame, and payload library</td></tr>
+<tr><td><code>tools/ti84re/hardware/bus_timing.py</code></td><td>timing-register models and physical counter-pair decoder</td></tr>
+<tr><td><code>tools/ti84re/emulators/prefix_fetch_models.py</code></td><td>hash-guarded emulator prefix-fetch source analysis</td></tr>
+<tr><td><code>tools/ti84re/hardware/timer.py</code></td><td>reusable source, duration, RTC, and physical timer-result models</td></tr>
+<tr><td><code>tools/ti84re/emulators/describe_prefix_fetch_models.py</code></td><td>text and JSON prefix-fetch comparison CLI</td></tr>
+<tr><td><code>tools/ti84re/emulators/wabbitemu/run_prefix_m1_probe.py</code></td><td>exact-ROM guarded assembled-probe execution CLI</td></tr>
+<tr><td><code>tools/ti84re/emulators/wabbitemu/run_timer_physical_probe.py</code></td><td>exact-ROM guarded assembled timer-probe execution CLI</td></tr>
+<tr><td><code>tools/ti84re/emulators/tilem/build_exact_probe.py</code></td><td>pinned TilEm generic exact-probe runner build CLI</td></tr>
+<tr><td><code>tools/ti84re/emulators/wabbitemu/build_exact_probe.py</code></td><td>pinned Wabbitemu generic exact-probe runner build CLI</td></tr>
+<tr><td><code>tools/ti84re/hardware/run_exact_probe.py</code></td><td>normalized exact-byte runner for every displayed physical probe</td></tr>
+<tr><td><code>tools/ti84re/hardware/battery.py</code></td><td>ROM decision tree and emulator threshold-region model</td></tr>
+<tr><td><code>tools/ti84re/hardware/describe_battery.py</code></td><td>text and JSON threshold/sample model CLI</td></tr>
+<tr><td><code>tools/ti84re/hardware/build_probes.py</code></td><td>SPASM runner, artifact validator, packager, and manifest CLI</td></tr>
+<tr><td><code>tools/ti84re/hardware/decode_probe.py</code></td><td>text and JSON result CLI</td></tr>
 </tbody>
 </table>
 </div>

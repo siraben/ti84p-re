@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4b1e36ce.js";
+            window.path_to_searchindex_js = "searchindex-092bf0a7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3a621010.js"></script>
+        <script src="toc-d4b8a020.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -313,7 +313,7 @@ describe software behavior and do not select the correct physical ASIC contract.
 </table>
 </div>
 <p>The JSON-capable mapper CLI can reproduce Wabbitemu’s optional alias branch:</p>
-<pre><code class="language-sh">python tools/describe_memory_mapping.py --json map \
+<pre><code class="language-sh">python3 -m ti84re.hardware.describe_memory_mapping --json map \
   --profile wabbitemu --ram-alias-from 2 \
   --write 4=0 --write 5=7 --write 6=0x87 --write 7=0x87
 </code></pre>
@@ -327,9 +327,9 @@ comparison.</p>
 patterns. Each selector in one class reads the pattern written through the
 highest-numbered selector in that class. The two expected endpoints and a
 partial-alias example are reproducible without a calculator:</p>
-<pre><code class="language-sh">python tools/describe_ram_topology.py --observed 112233445566
-python tools/describe_ram_topology.py --observed 666666666666
-python tools/describe_ram_topology.py \
+<pre><code class="language-sh">python3 -m ti84re.hardware.describe_ram_topology --observed 112233445566
+python3 -m ti84re.hardware.describe_ram_topology --observed 666666666666
+python3 -m ti84re.hardware.describe_ram_topology \
   --simulate-backings 0,0,1,1,2,3 --json
 </code></pre>
 <p>The simulated partial mapping produces <code>22 22 44 44 55 66</code> and groups
@@ -502,10 +502,10 @@ tilem2 --headless --rom "$ROM" --model ti84p --normal-speed --reset \
 tilem2 --headless --rom "$ROM" --model ti84p --normal-speed --reset \
   --macro tools/macros/page83-error-divzero.macro \
   --trace /tmp/page83-error-divzero.trace --trace-range all
-python3 tools/analyze_ram_page_trace.py /tmp/page83-idle.trace --page 0x83
-python3 tools/analyze_ram_page_trace.py /tmp/page83-2plus3.trace --page 0x83
-python3 tools/analyze_ram_page_trace.py /tmp/page83-graph.trace --page 0x83
-python3 tools/analyze_ram_page_trace.py /tmp/page83-error-divzero.trace \
+python3 -m ti84re.trace.analyze_ram_page /tmp/page83-idle.trace --page 0x83
+python3 -m ti84re.trace.analyze_ram_page /tmp/page83-2plus3.trace --page 0x83
+python3 -m ti84re.trace.analyze_ram_page /tmp/page83-graph.trace --page 0x83
+python3 -m ti84re.trace.analyze_ram_page /tmp/page83-error-divzero.trace \
   --page 0x83 --initial-mapping ti84p-reset
 </code></pre>
 <p>The baseline idle trace writes:</p>

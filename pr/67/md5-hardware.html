@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4b1e36ce.js";
+            window.path_to_searchindex_js = "searchindex-092bf0a7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3a621010.js"></script>
+        <script src="toc-d4b8a020.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -192,7 +192,7 @@
 <tbody>
 <tr><td>Retail boot ROM</td><td><code>3F:68ED</code>–<code>3F:6BF5</code> and <code>3F:723F</code>–<code>3F:72EA</code></td><td>bcall ABI, buffers, descriptor format, exact port order, padding, length accounting, and hash transformation [confirmed]</td></tr>
 <tr><td>Dynamic execution</td><td><code>tools/tibasic-samples/MD5TEST.8xp</code>, a complete resolved TilEm trace, and guarded TilEm, Wabbitemu, and MAME probes</td><td>64 valid operations for <code>MD5("abc")</code>, implementing-emulator edge semantics, and MAME’s live unmapped-port behavior [confirmed]</td></tr>
-<tr><td>Independent calculation</td><td><code>tools/md5_hardware.py</code></td><td>every recorded result agrees with the 32-bit operation derived from the ROM and RFC 1321 [confirmed]</td></tr>
+<tr><td>Independent calculation</td><td><code>tools/ti84re/hardware/md5.py</code></td><td>every recorded result agrees with the 32-bit operation derived from the ROM and RFC 1321 [confirmed]</td></tr>
 <tr><td>Public hardware notes</td><td>WikiTI port <code>0x18</code> and MD5 bcall pages</td><td>historical port and ABI descriptions checked against the local ROM [standard]</td></tr>
 <tr><td>Emulator models</td><td>TilEm <code>f56ad63</code>, Wabbitemu <code>48c2dc0</code>, and MAME 0.287</td><td>shift-register policy, masking, reset policy, implemented undefined reads, and MAME’s missing port block [standard]</td></tr>
 <tr><td>Algorithm specification</td><td>RFC 1321</td><td>MD5 state, Boolean functions, constants, rotations, padding, and test vectors [standard]</td></tr>
@@ -486,21 +486,21 @@ highest-address digest bytes are zero. It does not move or rewrite
 <p>The <code>asmmd5</code> smoke case executes a short assembly payload through TI-BASIC’s <code>Asm(</code> command. The payload calls <code>_MD5Init</code>, passes three bytes at <code>HL</code> with <code>BC=3</code> to <code>_MD5Update</code>, calls <code>_MD5Final</code>, and returns. The macro preserves a <code>ram-logical</code> dump after the program. [confirmed]</p>
 <p>The smoke runner checks both visible execution and the 16 bytes at dump offset <code>0x0292</code>, corresponding to logical <code>MD5Hash</code> at <code>0x8292</code>. This prevents bcall coverage alone from counting as a successful digest test. [confirmed]</p>
 <p>Run the fixture and then decode its accelerator operations: [confirmed]</p>
-<pre><code class="language-sh">nix develop -c python tools/tibasic_smoke.py \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.tibasic.smoke \
   --tilem /path/to/headless/tilem2 \
   --case asmmd5 --keep-trace
 
-nix develop -c python tools/analyze_md5_trace.py \
+nix develop -c python3 -m ti84re.hardware.analyze_md5_trace \
   /tmp/tibasic-smoke/asmmd5.trace \
   --initial-mapping ti84p-reset \
   --expect-steps 64
 
-nix develop -c python tools/inspect_ram_dump.py \
+nix develop -c python3 -m ti84re.trace.inspect_ram_dump \
   /tmp/md5-abc.ram --address 0x8292 \
   --expect 900150983cd24fb0d6963f7d28e17f72 \
   --name MD5Hash
 </code></pre>
-<p>The decoder reports 64 complete operations, 16 in each mode. It reconstructs every operand from the actual little-endian writes and compares every read word with an independent calculation in <code>tools/md5_hardware.py</code>. All 64 match. [confirmed]</p>
+<p>The decoder reports 64 complete operations, 16 in each mode. It reconstructs every operand from the actual little-endian writes and compares every read word with an independent calculation in <code>tools/ti84re/hardware/md5.py</code>. All 64 match. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -590,7 +590,7 @@ zero there. This evidence applies only to MAME 0.287. It does not weaken the
 ROM trace or imply that a physical TI-84 Plus lacks the accelerator.
 [confirmed] for the guarded MAME run; [standard] for the driver source.</p>
 <h2 id="reusable-implementation-model"><a class="header" href="#reusable-implementation-model">Reusable implementation model</a></h2>
-<p><code>tools/md5_hardware.py</code> separates the independent arithmetic and trace decoder
+<p><code>tools/ti84re/hardware/md5.py</code> separates the independent arithmetic and trace decoder
 from pinned emulator I/O profiles. Its shared edge-case oracle derives both
 implementing-emulator reports. <code>Md5AssistImplementation</code> models the six
 sliding registers, control masks, read-time recalculation, undefined operand
@@ -598,14 +598,14 @@ reads, and unmapped MAME writes. [standard]</p>
 <p>The comparison CLI defaults to the first compression step for <code>"abc"</code> and
 accepts replacement operands, mode, and rotate count. Its JSON report keeps
 unmapped ports distinct from a numeric read value:</p>
-<pre><code class="language-sh">nix develop -c python tools/describe_md5_hardware.py
-nix develop -c python tools/describe_md5_hardware.py --json
-nix develop -c python tools/describe_md5_hardware.py \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.hardware.describe_md5
+nix develop -c python3 -m ti84re.hardware.describe_md5 --json
+nix develop -c python3 -m ti84re.hardware.describe_md5 \
   --profile tilem --mode 3 --shift 0x1F --a 0x01234567
 </code></pre>
 <p>TilEm and Wabbitemu return <code>0xD6D117B4</code> for the default step. The MAME profile
 reports all eight ports as unmapped rather than assigning a portable open-bus
-byte. <code>tools/mame_md5.py</code> separately parses and validates MAME 0.287’s observed
+byte. <code>tools/ti84re/emulators/mame/md5.py</code> separately parses and validates MAME 0.287’s observed
 zero reads against the pinned I/O map and the independent arithmetic model.</p>
 <p>The guarded TilEm CLI validates the exact source commit, Git tree, and native
 binary. It records the shared edge matrix, reset state, modeled clock delta,
@@ -616,12 +616,12 @@ git -C "$tilem_md5_tmp/tilem" checkout \
   f56ad637d0524ee841dd381be6ecbaf5b8975600
 nix shell \
   github:NixOS/nixpkgs/f13ff45afd1bb73e640eaa08a7066dbed07e3238#gcc \
-  --command python tools/build_tilem_md5_probe.py \
+  --command python3 -m ti84re.emulators.tilem.build_probe --probe md5 \
   --source "$tilem_md5_tmp/tilem" \
   --output "$tilem_md5_tmp/tilem-md5-probe" --json
 
 tilem_md5_parent=$(mktemp -d /tmp/ti84-tilem-md5-report.XXXXXX)
-python tools/run_tilem_md5_probe.py \
+python3 -m ti84re.emulators.tilem.run_md5_probe \
   --binary "$tilem_md5_tmp/tilem-md5-probe" \
   --expected-binary-sha256 \
     b461e9720e0c304b26ab95ca814943eddfba670dd7bd1e41b48d53a0f8c689c5 \
@@ -630,7 +630,7 @@ python tools/run_tilem_md5_probe.py \
 <p>The guarded CLI requires the exact MAME executable hash and OS 2.55MP image.
 It retains the native output, error log, input identities, and parsed report:</p>
 <pre><code class="language-sh">mame_md5_parent=$(mktemp -d /tmp/ti84-mame-md5.XXXXXX)
-nix shell nixpkgs#mame --command python tools/run_mame_md5_probe.py \
+nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_md5_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_md5_parent/run" --json
@@ -681,7 +681,7 @@ probe bytes; [hypothesis] for all pending hardware results.</p>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="flash-memory.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="flash-emulator-comparison.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -695,7 +695,7 @@ probe bytes; [hypothesis] for all pending hardware results.</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="flash-memory.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="flash-emulator-comparison.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

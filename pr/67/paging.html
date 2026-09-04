@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4b1e36ce.js";
+            window.path_to_searchindex_js = "searchindex-092bf0a7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3a621010.js"></script>
+        <script src="toc-d4b8a020.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -638,13 +638,13 @@ general library, restore the values read on entry instead. See
 <a href="ram-pages.html#restoring-after-page-83">RAM pages</a>.</li>
 </ul>
 <h2 id="reproducing-the-mapping"><a class="header" href="#reproducing-the-mapping">Reproducing the mapping</a></h2>
-<p><code>tools/memory_mapper.py</code> contains explicit <code>documented</code>, <code>tilem</code>, <code>wabbitemu</code>,
-and <code>mame</code> profiles. <code>tools/describe_memory_mapping.py</code> applies writes and
+<p><code>tools/ti84re/hardware/memory_mapper.py</code> contains explicit <code>documented</code>, <code>tilem</code>, <code>wabbitemu</code>,
+and <code>mame</code> profiles. <code>tools/ti84re/hardware/describe_memory_mapping.py</code> applies writes and
 reads, compares profiles, and can emit JSON. List the pinned coverage first:</p>
-<pre><code class="language-sh">nix develop -c python tools/describe_memory_mapping.py profiles
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.hardware.describe_memory_mapping profiles
 </code></pre>
 <p>This reproduces the final TilEm boot state shown above:</p>
-<pre><code class="language-sh">nix develop -c python tools/describe_memory_mapping.py \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.hardware.describe_memory_mapping \
   map --profile tilem \
   --write 0x0e=3 --write 6=0x7f \
   --write 0x0f=3 --write 7=0x7f --write 4=6 \
@@ -653,33 +653,33 @@ reads, compares profiles, and can emit JSON. List the pinned coverage first:</p>
 </code></pre>
 <p>An even paired selector exposes Wabbitemu’s duplicated B page while also
 showing MAME’s ignored high-selector and overlay writes:</p>
-<pre><code class="language-sh">nix develop -c python tools/describe_memory_mapping.py compare \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.hardware.describe_memory_mapping compare \
   --write 4=1 --write 6=2 \
   --write 0x0e=3 --write 0x27=0xff --write 0x28=1
 </code></pre>
 <p>To reproduce MAME’s fixed-page read latch and machine-read the result:</p>
-<pre><code class="language-sh">nix develop -c python tools/describe_memory_mapping.py --json \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.hardware.describe_memory_mapping --json \
   map --profile mame --read 0x4000
 </code></pre>
 <p>The trace resolver uses the same library. To show the executed boot writes:</p>
-<pre><code class="language-sh">nix develop -c python tools/tilem_trace_resolve.py /tmp/boot.trace \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.trace.resolve /tmp/boot.trace \
   --initial-mapping ti84p-reset --page-switches \
   --io-ports 04-07,0e-0f,27-28
 </code></pre>
 <p>Static whole-ROM port scans are candidate generators because data can decode as
 instructions. Add context and verify control flow before treating a hit as
 code:</p>
-<pre><code class="language-sh">nix develop -c python tools/analyze_rom_io.py \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.rom.analyze_io \
   --before 8 --after 8 0x0e-0x0f,0x27-0x28
 </code></pre>
-<p><code>tools/wabbitemu_mapper_probe.py</code> derives the native edge expectations from
-the same mapper profile. <code>tools/run_wabbitemu_mapper_edge_probe.py</code> requires
+<p><code>tools/ti84re/emulators/wabbitemu/mapper_probe.py</code> derives the native edge expectations from
+the same mapper profile. <code>tools/ti84re/emulators/wabbitemu/run_mapper_edge_probe.py</code> requires
 the exact OS 2.55MP ROM and writes a hash-complete JSON manifest.</p>
-<p><code>tools/mame_mapper.py</code> derives the corresponding MAME oracle from the reusable
+<p><code>tools/ti84re/emulators/mame/mapper.py</code> derives the corresponding MAME oracle from the reusable
 profile and pinned ROM prefixes. The guarded CLI runs every latch case from a
 fresh machine:</p>
 <pre><code class="language-sh">mame_mapper_parent=$(mktemp -d /tmp/ti84-mame-mapper.XXXXXX)
-nix shell nixpkgs#mame --command python tools/run_mame_mapper_probe.py \
+nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_mapper_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_mapper_parent/run" --json
@@ -713,7 +713,7 @@ the physical page independently of MAME’s seven-page backing-map defect.</li>
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code></a> and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c"><code>x4_memory.c</code></a></td><td>mapping modes, 64-page masks, overlays, and protection order</td></tr>
 <tr><td><a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/hardware/83psehw.c">Wabbitemu <code>83psehw.c</code></a> and <a href="https://github.com/sputt/wabbitemu/blob/48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422/core/core.c"><code>core.c</code></a></td><td>extended selectors, paired mode, overlays, and independent comparison</td></tr>
 <tr><td><a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85.cpp">MAME 0.287 <code>ti85.cpp</code></a> and <a href="https://github.com/mamedev/mame/blob/mame0287/src/mame/ti/ti85_m.cpp"><code>ti85_m.cpp</code></a></td><td>mapped ports, bank backing, selector writes, reset mapping, and read-latch behavior</td></tr>
-<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth source implementation of selector, paired-mode, and overlay routing; the deployed artifact is pinned by <code>tools/jstified_hardware.py</code></td></tr>
+<tr><td><a href="https://www.cemetech.net/projects/jstified/jstified_compressed.js?20170706a">jsTIfied deployed <code>20170706a</code> artifact</a> and <a href="https://github.com/Quuxplusone/ti83/blob/56246a1181f90123a843ea17eb9e0f2fcda65113/jstified.js">readable mirror</a></td><td>fourth source implementation of selector, paired-mode, and overlay routing; the deployed artifact is pinned by <code>tools/ti84re/emulators/jstified.py</code></td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:04">WikiTI port <code>0x04</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:0E"><code>0x0E</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:0F"><code>0x0F</code></a>, <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:27"><code>0x27</code></a>, and <a href="https://wikiti.brandonw.net/index.php?title=83Plus:Ports:28"><code>0x28</code></a></td><td>historical public register descriptions checked against ROM and emulators</td></tr>
 </tbody>
 </table>

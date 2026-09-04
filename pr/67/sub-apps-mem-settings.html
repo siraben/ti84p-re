@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4b1e36ce.js";
+            window.path_to_searchindex_js = "searchindex-092bf0a7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3a621010.js"></script>
+        <script src="toc-d4b8a020.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -300,7 +300,7 @@ JR 408C
 JP 4097
 JP 4548
 </code></pre>
-<p><code>tools/app_header_re.py</code> reproduces this pass: <code>--fetch-known</code> downloads a
+<p><code>tools/ti84re/community/app_headers.py</code> reproduces this pass: <code>--fetch-known</code> downloads a
 local corpus from ticalc.org into ignored <code>tools/app-samples/</code>, and <code>--markdown</code> prints
 the decoded header table. The corpus keeps the same parser boundary rule:</p>
 <div class="table-wrapper">
@@ -447,7 +447,7 @@ The run uses OS image SHA-256
 <code>dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09</code>
 and patched TilEm commit <code>d1bdc58dd321ae462a701e556fcb62bb925a78b1</code>.
 [confirmed] for this emulator fixture.</p>
-<p>Build the App with <code>tools/community-probes/truvid_probe.asm</code> and run
+<p>Build the App with <code>tools/probes/community/truvid/truvid_probe.asm</code> and run
 <code>tools/macros/community-truvid-cleanup.macro</code>. The wrapper resumes once at
 <code>page_29:4095</code> after the RAM core returns. The trace does not exercise an
 existing archived settings AppVar, the media page-wrap branch, an error, a
@@ -522,13 +522,13 @@ payload after any operation that can collect the archive. See
 <a href="sub-resident-programs.html">Resident assembly programs</a> for the detailed handle
 protocol. [confirmed]</p>
 <h3 id="minimal-developer-key-fixture"><a class="header" href="#minimal-developer-key-fixture">Minimal developer-key fixture</a></h3>
-<p><code>tools/flash-apps/minimal_flash_app.asm</code> builds a one-page App named <code>REPROBE</code>.
+<p><code>tools/probes/flash-apps/minimal_flash_app.asm</code> builds a one-page App named <code>REPROBE</code>.
 It immediately exits through
 <code>_JForceCmdNoChar</code>; it is a packaging and launch fixture, not yet a RAM-budget
 probe.</p>
 <p>The source uses SPASM-ng’s <code>app.inc</code> and <code>ti83plus.inc</code>:</p>
 <pre><code class="language-sh">spasm -N -I path/to/spasm-ng/inc \
-  tools/flash-apps/minimal_flash_app.asm /tmp/minimal-flash-app.8xk
+  tools/probes/flash-apps/minimal_flash_app.asm /tmp/minimal-flash-app.8xk
 </code></pre>
 <p>Use a SPASM-ng build with GMP and OpenSSL App signing enabled. A build compiled
 with <code>NO_APPSIGN=1</code> can emit raw App bytes, but its <code>.8xk</code> wrapper is not a

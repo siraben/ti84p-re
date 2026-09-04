@@ -37,10 +37,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-4b1e36ce.js";
+            window.path_to_searchindex_js = "../searchindex-092bf0a7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-3a621010.js"></script>
+        <script src="../toc-d4b8a020.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -181,9 +181,8 @@
                     <main>
                         <h1 id="recording-a-physical-result"><a class="header" href="#recording-a-physical-result">Recording a physical result</a></h1>
 <p>A physical result is useful only when it identifies the calculator, artifact,
-conditions, and unmodified raw output. The evidence bundler retains every bit
-of the exported AppVar and rejects a record that omits required physical
-context.</p>
+conditions, and unmodified raw output. Record these fields before interpreting
+the payload.</p>
 <h2 id="required-files"><a class="header" href="#required-files">Required files</a></h2>
 <p>Keep the following together:</p>
 <ul>
@@ -195,147 +194,64 @@ context.</p>
 <li>a text or JSON metadata record using the fields below.</li>
 </ul>
 <p>Do not replace the exported AppVar with decoded text. The decoder can change;
-the original TI container preserves the checksum and byte-level result. The
-decoded report includes <code>frame_hex</code>, <code>frame_sha256</code>,
-<code>appvar_file_sha256</code>, <code>compact_state_code</code>, <code>compact_state_code_length</code>, and
-every named measurement. An unrecognized payload byte remains present in
-<code>payload_hex</code>, <code>frame_hex</code>, and the reversible compact code.</p>
+the original TI container preserves the checksum and byte-level result.</p>
 <h2 id="metadata-fields"><a class="header" href="#metadata-fields">Metadata fields</a></h2>
 <pre><code class="language-json">{
-  "schema": "ti84p-re.physical-probe-metadata.v1",
   "probe": "timer-physical",
   "program": "HWTMR",
   "result_appvar": "HWTMR001",
   "calculator": {
-    "unit_id": "lab-ta3-01",
     "model": "TI-84 Plus",
-    "pcb_revision": "TA3 rev A",
+    "serial": null,
+    "pcb_revision": null,
     "pcb_date": null,
-    "asic_marking": "marking from package",
-    "port_0x15": 69,
-    "boot_version": "1.03",
-    "os_version": "2.55MP",
-    "backup_verified": true,
-    "backup_artifact_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    "asic_marking": null,
+    "port_0x15": null,
+    "boot_version": null,
+    "os_version": "2.55MP"
+  },
+  "artifact": {
+    "machine_code_sha256": null,
+    "program_file_sha256": null,
+    "manifest_sha256": null
   },
   "run": {
-    "utc_time": "2026-08-25T19:30:00-04:00",
-    "power_source": "fresh AAA cells",
-    "launch_context": "unmodified OS 2.55MP direct Asm(",
-    "cpu_speed_setting": "OS default 15 MHz",
-    "interrupts_enabled_on_entry": true,
-    "preexisting_hooks_or_shells": [],
+    "utc_time": null,
     "supply_volts": null,
     "load_amps": null,
     "temperature_c": null,
     "connected_equipment": [],
-    "operator_actions": ["direct Asm(prgmHWTMR)"],
-    "restore_rehearsal": {
-      "utc_time": "2026-08-24T18:00:00-04:00",
-      "result": "passed",
-      "backup_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-      "notes": "Restored and verified on this calculator before the run."
-    },
-    "displayed_verification_code": 3397,
+    "operator_actions": [],
+    "displayed_verification_code": null,
     "visible_reset": false,
     "notes": null
+  },
+  "files": {
+    "appvar": "HWTMR001.8xv",
+    "decoded_json": "HWTMR001.json",
+    "instrument_capture": null
   }
 }
 </code></pre>
-<p>Use <code>null</code> for an optional unavailable field rather than guessing. The evidence
-bundler requires a stable unit ID, PCB revision, ASIC marking, boot version,
-OS version, power source, launch path, CPU-speed setting, interrupt state,
-hook or shell list, operator actions, and timezone-qualified run time. It
-rejects <code>"unknown"</code> for those identity fields. Omit a serial number from a
-public submission if it identifies the owner.</p>
-<p>The metadata contract adds fields when a probe depends on external state:</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Probe</th><th>Additional required fields</th></tr>
-</thead>
-<tbody>
-<tr><td>RAM alias</td><td>hashed embedded backup and restore rehearsal</td></tr>
-<tr><td>Execution fetch</td><td>hashed embedded backup, restore rehearsal, and <code>run.recovery_observation</code></td></tr>
-<tr><td>USB snapshot</td><td><code>run.usb_state</code>; nonempty <code>run.connected_equipment</code></td></tr>
-<tr><td>Battery level or raw battery</td><td>numeric voltage, load, temperature, and <code>run.supply_sweep_direction</code></td></tr>
-<tr><td>Raw link</td><td><code>run.link_connector_state</code>; nonempty <code>run.connected_equipment</code>, using <code>"none"</code> for a disconnected jack</td></tr>
-<tr><td>Keypad settle</td><td>nonempty <code>run.operator_actions</code> naming the held key or chord</td></tr>
-<tr><td>RTC rollover</td><td><code>run.rtc_configuration</code></td></tr>
-<tr><td>Bus, prefix-M1, or programmable timer</td><td>hashed embedded backup and restore rehearsal</td></tr>
-<tr><td>Mapper overlays</td><td>blocked from physical evidence collection</td></tr>
-<tr><td>LCD controller or interrupt wake</td><td>hashed embedded backup and restore rehearsal; LCD also needs controller or revision and <code>run.panel_observation</code></td></tr>
-<tr><td>Hidden LCD laboratory probe</td><td>hashed embedded backup, restore rehearsal, controller or revision, panel observation, and recovery notes</td></tr>
-</tbody>
-</table>
-</div>
-<p>For each mutating or reset-capable artifact, <code>calculator.backup_verified</code> must
-be true and <code>calculator.backup_artifact_sha256</code> must identify one embedded
-<code>calculator_backup</code> attachment. The passed, timezone-stamped restore rehearsal
-must name the same hash and predate the run. The displayed verification code is
-required after a normal return. A visible-reset record may leave it <code>null</code>.</p>
-<p>After the decimal verification screen, each normal-return probe displays a
-small-font <code>HWPZ1-</code> code in pages of at most 144 characters. Photograph or
-transcribe every page if the AppVar cannot be transferred immediately. The
-code includes the complete <code>HWP1</code> frame, its byte length, and a CRC; it does
-not omit unknown or reserved payload bytes. Decode it with:</p>
-<pre><code class="language-sh">python tools/compact_probe_code.py 'HWPZ1-...'
-</code></pre>
-<p>Spaces, line breaks, and grouping hyphens in the body are ignored. The decoder
-also accepts <code>O</code> for zero and <code>I</code> or <code>L</code> for one. A successful decode recovers
-the same <code>frame_hex</code> that an exported AppVar contains. Preserve the AppVar when
-possible because its TI container checksum and file metadata provide evidence
-that the screen text alone does not carry.</p>
-<h2 id="self-contained-evidence-bundle"><a class="header" href="#self-contained-evidence-bundle">Self-contained evidence bundle</a></h2>
-<p>Build one canonical record after exporting the AppVar:</p>
-<pre><code class="language-sh">python tools/physical_probe_evidence.py \
-  --appvar HWTMR001.8xv \
-  --program /tmp/hardware-probes/HWTMR.8xp \
-  --manifest /tmp/hardware-probes/manifest.json \
-  --metadata HWTMR001-metadata.json \
-  --attachment calculator_backup=/path/to/pre-run-backup.8xg \
-  --attachment unit_photo=lab-ta3-01.png \
-  --output HWTMR001-evidence.json
-python tools/physical_probe_evidence.py --check HWTMR001-evidence.json
-</code></pre>
-<p>Each <code>--attachment ROLE=PATH</code> argument embeds the complete capture. Use roles
-such as <code>unit_photo</code>, <code>pcb_photo</code>, <code>scope_trace</code>, <code>logic_trace</code>, and
-<code>instrument_setup</code>. The output embeds the original <code>.8xv</code>, transferred <code>.8xp</code>,
-manifest, metadata, and attachments as Base64 with a size and SHA-256 for each
-file. It verifies the <code>.8xp</code> against the program hash in the manifest. The
-bundle also embeds the selected artifact row, decoded report, and state-coverage
-contract. The <code>--check</code> path reconstructs the record from those embedded files
-and rejects any changed hash, decoded field, manifest association, ASIC byte,
-screen code, acceptance predicate, or recovery binding. It refuses a manifest
-whose <code>physical_use_class</code> is <code>blocked</code>.</p>
-<p>The bundle covers all calculator-observable state defined by the selected
-probe. It cannot manufacture analog voltage, contact motion, a PCB marking, or
-an instrument waveform. Those values belong in the required metadata or an
-embedded attachment. Preserve the standalone <code>.8xv</code> and raw captures as well.</p>
+<p>Use <code>null</code> for an unavailable field rather than guessing. Omit a serial number
+from a public submission if it identifies the owner; assign a stable local
+unit ID instead.</p>
 <h2 id="acceptance-checks"><a class="header" href="#acceptance-checks">Acceptance checks</a></h2>
 <p>Before using a result as evidence:</p>
 <ol>
-<li>Run <code>physical_probe_evidence.py --check</code> and retain its passing bundle.</li>
-<li>Match both artifact hashes to the embedded build-manifest row.</li>
+<li>Match both artifact hashes to the retained build manifest.</li>
 <li>Decode the original AppVar without checksum, length, version, or probe-ID
 errors.</li>
 <li>Confirm every cleanup or restoration flag required by that probe.</li>
 <li>For every normal-return probe, compare the recorded screen number with
-<code>verification_code_decimal</code> from the decoded AppVar. Decode the complete
-<code>HWPZ1</code> text when it was recorded and compare the recovered <code>frame_hex</code>.
-A reset-capable execution probe can leave a pending AppVar without reaching
-either display.</li>
+<code>verification_code_decimal</code> from the decoded AppVar. A reset-capable
+execution probe can leave a pending AppVar without reaching this display.</li>
 <li>Check that the recorded model and OS satisfy the probe’s entry guards.</li>
 <li>Keep visible reset, timeout, unsupported, and normal-return outcomes
 distinct.</li>
 <li>For an instrumented run, align the raw capture with the calculator trigger
 and retain the instrument configuration.</li>
 </ol>
-<p>The bundler records probe-specific predicates under
-<code>state_coverage.run_acceptance</code>. A nonzero outcome, pending frame, timeout,
-failed cleanup, restoration mismatch, or incomplete laboratory stage produces
-<code>classification = failed</code> and <code>state_coverage.complete = false</code>. The raw frame
-remains an observation, but it cannot support a successful-restoration claim.</p>
 <p>A failed cleanup does not necessarily erase the raw observation, but it
 invalidates claims that depend on the intended precondition or restored state.</p>
 
@@ -343,11 +259,11 @@ invalidates claims that depend on the intended precondition or restored state.</
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../needed-probes/evidence-closure.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../needed-probes/emulator-matrix.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
-                            <a rel="next prefetch" href="../needed-probes/safety-review.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../variables-vat.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                             </a>
 
@@ -357,11 +273,11 @@ invalidates claims that depend on the intended precondition or restored state.</
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../needed-probes/evidence-closure.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../needed-probes/emulator-matrix.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
-                    <a rel="next prefetch" href="../needed-probes/safety-review.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../variables-vat.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
                     </a>
             </nav>

@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4b1e36ce.js";
+            window.path_to_searchindex_js = "searchindex-092bf0a7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3a621010.js"></script>
+        <script src="toc-d4b8a020.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -580,19 +580,19 @@ normal interrupt mask <code>0x0B</code> at <code>ram:0C9E</code> and sends LCD c
 <code>0x40,0x05,0x01,0x03,0x17,0x0B,0xEF</code> through <code>06:4D38</code>. [confirmed]</p>
 <h2 id="dynamic-reproduction"><a class="header" href="#dynamic-reproduction">Dynamic reproduction</a></h2>
 <p>The resolver can print injected key events and restrict both key and I/O output to an inclusive trace-clock window.</p>
-<pre><code class="language-sh">nix develop -c python tools/tilem_trace_resolve.py \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.trace.resolve \
   /tmp/tilem-power-cycle.trace \
-  --initial-mapping ti84p-reset --names tools/names.txt \
+  --initial-mapping ti84p-reset --names tools/symbols/names.txt \
   --key-events
 
-nix develop -c python tools/tilem_trace_resolve.py \
+nix develop -c python3 -m ti84re.trace.resolve \
   /tmp/tilem-power-cycle.trace \
-  --initial-mapping ti84p-reset --names tools/names.txt \
+  --initial-mapping ti84p-reset --names tools/symbols/names.txt \
   --io-ports 01 --event-clock 93285080-93450000
 
-nix develop -c python tools/tilem_trace_resolve.py \
+nix develop -c python3 -m ti84re.trace.resolve \
   /tmp/tilem-power-cycle.trace \
-  --initial-mapping ti84p-reset --names tools/names.txt \
+  --initial-mapping ti84p-reset --names tools/symbols/names.txt \
   --io-ports 03,04,10,20 --event-clock 95965000-95967000
 </code></pre>
 <p>The <strong>[2nd]</strong> scan contains this transaction: [confirmed]</p>
@@ -658,37 +658,37 @@ sample, so the sequence verifies the press-only latch and release rearming in
 the running driver. [standard]</p>
 <p>These discrepancies are emulator behavior, not competing physical measurements. TilEm’s closure is topologically plausible for a diode-less matrix, but the physical result still depends on resistance, capacitance, switch state, and the delay between the group write and read. [hypothesis]</p>
 <h2 id="reusable-keypad-tools"><a class="header" href="#reusable-keypad-tools">Reusable keypad tools</a></h2>
-<p><code>tools/keypad_hardware.py</code> exposes the three source-pinned matrix algorithms,
+<p><code>tools/ti84re/hardware/keypad.py</code> exposes the three source-pinned matrix algorithms,
 ON-edge policies, and byte-confirmed App mouse movement model.
-<code>tools/describe_keypad_hardware.py</code> accepts numeric <code>GROUP,BIT</code> positions,
+<code>tools/ti84re/hardware/describe_keypad.py</code> accepts numeric <code>GROUP,BIT</code> positions,
 which keeps ghost and unwired-position experiments independent of UI key names.
-<code>tools/tilem_keypad.py</code> derives an ordered native case report from that model.
+<code>tools/ti84re/emulators/tilem/keypad.py</code> derives an ordered native case report from that model.
 Its builder validates the pinned TilEm commit and tree before compilation.
-<code>tools/run_tilem_keypad_probe.py</code> guards the exact binary and writes the
+<code>tools/ti84re/emulators/tilem/run_keypad_probe.py</code> guards the exact binary and writes the
 observations, source-model comparison, input identities, and evidence scope.
-<code>tools/wabbitemu_keypad_probe.py</code> provides the independent case oracle.
-<code>tools/run_wabbitemu_keypad_edge_probe.py</code> guards the native report with the
+<code>tools/ti84re/emulators/wabbitemu/keypad_probe.py</code> provides the independent case oracle.
+<code>tools/ti84re/emulators/wabbitemu/run_keypad_edge_probe.py</code> guards the native report with the
 exact OS 2.55MP ROM hash and writes a JSON manifest containing both binary
-hashes and evidence scope. <code>tools/mame_keypad.py</code> parses and checks the MAME
-matrix against the reusable source model. <code>tools/run_mame_keypad_probe.py</code>
+hashes and evidence scope. <code>tools/ti84re/emulators/mame/keypad.py</code> parses and checks the MAME
+matrix against the reusable source model. <code>tools/ti84re/emulators/mame/run_keypad_probe.py</code>
 guards the exact MAME executable, ROM, Lua adapter, and isolated runtime.
-<code>tools/mame_interrupt.py</code> adds the independent timer-sampled ON-edge sequence.
+<code>tools/ti84re/emulators/mame/interrupt.py</code> adds the independent timer-sampled ON-edge sequence.
 The <a href="hardware-probes.html#keypad-settling-probe">physical keypad settling probe</a>
 uses the same numeric group order but does not apply an emulator matrix model.
 It records every raw byte so held-key metadata and ASIC revision can be compared
 without assuming one of the three source algorithms.</p>
 <pre><code class="language-sh"># Three-key rectangle: TilEm/Wabbitemu read 0xFC; MAME reads 0xFE.
-nix develop -c python tools/describe_keypad_hardware.py matrix \
+nix develop -c python3 -m ti84re.hardware.describe_keypad matrix \
   --mask 0xFE --key 0,0 --key 1,0 --key 1,1
 
 # Transitive chain: TilEm reaches bit 2; Wabbitemu stops at bit 1.
-nix develop -c python tools/describe_keypad_hardware.py matrix \
+nix develop -c python3 -m ti84re.hardware.describe_keypad matrix \
   --mask 0xFE --key 0,0 --key 1,0 --key 1,1 --key 2,1 --key 2,2
 
-nix develop -c python tools/describe_keypad_hardware.py on press release
-nix develop -c python tools/describe_keypad_hardware.py mouse 0xF5 \
+nix develop -c python3 -m ti84re.hardware.describe_keypad on press release
+nix develop -c python3 -m ti84re.hardware.describe_keypad mouse 0xF5 \
   --row 0x1F --column 0x30
-nix develop -c python tools/describe_keypad_hardware.py --json profiles
+nix develop -c python3 -m ti84re.hardware.describe_keypad --json profiles
 
 tilem_keypad_tmp=$(mktemp -d /tmp/ti84-tilem-keypad.XXXXXX)
 git clone https://github.com/debrouxl/tilem.git "$tilem_keypad_tmp/tilem"
@@ -696,32 +696,32 @@ git -C "$tilem_keypad_tmp/tilem" checkout \
   f56ad637d0524ee841dd381be6ecbaf5b8975600
 nix shell \
   github:NixOS/nixpkgs/f13ff45afd1bb73e640eaa08a7066dbed07e3238#gcc \
-  --command python tools/build_tilem_keypad_probe.py \
+  --command python3 -m ti84re.emulators.tilem.build_probe --probe keypad \
   --source "$tilem_keypad_tmp/tilem" \
   --output "$tilem_keypad_tmp/tilem-keypad-probe" --json
 
 tilem_keypad_parent=$(mktemp -d /tmp/ti84-tilem-keypad-report.XXXXXX)
-python tools/run_tilem_keypad_probe.py \
+python3 -m ti84re.emulators.tilem.run_keypad_probe \
   --binary "$tilem_keypad_tmp/tilem-keypad-probe" \
   --expected-binary-sha256 \
     9553bdafadf042dd9af634221b52b8795b572d0c047f839e119dabc957063323 \
   --output-dir "$tilem_keypad_parent/run" --json
 
 keypad_probe_parent=$(mktemp -d /tmp/ti84-keypad-probe.XXXXXX)
-nix develop -c python tools/run_wabbitemu_keypad_edge_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_keypad_edge_probe \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$keypad_probe_parent/run" --json
 
 mame_keypad_parent=$(mktemp -d /tmp/ti84-mame-keypad.XXXXXX)
-nix shell nixpkgs#mame --command python tools/run_mame_keypad_probe.py \
+nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_keypad_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_keypad_parent/run" --json
 </code></pre>
-<p><code>tools/indexed_flags.py</code> provides the page-aware raw signature scan used for
+<p><code>tools/ti84re/rom/indexed_flags.py</code> provides the page-aware raw signature scan used for
 the flag-lifecycle audit. Its CLI accepts a ROM hash guard and emits JSON:</p>
-<pre><code class="language-sh">nix develop -c python tools/analyze_rom_flags.py \
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.rom.analyze_flags \
   --offset 0x2C --bit 0 --index iy \
   --expect-sha256 \
   7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d

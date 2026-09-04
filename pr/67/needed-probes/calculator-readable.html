@@ -37,10 +37,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-4b1e36ce.js";
+            window.path_to_searchindex_js = "../searchindex-092bf0a7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-3a621010.js"></script>
+        <script src="../toc-d4b8a020.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -182,15 +182,11 @@
                         <h1 id="calculator-readable-probes"><a class="header" href="#calculator-readable-probes">Calculator-readable probes</a></h1>
 <p>The prepared <code>AsmPrgm</code> artifacts write versioned <code>HWP1</code> frames to AppVars.
 These frames preserve raw values for export and decoding after the program has
-restored its working state. The AppVar is canonical because a reset, LCD
-refresh, or later OS drawing can erase the screen. A completely recorded
-<code>HWPZ1-</code> display is a reversible copy of the same frame.</p>
-<p>This page inventories artifacts; it does not authorize every physical run.
-The <a href="safety-review.html">adversarial safety review</a> currently blocks <code>HWBRAW</code>
-and <code>HWPMAP</code> and places several other artifacts in laboratory-only use.</p>
+restored its working state. The screen is not the evidence channel because a
+reset, LCD refresh, or later OS drawing can erase it.</p>
 <h2 id="prepared-artifacts"><a class="header" href="#prepared-artifacts">Prepared artifacts</a></h2>
 <p>All sources use the shared entry and AppVar writer in
-<code>tools/hardware-probes/common.inc</code>. The builder packages the sources below and
+<code>tools/probes/hardware/common.inc</code>. The builder packages the sources below and
 records their machine-code and transfer-file hashes. [confirmed]</p>
 <div class="table-wrapper">
 <table>
@@ -211,19 +207,19 @@ records their machine-code and transfer-file hashes. [confirmed]</p>
 <tr><td>Programmable-timer divisor, prescaler, zero, and expiry edges</td><td><code>timer-physical.asm</code></td><td><code>HWTMR</code></td><td><code>HWTMR001</code></td><td>physical discriminator result by ASIC revision</td></tr>
 <tr><td>RTC high-to-low rollover coherence</td><td><code>rtc-rollover.asm</code></td><td><code>HWPRTC</code></td><td><code>HWPRTC01</code></td><td>natural low-byte carry result on TA2 and TA3</td></tr>
 <tr><td>Mapper overlay read/write routing</td><td><code>mapper-overlays.asm</code></td><td><code>HWPMAP</code></td><td><code>HWPMAP01</code></td><td>independent/paired routing and port-<code>0x27</code> cutoff by ASIC revision</td></tr>
-<tr><td>LCD ready and busy triggers</td><td><code>lcd-controller.asm</code></td><td><code>HWPLCD</code></td><td><code>HWPLCD02</code></td><td>ready and busy timing by module revision; hidden geometry needs a separately gated probe</td></tr>
+<tr><td>LCD hidden columns and ASIC-ready triggers</td><td><code>lcd-controller.asm</code></td><td><code>HWPLCD</code></td><td><code>HWPLCD01</code></td><td>controller row width, aliases, and ready counts by module revision</td></tr>
 <tr><td>Programmable-timer wake from powered <code>HALT</code></td><td><code>interrupt-halt.asm</code></td><td><code>HWPIRQ</code></td><td><code>HWPIRQ01</code></td><td>programmable wake versus standard-timer watchdog by ASIC revision</td></tr>
 <tr><td>Flash and RAM fetch boundaries</td><td><code>execution-fetch.asm</code></td><td><code>HWEF07</code>, <code>HWEF08</code>, <code>HWEF09</code>, <code>HWEF29</code>, <code>HWEF2A</code>, <code>HWER81</code>, <code>HWER820</code>, <code>HWER821</code>, <code>HWER83</code>, <code>HWER84</code></td><td><code>HWEF0701</code>, <code>HWEF0801</code>, <code>HWEF0901</code>, <code>HWEF2901</code>, <code>HWEF2A01</code>, <code>HWER8101</code>, <code>HWER82A1</code>, <code>HWER82B1</code>, <code>HWER8301</code>, <code>HWER8401</code></td><td>return/reset result and result retention</td></tr>
 </tbody>
 </table>
 </div>
 <p>The last row expands one parameterized source into ten artifacts, for a total
-of 25 transfer files. <code>tools/test_needed_probe_docs.py</code> checks that this page
+of 25 transfer files. <code>tools/tests/wiki/test_needed_probe_docs.py</code> checks that this page
 names every builder definition, program, result AppVar, and source. [confirmed]</p>
 <h2 id="build-run-and-decode"><a class="header" href="#build-run-and-decode">Build, run, and decode</a></h2>
 <p>Build into a new directory:</p>
 <pre><code class="language-sh">probe_parent=$(mktemp -d /tmp/ti84-physical-probes.XXXXXX)
-nix develop -c python tools/build_hardware_probes.py \
+nix develop -c python3 -m ti84re.hardware.build_probes \
   --output-dir "$probe_parent/build"
 </code></pre>
 <p>Follow the ordering and safety instructions in <a href="../hardware-probes.html#build-and-transfer">Physical hardware
@@ -231,26 +227,23 @@ probes</a>. Delete an older result
 AppVar before each run. Export the result before running a reset-capable
 artifact.</p>
 <p>Decode one or more exported files without changing them:</p>
-<pre><code class="language-sh">python tools/decode_hardware_probe.py --json \
+<pre><code class="language-sh">python3 -m ti84re.hardware.decode_probe --json \
   HWPASIC1.8xv HWPRAM21.8xv HWTMR001.8xv
 </code></pre>
 <p>The decoder validates the TI container, both link lengths, checksum, AppVar
 size word, <code>HWP1</code> magic, version, probe ID, and payload length. [confirmed]</p>
 <h2 id="display-and-persistence"><a class="header" href="#display-and-persistence">Display and persistence</a></h2>
 <p>Every normal-return probe creates or finalizes its AppVar after restoring the
-ports named by its contract. It first prints a labeled decimal CRC-16 over the
-AppVar-resident <code>HWP1</code> frame. After a key press, <code>_VPutMap</code> renders a paged
-small-font <code>HWPZ1-</code> code that losslessly encodes the same complete frame. The
-shared routine skips display and key bcalls when interrupts were disabled on
-entry.</p>
-<p>The decoder reports <code>verification_code_decimal</code>, <code>compact_state_code</code>, and
-<code>compact_state_code_length</code>. Record the decimal value and every compact page,
-then compare them with the exported AppVar. The AppVar remains canonical
-because its TI container preserves information outside the <code>HWP1</code> frame.</p>
-<p>An execution-fetch protection reset cannot reach either display path. A normal
-return prints the CRC and compact code after updating the resident outcome to
-<code>returned</code>; a reset-capable run leaves its pending AppVar as the recovery
-record.</p>
+ports named by its contract. It then prints a labeled decimal CRC-16
+verification code over the AppVar-resident <code>HWP1</code> frame. The shared routine
+skips display and key bcalls when interrupts were disabled on entry. The
+decoder reports the same number as <code>verification_code_decimal</code>. Record the
+displayed number before pressing a key, then compare it with the exported
+AppVar. The AppVar remains the canonical evidence because the screen does not
+survive a reset.</p>
+<p>An execution-fetch protection reset cannot reach the display path. A normal
+return prints the CRC after updating the resident outcome to <code>returned</code>; a
+reset-capable run leaves its pending AppVar as the recovery record.</p>
 
                     </main>
 

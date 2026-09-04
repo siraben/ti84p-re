@@ -37,10 +37,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-4b1e36ce.js";
+            window.path_to_searchindex_js = "../searchindex-092bf0a7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-3a621010.js"></script>
+        <script src="../toc-d4b8a020.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,18 +180,16 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="guarded-mapper-lcd-and-interrupt-probes"><a class="header" href="#guarded-mapper-lcd-and-interrupt-probes">Guarded mapper, LCD, and interrupt probes</a></h1>
-<p>The mapper, LCD, and interrupt experiments have SPASM-ng sources,
+<p>The three previously missing digital experiments now have SPASM-ng sources,
 builder validators, result decoders, and exact-byte emulator runners. Their
 AppVars remain physical measurements only after export from an identified
 calculator. [confirmed] for the assembled artifacts and emulator executions;
 [hypothesis] for physical behavior.</p>
 <p>All three programs print <code>PROGRAM CODE nnnnn</code> only after cleanup and result
-creation. The number is CRC-16/CCITT-FALSE over the complete <code>HWP1</code> frame.
-After a key press, each program pages through the complete frame as a
-reversible small-font <code>HWPZ1-</code> code. The host decoder reports both values as
-<code>verification_code_decimal</code> and <code>compact_state_code</code>. Matching them detects a
-transcription or file-selection error; neither replaces the exported AppVar or
-artifact hashes.</p>
+creation. The number is CRC-16/CCITT-FALSE over the complete <code>HWP1</code> frame. The
+host decoder prints the same decimal value as <code>verification_code_decimal</code>.
+Matching the two values detects a transcription or file-selection error; it
+does not replace the exported AppVar or artifact hashes.</p>
 <h2 id="mapper-overlays--hwpmap"><a class="header" href="#mapper-overlays--hwpmap">Mapper overlays — <code>HWPMAP</code></a></h2>
 <p><code>mapper-overlays.asm</code> tests port-<code>0x28 = 1</code> at <code>0x8000</code>, <code>0x803F</code>, and
 <code>0x8040</code>, and port-<code>0x27 = 0x13</code> at <code>0xFB3F</code>, <code>0xFB40</code>, <code>0xFB63</code>,
@@ -203,7 +201,7 @@ records an even-Flash paired-window discriminator. [confirmed]</p>
 <code>0x06</code>, <code>0x07</code>, <code>0x0E</code>, <code>0x0F</code>, <code>0x27</code>, and <code>0x28</code> must read <code>0x00</code>,
 <code>0x3F</code>, <code>0x81</code>, <code>0x00</code>, <code>0x00</code>, <code>0x00</code>, and <code>0x00</code>. It also verifies the
 fixed-page helper at
-<code>ram:0CE6</code>. Port <code>0x04</code> readback is interrupt status, not mapper-mode
+<code>00:0CE6</code>. Port <code>0x04</code> readback is interrupt status, not mapper-mode
 readback, so the program does not pretend to save mode from that port. It
 normalizes independent mode with port <code>0x04 = 0x06</code> during cleanup.</p>
 <p>Before any marker write, the program creates a pending <code>HWPMAP01</code> AppVar and
@@ -218,101 +216,29 @@ unit.</p>
 read/write rows, paired read/write rows, the even-Flash discriminator, restore
 flags, and nine exit-port bytes. The decoder names the closest emulator
 profile and separately reports marker and readable-port restoration.</p>
-<p>Do not run this artifact on physical hardware. The worker’s instruction fetch
-remains in a mapped RAM window while it changes paired mode. A physical ASIC
-that maps that window differently can make cleanup unreachable. The build
-manifest marks the artifact <code>blocked</code>, and the physical-evidence bundler
-refuses it. [confirmed]</p>
-<p>Fresh exact-image runs selected the TilEm profile with decimal verification
-code <code>58756</code> and the Wabbitemu profile with code <code>21062</code>; all four restore
-flags and both derived restoration checks passed. The normalized record is
-<code>tools/fixtures/mapper-overlays-emulators.json</code>. MAME 0.287 completed a
-separate direct-handler Lua profile, but exact <code>HWPMAP</code> image execution is
-unsupported until a guarded MAME injection adapter exists. [confirmed] for
-the emulator runs; [hypothesis] for the still-unmeasured physical routing.</p>
 <h2 id="lcd-controller-edges--hwplcd"><a class="header" href="#lcd-controller-edges--hwplcd">LCD controller edges — <code>HWPLCD</code></a></h2>
 <p><code>lcd-controller.asm</code> measures whether command writes, data reads, and data
-writes restart the ASIC port-<code>0x02</code> ready interval. Separate port-<code>0x10</code>
-samples record the controller busy bit after each access. [confirmed]</p>
+writes restart the ASIC port-<code>0x02</code> ready interval. It writes three sentinels
+from row 0, column 14 and reads the seven-cell alias union needed to
+distinguish a 16-column row, 15-column wrap, and MAME’s 15-byte linear spill.
+Direct column-16 and column-31 cases are read-only. [confirmed]</p>
 <p>The entry guard rejects controller reset, six-bit mode, and invalid TI-OS
-tracked row or column variables. It rejects columns outside visible command
-range <code>0x20</code>–<code>0x2B</code>. It also rejects rows outside <code>0x80</code>–<code>0xBF</code>. [confirmed]</p>
-<p>The default artifact does not address hidden columns. It writes only the
-original value of one tracked visible cell. It rereads and restores that cell
-before creating <code>HWPLCD02</code>. [confirmed]</p>
-<p>Every ready poll and measurement counter is bounded. A timeout suppresses the
-pending LCD transfer and enters a separately bounded fixed-delay movement and
-pointer recovery path. The measurement sends no display-enable, power, test,
-contrast, row-shift, or OPA command. It does not write the ASIC wait ports.
-[confirmed]</p>
+tracked row or column variables. Every ready poll and measurement counter is
+bounded. The measurement sends no display-enable, power, test, contrast,
+row-shift, or OPA command and does not write ports <code>0x29</code>–<code>0x2F</code>. It backs up
+the complete seven-cell write/alias union before the first sentinel, restores
+and rereads every cell, returns to eight-bit mode with normal movement, and
+restores the OS-tracked row and column commands before creating <code>HWPLCD01</code>.</p>
 <p>The controller’s exact entry pointer, output latch, contrast, and row shift
 are not readable through this interface. The probe therefore restores the
-documented OS pointer state. A status read can move the pointer on replacement
-controllers. Cleanup therefore restores the guarded pointer after its final
-status sample. [confirmed]</p>
-<p>The 42-byte payload records entry status and wait registers, three ready
-counts, six immediate samples, the visible-cell values, and exit state.
-Outcome 5 records a safely rejected hidden pointer. Outcome 6 or
-<code>restore_ok = false</code> invalidates a physical run. [confirmed]</p>
-<p>Pinned exact-byte runs completed with restoration true. TilEm printed
-<code>21731</code>; Wabbitemu printed <code>23959</code>. These codes identify emulator frames, not
-physical controller behavior. [confirmed]</p>
-<p>The hidden-column models retain three competing behaviors. TilEm uses
-16-column rows, Wabbitemu wraps a 15-column sequence, and MAME exposes a
-15-byte linear spill. The separate laboratory experiment below tests these
-behaviors without changing the default artifact. [confirmed] for the emulator
-models; [hypothesis] for physical geometry.</p>
-<h2 id="recovery-gated-hidden-column-experiment--hwplab"><a class="header" href="#recovery-gated-hidden-column-experiment--hwplab">Recovery-gated hidden-column experiment — <code>HWPLAB</code></a></h2>
-<p><code>lcd-hidden-lab.asm</code> addresses columns <code>0x2C</code>–<code>0x2F</code> only after it creates the
-pending <code>HWPLAB01</code> AppVar. It snapshots all 768 visible bytes and the four
-addressed hidden bytes at row command <code>0xB8</code>. It then runs independent direct
-writes and a two-byte increment from column 14. Each completed stage is copied
-to the pending AppVar. [confirmed]</p>
-<p>Cleanup restores the visible snapshot and four hidden bytes, rereads them,
-and records separate mismatch counts. It also restores the entry read latch,
-movement command, and guarded OS pointer. Every ready poll is bounded. A
-timeout uses a finite fixed-delay restore attempt. The program sends no power,
-test, contrast, row-shift, display-enable, or OPA command. [confirmed]</p>
-<p>The source is excluded from <code>build_hardware_probes.py</code>. Build it only with
-<code>build_lcd_hidden_lab_probe.py</code>, which requires:</p>
-<ul>
-<li>the exact acknowledgement string printed by <code>--help</code>;</li>
-<li>the expected port-<code>0x15</code> ASIC byte;</li>
-<li>an identified LCD module or test-unit label;</li>
-<li>a nonempty backup file and its independently supplied SHA-256;</li>
-<li>recovery notes that state the backup, reset, and restore procedure.</li>
-</ul>
-<p>The generated manifest binds those inputs to the exact <code>.8xp</code>. The runtime
-also checks the ASIC byte, the OS 2.55MP signature at logical <code>0x0BD9</code>,
-eight-bit LCD mode, reset status, and the OS-tracked pointer range before the
-first LCD write or data transfer. [confirmed]</p>
-<p>These gates limit known failure modes. They cannot prove that an unknown
-controller maps column 15 only into the saved visible or four hidden bytes. A
-reset can still be necessary, and an unseen hidden cell can remain changed.
-Use an identified, repairable calculator with stable power. Do not distribute
-a device-specific build as part of the default probe bundle. [hypothesis] for
-unmeasured physical aliasing.</p>
-<p>On a normal return the calculator prints <code>HWPLAB CODE nnnnn</code>, then pages
-through its reversible compact frame code. Export <code>HWPLAB01</code>;
-<code>decode_hardware_probe.py</code> reports the same decimal CRC and <code>HWPZ1</code> text. A
-pending outcome or restoration mismatch is a failed run, even if the
-calculator later reaches the home screen.</p>
-<p>Exact assembly runs completed in both supported cores. TilEm selected the
-16-column model, restored every checked byte, and printed <code>62131</code>.
-Wabbitemu wrapped the second incremented byte into visible index 0, restored
-every checked byte, and printed <code>42103</code>. The two images differ only in the
-compiled expected-ASIC byte. These runs test probe control flow and emulator
-models; they do not establish physical safety. [confirmed]</p>
-<p>An operator-specific build has this form:</p>
-<pre><code class="language-sh">nix develop -c python tools/build_lcd_hidden_lab_probe.py \
-  --output-dir /tmp/hwplab-build \
-  --acknowledgement I_UNDERSTAND_HIDDEN_LCD_WRITES_CAN_REQUIRE_A_RESET \
-  --expected-asic 0x45 \
-  --controller-id CALCULATOR_AND_LCD_MODULE_ID \
-  --backup-file /path/to/pre-run-backup.8xg \
-  --expected-backup-sha256 64_HEXADECIMAL_DIGITS \
-  --recovery-notes /path/to/unit-specific-recovery.txt
-</code></pre>
+documented OS pointer state rather than claiming an unknowable byte-for-byte
+controller snapshot. A reset during the short write window can alter several
+display-RAM cells, but it does not issue a Flash command or deliberately write
+user-variable RAM beyond the result AppVar.</p>
+<p>The 43-byte payload records entry status and wait registers, three ready
+counts, immediate status, observed alias cells, direct hidden-column reads, a
+restore byte, and exit status and wait registers. Outcome 6 or
+<code>restore_ok = false</code> invalidates a physical run.</p>
 <h2 id="interrupt-and-halt-policy--hwpirq"><a class="header" href="#interrupt-and-halt-policy--hwpirq">Interrupt and <code>HALT</code> policy — <code>HWPIRQ</code></a></h2>
 <p><code>interrupt-halt.asm</code> asks whether programmable timer 1 can wake powered
 <code>HALT</code>. It arms source <code>0x45</code>, interrupt mode <code>0x02</code>, and count 1. Standard
@@ -323,7 +249,7 @@ standard-timer watchdog. [confirmed]</p>
 <p>A Z80 program cannot read the current interrupt mode. This artifact therefore
 requires direct <code>Asm(</code> on unmodified OS 2.55MP in IM1; do not launch it through
 a shell, hook, or resident interrupt replacement. It guards <code>IY = 0x89F0</code>,
-the six-byte IM1 vector signature at <code>ram:0038</code>, enabled entry interrupts, an
+the six-byte IM1 vector signature at <code>00:0038</code>, enabled entry interrupts, an
 unheld ON key, idle programmable timer 1, no pending legacy/completion source,
 and an inactive USB interrupt gate.</p>
 <p>The program creates pending <code>HWPIRQ01</code> before changing interrupt mode and
@@ -334,10 +260,6 @@ OS port-<code>0x03</code> mask from <code>(IY+0x16)</code> bit 0. It does not tr
 bit-3 readback. It then returns to IM1, restores <code>I</code>, verifies the documented
 readable mask bits, updates the pending frame, and only then restores entry
 interrupt enable state.</p>
-<p>An entry guard failure occurs before <code>state_touched</code> is set. That path performs
-no timer, mask, <code>I</code>, or interrupt-mode write and verifies the six sampled bytes
-unchanged. This prevents an unsupported shell, live source, or vector context
-from being altered by cleanup intended for the mutating path. [confirmed]</p>
 <p>The watchdog bounds emulator and expected physical runs, but an ASIC that
 wakes for neither source can remain halted until reset. In that case the
 pending AppVar is the recovery witness and no screen code appears. Export it

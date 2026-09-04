@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4b1e36ce.js";
+            window.path_to_searchindex_js = "searchindex-092bf0a7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3a621010.js"></script>
+        <script src="toc-d4b8a020.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -256,7 +256,7 @@ Once it does, <code>39:5167</code>, its callees <code>39:5949</code>/<code>39:5B
 saved-operand dispatch through <code>39:59E0</code>/<code>39:59F9</code> to <code>_FindAlphaUp</code>/
 <code>_FindAlphaDn</code> become traceable; arbitrary VAT sequences and the two extension
 bytes in the page-<code>07</code> 11-byte OP scratch registers also remain open. See
-<a href="sub-equation-display.html#from-live-editor-state-to-settled-drawing">Equation display</a>.</p>
+<a href="sub-mathprint-editor.html#from-live-editor-state-to-settled-drawing">Equation display</a>.</p>
 <h3 id="matrix-and-list-paths"><a class="header" href="#matrix-and-list-paths">Matrix and list paths</a></h3>
 <p>Plain <code>augment(</code> enters the partial-pivoting engine at <code>02:4663</code> but never
 eliminates: the <code>0x91</code> branch sets carry (<code>02:6361 SCF</code>, restored by the
@@ -342,12 +342,6 @@ does not close them.</p>
 certificate-sector journal, and all six ROM-written collector phases are
 reconstructed. Cold TilEm and pinned Wabbitemu restart tests cover each phase,
 but do not establish physical timing or power-loss guarantees. [confirmed]</p>
-<p>A separate guarded Wabbitemu fixture exercises the failed stack preflight at
-<code>ram:02BF</code>, its reset transfer, and the illegal-DQ7 worker failure. It prints
-numeric status <code>0</code>, verifies zero source-image changes, and confines the worker
-case to allocated byte <code>0x20100</code>. Wabbitemu has no program-busy interval, so
-this does not close the physical interruption question. [confirmed] for pinned
-Wabbitemu; [hypothesis] for physical behavior.</p>
 <p>On physical calculators:</p>
 <ul>
 <li>measure legal and illegal <code>0→1</code> programming, DQ toggle cadence, program and
@@ -408,7 +402,7 @@ delays; and</li>
 <a href="hardware-probes.html#prefix-m1-timing-probe">prefix-M1 probe</a>, and
 <a href="hardware-probes.html#programmable-timer-physical-probe">programmable-timer probe</a>.
 The <a href="hardware-probes.html#lcd-controller-probe">LCD-controller probe</a> covers the
-digital ready and visible-cell cases without issuing analog or power commands.
+digital ready and hidden-column cases without issuing analog or power commands.
 The established decode and emulator differences are in
 <a href="bus-timing.html">Bus timing and wait states</a> and
 <a href="lcd-hardware.html">LCD controller and display bus</a>.</p>

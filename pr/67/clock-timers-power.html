@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-4b1e36ce.js";
+            window.path_to_searchindex_js = "searchindex-092bf0a7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-3a621010.js"></script>
+        <script src="toc-d4b8a020.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -561,7 +561,7 @@ jr nz,.write_byte
 <p><code>INI</code> increments <code>HL</code> and decrements <code>B</code>, so the first loop pairs ascending RAM
 addresses with descending current-time ports. <code>OUTI</code> applies the same register
 updates to the staged set ports. [confirmed]</p>
-<p><code>tools/describe_rom_io_coverage.py</code> reproduces this result from the pinned ROM.
+<p><code>tools/ti84re/rom/describe_io_coverage.py</code> reproduces this result from the pinned ROM.
 Its raw scan covers all 37 possible register and block-I/O opcode pairs in the
 image, including pairs inside operands and data. It also verifies that no
 16 KiB page ends with an <code>ED</code> prefix. Only <code>37:58A9</code> and <code>37:5944</code> survive as
@@ -652,9 +652,9 @@ $TILEM --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
   --trace /tmp/tilem-power-cycle.trace --trace-range all \
   --trace-limit 500000000
 
-nix develop -c python tools/tilem_trace_resolve.py \
+nix develop -c python3 -m ti84re.trace.resolve \
   /tmp/tilem-power-cycle.trace --initial-mapping ti84p-reset \
-  --names tools/names.txt --only-space ram \
+  --names tools/symbols/names.txt --only-space ram \
   --only-addr 09e6-0a5d --print 180
 </code></pre>
 <h2 id="emulator-comparison"><a class="header" href="#emulator-comparison">Emulator comparison</a></h2>
@@ -743,21 +743,20 @@ public low-power contract and cannot establish physical port-<code>0x2D</code> b
 <p><strong>Native Wabbitemu confirmation.</strong> The guarded initialized-core probe loads counter 3 with crystal source <code>0x41</code>, advances the emulated crystal by 320 ticks, and reads the counter three times without advancing time again. The reads are <code>0x02</code>, <code>0x01</code>, and <code>0x03</code>: each device evaluation consumes one pending divisor, and the third reloads the original count. Mode/status reads <code>0x04</code>, and port <code>0x04</code> reads <code>0x28</code>. [standard]</p>
 <p>The corresponding CPU-source case loads counter 3 with source <code>0x80</code> and advances four T-states. One counter read catches up three divisors, reloads <code>0x03</code>, and produces the same <code>0x04</code> mode/status and <code>0x28</code> port status. Loading counter zero and advancing 257 T-states reaches underflow after 256 decrements. It reads back zero with status <code>0x04</code> and port <code>0x04 = 0x28</code>. A mode write acknowledges that state, returning mode/status to <code>0x00</code> and port <code>0x04</code> to <code>0x08</code>. [standard]</p>
 <p>With mode <code>0x02</code>, source <code>0x80</code>, and counter 1, expiry during <code>HALT</code> leaves the CPU interrupt line clear while mode/status reads <code>0x06</code>. Evaluating the timer after leaving <code>HALT</code> asserts the retained interrupt request. The RTC case commits <code>0x12345678</code>, advances emulated time by 10.75 seconds, and reads <code>0x12345682</code>. Disabling the RTC freezes that value through an advance to 100 seconds. These tests inject emulator clock values directly; they do not measure wall-clock accuracy, callback cadence under CPU execution, or physical low-power behavior. [standard]</p>
-<p><strong>Assembled-probe confirmation.</strong> The current exact 1,385-byte <code>HWTMR</code> image
-also runs after a retail OS 2.55MP boot. The guarded Wabbitemu matrix run
-completed with no execution-violation reset and verification code <code>41549</code>.
-Four samples infer source-<code>0x41</code>
+<p><strong>Assembled-probe confirmation.</strong> The exact 835-byte <code>HWTMR</code> image also runs
+after a retail OS 2.55MP boot. The guarded runner stops at <code>01:9EE4</code> before
+<code>_CreateAppVar</code>, after 1,645,212 probe instructions and 12,937,610 modeled
+T-states, with no execution-violation reset. Four samples infer source-<code>0x41</code>
 divisor <code>3568/111</code>, about 32.144. Speed requests 0–3 read back as 0, 1, 1,
 and 1, and the nonzero cases infer prescalers near one. Counter zero produces
 mode/status <code>0x04</code> and port <code>0x04 = 0x68</code>; both expiry samples expose bit 2.
 All saved timer, speed, port-<code>0x2F</code>, power-control, and interrupt-mask fields
 compare equal after cleanup. [confirmed] for the pinned Wabbitemu run.</p>
-<p>The generic exact-image adapter has SHA-256
-<code>643607b5acee38813b221f3e91e24de31332acc8be25368e1d281e1a07c31d79</code>.
+<p>The shared injected-program adapter has SHA-256
+<code>3acb6a18280f9c42d6fe324188eab73f87280ee70b973e1251fcfa50f54fb14e</code>.
 The machine-code SHA-256 is
-<code>2b7d5edec2d6df58fb3447312411ecaf26a1b8e75d1efb21e5b02761c21c38a1</code>.
-The adapter redirects result allocation to private RAM and does not measure
-physical timing.</p>
+<code>6767caf1d714bc15e642de2f791151a060015fa0d9faebe1ebddd92d184df68a</code>.
+This execution does not create the result AppVar or measure physical timing.</p>
 <h3 id="mame-timer-and-rtc-policy"><a class="header" href="#mame-timer-and-rtc-policy">MAME timer and RTC policy</a></h3>
 <p>MAME maps only timer ports <code>0x30</code>–<code>0x38</code> from this block. Ports <code>0x2D</code>–<code>0x2F</code> and RTC ports <code>0x40</code>–<code>0x48</code> are unmapped. For every nonzero source value, a counter write selects one of the eight Wabbitemu-style crystal divisors from the low three bits and schedules at <code>32768/divisor</code> Hz. CPU-source family bits do not select the CPU clock. [standard]</p>
 <p>The initial callback is scheduled at zero delay, so a nonzero counter value $N$ reaches its first modeled expiry after $N-1$ periodic intervals; a value of one can expire immediately. Counter zero remains zero because the callback decrements only a nonzero count. At expiry, loop bit 0 reloads the counter once, but the callback then applies <code>loop &amp;= 2</code> and discards that bit. Mode bit 1 has inverted polarity: an interrupt and port-<code>0x04</code> completion are produced only when it is clear. A mode write also clears all three programmable completion bits globally rather than only the selected timer. [standard]</p>
@@ -773,27 +772,27 @@ both masks: clearing their pending fields after reset allows both to regenerate
 status <code>0x0E</code> during the next frame. These are MAME scheduler and reset results,
 not physical timer periods or retention. [standard]</p>
 <h2 id="reusable-timer-tools"><a class="header" href="#reusable-timer-tools">Reusable timer tools</a></h2>
-<p><code>tools/timer_hardware.py</code> exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM’s radix-255 chunks, RTC implementation profiles, and the physical-probe discriminator. <code>tools/describe_timer_hardware.py</code> is a JSON-capable front end. The TilEm, Wabbitemu, and MAME report oracles validate native observations against reusable source models; <code>tools/jstified_hardware.py</code> supplies a separately hash-guarded source profile without claiming a native run. <code>tools/tilem_timer.py</code> adds the complete direct-core programmable-timer and deterministic RTC matrix. <code>tools/tilem_interrupt.py</code> adds direct standard-timer scheduling and programmable-timer HALT-gate observations. <code>tools/mame_interrupt.py</code> adds fixed standard-timer and reset-retention observations through the immutable MAME state in <code>tools/interrupt_controller.py</code>. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-<code>0x2D</code> implementation edges use <code>tools/wabbitemu_speed_probe.py</code> and its guarded CLI. <code>tools/run_wabbitemu_timer_physical_probe.py</code> executes the assembled physical discriminator through the shared injected-program runner. These are emulator-comparison tools, not physical-hardware simulators.</p>
-<pre><code class="language-sh">nix develop -c python tools/describe_timer_hardware.py \
+<p><code>tools/ti84re/hardware/timer.py</code> exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM’s radix-255 chunks, RTC implementation profiles, and the physical-probe discriminator. <code>tools/ti84re/hardware/describe_timer.py</code> is a JSON-capable front end. The TilEm, Wabbitemu, and MAME report oracles validate native observations against reusable source models; <code>tools/ti84re/emulators/jstified.py</code> supplies a separately hash-guarded source profile without claiming a native run. <code>tools/ti84re/emulators/tilem/timer.py</code> adds the complete direct-core programmable-timer and deterministic RTC matrix. <code>tools/ti84re/emulators/tilem/interrupt.py</code> adds direct standard-timer scheduling and programmable-timer HALT-gate observations. <code>tools/ti84re/emulators/mame/interrupt.py</code> adds fixed standard-timer and reset-retention observations through the immutable MAME state in <code>tools/ti84re/hardware/interrupt_controller.py</code>. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-<code>0x2D</code> implementation edges use <code>tools/ti84re/emulators/wabbitemu/speed_probe.py</code> and its guarded CLI. <code>tools/ti84re/emulators/wabbitemu/run_timer_physical_probe.py</code> executes the assembled physical discriminator through the shared injected-program runner. These are emulator-comparison tools, not physical-hardware simulators.</p>
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.hardware.describe_timer \
   source 0x41 0x80 0xC0 --mode3-prescaler 4
 
-nix develop -c python tools/describe_timer_hardware.py \
+nix develop -c python3 -m ti84re.hardware.describe_timer \
   duration --source 0x41 --counter 0xFF
 
-nix develop -c python tools/describe_timer_hardware.py \
+nix develop -c python3 -m ti84re.hardware.describe_timer \
   expiry --mode 0x02 --halted --no-standard-timer
 
-nix develop -c python tools/describe_timer_hardware.py chunks 0x0100 0x0101
-nix develop -c python tools/describe_timer_hardware.py --json rtc
+nix develop -c python3 -m ti84re.hardware.describe_timer chunks 0x0100 0x0101
+nix develop -c python3 -m ti84re.hardware.describe_timer --json rtc
 
 timer_probe_parent=$(mktemp -d /tmp/ti84-timer-probe.XXXXXX)
-nix develop -c python tools/run_wabbitemu_timer_edge_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_timer_edge_probe \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --output-dir "$timer_probe_parent/run" --json
 
 physical_timer_parent=$(mktemp -d /tmp/ti84-physical-timer.XXXXXX)
-nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_timer_physical_probe \
   --rom tools/rom.bin \
   --binary "$wabbit_tmp/wabbitemu-headless" \
   --expected-binary-sha256 \
@@ -801,7 +800,7 @@ nix develop -c python tools/run_wabbitemu_timer_physical_probe.py \
   --output-dir "$physical_timer_parent/run" --json
 
 mame_timer_parent=$(mktemp -d /tmp/ti84-mame-timer.XXXXXX)
-nix shell nixpkgs#mame --command python tools/run_mame_timer_probe.py \
+nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_timer_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_timer_parent/run" --json

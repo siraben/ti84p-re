@@ -37,10 +37,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-4b1e36ce.js";
+            window.path_to_searchindex_js = "../searchindex-092bf0a7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-3a621010.js"></script>
+        <script src="../toc-d4b8a020.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -195,26 +195,22 @@ each unmeasured hardware result.</p>
 <p>No exported <code>HWP1</code> AppVar from a physical calculator is present in this
 repository. The existing suite therefore supplies tested measurement
 artifacts, not physical conclusions. [confirmed]</p>
-<p>In the table below, a displayed code means the decimal CRC plus the complete
-paged <code>HWPZ1-</code> text when both screens can be recorded. The compact text
-contains the <code>HWP1</code> frame, not calculator metadata or external readings.</p>
 <div class="table-wrapper">
 <table>
 <thead>
 <tr><th>Experiment family</th><th>Minimum physical setup</th><th>Prepared artifact</th><th>Remaining output</th></tr>
 </thead>
 <tbody>
-<tr><td>ASIC identity and RAM topology</td><td>TI-84 Plus with recorded PCB and ASIC marking</td><td><code>HWASIC</code>; laboratory-only <code>HWPRAM</code></td><td>AppVars plus displayed codes</td></tr>
+<tr><td>ASIC identity and RAM topology</td><td>TI-84 Plus with recorded PCB and ASIC marking</td><td><code>HWASIC</code>, <code>HWPRAM</code></td><td>AppVars plus displayed codes</td></tr>
 <tr><td>Timer divisors and edge state</td><td>TA2 and TA3 calculators</td><td><code>HWTMR</code></td><td>AppVar plus displayed code</td></tr>
 <tr><td>Bus waits and prefixed M1 placement</td><td>TA2 and TA3 calculators running OS 2.55MP</td><td><code>HWBUS</code>, <code>HWPFX</code></td><td>AppVars plus displayed codes</td></tr>
 <tr><td>MD5-assist edge behavior</td><td>Silver Edition, TA2, and TA3 ASICs where available</td><td><code>HWPMD5</code></td><td>AppVar plus displayed code</td></tr>
 <tr><td>Execution protection</td><td>backed-up test calculator</td><td><code>HWEF...</code>, <code>HWER...</code></td><td>AppVar, normal-return code, plus reset observation</td></tr>
-<tr><td>Battery comparison</td><td>test calculator, reviewed supply fixture, and DMM</td><td><code>HWBATT</code>; physically blocked <code>HWBRAW</code></td><td>AppVars, displayed codes, voltage, and load</td></tr>
+<tr><td>Battery comparison</td><td>test calculator, current-limited supply, and DMM</td><td><code>HWBATT</code>, <code>HWBRAW</code></td><td>AppVars, displayed codes, voltage, and load</td></tr>
 <tr><td>Link and keypad digital settling</td><td>test calculator and specified key or disconnected link state</td><td><code>HWLINK</code>, <code>HWKEYS</code></td><td>AppVars plus displayed codes</td></tr>
 <tr><td>USB control reset state</td><td>identified TA2 and TA3 calculators</td><td><code>HWPUSB</code></td><td>connected and disconnected AppVars plus codes</td></tr>
-<tr><td>Mapper overlays</td><td>emulator or future externally recoverable test calculator</td><td>physically blocked <code>HWPMAP</code></td><td>AppVar plus displayed verification code</td></tr>
+<tr><td>Mapper overlays</td><td>backed-up test calculator</td><td><code>HWPMAP</code></td><td>AppVar plus displayed verification code</td></tr>
 <tr><td>LCD controller edges</td><td>identified LCD revision and backed-up test calculator</td><td><code>HWPLCD</code></td><td>AppVar plus displayed verification code</td></tr>
-<tr><td>LCD hidden geometry</td><td>identified, repairable LCD revision with verified backup and recovery notes</td><td>separately built <code>HWPLAB</code></td><td><code>HWPLAB01</code>, displayed code, and post-run panel inspection</td></tr>
 <tr><td>RTC rollover coherence</td><td>identified TA2 and TA3 calculators</td><td><code>HWPRTC</code></td><td>AppVar plus code after a natural low-byte rollover</td></tr>
 <tr><td>Interrupt wake edges</td><td>identified TA2 and TA3 calculators</td><td><code>HWPIRQ</code></td><td>AppVar plus displayed verification code</td></tr>
 <tr><td>Analog, boot, Flash, and power-loss behavior</td><td>calculator plus laboratory fixture</td><td>no ordinary standalone artifact</td><td>captured waveform, timing, or post-reset image</td></tr>
@@ -222,30 +218,22 @@ contains the <code>HWP1</code> frame, not calculator metadata or external readin
 </table>
 </div>
 <p>The <a href="calculator-readable.html">calculator-readable probes</a> page names every
-currently built artifact. The <a href="additional-calculator-probes.html">guarded mapper, LCD, and interrupt
-probes</a> page defines those digital experiments
+currently built artifact. <a href="additional-calculator-probes.html">Guarded mapper, LCD, and interrupt
+probes</a> defines the new digital experiments
 and their safety gates. <a href="external-measurements.html">External
 measurements</a> lists the questions that an AppVar
-cannot settle. <a href="evidence-closure.html">Online evidence and physical
-closure</a> separates manufacturer-specified behavior,
-emulator-model results, historical measurements, and claims that still need a
-calculator.</p>
+cannot settle.</p>
 <h2 id="priority-order"><a class="header" href="#priority-order">Priority order</a></h2>
 <p>Run read-only and restoring probes before any probe that can reset or alter
 mapped memory:</p>
 <ol>
-<li><code>HWASIC</code> and a disconnected <code>HWPUSB</code> establish software-readable identity.</li>
+<li><code>HWASIC</code>, <code>HWPUSB</code>, and <code>HWPRAM</code> establish unit identity and topology.</li>
 <li><code>HWTMR</code>, <code>HWBUS</code>, <code>HWPFX</code>, and <code>HWPMD5</code> distinguish major emulator models.</li>
 <li><code>HWLINK</code> and <code>HWKEYS</code> collect operator-dependent digital samples.</li>
-<li><code>HWBATT</code> precedes any future raw-selector experiment. Do not run the current
-blocked <code>HWBRAW</code> artifact physically.</li>
+<li><code>HWBATT</code> precedes <code>HWBRAW</code> at every controlled-supply voltage.</li>
 <li>One execution-fetch artifact runs between result exports.</li>
-<li>Laboratory-only <code>HWPRAM</code>, <code>HWPLCD</code>, and <code>HWPIRQ</code> run one at a time on a
-replaceable, backed-up test unit. Record every normal-return code and export
-each AppVar immediately. Keep <code>HWPMAP</code> in emulator-only use until its worker
-has an independent physical recovery path.</li>
-<li>A device-specific <code>HWPLAB</code> build runs only after the safer LCD probe. Export
-its AppVar before another experiment and follow its recovery manifest.</li>
+<li><code>HWPMAP</code>, <code>HWPLCD</code>, and <code>HWPIRQ</code> run one at a time on a backed-up test unit.
+Record every normal-return code and export each AppVar immediately.</li>
 <li>Flash, reset, and power-loss experiments use an expendable unit and their
 experiment-specific fixture.</li>
 </ol>

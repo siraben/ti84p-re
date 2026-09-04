@@ -37,10 +37,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-4b1e36ce.js";
+            window.path_to_searchindex_js = "../searchindex-092bf0a7.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-3a621010.js"></script>
+        <script src="../toc-d4b8a020.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -185,24 +185,6 @@ power interruption. Calculator assembly can provide a repeatable trigger and
 record CPU-visible state, but it cannot produce the physical observation by
 itself.</p>
 <h2 id="instrumented-experiments"><a class="header" href="#instrumented-experiments">Instrumented experiments</a></h2>
-<p>The rows below are experiment requirements, not executable bench procedures.
-Keep every active-drive experiment blocked until its unit-specific procedure
-defines all of the following:</p>
-<ul>
-<li>board revision, connector pin map, and expected voltage domain;</li>
-<li>deenergized hookup and ESD/ground order;</li>
-<li>battery removal or isolation and the single permitted power source;</li>
-<li>polarity protection, hard voltage ceiling, series resistance, and current
-limit;</li>
-<li>probe impedance and capacitance, stimulus dwell, ramp rate, and automatic
-timeout;</li>
-<li>brownout or overcurrent abort thresholds; and</li>
-<li>post-run hashes, panel inspection, power-cycle state, and restore steps.</li>
-</ul>
-<p>USB work must also declare host/device roles and exactly one VBUS source. An
-LCD procedure needs a controller-specific command and value allowlist. A link
-procedure must prohibit an active peer until passive measurements establish
-the line state. Do not infer numerical limits from emulator register models.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -247,15 +229,6 @@ the tested sector. Chip erase, fast-program mode, and forced DQ5 failure are
 laboratory procedures, not ordinary distributable <code>AsmPrgm</code> files. A failed
 run may destroy the OS, certificate data, archive contents, or the recovery
 path itself.</p>
-<p>Do not distribute a mutating hardware probe until all recovery gates exist.
-Verify a complete restorable backup on a second host, reserve an erased scratch
-sector that contains no user variables, and reject every address outside that
-sector before unlocking Flash. Exclude the OS, certificate, and boot sectors
-unconditionally. Use stable external power, keep a known recovery calculator
-and cable available, and store the pending/result record outside the sector
-under test. Restore the scratch sector after every completed run and verify its
-hash. A missing backup, failed restore rehearsal, unexpected sector byte, low
-battery indication, or absent external capture must abort before mutation.</p>
 
                     </main>
 
