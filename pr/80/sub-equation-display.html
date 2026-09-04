@@ -1,0 +1,1197 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Equation display (MathPrint) - TI-84 Plus OS — Reverse Engineering</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Evidence-indexed documentation of TI-84 Plus OS 2.55MP ROM behavior and hardware interfaces.">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-e96d0476.css">
+        <link rel="stylesheet" href="css/chrome-d279d366.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="katex-383e7b8d.min.css">
+        <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-30ce65a2.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-d4b8a020.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">TI-84 Plus OS — Reverse Engineering</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/siraben/ti84p-re" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="equation-display-mathprint"><a class="header" href="#equation-display-mathprint">Equation display (MathPrint)</a></h1>
+<p>MathPrint turns a tokenized expression into a two-dimensional screen layout for
+the home-screen entry line, the <strong>Y=</strong> editor, the Solver equation line, and the
+template menus. It consumes the token stream described in <a href="tokenizer-basic.html">Tokenizer and
+TI-BASIC tokens</a> and
+preserves the OP registers described in
+<a href="floating-point.html">Floating-point engine</a>.</p>
+<p>The token stream, record graph, and editor state coexist while an expression
+is being edited; together they emit a transient drawing stream. MathPrint does
+not repeatedly flatten the equation to pixels and parse it back. [confirmed]</p>
+<p>The table below separates those three stored representations from their
+output:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Representation</th><th>What it preserves</th><th>Main code</th></tr>
+</thead>
+<tbody>
+<tr><td>Native token stream</td><td>Calculator tokens and the active gap-buffer split.</td><td>Page <code>06</code> editor helpers</td></tr>
+<tr><td>Live record graph</td><td>Expression nesting, child order, active child, and per-record geometry.</td><td>Page <code>34</code> construction and traversal</td></tr>
+<tr><td>Editor layout state</td><td>Token classes, handler rows, argument slots, and focused cells.</td><td>Page <code>39</code></td></tr>
+<tr><td>Drawing stream</td><td>Positioned glyphs, points, lines, and accepted LCD writes.</td><td>Pages <code>01</code>, <code>04</code>, and <code>07</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>Page <code>39</code> is a cell-grid typesetter for the editable template view. It
+classifies a token, selects a compact handler record, walks rows and argument
+slots, and turns cells into positioned output. Page <code>34</code> constructs, measures,
+and redraws the live record graph. Both paths eventually use the services in
+<a href="display-lcd.html">Display and LCD</a>. [confirmed]</p>
+<pre class="mermaid">flowchart TD
+    token["Token or template action"] --&gt; dispatch["39:4A74&lt;br/&gt;class selection"]
+    dispatch --&gt; table["39:4C27&lt;br/&gt;class table 39:5E45"]
+    table --&gt; record["handler record&lt;br/&gt;rows, actions, cells"]
+    record --&gt; operand["39:5167&lt;br/&gt;recursive operand walker"]
+    record --&gt; cell["39:4E8E&lt;br/&gt;cell emitter"]
+    record --&gt; geom["39:69C8&lt;br/&gt;descriptor/fraction geometry"]
+    operand --&gt; dispatch
+    geom --&gt; coord["39:683D&lt;br/&gt;cell to pixel coordinate"]
+    coord --&gt; cell
+    cell --&gt; glyph["07:4588 / 01:6293&lt;br/&gt;glyph output"]
+    geom --&gt; rules["39:6ABF / ram:3555&lt;br/&gt;rules and rectangles"]
+</pre>
+
+<p>This first diagram follows the page <code>39</code> cell path. The record graph in the
+next section is a separate, longer-lived representation. [confirmed]</p>
+<p>Two companion pages continue this one. <a href="sub-mathprint-editor.html">MathPrint live editor and settled
+drawing</a> follows an edit from the gap buffer through
+the record graph to pixels and pins the settled-drawing traces.
+<a href="sub-mathprint-validation.html">MathPrint validation and browser model</a> lists the
+verification stack behind the standalone renderer.</p>
+<h2 id="editor-state-and-record-graph"><a class="header" href="#editor-state-and-record-graph">Editor state and record graph</a></h2>
+<p>MathPrint keeps native token bytes in an editor gap buffer and maintains a live
+arena of numbered records. Page <code>39</code> treats the active expression as token
+classes, handler rows, argument slots, and packed <code>D:E</code> display cells.
+<code>eqdisp_handler_table</code> (<code>39:5E45</code>) contains 68 entries. Sixty-six entries point
+to decoded handler records; the class-<code>0x00</code> pointer does not decode as a page <code>39</code>
+handler, and class <code>0x13</code> has a null pointer. [confirmed]</p>
+<p>Page <code>34</code> allocates the record arena while the editor is active. A leaf record
+contains a token program. A structural record contains a fixed header followed
+by child record IDs. <code>eqdisp_find_structural_record</code> (<code>34:4ACE</code>) walks the
+structural region, and <code>eqdisp_find_leaf_record</code> (<code>34:4A83</code>) walks the leaf
+region. <code>eqdisp_substitute_active_leaf</code> (<code>34:4AAF</code>) substitutes the active
+gap-buffer payload when the leaf pointer equals
+<code>mathprintArenaState.active_leaf</code> at <code>0x8DC2</code> (base <code>mathprintArenaState</code> at
+<code>0x8DAF</code>). The record graph therefore preserves
+the editable equation tree before evaluation; page <code>39</code> row and cell state is
+the transient layout view of that live equation. [confirmed]</p>
+<p><code>eqdisp_allocate_record</code> (<code>34:4900</code>) commits a prepared arena record.
+<code>eqdisp_render_leaf_program</code> (<code>34:660A</code>) later executes the settled leaf’s
+token-and-marker payload. [confirmed]</p>
+<pre class="mermaid">flowchart LR
+    tokens["Native token bytes"] --&gt; gap["Editor gap buffer&lt;br/&gt;active leaf bytes"]
+    gap --&gt; editor["Page 39 layout state&lt;br/&gt;classes, rows, slots, D:E cells"]
+    gap --&gt; scan["34:58F9 / 34:5A99&lt;br/&gt;token and argument scans"]
+    scan --&gt; build
+    build["eqdisp_allocate_record&lt;br/&gt;record allocation"] --&gt; recordArena["Live record arena&lt;br/&gt;leaf programs + structural child IDs"]
+    gap --&gt; substitute["eqdisp_substitute_active_leaf&lt;br/&gt;active-leaf substitution"]
+    substitute --&gt; recordArena
+    recordArena --&gt; metrics["34:7393 / 34:7609&lt;br/&gt;metrics and geometry"]
+    metrics --&gt; render["record and leaf rendering&lt;br/&gt;eqdisp_render_leaf_program"]
+    render --&gt; primitive["Page 1 / 4 / 7&lt;br/&gt;glyphs, points, and lines"]
+    primitive --&gt; lcd["Accepted LCD data writes"]
+</pre>
+
+<p>The record graph decodes as an expression tree because structural child IDs
+preserve argument order. The handler records describe how an editable token
+class is laid out; they do not by themselves encode one whole equation tree.
+[confirmed]</p>
+<h2 id="core-state"><a class="header" href="#core-state">Core state</a></h2>
+<p>The layout engine keeps most of its state in <code>0x85DE</code>–<code>0x85F2</code>. The table below names the
+fields that matter for reading the page <code>0x39</code> code. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>RAM</th><th>Role</th><th>Meaning</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x85DE</code></td><td>mode / class</td><td>Caller mode at entry, then the current layout class.</td></tr>
+<tr><td><code>0x85DF</code></td><td>row index</td><td>Current row inside the selected handler or template.</td></tr>
+<tr><td><code>0x85E0</code></td><td>slot index</td><td>Current argument or cell slot.</td></tr>
+<tr><td><code>0x85E1</code></td><td>row count</td><td>Number of rows in the current handler record.</td></tr>
+<tr><td><code>0x85E2</code></td><td>slot count</td><td>Number of cells or arguments in the active row.</td></tr>
+<tr><td><code>0x85E3</code>–<code>0x85E6</code></td><td>saved display state</td><td>Snapshot of shared display flags while the engine redraws.</td></tr>
+<tr><td><code>0x85E7</code></td><td>OP scratch</td><td>Saved <code>OP1</code> slot used while recursing into operands.</td></tr>
+<tr><td><code>0x85E8</code></td><td>template kind</td><td>Low nibble selects descriptor-backed template UI.</td></tr>
+<tr><td><code>0x85E9/0x85EA</code></td><td>descriptor origin</td><td>Packed pixel base used by descriptor cell mapping.</td></tr>
+<tr><td><code>0x85EB</code></td><td>row height</td><td>Pixel height for the current descriptor row.</td></tr>
+<tr><td><code>0x85EC/0x85ED</code></td><td>cell pointer</td><td>Pointer to descriptor cell data.</td></tr>
+<tr><td><code>0x85EE/0x85EF</code></td><td>fraction geometry</td><td>Measured numerator/denominator cell counts for fraction templates.</td></tr>
+<tr><td><code>0x85F2</code></td><td>OP scratch</td><td>Second saved <code>OP1</code> slot.</td></tr>
+<tr><td><code>0x86D7/0x86D8</code></td><td>pen coordinate</td><td>Pixel coordinate staged before graph/small-font output.</td></tr>
+<tr><td><code>0x844B/0x844C</code></td><td>text row/column</td><td>Shared OS cursor row and column; <code>844C</code> also participates in overflow.</td></tr>
+<tr><td><code>0x984A</code></td><td>baseline row</td><td>The row restored around recursive operand emission.</td></tr>
+<tr><td><code>0x9D27</code></td><td>saved geometry</td><td>Copy of the measured fraction geometry used by the template handoff.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The main draw/measure distinction comes from <code>(IY+0x36)</code> bit 6. Clear means the engine is
+measuring or preparing state; set means it may emit pixels. Several other <code>IY</code> flags bias
+class selection: <code>(IY+0x09)</code> bit 0 selects fraction/argument context, while <code>(IY+0x02)</code>
+bits 4, 5, and 6 select exponent and alternate edit forms. [confirmed]</p>
+<h2 id="page-39-handler-recipes"><a class="header" href="#page-39-handler-recipes">Page 39 handler recipes</a></h2>
+<p>MathPrint uses two formats that are easy to confuse. A page <code>39</code> handler is a
+shared layout recipe selected by token class. A page <code>34</code> arena record is one
+node in the current expression: it stores the operands and geometry for that
+particular occurrence. The recipe says <em>how</em> to arrange a class; the arena
+record says <em>what</em> this expression contains. [confirmed]</p>
+<p>A visible expression is driven by handler recipes reached through
+<code>eqdisp_handler_table</code>. Each class has one word entry:</p>
+<pre><code class="language-text">handler = eqdisp_handler_table[class]
+</code></pre>
+<p>Most entries point to compact data, not executable code. The common record format is a
+variable-length tail:</p>
+<pre><code class="language-c">typedef uint16_t EqDispCell;  /* high byte D, low byte E */
+
+typedef struct {
+    uint8_t row_count;
+    uint8_t cell_count[];  /* row_count entries */
+    /* uint8_t row_action[row_count]; */
+    /* EqDispCell cell[sum(cell_count[0..row_count - 1])]; */
+} EqDispHandlerRecord;
+</code></pre>
+<p><code>row_action[]</code> bytes are row labels or control actions. They are separate from the cell
+stream. The row-cell pointer routine at <code>39:4DCA</code> skips the row count, the per-row cell
+counts, and the row-action bytes before it reaches the packed two-byte cells. The cell
+emitter at <code>39:4DE6</code> then walks the selected row and calls <code>39:4E8E</code> for each <code>D:E</code> cell. [confirmed]</p>
+<p>Examples:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Class</th><th>Record</th><th>Meaning</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x08</code></td><td><code>39:608B</code></td><td>Numeric-calculus operator row, including <code>nDeriv(</code> and <code>fnInt(</code>.</td></tr>
+<tr><td><code>0x0D</code></td><td><code>39:60F9</code></td><td>Fixed structural glyph rows, including direct <code>Lintegral</code> cells.</td></tr>
+<tr><td><code>0x29</code></td><td><code>39:6546</code></td><td>Group/root-family control row.</td></tr>
+<tr><td><code>0x2A</code></td><td><code>39:654D</code></td><td>Root/power row containing the <code>00 10</code> payload cell.</td></tr>
+<tr><td><code>0x30</code></td><td><code>39:6030</code></td><td>Fraction-context variant of the class-<code>0x08</code> operator row.</td></tr>
+<tr><td><code>0x31</code></td><td><code>39:6433</code></td><td>Stacked root/power row with a degree row.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The display cell <code>00 C8</code> is the visible <code>fnInt(</code> name. It appears in class <code>0x08</code> and
+class <code>0x30</code>; it is distinct from the fixed <code>Lintegral</code> glyph cells in class <code>0x0D</code>. [confirmed]</p>
+<h2 id="page-34-expression-records"><a class="header" href="#page-34-expression-records">Page 34 expression records</a></h2>
+<p>Every settled record begins with this 20-byte header. The word names remain
+address-based where different render types assign different meanings. [confirmed]</p>
+<pre><code class="language-c">#pragma pack(push, 1)
+typedef struct {
+    uint16_t id;          /* +00h: arena ID */
+    uint8_t type;         /* +02h: leaf/object or structural render type */
+    uint16_t word03;      /* +03h: parent ID in captured constructed records */
+    uint16_t word05;      /* +05h: leaf height or structural child selector */
+    uint16_t word07;      /* +07h: type-specific height or width */
+    uint16_t word09;      /* +09h: type-specific width */
+    uint16_t word0B;      /* +0Bh: local x origin for recursive entry */
+    uint16_t word0D;      /* +0Dh: local y origin or type-specific anchor */
+    uint16_t word0F;      /* +0Fh: type-specific flags or depth state */
+    uint16_t word11;      /* +11h: payload length or dimensions/depth */
+    uint8_t byte13;       /* +13h: first payload byte or type-specific data */
+} SettledRecordHeader;
+#pragma pack(pop)
+</code></pre>
+<p>Leaf types below <code>0x1F</code> store <code>word11</code> payload bytes beginning at <code>+0x13</code>.
+Structural types <code>0x1F</code>–<code>0x2B</code> retain the complete header and append
+little-endian child IDs at <code>+0x14</code>. <code>eqdisp_resolve_child</code> (<code>34:6CCD</code>) resolves
+a child ID through <code>34:4B05</code> and <code>eqdisp_find_leaf_record</code>; the child words are
+not pointers. Captured construction
+writes place the parent record ID at <code>+3</code>. [confirmed]</p>
+<p>A leaf payload is also a small record program. The sequence
+<code>EF type id_lo id_hi</code> invokes a structural record. <code>EF 2D</code> closes or separates
+that embedded object without drawing a glyph. Ordinary native token bytes stay
+in program order around those markers. A power record of type <code>0x2A</code> binds the
+preceding leaf run as its base and child 1 as its exponent. [confirmed]</p>
+<h3 id="construction-tables"><a class="header" href="#construction-tables">Construction tables</a></h3>
+<p>Construction is table-driven rather than a switch over complete expressions:</p>
+<pre><code class="language-pseudocode">\begin{algorithm}
+\caption{Construct one structural arena record}
+\begin{algorithmic}
+\STATE $t \gets \operatorname{LookupRenderType}(sourceToken)$ \COMMENT{eqdisp\_source\_type\_table}
+\STATE $g \gets \operatorname{LookupAllocationGeometry}(t)$ \COMMENT{eqdisp\_allocation\_geometry\_table}
+\STATE $record \gets \operatorname{AllocateArenaRecord}(g)$
+\STATE $\operatorname{ReserveChildIds}(record, g)$
+\STATE $s \gets \operatorname{LookupChildScan}(t)$ \COMMENT{eqdisp\_child\_scan\_table}
+\STATE $children \gets \operatorname{ScanSourceArguments}(s)$
+\STATE $\operatorname{StoreChildrenInRenderOrder}(record, children)$
+\end{algorithmic}
+\end{algorithm}
+</code></pre>
+<p>Three ROM table families supply those steps. <code>eqdisp_source_type_table</code>
+(<code>34:594D</code>) maps 16 source-token pairs to render types.
+<code>eqdisp_child_scan_table</code> (<code>34:59AC</code>) gives one five-byte scan row for each type
+<code>0x1F</code>–<code>0x2B</code>. <code>eqdisp_allocation_geometry_table</code> (<code>33:4F82</code>) gives the
+corresponding allocation geometry. The
+metric and geometry passes dispatch the same 13-type domain through <code>34:739F</code>
+and <code>34:7611</code>. [confirmed]</p>
+<h3 id="capacity-gate"><a class="header" href="#capacity-gate">Capacity gate</a></h3>
+<p><code>33:4F6D</code> also decodes the three-byte rows in
+<code>eqdisp_allocation_geometry_table</code>. It returns
+the workspace request in <code>DE</code>, the child-slot count in <code>BC</code>, and the record
+size in <code>HL</code>. For example, the type-<code>0x22</code> integral row returns 112 workspace
+bytes, four child slots, and 28 record bytes. Type <code>0x2B</code> derives all three
+values from its matrix element count at <code>33:4F42</code>–<code>33:4F6C</code>. [confirmed]</p>
+<p><code>34:4869</code> passes that workspace request to the capacity gate at
+<code>34:4B7C</code>. <code>eqdisp_capacity_remaining</code> (<code>34:4B86</code>) starts with the word at
+<code>0x8DB1</code>. When
+<code>(IY+2Dh).0</code> is clear, it subtracts the conditional reserve at <code>0x8DF8</code>; when
+the bit is set, it skips that subtraction. It then subtracts the record tail
+at <code>0x8DBE</code>. Each subtraction follows <code>OR A</code>, so it starts with carry clear and
+wraps as a 16-bit word. A borrow from the record-tail subtraction makes
+<code>34:4B80</code> skip the request comparison. Otherwise <code>34:4B82</code> subtracts the
+requested bytes. Either carry returns from the allocator caller at <code>34:486F</code>
+with <code>A=0x02</code>; an exact fit continues with zero bytes remaining. [confirmed]</p>
+<p>The finite capacity model partitions all $2^{65}$ combinations of four input
+words and the reserve-gate bit into six paths. A 524,287-state raw-byte
+differential basis covers each word value at the range and request boundaries.
+The initial values of <code>0x8DB1</code>, <code>0x8DBE</code>, and <code>0x8DF8</code> still depend on the
+calling editor state, so this gate alone does not define one source-character
+limit for every home-screen expression. The gate and projected model are
+[confirmed]. A context-independent character limit remains [hypothesis].</p>
+<p><code>settledRecordAllocationCheck()</code> translates <code>eqdisp_allocate_record_checked</code>
+(<code>34:4862</code>):
+it obtains the workspace request from the type/matrix geometry row and passes
+that request to the capacity gate, retaining the allocator’s <code>A=02h</code> carry
+return. The arena words remain explicit because their producers walk the
+record list at <code>34:4A83</code>/<code>34:4ACE</code>; this boundary is therefore a stateful input
+rather than a fabricated free-space estimate. [confirmed]</p>
+<p>The structural children preserve semantic argument order after the source scan
+applies the metadata permutation. For example, the integral metadata is
+<code>04 03 04 01 02</code>: scan kind 4 reads four source arguments and assigns them to
+children 3, 4, 1, and 2. The settled graph then stores lower endpoint, upper
+endpoint, body, and variable in the order consumed by the type-<code>0x22</code> renderer.
+[confirmed]</p>
+<h2 id="token-classification"><a class="header" href="#token-classification">Token classification</a></h2>
+<p><code>eqdisp_dispatch_token</code> (<code>39:4A74</code>) turns an incoming token or action byte into a layout
+class. It first handles the special <code>0x3D</code> template handoff, then applies context bias. [confirmed]</p>
+<pre><code class="language-pseudocode">\begin{algorithm}
+\caption{Class selection}
+\begin{algorithmic}
+\REQUIRE incoming byte $a$
+\IF{$a = \mathtt{0x3D}$}
+  \STATE jump to the template handoff at \texttt{39:672E}
+  \RETURN
+\ENDIF
+\STATE $c \gets a - \mathtt{0x2A}$
+\IF{exponent/edit-context flags select an alternate form}
+  \STATE bias $c$ into the alternate class family
+\ENDIF
+\IF{fraction or argument context is active and $c \in \{3,4,5,6,7,8\}$}
+  \STATE $c \gets c + \mathtt{0x28}$
+\ENDIF
+\STATE $\mathtt{85DE} \gets c$
+\STATE $HL \gets \mathrm{word}(\mathtt{39:5E45} + 2c)$
+\end{algorithmic}
+\end{algorithm}
+</code></pre>
+<p>This is why the same token can render differently in ordinary and stacked contexts. For
+example, class <code>0x08</code> and class <code>0x30</code> share the <code>fnInt(</code>/<code>nDeriv(</code> operator family, but
+<code>0x30</code> is selected after the fraction-context bias. [confirmed]</p>
+<h2 id="argument-composition"><a class="header" href="#argument-composition">Argument composition</a></h2>
+<p>The high-level loop is:</p>
+<ol>
+<li>Save display and OP state.</li>
+<li>Classify the current token into <code>0x85DE</code>.</li>
+<li>Load the handler record from <code>39:5E45</code>.</li>
+<li>Measure row and slot counts into <code>0x85E1/0x85E2</code>.</li>
+<li>Recurse into argument slots when a handler cell represents an operand.</li>
+<li>Restore the baseline row and emit visible cells during the draw pass.</li>
+</ol>
+<p>The static caller graph assigns multi-argument walking to <code>39:5167</code>. When
+selected, it keeps the argument index in <code>0x85E0</code> and uses <code>0x85E2</code> as the
+argument count. Forward paths pass saved OP1 state through <code>39:59E0</code>; reverse
+paths use <code>39:59F9</code>. These routines dispatch <code>_FindAlphaUp</code> and <code>_FindAlphaDn</code>
+on page 7, respectively; they do not dispatch a parser-stream scanner.
+[confirmed] <code>_FindAlphaUp</code> and <code>_FindAlphaDn</code> scan the physical VAT and retain
+the nearest alphabetic successor or predecessor. The result does not depend on
+the physical order of VAT records. [confirmed]</p>
+<p>For <code>fnInt(expr,var,lower,upper[,tol])</code>, the visible MathPrint fields preserve parser
+order: slot 0 is the integrand, slot 1 is the variable, slot 2 is the lower endpoint,
+slot 3 is the upper endpoint, and slot 4 is the optional tolerance. The evaluator on
+pages <code>02</code> and <code>33</code> consumes the same order. [confirmed]</p>
+<p>The same routine implements tall-template row composition. <code>eqdisp_layout_main</code> reaches
+<code>39:5167</code> from the action-<code>0x08</code> window-advance path at <code>39:50A4</code> and the action-<code>0x04</code>
+single-step path at <code>39:52B3</code>. <code>39:5167</code> calls <code>39:5949</code> to decide whether the next argument
+consumes one or two display rows, adjusts <code>0x844B</code>, emits slot markers through <code>39:4E0A</code>,
+and emits the saved operand through <code>39:5B10</code> or <code>39:5B1D</code>. These bytes define
+row composition around fixed structural cells. The filled and nested-integral
+traces below do not select this entry. [confirmed]</p>
+<p>The action byte chooses how that argument window advances:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Action</th><th>Decision</th><th>Result</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0x03</code> at <code>39:51F1</code></td><td>Argument index is nonzero.</td><td>Walk backward through <code>39:523B</code>.</td></tr>
+<tr><td><code>0x03</code> at <code>39:51F1</code></td><td>Index is zero and <code>(IY+1Dh).0</code> is set.</td><td>Emit the row-token tail.</td></tr>
+<tr><td><code>0x03</code> at <code>39:51F1</code></td><td>Index is zero, the flag is clear, and count is below eight.</td><td>Call <code>39:5167</code> once per byte count, then emit the visible suffix and final row-7 argument.</td></tr>
+<tr><td><code>0x03</code> at <code>39:51F1</code></td><td>Count is at least eight.</td><td>Begin the visible window at <code>count - 8 + baseline</code>.</td></tr>
+<tr><td><code>0x04</code> at <code>39:52A5</code></td><td><code>uint8((count - 1) - index)</code> is nonzero.</td><td>Walk once through <code>39:5167</code>, then emit the row-token tail.</td></tr>
+<tr><td><code>0x04</code> at <code>39:52A5</code></td><td>The difference is zero and <code>(IY+1Dh).0</code> is set.</td><td>Emit the same row-token tail.</td></tr>
+<tr><td><code>0x04</code> at <code>39:52A5</code></td><td>The difference is zero and the flag is clear.</td><td>Lay out argument zero through <code>39:513E</code>.</td></tr>
+</tbody>
+</table>
+</div>
+<p>All count arithmetic is byte-sized. In particular, an initial zero in the
+action-<code>0x03</code> do-while loop at <code>39:50A1</code> wraps to <code>0xFF</code> and makes 256 calls.
+<code>39:4DCA</code> locates the handler row, <code>39:4CA4</code> emits its visible suffix, and
+<code>39:4E14</code> emits the final argument on row 7. The action-<code>0x04</code> delegated return
+passes through <code>39:5447</code> and <code>39:52A2</code>. [confirmed]</p>
+<h3 id="action-bytes-are-ti-key-codes"><a class="header" href="#action-bytes-are-ti-key-codes">Action bytes are TI key codes</a></h3>
+<p>The action byte that reaches <code>eqdisp_layout_main</code> (<code>39:4F9A</code>, entered with the
+code in <code>A</code>) is a raw key code from the editor’s key-dispatch loop. The
+dispatcher compares it directly. <code>CP 2</code> (<code>kLeft</code>) at <code>39:5048</code> opens the
+backward-walk path. <code>CP 8</code> (<code>kAlphaDown</code> in the <code>ti83plus.inc</code> keypress
+equates) at <code>39:507C</code> opens window advance. [confirmed]</p>
+<p>The window-advance body computes
+<code>count(0x85E2) - index(0x85E0) + baseline(0x844B)</code>. For values below nine, it
+stores <code>6</code> at <code>0x844D</code> and loops over <code>CALL 39:5167</code> with the <code>DEC (HL)</code>
+counter at <code>39:50A4</code>–<code>39:50AB</code>. Otherwise, <code>ADD A,7</code> repositions the index
+before the jump to <code>39:5132</code>. [confirmed]</p>
+<p>Two traces constrain which inputs select it:</p>
+<ul>
+<li>A trace of a 20-digit integrand does not reach <code>eqdisp_layout_main</code> while the
+content scrolls. Its template dispatchers run during insertion transitions.
+In-slot horizontal scrolling uses a separate page-<code>39</code> scroll set
+(<code>39:530A</code>–<code>39:539F</code>, <code>39:53A1</code>–<code>39:53FE</code>,
+<code>39:5500</code>–<code>39:5563</code>, <code>39:5605</code>–<code>39:5632</code>, <code>39:5709</code>–<code>39:572C</code>,
+<code>39:57AC</code>–<code>39:57FC</code>, and <code>39:5955</code>–<code>39:599B</code>). Character scrolling inside
+that slot is not a compositor event. [confirmed]</li>
+<li>Inserting a nested radical into the integrand re-enters the layout dispatcher
+at <code>39:507C</code>. The action is not <code>kAlphaDown</code>, so the relayout jumps directly
+to <code>39:5112</code>. This structural insertion does not select window advance.
+[confirmed]</li>
+</ul>
+<p>The translator at <code>39:53A1</code> converts a specific incoming key code into layout
+actions. It first calls bcall ID <code>4A68h</code>, whose body at <code>07:59F1</code> is a context
+test rather than a key fetch. The body copies the entry <code>A</code> to <code>B</code> and calls
+the helper at <code>07:59E5</code>. That helper compares <code>cxMain</code> at <code>0x858D</code> with
+context ID <code>0x5B53</code>. A mismatch returns NZ. When the context matches, the body
+returns Z only for codes <code>0x41</code>–<code>0x59</code> that equal the context byte at <code>0x859A</code>.
+[confirmed]</p>
+<p>The translator then compares the preserved <code>A</code> with <code>0xFB</code>. On a match, it
+reads the template ID at <code>0x8446</code>: <code>0xC7</code> yields action <code>7</code>, and <code>0xC8</code> yields
+action <code>8</code>, before the jump to <code>39:4F9A</code>. Register captures show <code>0xC8</code>
+(<code>kFnInt</code>) at <code>0x8446</code> when <code>fnInt(</code> is inserted, including a nested insertion
+inside another integral’s integrand. The <code>ti83plus.inc</code> equates identify
+<code>0xC7</code> as <code>kNDeriv</code>, <code>0xC8</code> as <code>kFnInt</code>, and <code>0xFB</code> as <code>kwnA</code>. Plain template
+insertion therefore does not pass the <code>CP 0xFB</code> gate. The editor state that
+sends <code>0xFB</code> to this handler remains open. [confirmed]</p>
+<p>Five more jumps to <code>39:4F9A</code> occur on page <code>35</code>, at <code>35:4DAE</code>, <code>35:4E73</code>,
+<code>35:4F1D</code>, <code>35:4F70</code>, and <code>35:5052</code>. The jump at <code>39:53D7</code> is another entry.
+These entries have not yet been attributed to specific editor events.
+[confirmed]</p>
+<h2 id="cell-coordinates"><a class="header" href="#cell-coordinates">Cell coordinates</a></h2>
+<p>Descriptor-backed templates use a fixed ABI. A descriptor is:</p>
+<pre><code class="language-c">typedef struct {
+    uint16_t base_yx;       /* packed base y/x coordinate */
+    uint16_t box_yx;        /* packed box y/x coordinate */
+    uint8_t  row_height;
+    uint16_t cols_rows;     /* packed column/row count */
+    uint16_t cell_pointer;  /* pointer to descriptor cells */
+} EqDispTemplateDescriptor;
+</code></pre>
+<p>The mapper at <code>39:683D</code> converts a descriptor cell to pixels. Its index names
+are transposed relative to conventional screen coordinates: the descriptor
+row advances LCD $x$, while the descriptor column advances $y$. The <code>+7</code> loop
+builds the packed high byte:</p>
+<pre><code class="language-z80">DEC B
+ADD A,7
+</code></pre>
+<p>The <code>rowHeight + 2</code> loop builds the low byte. The caller stores <code>HL</code> to <code>penCol</code>
+(<code>0x86D7</code>, low to $x$) and <code>penRow</code> (<code>0x86D8</code>, high to $y$):</p>
+<p>$$
+\begin{aligned}
+x &amp;= \mathit{base}_x \\
+&amp;\quad + \mathit{row},(\mathit{rowHeight}+2).
+\end{aligned}
+$$</p>
+<p>$$
+y = \mathit{base}_y + 7,\mathit{col}.
+$$</p>
+<p>The known descriptors are:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Descriptor</th><th>Kind</th><th>Use</th></tr>
+</thead>
+<tbody>
+<tr><td><code>39:686F</code></td><td><code>0x10</code></td><td>Fraction menu descriptor.</td></tr>
+<tr><td><code>39:6880</code></td><td><code>0x11</code></td><td>Root/function template menu descriptor.</td></tr>
+<tr><td><code>39:6893</code></td><td>descriptor family</td><td>Two-row template descriptor.</td></tr>
+<tr><td><code>39:689C</code></td><td>descriptor family</td><td>Two-row, six-column descriptor.</td></tr>
+<tr><td><code>39:68A5</code></td><td>descriptor family</td><td>Two-row, three-column descriptor.</td></tr>
+</tbody>
+</table>
+</div>
+<p>For kind nibbles <code>3</code> and above, <code>39:69C8</code> adds <code>0x10</code> and calls
+<code>ram:025E</code>:</p>
+<pre><code class="language-z80">BIT 6,(IY+2)
+RET
+</code></pre>
+<p>A set bit selects <code>39:689C</code>. Otherwise it adds <code>0x10</code> again and calls
+<code>ram:0254</code>:</p>
+<pre><code class="language-z80">BIT 5,(IY+2)
+RET
+</code></pre>
+<p>A set bit selects <code>39:68A5</code>, and a clear result selects <code>39:6893</code>. The JavaScript
+<code>selectDescriptor</code> translation takes this caller-owned <code>flag02</code> byte explicitly
+for the family branches and reports the byte that <code>39:69FC</code> stores back at
+<code>0x85E8</code>. [confirmed]</p>
+<p>Descriptor <code>39:6880</code> contains <code>FE09</code>, <code>FB C8</code>, <code>00 C7</code>, <code>00 C8</code>, and <code>FB C7</code> in one row.
+That places <code>fnInt(</code> as a menu/template cell, not as a structural integral glyph. [confirmed]</p>
+<h2 id="fractions"><a class="header" href="#fractions">Fractions</a></h2>
+<p>Fractions are the most completely recovered dynamic template. The kind-2 fraction path
+uses <code>0x85EE</code> and <code>0x85EF</code> as measured numerator and denominator widths. It draws a fixed
+template box, emits the row/column labels, and updates the focused numerator or denominator
+cell. [confirmed]</p>
+<p>The rectangle helper at <code>39:6ABF</code> handles the focus rectangle. Its endpoint helper at
+<code>39:6B1C</code> uses:</p>
+<p>$$x_\text{left} = \mathtt{0x1B} + 7n$$</p>
+<p>$$x_\text{right} = x_\text{left} + 4$$</p>
+<p>Static callers of <code>39:6ABF</code>, <code>39:6B1C</code>, and the box wrapper <code>39:6AF5</code> are all in this
+fraction-template UI path. The emitter for the visible bar in a generic
+expression remains unidentified. [confirmed]</p>
+<h2 id="exponents-and-raised-rows"><a class="header" href="#exponents-and-raised-rows">Exponents and raised rows</a></h2>
+<p>Superscripts are represented as row placement, not as a font attribute. The helper at
+<code>39:4CE9</code> raises classes in the <code>0x24</code>–<code>0x28</code> family and class <code>0x39</code> by forcing <code>0x844B</code>
+to a higher display row before emitting the selected cell. The per-row height accounting
+then folds that raised row into the parent layout. [confirmed]</p>
+<p>This means <code>X^2</code> is stored and walked as ordinary cells in different rows. The row selection
+does the work; the glyph for <code>2</code> is the ordinary one.</p>
+<h2 id="radicals"><a class="header" href="#radicals">Radicals</a></h2>
+<p>The recovered pieces establish where the radical data lives, but not yet the
+complete page <code>39</code> emission route:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Finding</th><th>Evidence</th><th>Confidence</th></tr>
+</thead>
+<tbody>
+<tr><td>The large-font table contains <code>Lroot</code> code <code>0x10</code>.</td><td><code>07:466F</code></td><td>[confirmed]</td></tr>
+<tr><td>Classes <code>0x2A</code> and <code>0x31</code> contain cell <code>00 10</code>; related cells use low byte <code>E=1F</code>.</td><td>Decoded handler recipes</td><td>[confirmed]</td></tr>
+<tr><td><code>39:4F1A</code> does not map <code>00 10</code>; the ordinary <code>_KeyToString</code> interpretation is <code>All+</code>.</td><td>Direct mapper and string table</td><td>[confirmed]</td></tr>
+<tr><td>An upstream or dynamic path must select the final root-mark emitter.</td><td>The direct path remains unidentified.</td><td>[hypothesis]</td></tr>
+</tbody>
+</table>
+</div>
+<p>The low-byte <code>E=1F</code> cells use the ordinary token-string path. They are not the
+special high-byte <code>D=1F</code> form used by the <code>39:4E8E</code> IX-backed branch.
+[confirmed]</p>
+<p>The static <code>39:5167</code> path can advance a recursive operand window when selected,
+but the demonstrated traces do not connect it to the radical records. The
+precise division between fixed root glyphs, radicand placement, and any
+vinculum drawing remains open.</p>
+<h2 id="integrals-and-summations"><a class="header" href="#integrals-and-summations">Integrals and summations</a></h2>
+<p>The visible <code>fnInt(</code> menu cell and the structural integral glyph are separate things.</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Concept</th><th>Cell / glyph</th><th>Source</th></tr>
+</thead>
+<tbody>
+<tr><td><code>fnInt(</code> display name</td><td><code>00 C8</code></td><td>Class <code>0x08</code>/<code>0x30</code> operator records and page-1 token-name strings.</td></tr>
+<tr><td>Fixed integral glyph</td><td><code>Lintegral</code> <code>0x08</code></td><td>Class <code>0x0D</code> cells <code>FC3F</code> and <code>08 42</code>, emitted through <code>39:4F1A</code>.</td></tr>
+<tr><td>Summation glyph</td><td><code>0xC6</code> family</td><td>Fixed glyph data; no direct <code>00 C6</code> page <code>0x39</code> handler cell has been found.</td></tr>
+</tbody>
+</table>
+</div>
+<p>The fixed <code>Lintegral</code> glyph is emitted by the ordinary structural-glyph path:
+<code>39:4E8E</code> runs the named-token prepass, continues to <code>39:4F1A</code>, maps the cell
+to large-font code <code>0x08</code>, and emits it. [confirmed]</p>
+<p>The static <code>39:5167</code> path can compose argument slots around a fixed glyph:</p>
+<ol>
+<li>Place the tall integral glyph on the main axis.</li>
+<li>Walk the lower, upper, integrand, and variable slots in parser order.</li>
+<li>Update <code>0x844B</code> by the row step from <code>39:5949</code>.</li>
+<li>Emit slot markers through <code>39:4E0A</code>.</li>
+<li>Emit the operand bodies through <code>39:5B10</code> and <code>39:5B1D</code>.</li>
+</ol>
+<p>The parser slot order and the static compositor are identified. The filled and
+nested-integral traces use <code>39:4CA4</code> instead, so the expression or cursor state
+that selects <code>39:5167</code> remains open. A headless TilEm trace that inserts the
+<code>fnInt(</code> template and walks the cursor across its slots exercises the action
+dispatcher once each at <code>39:51F1</code> (action <code>0x03</code>) and <code>39:52A5</code> (action
+<code>0x04</code>) but takes the non-<code>5167</code> branches; the window-advance path at
+<code>39:50A4</code> does not execute. The witness state therefore needs either more
+arguments than the visible window (count ≥ 8) or a template whose slot walk
+crosses a window boundary. Fixed glyph cells use <code>39:4E8E</code> and
+<code>39:4F1A</code>; page <code>07:4588</code> copies large-font records. [confirmed]</p>
+<h2 id="archived-fixed-token-markers"><a class="header" href="#archived-fixed-token-markers">Archived fixed-token markers</a></h2>
+<p>Classes <code>0x17</code>, <code>0x18</code>, and <code>0x19</code> point to one-row records at <code>39:62C8</code>,
+<code>39:62DF</code>, and <code>39:62F6</code>. Each record contains ten cells. Page 7 maps them to
+fixed-token names <code>61 00</code>–<code>61 09</code> (<code>GDB1</code>–<code>GDB0</code>), <code>60 00</code>–<code>60 09</code>
+(<code>Pic1</code>–<code>Pic0</code>), and <code>AA 00</code>–<code>AA 09</code> (<code>Str1</code>–<code>Str0</code>). [confirmed]</p>
+<p><code>39:6675–66BC</code> looks up each mapped name in the VAT. <code>_FindSym</code> returns the VAT
+page byte through the record referenced by <code>HL</code>; five <code>DEC HL</code> instructions at
+<code>ram:1785</code> move from the returned type byte to that page byte. A zero page
+returns without output. A nonzero archive page emits display code <code>2Ah</code> (<code>*</code>)
+through <code>ram:3FDB</code>. The original cell then continues through the counted-string
+and direct-glyph stages. [confirmed]</p>
+<h2 id="emission-paths"><a class="header" href="#emission-paths">Emission paths</a></h2>
+<p>Cells reach pixels through a small set of output paths:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Path</th><th>Entry</th><th>Use</th></tr>
+</thead>
+<tbody>
+<tr><td>Generic cell emitter</td><td><code>39:4E8E</code></td><td>Dispatches two-byte display cells.</td></tr>
+<tr><td>Direct large glyph map</td><td><code>39:4F1A</code></td><td>Maps <code>FC3C</code>–<code>FC40</code>, <code>FE7D</code>–<code>FE81</code>, and <code>xx42</code> cells to large-font codes.</td></tr>
+<tr><td>String path</td><td><code>39:6B66</code> + page <code>01:6D10</code></td><td>Converts ordinary token cells to counted strings.</td></tr>
+<tr><td>Display-byte remap</td><td>page <code>07:44DE</code></td><td>Remaps <code>FE</code>, <code>FC</code>, and <code>FB</code> prefixed display bytes.</td></tr>
+<tr><td>Small-font blit</td><td>page <code>01:6293</code></td><td><code>_VPutMap</code>; emits small labels and compact limits from <code>0x86D7</code>.</td></tr>
+<tr><td>Large-font blit</td><td>page <code>07:4588</code></td><td>Copies one fixed large-font glyph record.</td></tr>
+<tr><td>Rule / rectangle helpers</td><td><code>39:6ABF</code>, <code>39:6AF5</code>, <code>ram:3555</code></td><td>Draw fraction UI rectangles, boxes, and fixed chrome lines.</td></tr>
+</tbody>
+</table>
+</div>
+<p><code>39:6675</code> saves a matched fixed-token cell’s <code>E</code> byte in <code>keyExtend</code> and passes
+its <code>D</code> byte to <code>07:44DE</code>. It constructs the VAT lookup name from the remapped
+pair. Unmatched cells that map through <code>39:4F1A</code> instead use <code>05:4056</code> to build
+a <code>5C:A</code> matrix name. The prepass emits <code>*</code> when the selected VAT record has a
+nonzero page byte. The JavaScript translation preserves the lookup and output
+order.
+The committed layout artifact contains every table entry addressable from the
+main entry. A pinned-byte interpreter compares all 65,536 combinations of
+display byte and <code>keyExtend</code>; they reduce to seven paths and 12 branch outcomes.
+The separate public entry at <code>07:44FE</code> is outside this main-entry domain. [confirmed]</p>
+<p>The translated <code>39:4E8E–4F19</code> outer controller covers all 2,097,152 projected
+states formed by <code>D:E</code>, the draw-pass flag and callback result, the
+<code>curCol &lt; 15</code> relation, and effective restriction-byte bits 1 and 2. They
+reduce to 39 ordered paths, 22 branch outcomes, and seven minimum
+representatives. The installed callback, indexed-string printer, and output
+bcalls remain named boundaries rather than simulated return values.
+[confirmed]</p>
+<p>The marker gate at <code>39:4F44–4F61</code> compares <code>D:E</code> with <code>FBC8</code> and <code>FBC7</code>.
+<code>FBC8</code> selects action <code>7</code> and mask <code>04h</code>; <code>FBC7</code> selects action <code>6</code> and mask
+<code>02h</code>. Both actions reach <code>3D:7DC4</code> through <code>ram:3891</code>. <code>3D:7DC4</code> ANDs the byte
+returned by <code>3D:45D9</code> with the selected mask. The JavaScript translation covers
+all 262,144 combinations of <code>D:E</code> and the two effective restriction bits.
+They reduce to five paths, six branch outcomes, and three minimum
+representatives. [confirmed]</p>
+<p>When the marker gate returns NZ, <code>39:4F62–4F99</code> draws a horizontal divider from
+$(11, 59 - 8\mathit{curRow})$ through $(94, 59 - 8\mathit{curRow})$, with the
+row coordinate reduced modulo 256. The routine copies <code>00 40 60 5F 5E</code> to the
+five-byte display window at <code>0x8DA2</code>, forces <code>plotFlags.plotDisp</code> during
+<code>_DarkLine</code>, and then restores the original <code>plotFlags</code> byte. <code>_DarkLine</code> at
+<code>04:4025</code> preserves <code>AF</code>, so the branch at <code>39:4F8B</code> consumes the preceding
+<code>_CheckSplitFlag</code> result. A horizontal split installs <code>20 20 60 5F 5E</code>; a
+vertical split installs <code>0C 34 30 2F 2E</code>; otherwise the normal window remains.
+The finite model covers all 2,048 row and effective <code>sGrFlags</code> states. They
+reduce to three paths, four branch outcomes, and three minimum representatives.
+[confirmed]</p>
+<p>The <code>39:6675–66BC</code> translation covers every <code>D:E</code> pair with absent, RAM, and
+archived exact-VAT results. These 196,608 projected states reduce to 13 paths,
+14 branch outcomes, and six minimum representatives. The existing <code>_FindSym</code>
+documentation supplies the exact fixed-token scan contract; the prepass model
+accepts a logical VAT snapshot and performs the corresponding three-byte name
+match. [confirmed]</p>
+<p><code>_KeyToString</code> at <code>01:6D10</code> uses that public entry for <code>FB</code>, <code>FC</code>, <code>FE</code>, and
+<code>FF</code> cells, scans 13 high-byte special strings, or selects one of 101 counted
+strings through the pointer table at <code>01:6E05</code>. The JavaScript translation
+compares all 65,536 <code>D:E</code> pairs with a pinned-byte interpreter. A second
+comparison covers all 1,024 prefix/index states admitted by the <code>_KeyToString</code>
+caller at <code>07:44FE</code>. Together they resolve all 447 unique key-string cells in
+the decoded handler records and descriptors. Installed font and token hook
+bodies remain explicit external boundaries. [confirmed]</p>
+<p>The page-7 large-font service copies fixed glyph rows. It does not measure a radicand or
+stretch a glyph by itself. [confirmed]</p>
+<p>The caller enters <code>07:4588</code> with the glyph code in <code>A</code> and its eight-byte
+offset in <code>HL</code>. <code>07:45EB</code> converts that offset to the seven-byte table address
+<code>07:45FF + 7 * code</code>. The entry then copies eight consecutive bytes to
+<code>ram:845A</code>. The eighth byte is the first row of the next glyph. Code <code>FFh</code>
+instead reads the byte <code>CDh</code> at <code>07:4CFF</code>, immediately after the 256-glyph
+table. [confirmed]</p>
+<p>The alternate entry at <code>07:45B6</code> uses the same address conversion and builds
+the nine-byte map record <code>[06h, row0 &lt;&lt; 1, ..., row6 &lt;&lt; 1, 00h]</code>. The leading
+width gives each five-pixel glyph a clear advance column. A pinned byte
+interpreter matches the JavaScript translation for all 256 glyph codes at both
+entries. [confirmed]</p>
+<p><code>(IY+35h).5</code> enables the font hook, and <code>(IY+35h).1</code> enables the localization
+hook. A hook that returns Z either completes the copy entry or supplies the
+pattern pointer consumed by the shifted entry. The 32 hook predicate states
+reduce to 14 complete branch paths. Hook-provided pattern bytes remain external
+to the translation. [confirmed]</p>
+<h2 id="evidence-anchors"><a class="header" href="#evidence-anchors">Evidence anchors</a></h2>
+<p>The page is intentionally an architecture summary, not a verifier log. These are the main
+anchors for readers who want to check the disassembly. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Address</th><th>Meaning</th></tr>
+</thead>
+<tbody>
+<tr><td><code>39:4A74</code></td><td>Main token/action dispatcher.</td></tr>
+<tr><td><code>39:4C27</code></td><td>Class table lookup through <code>39:5E45</code>.</td></tr>
+<tr><td><code>39:4DCA</code></td><td>Row-cell pointer computation for handler records.</td></tr>
+<tr><td><code>39:4DE6</code></td><td>Row cell stream emitter.</td></tr>
+<tr><td><code>39:4E8E</code></td><td>Generic two-byte cell emitter.</td></tr>
+<tr><td><code>39:4F1A</code></td><td>Direct large-glyph classifier.</td></tr>
+<tr><td><code>39:4F08</code></td><td>Text-column overflow check before marker handling.</td></tr>
+<tr><td><code>39:4E0A</code></td><td>Argument-index marker emitter used by the row compositor.</td></tr>
+<tr><td><code>39:5167</code></td><td>Multi-argument operand walker and tall-template row compositor.</td></tr>
+<tr><td><code>39:5949</code></td><td>Row-step classifier for one-row versus two-row argument advance.</td></tr>
+<tr><td><code>39:5B10</code> / <code>39:5B1D</code></td><td>Saved-E7 wrappers for ascending and descending alphabetic VAT searches.</td></tr>
+<tr><td><code>39:59E0</code> / <code>39:59F9</code></td><td><code>_FindAlphaUp</code> and <code>_FindAlphaDn</code> dispatchers.</td></tr>
+<tr><td><code>39:672E</code></td><td>Template handoff for incoming <code>0x3D</code>.</td></tr>
+<tr><td><code>39:683D</code></td><td>Descriptor cell-to-pixel mapper.</td></tr>
+<tr><td><code>39:68AE</code></td><td>Geometry action handler.</td></tr>
+<tr><td><code>39:69C8</code></td><td>Descriptor/fraction geometry selector.</td></tr>
+<tr><td><code>39:6ABF</code> / <code>39:6B1C</code></td><td>Fraction focus rectangle and endpoint helper.</td></tr>
+<tr><td><code>39:6B66</code></td><td>Generic string selector.</td></tr>
+<tr><td><code>39:66E9</code> / <code>39:66FE</code></td><td>Reverse and forward argument-overflow cues.</td></tr>
+<tr><td><code>39:6712</code></td><td>Overflow marker path; resets <code>curCol</code> and emits <code>:</code>.</td></tr>
+<tr><td><code>07:44DE</code></td><td>Display-byte remapper.</td></tr>
+<tr><td><code>07:4588</code></td><td>Large-font fixed glyph blitter.</td></tr>
+<tr><td><code>01:6293</code></td><td><code>_VPutMap</code> small-font pixel output.</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="mathprint-pipeline-coverage"><a class="header" href="#mathprint-pipeline-coverage">MathPrint pipeline coverage</a></h2>
+<p>Coverage here has three layers. The declared control-flow graph defines the
+branches being counted; finite models exhaust selected routine-level input
+projections; dynamic traces show which of those branches calculator-created
+states actually reach. A complete finite projection is not whole-machine
+coverage, and a branch absent from the corpus is unresolved rather than
+infeasible unless a separate invariant rules it out.</p>
+<h3 id="scope-of-the-analyzer"><a class="header" href="#scope-of-the-analyzer">Scope of the analyzer</a></h3>
+<p><code>tools/ti84re/mathprint/analyze_saturation.py</code> bounds the coverage claim to nine
+declared components: settled construction, settled rendering, metrics and
+geometry, record allocation, editor layout, small-font/LCD output, point and
+line primitives, large-glyph output, and alphabetic VAT selection. It
+recursively follows direct ROM edges from named entries, seeds decoded table
+destinations, overlays exact next-PC outcomes from 276 retained traces, and
+lists direct external targets. Computed dispatch destinations are manually
+seeded; bcall and RAM bjump bodies remain outside the direct-edge walk. Of those
+traces, 275 reach their state through calculator input. One explicitly
+classified synthetic trace inserts an <code>EF36h</code> editor buffer through direct RAM
+writes. The report keeps the two provenance classes separate.
+<code>tools/oracles/mathprint/mathprint-saturation.json</code> records the resulting branches and trace
+hashes. [confirmed]</p>
+<p>The analyzer can restore trace identities, provenance, and per-trace summaries
+from a prior report and the digest-keyed cache. Regeneration therefore scans a
+new trace once without reopening the other retained TLMT files. [confirmed]</p>
+<p>None of the 276 report traces executes <code>39:5167</code>, <code>39:523B</code>, the saved-operand
+wrappers at <code>39:5B10</code>–<code>39:5B38</code>, or the dispatchers at <code>39:59E0</code>/<code>39:59F9</code>.
+The 276-digest trace cache also has no hit at those entries. [confirmed]
+<code>_FindAlphaUp</code> at <code>07:50B5</code> executes once in 112 report traces, but every call
+comes from the type-<code>16h</code> cleanup loop at <code>07:5544</code>. Each observed call returns
+carry with OP1 unchanged; no trace supplies a successful alphabetic-search or
+MathPrint caller witness. [confirmed]</p>
+<p>The report is a symbolic-execution aid rather than a whole-machine proof. It
+decodes fixed table rows and partitions selected projected input domains. The
+scan-kind dispatcher at <code>34:5678</code> partitions all 256 incoming <code>A</code> values into
+seven terminal paths. <code>eqdisp_draw_marker_primitive</code> (<code>34:6143</code>) partitions the
+$256 \times 2 \times 65{,}536 = 33{,}554{,}432$ projected tuples over incoming
+<code>A</code>, <code>(IY+44h).3</code>, and the word at <code>0x8520</code>. Its predicates reduce those tuples
+to 14 branch-path classes and ten terminal actions. This count covers the
+projected inputs, not every register and RAM state. The marker-tail callee at
+<code>34:759C</code> reduces 16 abstract predicate valuations to five return classes.
+Stream length, arbitrary RAM, and unmodeled indirect targets remain outside
+these finite models. [confirmed]</p>
+<p>The page-7 domains partition all 32 masked type classes, 192 declared type/key
+form pairs, all 8,192 type/record-marker pairs, and all 288 abstract candidate
+decisions. A fifth domain covers both terminal return states. A sixth
+partitions all 33,554,432 combinations of return state, incoming OP extension
+bytes, and selected-record continuation byte. The candidate
+projection includes direction, type equality, filter result, the <code>FFh</code>
+sentinel, source relation, and current-best relation. These domains cover the
+translated branch predicates and minimize representatives for their outcomes.
+They do not enumerate arbitrary VAT length, every possible eight-byte name, or
+every surrounding machine state. [confirmed]</p>
+<p>The extended raised-token classifier at <code>34:580C</code> has a caller-scoped domain of
+3,047 packed-token states. <code>34:5866</code> handles numeric bytes and <code>B0h</code> first, and
+<code>34:5887</code> skips <code>EF1Eh</code>. The remaining ordinary bytes and 11 two-byte token
+families reduce to 12 complete classifier paths. The <code>5Fh</code> and <code>EBh</code>
+designators enter bounded eight- and five-byte name scans. The loop at
+<code>34:583D</code> accepts digits <code>30h</code>–<code>39h</code> and letters <code>41h</code>–<code>5Bh</code>; a source boundary
+or any other byte stops it. The analyzer enumerates every accepted digit/letter
+prefix, stop class, and counter exit. These are finite byte-class projections,
+not claims that every packed token or name occurs in a calculator-created
+expression. [confirmed]</p>
+<h3 id="finite-symbolic-models"><a class="header" href="#finite-symbolic-models">Finite symbolic models</a></h3>
+<p>The analyzer generates one deterministic representative for every complete
+path-equivalence class in 52 finite models. It also computes an exact minimum
+representative set for the branch outcomes in each model. The checked unit test
+regenerates the complete corpus from the model functions. Schema 5 of the report
+stores its aggregate counts rather than repeating the generated representatives.
+The minimums are per domain: the five- and eight-byte name-loop ABIs share branch
+addresses, but a representative for one ABI does not cover the other. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Finite model</th><th style="text-align: right">Projected inputs</th><th style="text-align: right">Path classes</th><th style="text-align: right">Branch outcomes</th><th style="text-align: right">Minimum representatives</th></tr>
+</thead>
+<tbody>
+<tr><td>Structural scan-kind dispatch</td><td style="text-align: right">256</td><td style="text-align: right">7</td><td style="text-align: right">12</td><td style="text-align: right">7</td></tr>
+<tr><td>Structural-depth gate</td><td style="text-align: right">256</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
+<tr><td>Structural-insertion dispatch</td><td style="text-align: right">65,536</td><td style="text-align: right">6</td><td style="text-align: right">10</td><td style="text-align: right">6</td></tr>
+<tr><td>Raised extended-token classifier</td><td style="text-align: right">3,047</td><td style="text-align: right">12</td><td style="text-align: right">22</td><td style="text-align: right">10</td></tr>
+<tr><td>Five-byte raised-name loop</td><td style="text-align: right">493,112,577</td><td style="text-align: right">125</td><td style="text-align: right">10</td><td style="text-align: right">4</td></tr>
+<tr><td>Eight-byte raised-name loop</td><td style="text-align: right">24,977,631,672,321</td><td style="text-align: right">1,021</td><td style="text-align: right">10</td><td style="text-align: right">4</td></tr>
+<tr><td>Shared marker draw helper</td><td style="text-align: right">33,554,432</td><td style="text-align: right">14</td><td style="text-align: right">26</td><td style="text-align: right">13</td></tr>
+<tr><td>Settled render nesting tail</td><td style="text-align: right">16,777,216</td><td style="text-align: right">15</td><td style="text-align: right">24</td><td style="text-align: right">11</td></tr>
+<tr><td>Point mode and buffer routing</td><td style="text-align: right">2,048</td><td style="text-align: right">28</td><td style="text-align: right">22</td><td style="text-align: right">5</td></tr>
+<tr><td>Drawing-hook dispatch</td><td style="text-align: right">4</td><td style="text-align: right">3</td><td style="text-align: right">4</td><td style="text-align: right">2</td></tr>
+<tr><td>Point style dispatch</td><td style="text-align: right">512</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">5</td></tr>
+<tr><td>Point bounds</td><td style="text-align: right">33,554,432</td><td style="text-align: right">7</td><td style="text-align: right">14</td><td style="text-align: right">7</td></tr>
+<tr><td>Thick-point expansion</td><td style="text-align: right">4,294,967,296</td><td style="text-align: right">8</td><td style="text-align: right">14</td><td style="text-align: right">8</td></tr>
+<tr><td>Shaded-point expansion</td><td style="text-align: right">3,145,728</td><td style="text-align: right">1,850</td><td style="text-align: right">30</td><td style="text-align: right">8</td></tr>
+<tr><td>Small-font pointer selection</td><td style="text-align: right">65,536</td><td style="text-align: right">16</td><td style="text-align: right">31</td><td style="text-align: right">16</td></tr>
+<tr><td>Token-hook dispatch</td><td style="text-align: right">1,048,576</td><td style="text-align: right">9</td><td style="text-align: right">10</td><td style="text-align: right">5</td></tr>
+<tr><td>Direct cell-to-large-glyph selection</td><td style="text-align: right">65,536</td><td style="text-align: right">9</td><td style="text-align: right">16</td><td style="text-align: right">9</td></tr>
+<tr><td>Display-byte remapper</td><td style="text-align: right">65,536</td><td style="text-align: right">7</td><td style="text-align: right">12</td><td style="text-align: right">7</td></tr>
+<tr><td><code>_KeyToString</code> <code>_sOK</code> prefix</td><td style="text-align: right">1,024</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">5</td></tr>
+<tr><td><code>_KeyToString</code> selector</td><td style="text-align: right">65,536</td><td style="text-align: right">35</td><td style="text-align: right">40</td><td style="text-align: right">14</td></tr>
+<tr><td>Page-39 cell-string selector</td><td style="text-align: right">131,072</td><td style="text-align: right">14</td><td style="text-align: right">16</td><td style="text-align: right">8</td></tr>
+<tr><td>Page-39 archived-token prepass</td><td style="text-align: right">196,608</td><td style="text-align: right">13</td><td style="text-align: right">14</td><td style="text-align: right">6</td></tr>
+<tr><td>Page-39 marker restriction gate</td><td style="text-align: right">262,144</td><td style="text-align: right">5</td><td style="text-align: right">6</td><td style="text-align: right">3</td></tr>
+<tr><td>Page-39 marker row retouch</td><td style="text-align: right">2,048</td><td style="text-align: right">3</td><td style="text-align: right">4</td><td style="text-align: right">3</td></tr>
+<tr><td>Page-39 cell-emission controller</td><td style="text-align: right">2,097,152</td><td style="text-align: right">39</td><td style="text-align: right">22</td><td style="text-align: right">7</td></tr>
+<tr><td>Glyph advance and delimiter padding</td><td style="text-align: right">131,072</td><td style="text-align: right">6</td><td style="text-align: right">10</td><td style="text-align: right">4</td></tr>
+<tr><td><code>_VPutMap</code> byte-boundary gate</td><td style="text-align: right">56</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
+<tr><td>MathPrint <code>_VPutMap</code> right-edge gate</td><td style="text-align: right">3,584</td><td style="text-align: right">4</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
+<tr><td>MathPrint <code>_VPutMap</code> row state</td><td style="text-align: right">112</td><td style="text-align: right">4</td><td style="text-align: right">10</td><td style="text-align: right">2</td></tr>
+<tr><td><code>_VPutMap</code> aligned-byte composition</td><td style="text-align: right">917,504</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
+<tr><td>Large-glyph hook dispatch</td><td style="text-align: right">32</td><td style="text-align: right">14</td><td style="text-align: right">16</td><td style="text-align: right">8</td></tr>
+<tr><td>Metric marker-tail gate</td><td style="text-align: right">16</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">5</td></tr>
+<tr><td>Editor action <code>0x03</code> controller</td><td style="text-align: right">131,072</td><td style="text-align: right">11</td><td style="text-align: right">9</td><td style="text-align: right">4</td></tr>
+<tr><td>Editor action <code>0x04</code> controller</td><td style="text-align: right">131,072</td><td style="text-align: right">5</td><td style="text-align: right">5</td><td style="text-align: right">3</td></tr>
+<tr><td>Reverse argument-overflow cue</td><td style="text-align: right">65,536</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
+<tr><td>Editor horizontal viewport</td><td style="text-align: right">17,179,869,184</td><td style="text-align: right">8</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
+<tr><td>Editor vertical viewport</td><td style="text-align: right">17,179,869,184</td><td style="text-align: right">8</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
+<tr><td>Editor vertical overflow cues</td><td style="text-align: right">4,294,901,760</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">3</td></tr>
+<tr><td>Editor left-overflow cue</td><td style="text-align: right">1,099,494,850,560</td><td style="text-align: right">5</td><td style="text-align: right">8</td><td style="text-align: right">5</td></tr>
+<tr><td>Editor right-overflow cue</td><td style="text-align: right">281,474,976,710,656</td><td style="text-align: right">5</td><td style="text-align: right">10</td><td style="text-align: right">4</td></tr>
+<tr><td>Glyph vertical viewport</td><td style="text-align: right">1,099,511,627,776</td><td style="text-align: right">16</td><td style="text-align: right">22</td><td style="text-align: right">6</td></tr>
+<tr><td>Glyph viewport gates</td><td style="text-align: right">30,064,771,072</td><td style="text-align: right">3</td><td style="text-align: right">4</td><td style="text-align: right">3</td></tr>
+<tr><td><code>logBASE</code> counted-string viewport</td><td style="text-align: right">8,589,934,592</td><td style="text-align: right">20</td><td style="text-align: right">6</td><td style="text-align: right">1</td></tr>
+<tr><td>Embedded-record viewport gate</td><td style="text-align: right">4,294,967,296</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">2</td></tr>
+<tr><td>Record-allocation capacity</td><td style="text-align: right">36,893,488,147,419,103,232</td><td style="text-align: right">6</td><td style="text-align: right">6</td><td style="text-align: right">2</td></tr>
+<tr><td>Saved-operand wrappers</td><td style="text-align: right">16</td><td style="text-align: right">12</td><td style="text-align: right">12</td><td style="text-align: right">8</td></tr>
+<tr><td>FindAlpha type normalization</td><td style="text-align: right">32</td><td style="text-align: right">31</td><td style="text-align: right">8</td><td style="text-align: right">4</td></tr>
+<tr><td>FindAlpha key preparation</td><td style="text-align: right">192</td><td style="text-align: right">13</td><td style="text-align: right">14</td><td style="text-align: right">4</td></tr>
+<tr><td>FindAlpha record stepping</td><td style="text-align: right">8,192</td><td style="text-align: right">8</td><td style="text-align: right">12</td><td style="text-align: right">4</td></tr>
+<tr><td>FindAlpha candidate reducer</td><td style="text-align: right">288</td><td style="text-align: right">25</td><td style="text-align: right">17</td><td style="text-align: right">10</td></tr>
+<tr><td>FindAlpha endpoint</td><td style="text-align: right">2</td><td style="text-align: right">2</td><td style="text-align: right">4</td><td style="text-align: right">2</td></tr>
+<tr><td>FindAlpha OP scratch transition</td><td style="text-align: right">33,554,432</td><td style="text-align: right">2</td><td style="text-align: right">5</td><td style="text-align: right">2</td></tr>
+</tbody>
+</table>
+</div>
+<p>The 52 models contain 3,484 path classes and 587 distinct modeled branch
+outcomes. Their per-domain minimum corpora contain 274 representatives. Each
+class records its concrete representative, projected-state count, terminal,
+and complete branch-outcome sequence. These representatives saturate the
+declared projections. They do not establish calculator reachability or cover
+state outside those projections. [confirmed]</p>
+<p>The table models also distinguish decoded rows from reachable indices.
+<code>eqdisp_lookup_render_type</code> (<code>34:5935</code>) scans 16 source-token rows but has 15
+first-match classes: row 6
+duplicates the <code>0006h</code> mapping at row 3 and can never win the first-match scan.
+The report partitions the other 65,521 packed <code>D:E</code> values into the no-match
+class. The render, allocator, and editor-class index models decode all 256
+8-bit inputs. Types <code>0x1F</code>–<code>0x2B</code> select the 13 render and allocator rows;
+class bytes <code>0x00</code>–<code>0x43</code> select the 68 editor rows. Other inputs read adjacent
+ROM bytes. This records local index behavior without asserting that each
+overread is reachable through a calculator entry. [confirmed]</p>
+<p>The metadata rows use scan kinds <code>0</code>, <code>1</code>, <code>2</code>, <code>3</code>, <code>4</code>, and <code>6</code>. Natural
+traces witness six of the seven dispatch classes. Scan kind <code>2</code> would take
+<code>34:5680</code> into the fraction scanner at <code>34:56DF</code>, but no retained invocation
+does so. Existing fraction construction instead reaches the same scanner
+through another entry route. The outcome remains unresolved because the
+metadata value proves local relevance but does not prove caller reachability.
+[confirmed]</p>
+<h3 id="dynamic-coverage"><a class="header" href="#dynamic-coverage">Dynamic coverage</a></h3>
+<p>The report keeps complete path witnesses separate from individual branch
+outcome witnesses. A class whose branch outcomes all occur somewhere in the
+corpus is not necessarily a class traversed by one invocation. The editor ABI
+of <code>eqdisp_draw_marker_primitive</code> has seven complete live path witnesses. The render-table ABI has
+one ROM-fixed class because <code>_LdHLind</code> fixes <code>A=0x43</code>. The <code>34:759C</code> model ends
+at the callee return. It records the continuations at <code>34:755F</code>, <code>34:6FC9</code>, and
+the tail-jump caller at <code>05:785F</code> separately. A branch outcome unique to each
+return class identifies which callee paths have live witnesses. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Component</th><th style="text-align: right">Reachable instructions</th><th style="text-align: right">Natural / all-evidence outcomes</th><th style="text-align: right">Outcomes in CFG</th><th style="text-align: right">Natural / all-evidence instruction coverage</th></tr>
+</thead>
+<tbody>
+<tr><td>Settled construction</td><td style="text-align: right">991</td><td style="text-align: right">249 / 250</td><td style="text-align: right">408</td><td style="text-align: right">80.93% / 80.93%</td></tr>
+<tr><td>Settled rendering</td><td style="text-align: right">1,898</td><td style="text-align: right">258 / 259</td><td style="text-align: right">302</td><td style="text-align: right">97.52% / 97.52%</td></tr>
+<tr><td>Metrics and geometry</td><td style="text-align: right">470</td><td style="text-align: right">77 / 77</td><td style="text-align: right">80</td><td style="text-align: right">100.00% / 100.00%</td></tr>
+<tr><td>Record allocator</td><td style="text-align: right">64</td><td style="text-align: right">7 / 7</td><td style="text-align: right">8</td><td style="text-align: right">98.44% / 98.44%</td></tr>
+<tr><td>Alphabetic VAT search</td><td style="text-align: right">236</td><td style="text-align: right">17 / 17</td><td style="text-align: right">92</td><td style="text-align: right">34.32% / 34.32%</td></tr>
+<tr><td>Editor layout</td><td style="text-align: right">2,776</td><td style="text-align: right">255 / 255</td><td style="text-align: right">1,098</td><td style="text-align: right">33.03% / 33.03%</td></tr>
+<tr><td>Small-font and LCD output</td><td style="text-align: right">413</td><td style="text-align: right">81 / 81</td><td style="text-align: right">122</td><td style="text-align: right">75.54% / 75.54%</td></tr>
+<tr><td>Point and line primitives</td><td style="text-align: right">508</td><td style="text-align: right">50 / 50</td><td style="text-align: right">134</td><td style="text-align: right">59.65% / 59.65%</td></tr>
+<tr><td>Large glyphs</td><td style="text-align: right">130</td><td style="text-align: right">16 / 16</td><td style="text-align: right">32</td><td style="text-align: right">68.46% / 68.46%</td></tr>
+</tbody>
+</table>
+</div>
+<p>These counts describe the declared CFG and retained saturation corpus, not all
+OS entry states. A branch with both outcomes observed is dynamically saturated
+for that corpus. A branch with one or no outcomes remains open even when its
+containing routine has been reached. Metrics and geometry and the allocator
+have no wholly unobserved branch. The other seven components still do. Three of
+the allocator’s four branches and 37 of the 40 metric branches have both
+outcomes. [confirmed]</p>
+<p>The report classifies all 2,276 enumerated outcomes. Natural calculator input
+exercises 1,010. The synthetic <code>EF36h</code> state adds two outcomes, for 1,012 across
+all evidence. One allocator outcome is infeasible under its data invariant.
+Two metric outcomes are infeasible under the calculator call ABI, and one is
+infeasible under the valid <strong>Y=</strong> editor-entry invariant. Three small-font
+pointer outcomes are infeasible under the <code>01:6702</code> entry invariant. The full
+evidence set leaves 1,257 unresolved; the natural-only set leaves 1,259.
+An unobserved outcome never becomes infeasible from absence alone. [confirmed]</p>
+<p>The infeasible allocator outcome is the fallthrough at <code>33:4F4E</code>. The type
+<code>0x2B</code> path loads rows and columns from record offsets <code>+0x13</code> and <code>+0x12</code>, then
+<code>_HTimesL</code> (<code>00:1EF6</code>) computes their product. The matrix-creation path at
+<code>02:5DCF</code> raises <code>_ErrDimension</code> when either dimension is zero. A valid settled
+matrix record therefore reaches <code>33:4F4E</code> with a nonzero product and takes the
+branch. [confirmed]</p>
+<p>The calculator metric entries at <code>34:7377</code>, <code>34:737A</code>, and <code>34:7380</code> all pass
+through <code>34:7386</code>, which loads <code>B=0</code>. The recursive route stores that zero at
+<code>0x8512</code> and reloads it at <code>34:75F4</code> before <code>34:7606</code>. Induction over the
+dispatcher recursion therefore fixes <code>B=0</code>. The <code>B!=0</code> outcomes at <code>34:73CD</code>
+fallthrough and <code>34:765D</code> return are infeasible under this calculator ABI.
+Synthetic direct calls to internal metric handlers do not share the ABI.
+[confirmed]</p>
+<p>The <code>BBh</code> route through <code>smallfont_glyph_ptr</code> reaches <code>01:6765</code> with Z set by
+<code>CP BBh</code>; the intervening <code>LD A,L</code> preserves Z. The taken outcome is therefore
+infeasible from <code>01:6702</code>. Both outcomes of <code>01:6776</code> are also infeasible
+because that comparison’s only predecessor is the dead taken edge at
+<code>01:6765</code>. [confirmed]</p>
+<h3 id="minimal-diverse-trace-corpus"><a class="header" href="#minimal-diverse-trace-corpus">Minimal diverse trace corpus</a></h3>
+<p>The report computes two exact Z3 covers. The first preserves every individual
+branch outcome observed in the supplied traces. It does not preserve complete
+invocation paths, register or RAM states, dispatch indices, record cases, or LCD
+write cases. The all-evidence branch cover selects 20 traces and preserves
+1,012 outcomes in 4,424,233,548 bytes. The natural-only cover selects 21 traces
+and preserves 1,010 outcomes in 4,580,267,958 bytes.</p>
+<p>The diversity cover adds complete observed paths, modeled path classes,
+dispatch indices, record types, and LCD-oracle types. It deliberately excludes
+individual oracle identities, neighboring editor-state labels, raw register
+values, and raw token values. Those values belong to regression fixtures rather
+than the mechanism-diversity objective. The all-evidence universe has 1,106
+tags and needs 26 traces. The natural-only universe has 1,104 tags and also
+needs 26 traces. The retained byte totals are 5,118,199,506 and 5,204,001,186,
+respectively. Both covers minimize trace count first, retained bytes second,
+and labels third. [confirmed]</p>
+<p>The diversity cover preserves only mechanisms represented by its tags. It does
+not turn unobserved RAM into an observed state or prove that the traces reach
+every symbolic valuation. The separate exhaustive models state their
+preconditions; the dynamic cover states what the retained traces exercise.
+[confirmed]</p>
+<p>The 20-trace all-evidence branch cover retains the nested derivative, complete
+root-level structural-navigation, depth-two fraction <strong>LEFT</strong>, mixed
+radical/fraction traversal, integral, and <strong>Y=</strong>/table runs below. Other selected
+traces cover every outcome in the depth-four log-base, log-base marker, and
+radical runs, so the exact solver omits them. The macro paths contain no
+<code>memwrite</code> command or execution hook. The raw TLMT files remain outside the
+repository; their hashes identify the exact inputs used by the report.
+[confirmed]</p>
+<p>The all-evidence cover omits the token-built matrix traversal because the
+synthetic state already covers its otherwise-new <code>34:6B94</code> outcome. The
+natural-only cover selects it with 15 exclusive outcomes, including the first
+natural <code>34:6B94</code> taken witness. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Input</th><th>Reproduction macro</th><th>Trace SHA-256</th><th>Exclusive outcomes in the full branch cover</th></tr>
+</thead>
+<tbody>
+<tr><td>Nested derivative with tall body and value</td><td><code>tools/macros/mathprint-nested-tall-nderiv.macro</code></td><td><code>e11c011b74df79165c55f7f64b699e3aa393bf8087f45ec89a73d616b73cdbb5</code></td><td>10</td></tr>
+<tr><td>Depth-four log-base and power tree</td><td><code>tools/macros/mathprint-nested-depth4.macro</code></td><td><code>b8d970906e63db96d36847dfcafed91d97e73fc7699294cc8debd08e7affdd93</code></td><td>Omitted</td></tr>
+<tr><td>Log-base marker insertion</td><td><code>tools/macros/mathprint-logbase-boundary-insert.macro</code></td><td><code>a49e4c13c93358662713da7f5e07862f42863d60a70ce18e141a90987914008b</code></td><td>Omitted</td></tr>
+<tr><td>Radical marker insertion</td><td><code>tools/macros/mathprint-radical-nonspecial-insert.macro</code></td><td><code>e7b79e37149f2b9b4a986bdbb114a89b03cd452bbecc6da20490edc972895e98</code></td><td>Omitted</td></tr>
+<tr><td>Integral marker insertion</td><td><code>tools/macros/mathprint-integral-boundary-insert.macro</code></td><td><code>328b8f52ebe939b35f79e676076984aa85ee59e05c06862647c4fc615069bb3c</code></td><td>2</td></tr>
+<tr><td>Mixed summation traversal</td><td><code>tools/macros/mathprint-editor-summation-left-navigation.macro</code></td><td><code>55fee4452906f94c2f3133961879ce4daec8fa0a98a5b69be1c27eae27190d3d</code></td><td>3</td></tr>
+<tr><td>Completed nDeriv and log-base traversal</td><td><code>tools/macros/mathprint-editor-extra-structural-navigation.macro</code></td><td><code>d77bdeb19c52dd1337db4ea0410c1d5970924a7a3bf6a589742280b508fda776</code></td><td>2</td></tr>
+<tr><td>Remaining insertable structural traversal</td><td><code>tools/macros/mathprint-editor-remaining-structural-navigation.macro</code></td><td><code>6263edce978d46750859f38c964ec4858b2c28fc8f6c914d510a8c332a01d85f</code></td><td>19</td></tr>
+<tr><td>Token-built matrix traversal</td><td><code>tools/macros/mathprint-editor-matrix-navigation.macro</code></td><td><code>78639019ccf6b1d01a62b2f88dc5ff619382c08fe81396886aa0c49bcfe962d4</code></td><td>Omitted</td></tr>
+<tr><td>Depth-two fraction <strong>RIGHT</strong></td><td><code>tools/macros/mathprint-editor-nested-fraction-right-navigation.macro</code></td><td><code>15e6bccf136c7212fd36f7bf8ed570fd1ebbe161c8ef58584a439e891237d1ac</code></td><td>Omitted</td></tr>
+<tr><td>Depth-two fraction <strong>LEFT</strong></td><td><code>tools/macros/mathprint-editor-nested-fraction-left-navigation.macro</code></td><td><code>6cd38899f36e5a6398a0d1959557f8cb45172b4046db1f39cdfa298250066e6a</code></td><td>1</td></tr>
+<tr><td>Fraction nested in a radical</td><td><code>tools/macros/mathprint-editor-radical-fraction-navigation.macro</code></td><td><code>99d813bdbb7102c9bd5ae608c0cc9eb64cd84c0410a06e4f2243e1768d86c574</code></td><td>1</td></tr>
+<tr><td><strong>Y=</strong>/table/power round trip</td><td><code>tools/macros/mathprint-yequ-table-power-insert.macro</code></td><td><code>ac719f540d2adfca05d2ffa415f065b83eaf407f04fca42f5ae63c440a746b9d</code></td><td>16</td></tr>
+<tr><td><strong>Y=</strong> equals-sign selection sweep</td><td><code>tools/macros/mathprint-yequ-state-sweep.macro</code></td><td><code>56733273b52ab4281ca2998ec2b89ece3083deb75c01160f97b936f30b73fe2f</code></td><td>Omitted</td></tr>
+</tbody>
+</table>
+</div>
+<p>The two depth-two fraction traces each contain the same 367 branch outcomes.
+The <strong>LEFT</strong> trace is 34,465,218 bytes smaller, so the lexicographic minimum
+retains it and omits the <strong>RIGHT</strong> trace. This substitution changes retained
+bytes without changing the covered-outcome count. [confirmed]</p>
+<p>The mixed radical/fraction trace supplies the first natural <code>34:75B0</code>
+fallthrough with <code>A=27h</code>, the radical marker outside the special fraction,
+nth-root, and power set. It exercises the last two previously unseen metric
+instructions and raises metric/geometry instruction coverage to 100%. The
+component has 77 exercised outcomes, two outcomes proven infeasible under the
+calculator ABI, and one proven infeasible under the valid <strong>Y=</strong> editor-entry
+invariant. All 80 outcomes are classified. [confirmed]</p>
+<p>The retained <code>mathprint_integral_boundary_insert</code> trace reaches <code>34:6968</code>
+taken, <code>34:6B6D</code> fallthrough, and <code>34:6B94</code> fallthrough through calculator
+input. It supplies the natural witnesses recorded for all three outcomes.
+[confirmed]</p>
+<p>Four additional reset-origin traces close ten natural branch outcomes and four
+complete editor-helper paths. Their macros use key input only. The screenshots
+and <code>A</code> at each discriminator were checked before admission. [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Input</th><th>Reproduction macro</th><th>Trace SHA-256</th><th>Complete <code>eqdisp_draw_marker_primitive</code> path</th></tr>
+</thead>
+<tbody>
+<tr><td>Absolute-value marker</td><td><code>tools/macros/mathprint-absolute-boundary-insert.macro</code></td><td><code>103f3acc7f1ad13d1bf88af45ecacdc7e34133e66cc9c00fb57587674357cacf</code></td><td><code>A=0x21</code> → display code <code>0x7C</code></td></tr>
+<tr><td>$e^x$ marker</td><td><code>tools/macros/mathprint-e-power-boundary-insert.macro</code></td><td><code>c927963c5db9a1f6f18652213764eabbf7a4fa9f2d2a74b7dae320fe882d7917</code></td><td><code>A=0x25</code> → display code <code>0xDB</code></td></tr>
+<tr><td>$10^x$ marker</td><td><code>tools/macros/mathprint-ten-power-boundary-insert.macro</code></td><td><code>eb337f479d112e88537f0950fd7d2a917d101cfafda98447fb717a9a35f1e1e4</code></td><td><code>A=0x26</code> → display code <code>0x1D</code></td></tr>
+<tr><td>Summation marker</td><td><code>tools/macros/mathprint-summation-boundary-insert.macro</code></td><td><code>980b2d17df5753223881090235fcca4bb4e8457a37c6cb05eef8f7a54314adf8</code></td><td><code>A=0x29</code> → display code <code>0xC6</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The synthetic <code>EF36h</code> trace uses
+<code>tools/macros/mathprint-ef36-injected-buffer.macro</code>. Its two <code>memwrite</code>
+commands place <code>EF 36 31 11</code> at the editor cursor. It is the sole synthetic
+source in the 276-trace report. It supplies the only evidence for
+<code>34:5A23</code> fallthrough and <code>34:6992</code> taken. The token-built matrix traversal
+supplies the first natural witness for <code>34:6B94</code> taken. The full minimum
+retains it; the natural minimum excludes it by construction. [confirmed]</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="sub-table-yvars.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="sub-mathprint-editor.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="sub-table-yvars.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="sub-mathprint-editor.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-09f2665d.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-609e4cb8.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-f0fdd07e.js"></script>
+        <script src="hljs-z80-e93ac716.js"></script>
+        <script src="katex-5e4f3b03.min.js"></script>
+        <script src="katex-auto-render-bb53eb95.min.js"></script>
+        <script src="katex-init-5efd21f9.js"></script>
+        <script src="pseudocode-695903c6.min.js"></script>
+        <script src="pseudocode-init-a22cdb5c.js"></script>
+
+
+
+    </div>
+    </body>
+</html>
