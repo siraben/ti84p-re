@@ -1082,8 +1082,11 @@ def decode_probe_measurements(frame: ProbeFrame) -> dict[str, object]:
 def probe_appvar_report(blob: bytes, *, path: str | None = None) -> dict[str, object]:
     """Return a JSON-serializable report for one exported probe AppVar."""
 
+    from ti84re.hardware.compact_probe_code import encode_compact_probe_code
+
     variable, frame = decode_probe_appvar(blob)
     frame_bytes = frame.encode()
+    compact_code = encode_compact_probe_code(frame_bytes)
     report: dict[str, object] = {
         "variable_name": variable.name,
         "variable_version": variable.version,
@@ -1095,6 +1098,8 @@ def probe_appvar_report(blob: bytes, *, path: str | None = None) -> dict[str, ob
         "frame_size": len(frame_bytes),
         "frame_hex": frame_bytes.hex().upper(),
         "frame_sha256": hashlib.sha256(frame_bytes).hexdigest(),
+        "compact_state_code": compact_code,
+        "compact_state_code_length": len(compact_code),
         "probe_id": frame.probe_id,
         "probe_name": PROBE_NAMES.get(frame.probe_id, "unknown"),
         "asic_id": frame.asic_id,

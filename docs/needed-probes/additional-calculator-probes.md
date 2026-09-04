@@ -7,10 +7,12 @@ calculator. [confirmed] for the assembled artifacts and emulator executions;
 [hypothesis] for physical behavior.
 
 All three programs print `PROGRAM CODE nnnnn` only after cleanup and result
-creation. The number is CRC-16/CCITT-FALSE over the complete `HWP1` frame. The
-host decoder prints the same decimal value as `verification_code_decimal`.
-Matching the two values detects a transcription or file-selection error; it
-does not replace the exported AppVar or artifact hashes.
+creation. The number is CRC-16/CCITT-FALSE over the complete `HWP1` frame.
+After a key press, each program pages through the complete frame as a
+reversible small-font `HWPZ1-` code. The host decoder reports both values as
+`verification_code_decimal` and `compact_state_code`. Matching them detects a
+transcription or file-selection error; neither replaces the exported AppVar or
+artifact hashes.
 
 ## Mapper overlays — `HWPMAP`
 
@@ -126,10 +128,11 @@ Use an identified, repairable calculator with stable power. Do not distribute
 a device-specific build as part of the default probe bundle. [hypothesis] for
 unmeasured physical aliasing.
 
-On a normal return the calculator prints `HWPLAB CODE nnnnn`. Export
-`HWPLAB01`; `decode_hardware_probe.py` reports the same decimal CRC as
-`verification_code_decimal`. A pending outcome or restoration mismatch is a
-failed run, even if the calculator later reaches the home screen.
+On a normal return the calculator prints `HWPLAB CODE nnnnn`, then pages
+through its reversible compact frame code. Export `HWPLAB01`;
+`decode_hardware_probe.py` reports the same decimal CRC and `HWPZ1` text. A
+pending outcome or restoration mismatch is a failed run, even if the
+calculator later reaches the home screen.
 
 Exact assembly runs completed in both supported cores. TilEm selected the
 16-column model, restored every checked byte, and printed `62131`.

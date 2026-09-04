@@ -1,0 +1,126 @@
+{
+  "schema": "ti84p-re.compact-probe-emulator-evidence.v1",
+  "probe": "link-raw",
+  "probe_id": 8,
+  "payload_size": 266,
+  "machine_code_size": 1033,
+  "machine_code_sha256": "a7d43b86bb770b23ee2eba793c8539c0394784ba61c7e532f8c4a3d535c12881",
+  "rom_sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d",
+  "sources": {
+    "tools/probes/hardware/display.inc": "592d4c4ebd917abcdfc4810fd4288a0747289cddfeb9700c156676a27c4864e5",
+    "tools/probes/hardware/common.inc": "22d8adf8be0348eb73e2c51b8ff6411b23ddaf66777ea585b6d530f1bb024ddc",
+    "tools/ti84re/hardware/compact_probe_code.py": "986549c5d626cd2e12b1cdcd42d588f08af96086dc0114779bbdbd8407e6ac5c",
+    "tools/ti84re/hardware/probe.py": "998ff4a033c7199b2256160a7291b39ea96c643fcdf664febfb7131afb743bb3",
+    "tools/ti84re/hardware/build_probes.py": "0c9ca31d62fe022a054c075ed587ab2ad6cc876d11681d576cf9881f0001e84e",
+    "tools/ti84re/emulators/tilem/build_compact_probe.py": "d3a9df87d3c56e492c03689712c59d3bf229379590676a85f846f33cbe5bdcf6",
+    "tools/ti84re/emulators/wabbitemu/build_compact_probe.py": "0c31a8c8a9f28b919e51bdf3cdd84bcc9d9adaff52f3c4e0be818b8e35195f5a",
+    "tools/probes/tilem/tilem_compact_probe.c": "4cfe40c7c19f3ce2e21ee39f1fb3696dc119991c2a77dfccddfdc2cafaa80ecf",
+    "tools/probes/tilem/tilem_probe_support.c": "cf9e554bab3cfe90b9faf034bf98003263638a18d276355e1cca16da339bb8a5",
+    "tools/probes/tilem/tilem_probe_support.h": "039bac054d23ad54d6bbd5955bf2a8dab955d10a2fcc221cde96bd3c6d52a068",
+    "tools/ti84re/emulators/tilem/core.py": "5fdc239185817ea5572f681236a8edfef80b95df962421db7cc22f381effafcf",
+    "tools/probes/wabbitemu/wabbitemu_compact_probe.cpp": "db4a4143990f5bea85bb013c74521f97a24dc977e7f4cc628845b9e00453be0f",
+    "tools/probes/wabbitemu/wabbitemu_headless.cpp": "ef681a7477b44da303e35fcbb325b388e6f47f34397332da31a4abdadf92c766",
+    "tools/ti84re/emulators/wabbitemu/headless.py": "c719c7fb7160ef71946aa13dd8013879c5f578d81cc34a24e80ff3b1da9081df",
+    "tools/ti84re/hardware/run_compact_probe_e2e.py": "e1c3c5eb115b47de765e7067f1599eb5467167ff1f14de2a0723f2bd9c56e7be",
+    "tools/probes/hardware/link-raw.asm": "4f98345567fb88dfca8781123ed1aa59a8f278762840645cefa9ec142526653f"
+  },
+  "emulator_sources": {
+    "tilem": {
+      "commit": "f56ad637d0524ee841dd381be6ecbaf5b8975600",
+      "git_tree": "58316afe35d69e69353f0f743698144153051d4a"
+    },
+    "wabbitemu": {
+      "commit": "48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422",
+      "source_tree_sha256": "a8a4f97fc7952770bed317b4a477f80345894da38d14fad8f0bf0ee60aae71ba"
+    }
+  },
+  "backends": {
+    "tilem": {
+      "backend": "tilem",
+      "binary_sha256": "52a947c5fbec0087ee09970fa529a8632c3862e992eb68b7ef9d03dde0712fd6",
+      "command": [
+        "/tmp/ti84-tilem-compact-sentinel",
+        "--compact-probe",
+        "tools/rom.bin",
+        "/tmp/nix-shell.KelilX/ti84-compact-e2e-mr76yy0h/HWLINK.bin",
+        "8",
+        "266",
+        "100000000"
+      ],
+      "status": "completed",
+      "frame_hex": "4857503101080A0145E1030B080103030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212122121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212130303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030300B080103E3",
+      "display_code_decimal": 7924,
+      "compact_code": "HWPZ1-2G0Z87J8AX832088180MBR831C403ZT00FZM04QZ80GZYG9G1C4020Z3",
+      "compact_code_length": 62,
+      "key_pages": 2,
+      "rendered_small_font": false,
+      "lcd_fnv1a64": "51d88627df287325",
+      "native_fields": {
+        "mode": "tilem-compact",
+        "probe_id": "8",
+        "payload_size": "266",
+        "probe_size": "1033",
+        "run_clocks": "257700",
+        "create_intercepts": "1",
+        "key_pages": "2",
+        "final_pc": "0x9D94",
+        "final_sp": "0xFF02",
+        "marker_visits": "1",
+        "returned": "1",
+        "exception": "0x0",
+        "appvar_matches": "1",
+        "completed": "1",
+        "display_code": "7924",
+        "rendered": "0",
+        "lcd_fnv1a64": "51d88627df287325",
+        "compact_code": "HWPZ1-2G0Z87J8AX832088180MBR831C403ZT00FZM04QZ80GZYG9G1C4020Z3",
+        "frame_hex": "4857503101080A0145E1030B080103030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212122121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212130303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030300B080103E3"
+      }
+    },
+    "wabbitemu": {
+      "backend": "wabbitemu",
+      "binary_sha256": "56b679ea6fb25ea57beb8cad85240007350bd49313b20178d03284806488ebc4",
+      "command": [
+        "/tmp/ti84-wabbitemu-compact-sentinel",
+        "--compact-probe",
+        "tools/rom.bin",
+        "/tmp/nix-shell.KelilX/ti84-compact-e2e-mr76yy0h/HWLINK.bin",
+        "8",
+        "266",
+        "10000000"
+      ],
+      "status": "completed",
+      "frame_hex": "4857503101080A0144E1030B080103030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303121313131213131313121313121313131213131313121313121313131213131313121313121313131213131313121313121313131213131313121313121313132123232321232323232123232123232321232323232123232123232321232323232123232123232321232323232123232123232321232323232123232123232330303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030300B080103E3",
+      "display_code_decimal": 8314,
+      "compact_code": "HWPZ1-2G0QM828AX832088180M9R831C403ZT00C9FY0RK2BZG84RJ2C9H5ZR32C9FY10K289H64QZ0C9H5ZR42C9164RJZW1H64QZ0G9H44RK2BZG64RJZW2164GK2C9FY0RK47ZG68S1ZW2268934CGZY0S347ZG88S14CHJ3ZR34CGZY11344HJ68FZ0CHJ3ZR44CGJ68S1ZW1J68FZ0GHJ28S347ZG68ZZ84R0P2010FHG",
+      "compact_code_length": 242,
+      "key_pages": 3,
+      "rendered_small_font": true,
+      "lcd_fnv1a64": "923ca5e6376277b0",
+      "native_fields": {
+        "mode": "wabbitemu-compact",
+        "probe_id": "8",
+        "payload_size": "266",
+        "probe_size": "1033",
+        "boot_steps": "134845",
+        "probe_steps": "623711",
+        "create_intercepts": "1",
+        "key_pages": "3",
+        "marker_visits": "1",
+        "returned": "1",
+        "final_pc": "0x9D94",
+        "final_sp": "0xFF02",
+        "appvar_matches": "1",
+        "completed": "1",
+        "display_code": "8314",
+        "rendered": "1",
+        "lcd_fnv1a64": "923ca5e6376277b0",
+        "all_pages_nonblank": "1",
+        "page_lcd_fnv1a64": "f08e247c55180cae,400d8ff41506ac54,923ca5e6376277b0",
+        "page_nonzero_bytes": "35,540,369",
+        "compact_code": "HWPZ1-2G0QM828AX832088180M9R831C403ZT00C9FY0RK2BZG84RJ2C9H5ZR32C9FY10K289H64QZ0C9H5ZR42C9164RJZW1H64QZ0G9H44RK2BZG64RJZW2164GK2C9FY0RK47ZG68S1ZW2268934CGZY0S347ZG88S14CHJ3ZR34CGZY11344HJ68FZ0CHJ3ZR44CGJ68S1ZW1J68FZ0GHJ28S347ZG68ZZ84R0P2010FHG",
+        "frame_hex": "4857503101080A0144E1030B080103030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303121313131213131313121313121313131213131313121313121313131213131313121313121313131213131313121313121313131213131313121313121313132123232321232323232123232123232321232323232123232123232321232323232123232123232321232323232123232123232321232323232123232123232330303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030300B080103E3"
+      }
+    }
+  }
+}

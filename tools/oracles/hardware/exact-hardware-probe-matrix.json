@@ -35,7 +35,7 @@
       }
     },
     "wabbitemu": {
-      "binary_sha256": "0f4cb971b3ff1475f2293c2e50db4c6207af92f69e670c0cf0c053901be90569",
+      "binary_sha256": "643607b5acee38813b221f3e91e24de31332acc8be25368e1d281e1a07c31d79",
       "completed": 24,
       "failed": 0,
       "verification_codes_decimal": {
