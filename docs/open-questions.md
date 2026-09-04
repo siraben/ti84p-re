@@ -134,14 +134,15 @@ Remaining: the meaning of the loop-record state word (it varies per fixture:
 `38:5836`/`38:587D` and the `While`/`Repeat` runtime continuation `38:57E7`.
 [confirmed]
 
-Also open: a direct assembly-to-TI-BASIC program-call entry beyond VAT lookup
-and the cooperative `Ans` callback. The generated `ZZRUN` negative probe
-resolves `prgmOO`, sets the observed parser interval, and enters `38:6910`, but
-the carry-guarded run terminates at `_ErrSyntax` (`ram:2700`) with the cursor
-inside the target body. An 80-byte layout of the same probe ended at
-`_ErrArgument` (`ram:2711`), so the terminal error depends on state outside the
-copied name and cursor interval. The remaining gap is the native caller's
-stack, error-handler, FPS/OPS, and run-state setup around that private entry.
+The ASM/BASIC boundary is resolved within an exact bounded census. All 1,732
+main bcall slots, all 825 raw cross-page-call descriptors, and every direct
+edge in `38:4100`–`38:77FF` expose no separate ASM-to-BASIC program-call ABI.
+T042 saves and restores the parser, VAT, FPS/OPS, flag, and error state; an
+incomplete direct call raises `E_DataType` before `38:6910`, while the ordinary
+`prgmNAME` caller reaches `38:6910`, `38:6914`, and `38:778F` and returns
+normally. Fully constructing every private grammar/type and return record is
+the ordinary caller reproduced in ASM, not a distinct ABI. The supported route
+remains an ASM result through `Ans`, followed by a BASIC-owned `prgmNAME` call.
 [confirmed]
 
 The group receive path is resolved. Receiving a `.8xg` stores each member as an
