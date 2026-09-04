@@ -28,7 +28,18 @@ The stored value is
 
 $$v = \pm\\,(d_0.d_1d_2\cdots d_{13})\times 10^{\\,e-\mathtt{0x80}}$$
 
-where $e$ is the biased exponent byte and $d_0\ldots d_{13}$ are the 14 BCD mantissa digits. A ROM-byte scan found roughly 126 candidate BCD constants ROM-wide [hypothesis] ($\pi/180 = 1.745\ldots\mathrm{e}{-2}$, $180/\pi = 5.729\ldots\mathrm{e}{1}$, 65536, plus the FP transcendental coefficient tables on page 0x02). The table addresses below are confirmed by Ghidra disassembly and raw ROM bytes.
+where $e$ is the biased exponent byte and $d_0\ldots d_{13}$ are the 14 BCD
+mantissa digits. The guarded raw-byte scan finds 144 overlapping nine-byte
+windows that satisfy the type, exponent, packed-digit, and normalization
+heuristic. Greedily skipping nine bytes after each match leaves 134 candidates.
+These counts include instruction bytes and unrelated data. Counts derived from
+Ghidra data definitions instead depend on listing state and do not measure the
+same ROM-only candidate set. [confirmed]
+
+The constants used below are confirmed separately by Ghidra references and raw
+ROM bytes. Examples include $\pi/180 = 1.745\ldots\mathrm{e}{-2}$,
+$180/\pi = 5.729\ldots\mathrm{e}{1}$, 65536, and the Flash page `02`
+transcendental coefficient tables. [confirmed]
 
 ## OP registers — 11 bytes each [confirmed]
 
@@ -126,7 +137,8 @@ These five page-0 primitives are shared by add/sub/mult/div and the transcendent
 
 `ram:1d2f` and `ram:1d37` are two entry points into the same BCD-subtract body — `1d2f` loads `HL=0x8481` (OP1 guard), `DE=0x848C` (OP2 guard) and computes `OP2 − OP1` into OP2 (<code>LD A,(DE)</code><br><code>SUB (HL)</code>), while `1d37` enters with the pointers swapped for the reverse `OP1 − OP2`, before joining the common loop — so the caller picks the subtraction direction by choosing the entry. This is what lets `_FPAdd` produce a non-negative magnitude and then fix the sign.
 
-Multiply/divide/transcendentals (on page 0x02) reuse the same align/normalize primitives.
+Multiply, divide, and the transcendental routines on Flash page `02` reuse the
+same alignment and normalization primitives.
 
 ### Accumulator high-nibble helper [confirmed]
 
@@ -145,7 +157,8 @@ the bcall returns. The result is in `tools/data/community-bcall-semantics.csv`.
 
 ## Multiplication, division, and transcendentals [confirmed]
 
-The rest of the FP op set lives alongside add on page 0, with the transcendentals banked to page 0x02:
+The rest of the FP operation set lives alongside addition on page `00`; the
+transcendental routines are banked to Flash page `02`:
 
 | Routine | Addr | Role |
 |---------|------|------|
@@ -257,7 +270,7 @@ slots. [confirmed]
 
 ### `_SinCosRad` sine and cosine in radians (`02:733E`) [confirmed]
 
-This one keeps its range reduction on page 0x02 and is the most fully recovered:
+This routine keeps its range reduction on Flash page `02`:
 
 1. **Mode/select flags.** `0x8499` holds the trig-op selector — `0x01` (sin), `0x02` (cos), `0x04` (tan) — ORed with `0x80` when `(IY+0)` bit 2 is clear (<code>BIT 2,(IY+0)</code><br><code>JR NZ,+2</code><br><code>OR 0x80</code>). `_SinCosRad` itself enters with `A=0x81`, so it stores `0x81` regardless. `fp_clear_guard` and `_ZeroOP3` initialize the work area.
 2. **Exponent gate.** <code>LD A,(0x8479)</code><br><code>SUB 0x80</code><br><code>JP C,02:73D4</code><br><code>CP 0x0C</code><br><code>JP NC</code> — tiny arguments (negative exponent) take a fast path at `02:73D4`, and arguments with decimal exponent ≥ 12 are rejected to the slow/error path (`_JError 0x84` for out-of-range), because reduction can no longer be done accurately.

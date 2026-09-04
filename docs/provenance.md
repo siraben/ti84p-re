@@ -18,8 +18,9 @@ different boot support. [confirmed]
 
 The canonical image starts from `ti84plus_patched.rom`, whose SHA-256 is
 `90472848b5f56902287fd5d8b455e62d60e9ab054647c9a03c1c91a67fc1a95a`.
-`D84PBE2.8Xv` supplies page `0x2F`; `D84PBE1.8Xv` supplies page `0x3F`, although
-that decoded retail page is byte-identical to the base image's page `0x3F`.
+`D84PBE2.8Xv` supplies Flash page `2F`; `D84PBE1.8Xv` supplies Flash page `3F`,
+although that decoded retail page is byte-identical to the base image's page
+`3F`.
 The exact AppVar and decoded-page identities are pinned in
 `tools/ti84re/rom/signatures.py`. [confirmed]
 
@@ -41,13 +42,13 @@ pages are also recorded. It cannot establish retail boot behavior.
 table entries. Every target address differs. BootFree maps 38 entries to other
 bodies, 45 entries to a bare `RET`, and four entries to small
 constant-return stubs. The six retail entries whose bodies live on USB boot
-page `0x2F` all map to BootFree's bare-`RET` stub. [confirmed]
+page `2F` all map to BootFree's bare-`RET` stub. [confirmed]
 
 The reset paths also differ before any OS code runs: [confirmed]
 
 | Step | Retail boot 1.03 | BootFree 11.259 |
 |---|---|---|
-| Reset stub | Writes ports `0x04`, `0x06`, and `0x0E`, then jumps to `0x812C` | Maps page `0x3F` through ports `0x06` and `0x07`, then jumps to `0x812C` |
+| Reset stub | Writes ports `0x04`, `0x06`, and `0x0E`, then jumps to `0x812C` | Maps Flash page `3F` through ports `0x06` and `0x07`, then jumps to `0x812C` |
 | Installed-OS test | Scans the keypad; **DEL** and **STAT** select recovery; otherwise tests byte `0x0038` and marker `0xA55A` at `0x0056` | Tests only marker `0xA55A` at `0x0056`; it does not scan a recovery key |
 | Missing or rejected OS | Enters serial or USB-assisted recovery and can receive an OS | Displays `No OS Loaded` and halts |
 | Boot services | Certificate, validation, serial receive, USB receive, installer display, and error paths | Smaller Flash/certificate utility set; signature, receive, USB, and most installer-display entries are stubs |
