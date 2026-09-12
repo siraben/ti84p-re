@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a4111ed2.js";
+            window.path_to_searchindex_js = "searchindex-d7d0b8a3.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d9f1b932.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -390,72 +390,53 @@ executing the intervening tokens. That is the purpose of
 only the latter opens a block. Nested <code>Else</code> tokens are ignored until the depth
 returns to zero. The comparisons and counter changes are visible at
 <code>38:4137–417E</code>; the counter is the 16-bit <code>DE</code> register. [confirmed]</p>
-<h3 id="natural-loops-use-a-page-38-ops-record"><a class="header" href="#natural-loops-use-a-page-38-ops-record">Natural loops use a page-38 OPS record</a></h3>
-<p>The public page-33 routine behind bcall <code>grf_435f = 5140h</code> subtracts <code>20h</code>,
-accepts 13 indices, and jumps through the table at <code>33:4381</code>. Three ABI probes
-confirm both bounds outcomes at <code>33:436D</code> and <code>33:4372</code>, but natural stored
-programs do not enter it. It is not the <code>For(</code>/<code>End</code> transition. [confirmed]</p>
+<h3 id="natural-loops-use-fps-and-ops-records"><a class="header" href="#natural-loops-use-fps-and-ops-records">Natural loops use FPS and OPS records</a></h3>
 <p>Natural <code>For(</code> execution reaches <code>parse_for_production</code> (<code>38:41E5</code>). Natural
-<code>End</code> execution reaches <code>parse_end_ops_record</code> (<code>38:4200</code>), which consumes a
-5-byte loop record from the operator stack at <code>OPS + 1</code>. All three structured
-loops share the shape — sentinel byte, continuation word, state word: [confirmed]</p>
-<pre><code class="language-c">#pragma pack(push, 1)
-typedef struct {
-    uint8_t sentinel;       /* 00h */
-    uint16_t continuation;  /* where the End token jumps back to */
-    uint16_t state;         /* varies per fixture; meaning open */
-} TILoopOpsRecord;
-#pragma pack(pop)
-</code></pre>
-<p>A shadow-memory replay of the headless trace records the loop state for a
-program that runs <code>For(θ,1,3)</code>, <code>While θ&lt;3</code>, and <code>Repeat θ≥2</code> in sequence. The
-reproduction macro is <code>tools/macros/run-loops-typed.macro</code>.</p>
+<code>End</code> execution reaches <code>parse_end_ops_record</code> (<code>38:4200</code>). Each loop owns
+floating-point operands on the FPS and three control words on the OPS.
+[confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Loop</th><th>Record at <code>End</code></th><th>Continuation</th><th>State</th></tr>
+<tr><th>Loop</th><th style="text-align: right">Offset below body <code>FPS</code></th><th>Meaning</th><th>OPS continuation</th></tr>
 </thead>
 <tbody>
-<tr><td><code>For(</code> first <code>End</code></td><td><code>00 36 58 07 00</code></td><td><code>for_first_update</code> (<code>38:5836</code>)</td><td><code>0007h</code></td></tr>
-<tr><td><code>For(</code> later <code>End</code>s</td><td><code>00 7D 58 07 00</code></td><td><code>for_steady_update</code> (<code>38:587D</code>)</td><td><code>0007h</code></td></tr>
-<tr><td><code>Repeat</code> <code>End</code></td><td><code>00 E7 57 23 00</code></td><td><code>38:57E7</code></td><td><code>0023h</code></td></tr>
+<tr><td><code>For(</code></td><td style="text-align: right"><code>-36</code></td><td>loop-variable descriptor</td><td><code>38:5836</code></td></tr>
+<tr><td><code>For(</code></td><td style="text-align: right"><code>-27</code></td><td>initial value</td><td>—</td></tr>
+<tr><td><code>For(</code></td><td style="text-align: right"><code>-18</code></td><td>limit</td><td>—</td></tr>
+<tr><td><code>For(</code></td><td style="text-align: right"><code>-9</code></td><td>step</td><td>—</td></tr>
+<tr><td><code>While</code></td><td style="text-align: right"><code>-9</code></td><td>condition operand</td><td><code>38:57C3</code></td></tr>
+<tr><td><code>Repeat</code></td><td style="text-align: right"><code>-9</code></td><td>condition operand</td><td><code>38:57E7</code></td></tr>
 </tbody>
 </table>
 </div>
-<p>The continuation field selects the loop mechanics. Observed state words include
-<code>0012h</code> and <code>0007h</code>, so the field is not a fixed constant; its exact role is
-still open. [confirmed]</p>
-<p><code>While</code> and <code>Repeat</code> push their records in a parse-time form with continuation
-<code>38:5AC1</code>. Three observed pushes carry marker bytes <code>F0 58</code>, <code>11 58</code>, and
-<code>2A 58</code>. The first condition evaluation rewrites the record to the runtime form
-above. That evaluation runs through
-<code>38:41CC</code> or <code>38:41D9</code> — each guards with <code>CALL 7203</code>, calls <code>71B4</code>, pops the
-saved value into <code>HL</code>, and jumps to <code>38:57A8</code> or <code>38:57E1</code> respectively;
-<code>38:57E1</code> sits immediately before the <code>Repeat</code> continuation <code>38:57E7</code>.
+<p>Each OPS record contains three little-endian words. Offset <code>+0</code> is the
+continuation address. Offset <code>+2</code> is the one-based parse offset. Offset <code>+4</code>
+is the previous <code>cleanTmp</code> depth. OPS grows downward, so transient evaluator
+objects can precede the record in an ascending RAM dump. [confirmed]</p>
+<p><code>38:595A</code> computes <code>nextParseByte - basic_start + 1</code>. The path at <code>38:5965</code>
+restores the cursor as <code>basic_start + offset</code>, then pushes the offset and
+continuation through <code>38:7511</code>. A <code>For(I,1,3)</code> trace records offset <code>7</code>; the
+tracked <code>While</code> and <code>Repeat</code> cases record offset <code>8</code>. [confirmed]</p>
+<p><code>38:58CE</code> pushes the condition for <code>While</code> and <code>Repeat</code>, then saves the cleanup
+link. <code>For(</code> enters the same save path at <code>38:58D1</code> because its parsed operands
+already occupy the FPS. <code>38:58DF</code> restores the previous cleanup depth.
 [confirmed]</p>
-<p>A single trace does not establish which loop re-enters through
-<code>parse_end_ops_record</code> on each iteration and which jumps directly from its
-continuation. [hypothesis]</p>
-<pre class="mermaid">flowchart LR
-    F["For( token"] --&gt; P["parse_for_production&lt;br/&gt;create production state"]
-    P --&gt; B["execute loop body"]
-    B --&gt; E["End token&lt;br/&gt;parse_end_ops_record"]
-    E --&gt; O["pop sentinel + continuation + state word"]
-    O --&gt; I["for_first_update"]
-    O --&gt; S["for_steady_update"]
-    I --&gt; B
-    S --&gt; B
-</pre>
-
-<p>The continuation path resolves the loop variable through the VAT, applies the
-floating-point increment, compares the updated value, and either revisits the
-body or removes the record. The paired trace confirms the record bytes and the
-two continuations. The complete layout of the associated limit, step, and
-temporary floating-point values is not yet decoded. [confirmed]</p>
-<p>The optional closing <code>)</code> in <code>For(</code> changes marker-to-marker work and parser
-buffer state. Neither spelling reaches the page-02 finalization gate in the
-paired trace, so the exact causal transition remains open. The measured effect
-is covered in <a href="sub-tibasic-for-paren.html">the <code>For(</code> parenthesis trap</a>.</p>
+<p>A terminating <code>For(</code> removes <code>0x24</code> FPS bytes at <code>38:582A</code>. Its complete FPS
+record is 36 bytes, but the handler grows FPS by 27 bytes because it adopts the
+parsed loop-variable descriptor. A false <code>While</code> takes <code>38:57B0</code>, scans to the
+matching <code>End</code>, drops one FPS slot at <code>38:57B7</code>, and restores the cleanup link.
+<code>Repeat</code> reverses the condition at <code>38:57F8</code>. [confirmed]</p>
+<p>Nested-loop traces observe saved <code>cleanTmp</code> depths <code>1</code>, <code>2</code>, and <code>3</code>. A
+<code>Return</code> inside <code>For(</code> reaches <code>38:5836</code>, removes the 36-byte FPS record, and
+restores the cleanup link. <code>Stop</code> inside <code>While</code> bypasses <code>38:57C3</code> and exits
+the program chain. Divide-by-zero inside <code>Repeat</code> bypasses <code>38:57E7</code>; the OS
+error cleanup resets <code>cleanTmp</code>, FPS, and OPS before displaying the error.
+[confirmed]</p>
+<p>Six TilEm cases cover normal <code>For(</code>, <code>While</code>, and <code>Repeat</code>, nesting,
+<code>Return</code>/<code>Stop</code>, and an OS error. [confirmed]</p>
+<p>The optional closing <code>)</code> in <code>For(</code> changes parser work. The measured effect is
+covered in <a href="sub-tibasic-for-paren.html">the <code>For(</code> parenthesis trap</a>.</p>
 <h3 id="labels-rescan-instead-of-indexing"><a class="header" href="#labels-rescan-instead-of-indexing">Labels rescan instead of indexing</a></h3>
 <p><code>goto_lbl_name_scanner</code> (<code>38:4870</code>) reads the label name after <code>Goto</code> or <code>Lbl</code>.
 The search path at <code>38:7600</code> rescans the program body for a matching <code>Lbl</code>, then
@@ -488,7 +469,7 @@ are not substitutes for that prepared state: calling <code>_ParseInpLastEnt</cod
 working BASIC call frame. The negative fixtures end at <code>ERR:INVALID</code> and
 <code>ERR:UNDEFINED</code>, respectively. [confirmed]</p>
 <p>For source-level conventions and the <code>Ans</code>/scalar/list calling fixture, see
-<a href="sub-tibasic-programming.html#subprogram-interfaces">TI-BASIC programming patterns</a>.</p>
+<a href="sub-tibasic-examples.html#subprogram-interfaces">TI-BASIC examples and ASM interop</a>.</p>
 <h2 id="commands-parse-arguments-then-hand-off"><a class="header" href="#commands-parse-arguments-then-hand-off">Commands parse arguments, then hand off</a></h2>
 <p>Commands use the same expression evaluator for arguments and then cross to a
 specialized subsystem. The important boundary is between argument parsing and
@@ -501,7 +482,7 @@ the operation itself:</p>
 <tbody>
 <tr><td><code>Disp</code></td><td>page-38 statement handler</td><td><code>_Disp</code> at <code>37:51D3</code>, then <code>_NewLine</code></td></tr>
 <tr><td><code>Output(</code></td><td><code>38:6AE6</code>, page-02 handler</td><td><code>_OutputExpr</code> at <code>03:4AF2</code></td></tr>
-<tr><td><code>Input</code></td><td><code>02:54EF</code></td><td>entry editor, <code>_ParseInp</code>, variable store</td></tr>
+<tr><td><code>Input</code></td><td><code>02:54EF</code></td><td>entry editor, <code>_ParseInpGraphReset</code>, variable store</td></tr>
 <tr><td><code>Prompt</code></td><td><code>02:562F</code></td><td>repeated named-variable entry and store</td></tr>
 <tr><td><code>Menu(</code></td><td><code>02:555D</code></td><td><code>_DispMenuTitle</code> at <code>39:4D21</code>, then label transfer</td></tr>
 <tr><td><code>Pause</code></td><td><code>02:55E7</code></td><td>display and key-wait loop</td></tr>
@@ -511,9 +492,35 @@ the operation itself:</p>
 </div>
 <p><code>Input</code> accepts either an optional prompt string or a row/column prefix before
 one store target. <code>Prompt</code> loops over comma-separated variables and generates
-the <code>NAME=</code> labels itself. <code>Menu(</code> parses a title followed by option-string and
-label pairs. These argument-order boundaries are [confirmed]; the entry
-editor’s internal cursor and redraw state are not yet mapped.</p>
+the <code>NAME=</code> labels itself. Accepted text enters <code>_ParseInpGraphReset</code> (bcall
+<code>4B04h</code>, body <code>38:5978</code>) and continues through the parser handoff at <code>38:5B2B</code>.
+It does not enter <code>_ParseInp</code> at <code>38:5987</code> in the tracked cases. [confirmed]</p>
+<p>The entry editor stores tokenized text in a split buffer: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Word</th><th>Address</th><th>Boundary</th></tr>
+</thead>
+<tbody>
+<tr><td><code>editTop</code></td><td><code>0x96F4</code></td><td>start of the left span</td></tr>
+<tr><td><code>editCursor</code></td><td><code>0x96F6</code></td><td>end of the left span and start of the gap</td></tr>
+<tr><td><code>editTail</code></td><td><code>0x96F8</code></td><td>end of the gap and start of the right span</td></tr>
+<tr><td><code>editBtm</code></td><td><code>0x96FA</code></td><td>end of the right span</td></tr>
+</tbody>
+</table>
+</div>
+<p>Insertion at <code>06:4341</code> writes at the cursor. Cursor movement transfers tokens
+across the gap through <code>06:441E</code>/<code>06:445C</code>; <code>06:43CA</code> and <code>06:472F</code> repack the
+two sides. Delete and redraw run through <code>06:45F8</code> and <code>06:46AF</code>. The
+<code>EDINPUT</code> trace submits an empty line, retries, edits an expression that wraps
+from row 0 to row 1, and displays <code>45</code> after parser handoff. [confirmed]</p>
+<p>The <strong>[ON]</strong> cancellation fixture reaches <code>_ErrBreak</code> at <code>ram:273D</code> and the
+error cleanup at <code>ram:2793</code>. It never reaches the parser handoff or the later
+<code>Disp 99</code>. Both <code>editOpen</code> (<code>0x89F1</code> bit 2) and <code>promptEdit</code> (<code>0x8A01</code> bit 0)
+are clear after cleanup. <code>Menu(</code> uses its separate title/key path at
+<code>39:4D21</code>/<code>39:5955</code>; the tracked numeric selection reaches the label scanner
+at <code>38:4870</code> and displays <code>22</code>. [confirmed]</p>
+<p>Four TilEm cases cover <code>Input</code>, <code>Prompt</code>, cancellation, and <code>Menu(</code>. [confirmed]</p>
 <p><code>getKey</code> is an expression value, not a statement. The table at <code>37:6700</code> is a
 token-attribute table; returned key codes come from <code>_GetKey</code> on page 06. This
 distinction prevents a common false inference from the nearby <code>CP ADh</code> bytes.
@@ -532,7 +539,7 @@ guard paths. This table groups related paths so the mechanism stays visible:</p>
 <tr><th>Program</th><th>Originating guard</th><th>Predicate</th><th>Error shim</th></tr>
 </thead>
 <tbody>
-<tr><td><code>Disp 1/0</code></td><td><code>00:2548–254B</code></td><td>divisor in OP1 is zero</td><td><code>_ErrDivBy0</code> at <code>00:26EC</code></td></tr>
+<tr><td><code>Disp 1/0</code></td><td><code>00:2548–254B</code></td><td>divisor in OP2 is zero</td><td><code>_ErrDivBy0</code> at <code>00:26EC</code></td></tr>
 <tr><td><code>Disp 10^100</code></td><td><code>02:7076–7078</code>, then <code>02:7053–7059</code></td><td>positive exponent argument is at least 100</td><td><code>_ErrOverflow</code> at <code>00:26E8</code></td></tr>
 <tr><td><code>Disp 1E99*1E99</code></td><td><code>00:2513–251D</code></td><td>adjusted sum of biased decimal exponents overflows</td><td><code>_ErrOverflow</code> at <code>00:26E8</code></td></tr>
 <tr><td><code>Disp ln(0)</code></td><td><code>02:6F1E</code>, then <code>00:212D–2131</code></td><td>logarithm operand in OP1 is zero</td><td><code>_ErrDomain</code> at <code>00:26F4</code></td></tr>
@@ -610,7 +617,7 @@ unwind_error(error_code):
 error-screen <code>Goto</code> editor and every nested-error caller remain outside the
 current interpreter model.</p>
 <h2 id="what-the-coverage-model-establishes"><a class="header" href="#what-the-coverage-model-establishes">What the coverage model establishes</a></h2>
-<p><code>tools/analyze_tibasic_coverage.py</code> ties eight finite models to byte signatures
+<p><code>tools/ti84re/tibasic/analyze_coverage.py</code> ties eight finite models to byte signatures
 in the pinned ROM. It exhausts 591,360 states across token width, delimiters,
 one scan step, one block-depth transition, the extended-class fold, precedence
 family selection, command finalization, and page-33 table bounds. Z3 proves a
@@ -631,7 +638,7 @@ declared computed jumps are expanded over their ROM-defined valid domains, but
 corrupted or otherwise out-of-domain dispatch state is not modeled. Calls into
 display, graphing, and other ROM pages leave the declared regions, and arbitrary
 token streams, recursion depths, VAT layouts, and floating-point values remain
-open. The compact <code>tools/tibasic-saturation.json</code> report records those
+open. The compact <code>tools/oracles/tibasic/tibasic-saturation.json</code> report records those
 boundaries explicitly.</p>
 <h2 id="address-map"><a class="header" href="#address-map">Address map</a></h2>
 <div class="table-wrapper">
@@ -663,9 +670,9 @@ boundaries explicitly.</p>
 </tbody>
 </table>
 </div>
-<p>The local finite-model evidence is <code>tools/tibasic-coverage.json</code>. The broader
-direct-CFG evidence is <code>tools/tibasic-saturation.json</code>. The selected backward
-error slices are in <code>tools/tibasic-numeric-errors.json</code>. All three generators
+<p>The local finite-model evidence is <code>tools/oracles/tibasic/tibasic-coverage.json</code>. The broader
+direct-CFG evidence is <code>tools/oracles/tibasic/tibasic-saturation.json</code>. The selected backward
+error slices are in <code>tools/oracles/tibasic/tibasic-numeric-errors.json</code>. All three generators
 verify the pinned ROM before producing a report.</p>
 
                     </main>

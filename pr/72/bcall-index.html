@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a4111ed2.js";
+            window.path_to_searchindex_js = "searchindex-d7d0b8a3.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d9f1b932.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,7 +180,12 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="bcall-index"><a class="header" href="#bcall-index">bcall index</a></h1>
-<p>The main table below lists the live-confirmed <code>0x4xxx</code> bcall system calls. Each has an <em>ID</em> (the 2-byte value after <code>rst 28h</code>) and a <em>body</em> at <code>page:addr</code>. Use your browser’s find, or the wiki search box. See <a href="bcall-mechanism.html">The bcall Mechanism</a> for how dispatch works. The <code>0x8xxx</code> boot bcall names at the end are official SDK equates resolved from the retail boot table on page <code>3F</code>; USB boot entries point into page <code>2F</code>.</p>
+<p>The main table below lists 645 byte-resolved bcall mappings in the
+<code>0x4000</code>–<code>0x7FFF</code> ID range. Each has an <em>ID</em> (the word after <code>rst 28h</code>) and
+a <em>body</em> at <code>page:addr</code>; a mapping does not establish runtime coverage or the
+complete ABI. See <a href="bcall-mechanism.html">The bcall mechanism</a> for dispatch.
+The retail boot table below contains 83 SDK names and four inferred names;
+USB boot targets lie on page <code>2F</code>.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -202,7 +207,7 @@
 <tr><td><code>edt_5d6f</code></td><td><code>5464</code></td><td><code>03:5D6F</code></td></tr>
 <tr><td><code>edt_69f8</code></td><td><code>5461</code></td><td><code>03:69F8</code></td></tr>
 <tr><td><code>edt_6bd1</code></td><td><code>5458</code></td><td><code>03:6BD1</code></td></tr>
-<tr><td><code>fps_push_real</code></td><td><code>4A83</code></td><td><code>07:6365</code></td></tr>
+<tr><td><code>fnint_integrate</code></td><td><code>4A83</code></td><td><code>07:6365</code></td></tr>
 <tr><td><code>fpx_4a7b</code></td><td><code>5185</code></td><td><code>02:4A7B</code></td></tr>
 <tr><td><code>fpx_5d70</code></td><td><code>4669</code></td><td><code>02:5D70</code></td></tr>
 <tr><td><code>fpx_5dbb</code></td><td><code>466C</code></td><td><code>02:5DBB</code></td></tr>
@@ -836,7 +841,7 @@
 </table>
 </div>
 <h2 id="corpus-coverage-and-map-provenance"><a class="header" href="#corpus-coverage-and-map-provenance">Corpus coverage and map provenance</a></h2>
-<p><code>tools/audit_community_bcalls.py</code> scans the extracted community corpus for
+<p><code>tools/ti84re/community/audit_bcalls.py</code> scans the extracted community corpus for
 numeric bcall macros, raw <code>rst 28h</code> plus word sequences, and complete
 <code>EF low high</code> instruction bytes. The pinned snapshot contains 112 such uses of
 56 IDs. Three uses encode <code>_CursorOn</code>, <code>_KeyToString</code>, and <code>_CursorOff</code> as raw
@@ -892,7 +897,7 @@ Plus replacement ID where applicable.</p>
 <p>The retail table has 87 populated entries across IDs <code>0x8018</code>–<code>0x80D2</code> and
 <code>0x80E4</code>–<code>0x8129</code>. The full 2007 <code>ti83plus.inc</code> defines 83 of them; the four
 snake-case rows below are project-inferred names for otherwise unnamed slots.
-<code>tools/resolve_bcalls.py</code> emits the public-name target file only when page <code>3F</code>
+<code>tools/ti84re/rom/resolve_bcalls.py</code> emits the public-name target file only when page <code>3F</code>
 has the retail boot prefix, not when it sees BootFree. See
 <a href="retail-boot.html#physical-layout">Retail boot page</a> for the intervening dispatch
 stub and evidence behind the inferred rows. [confirmed]</p>

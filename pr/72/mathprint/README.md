@@ -19,15 +19,15 @@ reader-facing write-up is
 | `layout.json` | page `0x39` class-table records, selected descriptors, and page-`0x07` display-byte tables consumed by translated routines |
 | `record-programs.json` | six retained settled-record fixtures used only by offline comparisons |
 | `draw-order.json` | accepted visible-pixel LCD mutations from the retained integral traces |
-| `tools/mathprint-construction-oracles.json` | fresh settled graphs and accepted-write hashes for independently constructed expressions |
-| `tools/mathprint-exponential-logbase-oracles.json` | fresh graph and accepted-write hashes for $e^x$, $10^x$, and `logBASE(` construction |
-| `tools/mathprint-matrix-oracles.json` | fresh matrix graphs, result origins, synchronous accepted-write hashes, and interrupt classification |
-| `tools/mathprint-grouping-oracles.json` | fresh grouping and nested absolute-value graphs plus accepted-write hashes |
-| `tools/mathprint-structural-base-oracles.json` | fresh structural power-base and nested absolute/radical graphs plus accepted-write hashes |
-| `tools/mathprint-named-token-oracles.json` | fresh counted-token spelling graphs plus accepted-write hashes in flat, raised, and structural contexts |
-| `tools/mathprint-two-byte-token-oracles.json` | fresh list, matrix-name, equation-variable, and string-variable graphs plus accepted-write and framebuffer hashes |
-| `tools/mathprint-list-oracles.json` | natural flat and radical-element list graphs, traces, screenshots, and cropped pixel hashes |
-| `tools/mathprint-vertical-viewport-oracle.json` | natural depth-four fraction trace, vertical viewport words, accepted-write hash, and exact LCD crop |
+| `tools/oracles/mathprint/mathprint-construction-oracles.json` | fresh settled graphs and accepted-write hashes for independently constructed expressions |
+| `tools/oracles/mathprint/mathprint-exponential-logbase-oracles.json` | fresh graph and accepted-write hashes for $e^x$, $10^x$, and `logBASE(` construction |
+| `tools/oracles/mathprint/mathprint-matrix-oracles.json` | fresh matrix graphs, result origins, synchronous accepted-write hashes, and interrupt classification |
+| `tools/oracles/mathprint/mathprint-grouping-oracles.json` | fresh grouping and nested absolute-value graphs plus accepted-write hashes |
+| `tools/oracles/mathprint/mathprint-structural-base-oracles.json` | fresh structural power-base and nested absolute/radical graphs plus accepted-write hashes |
+| `tools/oracles/mathprint/mathprint-named-token-oracles.json` | fresh counted-token spelling graphs plus accepted-write hashes in flat, raised, and structural contexts |
+| `tools/oracles/mathprint/mathprint-two-byte-token-oracles.json` | fresh list, matrix-name, equation-variable, and string-variable graphs plus accepted-write and framebuffer hashes |
+| `tools/oracles/mathprint/mathprint-list-oracles.json` | natural flat and radical-element list graphs, traces, screenshots, and cropped pixel hashes |
+| `tools/oracles/mathprint/mathprint-vertical-viewport-oracle.json` | natural depth-four fraction trace, vertical viewport words, accepted-write hash, and exact LCD crop |
 
 `rom-engine.js` translates handler lookup, the ordered `39:4E8E–4F19`
 cell-emission controller, direct-glyph selection, the archived fixed-token VAT
@@ -57,8 +57,9 @@ The function-opener predicate at `34:5A05` is also translated. It dispatches
 ordinary tokens through `34:5A52`, `BB` tokens through `34:5A28`, and `EF`
 tokens through `34:5A14`. Raw native input can therefore retain structural
 children inside the full ROM-classified function-token ranges instead of a
-preview-name allowlist. The renderer still rejects structural record type
-`0x2C`, whose constructor and render dispatch remain unresolved.
+preview-name allowlist. The renderer rejects structural record type
+`0x2C`; its captured synthetic construction overreads the geometry table and
+reaches the reset path, as described in the validation article.
 
 Structural scan kinds `3` and `4` at `34:5678` now consume the metadata bytes
 at `34:59AC` directly. Kind `3` selects one unary child through `34:56E3`.
@@ -84,7 +85,8 @@ instead of stretching glyph `0x08`.
 Render-record type `0x20` is translated through its child traversal and rule
 emission at `34:620A`. Fractions now draw numerator, denominator, then the
 inclusive horizontal rule computed from both child `+7` widths and the parent
-`+0x0B` coordinate. Child placement within each record remains open.
+`+0x0B` coordinate. The constructor derives child placement from their widths
+and heights using the fraction formulas in the settled-rendering article.
 
 Editable generated previews apply both ROM viewport words. `34:5F5D` updates
 the horizontal clip from the expression endpoint and cursor width.
@@ -95,7 +97,7 @@ calculator exactly. The browser then appends the upper and lower cue bitmaps
 from bcall bodies `35:7116` and `35:715B`. Their final 16 accepted writes and
 the complete 96×64 LCD match the natural trace and screenshot exactly. The
 compact evidence is in
-`tools/mathprint-vertical-viewport-oracle.json`.
+`tools/oracles/mathprint/mathprint-vertical-viewport-oracle.json`.
 
 Render-record type `0x2A` is translated as a child-1 traversal through
 `34:6375` and `34:636C`. The record emits no drawing primitive of its own.
@@ -107,7 +109,7 @@ ink width and pen advance; this reproduces the cursor-free radical history echo
 without applying the wider editable-entry metric.
 
 Render-record type `0x21` executes the absolute-value bar pair followed by its
-child. Type `0x24` executes nth-root index, hook, stem, radicand, and vinculum
+child. Type `0x24` executes nth-root index, hook, stem, vinculum, and radicand
 operations in ROM order.
 
 The complete structural render table at `34:6119`, types `0x1F`–`0x2B`, is
@@ -138,7 +140,7 @@ the seven-row visible slot; the cross-page continuation remains explicit.
 row-cell base and preserve styled-argument and empty-menu exits without
 claiming to implement the surrounding parser walk.
 
-`tools/analyze_mathprint_records.py` replays a full-range TLMT memory snapshot
+`tools/ti84re/mathprint/analyze_records.py` replays a full-range TLMT memory snapshot
 and writes, then captures 20-byte root/current records only when `34:6105` uses
 the render table at `34:6119`. The decoder preserves offset-based field names
 until a handler establishes a type-specific meaning. `--graph-json` exports
@@ -175,7 +177,7 @@ combine a type-`0x01` variable, an atomic `EF 1E` empty slot, ordinary children,
 and a trailing parent token. Sixteen root-level sequences match every
 cursor-dependent layout word. Their reducer also compares the translated LCD
 against the real TilEm screenshots outside only the blinking cursor cells.
-Two more sequences walk the token-built `[[1]]` matrix across all five packed
+Two more sequences walk the token-built `[[1]]` nested-list AST across all five packed
 tokens in both directions. Two mixed-controller sequences walk a fraction
 inside a radical in both directions. Across the 21 additional sequences, 139
 RAM states and 118 adjacent moves have exact arena, layout-word, and
@@ -293,7 +295,7 @@ are derived in call order; a missing state leaves the saved-F2 branch explicit.
 Scroll calls remain ordered effects rather than generated pixels.
 `editorAlphaSearch()` closes the page-39 dispatcher around `_FindAlphaUp` and
 `_FindAlphaDn`. It translates the ascending/descending class-2 paths, the
-`39:5C2E` special-class check, the `39:1942`/`A=06` repeat, and carry exits from
+`39:5C2E` special-class check, the `ram:1942`/`A=06` repeat, and carry exits from
 the fixed-bank `00:3A53`/`00:306F` dispatchers. The caller supplies OP1 and a
 logical VAT snapshot; the model derives every page-7 result and the
 protected-program repeat from that state.
@@ -321,33 +323,33 @@ as constructor inputs while leaving the record-list arena words explicit.
 
 | Tool | Purpose |
 |------|---------|
-| `export-font.py` | ROM → `font.json` (glyph data for the renderer and its font-table tab) |
-| `export-token-strings.py` | ROM → `token-strings.json` (token, `_KeyToString`, and inline cell strings) |
-| `export-layout.py` | ROM → `layout.json` (handler records, descriptors, and page-7 display-byte tables) |
-| `interp-cells.js` | command-line view of the browser's executable record-cell interpreter |
-| `analyze_mathprint_draw_trace.py` | attribute visible LCD mutations to dynamic page `0x34` and pixel-emitter call frames |
-| `InspectFunctions.java` | create temporary page-aware function entries and print focused Ghidra decompilation |
-| `trace_lcd.py` | replay reset-origin TilEm LCD I/O with its pinned T6A04 model |
-| `parity-mathprint.py` | render an expression in TilEm and diff it against the model |
-| `export-mathprint-draw-order.py` | export ordered set/clear pixel mutations from hash-pinned TLMT traces |
-| `mathprint-trace-report.json` | hashes, exact entry counts, state bytes, and replay results for filled and nested integrals |
-| `test-mathprint.js` | fuzz + corpus: every generated expression parses and lays out |
-| `test-mathprint-browser.spec.js` | headless Chromium check for input entered during delayed asset loading and repeated horizontal overflow |
-| `cachebust-mathprint.py` | content-version the built page's JS, JSON, and CSS references for each preview deployment |
-| `render-mathprint.py` | ASCII font/layout dump from ROM |
+| `tools/ti84re/mathprint/export_font.py` | ROM → `font.json` (glyph data for the renderer and its font-table tab) |
+| `tools/ti84re/mathprint/export_token_strings.py` | ROM → `token-strings.json` (token, `_KeyToString`, and inline cell strings) |
+| `tools/ti84re/mathprint/export_layout.py` | ROM → `layout.json` (handler records, descriptors, and page-7 display-byte tables) |
+| `tools/js/interp-cells.js` | command-line view of the browser's executable record-cell interpreter |
+| `tools/ti84re/mathprint/analyze_draw_trace.py` | attribute visible LCD mutations to dynamic page `0x34` and pixel-emitter call frames |
+| `tools/ghidra/studies/InspectFunctions.java` | create temporary page-aware function entries and print focused Ghidra decompilation |
+| `tools/ti84re/trace/lcd.py` | replay reset-origin TilEm LCD I/O with its pinned T6A04 model |
+| `tools/ti84re/mathprint/parity.py` | render an expression in TilEm and diff it against the model |
+| `tools/ti84re/mathprint/export_draw_order.py` | export ordered set/clear pixel mutations from hash-pinned TLMT traces |
+| `tools/oracles/mathprint/mathprint-trace-report.json` | hashes, exact entry counts, state bytes, and replay results for filled and nested integrals |
+| `tools/js/test-mathprint.js` | fuzz + corpus: every generated expression parses and lays out |
+| `tools/js/test-mathprint-browser.spec.js` | headless Chromium check for input entered during delayed asset loading and repeated horizontal overflow |
+| `tools/ti84re/wiki/cachebust_mathprint.py` | content-version the built page's JS, JSON, and CSS references for each preview deployment |
+| `tools/ti84re/mathprint/render.py` | ASCII font/layout dump from ROM |
 
 ## Reverse-engineering notes
 
-- `cell-glyph-spec.md` — the `D:E` cell → glyph/token/marker dispatch (`39:4E8E`,
+- `tools/notes/cell-glyph-spec.md` — the `D:E` cell → glyph/token/marker dispatch (`39:4E8E`,
   `39:4F1A`, the `07:44DE` family tables).
-- `token-name-spec.md` — ordinary cells → counted strings through `_KeyToString`
+- `tools/notes/token-name-spec.md` — ordinary cells → counted strings through `_KeyToString`
   (`01:6D10`, pointer table `01:6E05`).
-- `geometry-spec.md` — placement math: `39:683D` cell→pixel, `39:6B1C` fraction
+- `tools/notes/geometry-spec.md` — placement math: `39:683D` cell→pixel, `39:6B1C` fraction
   endpoints, `39:5167`/`5949` row stepping, pen conversion.
 
 ## Verification status
 
-`tools/test-mathprint.js` passes 5,019 deterministic parse/layout smoke cases and
+`tools/js/test-mathprint.js` passes 5,019 deterministic parse/layout smoke cases and
 checks rectangular boxes plus in-bounds composition marks. It executes the
 settled record programs for absolute value, nth root, radical, summation,
 `nDeriv(`, and a nested integral/fraction. For each program, the generated final
@@ -387,9 +389,9 @@ streams and untranslated structural types instead of selecting the model
 compositor. Both translated input paths construct records and LCD writes
 without replaying a captured graph or write stream. [confirmed]
 
-Five changed-input regressions start from native byte arrays for summation,
-integral, `nDeriv(`, matrix, and a three-level raised fraction. They construct
-the settled graph, generate 36–173 accepted LCD data writes, and replay each
+Six changed-input regressions start from native byte arrays for summation,
+integral, `nDeriv(`, matrix, a three-level raised fraction, and repeated integrals. They construct
+the settled graph, generate 36–221 accepted LCD data writes, and replay each
 byte into the corresponding eight pixels of a 96×64 framebuffer. The tests
 pin the complete ordered write streams and packed final framebuffers. These
 hashes check deterministic composition; the fresh reset-origin traces below
@@ -448,7 +450,7 @@ Radical and nth-root hooks enter `34:6C37` through `34:630C`. The five-pixel
 bitmap header therefore uses the same `34:6C5F` display-unit gate as a glyph.
 An anchor left of `ram:8E02` skips the complete hook while the stem and
 vinculum retain their separate line paths. The natural oracle in
-`tools/mathprint-radical-viewport-oracles.json` pins the carry branch and final
+`tools/oracles/mathprint/mathprint-radical-viewport-oracles.json` pins the carry branch and final
 pixel result.
 The generated frontend also exercises three-way and mixed nested expressions
 with endpoints above 130 pixels. It rejects record metrics that exceed the
@@ -465,7 +467,8 @@ eight repeated integrals with a 442-pixel record and 127 native token bytes. The
 textarea grows with wrapped input until its capped editing height, so long source
 text remains accessible independently of the 96-pixel LCD viewport.
 The integral frontend accepts `int(`, `integral(`, and the ROM token
-spelling `fnInt(` as aliases for the same `EF24h` structural record.
+spelling `fnInt(` as aliases for source token `24h` and structural record type
+`22h`, embedded in a leaf by an `EF 22` marker.
 The one-argument hyperbolic functions `sinh(`, `cosh(`, and `tanh(` use their
 decoded single-byte ROM tokens and the same translated argument-boundary path
 as the circular trigonometric functions.
@@ -485,10 +488,10 @@ The $2\times3$ capture contains eight additional standard-timer run-indicator
 writes at `01:6BBA`–`01:6BFA`; the matrix oracle records both the complete
 capture hash and the interrupt-free MathPrint hash. [confirmed]
 
-`parity-mathprint.py` uses LCD trace replay when tracing is enabled. Calculator
+`tools/ti84re/mathprint/parity.py` uses LCD trace replay when tracing is enabled. Calculator
 parity requires the proprietary ROM. Filled-integral and nested-fraction
 results are recorded in
-`tools/mathprint-trace-report.json`; the large raw traces stay outside Git.
+`tools/oracles/mathprint/mathprint-trace-report.json`; the large raw traces stay outside Git.
 
 The preview constructs supported named-token, absolute-value, power, $e^x$, $10^x$,
 `logBASE(`, radical, nth-root, stacked-fraction, integral, summation,
@@ -508,12 +511,12 @@ model output when no generated or captured timeline matches.
 ## Regeneration
 
 ```sh
-python3 tools/export-font.py     # -> font.json
-python3 tools/export-token-strings.py  # -> token-strings.json
-python3 tools/export-layout.py   # -> layout.json
-node tools/test-mathprint.js     # fuzz
-python3 tools/parity-mathprint.py  # calc-vs-model parity (needs TilEm + tools/rom.bin)
-python3 tools/export-mathprint-draw-order.py \
+python3 -m ti84re.mathprint.export_font     # -> font.json
+python3 -m ti84re.mathprint.export_token_strings  # -> token-strings.json
+python3 -m ti84re.mathprint.export_layout   # -> layout.json
+node tools/js/test-mathprint.js     # fuzz
+python3 -m ti84re.mathprint.parity  # calc-vs-model parity (needs TilEm + tools/rom.bin)
+python3 -m ti84re.mathprint.export_draw_order \
   integral=/path/to/integral.trace \
   integral_frac=/path/to/integral_frac.trace
 ```

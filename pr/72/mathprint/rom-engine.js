@@ -693,13 +693,13 @@
   // 85DE/85DF and the flags returned by the cross-page VAT search. The caller
   // supplies OP1 and a logical or raw VAT snapshot; every search result is
   // derived by editorFindAlphaVat(). A protected-program result has type 06h,
-  // so the 39:1942 post-check repeats until the search reaches another type or
+  // so the ram:1942 post-check repeats until the search reaches another type or
   // the alphabetic endpoint.
   //
   // The class-2 paths are closed on page 39. The ascending path emits 0Dh and
   // finishes with the 14h OP1 seed at 39:59C6. The descending path inspects the
   // eight payload bytes at saved OP1+1 (39:5A2E), emit 0Ch, optionally cross
-  // 39:1BAF when the emitter leaves carry set, and then use the same 14h
+  // ram:1BAF when the emitter leaves carry set, and then use the same 14h
   // seed.  A carry returned by the 28h emitter is therefore an explicit
   // input, not a guessed parser result.
   function editorAlphaSearch(direction, editorClass, editorSubClass = 0,
@@ -761,8 +761,8 @@
         if (special.call1BAFCarry === undefined)
           throw new TypeError('carrying descending class-2 path requires call1BAFCarry');
         const callCarry = boolean(special.call1BAFCarry,
-          'editor alpha-search 39:1BAF carry');
-        effects.push({kind:'call',routine:'39:1BAF',carry:callCarry});
+          'editor alpha-search ram:1BAF carry');
+        effects.push({kind:'call',routine:'ram:1BAF',carry:callCarry});
       }
       effects.push({kind:'seed-op1', code:0x14, address:0x8478,
         routine:'39:59C6'});
@@ -770,9 +770,9 @@
       return {
         ...base, branch:'class-2-special', specialPath:'39:59B6',
         payloadEmpty, rstCarry, carry:rstCarry ? boolean(special.call1BAFCarry,
-          'editor alpha-search 39:1BAF carry') : false,
+          'editor alpha-search ram:1BAF carry') : false,
         op1:currentOp1.slice(), effects,
-        unresolved:rstCarry ? '39:1BAF' : null,
+        unresolved:rstCarry ? 'ram:1BAF' : null,
       };
     }
 
@@ -809,7 +809,7 @@
           vatPointer:result.vatPointer, effects, terminal:'return-clear',
         };
       const postCode = result.op1[0] & 0x1f;
-      effects.push({kind:'post-search-call',routine:'39:1942',code:postCode});
+      effects.push({kind:'post-search-call',routine:'ram:1942',code:postCode});
       if (postCode !== 0x06)
         return {
           ...base, branch:'post-search-complete', loopCount:index,
@@ -990,7 +990,7 @@
         {kind:'set-overflow',curCol:1,routine:'39:6712'},
         {kind:'save-window-top',value:winTop},
         {kind:'set-window-top',value:1},
-        {kind:'scroll-editor',direction:'forward',routine:'39:3C81'},
+        {kind:'scroll-editor',direction:'forward',routine:'ram:3C81'},
         {kind:'find-alpha',direction:'up',source:'saved-E7',routine:'39:5B10',
           ...(e7Transition ? {transition:e7Transition} : {})},
         {kind:'emit-saved-operand-tail',argument:nextArgument,routine:'39:5B46'},
@@ -1120,7 +1120,7 @@
         {kind:'set-overflow',curCol:1,routine:'39:6712'},
         {kind:'save-window-top',value:winTop},
         {kind:'set-window-top',value:1},
-        {kind:'scroll-editor',direction:'reverse',routine:'39:3C93'},
+        {kind:'scroll-editor',direction:'reverse',routine:'ram:3C93'},
         {kind:'find-alpha',direction:'down',source:'saved-E7',routine:'39:5B1D',
           ...(e7Transition ? {transition:e7Transition} : {})},
         {kind:'emit-saved-operand-tail',argument:nextArgument,routine:'39:5B46'},
@@ -4764,7 +4764,7 @@
   // It selects a pointer table from D, transforms/clamps index E, and reads a
   // pointer to one metadata byte followed by a counted display-code string.
   // The proprietary ROM is absent from the web build, so
-  // export-token-strings.py commits those immutable decoded tables.
+  // tools/ti84re/mathprint/export_token_strings.py commits those immutable decoded tables.
   // Translate the complete D:E selector at 01:6702–6781. This raw ABI maps
   // every lead byte, including values that _IsA2ByteTok never emits. It stops
   // before the pointer read at 01:6782 so out-of-table indices remain visible
