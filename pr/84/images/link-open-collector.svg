@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="790" viewBox="0 0 1200 790" role="img" aria-labelledby="title desc">
+  <title id="title">Open-collector model of the TI two-wire link port</title>
+  <desc id="desc">Two endpoints share line 0 and line 1. Each endpoint contributes a pull-up resistor and a low-side sink to each line. A line is high only when both endpoints release it. Port 00 write bits command the local sinks, while read bits report the resulting physical levels.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f8fafc}.panel{fill:#fff;stroke:#94a3b8;stroke-width:2}.title{fill:#0f172a;font:700 30px system-ui,sans-serif}.head{fill:#0f172a;font:700 22px system-ui,sans-serif}.text{fill:#334155;font:17px system-ui,sans-serif}.mono{fill:#0f172a;font:600 17px ui-monospace,SFMono-Regular,Consolas,monospace}.wire0{stroke:#dc2626;stroke-width:5;fill:none}.wire1{stroke:#2563eb;stroke-width:5;fill:none}.thin{stroke:#475569;stroke-width:2.5;fill:none}.sink{fill:#e2e8f0;stroke:#475569;stroke-width:2}.high{fill:#dcfce7;stroke:#16a34a;stroke-width:2}.low{fill:#fee2e2;stroke:#dc2626;stroke-width:2}.port{fill:#ede9fe;stroke:#7c3aed;stroke-width:2}.note{fill:#fef3c7;stroke:#d97706;stroke-width:1.5}
+    </style>
+  </defs>
+  <rect class="bg" width="1200" height="790" rx="18"/>
+  <text class="title" x="60" y="54">Two bidirectional lines: release or pull low</text>
+  <text class="text" x="60" y="84">Either endpoint can sink either line. No endpoint actively drives a high level.</text>
+
+  <rect class="panel" x="60" y="120" width="1080" height="500" rx="14"/>
+  <text class="head" x="185" y="158" text-anchor="middle">Calculator A</text>
+  <text class="head" x="1015" y="158" text-anchor="middle">Calculator B / peer</text>
+
+  <g transform="translate(0 0)">
+    <text class="mono" x="600" y="215" text-anchor="middle">line 0 · tip · red</text>
+    <path class="wire0" d="M250 225 H950"/>
+    <path class="thin" d="M350 225 V205 l-10 -8 l20 -12 l-20 -12 l20 -12 l-10 -8 V135 M330 135 H370"/>
+    <text class="text" x="350" y="128" text-anchor="middle">A pull-up</text>
+    <path class="thin" d="M850 225 V205 l-10 -8 l20 -12 l-20 -12 l20 -12 l-10 -8 V135 M830 135 H870"/>
+    <text class="text" x="850" y="128" text-anchor="middle">B pull-up</text>
+
+    <path class="thin" d="M250 225 V270"/><rect class="sink" x="210" y="270" width="80" height="66" rx="8"/>
+    <text class="mono" x="250" y="297" text-anchor="middle">sink</text><text class="text" x="250" y="321" text-anchor="middle">write bit 0</text>
+    <path class="thin" d="M250 336 V360 M230 360 H270 M238 370 H262 M244 380 H256"/>
+
+    <path class="thin" d="M950 225 V270"/><rect class="sink" x="910" y="270" width="80" height="66" rx="8"/>
+    <text class="mono" x="950" y="297" text-anchor="middle">sink</text><text class="text" x="950" y="321" text-anchor="middle">peer bit 0</text>
+    <path class="thin" d="M950 336 V360 M930 360 H970 M938 370 H962 M944 380 H956"/>
+  </g>
+
+  <g transform="translate(0 390)">
+    <text class="mono" x="600" y="25" text-anchor="middle">line 1 · ring · white</text>
+    <path class="wire1" d="M250 35 H950"/>
+    <path class="thin" d="M350 35 V15 l-10 -8 l20 -12 l-20 -12 l20 -12 l-10 -8 V-55 M330 -55 H370"/>
+    <text class="text" x="350" y="-62" text-anchor="middle">A pull-up</text>
+    <path class="thin" d="M850 35 V15 l-10 -8 l20 -12 l-20 -12 l20 -12 l-10 -8 V-55 M830 -55 H870"/>
+    <text class="text" x="850" y="-62" text-anchor="middle">B pull-up</text>
+
+    <path class="thin" d="M250 35 V80"/><rect class="sink" x="210" y="80" width="80" height="66" rx="8"/>
+    <text class="mono" x="250" y="107" text-anchor="middle">sink</text><text class="text" x="250" y="131" text-anchor="middle">write bit 1</text>
+    <path class="thin" d="M250 146 V170 M230 170 H270 M238 180 H262 M244 190 H256"/>
+
+    <path class="thin" d="M950 35 V80"/><rect class="sink" x="910" y="80" width="80" height="66" rx="8"/>
+    <text class="mono" x="950" y="107" text-anchor="middle">sink</text><text class="text" x="950" y="131" text-anchor="middle">peer bit 1</text>
+    <path class="thin" d="M950 146 V170 M930 170 H970 M938 180 H962 M944 190 H956"/>
+  </g>
+
+  <g transform="translate(60 650)">
+    <rect class="port" width="330" height="95" rx="10"/>
+    <text class="head" x="165" y="30" text-anchor="middle">Port 00 write</text>
+    <text class="mono" x="165" y="58" text-anchor="middle">bit = 1 → close sink</text>
+    <text class="mono" x="165" y="82" text-anchor="middle">bit = 0 → release line</text>
+    <rect class="high" x="375" width="330" height="95" rx="10"/>
+    <text class="head" x="540" y="30" text-anchor="middle">Physical line</text>
+    <text class="mono" x="540" y="58" text-anchor="middle">high iff both release</text>
+    <text class="mono" x="540" y="82" text-anchor="middle">low if either sinks</text>
+    <rect class="note" x="750" width="330" height="95" rx="10"/>
+    <text class="head" x="915" y="30" text-anchor="middle">Port 00 read</text>
+    <text class="mono" x="915" y="58" text-anchor="middle">low bits = physical high mask</text>
+    <text class="mono" x="915" y="82" text-anchor="middle">bits 4–5 = local latch</text>
+  </g>
+</svg>
