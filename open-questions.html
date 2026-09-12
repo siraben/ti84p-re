@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5f5cd3b1.js";
+            window.path_to_searchindex_js = "searchindex-d7d0b8a3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-ba6dda15.js"></script>
@@ -186,10 +186,14 @@ resolve the remaining behavior. Detailed reconstructions and emulator
 comparisons remain on the subsystem pages linked below.</p>
 <h2 id="static-analysis-work"><a class="header" href="#static-analysis-work">Static-analysis work</a></h2>
 <h3 id="symbol-types"><a class="header" href="#symbol-types">Symbol types</a></h3>
-<p>The Ghidra model assigns <code>TIKeyCode</code> to <code>kbdKey</code>, <code>kbdGetKy</code>, and <code>keyExtend</code>
-(<code>0x8444</code>–<code>0x8446</code>), and <code>TIError</code> to <code>errNo</code> (<code>0x86DD</code>). <code>TIVarType</code> remains
-on <code>curType</code> and <code>varType</code>. <code>stat_calc_command</code> remains inside the typed
-<code>SystemFlags</code> span. [confirmed]</p>
+<p>The Ghidra model assigns <code>TIKeyCode</code> to <code>kbdKey</code>, <code>kbdGetKy</code>, <code>keyExtend</code>, and
+<code>cxCurApp</code>. It assigns <code>TIError</code> to <code>errNo</code> and
+<code>TIVarType</code> to <code>curType</code> and <code>varType</code>. A reviewed manifest also applies enum
+equates to 57 instruction operands: 16 object-type constructors, 39 named error
+stubs, and two MathPrint key-code comparisons. Each row binds the address,
+operand index, enum member, and instruction bytes. <code>BuildTypes.java</code> rejects a
+row if the instruction or scalar changes. [confirmed]</p>
+<p>No remaining items for this subsystem.</p>
 <h3 id="floating-point-table-semantics"><a class="header" href="#floating-point-table-semantics">Floating-point table semantics</a></h3>
 <p>The <code>_SinCosRad</code> recurrence is mechanically reconstructed. Phase 1 extracts one
 redundant BCD digit per row of <code>02:7201</code> by non-restoring modulo-1 subtraction

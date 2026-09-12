@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-5f5cd3b1.js";
+            window.path_to_searchindex_js = "searchindex-d7d0b8a3.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-ba6dda15.js"></script>
@@ -345,6 +345,10 @@ throughout the wiki.</p>
 <li><code>tools/symbols/poffsets.txt</code> contains reviewed base-plus-offset references. These make an operand such as <code>mathprintArenaState + 0x0D</code> render as a structure member without inventing a second global name for the field address.</li>
 </ul>
 <p><code>tools/symbols/ty_regions.txt</code> applies the C layouts built by <code>BuildTypes.java</code>. The prose can therefore use expressions such as <code>table_value_cache.band[1].value[row]</code> once it introduces the typed base and its concrete address. A physical boundary, trace target, or byte-level proof still keeps its concrete address. [confirmed]</p>
+<p><code>tools/symbols/ty_enum_operands.txt</code> applies enum-member equates only at reviewed scalar
+operands. Each row includes the instruction bytes, so a changed opcode or
+constant stops the database build instead of attaching a stale enum name.
+[confirmed]</p>
 <h2 id="math-notation"><a class="header" href="#math-notation">Math notation</a></h2>
 <p>Formulas are written in LaTeX and rendered by KaTeX (offline, client-side): <code>$…$</code> for inline math and <code>$$…$$</code> for display. Algorithms render as pseudocode blocks and data/control-flow diagrams as Mermaid.</p>
 <h2 id="evidence-and-reproducibility"><a class="header" href="#evidence-and-reproducibility">Evidence and reproducibility</a></h2>
@@ -20767,6 +20771,10 @@ the retained trace does not expose the final source buffer. [hypothesis]</p>
 <li><code>_KeyToString</code> at <code>01:6D10</code> maps a cooked key code to an editor token or string. [confirmed]</li>
 </ul>
 <p>Scan codes such as <code>skEnter</code> identify a matrix position. Cooked key codes such as <code>kEnter = 5</code> incorporate OS modifier and context policy. <code>_GetCSC</code> returns the former; <code>_GetKey</code> returns the latter. The complete matrix, scan-code formula, diagonal-arrow exception, five-sample release filter, repeat timing, modifier state, and 46.7 ms ON debounce are reconstructed in <a href="#keypad-and-on-key-hardware">Keypad and ON-key hardware</a>.</p>
+<p>The Ghidra build types <code>kbdKey</code> at <code>0x8444</code> and <code>cxCurApp</code> at <code>0x859A</code> as
+<code>TIKeyCode</code>. It applies <code>kLeft</code> and <code>kAlphaDown</code> to the byte-checked comparisons
+at <code>39:5048</code> and <code>39:507C</code>. Other numeric operands keep their raw values unless
+their key-code role is established. [confirmed]</p>
 <h3 id="key--token-translation-confirmed"><a class="header" href="#key--token-translation-confirmed">Key → token translation [confirmed]</a></h3>
 <p><code>_KeyToString</code> (<code>01:6D10</code>) turns a key code into a TI-BASIC token for the editor. It’s not a single flat table — it combines:</p>
 <ul>
@@ -24984,10 +24992,14 @@ resolve the remaining behavior. Detailed reconstructions and emulator
 comparisons remain on the subsystem pages linked below.</p>
 <h2 id="static-analysis-work"><a class="header" href="#static-analysis-work">Static-analysis work</a></h2>
 <h3 id="symbol-types"><a class="header" href="#symbol-types">Symbol types</a></h3>
-<p>The Ghidra model assigns <code>TIKeyCode</code> to <code>kbdKey</code>, <code>kbdGetKy</code>, and <code>keyExtend</code>
-(<code>0x8444</code>–<code>0x8446</code>), and <code>TIError</code> to <code>errNo</code> (<code>0x86DD</code>). <code>TIVarType</code> remains
-on <code>curType</code> and <code>varType</code>. <code>stat_calc_command</code> remains inside the typed
-<code>SystemFlags</code> span. [confirmed]</p>
+<p>The Ghidra model assigns <code>TIKeyCode</code> to <code>kbdKey</code>, <code>kbdGetKy</code>, <code>keyExtend</code>, and
+<code>cxCurApp</code>. It assigns <code>TIError</code> to <code>errNo</code> and
+<code>TIVarType</code> to <code>curType</code> and <code>varType</code>. A reviewed manifest also applies enum
+equates to 57 instruction operands: 16 object-type constructors, 39 named error
+stubs, and two MathPrint key-code comparisons. Each row binds the address,
+operand index, enum member, and instruction bytes. <code>BuildTypes.java</code> rejects a
+row if the instruction or scalar changes. [confirmed]</p>
+<p>No remaining items for this subsystem.</p>
 <h3 id="floating-point-table-semantics"><a class="header" href="#floating-point-table-semantics">Floating-point table semantics</a></h3>
 <p>The <code>_SinCosRad</code> recurrence is mechanically reconstructed. Phase 1 extracts one
 redundant BCD digit per row of <code>02:7201</code> by non-restoring modulo-1 subtraction
