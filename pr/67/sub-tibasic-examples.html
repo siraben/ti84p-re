@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-092bf0a7.js";
+            window.path_to_searchindex_js = "searchindex-9ab627c7.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d4b8a020.js"></script>
@@ -195,7 +195,7 @@ ASM-initiated BASIC execution.</p>
 <tr><td>Prompted arithmetic (<code>FACTOR</code>)</td><td>loop-body reseed, FP multiply, display</td><td>Keep loop bodies short; store loop-invariant values before <code>For(</code>.</td></tr>
 <tr><td>List built-ins (<code>DATA</code>)</td><td><code>sum(</code> reaches <code>list_fold_dispatch</code></td><td>Prefer built-ins when one parser setup can cover many elements.</td></tr>
 <tr><td>Text animation (<code>ANIMTXT</code>)</td><td><code>Output(</code> plus LCD text paths on every loop</td><td>Precompute positions/strings and update the smallest region possible.</td></tr>
-<tr><td>Graph drawing (<code>GRAPHV</code>)</td><td>primitives draw into <code>plotSScreen</code>, then <code>_PDspGrph</code></td><td>Batch graph primitives before <code>DispGraph</code>.</td></tr>
+<tr><td>Graph drawing (<code>GRAPHV</code>)</td><td>primitives and <code>_PDspGrph</code> update graph state</td><td>Keep graph-oriented output together; individual DRAW commands can refresh the display.</td></tr>
 <tr><td>Graph visualization (<code>GRAPHDFS</code>, <code>GRAPHLST</code>)</td><td>window stores plus repeated <code>Line(</code>/<code>Circle(</code>/<code>Text(</code> reach <code>_StoSysTok</code>, <code>_ILine</code>, <code>_IPoint</code>, <code>graph_pixel_op</code>, <code>_PDspGrph</code>, and small-font paths; <code>GRAPHLST</code> also reaches list indexing in draw arguments</td><td>Store graph topology in lists; draw the whole view in one graph-buffer pass.</td></tr>
 <tr><td>BASIC subprogram (<code>CALLSUB</code>, <code>CALLABI</code>)</td><td>page-38 program-body evaluator and shared VAT variables</td><td>Treat globals/lists/<code>Ans</code> as the calling convention.</td></tr>
 <tr><td>List algorithms (<code>BIGADD</code>, <code>BIGMUL</code>, <code>DFS</code>)</td><td>VAT lookup, element address, OP-register move per access</td><td>Preallocate lists; cache dimensions and reused elements in scalars.</td></tr>
@@ -237,15 +237,15 @@ DispGraph
 and the diagonal line visible. The trace hits <code>_GrBufClr</code>, <code>_StoSysTok</code>,
 <code>_ILine</code> (<code>04:4029</code>), <code>graph_pixel_op</code>, <code>_IPoint</code>, <code>_PDspGrph</code> (<code>04:7904</code>), and
 the page-38 argument parser. [confirmed]</p>
-<p>The performance lesson is to draw several primitives into the graph buffer, then
-display the graph buffer once. Repeated home-screen <code>Output(</code> calls give you
-more text-layout overhead and less control over redraw timing.</p>
+<p>Graph commands share <code>plotSScreen</code> and graph coordinates. Individual DRAW
+handlers also call <code>_PDspGrph</code>; placing several before <code>DispGraph</code> does not
+establish that the LCD is updated only once.</p>
 <p>Text animation and graph-buffer animation have different costs. <code>Output(</code> keeps
 the home/text display model active and pays row/column formatting on every
 iteration. Graph-buffer animation pays coordinate conversion, pixel primitive
-work, and a display-buffer copy at <code>DispGraph</code>. For visible motion, batch one
-frame in <code>plotSScreen</code>, call <code>DispGraph</code>, then compute the next frame; avoid
-alternating graph primitives with home-screen output inside the same hot loop.</p>
+work, and display updates through the DRAW handlers and <code>DispGraph</code>.
+Avoid alternating graph primitives with home-screen output inside the same
+hot loop when the desired output is one graph view.</p>
 <h3 id="graph-visualization-of-dfs-topology"><a class="header" href="#graph-visualization-of-dfs-topology">Graph visualization of DFS topology</a></h3>
 <p><code>GRAPHDFS.8xp</code> draws the same four-node graph traversed by <code>DFS.8xp</code>:</p>
 <pre><code class="language-ti-basic">ClrDraw
@@ -271,7 +271,7 @@ lists:</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Node</th><th>DFS value</th><th>Pixel center</th><th>Label position</th></tr>
+<tr><th>Node</th><th>DFS value</th><th>Graph-coordinate center</th><th>Label position</th></tr>
 </thead>
 <tbody>
 <tr><td>1</td><td>root</td><td><code>(10,44)</code></td><td><code>Text(16,8,"1")</code></td></tr>
@@ -427,7 +427,7 @@ Disp L3(6)
 <p>Observed run: the list line begins <code>{0 1 1 1 1 ...}</code>, the explicit carry line is
 <code>1</code>, and the program ends with <code>Done</code>. The trace hits list element address and
 store paths (<code>list_var_index</code>, <code>_AdrLEle</code>, <code>_GetLToOP1</code>, <code>_PutToL</code>,
-<code>store_list_elem*</code>) plus <code>fnint_body</code>, <code>_FPDiv</code>, <code>_FPAdd</code>, <code>_FPSub</code>, and
+<code>store_list_elem*</code>) plus <code>_FPDiv</code>, <code>_FPAdd</code>, <code>_FPSub</code>, and
 <code>_FPMult</code>. [confirmed]</p>
 <p>Performance notes: this is intentionally simple, but it is parser-heavy. For a
 general routine, cache <code>dim(L1)</code> and <code>dim(L2)</code> before the loop, avoid repeated
@@ -435,9 +435,14 @@ list indexing when a digit is reused, and use a larger base only if you can
 tolerate more carry and display conversion work.</p>
 <p>For a reusable arbitrary-precision add routine, treat <code>L1</code> and <code>L2</code> as
 little-endian digit arrays and compute the loop bound from list lengths:</p>
+<p>This illustrative variant assumes nonempty lists containing integer digits
+<code>0</code>–<code>9</code> and room for an <code>N+1</code>-element destination. The observed run above
+belongs to the fixed-size <code>BIGADD</code> fixture, not this generalized listing.</p>
 <pre><code class="language-ti-basic">dim(L1)-&gt;N
 If dim(L2)&gt;N
 dim(L2)-&gt;N
+N+1-&gt;dim(L3)
+Fill(0,L3)
 0-&gt;C
 For(I,1,N)
 0-&gt;A
@@ -452,6 +457,8 @@ S-10C-&gt;L3(I)
 End
 If C
 C-&gt;L3(N+1)
+If C=0
+N-&gt;dim(L3)
 </code></pre>
 <p>The invariant after iteration <code>I</code> is that <code>L3(1..I)</code> contains the low <code>I</code>
 digits of <code>L1+L2</code>, and <code>C</code> is the carry into digit <code>I+1</code>. Base 10 is easy to
@@ -548,7 +555,7 @@ C9
 bcalls <code>_ExecutePrgm</code> (<code>4E7C</code>, target <code>07:5758</code>). The trace shows that path
 compile or copy the <code>AsmPrgm</code> body and hand off through <code>07:57B4</code>, execute the
 payload byte at <code>ram:9D95</code> with opcode <code>C9h</code>, and return to BASIC. [confirmed]</p>
-<p><code>tools/asm_execution.py</code> byte-pins the complete setup and cleanup path:
+<p>The ROM setup and cleanup sites are:
 [confirmed]</p>
 <div class="table-wrapper">
 <table>

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-092bf0a7.js";
+            window.path_to_searchindex_js = "searchindex-9ab627c7.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d4b8a020.js"></script>
@@ -205,11 +205,12 @@ noted, not as proof.</p>
 </tbody>
 </table>
 </div>
-<p>In the variable-transfer code, the OS mostly treats USB as a transport selector around the existing
-TI link protocol. The packet layer still sends machine IDs, command bytes, checksums, ACK/NAK, and
-EOT exactly as described in <a href="sub-link-transfer.html">sub-link-transfer.md</a>. The hardware difference is
-below that packet layer: bytes go through the assist FIFO when the ASIC path is enabled, and through
-port <code>0x00</code> bit-banging otherwise. [confirmed]</p>
+<p>The two-wire packet engine sends machine IDs, command bytes, checksums, ACK/NAK,
+and EOT as described in <a href="sub-link-transfer.html">Link transfer</a>. Its bytes use
+either the assist FIFO or port-<code>0x00</code> bit-banging. USB is a separate transport
+branch with endpoint FIFOs and its own framing; selecting the link-assist FIFO
+does not select USB. The variable-command wrapper chooses between the two-wire
+engine and the USB path before transferring the variable. [confirmed]</p>
 <h2 id="observed-port-map-confirmed"><a class="header" href="#observed-port-map-confirmed">Observed port map [confirmed]</a></h2>
 <div class="table-wrapper">
 <table>
@@ -217,13 +218,13 @@ port <code>0x00</code> bit-banging otherwise. [confirmed]</p>
 <tr><th>Port</th><th>Observed use in OS 2.55MP</th><th>Evidence</th></tr>
 </thead>
 <tbody>
-<tr><td><code>0x02</code></td><td>Hardware/model gate before using assist paths. The link code tests bit 7 before touching ports <code>0x08</code>–<code>0x0D</code>.</td><td><code>3C:6C82</code>, <code>3C:6CB8</code>, <code>3C:6D15</code></td></tr>
+<tr><td><code>0x02</code></td><td>Hardware/model gate before using assist paths. The link code tests bit 7 before touching ports <code>0x08</code>–<code>0x0D</code>.</td><td><code>3C:6CB0</code>, <code>3C:6CC2</code>, <code>3C:6D38</code></td></tr>
 <tr><td><code>0x08</code></td><td>Link-assist control/idle latch. The OS writes <code>0x80</code> when clearing an inactive/error-free assist state, and <code>0x00</code> when marking the assist state active.</td><td><code>OUT (0x08)</code> at <code>3C:6C4D</code>/<code>6C50</code>, <code>3C:6D48</code>, <code>3C:6D5B</code></td></tr>
-<tr><td><code>0x09</code></td><td>Link-assist status on reads. Bit 5 is TX-ready; bit 6 is a transmission/error condition; bit 4 marks a received byte. Masks <code>0x19</code>, <code>0x58</code>, and <code>0x99</code> are used as error/activity predicates. On writes, the OS setup value <code>0x97</code> matches WikiTI’s CPU-speed-0 signaling-rate register.</td><td><code>3C:6BB6</code>–<code>6BC5</code>, <code>3C:444A</code>, <code>3C:6BFA</code>, <code>3C:6CCE</code>, <code>3C:6D33</code>; WikiTI port <code>09</code></td></tr>
-<tr><td><code>0x0A</code></td><td>Assist receive/data register on reads; the confirmed receive path reads the byte here. On writes, the OS setup value <code>0xB4</code> matches WikiTI’s CPU-speed-1 signaling-rate register. TilEm models reads as “last received byte” and stores writes as opaque assist state.</td><td><code>3C:6C20</code>, <code>3C:6C2B</code>, <code>3C:6C39</code>; WikiTI port <code>0A</code>; TilEm <code>x4_io.c</code></td></tr>
-<tr><td><code>0x0B</code>, <code>0x0C</code></td><td>Assist signaling-rate configuration for CPU speed modes 2 and 3, initialized with <code>0xB4</code>. The ROM byte-transfer path writes them during setup but does not read them back. TilEm stores the writes without emulating timing from the values.</td><td><code>3C:6C3D</code>, <code>3C:6C3F</code>; WikiTI ports <code>0B</code>/<code>0C</code>; TilEm <code>x4_io.c</code></td></tr>
-<tr><td><code>0x0D</code></td><td>Assist TX FIFO/data register. <code>_SendAByte</code> writes the outgoing byte here after port <code>0x09</code> bit 5 becomes set.</td><td><code>3C:6BBC</code>–<code>6BBF</code></td></tr>
-<tr><td><code>0x20</code></td><td>CPU speed bit used to select assist/link wait-loop reloads. The send timeout uses <code>0xFFFF</code> when bit 0 is set and <code>0x6800</code> when clear.</td><td><code>3C:6BCC</code>, <code>3C:6C8B</code>, <code>3C:6CC1</code></td></tr>
+<tr><td><code>0x09</code></td><td>Link-assist status on reads. Bit 5 is TX-ready; bit 6 is a transmission/error condition; bit 4 marks a received byte. Masks <code>0x19</code>, <code>0x58</code>, and <code>0x99</code> are used as error/activity predicates. On writes, the OS setup value <code>0x97</code> matches WikiTI’s CPU-speed-0 signaling-rate register.</td><td><code>3C:6BC0</code>–<code>6BC7</code>, <code>3C:6C04</code>, <code>3C:6C41</code>, <code>3C:6CD8</code>, <code>3C:6CEC</code>, <code>3C:6D3D</code>; WikiTI port <code>09</code></td></tr>
+<tr><td><code>0x0A</code></td><td>Assist receive/data register on reads; the confirmed receive path reads the byte here. On writes, the OS setup value <code>0xB4</code> matches WikiTI’s CPU-speed-1 signaling-rate register. TilEm models reads as “last received byte” and stores writes as opaque assist state.</td><td>reads at <code>3C:6C2A</code>, <code>3C:6C35</code>; write at <code>3C:6C45</code>; WikiTI port <code>0A</code>; TilEm <code>x4_io.c</code></td></tr>
+<tr><td><code>0x0B</code>, <code>0x0C</code></td><td>Assist signaling-rate configuration for CPU speed modes 2 and 3, initialized with <code>0xB4</code>. The ROM byte-transfer path writes them during setup but does not read them back. TilEm stores the writes without emulating timing from the values.</td><td><code>3C:6C47</code>, <code>3C:6C49</code>; WikiTI ports <code>0B</code>/<code>0C</code>; TilEm <code>x4_io.c</code></td></tr>
+<tr><td><code>0x0D</code></td><td>Assist TX FIFO/data register. <code>_SendAByte</code> writes the outgoing byte here after port <code>0x09</code> bit 5 becomes set.</td><td><code>3C:6BC6</code>–<code>6BC7</code></td></tr>
+<tr><td><code>0x20</code></td><td>CPU speed bit used to select assist/link wait-loop reloads. The send timeout uses <code>0xFFFF</code> when bit 0 is set and <code>0x6800</code> when clear.</td><td><code>3C:6BD6</code>, <code>3C:6C95</code>, <code>3C:6CCB</code></td></tr>
 <tr><td><code>0x4B</code></td><td>Controller-side setup control. Reset paths write <code>0x00</code>, then conditionally write <code>0x20</code>; another setup path writes <code>0x20</code> before waiting for port <code>0x4C = 0x5A</code>. WikiTI calls this USB power control, but describes its bit meanings as mostly speculative.</td><td><code>35:4C69</code>, <code>35:4C76</code>–<code>4C80</code>, <code>35:59AB</code>; duplicated at <code>2F:59B6</code>, <code>2F:59C3</code>–<code>59CD</code>; WikiTI port <code>4B</code></td></tr>
 <tr><td><code>0x4C</code></td><td>USB controller handshake/status byte. The page-35 stack compares it with <code>0x5A</code>/<code>0x1A</code> and <code>0x12</code>/<code>0x52</code>, and clears or primes it with <code>0x00</code>/<code>0x08</code> during setup. TilEm returns <code>0x22</code> to make the calc see no attached USB peer.</td><td><code>35:42B7</code>, <code>35:42F6</code>, <code>35:403C</code>, <code>35:40E6</code>; TilEm <code>x4_io.c</code></td></tr>
 <tr><td><code>0x4D</code></td><td>USB line-state gate. <code>link_xfer_op</code> samples bits 5 and 6 before the page-0 bjump at <code>ram:2E0B</code>, which targets <code>35:4280</code>. Page-35 handlers also branch on bits 0, 1, 4, 5, 6, and 7. TilEm returns <code>0xA5</code> to emulate “USB disconnected.”</td><td><code>3C:4E4A</code>–<code>4E6F</code>, <code>35:42BF</code>, <code>35:4B6A</code>–<code>4B9F</code>; TilEm <code>x4_io.c</code></td></tr>
@@ -335,7 +336,7 @@ RET
 FDRC-family match below. The exact writes and selected index are [confirmed];
 the imported register names remain [hypothesis].</p>
 <p>A static call scan finds one direct caller at <code>35:4481</code>. It calls this helper,
-then <code>35:3EF1</code>, then <code>35:58DF</code>. The last routine performs 64 iterations over
+then <code>ram:3EF1</code>, then <code>35:58DF</code>. The last routine performs 64 iterations over
 LCD ports <code>0x10</code> and <code>0x11</code>: it writes commands, reads 12 data bytes, and
 writes those bytes back. This control flow ties the port-<code>0x5A</code> setup to LCD
 traffic and presentation mode, but the ROM alone does not expose what appears
@@ -426,7 +427,7 @@ the outer counter at <code>0x9CAC</code> expires, then fall into the link error 
 6BB8: CALL 6BD2h
 
 6BBB: LD   A,0FAh
-6BBD: LD   (9C86h),A    ; inner retry reload
+6BBD: LD   (9C86h),A    ; shared link-state reload; not decremented in this loop
 6BC0: IN   A,(09h)
 6BC2: BIT  5,A
 6BC4: JR   Z,6BCAh      ; TX not ready
@@ -443,7 +444,7 @@ the outer counter at <code>0x9CAC</code> expires, then fall into the link error 
 values, while the wall-clock timeout they target is not measured here. [confirmed]</p>
 <h2 id="receiving-and-status-handling-confirmed"><a class="header" href="#receiving-and-status-handling-confirmed">Receiving and status handling [confirmed]</a></h2>
 <p>The receive path is split between <code>_RecAByteIO</code> (<code>3C:443F</code>), <code>lnk_rec_status</code> (<code>3C:444A</code>), and the
-assist helpers around <code>3C:6BF4</code>–<code>6D40</code>.</p>
+assist helpers around <code>3C:6BFE</code>–<code>6D40</code>.</p>
 <p>The hardware-facing receive loop waits until port <code>0x09 &amp; 0x58</code> becomes nonzero. In the confirmed
 path:</p>
 <ul>
@@ -503,7 +504,8 @@ write-side settings as unknown or timeout-like and do not derive link timing fro
 <h2 id="usb-selection-in-link_xfer_op-confirmed"><a class="header" href="#usb-selection-in-link_xfer_op-confirmed">USB selection in <code>link_xfer_op</code> [confirmed]</a></h2>
 <p><code>link_xfer_op</code> (<code>3C:4DD2</code>, bcall ID <code>0x50FB</code>) is the OS entry that sends a silent link request and
 prefers the USB path when its mode flags ask for it. <code>ti83plus.inc</code> names bcall <code>0x50FB</code>
-<code>_GetVarCmdUSB</code>, the USB variant of <code>_GetVarCmd</code> (<code>0x4A11</code>) / <code>_SendVarCmd</code> (<code>0x4A14</code>); that public
+<code>_GetVarCmdUSB</code>, the USB-capable request-and-receive variant of <code>_GetVarCmd</code> (<code>0x4A11</code>),
+not the separate <code>_SendVarCmd</code> (<code>0x4A14</code>) sender; that public
 name matches the USB-first variable-command behavior decoded here, while <code>link_xfer_op</code> is the
 inferred name for the page-3C body. The ROM-confirmed setup is:</p>
 <ul>
@@ -527,9 +529,10 @@ sends the same TI link request/VAR/DATA packets described in the link-transfer p
 <li>On carry clear, the USB path remains selected and the OS calls the bjump reached through
 <code>ram:3FC3</code> with <code>A=0x0A</code>.</li>
 </ol>
-<p>This makes <code>link_xfer_op</code> a USB-first wrapper around the existing link transfer engine. It does not
-replace the packet format. The transport choice happens before <code>_SendAByte</code> writes each byte through
-the assist FIFO or falls back to port <code>0x00</code>. [confirmed]</p>
+<p>This makes <code>link_xfer_op</code> a USB-first request-and-receive wrapper. The successful
+USB branch calls the page-<code>36</code> transport rather than sending the two-wire packet
+through <code>_SendAByte</code>. Only the two-wire fallback chooses between assist FIFO
+and port-<code>0x00</code> byte I/O. [confirmed]</p>
 <h2 id="interrupt-integration-confirmed"><a class="header" href="#interrupt-integration-confirmed">Interrupt integration [confirmed]</a></h2>
 <p>The IM1 dispatcher (<code>ram:006F</code>) tests the USB interrupt status before the separate legacy controller:</p>
 <pre><code class="language-z80">IN A,(0x55)
@@ -585,8 +588,8 @@ mask to physical page <code>0x35</code>.</p>
 </thead>
 <tbody>
 <tr><td><code>50F2</code></td><td><code>_SendUSBData</code></td><td><code>35:4DD3</code></td><td>Sends from <code>HL</code> with byte count in <code>DE</code>; stores progress at <code>0x9C7E</code>/<code>0x9C81</code> and writes 64-byte chunks to port <code>0xA2</code>.</td></tr>
-<tr><td><code>50F5</code></td><td><code>_AppGetCBLUSB</code></td><td><code>3B:54C7</code></td><td>Sets <code>IY+0x1B</code> bit 1, clears bit 2, then reaches <code>_GetVarCmdUSB</code>.</td></tr>
-<tr><td><code>50F8</code></td><td><code>_AppGetCalcUSB</code></td><td><code>3B:54F0</code></td><td>At <code>3B:54DE</code> clears <code>IY+0x16</code> bit 0 and sets <code>sndRecState</code>=0x15, then <code>bcall 0x50FB</code> (shared get-var path).</td></tr>
+<tr><td><code>50F5</code></td><td><code>_AppGetCBLUSB</code></td><td><code>3B:54C7</code></td><td>For name token <code>0x5D</code>, sets <code>IY+0x1B</code> bit 1 and clears bit 2; otherwise clears bit 1 and sets bit 2. Joins the get-var setup at <code>3B:54DE</code>.</td></tr>
+<tr><td><code>50F8</code></td><td><code>_AppGetCalcUSB</code></td><td><code>3B:54F0</code></td><td>Calls bcall <code>5182h</code>, then joins <code>3B:54DE</code>: disables interrupts, clears <code>IY+0x16</code> bit 0, sets <code>sndRecState=0x15</code>, and calls <code>50FBh</code>.</td></tr>
 <tr><td><code>50FB</code></td><td><code>_GetVarCmdUSB</code> / <code>link_xfer_op</code></td><td><code>3C:4DD2</code></td><td>USB-first variable command wrapper described above.</td></tr>
 <tr><td><code>5254</code></td><td><code>_InitUSBDeviceCallback</code></td><td><code>35:4696</code></td><td>Initializes device mode, stores callback page/address at <code>0x9C13</code>/<code>0x9C14</code>, and returns <code>0xFC</code>–<code>0xFF</code> style error bytes with carry set on failure.</td></tr>
 <tr><td><code>5257</code> / <code>5311</code></td><td><code>_KillUSBDevice</code> / <code>_RecycleUSB</code></td><td><code>35:46FC</code> / <code>35:5B9B</code></td><td>Clears callback state and recycles through the same cleanup path.</td></tr>
@@ -646,7 +649,10 @@ OUT (4Ch),A
 <pre><code class="language-z80">OR A
 RET
 </code></pre>
-<p>Failure calls <code>_USBErrorCleanup</code> through <code>2F:5B87</code>, sets carry, and returns. [confirmed]</p>
+<p>Handshake timeout calls <code>_USBErrorCleanup</code> through <code>2F:5B87</code>, sets carry, and
+returns. The later frame-counter timeout instead enters <code>2F:58C8</code> and calls
+<code>2F:591B</code>; it bypasses <code>_USBErrorCleanup</code>’s initial port-<code>0x5B</code> clear. The
+controlled timeout traces below distinguish these cleanup paths. [confirmed]</p>
 <p>The unnamed bcall <code>810B</code> reads port <code>0x81</code>, ORs mask <code>0x01</code>, writes the result back, and jumps to the timer-3 delay at <code>2F:5A06</code>. The <code>ti83plus.inc</code> comment calls this bit 1, while mask <code>0x01</code> sets bit 0. No controller-state poll occurs in this entry itself. [confirmed]</p>
 <h3 id="receive-and-cleanup-boundaries"><a class="header" href="#receive-and-cleanup-boundaries">Receive and cleanup boundaries</a></h3>
 <p><code>_ReceiveOS_USB</code> disables interrupts, enters the record-transfer helpers, and feeds the values <code>0</code>, <code>8</code>, <code>3</code>, <code>0</code>, <code>0x0104</code>, <code>0</code>, and <code>0</code> through <code>2F:42AA</code>. It then sets port <code>0x20</code> to 1, clears receive state at <code>0x8271</code>, <code>0x822F</code>, and <code>0x83A4</code>, and uses <code>0x86EC</code> as a <code>0x0104</code>-byte record workspace. Later branches subtract a four-byte framing size, validate record fields, and program Flash through port <code>0x14</code>. [confirmed]</p>
@@ -889,9 +895,10 @@ nix develop -c python3 -m ti84re.emulators.wabbitemu.run_usb_receive_probe \
 <tr><th>Need</th><th>OS surface</th><th>ROM support</th></tr>
 </thead>
 <tbody>
-<tr><td>Send or request a variable over USB/link</td><td><code>_GetVarCmdUSB</code>/<code>link_xfer_op</code> (<code>50FB</code> → <code>3C:4DD2</code>) or <code>_SendVarCmd</code> (<code>4A14</code> → <code>3C:4EDD</code>)</td><td>Packet engine and USB-selection gate confirmed on page <code>3C</code>. <code>0x50FB</code> is <code>_GetVarCmdUSB</code> in <code>ti83plus.inc</code>.</td></tr>
-<tr><td>Send one byte on the active link transport</td><td><code>_SendAByte</code> (<code>4EE5</code> → <code>3C:420D</code>)</td><td>Assist branch writes <code>C</code> to port <code>0x0D</code> after port <code>0x09</code> bit 5.</td></tr>
-<tr><td>Receive one byte on the active link transport</td><td><code>_RecAByteIO</code> (<code>4F03</code> → <code>3C:443F</code>)</td><td>Status path checks port <code>0x09</code> and reads port <code>0x0A</code> on the assist path.</td></tr>
+<tr><td>Request and receive a variable over USB/link</td><td><code>_GetVarCmdUSB</code>/<code>link_xfer_op</code> (<code>50FB</code> → <code>3C:4DD2</code>)</td><td>Request/receive engine and USB-selection gate confirmed on page <code>3C</code>; not a variable sender.</td></tr>
+<tr><td>Send a variable over the two-wire link</td><td><code>_SendVarCmd</code> (<code>4A14</code> → <code>3C:4EDD</code>)</td><td>Separate outgoing variable path; see <a href="sub-link-transfer.html">Link transfer</a>.</td></tr>
+<tr><td>Send one byte on the two-wire link</td><td><code>_SendAByte</code> (<code>4EE5</code> → <code>3C:420D</code>)</td><td>Assist branch writes <code>C</code> to port <code>0x0D</code> after port <code>0x09</code> bit 5.</td></tr>
+<tr><td>Receive one byte on the two-wire link</td><td><code>_RecAByteIO</code> (<code>4F03</code> → <code>3C:443F</code>)</td><td>Status path checks port <code>0x09</code> and reads port <code>0x0A</code> on the assist path.</td></tr>
 <tr><td>Use the raw assist FIFO</td><td>Poll port <code>0x09</code> bit 5, then write the byte to port <code>0x0D</code>; for receive, observe port <code>0x09</code> bit 4/error bits and read port <code>0x0A</code>.</td><td>Confirmed as an OS pattern, but not a complete public API.</td></tr>
 </tbody>
 </table>

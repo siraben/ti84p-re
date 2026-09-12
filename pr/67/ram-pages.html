@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-092bf0a7.js";
+            window.path_to_searchindex_js = "searchindex-9ab627c7.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d4b8a020.js"></script>
@@ -240,7 +240,8 @@ are [confirmed].</p>
 <p>Ports <code>0x0E</code> and <code>0x0F</code> extend ports <code>0x06</code> and <code>0x07</code> only for Flash
 selectors. They do not change a selector with bit 7 set for RAM. See
 <a href="paging.html#extended-flash-bits--ports-0x0e-and-0x0f">Paging</a>. [standard]</p>
-<pre><code class="language-text">OUT (port 7) &lt;- 0x7f   8000-BFFF = page_3F
+<pre><code class="language-text">OUT (port 7) &lt;- 0x7f   C000-FFFF = page_3F (still paired mode)
+OUT (port 4) &lt;- 0x06   switch to independent mode before the RAM mappings below
 OUT (port 7) &lt;- 0x81   8000-BFFF = RAM/0x81
 OUT (port 5) &lt;- 0x00   C000-FFFF = RAM/0x80
 OUT (port 7) &lt;- 0x80   8000-BFFF = RAM/0x80

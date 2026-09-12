@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-092bf0a7.js";
+            window.path_to_searchindex_js = "searchindex-9ab627c7.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d4b8a020.js"></script>
@@ -246,7 +246,12 @@ matched function-entry recovery for both images. [confirmed]</p>
 hardware or emulator environment, ASIC revision, emulator profile, OS version,
 boot-page classification, component page ranges, the 2007 include-file
 identity, Ghidra version, Git revision, dirty-tree state, and a digest over the
-top-level analysis scripts.</p>
+maintained analysis code and inputs. The digest covers top-level tool scripts
+and supported source files beneath <code>tools/ghidra</code>, <code>tools/ti84re</code>,
+<code>tools/symbols</code>, <code>tools/probes</code>, <code>tools/macros</code>, and <code>tools/js</code>. Generated
+reports, ROM inputs, and Python bytecode are excluded. Supply
+<code>--ghidra-version</code> when the result depends on a known Ghidra installation;
+otherwise that field remains <code>unknown</code>.</p>
 <pre><code class="language-sh">nix develop -c python3 -m ti84re.rom.provenance manifest \
   --rom tools/rom.bin --model 'TI-84 Plus' --environment emulator \
   --asic unknown --emulator-profile 'TilEm x4' \
@@ -265,7 +270,11 @@ before reuse:</p>
   tools/data/launch-boundary-results.csv \
   tools/data/resident-launch-snapshot.csv
 </code></pre>
-<p>The command rejects missing, mixed, or mismatched identities. Raw TLMT traces
+<p>The command requires a valid identity on every CSV row. For JSON it checks
+every <code>rom_sha256</code> and <code>rom.sha256</code> declaration, including nested objects;
+a report-level declaration may cover rows without separate declarations.
+Descriptive strings such as <code>"rom": "38:4180–419D"</code> are locations, not hashes.
+It rejects missing, malformed, mixed, or mismatched declared identities. Raw TLMT traces
 do not embed a ROM hash, so they require a JSON provenance sidecar; verify the
 sidecar rather than treating the trace filename as evidence. [confirmed]</p>
 <h2 id="audit-the-ghidra-database"><a class="header" href="#audit-the-ghidra-database">Audit the Ghidra database</a></h2>

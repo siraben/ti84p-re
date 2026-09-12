@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-092bf0a7.js";
+            window.path_to_searchindex_js = "searchindex-9ab627c7.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d4b8a020.js"></script>
@@ -194,7 +194,7 @@ on <code>curType</code> and <code>varType</code>. <code>stat_calc_command</code>
 <p>The <code>_SinCosRad</code> recurrence is mechanically reconstructed. Phase 1 extracts one
 redundant BCD digit per row of <code>02:7201</code> by non-restoring modulo-1 subtraction
 or addition of the row aligned at $10^{-(k+1)}$. Phase 2 builds
-$b_0\cdot\prod_k(1+10^{-2k})^{\lfloor(11-d_k)/2\rfloor}$ from the digits. The
+$b_0\cdot\prod_{k=0}^{7}(1+10^{-2(k+1)})^{\lfloor(11-d_k)/2\rfloor}$ from the digits. The
 row values approach $1 - s^2/3$ for the aligned scale $s = 10^{-(k+1)}$, but
 they do not reduce to a clean rotation identity. This suggests tuned or
 truncated constants. [confirmed]</p>
@@ -204,6 +204,16 @@ combines it with the phase-2 product and the residual to assemble the result.
 A second traced input (e.g. <code>sin(0.5)</code>, digits <code>3,9,9,3,8,4,4,2</code>, residual
 $3.81\times10^{-9}$) is available to constrain the fit. See
 <a href="floating-point.html#_sincosrad-sine-and-cosine-in-radians-02733e-confirmed">Floating point</a>.</p>
+<h3 id="numerical-calculus-and-finance"><a class="header" href="#numerical-calculus-and-finance">Numerical calculus and finance</a></h3>
+<p>Single-byte <code>24h</code> (<code>fnInt(</code>) dispatches through bcall <code>4A83h</code> to
+<code>07:6365</code>; <code>25h</code> (<code>nDeriv(</code>) calls <code>02:6AF3</code>. The derivative forms a
+centered difference quotient, with default step <code>1e-3</code> selected at <code>02:6AF6</code>.
+The integration default tolerance is <code>1e-5</code>, set at <code>02:68F8</code>–<code>02:68FD</code>.
+[confirmed]</p>
+<p>Remaining: the integration rule and complete refinement/error paths, the root
+solver’s full recurrence and stopping predicate, and the finance command caller
+graph. Unattributed numeric spans on pages <code>33</code> and <code>3A</code> do not establish
+those algorithm identities. See <a href="sub-solver-numeric.html">Solver and numerical methods</a>.</p>
 <h3 id="graph-raster-details"><a class="header" href="#graph-raster-details">Graph raster details</a></h3>
 <p>Find a natural flag state that routes <code>Circle(</code> through <code>_DrawCirc2</code>, then
 compare its 60 emitted segments with the statically decoded schedule. Separately,
@@ -214,42 +224,50 @@ equations; and polar, parametric, and sequence modes. The coordinate rounding,
 two ordinary function witnesses, and the clear-flag page-33 Circle path are
 pinned in <a href="sub-graphing.html#evidence-summary-and-open-items">Graphing</a>.</p>
 <h3 id="table-evaluation"><a class="header" href="#table-evaluation">TABLE evaluation</a></h3>
-<p>Driver <code>05:6205</code> loops over seven visible rows and calls bcall ID <code>4741h</code> →
-<code>35:7C7C</code> for each row. The <code>_ParseInp</code> region executes once per row; <code>_StoX</code>
-does not execute during the fill. The Ask-mode bodies are also decoded.
-<code>Indpnt=Ask</code> prompts through the editor at <code>05:7303</code>, with an OPS continuation
+<p>Driver <code>05:6205</code> loops over seven visible rows. The retained <code>Y1=X²</code>
+observation visits the <code>_ParseInp</code> region once per row and does not visit
+<code>_StoX</code> during the fill. Bcall <code>4741h</code> → <code>35:7C7C</code> is the expression-stack
+helper <code>_CPYO1TOES15</code>; its entry does not identify the evaluator call edge.
+<code>Indpnt=Ask</code> prompts through the editor at <code>05:7303</code>, with an error continuation
 at <code>05:7329</code>, and finalizes the row through the value-cache shift at <code>05:6032</code>.
-<code>Depend=Ask</code> evaluates one requested cell through <code>05:637C</code>, with an OPS
+<code>Depend=Ask</code> evaluates one requested cell through <code>05:637C</code>, with an error
 continuation at <code>05:644E</code>. Both mode tests honor an override check at <code>05:74BE</code>.
-The <code>TblRng</code> validation at <code>38:72DA</code> and <code>38:7260</code> reduces to parse-boundary
-checking: the range variable must be followed by a legal statement delimiter.
 [confirmed]</p>
-<p>No remaining items for this subsystem.</p>
+<p>Remaining: the exact evaluator call edge, selected-equation iterator,
+independent-value arithmetic, and complete parser/error paths. Adjacent
+parser comparisons do not establish a <code>TblRng</code> special case. See
+<a href="sub-table-yvars.html">TABLE and Y-variables</a>.</p>
 <h3 id="statistics-command-families"><a class="header" href="#statistics-command-families">Statistics command families</a></h3>
 <p>The regression <code>r</code>/<code>r²</code> cluster is byte-pinned: <code>3A:6845</code>–<code>3A:6891</code> forms
 <code>r = num/den</code>, stores it to <code>Corr</code> (<code>_Sto_StatVar</code> id <code>0x12</code>), accumulates a
 column-weighted residual sum over the augmented matrix, and — when the
 denominator is nonzero — stores <code>r²</code> (id <code>0x35</code>, slot <code>0x8C05</code>) or <code>R²</code>
 (id <code>0x36</code>, slot <code>0x8C0E</code>). [confirmed]</p>
-<p>The STAT-TESTS engine occupies <code>3A:4A00</code>–<code>3A:7E60</code>. A raw operand scan finds
-about 50 candidate <code>PStat</code>–<code>SStat</code> references in that window. Byte-pinned
-evidence includes a T-Test output stage at <code>3A:5500</code> that stores <code>TStat</code> (id
-<code>0x24</code>), the Zelen–Severo normal-tail coefficient table at
+<p>The window <code>3A:4A00</code>–<code>3A:7E60</code> contains statistical code and data. A raw
+operand scan finds about 50 candidate <code>PStat</code>–<code>SStat</code> references there;
+instruction and caller checks are needed to classify each occurrence.
+<code>3A:54D7</code>–<code>3A:54D9</code> stores <code>TStat</code> (id <code>0x24</code>, slot <code>0x8B6C</code>), but its
+complete test-command caller is not established. Separate byte-pinned
+evidence includes the normal-tail arithmetic at <code>3A:54FD</code>–<code>3A:554D</code>,
+the Zelen–Severo coefficient table at
 <code>3A:554F</code>–<code>3A:5584</code>, and the test-editor descriptor tables at
-<code>3A:7D00</code>–<code>3A:7E60</code>. The <code>normalcdf(</code> evaluation reaches the page-<code>39</code>
-floating-point core at <code>39:4A02</code>–<code>39:4F5B</code> and its helpers. [confirmed]</p>
+<code>3A:7D00</code>–<code>3A:7E60</code>. The interactive <code>normalcdf(</code> observation visits
+<code>39:4A02</code>–<code>39:4F5B</code>, but that range belongs to MathPrint layout. Its
+presence in the trace does not locate the numerical evaluator. [confirmed]</p>
 <p>Remaining: the per-test entry addresses (the parser’s execution dispatch into
 the page-<code>3A</code> engine — the page-<code>38</code> table is parse-side only), the
-menu-slot mapping of the <code>3A:7DF4</code> pointer array, and the algorithm identity
-of the page-<code>39</code> core. See <a href="sub-statistics.html#remaining-questions">Statistics</a>.</p>
+menu-slot mapping of the <code>3A:7DF4</code> pointer array, and the numerical bodies
+and algorithms for DISTR functions. See <a href="sub-statistics.html#remaining-questions">Statistics</a>.</p>
 <h3 id="mathprint-runtime-paths"><a class="header" href="#mathprint-runtime-paths">MathPrint runtime paths</a></h3>
 <p>The action byte entering <code>eqdisp_layout_main</code> (<code>39:4F9A</code>) is a raw TI key code:
 <code>kLeft</code> opens the backward-walk path (<code>CP 2</code> at <code>39:5048</code>) and <code>kAlphaDown</code>
 opens window advance (<code>CP 8</code> at <code>39:507C</code>), which loops <code>CALL 39:5167</code>. The
-<code>kAlphaUp</code>/<code>kAlphaDown</code> codes come from a translator at <code>39:53A1</code> — get-key
-variant bcall ID <code>4A68h</code>, compare against <code>0xFB</code>, state byte <code>0x8446</code> selects up
-vs down. In-slot character scrolling bypasses <code>eqdisp_layout_main</code> entirely, as
-does nested-template insertion. [confirmed]</p>
+<code>kAlphaUp</code>/<code>kAlphaDown</code> codes come from a translator at <code>39:53A1</code>.
+Bcall <code>4A68h</code> tests the current context while preserving the incoming <code>A</code>;
+the translator compares it against <code>0xFB</code> and uses template ID <code>0x8446</code>
+to select action <code>7</code> or <code>8</code>. Observed in-slot character scrolling bypasses
+<code>eqdisp_layout_main</code>. Nested insertion enters at <code>39:507C</code> but takes the
+branch to <code>39:5112</code>, without selecting window advance. [confirmed]</p>
 <p>Remaining: make get-key return <code>0xFB</code> inside a template editor state — neither
 sequential ALPHA-then-arrow keystrokes nor overlapping press/release chords do.
 Once it does, <code>39:5167</code>, its callees <code>39:5949</code>/<code>39:5B10</code>/<code>39:5B1D</code>, and the
@@ -258,35 +276,31 @@ saved-operand dispatch through <code>39:59E0</code>/<code>39:59F9</code> to <cod
 bytes in the page-<code>07</code> 11-byte OP scratch registers also remain open. See
 <a href="sub-mathprint-editor.html#from-live-editor-state-to-settled-drawing">Equation display</a>.</p>
 <h3 id="matrix-and-list-paths"><a class="header" href="#matrix-and-list-paths">Matrix and list paths</a></h3>
-<p>Plain <code>augment(</code> enters the partial-pivoting engine at <code>02:4663</code> but never
-eliminates: the <code>0x91</code> branch sets carry (<code>02:6361 SCF</code>, restored by the
-<code>POP AF</code> at <code>02:6378</code>), and the engine gates its elimination body on that flag
-(<code>46DA POP AF</code><br><code>JR C,46EF</code>). The elimination pass belongs to the statistics
-regression path, which enters the same dispatcher through <code>3A:6398</code>. [confirmed]</p>
-<p>The <code>randM(</code> fill is decoded: <code>02:5CC1</code>–<code>02:5CE6</code> computes <code>int(19·rand)−9</code> per
-cell, drawing from <code>_Random</code> (<code>36:7DC9</code>) through the page 0 banked-call stub
-at <code>ram:392D</code>. The <code>ref(</code> driver dispatches at <code>02:609A</code> via bcall ID <code>4B85h</code>
-→ <code>35:7995</code>; the <code>rref(</code> executor runs through bcall ID <code>4B88h</code> → <code>02:7C23</code>
-from page-38 stubs at <code>38:514F</code>/<code>38:5157</code>; <code>SortA(</code>/<code>SortD(</code> share one body at
-<code>02:652F</code> with direction discriminators <code>0x0E</code>/<code>0x10</code>. The <code>seq(</code> collection is
-traced per element: entry <code>37:6E87</code>, expression eval through the standard
-parser, element append via <code>02:69BC</code> → <code>37:4260</code>–<code>37:4285</code>, list growth via page-<code>07</code>
-VAT routines, final <code>_CreateRList</code> through <code>37:70DC</code>. [confirmed]</p>
-<p>No remaining items for this subsystem.</p>
+<p><code>BB 2D</code> (<code>ref(</code>) and <code>BB 2E</code> (<code>rref(</code>) normalize to selectors <code>0x91</code>
+and <code>0x92</code>. Both enter <code>_ROWECHELON</code> at <code>02:4663</code> through <code>02:6379</code>.
+Carry set skips above-pivot elimination at <code>02:46DC</code>; both modes execute
+the below-pivot loop at <code>02:46EF</code>–<code>02:470D</code>. The carry-set path is <code>ref(</code>,
+not <code>augment(</code>. [confirmed]</p>
+<p>The separate single-byte <code>2Dh</code> branch calls <code>_Factorial = 4B85h</code>;
+<code>4B88h</code> names <code>_YONOFF</code>. Neither identifies a row-reduction evaluator.
+Remaining: complete matrix multiply/inverse paths, command-specific error
+and archive behavior, and bounded traces distinguishing numeric <code>seq(</code>
+evaluation from editor and parse-ahead visits. See <a href="sub-matrix-list.html">Matrices and lists</a>.</p>
 <h3 id="parser-and-archive-residuals"><a class="header" href="#parser-and-archive-residuals">Parser and archive residuals</a></h3>
 <p>The <code>Asm(</code>/<code>AsmPrgm</code> setup before the <code>ram:9D95</code> payload handoff is
 byte-pinned at <code>07:5762</code>–<code>57D4</code>: <code>_ChkFindSym</code>, size checks against <code>0x2000</code>,
-<code>_InsertMem</code> growth of <code>userMem</code>, <code>LDIR</code> payload copy, USB port-<code>0x20</code> state
+<code>_InsertMem</code> growth of <code>userMem</code>, <code>LDIR</code> payload copy, CPU-speed port-<code>0x20</code> state
 save, cleanup handler <code>0x5800</code>, and the <code>07:57FD</code> jump to <code>0x9D95</code>. The entry
-gate compares the second body byte to <code>6D</code> (<code>07:5772</code>, <code>FE 6D</code>), while working
-fixtures emit <code>AsmPrgm</code> as <code>BB 6C</code> and still reach the payload — reconciling
-the gate byte remains open. [confirmed]</p>
+gate accepts compiled <code>BB 6D</code> at <code>07:5772</code>. The nonmatching branch at
+<code>07:5774</code> selects the text path at <code>07:57D4</code>; its helper checks <code>BB 6C</code>
+at <code>07:5849</code>/<code>07:5850</code> and decodes hexadecimal source through
+<code>07:5717</code>–<code>07:5755</code>. Both launch forms are decoded. [confirmed]</p>
 <p>Remaining: the meaning of the loop-record state word (it varies per fixture:
 <code>0012h</code> in one trace, <code>0007h</code> in another) and the per-iteration split between
 <code>parse_end_ops_record</code> re-entry and direct continuation jumps for <code>While</code>/
 <code>Repeat</code>. The record shapes themselves are pinned: all three loops share the
 5-byte form <code>00 | continuation word | state word</code>, with <code>For(</code> continuations
-<code>38:5836</code>/<code>38:587D</code> and the <code>While</code>/<code>Repeat</code> runtime continuation <code>38:57E7</code>.
+<code>38:5836</code>/<code>38:587D</code> and the observed <code>Repeat</code> runtime continuation <code>38:57E7</code>.
 [confirmed]</p>
 <p>Also open: a direct assembly-to-TI-BASIC program-call entry beyond VAT lookup
 and the cooperative <code>Ans</code> callback. The generated <code>ZZRUN</code> negative probe

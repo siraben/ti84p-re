@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-092bf0a7.js";
+            window.path_to_searchindex_js = "searchindex-9ab627c7.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d4b8a020.js"></script>
@@ -639,7 +639,8 @@ caller sets without relying on disassembler labels: [confirmed]</p>
 </table>
 </div>
 <p>The model-selected helper calls <code>00:1837</code>. That probe reads port <code>0x02</code>, masks
-bit 7, and preserves the resulting flags while restoring <code>A</code> and <code>BC</code>.
+bit 7, then executes <code>XOR 0x80</code>. It returns Z when bit 7 was set and NZ
+when it was clear, while restoring <code>A</code> and <code>BC</code>.
 <code>3D:5247</code> branches to the fixed <code>0x1F18</code> helper when the bit is clear and falls
 through to <code>0x1E50</code> when it is set. The resolved TI-84 Plus traces read <code>0xE1</code>,
 <code>0xE3</code>, or <code>0xE7</code>, so every observed TI-84 Plus state selects <code>0x1E50</code>.

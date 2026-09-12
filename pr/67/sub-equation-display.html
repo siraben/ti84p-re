@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-092bf0a7.js";
+            window.path_to_searchindex_js = "searchindex-9ab627c7.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d4b8a020.js"></script>
@@ -479,8 +479,10 @@ the nearest alphabetic successor or predecessor. The result does not depend on
 the physical order of VAT records. [confirmed]</p>
 <p>For <code>fnInt(expr,var,lower,upper[,tol])</code>, the visible MathPrint fields preserve parser
 order: slot 0 is the integrand, slot 1 is the variable, slot 2 is the lower endpoint,
-slot 3 is the upper endpoint, and slot 4 is the optional tolerance. The evaluator on
-pages <code>02</code> and <code>33</code> consumes the same order. [confirmed]</p>
+slot 3 is the upper endpoint, and slot 4 is the optional tolerance. The numeric
+dispatch for single-byte token <code>24h</code> calls <code>07:6365</code> through bcall ID <code>4A83h</code>;
+page-<code>33</code> editor visits do not identify the evaluator. See
+<a href="sub-solver-numeric.html">Numeric calculus</a>. [confirmed]</p>
 <p>The same routine implements tall-template row composition. <code>eqdisp_layout_main</code> reaches
 <code>39:5167</code> from the action-<code>0x08</code> window-advance path at <code>39:50A4</code> and the action-<code>0x04</code>
 single-step path at <code>39:52B3</code>. <code>39:5167</code> calls <code>39:5949</code> to decide whether the next argument
@@ -624,14 +626,17 @@ cell. [confirmed]</p>
 <p>$$x_\text{right} = x_\text{left} + 4$$</p>
 <p>Static callers of <code>39:6ABF</code>, <code>39:6B1C</code>, and the box wrapper <code>39:6AF5</code> are all in this
 fraction-template UI path. The emitter for the visible bar in a generic
-expression remains unidentified. [confirmed]</p>
+expression is described separately in the
+<a href="sub-mathprint-editor.html#nth-roots-and-fractions">settled fraction renderer</a>.
+These page-<code>39</code> helpers establish the template UI path. [confirmed]</p>
 <h2 id="exponents-and-raised-rows"><a class="header" href="#exponents-and-raised-rows">Exponents and raised rows</a></h2>
 <p>Superscripts are represented as row placement, not as a font attribute. The helper at
 <code>39:4CE9</code> raises classes in the <code>0x24</code>–<code>0x28</code> family and class <code>0x39</code> by forcing <code>0x844B</code>
 to a higher display row before emitting the selected cell. The per-row height accounting
 then folds that raised row into the parent layout. [confirmed]</p>
-<p>This means <code>X^2</code> is stored and walked as ordinary cells in different rows. The row selection
-does the work; the glyph for <code>2</code> is the ordinary one.</p>
+<p>On this page-<code>39</code> path, raised cells use row selection rather than a special
+superscript glyph. The page-<code>34</code> settled power record has a separate structural
+representation and renderer.</p>
 <h2 id="radicals"><a class="header" href="#radicals">Radicals</a></h2>
 <p>The recovered pieces establish where the radical data lives, but not yet the
 complete page <code>39</code> emission route:</p>
@@ -653,8 +658,9 @@ special high-byte <code>D=1F</code> form used by the <code>39:4E8E</code> IX-bac
 [confirmed]</p>
 <p>The static <code>39:5167</code> path can advance a recursive operand window when selected,
 but the demonstrated traces do not connect it to the radical records. The
-precise division between fixed root glyphs, radicand placement, and any
-vinculum drawing remains open.</p>
+page-<code>39</code> entry that selects the root-mark emitter remains open. The
+<a href="sub-mathprint-editor.html#absolute-values-powers-and-roots">settled radical renderer</a>
+separately pins radicand placement and vinculum drawing.</p>
 <h2 id="integrals-and-summations"><a class="header" href="#integrals-and-summations">Integrals and summations</a></h2>
 <p>The visible <code>fnInt(</code> menu cell and the structural integral glyph are separate things.</p>
 <div class="table-wrapper">
@@ -675,7 +681,7 @@ to large-font code <code>0x08</code>, and emits it. [confirmed]</p>
 <p>The static <code>39:5167</code> path can compose argument slots around a fixed glyph:</p>
 <ol>
 <li>Place the tall integral glyph on the main axis.</li>
-<li>Walk the lower, upper, integrand, and variable slots in parser order.</li>
+<li>Walk argument slots; parser source order is integrand, variable, lower, upper.</li>
 <li>Update <code>0x844B</code> by the row step from <code>39:5949</code>.</li>
 <li>Emit slot markers through <code>39:4E0A</code>.</li>
 <li>Emit the operand bodies through <code>39:5B10</code> and <code>39:5B1D</code>.</li>
@@ -1128,7 +1134,8 @@ commands place <code>EF 36 31 11</code> at the editor cursor. It is the sole syn
 source in the 276-trace report. It supplies the only evidence for
 <code>34:5A23</code> fallthrough and <code>34:6992</code> taken. The token-built matrix traversal
 supplies the first natural witness for <code>34:6B94</code> taken. The full minimum
-retains it; the natural minimum excludes it by construction. [confirmed]</p>
+retains the synthetic trace; the natural minimum excludes that trace by
+construction and retains the token-built matrix traversal. [confirmed]</p>
 
                     </main>
 

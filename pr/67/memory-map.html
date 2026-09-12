@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-092bf0a7.js";
+            window.path_to_searchindex_js = "searchindex-9ab627c7.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-d4b8a020.js"></script>
@@ -250,7 +250,7 @@ targets when the retail pages are absent.</p>
 <tr><td><code>0x9340</code></td><td><code>plotSScreen</code></td><td>byte[768]</td><td>Graph/display buffer (96×64/8) [confirmed]</td></tr>
 <tr><td><code>0x86EC</code></td><td><code>saveSScreen</code></td><td>byte[768]</td><td>Saved screen buffer [confirmed]</td></tr>
 <tr><td><code>0x9824</code></td><td><code>FPS</code></td><td>—</td><td>Floating-point stack pointer [standard]</td></tr>
-<tr><td><code>0x85BC</code></td><td><code>onSP</code></td><td>—</td><td>SP saved by ON-interrupt [confirmed]</td></tr>
+<tr><td><code>0x85BC</code></td><td><code>onSP</code></td><td>word</td><td>Context-start stack checkpoint written at <code>ram:0BE9</code>; error callbacks use the separate <code>errSP</code> chain [confirmed]</td></tr>
 </tbody>
 </table>
 </div>

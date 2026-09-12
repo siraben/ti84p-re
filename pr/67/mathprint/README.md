@@ -57,8 +57,9 @@ The function-opener predicate at `34:5A05` is also translated. It dispatches
 ordinary tokens through `34:5A52`, `BB` tokens through `34:5A28`, and `EF`
 tokens through `34:5A14`. Raw native input can therefore retain structural
 children inside the full ROM-classified function-token ranges instead of a
-preview-name allowlist. The renderer still rejects structural record type
-`0x2C`, whose constructor and render dispatch remain unresolved.
+preview-name allowlist. The renderer rejects structural record type
+`0x2C`; its captured synthetic construction overreads the geometry table and
+reaches the reset path, as described in the validation article.
 
 Structural scan kinds `3` and `4` at `34:5678` now consume the metadata bytes
 at `34:59AC` directly. Kind `3` selects one unary child through `34:56E3`.
@@ -84,7 +85,8 @@ instead of stretching glyph `0x08`.
 Render-record type `0x20` is translated through its child traversal and rule
 emission at `34:620A`. Fractions now draw numerator, denominator, then the
 inclusive horizontal rule computed from both child `+7` widths and the parent
-`+0x0B` coordinate. Child placement within each record remains open.
+`+0x0B` coordinate. The constructor derives child placement from their widths
+and heights using the fraction formulas in the settled-rendering article.
 
 Editable generated previews apply both ROM viewport words. `34:5F5D` updates
 the horizontal clip from the expression endpoint and cursor width.
@@ -107,7 +109,7 @@ ink width and pen advance; this reproduces the cursor-free radical history echo
 without applying the wider editable-entry metric.
 
 Render-record type `0x21` executes the absolute-value bar pair followed by its
-child. Type `0x24` executes nth-root index, hook, stem, radicand, and vinculum
+child. Type `0x24` executes nth-root index, hook, stem, vinculum, and radicand
 operations in ROM order.
 
 The complete structural render table at `34:6119`, types `0x1F`–`0x2B`, is
@@ -175,7 +177,7 @@ combine a type-`0x01` variable, an atomic `EF 1E` empty slot, ordinary children,
 and a trailing parent token. Sixteen root-level sequences match every
 cursor-dependent layout word. Their reducer also compares the translated LCD
 against the real TilEm screenshots outside only the blinking cursor cells.
-Two more sequences walk the token-built `[[1]]` matrix across all five packed
+Two more sequences walk the token-built `[[1]]` nested-list AST across all five packed
 tokens in both directions. Two mixed-controller sequences walk a fraction
 inside a radical in both directions. Across the 21 additional sequences, 139
 RAM states and 118 adjacent moves have exact arena, layout-word, and
@@ -293,7 +295,7 @@ are derived in call order; a missing state leaves the saved-F2 branch explicit.
 Scroll calls remain ordered effects rather than generated pixels.
 `editorAlphaSearch()` closes the page-39 dispatcher around `_FindAlphaUp` and
 `_FindAlphaDn`. It translates the ascending/descending class-2 paths, the
-`39:5C2E` special-class check, the `39:1942`/`A=06` repeat, and carry exits from
+`39:5C2E` special-class check, the `ram:1942`/`A=06` repeat, and carry exits from
 the fixed-bank `00:3A53`/`00:306F` dispatchers. The caller supplies OP1 and a
 logical VAT snapshot; the model derives every page-7 result and the
 protected-program repeat from that state.
@@ -387,9 +389,9 @@ streams and untranslated structural types instead of selecting the model
 compositor. Both translated input paths construct records and LCD writes
 without replaying a captured graph or write stream. [confirmed]
 
-Five changed-input regressions start from native byte arrays for summation,
-integral, `nDeriv(`, matrix, and a three-level raised fraction. They construct
-the settled graph, generate 36–173 accepted LCD data writes, and replay each
+Six changed-input regressions start from native byte arrays for summation,
+integral, `nDeriv(`, matrix, a three-level raised fraction, and repeated integrals. They construct
+the settled graph, generate 36–221 accepted LCD data writes, and replay each
 byte into the corresponding eight pixels of a 96×64 framebuffer. The tests
 pin the complete ordered write streams and packed final framebuffers. These
 hashes check deterministic composition; the fresh reset-origin traces below
@@ -465,7 +467,8 @@ eight repeated integrals with a 442-pixel record and 127 native token bytes. The
 textarea grows with wrapped input until its capped editing height, so long source
 text remains accessible independently of the 96-pixel LCD viewport.
 The integral frontend accepts `int(`, `integral(`, and the ROM token
-spelling `fnInt(` as aliases for the same `EF24h` structural record.
+spelling `fnInt(` as aliases for source token `24h` and structural record type
+`22h`, embedded in a leaf by an `EF 22` marker.
 The one-argument hyperbolic functions `sinh(`, `cosh(`, and `tanh(` use their
 decoded single-byte ROM tokens and the same translated argument-boundary path
 as the circular trigonometric functions.
@@ -485,7 +488,7 @@ The $2\times3$ capture contains eight additional standard-timer run-indicator
 writes at `01:6BBA`–`01:6BFA`; the matrix oracle records both the complete
 capture hash and the interrupt-free MathPrint hash. [confirmed]
 
-`parity-mathprint.py` uses LCD trace replay when tracing is enabled. Calculator
+`tools/ti84re/mathprint/parity.py` uses LCD trace replay when tracing is enabled. Calculator
 parity requires the proprietary ROM. Filled-integral and nested-fraction
 results are recorded in
 `tools/oracles/mathprint/mathprint-trace-report.json`; the large raw traces stay outside Git.
