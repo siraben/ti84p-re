@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a4ead54a.js";
+            window.path_to_searchindex_js = "searchindex-113f4caa.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d9f1b932.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -204,14 +204,14 @@ LCD</a>.</p>
       S1 --&gt; S2 --&gt; S3 --&gt; S4 --&gt; S5 --&gt; S6
     end
     TBLSET --&gt;|settings| S1
-    YEQ --&gt;|_Find_Parse_Formula| S3
+    YEQ --&gt; S3
     PARSER --&gt; S3
 </pre>
 
 <p>The TABLE feature reuses the Y= storage and the same page-38
 recursive-descent evaluator the grapher and homescreen use; it adds only
 (a) the running-<code>X</code> driver from
-<code>TblMin</code>/<code>TblStep</code>, (b) a RAM value cache so scrolling doesn’t recompute, and
+<code>TblMin</code>/<code>TblStep</code>, (b) a RAM value cache that reuses values still in its window, and
 (c) a text-grid renderer. [confirmed]</p>
 <hr>
 <h2 id="table-settings"><a class="header" href="#table-settings">TABLE settings</a></h2>
@@ -304,7 +304,7 @@ clearing its <code>=</code> highlight) removes its column from the table. <code>
 The values also match the
 <a href="https://merthsoft.com/linkguide/ti83+/vars.html#style">TI link-protocol var guide</a>.</p>
 <h3 id="indexed-pointer-helpers--imathptr4-0x84d9-confirmed"><a class="header" href="#indexed-pointer-helpers--imathptr4-0x84d9-confirmed">Indexed pointer helpers — <code>iMathPtr4</code> (<code>0x84D9</code>) [confirmed]</a></h3>
-<p>Two official bcalls address a RAM array of two-byte values based at <code>iMathPtr4</code>
+<p>Two official bcalls address a RAM array of two-byte values based at the pointer stored in <code>iMathPtr4</code>
 (<code>0x84D9</code>). A third official bcall sorts a caller-supplied range:</p>
 <div class="table-wrapper">
 <table>
@@ -312,7 +312,7 @@ The values also match the
 <tr><th>bcall</th><th>Addr</th><th>Role</th></tr>
 </thead>
 <tbody>
-<tr><td><code>_PUT_INDEX_LST</code></td><td><code>33:7066</code></td><td>store a value in slot <code>n</code> at <code>0x84D9 + 2n</code></td></tr>
+<tr><td><code>_PUT_INDEX_LST</code></td><td><code>33:7066</code></td><td>store a value in slot <code>n</code> at <code>word_at(0x84D9) + 2n</code></td></tr>
 <tr><td><code>_GET_INDEX_LST</code></td><td><code>33:707A</code></td><td>load the value in slot <code>n</code> through <code>_LdHLind</code></td></tr>
 <tr><td><code>_HEAP_SORT</code></td><td><code>33:7097</code></td><td>sort an indexed caller-supplied range</td></tr>
 </tbody>
@@ -323,16 +323,13 @@ caller stores in the array. <code>_HEAP_SORT</code> does not discover selected e
 The builder and consumer for the TABLE editor’s selected-Y set remain
 [hypothesis].</p>
 <h3 id="resolving-and-evaluating-a-y-var-confirmed"><a class="header" href="#resolving-and-evaluating-a-y-var-confirmed">Resolving and evaluating a Y-var [confirmed]</a></h3>
-<p><code>_Find_Parse_Formula</code> (bcall ID <code>4AF2h</code>) is the universal “find a named var and
-parse/evaluate its stored formula” entry in <a href="sub-tibasic.html#expressions-are-nested-productions">TI-BASIC expression evaluation</a>. For a Y-var it
-<code>_FindSym</code>s the <code>EquObj</code>, points the parse cursor at its token body, and runs the
-page-38 evaluator, leaving the result in <code>OP1</code>. The 38:758A entry seen here is a
-thin RST2 bcall trampoline; the body switches on var type (Window <code>0x0F</code> /
-ZSto <code>0x10</code> / TblRng <code>0x11</code> special-cased) before the cross-page parse — i.e.
-the table range is itself handled as a special “formula” type by this resolver.
-It is bcalled from <code>03:67C0</code> (the Y= equation editor) and <code>33:7720</code> (graph setup).
-Homescreen <code>Y1(2)</code> evaluates through this same path: the parser sees <code>tVarEqu tY1</code>,
-resolves the EquObj, substitutes the argument as <code>X</code>, and evaluates. [confirmed]</p>
+<p><code>_Find_Parse_Formula</code> (bcall ID <code>4AF2h</code>) begins at
+<code>38:758A</code> with <code>CALL 17A6h</code> followed by <code>CALL 12A1h</code>, then prepares parser
+and FP state. It is not an RST trampoline. The actual TABLE caller-to-parser
+path must be checked separately from this public routine’s name.
+The checks at <code>38:734D</code> and <code>38:7056</code> do not establish a
+<code>TblRng</code> special case in <code>_Find_Parse_Formula</code>; <code>38:734D</code>
+is an operand byte inside <code>CALL 1674h</code>. [confirmed]</p>
 <hr>
 <h2 id="table-generation"><a class="header" href="#table-generation">Table generation</a></h2>
 <p>Page 0x05 is the TABLE editor / Graph-Table subsystem. All references to
@@ -365,8 +362,9 @@ recompute driver, otherwise it repaints from the cached values. [confirmed]</p>
          RES 6,(IY+0x13)                 ; reTable = 0  (cache now valid)
          CALL 0x76BA
 </code></pre>
-<p>After a successful recompute it clears <code>reTable</code>, so subsequent scrolls reuse
-the cache until something marks it dirty again. [confirmed]</p>
+<p>After a successful recompute it clears <code>reTable</code>. Values retained in the cache
+can then be reused; scrolling beyond its window still requires new values.
+[confirmed]</p>
 <h3 id="seeding-the-independent-value-confirmed"><a class="header" href="#seeding-the-independent-value-confirmed">Seeding the independent value [confirmed]</a></h3>
 <p><code>05:774B</code> initialises the two-float <code>table_x_work</code> array. It first clears
 <code>table_x_work[0]</code> (<code>0x8622</code>), then at <code>05:7751</code> copies <code>TblMin</code> into
@@ -382,33 +380,27 @@ LD HL,CurTableRow
 CP (HL)
 RET
 </code></pre>
-<p>The per-row X is computed as <code>TblStart + k·TblStep</code> rather than by an
-incremental add:</p>
-<pre><code class="language-z80">05:65DC  LD A,(0x91E0)
-         LD HL,0x91DC
-         CP (HL)
-         RET                            ; row-index bound check
-05:6359  LD A,(0x91DD) … LD DE,0x9221 / 0x91E2 (cell buffers)
-         LD HL,(0x91DC /* row idx */)
-         ADD
-         CALL _LdHLind
-         ADD HL,DE
-</code></pre>
-<p>So row $k$ uses $X=\mathrm{TblMin}+k\cdot\mathrm{TblStep}$. (In <strong>Indpnt = Ask</strong> mode this driver is
-bypassed and the user types each X; see <a href="#auto-and-ask-modes-confirmed">Auto and Ask modes</a>.) [confirmed]</p>
+<p>Automatic mode presents the sequence
+$X_k=\mathrm{TblMin}+k\cdot\mathrm{TblStep}$. [standard]
+The cache-address helper at <code>05:6359</code>–<code>05:6378</code> selects a
+band and multiplies a row index by nine. It does not establish whether the
+numeric sequence uses repeated addition or a fresh multiplication for every
+row. That arithmetic choice remains [hypothesis].</p>
 <h3 id="per-row-evaluation-confirmed"><a class="header" href="#per-row-evaluation-confirmed">Per-row evaluation [confirmed]</a></h3>
 <p>For each visible row the recompute fills the cache:</p>
 <ol>
 <li>Store the row’s X value in a cache slot and stage it through OP1/OP2. The
 running X remains in OP registers and FPS slots rather than passing through
 <code>_StoX</code> for each row.</li>
-<li>Evaluate each selected equation against the current X through bcall ID <code>4741h</code>.
-Its body at <code>35:7C7C</code> drives the page <code>38</code> parser cluster: <code>parse_init</code>
-(<code>38:5B7B</code>), <code>fps_alloc_to_9652</code> (<code>38:5B10</code>), <code>38:5ADA</code>, and the <code>_ParseInp</code>
-region at <code>38:5987</code>. The result remains in OP1.</li>
+<li>Evaluate each selected equation against the current X through the parser.
+The observed parser cluster includes <code>38:5B7B</code>, <code>38:5B10</code>, and the
+<code>_ParseInp</code> region. The exact evaluator call edge remains open. Bcall
+<code>4741h</code> is <code>_CPYO1TOES15</code> at <code>35:7C7C</code>, an expression-stack helper;
+its name and entry do not establish a parser dispatcher.</li>
 <li>Format OP1 and store the result in the row’s cache slot.</li>
 </ol>
-<p>The fill driver at <code>05:6205</code> loads <code>B = 7</code> for the visible rows and increments
+<p>The fill setup at <code>05:6200</code> loads <code>B = 7</code> for the visible rows. Its loop at
+<code>05:6205</code> increments
 <code>CurTableRow</code> (<code>0x91DC</code>) on each iteration. It pushes a cleanup handler through
 <code>ram:27DA</code>, calls the evaluator once per selected equation, and stores results
 through <code>05:6284</code> and <code>05:629B</code>. A headless TilEm trace of <code>Y1=X²</code> with default
@@ -416,13 +408,13 @@ TBLSET executes the <code>_ParseInp</code> region seven times, once per row. Bet
 consecutive rows, execution passes through <code>parse_init</code> and <code>fps_alloc_to_9652</code>.
 The trace does not execute <code>_StoX</code> (<code>38:62A3</code>) during the fill. [confirmed]</p>
 <p>The cache-clearing preamble is <code>table_fill_cache_loop</code> (<code>05:5EE1</code>): it strides
-<code>table_value_cache.band[0]</code> at <code>0x91E2</code> in 9-byte (<code>TIFloat</code>) steps for up to 7
-visible columns (<code>LD C,0x07</code>), keyed off the top-row index <code>0x91E0</code>. The <code>X</code>
+<code>table_value_cache.band[0]</code> at <code>0x91E2</code> in 9-byte (<code>TIFloat</code>) steps for seven
+value slots (<code>LD C,0x07</code>), keyed off the top-row index <code>0x91E0</code>. The <code>X</code>
 column itself is written from the running-X; the <code>Y</code> columns from the evaluated
 OP1. [confirmed]</p>
 <h3 id="value-cache-and-scrolling-confirmed"><a class="header" href="#value-cache-and-scrolling-confirmed">Value cache and scrolling [confirmed]</a></h3>
 <p>The table keeps the visible window of computed values in a RAM cache so that
-scrolling is instant (no recompute):</p>
+values still inside the cached window can be reused:</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -453,14 +445,17 @@ typedef struct {
 <p>Thus <code>0x9221</code> is <code>table_value_cache.band[1]</code>, and <code>0x9260</code> is
 <code>table_value_cache.band[2]</code>. This notation captures both the 9-byte element
 stride and the 63-byte scroll-copy stride. [confirmed]</p>
-<p><code>05:6014</code> performs the scroll:</p>
+<p>The band-copy entry at <code>05:601E</code> performs this copy:</p>
 <pre><code class="language-z80">LD HL,0x9221
 LD DE,0x9260
 LDIR
 </code></pre>
 <p>This copies
-<code>table_value_cache.band[1]</code> to <code>band[2]</code> (a <code>0x3F</code>-byte block) and performs an
-<code>LDDR</code> shift of a <code>0xB4</code>-byte region. When the cursor moves above or below the
+<code>table_value_cache.band[1]</code> to <code>band[2]</code> (a <code>0x3F</code>-byte block).
+Entry <code>05:6026</code> reverses that copy. The separate entry at <code>05:6032</code>
+performs an <code>LDDR</code> shift of a <code>0xB4</code>-byte region.
+<code>05:6014</code> instead calls <code>ram:34B9</code> and <code>05:618D</code>, stores <code>A</code> to
+<code>0x91DA</code>, and returns; it is not the copy/shift body. When the cursor moves above or below the
 cached window, it slides the cache and computes only the one new row
 (or recomputes if <code>reTable</code>). [confirmed]</p>
 <h3 id="auto-and-ask-modes-confirmed"><a class="header" href="#auto-and-ask-modes-confirmed">Auto and Ask modes [confirmed]</a></h3>
@@ -479,15 +474,14 @@ cached window, it slides the cache and computes only the one new row
 <li><strong>Indpnt = Auto</strong> (bit4=0): the driver auto-fills X from TblStart/ΔTbl as described under <a href="#seeding-the-independent-value-confirmed">Seeding the independent value</a>.</li>
 <li><strong>Indpnt = Ask</strong> (bit4=1): the X column starts empty. The per-row prompt body
 at <code>05:6DFF</code> calls the Indpnt test at <code>05:6D4C</code> and invokes the entry-line
-editor at <code>05:7303</code>. The editor pushes continuation <code>05:7329</code> onto the OPS
-stack through <code>ram:27DA</code> and enters setup at <code>05:5F64</code> and <code>05:5F51</code>. On
+editor at <code>05:7303</code>. The editor installs error continuation <code>05:7329</code> through <code>ram:27DA</code> and enters setup at <code>05:5F64</code> and <code>05:5F51</code>. On
 success, <code>05:6032</code> shifts the <code>table_value_cache</code> band and enters row
 evaluation at <code>05:615C</code>. [confirmed]</li>
 <li><strong>Depend = Auto</strong> (bit5=0): Y cells compute immediately during the fill.</li>
 <li><strong>Depend = Ask</strong> (bit5=1): the gate at <code>05:6DD1</code> tests bit 5 through
 <code>05:6D67</code> and <code>05:6D56</code>. In Ask mode, <code>05:69D2</code> checks cell state at <code>0x91CE</code>
 and <code>0x8D1B</code>, then calls <code>05:637C</code> for one deferred evaluation. That routine
-pushes continuation <code>05:644E</code> onto the OPS stack through <code>ram:27DA</code> and runs
+installs error continuation <code>05:644E</code> through <code>ram:27DA</code> and runs
 the cell expression through the standard OPS machinery. [confirmed]</li>
 </ul>
 <p>The mode tests at <code>05:6D4C</code> and <code>05:6D56</code> first call <code>05:74BE</code>. A nonzero result
@@ -557,15 +551,14 @@ bit set (the <code>=</code> is highlighted). The parser store path sets <code>re
 <li>walk the selected equation set — here only <code>Y1</code>; the exact builder and
 iterator remain open,</li>
 <li>per row: stage the running-X through OP1/OP2, evaluate <code>Y1</code>’s tokens via
-bcall ID <code>4741h</code> → <code>35:7C7C</code> and the page <code>38</code> parser cluster
-(<code>_Find_Parse_Formula</code> / <code>_ParseInp</code>) → OP1 = <code>X²+1</code>, format and
+the page <code>38</code> parser cluster → OP1 = <code>X²+1</code>, format and
 stash into <code>table_value_cache.band[0]</code>/<code>band[1]</code>,</li>
 <li>advance to the next row (bound-checked at <code>05:65DC</code>; X = <code>TblStart + k·TblStep</code>) and repeat,</li>
 <li>clear <code>reTable</code>.</li>
 </ul>
 </li>
 <li>The grid paints (<code>05:7E45</code>) the cached <code>X</code> and <code>Y1</code> columns as large-font text;
-scrolling (<code>05:6014</code>) slides the cache and computes only newly exposed rows.</li>
+scrolling uses the cache-copy/shift helpers and computes newly exposed rows.</li>
 <li>Deselecting <code>Y1</code> (or editing the formula, or changing <code>ΔTbl</code>) sets <code>reTable</code>
 again and the next view recomputes.</li>
 </ol>
@@ -588,7 +581,9 @@ IY+19 b6    tblFlags.reTable  = table-dirty
 05:773f  table_seed_runX_from_TblMin2     ; same, split-graph path
 05:65dc  table_row_bound                   ; row-index bound check (91E0 vs (91DC))
 05:5ee1  table_fill_cache_loop            ; fill table_value_cache.band[0]
-05:6014  table_scroll_cache               ; slide cell cache on scroll (LDIR/LDDR)
+05:6014  table_refresh_cache_anchor       ; call 34B9/618D and store A at 91DA
+05:601E / 6026                            ; copy cache band 1↔2
+05:6032                                  ; shift cached values through LDDR
 05:6d40  table_mode_test                  ; BIT autoFill/autoCalc (Auto vs Ask)
 05:7e45  table_paint_grid_loop            ; render cached cells as text columns
 05:7e7c  table_cell_select_buffer         ; pick cache band 1/0
@@ -610,12 +605,12 @@ EquObj = 3 (VAT type)                          ; Y1..Y0 stored as tokenized form
 tokens: tVarEqu=0x5E + tY1=0x10 … tY0=0x19     ; Y-var name encoding
 RAM  84D9   iMathPtr4                          ; indexed-list base; contents depend on caller
 33:7097  _HEAP_SORT                       ; sort caller-supplied indexed range
-33:707a  _GET_INDEX_LST                   ; fetch slot n from 0x84D9+2n
-33:7066  _PUT_INDEX_LST                   ; store slot n at 0x84D9+2n
+33:707a  _GET_INDEX_LST                   ; fetch slot n from word_at(0x84D9)+2n
+33:7066  _PUT_INDEX_LST                   ; store slot n at word_at(0x84D9)+2n
 38:758a  _Find_Parse_Formula              ; FindSym Y-var + parse its formula → OP1
 38:5987  _ParseInp                        ; parse/eval a formula against current X
 38:62a3  _StoX                            ; store OP1 → X system var (not on the fill path)
-35:7c7c  equation-eval dispatcher         ; bcall 0x4741 target: per-row Y evaluation
+35:7c7c  _CPYO1TOES15                    ; bcall 0x4741 expression-stack helper
 38:67ae  _RclX  / 38:67a4 _RclY / 38:626c _StoY
 33:5023  _GetVarVersion                    ; classify extended tokens by version tier
 
@@ -629,37 +624,26 @@ RAM  84D9   iMathPtr4                          ; indexed-list base; contents dep
 <li>TblMin/TblStep addresses + tokens, the <code>tblFlags</code> bit layout, and which sites
 set/clear <code>reTable</code>: [confirmed] (equates + byte-verified bit-ops).</li>
 <li>Page 05 = TABLE subsystem, the recompute→clear-reTable structure, the running-X
-seed from TblMin and <code>+TblStep</code> advance, the cell-cache buffers, the scroll
+seed from TblMin, the cell-cache buffers, the scroll
 (<code>LDIR</code>/<code>LDDR</code>), and the text-grid paint loop: [confirmed] from byte
 disassembly; the dense Z80 bodies don’t fully reduce in the decompiler but the
 CALL/buffer structure is byte-pinned.</li>
-<li>The per-row driver <code>05:6205</code> (seven-row loop, bcall ID <code>4741h</code> → <code>35:7C7C</code>
-equation dispatcher → page-38 parser cluster) and the once-per-row
-<code>_ParseInp</code> execution are [confirmed] by a headless TilEm trace of
-<code>Y1=X²</code>. <code>_StoX</code> does not execute during the fill; the running X moves through OP
-registers and FPS slots. <code>_PUT_INDEX_LST</code>, <code>_GET_INDEX_LST</code>, and
-<code>_HEAP_SORT</code> are generic indexed-list helpers; their bodies do not prove
-that TABLE uses <code>iMathPtr4</code> for its selected equations.</li>
+<li>The per-row driver at <code>05:6205</code> has a seven-row loop. The retained
+<code>Y1=X²</code> observation visits the page-<code>38</code> parser once per visible
+row, but the precise numeric call edge needs a reduced trace.
+<code>4741h</code> resolves to <code>_CPYO1TOES15</code>, not a named evaluator.
+The generic indexed-list helpers use the pointer in <code>iMathPtr4</code>;
+their bodies do not identify TABLE’s selected-equation representation.</li>
 <li>Y= selection bit (<code>0x20</code>) — flags byte <code>0x23</code> selected / <code>0x03</code> deselected — and the
 <code>style</code> byte values (<code>0</code>=line … <code>6</code>=dotted) are [confirmed] against the
 <a href="https://merthsoft.com/linkguide/ti83+/vars.html#style">TI link-protocol var guide</a>.</li>
 <li>Ask-mode prompting flow is [confirmed]. Indpnt=Ask prompts through the
-entry-line editor at <code>05:7303</code>, with OPS continuation <code>05:7329</code>. Depend=Ask
-evaluates individual cells at <code>05:637C</code>, with OPS continuation <code>05:644E</code>.
+entry-line editor at <code>05:7303</code>, with error continuation <code>05:7329</code>. Depend=Ask
+evaluates individual cells at <code>05:637C</code>, with error continuation <code>05:644E</code>.
 See <a href="#auto-and-ask-modes-confirmed">Auto and Ask modes</a>.</li>
-<li><code>_Find_Parse_Formula</code>’s <code>TblRng</code> (type 0x11) special-case is [confirmed] at
-two byte sites: <code>38:734D</code> (<code>CP 0x11</code><br><code>CALL NZ, 38:72DA</code> — validates the
-range variable’s data layout via <code>38:7260</code> before accepting it) and
-<code>38:7056</code> (<code>CP 0x11</code> / <code>CP 0x12</code> distinguishing TblRng from the following
-type in the header switch).</li>
-<li>The validation body at <code>38:72DA</code> performs generic parse-boundary checking.
-It calls <code>38:7260</code>, which reads the parse stream through the parser cursor
-block and accepts statement delimiters as valid terminations. The companion
-filter at <code>38:72FF</code> rejects token classes that cannot follow: <code>0xB5</code>, <code>0xAB</code>,
-<code>0xEB</code>, <code>0xAA</code>, and the <code>0x41</code>–<code>0x64</code> range except for a <code>0x21</code> second byte.
-Classification side effects land at <code>0x8479</code> and <code>0x847A</code>. The <code>TblRng</code>
-special case therefore requires a legal statement boundary and reuses the
-validator called by the other parse stubs. [confirmed]</li>
+<li>The selected-equation iterator, exact independent-value arithmetic, and
+complete parser/error call paths remain open. Adjacent parser byte comparisons
+do not establish a <code>TblRng</code> special case in <code>_Find_Parse_Formula</code>.</li>
 </ul>
 
                     </main>

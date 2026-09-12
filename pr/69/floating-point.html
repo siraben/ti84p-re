@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a4ead54a.js";
+            window.path_to_searchindex_js = "searchindex-113f4caa.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d9f1b932.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -187,21 +187,33 @@
 <h2 id="number-format--tifloat-9-bytes-on-disk-confirmed"><a class="header" href="#number-format--tifloat-9-bytes-on-disk-confirmed">Number format — <code>TIFloat</code> (9 bytes on disk) [confirmed]</a></h2>
 <pre><code class="language-text">+0  type      0x00 = real (positive), 0x80 = negative real;
               0x0C/0x8C = complex (paired with the imaginary part)
-+1  exp       base-100? no — base-10 exponent, biased by 0x80 (0x80 = 10^0)
-+2..+8  mantissa   7 bytes = 14 packed BCD digits, normalized d.dddddddddddddd
++1  exp       base-10 exponent, biased by 0x80 (0x80 = 10^0)
++2..+8  mantissa   7 bytes = 14 packed BCD digits, normalized d.ddddddddddddd
 </code></pre>
 <p>As a C struct:</p>
 <pre><code class="language-c">typedef struct {
     uint8_t type;          /* +0: 0x00 real (positive), 0x80 negative; 0x0C/0x8C complex part */
     uint8_t exp;           /* +1: base-10 exponent, biased by 0x80 (0x80 == 10^0)             */
-    uint8_t mantissa[7];   /* +2..+8: 14 packed BCD digits, normalized d.dddddddddddddd        */
+    uint8_t mantissa[7];   /* +2..+8: 14 packed BCD digits, normalized d.ddddddddddddd         */
 } TIFloat;                                              /* 9 bytes on disk / in a stored var   */
 /* In an OP register slot the number occupies 11 bytes: the 9 above plus 2 trailing guard      */
 /* digit bytes (OP1EXT at +9/+10) used during math — see "OP registers" below.                 */
 </code></pre>
 <p>The stored value is</p>
 <p>$$v = \pm\,(d_0.d_1d_2\cdots d_{13})\times 10^{\,e-\mathtt{0x80}}$$</p>
-<p>where $e$ is the biased exponent byte and $d_0\ldots d_{13}$ are the 14 BCD mantissa digits. A ROM-byte scan found roughly 126 candidate BCD constants ROM-wide [hypothesis] ($\pi/180 = 1.745\ldots\mathrm{e}{-2}$, $180/\pi = 5.729\ldots\mathrm{e}{1}$, 65536, plus the FP transcendental coefficient tables on page 0x02). The table addresses below are confirmed by Ghidra disassembly and raw ROM bytes.</p>
+<p>where $e$ is the biased exponent byte and $d_0\ldots d_{13}$ are the 14 BCD
+mantissa digits. For a normalized nonzero value, $d_0$ is nonzero; zero is a
+special representation. This is decimal precision, not a binary IEEE format.</p>
+<p>The guarded raw-byte scan finds 144 overlapping nine-byte
+windows that satisfy the type, exponent, packed-digit, and normalization
+heuristic. Greedily skipping nine bytes after each match leaves 134 candidates.
+These counts include instruction bytes and unrelated data. Counts derived from
+Ghidra data definitions instead depend on listing state and do not measure the
+same ROM-only candidate set. [confirmed]</p>
+<p>The constants used below are confirmed separately by Ghidra references and raw
+ROM bytes. Examples include $\pi/180 = 1.745\ldots\mathrm{e}{-2}$,
+$180/\pi = 5.729\ldots\mathrm{e}{1}$, 65536, and the Flash page <code>02</code>
+transcendental coefficient tables. [confirmed]</p>
 <h2 id="op-registers--11-bytes-each-confirmed"><a class="header" href="#op-registers--11-bytes-each-confirmed">OP registers — 11 bytes each [confirmed]</a></h2>
 <p><code>OP1</code>–<code>OP6</code> begin at <code>0x8478</code> and occupy 11 bytes each. Their shared layout is:</p>
 <pre><code class="language-c">typedef struct {
@@ -210,12 +222,21 @@
 } TIOpRegister;
 </code></pre>
 <p>The guard bytes extend the stored BCD mantissa during calculation. <code>OP1</code> is
-the primary accumulator; binary operations use <code>OP2</code> and return in <code>OP1</code>.</p>
+the primary accumulator. The real add/subtract/multiply/divide entries use
+<code>OP2</code> as their second operand and return in <code>OP1</code>; complex operations and
+comparisons have distinct register and flag contracts.</p>
 <h2 id="core-operations-confirmed"><a class="header" href="#core-operations-confirmed">Core operations [confirmed]</a></h2>
-<p>Every binary operation has the shape <code>OP1 ∘ OP2 → OP1</code>. Add and subtract walk the same five stages below; multiply and divide instead <em>combine</em> exponents (add them for <code>×</code>, subtract for <code>÷</code>) and multiply/divide the mantissas. Because the format is sign-magnitude BCD, the sign is settled separately — negating a value is a single <code>XOR 0x80</code> on its type byte — so the digit work always runs on a non-negative 14-digit mantissa:</p>
+<p>The four basic real arithmetic entries have the shape <code>OP1 ∘ OP2 → OP1</code>.
+Add and subtract align exponents; multiply and divide instead combine them.
+The sign is handled separately from the BCD digit work. For nonzero inputs,
+negation toggles type bit 7; <code>_InvOP1S</code> also clears the sign of zero.
+The add/subtract helpers process eight bytes: seven stored mantissa bytes plus
+the first extension byte, giving 16 working decimal digits. The second
+extension byte is cleared too, but is not part of that eight-byte add loop.
+The following flow describes add/subtract, not every binary operation:</p>
 <pre class="mermaid">flowchart LR
     A["clear guard digits&lt;br/&gt;fp_clear_guard"] --&gt; B["align exponents&lt;br/&gt;shift smaller right by Δ"]
-    B --&gt; C["BCD digit op&lt;br/&gt;add / sub / mul / div"]
+    B --&gt; C["BCD digit op&lt;br/&gt;add / subtract"]
     C --&gt; D["renormalize&lt;br/&gt;back to d.dddd…"]
     D --&gt; E["round on guards&lt;br/&gt;write type/exp to OP1"]
 </pre>
@@ -230,8 +251,8 @@ the primary accumulator; binary operations use <code>OP2</code> and return in <c
 <tr><td><code>_FPAdd</code></td><td><code>ram:229E</code></td><td><code>RST 30h</code></td><td><code>OP1 ← OP1 + OP2</code></td></tr>
 <tr><td><code>_OP1ToOP2</code></td><td><code>ram:1A2F</code></td><td><code>RST 08h</code></td><td>copy <code>OP1 → OP2</code> (11 bytes, via <code>copy_op11</code> <code>ram:1a8e</code>)</td></tr>
 <tr><td><code>_Mov9ToOP1</code></td><td><code>ram:1B01</code></td><td><code>RST 20h</code></td><td>load 9 bytes at <code>HL → OP1</code> (a constant/var)</td></tr>
-<tr><td><code>_CkOP1FP0</code> / <code>_CkOP2FP0</code></td><td><code>ram:1DE9</code> / <code>ram:1DEE</code></td><td>—</td><td>test <code>OP1</code>/<code>OP2 == 0</code> (sets <code>Z</code>)</td></tr>
-<tr><td><code>_CkOP1Real</code></td><td><code>ram:1942</code></td><td>—</td><td>type-check <code>OP1</code> is real</td></tr>
+<tr><td><code>_CkOP1FP0</code> / <code>_CkOP2FP0</code></td><td><code>ram:1DE9</code> / <code>ram:1DEE</code></td><td>—</td><td>load the first mantissa byte and <code>AND A</code>; Z denotes zero for normalized inputs, not a full mantissa validation</td></tr>
+<tr><td><code>_CkOP1Real</code></td><td><code>ram:1942</code></td><td>—</td><td>return <code>A = OP1.type &amp; 0x1F</code>; Z identifies real type 0. Does not raise an error or validate exponent/mantissa bytes</td></tr>
 </tbody>
 </table>
 </div>
@@ -250,10 +271,10 @@ the primary accumulator; binary operations use <code>OP2</code> and return in <c
     \RETURN $OP1$
 \ENDIF
 \STATE $\Delta \gets \mathrm{exp}(OP1) - \mathrm{exp}(OP2)$ \COMMENT{\texttt{fp\_exp\_diff}}
-\STATE shift the smaller mantissa right by $|\Delta|$ digits to align \COMMENT{\texttt{fp\_shift\_right\_digit}}
 \IF{$|\Delta| &gt; 15$}
     \RETURN larger operand \COMMENT{other is negligible}
 \ENDIF
+\STATE shift the smaller mantissa right by $|\Delta|$ digits to align \COMMENT{\texttt{fp\_shift\_right\_digit}}
 \IF{$\mathrm{sign}(OP1) = \mathrm{sign}(OP2)$}
     \STATE $\mathrm{mantissa} \gets$ BCD-add
 \ELSE
@@ -276,7 +297,7 @@ and takes the opposite-sign branch into <code>fp_sub_mantissa</code> (<code>ram:
 subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
 </blockquote>
 <h3 id="the-fp-helper-cluster-confirmed"><a class="header" href="#the-fp-helper-cluster-confirmed">The FP helper cluster [confirmed]</a></h3>
-<p>These five page-0 primitives are shared by add/sub/mult/div and the transcendentals. All were decompiled and disassembled in this ROM; the <code>fp_*</code> names below are the project’s labels (in <code>tools/names.txt</code>). They operate on the OP-register guard region (<code>OP1EXT</code>/<code>OP2EXT</code> are 2 bytes each, at <code>0x8481</code>–<code>0x8482</code>/<code>0x848C</code>–<code>0x848D</code> — <code>fp_clear_guard</code> zeroes all four) and the 7-byte mantissas of <code>OP1</code> / <code>OP2</code> (<code>OP1M</code> <code>0x847A</code> / <code>OP2M</code> <code>0x8485</code>, two bytes past the type/exponent bytes at <code>0x8478</code>/<code>0x8483</code>).</p>
+<p>These five page-0 primitives are shared by add/sub/mult/div and the transcendentals. All were decompiled and disassembled in this ROM; the <code>fp_*</code> names below are the project’s labels (in <code>tools/symbols/names.txt</code>). They operate on the OP-register guard region (<code>OP1EXT</code>/<code>OP2EXT</code> are 2 bytes each, at <code>0x8481</code>–<code>0x8482</code>/<code>0x848C</code>–<code>0x848D</code> — <code>fp_clear_guard</code> zeroes all four) and the 7-byte mantissas of <code>OP1</code> / <code>OP2</code> (<code>OP1M</code> <code>0x847A</code> / <code>OP2M</code> <code>0x8485</code>, two bytes past the type/exponent bytes at <code>0x8478</code>/<code>0x8483</code>).</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -284,7 +305,7 @@ subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
 </thead>
 <tbody>
 <tr><td><code>fp_shift_right_digit</code></td><td><code>ram:1bea</code></td><td>Mantissa shift-right by one BCD digit (one nibble). Cascades nibbles down 8 bytes (<code>b[i] = b[i]&gt;&gt;4 | b[i-1]&lt;&lt;4</code>) and returns the digit shifted out. Called per step to align the smaller operand.</td></tr>
-<tr><td><code>fp_exp_diff</code></td><td><code>ram:1fbf</code></td><td>Exponent difference <code>OP1.value.exp − OP2.value.exp</code> (signed). Drives how many <code>fp_shift_right_digit</code> steps are needed for alignment.</td></tr>
+<tr><td><code>fp_exp_diff</code></td><td><code>ram:1fbf</code></td><td>Returns the low eight bits of <code>OP1.value.exp − OP2.value.exp</code> in A, with carry for unsigned borrow. The caller derives alignment distance; this is not a signed-byte return contract.</td></tr>
 <tr><td><code>fp_add_mantissa</code></td><td><code>ram:1cb9</code></td><td>BCD add of the two mantissa+guard runs. Sets <code>HL=0x848C</code> (OP2 guard), <code>DE=0x8481</code> (OP1 guard) and runs the shared BCD add/<code>DAA</code>-style adjust loop (<code>bcd_add_pair</code>). Used for same-sign add.</td></tr>
 <tr><td><code>fp_sub_mantissa</code></td><td><code>ram:1d37</code></td><td>BCD subtract (<code>OP1 − OP2</code>) of mantissa+guard with borrow, via repeated <code>DAA</code>-style BCD adjust across all 7 mantissa bytes plus the guard byte. Used for opposite-sign add. (<code>ram:1d2f</code>, <code>fp_sub_mantissa_fwd</code>, is the same subtract entered with the operand pointers swapped.)</td></tr>
 <tr><td><code>fp_clear_guard</code></td><td><code>ram:2627</code></td><td>Zero the extended guard bytes (<code>OP1EXT</code>/<code>OP2EXT</code>).</td></tr>
@@ -292,7 +313,8 @@ subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
 </table>
 </div>
 <p><code>ram:1d2f</code> and <code>ram:1d37</code> are two entry points into the same BCD-subtract body — <code>1d2f</code> loads <code>HL=0x8481</code> (OP1 guard), <code>DE=0x848C</code> (OP2 guard) and computes <code>OP2 − OP1</code> into OP2 (<code>LD A,(DE)</code><br><code>SUB (HL)</code>), while <code>1d37</code> enters with the pointers swapped for the reverse <code>OP1 − OP2</code>, before joining the common loop — so the caller picks the subtraction direction by choosing the entry. This is what lets <code>_FPAdd</code> produce a non-negative magnitude and then fix the sign.</p>
-<p>Multiply/divide/transcendentals (on page 0x02) reuse the same align/normalize primitives.</p>
+<p>Multiply, divide, and the transcendental routines on Flash page <code>02</code> reuse the
+same alignment and normalization primitives.</p>
 <h3 id="accumulator-high-nibble-helper-confirmed"><a class="header" href="#accumulator-high-nibble-helper-confirmed">Accumulator high-nibble helper [confirmed]</a></h3>
 <p><code>_ShRAcc = 0x41D4</code>, body <code>ram:1BCB</code>, is a six-instruction scalar helper rather
 than an OP-register operation. It executes four <code>RRA</code> instructions, masks with
@@ -304,7 +326,8 @@ the bcall returns. The result is in <code>tools/data/community-bcall-semantics.c
 <h2 id="floating-point-stack-fps-standard"><a class="header" href="#floating-point-stack-fps-standard">Floating-point stack (FPS) [standard]</a></h2>
 <p><code>FPS</code> (<code>0x9824</code>) is a software stack for temporaries; <code>_PushRealO1</code> (= <code>RST 18h</code>, <code>ram:155C</code>), <code>_PushReal</code>, <code>_PopRealO1</code> through <code>_PopRealO6</code>, <code>_PopReal</code>, <code>_AllocFPS</code>, and <code>_DeallocFPS</code> manage it. Used to spill OP registers during nested expression evaluation.</p>
 <h2 id="multiplication-division-and-transcendentals-confirmed"><a class="header" href="#multiplication-division-and-transcendentals-confirmed">Multiplication, division, and transcendentals [confirmed]</a></h2>
-<p>The rest of the FP op set lives alongside add on page 0, with the transcendentals banked to page 0x02:</p>
+<p>The rest of the FP operation set lives alongside addition on page <code>00</code>; the
+transcendental routines are banked to Flash page <code>02</code>:</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -330,43 +353,45 @@ the <code>_FPMult</code> body at <code>ram:2392</code>. The preceding <code>LD A
 it does not select a flash page. The actual banked-call helper is
 <code>cross_page_jump</code> (<code>ram:2B09</code>). [confirmed]</p>
 <h3 id="the-shared-algorithm--digit-by-digit-pseudo-division-confirmed"><a class="header" href="#the-shared-algorithm--digit-by-digit-pseudo-division-confirmed">The shared algorithm — digit-by-digit pseudo-division [confirmed]</a></h3>
-<p>The forward log and exp evaluators use a digit-by-digit pseudo-division
+<p>The table paths in the forward log and exp evaluators use a digit-by-digit pseudo-division
 recurrence. <code>logexp_digit_table</code> (<code>02:7181</code>) contains the 16 values
 $\log_{10}(1+10^{-k})$ for $k=0\ldots15$. Each step scales a BCD value by
 $1+10^{-k}$ with one digit shift and one BCD addition. Only base conversion
-uses <code>fp_mul_indexed_constant</code> and general multiplication. The traces also
+uses <code>fp_mul_indexed_constant</code> and general multiplication within these table
+paths. Logarithms also have a near-one path using division, described below.
+The traces also
 separate the accumulator entries: <code>_EToX</code> uses <code>fp_add_mantissa</code>
 (<code>ram:1CB9</code>), while <code>_LnX</code> uses its sibling at <code>ram:1CA9</code>. [confirmed]</p>
-<p><strong>Logarithm.</strong> With the exponent already split off so the mantissa is $x\in[1,10)$, the loop (<code>02:6F80</code>–<code>6FEE</code>) drives $x$ up toward $10$ by repeatedly scaling by the largest table factor that doesn’t overshoot; the number of scalings at each position <em>is</em> the corresponding digit of the answer, and the running sum of the table entries is the logarithm:</p>
+<p><strong>Logarithm.</strong> With the exponent already split off so the mantissa is $x\in[1,10)$, the loop (<code>02:6F80</code>–<code>6FEE</code>) drives $x$ up toward $10$ by repeatedly scaling by the largest table factor that doesn’t overshoot. The weighted sum of the table entries approximates $\log_{10}(10/x)$; the repetition counts are not decimal digits of the logarithm.</p>
 <pre><code class="language-pseudocode">\begin{algorithm}
 \caption{Logarithm by pseudo-division (table $c_k=\log_{10}(1+10^{-k})$ at \texttt{02:7181})}
 \begin{algorithmic}
-\REQUIRE reduced mantissa $x \in [1,10)$, accumulator $L \gets 0$
+\REQUIRE reduced mantissa $x_0 \in [1,10)$, working value $x \gets x_0$, accumulator $L \gets 0$
 \FOR{$k = 0$ \TO $15$}
     \WHILE{$x \cdot (1+10^{-k}) \le 10$}
         \STATE $x \gets x + (x \gg k\text{ digits})$ \COMMENT{$\times(1+10^{-k})$ is a BCD shift-add}
-        \STATE $L \gets L + c_k$ \COMMENT{add count = the $k$-th digit of the answer}
+        \STATE $L \gets L + c_k$
     \ENDWHILE
 \ENDFOR
-\RETURN $\log_{10}x = 1 - L$ \COMMENT{$x$ driven up to $10$, then $\ln x = \log_{10}x \cdot \ln 10$}
+\RETURN $\log_{10}x_0 \approx 1 - L$ \COMMENT{$x$ driven toward $10$, base conversion multiplies by $\ln 10$}
 \end{algorithmic}
 \end{algorithm}
 </code></pre>
 <p>The two passes split the coarse digits ($k=0\ldots7$) from the fine digits
 ($k=8\ldots15$). <code>fp_constant_table</code> (<code>02:7D42</code>) supplies $\ln 10$ as row 6
 through <code>fp_mul_indexed_constant</code>; <code>_LogX</code> skips that final multiply.</p>
-<p><strong>Exponential.</strong> <code>_EToX</code>/<code>_TenX</code> (<code>02:7066</code>+) run the <em>same</em> table backwards — consuming the fractional part $y$ digit by digit, subtracting $\log_{10}(1+10^{-k})$ while building $10^{y}=\prod_k(1+10^{-k})^{d_k}$ into an accumulator, again with only shift-adds:</p>
+<p><strong>Exponential.</strong> <code>_EToX</code>/<code>_TenX</code> (<code>02:7066</code>+) reverse the recurrence, consuming the fractional part $y$ by subtracting $\log_{10}(1+10^{-k})$ while building a product of the factors $1+10^{-k}$. Both paths visit table selectors in increasing order.</p>
 <pre><code class="language-pseudocode">\begin{algorithm}
-\caption{Exponential by pseudo-multiplication (same table, run in reverse)}
+\caption{Exponential by pseudo-multiplication (inverse recurrence)}
 \begin{algorithmic}
-\REQUIRE $y = $ fractional part of $x\log_{10}e$, accumulator $A \gets 1$
+\REQUIRE $y_0 = $ fractional part of $x\log_{10}e$, residual $y \gets y_0$, accumulator $A \gets 1$
 \FOR{$k = 0$ \TO $15$}
     \WHILE{$y \ge c_k$}
         \STATE $y \gets y - c_k$
         \STATE $A \gets A + (A \gg k\text{ digits})$ \COMMENT{$\times(1+10^{-k})$}
     \ENDWHILE
 \ENDFOR
-\RETURN $10^{y} = A$
+\RETURN $10^{y_0} \approx A$
 \end{algorithmic}
 \end{algorithm}
 </code></pre>
@@ -379,7 +404,7 @@ supplies the base-conversion and trig-reduction constants. [confirmed]</p>
 / <code>6FD3 BIT 4</code> tests), walking successive <code>02:7181</code> rows with a per-step
 shift-add, then fetches $\ln 10$ via <code>LD A,6</code><br><code>CALL ram:2362</code> and multiplies.
 <code>e^{1}</code> (<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/exp1.macro"><code>exp1.macro</code></a>) drives <code>_EToX</code>, which consumes
-the same table in reverse (the inner step is <code>fp_sub_mantissa</code> <code>1d37</code>, the
+the inverse recurrence with increasing table indices (the inner step is <code>fp_sub_mantissa</code> <code>1d37</code>, the
 accumulator add <code>fp_add_mantissa</code> <code>1cb9</code>), selector sweeping <code>00…0F</code> under the
 <code>710A CP 0x0F</code> bound. On-screen results: <code>.6931471806</code> and <code>2.718281828</code>.</p>
 </blockquote>
@@ -389,27 +414,33 @@ accumulator add <code>fp_add_mantissa</code> <code>1cb9</code>), selector sweepi
 sign/phase variants selected by <code>OP5.value.type</code> bit 7. The exact rotation
 identity encoded by each row remains open. [confirmed]</p>
 <h3 id="_lnx--natural-log-026efd-confirmed"><a class="header" href="#_lnx--natural-log-026efd-confirmed"><code>_LnX</code> — natural log (<code>02:6EFD</code>) [confirmed]</a></h3>
-<p><code>_LnX</code> first calls <code>_CkOP1Pos</code> (<code>ram:1E5D</code>) and raises a domain error for
-$x \le 0$. The core at <code>02:6F1B</code> splits $x$ into mantissa and exponent. Its
+<p>The real-input <code>_LnX</code> entry first calls <code>_CkOP1Pos</code> (<code>ram:1E5D</code>) and rejects
+a negative sign. The shared core separately rejects zero at <code>02:6F1E</code> through
+<code>ram:212D</code>; the sign helper alone does not reject zero or check the type.
+The core at <code>02:6F1B</code> selects between two paths. Near one, <code>02:6F33</code>–<code>6F7C</code>
+forms <code>(x-1)/(x+1)</code>, rescales it, calls the shared digit recurrence at <code>02:77A6</code> with
+<code>A=0x80</code>, and doubles its result. This branch bypasses <code>logexp_digit_table</code>;
+it corresponds to the identity $\ln x=2\operatorname{atanh}((x-1)/(x+1))$.
+The table path splits $x$ into mantissa and exponent. Its
 pseudo-division loop at <code>02:6F8C</code>–<code>6FEC</code> steps through
 <code>logexp_digit_table</code>. The first phase stops when the selector reaches bit 3;
 the second stops at bit 4. Calls to <code>fp_mul_indexed_constant</code> select row 3 for
 $\log_{10}e$ and row 6 for $\ln 10$. [confirmed]</p>
 <h3 id="_etox--eˣ-02705c-confirmed"><a class="header" href="#_etox--eˣ-02705c-confirmed"><code>_EToX</code> — eˣ (<code>02:705C</code>) [confirmed]</a></h3>
 <p><code>_EToX</code> clears the guard digits, then uses <code>fp_mul_indexed_constant</code> row 3
-for $\log_{10}e$. It skips <code>_TenX</code>’s separate guard initialization and joins
+for $\log_{10}e$. Its <code>JR</code> at <code>02:7064</code> skips <code>_TenX</code>’s guard initialization and joins
 the shared body at <code>02:7069</code>. That body splits the integer digit shift, handles
 sign and reciprocal cases, then evaluates the fractional part through
 <code>logexp_digit_table</code>. The <code>CP 0x0F</code> bound at <code>02:7109</code> establishes 16 selector
 slots. [confirmed]</p>
 <h3 id="_sincosrad-sine-and-cosine-in-radians-02733e-confirmed"><a class="header" href="#_sincosrad-sine-and-cosine-in-radians-02733e-confirmed"><code>_SinCosRad</code> sine and cosine in radians (<code>02:733E</code>) [confirmed]</a></h3>
-<p>This one keeps its range reduction on page 0x02 and is the most fully recovered:</p>
+<p>This routine keeps its range reduction on Flash page <code>02</code>:</p>
 <ol>
 <li>
 <p><strong>Mode/select flags.</strong> <code>0x8499</code> holds the trig-op selector — <code>0x01</code> (sin), <code>0x02</code> (cos), <code>0x04</code> (tan) — ORed with <code>0x80</code> when <code>(IY+0)</code> bit 2 is clear (<code>BIT 2,(IY+0)</code><br><code>JR NZ,+2</code><br><code>OR 0x80</code>). <code>_SinCosRad</code> itself enters with <code>A=0x81</code>, so it stores <code>0x81</code> regardless. <code>fp_clear_guard</code> and <code>_ZeroOP3</code> initialize the work area.</p>
 </li>
 <li>
-<p><strong>Exponent gate.</strong> <code>LD A,(0x8479)</code><br><code>SUB 0x80</code><br><code>JP C,02:73D4</code><br><code>CP 0x0C</code><br><code>JP NC</code> — tiny arguments (negative exponent) take a fast path at <code>02:73D4</code>, and arguments with decimal exponent ≥ 12 are rejected to the slow/error path (<code>_JError 0x84</code> for out-of-range), because reduction can no longer be done accurately.</p>
+<p><strong>Exponent gate.</strong> <code>LD A,(0x8479)</code><br><code>SUB 0x80</code><br><code>JP C,02:73D4</code><br><code>CP 0x0C</code><br><code>JP NC,ram:26F4</code> — magnitudes below 1 skip the initial full-period reduction. Decimal exponents ≥ 12 raise DOMAIN directly. The bound is ROM-confirmed; a formal reduction-error bound is not established here.</p>
 </li>
 <li>
 <p><strong>Reduce the angle.</strong> It reduces against the stored period constants and takes the fractional part to find the quadrant. The reduction constants are the page-0x02 BCD block:</p>
@@ -421,7 +452,7 @@ The quadrant (0–3) is accumulated in <code>B</code>/<code>bStack_1</code> (bit
 </li>
 <li>
 <p><strong>Per-digit evaluation.</strong> The reduced argument enters
-<code>transcendental_eval</code> (<code>02:7498</code>), the shared engine used by $\ln$ and $e^x$. For
+<code>trig_hyperbolic_recurrence</code> (<code>02:7489</code>), distinct from the log/exp table loops. For
 <code>sin(1)</code>, the reduced argument is
 $r = \pi/2 - 1 = 0.5707963267948966$. The engine computes $\cos r$, while
 the quadrant bits in <code>OP5.value.type</code> carry the sign and phase. The
@@ -440,8 +471,9 @@ reduces the accumulator modulo 1 and stores one decimal digit in
 loads <code>trig_recurrence_table_b[0]</code>, where
 $b_0 = 0.9509852944837202$, into <code>OP2M</code>. At each digit position $k$, the
 loop performs $n_k = \lfloor(11-d_k)/2\rfloor$ BCD shift-add steps of
-$\mathtt{OP2} \gets \mathtt{OP2} + \mathtt{OP2}\cdot10^{-2k}$. This builds
-$b_0\cdot\prod_k(1+10^{-2k})^{n_k}$ without general multiplication. For
+$\mathtt{OP2} \gets \mathtt{OP2} + \mathtt{OP2}\cdot10^{-2(k+1)}$. The
+<code>INC B</code> at <code>02:74F8</code> precedes the doubled shift count at <code>02:7504</code>–<code>7506</code>.
+This builds $b_0\cdot\prod_k(1+10^{-2(k+1)})^{n_k}$ without general multiplication. For
 <code>sin(1)</code>, the product is $0.9704891777365256$. [confirmed]</li>
 <li><strong>Phase 3 — result assembly (<code>02:752A</code> onward).</strong> The engine walks the
 stored digits again with align/add-sub steps and exponent bookkeeping.
@@ -456,7 +488,7 @@ For <code>sin(1)</code>, it produces <code>OP4 = 0.8414709848078931</code>, with
 (<a href="https://github.com/siraben/ti84p-re/blob/main/tools/macros/sin1.macro"><code>sin1.macro</code></a>) drives <code>_SinCosRad</code>. The flag init,
 the exponent gate (<code>735D LD A,(0x8479)</code><br><code>SUB 0x80</code><br><code>JP C,02:73D4</code><br><code>CP 0x0C</code><br><code>JP NC</code> — neither
 branch taken, since the decimal exponent of 1 is <code>0</code>), and
-the reduction multiply by the <code>02:7D81</code> constant
+the period-constant load from <code>02:7D81</code>
 (<code>7372 LD HL,02:7D81</code><br><code>CALL ram:1AE2</code>). The trace records all three recurrence
 phases and the on-screen result <code>.8414709848</code>. It also records eight phase-1
 entries at <code>02:731D</code>, with <code>B = 0</code>–<code>7</code> and
@@ -464,12 +496,19 @@ entries at <code>02:731D</code>, with <code>B = 0</code>–<code>7</code> and
 <code>02:7312</code> entry for the phase-2 base row.</p>
 </blockquote>
 <h3 id="coefficient-tables-confirmed"><a class="header" href="#coefficient-tables-confirmed">Coefficient tables [confirmed]</a></h3>
-<p><code>coeff_fetch</code> zeroes <code>OP2.value.type</code>, indexes <code>fp_constant_table[A]</code>, then
-copies the selected constant into <code>OP2</code>. The only
+<p><code>coeff_fetch</code> zeroes <code>OP2.value.type</code> and indexes <code>fp_constant_table[A]</code> with
+a nine-byte stride. Rows 0–6 contain one exponent byte and eight packed-BCD
+mantissa bytes: 16 decimal digits, with no stored type byte. The copy at
+<code>02:7D39</code> plus two <code>LDI</code>s actually reads ten bytes into <code>OP2+1</code> through
+<code>OP2+10</code>, so the second extension byte receives the byte immediately following
+the nine-byte coefficient. For row 6, that byte is the first direct trig mantissa
+byte at <code>02:7D81</code>, not another exponent-prefixed row.
+The first nine copied bytes supply the coefficient and first guard byte.
+The only
 <code>LD A,n</code><br><code>CALL fp_mul_indexed_constant</code> uses in this cluster select row 3
 (<code>log10(e)</code>) and row 6 (<code>ln(10)</code>). Later trig reduction constants are loaded
 directly from the same block.</p>
-<pre><code class="language-text">02:7D42 constants, 9-byte stride:
+<pre><code class="language-text">02:7D42 constants, exponent + eight BCD bytes, 9-byte stride:
   [00] 81 57 29 57 79 51 30 82 32
   [01] 80 15 70 79 63 26 79 48 97
   [02] 7F 78 53 98 16 33 97 44 83
@@ -477,9 +516,9 @@ directly from the same block.</p>
   [04] 80 31 41 59 26 53 58 98 00
   [05] 7E 17 45 32 92 51 99 43 30
   [06] 80 23 02 58 50 92 99 40 46  ; ln(10) fetch site
-  [07] 62 83 18 53 07 17 96 31 41  ; direct trig-reduction region starts here
-  [08] 59 26 53 58 98 78 53 98 16
 </code></pre>
+<p>The following bytes at <code>02:7D81</code> belong to directly loaded trig-reduction
+mantissas, not further exponent-prefixed rows in this constant table.</p>
 <p>Three entry paths share the indexing tail at <code>02:7320</code>. Entry <code>02:7301</code>
 selects <code>logexp_digit_table</code> and <code>OP4M</code>. Entry <code>02:7312</code> selects
 <code>trig_recurrence_table_b</code> and <code>OP2M</code>. Entry <code>02:731A</code> selects <code>OP4M</code>, then
@@ -520,7 +559,7 @@ Each row is 16 bytes: the first eight-byte variant is selected when
 [06] 99 99 99 99 99 99 94 95 | 10 00 00 00 00 00 00 51
 [07] 99 99 99 99 99 99 99 95 | 10 00 00 00 00 00 00 01
 </code></pre>
-<p>The forward ln, e^x, and sin/cos paths all advance one coefficient-table row
+<p>The table-driven ln, e^x, and sin/cos paths advance one coefficient-table row
 at a time with shift-and-add. Ln/e^x use <code>logexp_digit_table</code>; sin/cos use the
 two trig recurrence tables. The inverse-trig arctangent engine instead uses a
 base-10 CORDIC iteration, documented in <a href="sub-calculation.html">Calculation engine</a>.</p>

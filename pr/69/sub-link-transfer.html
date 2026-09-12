@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-a4ead54a.js";
+            window.path_to_searchindex_js = "searchindex-113f4caa.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d9f1b932.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,20 +180,22 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="link-and-data-transfer"><a class="header" href="#link-and-data-transfer">Link and data transfer</a></h1>
-<p>The data-transfer subsystem sends variables and system objects through the
-packet layer over either the 2.5 mm link or the TI-84 Plus USB/link-assist path.
-It builds on <code>_SendAByte</code> (<code>3C:420D</code>) and <code>_RecAByteIO</code> (<code>3C:443F</code>), described in
+<p>The data-transfer subsystem transfers variables and system objects through
+two-wire link and native USB paths. The two-wire packet engine builds on
+<code>_SendAByte</code> (<code>3C:420D</code>) and <code>_RecAByteIO</code> (<code>3C:443F</code>), using either raw
+port-<code>0x00</code> bit-banging or link-assist byte I/O. These byte routines are described in
 <a href="link-port-hardware.html">Two-wire link port hardware</a>. <a href="sub-usb-asic.html">USB ASIC and link
-assist</a> covers the ASIC-facing ports.</p>
+assist</a> covers the separate native USB endpoint transport and
+the ASIC-facing ports; link assist is not the USB transport.</p>
 <p>Raw disassembly preserves the register-passed arguments and
 <code>SET</code>/<code>RES</code>/<code>BIT b,(IY+d)</code> state operations that the decompiler can mis-render.
 The silent-link engine shares Flash page <code>3C</code> with archive command code.</p>
 <h2 id="transfer-layers"><a class="header" href="#transfer-layers">Transfer layers</a></h2>
 <pre class="mermaid">flowchart TB
-    SRC(["user 'Send…' / TI-Connect"])
+    SRC(["local or peer transfer request"])
     subgraph VAR["Variable layer · page 3C"]
-      LX["link_xfer_op 3C:4DD2&lt;br/&gt;silent-link variable send"]
-      SV["_SendVarCmd 3C:4A14→4EDD&lt;br/&gt;DI / cleanup-wraps a send"]
+      LX["link_xfer_op 3C:4DD2&lt;br/&gt;request and receive variable"]
+      SV["_SendVarCmd 4A14h → 3C:4EDD&lt;br/&gt;DI / cleanup-wraps a send"]
     end
     subgraph PKT["PACKET layer"]
       direction LR
@@ -210,7 +212,10 @@ The silent-link engine shares Flash page <code>3C</code> with archive command co
       RB["_RecAByteIO 443F"]
       HW["bit-bang port 0 + HW-assist FIFO ports 8/9/0D"]
     end
-    SRC --&gt; VAR --&gt; PKT --&gt; BYTE
+    USB["native USB transport · pages 35/36"]
+    SRC --&gt; VAR
+    VAR --&gt;|two-wire| PKT --&gt; BYTE
+    LX --&gt; USB
 </pre>
 
 <hr>
@@ -407,7 +412,7 @@ stores the command from <code>H</code>, and calls <code>41C3</code>. Convenience
 <tr><td><code>0x5A</code></td><td><code>ERR/NAK</code></td><td>built by <code>6356</code>/<code>6385</code> (LD H,0x5A)</td><td>checksum/length error reply</td></tr>
 <tr><td><code>0x68</code></td><td><code>RTS</code></td><td><code>41BC</code> (LD H,0x68)</td><td>request-to-send</td></tr>
 <tr><td><code>0x92</code></td><td><code>EOT</code></td><td><code>4195</code> (H=0x92)</td><td>end of transmission</td></tr>
-<tr><td><code>0xA2</code>/<code>0xB7</code></td><td>request</td><td><code>link_xfer_op</code> <code>4E2B/4E2F</code></td><td>request var (A2=DATA-type, B7=other)</td></tr>
+<tr><td><code>0xA2</code>/<code>0xB7</code></td><td>request</td><td><code>link_xfer_op</code> <code>4E2B/4E2F</code></td><td><code>0xA2</code> when <code>sndRecState == 0x15</code>, otherwise <code>0xB7</code>; neither is the DATA payload command</td></tr>
 </tbody>
 </table>
 </div>
@@ -546,7 +551,7 @@ the page-0 bjump stub at <code>00:2E17</code>. The stub targets the endpoint hel
 then stores the count at <code>0x9834</code> and invokes dispatcher mode <code>3</code>. Its RAM
 branch at <code>36:416C</code> uses the same endpoint helper with chunks of at most 64
 bytes and does not call the Flash flush. [confirmed]</p>
-<p><code>tools/analyze_link_flash_staging.py</code> checks the ROM signatures and complete
+<p><code>tools/ti84re/link/analyze_flash_staging.py</code> checks the ROM signatures and complete
 caller sets. Its importable model also reports page classification, RAM-direct
 versus Flash-buffered routing, block counts, destination crossing, and the
 equality quirk.</p>
@@ -563,11 +568,12 @@ equality quirk.</p>
 </code></pre>
 <p>i.e. the receiver reproduces the VAT-create / <code>_InsertMem</code> path from <a href="sub-vat-archive.html">sub-vat-archive.md</a>.</p>
 <hr>
-<h2 id="silent-link-variable-send-confirmed"><a class="header" href="#silent-link-variable-send-confirmed">Silent-link variable send [confirmed]</a></h2>
-<p>This is the path a “Send” hits (TI-Connect pulls a var, or a calc-to-calc send).
-OP1 = the variable name. It negotiates, sends the VAR header, waits for CTS, then streams the DATA.</p>
+<h2 id="silent-link-variable-request-and-receive-confirmed"><a class="header" href="#silent-link-variable-request-and-receive-confirmed">Silent-link variable request and receive [confirmed]</a></h2>
+<p><code>link_xfer_op</code> (<code>3C:4DD2</code>, <code>_GetVarCmdUSB = 50FBh</code>) requests an object
+named by OP1 from the peer. It sends a request, accepts the peer’s VAR header,
+then receives the object. <code>_SendVarCmd</code> uses a separate sending path below.</p>
 <pre><code class="language-z80">link_xfer_op (3C:4DD2):
-  CALL probe_hw_model_keep_a        ; model/HW probe, spin on port 0x20 if assist busy
+  CALL probe_hw_model_keep_a        ; model probe; CPU-speed-selected delay
   SET 1,(IY+0x24)                   ; mark "transfer active"
   RES 3,(IY+0x1B)
   save IY+0xC (APD)
@@ -579,32 +585,37 @@ OP1 = the variable name. It negotiates, sends the VAR header, waits for CTS, the
   decide request command:
       LD A,(8672) sndRecState
       CP 0x15
-      A = 0xA2 (DATA-type) else 0xB7
+      A = 0xA2 if sndRecState == 0x15 else 0xB7
       CALL 6971 (set "cmd in progress")
   USB negotiation (when IY+0x1B bit0 &amp; bit5/6 set): poll port 0x4D bits 5/6, cross_page 2E0B
-  CALL 4055 (send the VAR/request header via 40DA→41C3)
+  CALL 4055 (send the request header via 40DA→41C3)
   CALL 6184 → _Rec1stByteNC (wait for peer reply)
       CP 0x36 (SKIP/EXIT) → 427E
       _JErrorNo                     ; peer refused
-      CP 0x06 (VAR/CTS ok) → continue, else 4D45 _JErrorNo
+      CP 0x06 (VAR header) → continue, else 4D45 _JErrorNo
   CALL 4255
   CALL 687A (check transfer state 8688==0x07)
   if sndRecState==0x15 (DATA):
-      CALL 4763 (resolve var data: type/size/ptr, archive-aware)
-      CALL ... send DATA
-  else: send the symbol-table/listing payload (4261)
+      CALL 4763 (prepare destination and receive variable DATA)
+  else: send CTS, receive reply payload into OP1 through 4261
   RES 1,(IY+0x24)
   FUN_ram_2800 (restore)
   JP 4F3E (cleanup)
 </code></pre>
-<h3 id="resolving-the-variable-for-sending-confirmed"><a class="header" href="#resolving-the-variable-for-sending-confirmed">Resolving the variable for sending [confirmed]</a></h3>
-<p><code>lnk_resolve_var</code> (<code>3C:4763</code>) reads the var-header type byte at <code>0x867F</code> and
-branches by class. For graph/equation types (<code>0x0F</code>–<code>0x14</code>) it uses a
-cross-page helper. Otherwise <code>3C:47AB</code> calls <code>_CkOP1Real</code>, checks the size,
+<h3 id="preparing-the-receive-destination-confirmed"><a class="header" href="#preparing-the-receive-destination-confirmed">Preparing the receive destination [confirmed]</a></h3>
+<p><code>lnk_resolve_var</code> (<code>3C:4763</code>) is the inferred name for a receive-side routine.
+It reads the incoming var-header type byte at <code>0x867F</code> and
+branches by class. For system-object types (<code>0x0F</code>–<code>0x14</code>) it uses a
+cross-page helper. Otherwise <code>3C:47AB</code> calls the type-normalization helper at
+<code>ram:21F0</code>, checks the size,
 then calls <code>_ChkFindSym</code> (<code>ram:0E60</code>)
-to locate the VAT entry. An archived variable routes through the Flash path,
-where <code>_Chk_Batt_Low</code> saves <code>arcInfo.size</code> at <code>0x83F7</code>. <code>_SetupPagedPtr</code>
-supplies the data pointer, page, and length inside the DATA sender.</p>
+to locate an existing destination. The archive attribute at <code>0x8689</code> bit 7
+selects a battery check at <code>3C:47C4</code>, then <code>3C:47CD</code> saves the incoming
+size in <code>arcInfo.size</code> at <code>0x83F7</code>. Existing-variable paths can delete the old
+object at <code>3C:48FE</code> or <code>3C:4908</code>. The creation paths at <code>3C:498D</code> and
+<code>3C:4992</code> prepare the new VAT entry. For an archived destination,
+<code>3C:49DF</code> starts its Flash record, <code>3C:49FC</code> sends CTS, and <code>3C:4A07</code>
+calls the DATA receiver at <code>3C:4261</code>.</p>
 <h3 id="sending-the-data-payload-confirmed"><a class="header" href="#sending-the-data-payload-confirmed">Sending the DATA payload [confirmed]</a></h3>
 <pre><code class="language-z80">40DA: CALL _SetupPagedPtr (17AC)            ; initialize the paged source from HL, DE, and B
       (84DB)=ptr                            ; iMathPtr5
@@ -701,7 +712,7 @@ bit operation anywhere in this ROM. No TI source or older-ROM comparison has
 yet been found that establishes whether those three values instead encode
 model or OS-version compatibility. [hypothesis]</p>
 <p>The audit is reproducible without subsystem-specific parsing:</p>
-<pre><code class="language-console">python3 tools/describe_backup.py legacy-flags
+<pre><code class="language-console">python3 -m ti84re.link.describe_backup legacy-flags
 </code></pre>
 <p><strong>External format evidence.</strong> [standard] tilibs commit
 <code>791d2535813fa7ffef8f9feadf110998d4ae57fb</code> provides an independent format
@@ -736,9 +747,10 @@ machinery:</p>
       2800 (restore)
       JP 4F3E
 </code></pre>
-<p>Note <code>4EDD</code> physically overlaps / shares the tail (<code>4EAD</code>) with <code>link_xfer_op</code>; they are two
-entry points into one routine body. <code>_SendVarCmd</code> is the “send by name from the running context”
-door; <code>link_xfer_op</code> is the “OP1 already set up, do the silent transfer” door.</p>
+<p><code>_SendVarCmd</code> shares the cleanup tail at <code>3C:4EAD</code> with <code>link_xfer_op</code>.
+Their data directions differ: <code>_SendVarCmd</code> calls <code>3C:58ED</code>, waits for CTS
+at <code>3C:592F</code>–<code>3C:5934</code>, and sends DATA through <code>3C:593C</code> → <code>3C:40D2</code>.
+<code>link_xfer_op</code> requests and receives the peer’s object.</p>
 <hr>
 <h2 id="apd-cleanup-and-idle-line-wait-confirmed"><a class="header" href="#apd-cleanup-and-idle-line-wait-confirmed">APD, cleanup, and idle-line wait [confirmed]</a></h2>
 <ul>
@@ -790,7 +802,7 @@ doesn’t auto-power-down mid-transfer.</p>
 <code>0x1F</code>; pointer entry <code>07:6B08</code> selects <code>07:6C55</code>, the string <code>LINK</code>.
 <code>_JError(0x22)</code> uses pointer entry <code>07:6B0E</code>, which selects the same string.
 The two raw codes therefore produce the same visible <code>ERR:LINK</code> message.
-<code>error_table.py</code> decodes this ROM table, and <code>describe_error.py 0x22 0x9F</code>
+<code>tools/ti84re/rom/error_table.py</code> decodes this ROM table, and <code>python3 -m ti84re.rom.describe_error 0x22 0x9F</code>
 reproduces both lookups. [confirmed]</p>
 <p>The include file labels <code>0x22</code>–<code>0x25</code> as <code>E_LinkIOChkSum</code>,
 <code>E_LinkIOTimeOut</code>, <code>E_LinkIOBusy</code>, and <code>E_LinkIOVer</code>, but the same block marks
@@ -829,10 +841,10 @@ DBus implementation for the OS, application, and certificate transfer shapes.</p
 <hr>
 <h2 id="end-to-end-program-transfer-standard"><a class="header" href="#end-to-end-program-transfer-standard">End-to-end program transfer [standard]</a></h2>
 <ol>
-<li>Host (TI-Connect, machine-ID 0x95) opens the USB/DBUS link; calc detects it (<code>IY+0x1B</code> bit1).</li>
+<li>Host (TI-Connect, machine-ID <code>0x95</code>) opens a two-wire DBus session, possibly through a host-side USB-to-link adapter; this is not the native USB endpoint protocol. The calc detects the link session (<code>IY+0x1B</code> bit 1).</li>
 <li>Host requests the directory or a specific var; calc’s receiver (<code>4338</code>) parses the request
 header, <code>6994</code>/<code>6298</code> classify it.</li>
-<li>To send a var: <code>link_xfer_op</code>/<code>_SendVarCmd</code> builds the VAR header (type byte + name from OP1,
+<li>To send a var: <code>_SendVarCmd</code> builds the VAR header (type byte + name from OP1,
 size) at <code>867F</code>, sends it (<code>41C3</code>, cmd path), waits for <code>CTS</code> (<code>0x09</code>).</li>
 <li><code>40DA</code> streams the <code>DATA</code> (<code>0x15</code>) payload via <code>_PagedGet</code>→<code>_SendAByte</code> (Flash-transparent),
 appends the 16-bit checksum, waits for <code>ACK</code> (<code>0x56</code>).</li>
@@ -866,9 +878,9 @@ or Flash staged in 16-byte blocks through <code>3C:6AB1</code>) → checksum ver
 <tr><td><code>3C:4292</code></td><td><code>lnk_recv_data</code></td><td>receive DATA payload, 16-byte Flash batching, checksum</td></tr>
 <tr><td><code>3C:6356</code></td><td><code>lnk_verify_cksum</code></td><td>verify count vs len; NAK 0x5A on mismatch</td></tr>
 <tr><td><code>3C:6AB1</code></td><td><code>flush_paged_flash_block</code></td><td>program one 1–16-byte staged Flash block through <code>_WriteFlash</code> and port <code>0x14</code></td></tr>
-<tr><td><code>3C:4DD2</code></td><td><code>link_xfer_op</code></td><td>silent-link variable send orchestrator (OP1=name)</td></tr>
+<tr><td><code>3C:4DD2</code></td><td><code>link_xfer_op</code> / <code>_GetVarCmdUSB</code></td><td>request an object named by OP1 and receive the reply</td></tr>
 <tr><td><code>3C:4EDD</code></td><td><code>_SendVarCmd</code></td><td>bcall <code>_SendVarCmd</code> (4A14) body; DI-wrapped send-by-name</td></tr>
-<tr><td><code>3C:4763</code></td><td><code>lnk_resolve_var</code></td><td>resolve var class/size/ptr for sending (archive-aware)</td></tr>
+<tr><td><code>3C:4763</code></td><td><code>lnk_resolve_var</code></td><td>prepare or replace the receive destination and receive its data (archive-aware)</td></tr>
 <tr><td><code>3C:40DA</code></td><td><code>lnk_send_data</code></td><td>send DATA payload (<code>_PagedGet</code>→<code>_SendAByte</code>) + checksum + ACK wait</td></tr>
 <tr><td><code>3C:4167</code></td><td><code>lnk_send_cksum_tail</code></td><td>append 16-bit checksum, recv reply, expect ACK 0x56</td></tr>
 <tr><td><code>3C:4F3E</code></td><td><code>lnk_cleanup</code></td><td>error/abort cleanup (restore APD/timers/flags)</td></tr>
@@ -879,7 +891,7 @@ or Flash staged in 16-byte blocks through <code>3C:6AB1</code>) → checksum ver
 <tr><td><code>00:278D</code></td><td><code>_ErrLinkXmit</code></td><td><code>_JError(0x9F)</code> E_LnkErr</td></tr>
 <tr><td><code>00:2799</code></td><td><code>_JErrorNo</code></td><td>raise current pending error (link → 0x9F)</td></tr>
 <tr><td><code>07:7345</code></td><td><code>_GetSysInfo</code> (id <code>0x50DD</code>)</td><td>system info reply (used in link sessions)</td></tr>
-<tr><td><code>00:4A14</code></td><td><code>_SendVarCmd</code> (bcall id)</td><td>→ 3C:4EDD</td></tr>
+<tr><td>bcall <code>4A14h</code></td><td><code>_SendVarCmd</code></td><td>→ <code>3C:4EDD</code></td></tr>
 </tbody>
 </table>
 </div>
