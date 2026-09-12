@@ -17,7 +17,7 @@ VAT/value boundary. [confirmed]
 | Prefer list or matrix primitives | One parsed command can run an internal ROM loop | [Trace-backed list fixture](sub-tibasic-examples.md#trace-backed-examples) |
 | Cache repeated list elements in scalars | Avoid repeated VAT lookup and list-element address calculation | [DFS list stack](sub-tibasic-examples.md#dfs-with-a-list-stack) |
 | Keep graph drawing in the graph buffer | Avoid repeated home-screen formatting and LCD updates | [Graph-buffer visualization](sub-tibasic-examples.md#graph-buffer-visualization) |
-| Use structured loops instead of hot `Goto` paths | Avoid repeated label rescans through `38:7600` | [Loop behavior](sub-tibasic.md#natural-loops-use-a-page-38-ops-record) |
+| Use structured loops instead of hot `Goto` paths | Avoid repeated label rescans through `38:7600` | [Loop behavior](sub-tibasic.md#natural-loops-use-fps-and-ops-records) |
 | Include the optional `For(` closing parenthesis | Avoid the documented implicit-close parser trap | [`For(` parenthesis trap](sub-tibasic-for-paren.md) |
 
 These are interpreter-cost rules, not cycle counts. Exact timing depends on the
