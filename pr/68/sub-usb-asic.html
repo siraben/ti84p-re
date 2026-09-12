@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6a51e12f.js";
+            window.path_to_searchindex_js = "searchindex-a01e9422.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d9f1b932.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -205,11 +205,12 @@ noted, not as proof.</p>
 </tbody>
 </table>
 </div>
-<p>In the variable-transfer code, the OS mostly treats USB as a transport selector around the existing
-TI link protocol. The packet layer still sends machine IDs, command bytes, checksums, ACK/NAK, and
-EOT exactly as described in <a href="sub-link-transfer.html">sub-link-transfer.md</a>. The hardware difference is
-below that packet layer: bytes go through the assist FIFO when the ASIC path is enabled, and through
-port <code>0x00</code> bit-banging otherwise. [confirmed]</p>
+<p>The two-wire packet engine sends machine IDs, command bytes, checksums, ACK/NAK,
+and EOT as described in <a href="sub-link-transfer.html">Link transfer</a>. Its bytes use
+either the assist FIFO or port-<code>0x00</code> bit-banging. USB is a separate transport
+branch with endpoint FIFOs and its own framing; selecting the link-assist FIFO
+does not select USB. The variable-command wrapper chooses between the two-wire
+engine and the USB path before transferring the variable. [confirmed]</p>
 <h2 id="observed-port-map-confirmed"><a class="header" href="#observed-port-map-confirmed">Observed port map [confirmed]</a></h2>
 <div class="table-wrapper">
 <table>
@@ -217,13 +218,13 @@ port <code>0x00</code> bit-banging otherwise. [confirmed]</p>
 <tr><th>Port</th><th>Observed use in OS 2.55MP</th><th>Evidence</th></tr>
 </thead>
 <tbody>
-<tr><td><code>0x02</code></td><td>Hardware/model gate before using assist paths. The link code tests bit 7 before touching ports <code>0x08</code>–<code>0x0D</code>.</td><td><code>3C:6C82</code>, <code>3C:6CB8</code>, <code>3C:6D15</code></td></tr>
+<tr><td><code>0x02</code></td><td>Hardware/model gate before using assist paths. The link code tests bit 7 before touching ports <code>0x08</code>–<code>0x0D</code>.</td><td><code>3C:6CB0</code>, <code>3C:6CC2</code>, <code>3C:6D38</code></td></tr>
 <tr><td><code>0x08</code></td><td>Link-assist control/idle latch. The OS writes <code>0x80</code> when clearing an inactive/error-free assist state, and <code>0x00</code> when marking the assist state active.</td><td><code>OUT (0x08)</code> at <code>3C:6C4D</code>/<code>6C50</code>, <code>3C:6D48</code>, <code>3C:6D5B</code></td></tr>
-<tr><td><code>0x09</code></td><td>Link-assist status on reads. Bit 5 is TX-ready; bit 6 is a transmission/error condition; bit 4 marks a received byte. Masks <code>0x19</code>, <code>0x58</code>, and <code>0x99</code> are used as error/activity predicates. On writes, the OS setup value <code>0x97</code> matches WikiTI’s CPU-speed-0 signaling-rate register.</td><td><code>3C:6BB6</code>–<code>6BC5</code>, <code>3C:444A</code>, <code>3C:6BFA</code>, <code>3C:6CCE</code>, <code>3C:6D33</code>; WikiTI port <code>09</code></td></tr>
-<tr><td><code>0x0A</code></td><td>Assist receive/data register on reads; the confirmed receive path reads the byte here. On writes, the OS setup value <code>0xB4</code> matches WikiTI’s CPU-speed-1 signaling-rate register. TilEm models reads as “last received byte” and stores writes as opaque assist state.</td><td><code>3C:6C20</code>, <code>3C:6C2B</code>, <code>3C:6C39</code>; WikiTI port <code>0A</code>; TilEm <code>x4_io.c</code></td></tr>
-<tr><td><code>0x0B</code>, <code>0x0C</code></td><td>Assist signaling-rate configuration for CPU speed modes 2 and 3, initialized with <code>0xB4</code>. The ROM byte-transfer path writes them during setup but does not read them back. TilEm stores the writes without emulating timing from the values.</td><td><code>3C:6C3D</code>, <code>3C:6C3F</code>; WikiTI ports <code>0B</code>/<code>0C</code>; TilEm <code>x4_io.c</code></td></tr>
-<tr><td><code>0x0D</code></td><td>Assist TX FIFO/data register. <code>_SendAByte</code> writes the outgoing byte here after port <code>0x09</code> bit 5 becomes set.</td><td><code>3C:6BBC</code>–<code>6BBF</code></td></tr>
-<tr><td><code>0x20</code></td><td>CPU speed bit used to select assist/link wait-loop reloads. The send timeout uses <code>0xFFFF</code> when bit 0 is set and <code>0x6800</code> when clear.</td><td><code>3C:6BCC</code>, <code>3C:6C8B</code>, <code>3C:6CC1</code></td></tr>
+<tr><td><code>0x09</code></td><td>Link-assist status on reads. Bit 5 is TX-ready; bit 6 is a transmission/error condition; bit 4 marks a received byte. Masks <code>0x19</code>, <code>0x58</code>, and <code>0x99</code> are used as error/activity predicates. On writes, the OS setup value <code>0x97</code> matches WikiTI’s CPU-speed-0 signaling-rate register.</td><td><code>3C:6BC0</code>–<code>6BC7</code>, <code>3C:6C04</code>, <code>3C:6C41</code>, <code>3C:6CD8</code>, <code>3C:6CEC</code>, <code>3C:6D3D</code>; WikiTI port <code>09</code></td></tr>
+<tr><td><code>0x0A</code></td><td>Assist receive/data register on reads; the confirmed receive path reads the byte here. On writes, the OS setup value <code>0xB4</code> matches WikiTI’s CPU-speed-1 signaling-rate register. TilEm models reads as “last received byte” and stores writes as opaque assist state.</td><td>reads at <code>3C:6C2A</code>, <code>3C:6C35</code>; write at <code>3C:6C45</code>; WikiTI port <code>0A</code>; TilEm <code>x4_io.c</code></td></tr>
+<tr><td><code>0x0B</code>, <code>0x0C</code></td><td>Assist signaling-rate configuration for CPU speed modes 2 and 3, initialized with <code>0xB4</code>. The ROM byte-transfer path writes them during setup but does not read them back. TilEm stores the writes without emulating timing from the values.</td><td><code>3C:6C47</code>, <code>3C:6C49</code>; WikiTI ports <code>0B</code>/<code>0C</code>; TilEm <code>x4_io.c</code></td></tr>
+<tr><td><code>0x0D</code></td><td>Assist TX FIFO/data register. <code>_SendAByte</code> writes the outgoing byte here after port <code>0x09</code> bit 5 becomes set.</td><td><code>3C:6BC6</code>–<code>6BC7</code></td></tr>
+<tr><td><code>0x20</code></td><td>CPU speed bit used to select assist/link wait-loop reloads. The send timeout uses <code>0xFFFF</code> when bit 0 is set and <code>0x6800</code> when clear.</td><td><code>3C:6BD6</code>, <code>3C:6C95</code>, <code>3C:6CCB</code></td></tr>
 <tr><td><code>0x4B</code></td><td>Controller-side setup control. Reset paths write <code>0x00</code>, then conditionally write <code>0x20</code>; another setup path writes <code>0x20</code> before waiting for port <code>0x4C = 0x5A</code>. WikiTI calls this USB power control, but describes its bit meanings as mostly speculative.</td><td><code>35:4C69</code>, <code>35:4C76</code>–<code>4C80</code>, <code>35:59AB</code>; duplicated at <code>2F:59B6</code>, <code>2F:59C3</code>–<code>59CD</code>; WikiTI port <code>4B</code></td></tr>
 <tr><td><code>0x4C</code></td><td>USB controller handshake/status byte. The page-35 stack compares it with <code>0x5A</code>/<code>0x1A</code> and <code>0x12</code>/<code>0x52</code>, and clears or primes it with <code>0x00</code>/<code>0x08</code> during setup. TilEm returns <code>0x22</code> to make the calc see no attached USB peer.</td><td><code>35:42B7</code>, <code>35:42F6</code>, <code>35:403C</code>, <code>35:40E6</code>; TilEm <code>x4_io.c</code></td></tr>
 <tr><td><code>0x4D</code></td><td>USB line-state gate. <code>link_xfer_op</code> samples bits 5 and 6 before the page-0 bjump at <code>ram:2E0B</code>, which targets <code>35:4280</code>. Page-35 handlers also branch on bits 0, 1, 4, 5, 6, and 7. TilEm returns <code>0xA5</code> to emulate “USB disconnected.”</td><td><code>3C:4E4A</code>–<code>4E6F</code>, <code>35:42BF</code>, <code>35:4B6A</code>–<code>4B9F</code>; TilEm <code>x4_io.c</code></td></tr>
@@ -243,7 +244,7 @@ receive-to-memory body at <code>36:40E7</code> reaches it through the page-0 bju
 bytes, receives it into <code>0x983A</code>, and calls the page-<code>3C</code> Flash-staging
 dispatcher in mode <code>3</code> at <code>36:415C</code>. RAM destinations use chunks of up to 64
 bytes and skip that Flash flush. [confirmed]</p>
-<p>The project-local <code>tools/ports.txt</code> names the observed assist, USB-control, and
+<p>The project-local <code>tools/symbols/ports.txt</code> names the observed assist, USB-control, and
 USB-interrupt ports so future Ghidra rebuilds show the same surface in the
 database. Neutral labels retain <code>Unknown</code> for ports <code>0x4F</code> and <code>0x50</code> because
 the ROM does not identify their signals. The file also applies the FDRC-family
@@ -266,7 +267,7 @@ use through a confirmed I/O instruction:</p>
 </div>
 <p>The complete immediate-port and conservative literal-<code>C</code> scan initially
 reports six candidates for these ports. Raw descriptor decoding accounts for
-four of them. <code>tools/analyze_rom_io.py</code> attaches this classification to each
+four of them. <code>tools/ti84re/rom/analyze_io.py</code> attaches this classification to each
 report and <code>--exclude-descriptors</code> removes the four structural overlaps:
 [confirmed]</p>
 <div class="table-wrapper">
@@ -335,7 +336,7 @@ RET
 FDRC-family match below. The exact writes and selected index are [confirmed];
 the imported register names remain [hypothesis].</p>
 <p>A static call scan finds one direct caller at <code>35:4481</code>. It calls this helper,
-then <code>35:3EF1</code>, then <code>35:58DF</code>. The last routine performs 64 iterations over
+then <code>ram:3EF1</code>, then <code>35:58DF</code>. The last routine performs 64 iterations over
 LCD ports <code>0x10</code> and <code>0x11</code>: it writes commands, reads 12 data bytes, and
 writes those bytes back. This control flow ties the port-<code>0x5A</code> setup to LCD
 traffic and presentation mode, but the ROM alone does not expose what appears
@@ -349,8 +350,8 @@ restriction, so those details remain [hypothesis].</p>
 <p>TilEm, Wabbitemu, MAME, and jsTIfied do not implement port <code>0x5A</code> or a connected
 endpoint-2 transfer for this calculator. Emulator execution therefore cannot
 validate the mirroring behavior. The port accesses above were regenerated from
-the retail OS 2.55MP bytes with <code>tools/analyze_rom_io.py</code>; the surrounding
-instructions come from the same page through <code>tools/z80_disassembly.py</code>.
+the retail OS 2.55MP bytes with <code>tools/ti84re/rom/analyze_io.py</code>; the surrounding
+instructions come from the same page through <code>tools/ti84re/rom/z80_disassembly.py</code>.
 Physical validation requires a presentation-link adapter or a controlled USB
 capture. [standard] for the emulator implementations; [confirmed] for the ROM
 sequence.</p>
@@ -426,7 +427,7 @@ the outer counter at <code>0x9CAC</code> expires, then fall into the link error 
 6BB8: CALL 6BD2h
 
 6BBB: LD   A,0FAh
-6BBD: LD   (9C86h),A    ; inner retry reload
+6BBD: LD   (9C86h),A    ; shared link-state reload; not decremented in this loop
 6BC0: IN   A,(09h)
 6BC2: BIT  5,A
 6BC4: JR   Z,6BCAh      ; TX not ready
@@ -443,7 +444,7 @@ the outer counter at <code>0x9CAC</code> expires, then fall into the link error 
 values, while the wall-clock timeout they target is not measured here. [confirmed]</p>
 <h2 id="receiving-and-status-handling-confirmed"><a class="header" href="#receiving-and-status-handling-confirmed">Receiving and status handling [confirmed]</a></h2>
 <p>The receive path is split between <code>_RecAByteIO</code> (<code>3C:443F</code>), <code>lnk_rec_status</code> (<code>3C:444A</code>), and the
-assist helpers around <code>3C:6BF4</code>–<code>6D40</code>.</p>
+assist helpers around <code>3C:6BFE</code>–<code>6D40</code>.</p>
 <p>The hardware-facing receive loop waits until port <code>0x09 &amp; 0x58</code> becomes nonzero. In the confirmed
 path:</p>
 <ul>
@@ -503,7 +504,8 @@ write-side settings as unknown or timeout-like and do not derive link timing fro
 <h2 id="usb-selection-in-link_xfer_op-confirmed"><a class="header" href="#usb-selection-in-link_xfer_op-confirmed">USB selection in <code>link_xfer_op</code> [confirmed]</a></h2>
 <p><code>link_xfer_op</code> (<code>3C:4DD2</code>, bcall ID <code>0x50FB</code>) is the OS entry that sends a silent link request and
 prefers the USB path when its mode flags ask for it. <code>ti83plus.inc</code> names bcall <code>0x50FB</code>
-<code>_GetVarCmdUSB</code>, the USB variant of <code>_GetVarCmd</code> (<code>0x4A11</code>) / <code>_SendVarCmd</code> (<code>0x4A14</code>); that public
+<code>_GetVarCmdUSB</code>, the USB-capable request-and-receive variant of <code>_GetVarCmd</code> (<code>0x4A11</code>),
+not the separate <code>_SendVarCmd</code> (<code>0x4A14</code>) sender; that public
 name matches the USB-first variable-command behavior decoded here, while <code>link_xfer_op</code> is the
 inferred name for the page-3C body. The ROM-confirmed setup is:</p>
 <ul>
@@ -527,9 +529,10 @@ sends the same TI link request/VAR/DATA packets described in the link-transfer p
 <li>On carry clear, the USB path remains selected and the OS calls the bjump reached through
 <code>ram:3FC3</code> with <code>A=0x0A</code>.</li>
 </ol>
-<p>This makes <code>link_xfer_op</code> a USB-first wrapper around the existing link transfer engine. It does not
-replace the packet format. The transport choice happens before <code>_SendAByte</code> writes each byte through
-the assist FIFO or falls back to port <code>0x00</code>. [confirmed]</p>
+<p>This makes <code>link_xfer_op</code> a USB-first request-and-receive wrapper. The successful
+USB branch calls the page-<code>36</code> transport rather than sending the two-wire packet
+through <code>_SendAByte</code>. Only the two-wire fallback chooses between assist FIFO
+and port-<code>0x00</code> byte I/O. [confirmed]</p>
 <h2 id="interrupt-integration-confirmed"><a class="header" href="#interrupt-integration-confirmed">Interrupt integration [confirmed]</a></h2>
 <p>The IM1 dispatcher (<code>ram:006F</code>) tests the USB interrupt status before the separate legacy controller:</p>
 <pre><code class="language-z80">IN A,(0x55)
@@ -585,8 +588,8 @@ mask to physical page <code>0x35</code>.</p>
 </thead>
 <tbody>
 <tr><td><code>50F2</code></td><td><code>_SendUSBData</code></td><td><code>35:4DD3</code></td><td>Sends from <code>HL</code> with byte count in <code>DE</code>; stores progress at <code>0x9C7E</code>/<code>0x9C81</code> and writes 64-byte chunks to port <code>0xA2</code>.</td></tr>
-<tr><td><code>50F5</code></td><td><code>_AppGetCBLUSB</code></td><td><code>3B:54C7</code></td><td>Sets <code>IY+0x1B</code> bit 1, clears bit 2, then reaches <code>_GetVarCmdUSB</code>.</td></tr>
-<tr><td><code>50F8</code></td><td><code>_AppGetCalcUSB</code></td><td><code>3B:54F0</code></td><td>At <code>3B:54DE</code> clears <code>IY+0x16</code> bit 0 and sets <code>sndRecState</code>=0x15, then <code>bcall 0x50FB</code> (shared get-var path).</td></tr>
+<tr><td><code>50F5</code></td><td><code>_AppGetCBLUSB</code></td><td><code>3B:54C7</code></td><td>For name token <code>0x5D</code>, sets <code>IY+0x1B</code> bit 1 and clears bit 2; otherwise clears bit 1 and sets bit 2. Joins the get-var setup at <code>3B:54DE</code>.</td></tr>
+<tr><td><code>50F8</code></td><td><code>_AppGetCalcUSB</code></td><td><code>3B:54F0</code></td><td>Calls bcall <code>5182h</code>, then joins <code>3B:54DE</code>: disables interrupts, clears <code>IY+0x16</code> bit 0, sets <code>sndRecState=0x15</code>, and calls <code>50FBh</code>.</td></tr>
 <tr><td><code>50FB</code></td><td><code>_GetVarCmdUSB</code> / <code>link_xfer_op</code></td><td><code>3C:4DD2</code></td><td>USB-first variable command wrapper described above.</td></tr>
 <tr><td><code>5254</code></td><td><code>_InitUSBDeviceCallback</code></td><td><code>35:4696</code></td><td>Initializes device mode, stores callback page/address at <code>0x9C13</code>/<code>0x9C14</code>, and returns <code>0xFC</code>–<code>0xFF</code> style error bytes with carry set on failure.</td></tr>
 <tr><td><code>5257</code> / <code>5311</code></td><td><code>_KillUSBDevice</code> / <code>_RecycleUSB</code></td><td><code>35:46FC</code> / <code>35:5B9B</code></td><td>Clears callback state and recycles through the same cleanup path.</td></tr>
@@ -601,7 +604,7 @@ mask to physical page <code>0x35</code>.</p>
 </table>
 </div>
 <h2 id="boot-page-os-receive-api"><a class="header" href="#boot-page-os-receive-api">Boot-page OS receive API</a></h2>
-<p>The retail boot table on page <code>3F</code> also exposes a USB stack whose bodies run on page <code>2F</code>. This stack receives an operating-system image. It is separate from the page-35 application-facing API above. The table bytes and entry prologues can be reproduced with <code>tools/inspect_bcall.py</code>. [confirmed]</p>
+<p>The retail boot table on page <code>3F</code> also exposes a USB stack whose bodies run on page <code>2F</code>. This stack receives an operating-system image. It is separate from the page-35 application-facing API above. The table bytes and entry prologues can be reproduced with <code>tools/ti84re/rom/inspect_bcall.py</code>. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -618,8 +621,8 @@ mask to physical page <code>0x35</code>.</p>
 </table>
 </div>
 <p>Inspect a named entry and the unnamed slot directly:</p>
-<pre><code class="language-sh">nix develop -c python tools/inspect_bcall.py 0x8108 --bytes 24
-nix develop -c python tools/inspect_bcall.py 0x810B --bytes 24
+<pre><code class="language-sh">nix develop -c python3 -m ti84re.rom.inspect_bcall 0x8108 --bytes 24
+nix develop -c python3 -m ti84re.rom.inspect_bcall 0x810B --bytes 24
 </code></pre>
 <h3 id="_attemptusbosreceive-input-and-dispatch"><a class="header" href="#_attemptusbosreceive-input-and-dispatch"><code>_AttemptUSBOSReceive</code> input and dispatch</a></h3>
 <p>The first instruction at <code>2F:4145</code> is <code>JR NZ,2F:414A</code>. The input Z flag therefore controls whether the routine waits for a new event. With Z set, <code>usb_wait_line_event</code> at <code>2F:514C</code> checks the cancel/timeout helper, then samples port <code>0x4D</code> bit 6. If that bit is clear, it returns <code>port 0x56 &amp; 0xF2</code> instead. With Z clear, dispatch begins with the caller’s <code>A</code> unchanged. [confirmed]</p>
@@ -646,7 +649,10 @@ OUT (4Ch),A
 <pre><code class="language-z80">OR A
 RET
 </code></pre>
-<p>Failure calls <code>_USBErrorCleanup</code> through <code>2F:5B87</code>, sets carry, and returns. [confirmed]</p>
+<p>Handshake timeout calls <code>_USBErrorCleanup</code> through <code>2F:5B87</code>, sets carry, and
+returns. The later frame-counter timeout instead enters <code>2F:58C8</code> and calls
+<code>2F:591B</code>; it bypasses <code>_USBErrorCleanup</code>’s initial port-<code>0x5B</code> clear. The
+controlled timeout traces below distinguish these cleanup paths. [confirmed]</p>
 <p>The unnamed bcall <code>810B</code> reads port <code>0x81</code>, ORs mask <code>0x01</code>, writes the result back, and jumps to the timer-3 delay at <code>2F:5A06</code>. The <code>ti83plus.inc</code> comment calls this bit 1, while mask <code>0x01</code> sets bit 0. No controller-state poll occurs in this entry itself. [confirmed]</p>
 <h3 id="receive-and-cleanup-boundaries"><a class="header" href="#receive-and-cleanup-boundaries">Receive and cleanup boundaries</a></h3>
 <p><code>_ReceiveOS_USB</code> disables interrupts, enters the record-transfer helpers, and feeds the values <code>0</code>, <code>8</code>, <code>3</code>, <code>0</code>, <code>0x0104</code>, <code>0</code>, and <code>0</code> through <code>2F:42AA</code>. It then sets port <code>0x20</code> to 1, clears receive state at <code>0x8271</code>, <code>0x822F</code>, and <code>0x83A4</code>, and uses <code>0x86EC</code> as a <code>0x0104</code>-byte record workspace. Later branches subtract a four-byte framing size, validate record fields, and program Flash through port <code>0x14</code>. [confirmed]</p>
@@ -816,56 +822,56 @@ context, record dispatch, page rejection, cleanup, and unchanged Flash across
 the isolated rejection. It does not model a USB device, endpoint timing, a PHY,
 natural progress persistence, or a physical calculator. [standard]</p>
 <h2 id="reusable-usb-tools"><a class="header" href="#reusable-usb-tools">Reusable USB tools</a></h2>
-<p><code>tools/usb_hardware.py</code> contains the FDRC offset map, the common HDRC comparison map, pinned source
+<p><code>tools/ti84re/hardware/usb.py</code> contains the FDRC offset map, the common HDRC comparison map, pinned source
 provenance, imported global bit names, link-assist rate fields, page-35 and boot-event decoders,
 paired line-state decoder, emulator profiles, and pure functions for Wabbitemu’s USB read handlers.
-<code>tools/describe_usb_hardware.py</code> exposes the general models as text or JSON.
-<code>tools/wabbitemu_usb_receive.py</code> decodes the transport frames and enforces the
+<code>tools/ti84re/hardware/describe_usb.py</code> exposes the general models as text or JSON.
+<code>tools/ti84re/emulators/wabbitemu/usb_receive.py</code> decodes the transport frames and enforces the
 exact receive packets, ROM transmissions, execution boundaries, calling
 context, intervention, and whole-Flash result. The guarded
-<code>tools/run_wabbitemu_usb_receive_probe.py</code> CLI checks both ROM and adapter
+<code>tools/ti84re/emulators/wabbitemu/run_usb_receive_probe.py</code> CLI checks both ROM and adapter
 hashes and writes a JSON manifest. The native runner stores packet payloads and
 fixed counters only; it does not emit an instruction-by-instruction trace.
-<code>tools/wabbitemu_usb_probe.py</code> validates native reports against the reusable handler model, while
-<code>tools/run_wabbitemu_usb_edge_probe.py</code> provides the exact-ROM guard and writes a hashed JSON
-manifest. <code>tools/wabbitemu_usb_rom.py</code> contains the byte-derived boot-ROM
-oracle, and <code>tools/run_wabbitemu_usb_rom_probe.py</code> exposes its four controlled
-cases as a hash-guarded JSON CLI. The link-assist state model remains in <code>tools/link_port.py</code>;
-<code>tools/tilem_link.py</code> and <code>tools/run_tilem_link_probe.py</code> add the guarded TilEm
-native report and manifest. <code>tools/port_definitions.py</code> parses the project port
-labels with duplicate checks. <code>tools/analyze_rom_io.py</code> uses that library to
+<code>tools/ti84re/emulators/wabbitemu/usb_probe.py</code> validates native reports against the reusable handler model, while
+<code>tools/ti84re/emulators/wabbitemu/run_usb_edge_probe.py</code> provides the exact-ROM guard and writes a hashed JSON
+manifest. <code>tools/ti84re/emulators/wabbitemu/usb_rom.py</code> contains the byte-derived boot-ROM
+oracle, and <code>tools/ti84re/emulators/wabbitemu/run_usb_rom_probe.py</code> exposes its four controlled
+cases as a hash-guarded JSON CLI. The link-assist state model remains in <code>tools/ti84re/link/port.py</code>;
+<code>tools/ti84re/emulators/tilem/link.py</code> and <code>tools/ti84re/emulators/tilem/run_link_probe.py</code> add the guarded TilEm
+native report and manifest. <code>tools/ti84re/rom/port_definitions.py</code> parses the project port
+labels with duplicate checks. <code>tools/ti84re/rom/analyze_io.py</code> uses that library to
 attach labels to static I/O reports and can restrict output to ports absent
-from the label file. <code>tools/rom_io_coverage.py</code> pins and reconciles the complete
+from the label file. <code>tools/ti84re/rom/io_coverage.py</code> pins and reconciles the complete
 ROM-wide set of aligned non-descriptor candidates absent from that file.</p>
 <pre><code class="language-sh"># Map global, indexed, dynamic-sizing, and FIFO registers.
-nix develop -c python tools/describe_usb_hardware.py \
+nix develop -c python3 -m ti84re.hardware.describe_usb \
   register 0x80 0x91 0x9F 0xA2
 
 # Compare the FDRC hypothesis with the common HDRC byte layout.
-nix develop -c python tools/describe_usb_hardware.py layouts
-nix develop -c python tools/describe_usb_hardware.py --json layouts
+nix develop -c python3 -m ti84re.hardware.describe_usb layouts
+nix develop -c python3 -m ti84re.hardware.describe_usb --json layouts
 
 # Keep active-low port-0x55 and port-0x56 interpretations separate.
-nix develop -c python tools/describe_usb_hardware.py events 0x1F 0x50
+nix develop -c python3 -m ti84re.hardware.describe_usb events 0x1F 0x50
 
-nix develop -c python tools/describe_usb_hardware.py assist 0x97 0xB4 0xE0
-nix develop -c python tools/describe_usb_hardware.py line 0xA5 0xE5
-nix develop -c python tools/describe_usb_hardware.py reads 0x4C 0x4D 0x55 0x56 0x57 0x80
-nix develop -c python tools/describe_usb_hardware.py wabbit-port4a 0x08
+nix develop -c python3 -m ti84re.hardware.describe_usb assist 0x97 0xB4 0xE0
+nix develop -c python3 -m ti84re.hardware.describe_usb line 0xA5 0xE5
+nix develop -c python3 -m ti84re.hardware.describe_usb reads 0x4C 0x4D 0x55 0x56 0x57 0x80
+nix develop -c python3 -m ti84re.hardware.describe_usb wabbit-port4a 0x08
 
 # Audit direct page-35 accesses whose ports lack project-local labels.
-nix develop -c python tools/analyze_rom_io.py \
+nix develop -c python3 -m ti84re.rom.analyze_io \
   --page 0x35 --direct-only --unlisted --summary 0x40-0x7F
 
 # Retain only the two table-shaped candidates for unobserved USB ports.
-nix develop -c python tools/analyze_rom_io.py \
+nix develop -c python3 -m ti84re.rom.analyze_io \
   --direct-only --exclude-descriptors 0x49 0x51 0x52
 
-# Verify every candidate for every port absent from tools/ports.txt.
-nix develop -c python tools/describe_rom_io_coverage.py --json
+# Verify every candidate for every port absent from tools/symbols/ports.txt.
+nix develop -c python3 -m ti84re.rom.describe_io_coverage --json
 
 usb_rom_parent=$(mktemp -d /tmp/ti84-usb-rom.XXXXXX)
-nix develop -c python tools/run_wabbitemu_usb_rom_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_usb_rom_probe \
   --rom tools/rom.bin \
   --binary /path/to/wabbitemu-headless \
   --expected-binary-sha256 \
@@ -873,7 +879,7 @@ nix develop -c python tools/run_wabbitemu_usb_rom_probe.py \
   --output-dir "$usb_rom_parent/run" --json
 
 usb_receive_parent=$(mktemp -d /tmp/ti84-usb-receive.XXXXXX)
-nix develop -c python tools/run_wabbitemu_usb_receive_probe.py \
+nix develop -c python3 -m ti84re.emulators.wabbitemu.run_usb_receive_probe \
   --rom tools/rom.bin \
   --binary /path/to/wabbitemu-headless \
   --expected-binary-sha256 \
@@ -889,9 +895,10 @@ nix develop -c python tools/run_wabbitemu_usb_receive_probe.py \
 <tr><th>Need</th><th>OS surface</th><th>ROM support</th></tr>
 </thead>
 <tbody>
-<tr><td>Send or request a variable over USB/link</td><td><code>_GetVarCmdUSB</code>/<code>link_xfer_op</code> (<code>50FB</code> → <code>3C:4DD2</code>) or <code>_SendVarCmd</code> (<code>4A14</code> → <code>3C:4EDD</code>)</td><td>Packet engine and USB-selection gate confirmed on page <code>3C</code>. <code>0x50FB</code> is <code>_GetVarCmdUSB</code> in <code>ti83plus.inc</code>.</td></tr>
-<tr><td>Send one byte on the active link transport</td><td><code>_SendAByte</code> (<code>4EE5</code> → <code>3C:420D</code>)</td><td>Assist branch writes <code>C</code> to port <code>0x0D</code> after port <code>0x09</code> bit 5.</td></tr>
-<tr><td>Receive one byte on the active link transport</td><td><code>_RecAByteIO</code> (<code>4F03</code> → <code>3C:443F</code>)</td><td>Status path checks port <code>0x09</code> and reads port <code>0x0A</code> on the assist path.</td></tr>
+<tr><td>Request and receive a variable over USB/link</td><td><code>_GetVarCmdUSB</code>/<code>link_xfer_op</code> (<code>50FB</code> → <code>3C:4DD2</code>)</td><td>Request/receive engine and USB-selection gate confirmed on page <code>3C</code>; not a variable sender.</td></tr>
+<tr><td>Send a variable over the two-wire link</td><td><code>_SendVarCmd</code> (<code>4A14</code> → <code>3C:4EDD</code>)</td><td>Separate outgoing variable path; see <a href="sub-link-transfer.html">Link transfer</a>.</td></tr>
+<tr><td>Send one byte on the two-wire link</td><td><code>_SendAByte</code> (<code>4EE5</code> → <code>3C:420D</code>)</td><td>Assist branch writes <code>C</code> to port <code>0x0D</code> after port <code>0x09</code> bit 5.</td></tr>
+<tr><td>Receive one byte on the two-wire link</td><td><code>_RecAByteIO</code> (<code>4F03</code> → <code>3C:443F</code>)</td><td>Status path checks port <code>0x09</code> and reads port <code>0x0A</code> on the assist path.</td></tr>
 <tr><td>Use the raw assist FIFO</td><td>Poll port <code>0x09</code> bit 5, then write the byte to port <code>0x0D</code>; for receive, observe port <code>0x09</code> bit 4/error bits and read port <code>0x0A</code>.</td><td>Confirmed as an OS pattern, but not a complete public API.</td></tr>
 </tbody>
 </table>
@@ -970,7 +977,7 @@ levels, or reset retention.</li>
 </thead>
 <tbody>
 <tr><td>Retail OS 2.55MP and boot 1.03 ROM bytes</td><td>Main and boot bcall tables, page-<code>2F</code>/<code>35</code> bodies, ports, branches, and RAM state</td></tr>
-<tr><td><code>tools/ti83plus.inc</code></td><td>Historical public names and comments, checked against table entries and bodies</td></tr>
+<tr><td><code>tools/symbols/ti83plus.inc</code></td><td>Historical public names and comments, checked against table entries and bodies</td></tr>
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code> at <code>f56ad63</code></a></td><td>Link-assist implementation and fixed disconnected USB reads</td></tr>
 <tr><td><a href="https://github.com/illusionlee/lightcube/blob/ac49c480c45c4106cba46a93fd4ae09969db5a1e/beken378/driver/usb/src/cd/mu_fdrdf.h">Mentor <code>mu_fdrdf.h</code> revision 1.7 as preserved in <code>lightcube</code></a></td><td>Mentor-authored 2004 FDRC register offsets and bit masks. The header labels itself proprietary; the mirror is controller-family evidence, not TI silicon identification.</td></tr>
 <tr><td><a href="https://github.com/vsfteam/vsf/blob/4327394b125aae68f67ed48b3aa891fd203a6ca8/source/component/usb/driver/otg/musb/fdrc/vsf_musb_fdrc_hw.h">VSF FDRC register structure at <code>4327394</code></a></td><td>Independent implementation that corroborates the compact FDRC byte ordering; not TI-84 Plus evidence</td></tr>

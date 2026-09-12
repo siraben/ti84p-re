@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6a51e12f.js";
+            window.path_to_searchindex_js = "searchindex-a01e9422.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d9f1b932.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -244,7 +244,7 @@ the wiki.</p>
 <tr><td><code>flags</code></td><td>0x89F0</td><td>The IY-indexed system flag area (<code>SystemFlags</code> struct).</td></tr>
 <tr><td><code>OP1</code></td><td>0x8478</td><td>Primary FP accumulator.</td></tr>
 <tr><td><code>FPS</code></td><td>0x9824</td><td>Floating-point stack pointer.</td></tr>
-<tr><td><code>onSP</code></td><td>0x85BC</td><td>SP saved at context/parse start; <code>_JError</code> unwinds to it (try/catch).</td></tr>
+<tr><td><code>onSP</code></td><td>0x85BC</td><td>Context-start stack checkpoint written at <code>ram:0BE9</code>; <code>_JError</code> instead unwinds through <code>errSP</code>.</td></tr>
 <tr><td><code>symTable</code></td><td>0xFE66</td><td>Top of RAM; the VAT grows down from here.</td></tr>
 <tr><td><code>kbdScanCode</code></td><td>0x843F</td><td>Last keypad scan code (filled by the ISR, read by <code>_GetCSC</code>).</td></tr>
 <tr><td><code>plotSScreen</code></td><td>0x9340</td><td>The 768-byte graph/display buffer (96×64).</td></tr>

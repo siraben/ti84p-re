@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-6a51e12f.js";
+            window.path_to_searchindex_js = "searchindex-a01e9422.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d9f1b932.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -302,7 +302,7 @@ JR 408C
 JP 4097
 JP 4548
 </code></pre>
-<p><code>tools/app_header_re.py</code> reproduces this pass: <code>--fetch-known</code> downloads a
+<p><code>tools/ti84re/community/app_headers.py</code> reproduces this pass: <code>--fetch-known</code> downloads a
 local corpus from ticalc.org into ignored <code>tools/app-samples/</code>, and <code>--markdown</code> prints
 the decoded header table. The corpus keeps the same parser boundary rule:</p>
 <div class="table-wrapper">
@@ -449,7 +449,7 @@ The run uses OS image SHA-256
 <code>dbb47afae091ab36f9abe74e32083013fbeff3d7e0516bbf5d1abf4ee57adc09</code>
 and patched TilEm commit <code>d1bdc58dd321ae462a701e556fcb62bb925a78b1</code>.
 [confirmed] for this emulator fixture.</p>
-<p>Build the App with <code>tools/community-probes/truvid_probe.asm</code> and run
+<p>Build the App with <code>tools/probes/community/truvid/truvid_probe.asm</code> and run
 <code>tools/macros/community-truvid-cleanup.macro</code>. The wrapper resumes once at
 <code>page_29:4095</code> after the RAM core returns. The trace does not exercise an
 existing archived settings AppVar, the media page-wrap branch, an error, a
@@ -524,13 +524,13 @@ payload after any operation that can collect the archive. See
 <a href="sub-resident-programs.html">Resident assembly programs</a> for the detailed handle
 protocol. [confirmed]</p>
 <h3 id="minimal-developer-key-fixture"><a class="header" href="#minimal-developer-key-fixture">Minimal developer-key fixture</a></h3>
-<p><code>tools/flash-apps/minimal_flash_app.asm</code> builds a one-page App named <code>REPROBE</code>.
+<p><code>tools/probes/flash-apps/minimal_flash_app.asm</code> builds a one-page App named <code>REPROBE</code>.
 It immediately exits through
 <code>_JForceCmdNoChar</code>; it is a packaging and launch fixture, not yet a RAM-budget
 probe.</p>
 <p>The source uses SPASM-ng’s <code>app.inc</code> and <code>ti83plus.inc</code>:</p>
 <pre><code class="language-sh">spasm -N -I path/to/spasm-ng/inc \
-  tools/flash-apps/minimal_flash_app.asm /tmp/minimal-flash-app.8xk
+  tools/probes/flash-apps/minimal_flash_app.asm /tmp/minimal-flash-app.8xk
 </code></pre>
 <p>Use a SPASM-ng build with GMP and OpenSSL App signing enabled. A build compiled
 with <code>NO_APPSIGN=1</code> can emit raw App bytes, but its <code>.8xk</code> wrapper is not a
@@ -648,7 +648,7 @@ The second contains the VAT and user variables and programs. [confirmed]</p>
 <p>A small amount of state survives the wipe. The path restores bits 0–6 of
 <code>IY+0x3F</code> and clears bit 7. It conditionally restores <code>IY+0x34</code> bit 6 and
 <code>IY+0x35</code> bit 0, sets <code>IY+0x35</code> bit 1, and restores <code>localLanguage</code> at
-<code>0x9B73</code>. It then <code>JP 0x0BD9</code>, the RAM-init entry (<code>OUT (0)</code> page select, <code>LD SP,0xFFF7</code>,
+<code>0x9B73</code>. It then <code>JP 0x0BD9</code>, the RAM-init entry (<code>OUT (0)</code> releases the raw link lines, <code>LD SP,0xFFF7</code>,
 then <code>CALL 0x3EC1</code> — the cross-page trampoline that rebuilds the VAT, system vars, and LCD; see <a href="boot-contexts-errors.html">Boot contexts &amp; errors</a>), which rebuilds a
 clean default VAT and system state and re-enters the homescreen. The Flash archive is not
 touched by a plain RAM reset.</p>
@@ -712,8 +712,9 @@ all four bits via <code>clr_grfmode</code> (<code>36:7D00</code>), then ORs in i
 </tbody>
 </table>
 </div>
-<p>Each setter first calls a small predicate (<code>36:0013/0254/0259/025E</code>) and only re-sets
-the mode if the parity/condition flag (<code>F</code> bit6) requires it, avoiding needless redraws.</p>
+<p>Each setter first calls a fixed-page predicate (<code>ram:0013</code>, <code>ram:0254</code>,
+<code>ram:0259</code>, or <code>ram:025E</code>) and executes <code>RET NZ</code>. It changes the mode only
+when the predicate returns Z. This is the zero flag (F bit 6), not parity.</p>
 <p>Other <code>grfModeFlags</code> bits (from inc, not in the setters above): bit3 <code>grfPolar</code>
 (rect↔polar coordinate readout). Related graph bytes: <code>grfDBFlags</code> (<code>IY+0x04</code>) bit0
 <code>grfDot</code> (line/dot), bit1 <code>grfSimul</code> (sequential/simultaneous), bit4 <code>grfNoCoord</code>,
@@ -735,7 +736,7 @@ bit5 <code>grfNoAxis</code>; <code>seqFlags</code> (<code>IY+0x0F</code>).</p>
 </tbody>
 </table>
 </div>
-<p>So Normal/Sci/Eng = (bit0, bit1): Normal = <code>00</code>, Sci = <code>01</code>, Eng = <code>11</code>.
+<p>So Normal/Sci/Eng = (bit1, bit0): Normal = <code>00</code>, Sci = <code>01</code>, Eng = <code>11</code>.
 <code>fmtOverride</code> (<code>IY+0x0B</code>, <code>0x89FB</code>) is a working copy used during conversions.</p>
 <p>Float vs Fix N is not in <code>fmtFlags</code> — it is the separate byte <code>fmtDigits</code> =
 <code>0x97B0</code>: value <code>0x00-0x09</code> = Fix-N decimal places, <code>0xFF</code> = Float.</p>
