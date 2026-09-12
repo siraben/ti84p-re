@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2255016c.js";
+            window.path_to_searchindex_js = "searchindex-dcd58526.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d9f1b932.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -188,8 +188,9 @@ state, equation storage, and drawing primitives.</p>
 mapping, discontinuity break, and <code>Circle(</code> schedule while labeling its
 browser-arithmetic boundary.</p>
 <h2 id="window-variables-confirmed"><a class="header" href="#window-variables-confirmed">Window variables [confirmed]</a></h2>
-<p>All graph window state lives in a contiguous block of 9-byte <code>TIFloat</code>s starting at <code>0x8F50</code>.
-These are the values the WINDOW editor writes and the grapher reads.</p>
+<p>The active window values occupy a contiguous block of 9-byte <code>TIFloat</code>s
+starting at <code>0x8F50</code>. Derived scales, integer sampling state, and the alternate
+window copy occupy separate addresses below.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -262,7 +263,7 @@ before conversion. A mantissa carry writes the canonical <code>10 00</code> pref
 increments the exponent. <code>_ConvOP1</code> (<code>38:7433</code>) then converts up to four
 integer digits into <code>DE</code>, returns <code>E</code> in <code>A</code>, and raises a dimension error for
 an exponent above <code>0x83</code>. [confirmed]</p>
-<p><code>tools/graph-coordinate.js</code> translates this operand order and finishing path.
+<p><code>tools/js/graph-coordinate.js</code> translates this operand order and finishing path.
 Its test pins the three ROM spans and compares 220,000 packed-BCD OP1 states
 against an independent transcription. [confirmed]</p>
 <p>The Y result is a 1-based, bottom-up graph coordinate. A reset-origin <code>Y1=X²</code>
@@ -272,23 +273,29 @@ trace maps $y=8.872793118$ to <code>A=60</code> with <code>Ymin=-10</code> and <
 <p>A function value <code>y</code> at sample <code>x</code> becomes a <code>(column, row)</code> pair through these
 subtract-and-multiply transforms. The same conversion serves graph plotting
 and TRACE coordinate display. [confirmed]</p>
-<h3 id="inverse-pixel-index--real-coordinate"><a class="header" href="#inverse-pixel-index--real-coordinate">Inverse: pixel index → real coordinate</a></h3>
-<p><code>_SetXXOP1</code> (<code>33:5F7E</code>) and <code>_SetXXOP2</code> (<code>33:5F83</code>) take an integer pixel value in A
-and build a real <code>TIFloat</code> in OP1 / OP2 (<code>0x8478</code> / <code>0x8483</code>). [confirmed]</p>
+<h3 id="integer-to-real-coordinate-helpers"><a class="header" href="#integer-to-real-coordinate-helpers">Integer-to-real coordinate helpers</a></h3>
+<p><code>_SetXXOP1</code> (<code>33:5F7E</code>) and <code>_SetXXOP2</code> (<code>33:5F83</code>) convert a two-digit
+unsigned integer in <code>A</code> to a real <code>TIFloat</code> in OP1 / OP2
+(<code>0x8478</code> / <code>0x8483</code>). They do not check that <code>A</code> is below 100. [confirmed]</p>
 <ul>
 <li><code>CALL 1BA7</code> zeroes the destination mantissa,</li>
-<li><code>CALL 5F6A</code> converts the binary value to packed BCD by repeated <code>ADD A,0x16 / DAA</code>
-(binary→decimal nibble accumulation), looping A times,</li>
-<li>the exponent byte is set so OP1 holds the integer; <code>_SetXXXXOP2</code> (<code>33:5F9E</code>) is the
-4-digit (up to 9999) variant for larger pixel/coordinate counts.</li>
+<li><code>CALL 5F6A</code> splits the input into nibbles. It starts with the low nibble,
+then adds packed-BCD <code>16</code> once per high-nibble unit. The byte result wraps
+modulo 100.</li>
+<li>The destination exponent is adjusted to normalize that packed byte.
+<code>_SetXXXXOP2</code> (<code>33:5F9E</code>) instead accepts the unsigned word in <code>HL</code>.
+It accumulates all four nibbles with weights 1, 16, 256, and 4096 across
+three BCD bytes, then normalizes. Its input range extends through 65535.</li>
 </ul>
-<p>These are used to turn a pixel column/row (e.g. under the TRACE cursor) back into the real
-X/Y shown at the bottom of the screen, and by DRAW commands that take pixel arguments.</p>
+<p>These helpers construct real-valued integers. Converting a pixel index back to
+a window coordinate additionally requires the caller’s scale and origin;
+these bodies alone do not perform that inverse transform.</p>
 <hr>
 <h2 id="graph-buffer-and-pixel-addressing"><a class="header" href="#graph-buffer-and-pixel-addressing">Graph buffer and pixel addressing</a></h2>
 <ul>
 <li><code>plotSScreen</code> = <code>0x9340</code>, 768 bytes = 96×64/8. Monochrome, 1 bit/pixel, 12 bytes per
-scanline (8 pixels per byte). This is the back buffer everything draws into. [confirmed]</li>
+scanline (8 pixels per byte). It is one destination selected by the drawing
+flags; other states draw directly to the LCD or <code>appBackUpScreen</code>. [confirmed]</li>
 <li><code>saveSScreen</code> = <code>0x86EC</code>, 768 bytes — a saved copy (e.g. for redrawing the graph after
 a menu covers it). [confirmed]</li>
 </ul>
@@ -361,11 +368,11 @@ pointer by 18 bytes. [confirmed]</p>
 <p>The loop consumes seven consecutive constants at <code>35:79F5</code>, alternating sine
 and cosine values for 6°, 12°, 18°, and finally sine 24°. The adjacent
 cosine 24° constant is present but is not consumed by this loop. The static
-schedule and helper ABI are checked in <code>tools/graph_circle.py</code>; the latter is
+schedule and helper ABI are checked in <code>tools/ti84re/graphing/circle.py</code>; the latter is
 compared with the pinned helper bytes for all 65,536 16-bit test seeds.
 [confirmed]</p>
 <h3 id="draw-menu-commands-page-0x04-handlers"><a class="header" href="#draw-menu-commands-page-0x04-handlers">DRAW menu commands (page 0x04 handlers)</a></h3>
-<p>Each DRAW menu command has a page-04 bcall handler that draws into <code>plotSScreen</code>:</p>
+<p>DRAW menu commands have page-04 handlers that use the shared drawing routes:</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -460,7 +467,7 @@ joins the shared evaluator tail at <code>38:59A4</code>. Evaluation passes throu
 <code>eval_eqn_recursive</code> (<code>38:778F</code>) and <code>eval_eqn_finish_typecheck</code> (<code>38:77C2</code>).
 Official <code>_ParseInp</code> at <code>38:5987</code> is a sibling entry with additional state
 cleanup; neither graph trace executes it. [confirmed]</p>
-<p><code>tools/graph-regraph.json</code> records ROM and TilEm provenance, raw-trace hashes,
+<p><code>tools/oracles/graphing/graph-regraph.json</code> records ROM and TilEm provenance, raw-trace hashes,
 and final-buffer hashes for two reset-origin TilEm traces: [confirmed]</p>
 <div class="table-wrapper">
 <table>
@@ -486,16 +493,16 @@ The two missing evaluator completions therefore correspond to a visible break,
 not a line across the asymptote. [confirmed]</p>
 <p>These traces cover line style 0, <code>Xres=1</code>, and one selected equation. They do
 not establish the thick, shade, trace, animate, or dotted paths; <code>Xres&gt;1</code>;
-multiple selected equations; or other graph modes. <code>tools/analyze_graph_regraph.py</code>
+multiple selected equations; or other graph modes. <code>tools/ti84re/graphing/analyze_regraph.py</code>
 regenerates the compact report from raw TLMT traces, which remain outside the
 repository.</p>
 <h3 id="graph-databases-gdb-confirmed"><a class="header" href="#graph-databases-gdb-confirmed">Graph databases (GDB) [confirmed]</a></h3>
 <p><code>_StoGDB2</code> (<code>33:71AC</code>) / <code>_RclGDB2</code> (<code>33:72D9</code>) store/recall a GraphDataBase
-(<code>GDBObj</code>, type/exp marker <code>0x61</code>) — the bundle of window vars + mode + selected equations
+(<code>GDBObj</code>, type <code>0x08</code>, fixed-name prefix <code>0x61</code>) — the bundle of window vars + mode + selected equations
 that the <code>StoreGDB</code>/<code>RecallGDB</code> commands save. <code>_JError(0x89)</code> on a type mismatch.</p>
 <h3 id="indexed-pointer-helpers-confirmed"><a class="header" href="#indexed-pointer-helpers-confirmed">Indexed pointer helpers [confirmed]</a></h3>
 <p><code>_PUT_INDEX_LST</code> (<code>33:7066</code>) and <code>_GET_INDEX_LST</code> (<code>33:707A</code>) store and load
-2-byte slots at <code>iMathPtr4 + 2n</code>; <code>_HEAP_SORT</code> (<code>33:7097</code>) sorts a
+2-byte slots at <code>word_at(iMathPtr4) + 2n</code>; <code>_HEAP_SORT</code> (<code>33:7097</code>) sorts a
 caller-supplied indexed range. Their bodies do not establish a selected-equation
 list or show that Regraph and TABLE share one iterator.</p>
 <hr>
@@ -510,9 +517,10 @@ function for that X, maps the point with <code>_XftoI</code>/<code>_YftoI</code>
 cross-cursor, and uses <code>_SetXXOP1</code>/<code>_SetXXOP2</code> to convert the cursor pixel back to the real
 X/Y it prints at the bottom. The exact TRACE-side evaluator entry has not yet
 been traced. [confirmed]</li>
-<li>A <code>DRAW</code> command (<code>_DrawCmd</code>) or <code>Line(</code>/<code>Circle(</code>/<code>Pt-On(</code> draws straight into
-<code>plotSScreen</code> over the current plot and persists across a SmartGraph redraw (it is not
-re-evaluated) until <code>ClrDraw</code> is issued. [confirmed]</li>
+<li>A <code>DRAW</code> command modifies the current display/buffer through the selected
+drawing route. A SmartGraph buffer reuse can preserve that drawing without
+evaluating the command again. A full <code>_Regraph</code> clears <code>plotSScreen</code> and
+recomputes the plot, so persistence is not guaranteed until <code>ClrDraw</code>. [confirmed]</li>
 </ul>
 <hr>
 <h2 id="evidence-summary-and-open-items"><a class="header" href="#evidence-summary-and-open-items">Evidence summary and open items</a></h2>

@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2255016c.js";
+            window.path_to_searchindex_js = "searchindex-dcd58526.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d9f1b932.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -186,8 +186,9 @@ the <code>OP1</code>–<code>OP6</code> BCD floating-point registers. The softwa
 defines the <code>TIFloat</code> format and <code>_FPAdd</code>; this page covers multiplication,
 division, powers, roots, transcendentals, formatting, and errors.</p>
 <h2 id="register-and-stack-model-confirmed"><a class="header" href="#register-and-stack-model-confirmed">Register and stack model [confirmed]</a></h2>
-<p>Every calculation runs through the OP registers and the software FP stack; the table
-gives each register’s RAM address and its role during an operation.</p>
+<p>Scalar floating-point routines use the OP registers; nested evaluations can
+spill values to the software FP stack. Integer helpers and aggregate operations
+also use ordinary Z80 registers and other RAM buffers.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -195,15 +196,17 @@ gives each register’s RAM address and its role during an operation.</p>
 </thead>
 <tbody>
 <tr><td><code>OP1</code></td><td><code>0x8478</code></td><td>primary accumulator / result. Unary ops take arg here, return here.</td></tr>
-<tr><td><code>OP2</code></td><td><code>0x8483</code></td><td>second operand for binary ops (<code>OP1 ∘ OP2 → OP1</code>).</td></tr>
+<tr><td><code>OP2</code></td><td><code>0x8483</code></td><td>second operand for basic real arithmetic (<code>OP1 ∘ OP2 → OP1</code>); complex routines use different pairings.</td></tr>
 <tr><td><code>OP3</code>–<code>OP6</code></td><td><code>0x848E</code>…</td><td>scratch; sign/exponent staging, complex pairs.</td></tr>
 <tr><td>guard</td><td><code>0x8481/8482</code> (OP1EXT), <code>0x848C/848D</code> (OP2EXT)</td><td>extended guard digits, zeroed by <code>fp_clear_guard</code> at the top of nearly every op.</td></tr>
 <tr><td><code>FPS</code></td><td><code>0x9824</code></td><td>software FP stack for spilling OP registers during nested evaluation.</td></tr>
 </tbody>
 </table>
 </div>
-<p>A <code>TIFloat</code> is <code>type(+0) exp(+1) mantissa(+2..+8)</code>; <code>type</code> bit7 = sign, bits set 0x0C = complex.
-<code>exp</code> is base-10 biased by <code>0x80</code>. Sign is sign-magnitude, so negation is a single <code>XOR 0x80</code>.</p>
+<p>A <code>TIFloat</code> is <code>type(+0) exp(+1) mantissa(+2..+8)</code>; <code>type</code> bit 7 is the
+sign, and low-five-bit class <code>0x0C</code> denotes a complex component, not two
+independent complex flags. <code>exp</code> is base-10 biased by <code>0x80</code>. Nonzero negation
+toggles sign bit 7; the sign-inversion helpers separately canonicalize zero.</p>
 <h3 id="fp-stack-discipline-during-nested-expressions-confirmed"><a class="header" href="#fp-stack-discipline-during-nested-expressions-confirmed">FP-stack discipline during nested expressions [confirmed]</a></h3>
 <p>Binary/transcendental routines that need to preserve an operand spill it to <code>FPS</code>:</p>
 <ul>
@@ -212,8 +215,9 @@ gives each register’s RAM address and its role during an operation.</p>
 <li><code>_AllocFPS</code>/<code>_DeallocFPS</code> (<code>ram:1534</code>/<code>1526</code>) grow/shrink the stack frame.</li>
 </ul>
 <p>For example, the <a href="#transcendentals">complex-log core</a> uses <code>_PushRealO1</code> to save the input,
-computes the magnitude, then <code>_PopRealO2</code> to recover it for the angle — the canonical
-“spill then restore” used everywhere the parser evaluates a nested sub-expression.</p>
+computes the magnitude, then uses <code>_PopRealO2</code> to recover the saved real component
+for the angle. This is one concrete spill/restore sequence, not a contract for
+every parser sub-expression.</p>
 <hr>
 <h2 id="basic-arithmetic-confirmed"><a class="header" href="#basic-arithmetic-confirmed">Basic arithmetic [confirmed]</a></h2>
 <p>All four route operands through <code>OP1</code>/<code>OP2</code>, clear the guard digits, early-out on zero
@@ -226,9 +230,9 @@ operands, then do BCD mantissa work and renormalize. Result in <code>OP1</code>.
 <tbody>
 <tr><td><code>+</code></td><td><code>_FPAdd</code></td><td><code>ram:229E</code> (= <code>RST 30h</code>)</td><td>sign-magnitude BCD add; see <a href="floating-point.html">floating-point.md</a>.</td></tr>
 <tr><td><code>−</code></td><td><code>_FPSub</code></td><td><code>ram:2297</code></td><td>flips <code>OP2.value.type</code> bit 7, then falls into the add path.</td></tr>
-<tr><td><code>×</code></td><td><code>_FPMult</code></td><td><code>ram:238B</code></td><td><code>ram:250F</code> adds exponents (→ <code>_ErrOverflow</code> on carry past 0x7F), then digit-by-digit BCD multiply accumulating into OP3.</td></tr>
+<tr><td><code>×</code></td><td><code>_FPMult</code></td><td><code>ram:238B</code></td><td><code>ram:250F</code> adds the biased exponents and subtracts bias <code>0x80</code>; exponent overflow raises <code>_ErrOverflow</code>, underflow returns zero. Digit-by-digit BCD multiply accumulates into OP3.</td></tr>
 <tr><td><code>÷</code></td><td><code>_FPDiv</code></td><td><code>ram:2541</code></td><td><code>_CkOP2FP0</code> first → <code>_JError(0x82)</code> DIVIDE BY 0 if divisor 0; else restoring BCD long division.</td></tr>
-<tr><td><code>1/x</code></td><td><code>_FPRecip</code></td><td><code>ram:253D</code></td><td>sets <code>OP1=1</code> then enters the divide loop (same body as <code>_FPDiv</code>).</td></tr>
+<tr><td><code>1/x</code></td><td><code>_FPRecip</code></td><td><code>ram:253D</code></td><td>copies the input to OP2, sets <code>OP1=1</code>, then enters <code>_FPDiv</code>.</td></tr>
 </tbody>
 </table>
 </div>
@@ -242,10 +246,11 @@ operands, then do BCD mantissa work and renormalize. Result in <code>OP1</code>.
 </ul>
 <h3 id="roots-and-integer-parts-confirmed"><a class="header" href="#roots-and-integer-parts-confirmed">Roots and integer parts [confirmed]</a></h3>
 <ul>
-<li><code>_SqRoot</code> <code>02:6E38</code>: <code>_ErrD_OP1NotPos</code> (→ DOMAIN if negative/complex-real), <code>fp_clear_guard</code>, <code>_ZeroOP3</code>, then a digit-by-digit BCD square-root extraction loop (<code>ram:1C9C</code> trial-subtract + <code>ram:1D4A</code> compare, halving the exponent up front). A classic long-hand sqrt, not Newton’s method.</li>
-<li><code>_Int</code>/<code>_Intgr</code> <code>ram:2621</code>/<code>2263</code>: floor. <code>_Trunc</code> <code>ram:2279</code> drops the fractional part (toward zero); <code>_Intgr</code> truncates then subtracts 1 (<code>_Minus1</code> <code>ram:2294</code>) when the original was negative, giving true floor.</li>
+<li><code>_SqRoot</code> <code>02:6E38</code> expects a real input. <code>_ErrD_OP1NotPos</code> rejects a negative sign but does not check the object class. After zero/guard handling and <code>_ZeroOP3</code>, the digit-extraction loop adds a trial digit at <code>ram:1C9C</code> and subtracts the trial quantity at <code>ram:1D4A</code>, halving the exponent up front. This is a digit-by-digit BCD square root, not Newton iteration.</li>
+<li><code>_Intgr</code> (<code>ram:2263</code>) computes floor. It first calls the integer test at <code>ram:1E03</code> and returns unchanged for integral inputs. Otherwise it calls <code>_Trunc</code> (<code>ram:2279</code>), which truncates toward zero, and subtracts 1 for a negative input.</li>
 <li><code>_Frac</code> <code>ram:24E3</code>: fractional part = x − trunc(x); shifts mantissa by the exponent and keeps the low digits.</li>
-<li><code>_Round</code> / <code>_RndGuard</code> <code>ram:2623</code> / <code>02:6A57</code>: round to the active display-digit count; <code>_Round</code> is a thin <code>cross_page_jump</code> wrapper (body banked off page 0).</li>
+<li><code>_Round</code> (<code>ram:2623</code>) rounds to <code>D</code> decimal places through the banked body at <code>02:5165</code>. <code>_Int</code> (<code>ram:2621</code>) selects <code>D=0</code>, so it rounds to an integer; it is distinct from TI-BASIC <code>int(</code>, which uses floor. The digit tests at <code>02:51A6</code>/<code>02:51AC</code> round discarded magnitudes of at least one half upward, preserving the input sign.</li>
+<li><code>_RndGuard</code> (<code>02:6A57</code>) sets <code>D=9</code>, temporarily sets the exponent to <code>0x80</code>, calls <code>_Round</code>, and restores the exponent with carry correction. This rounds the mantissa to ten significant digits independently of the display setting.</li>
 </ul>
 <hr>
 <h2 id="degree-radian-and-polar-conversions-confirmed"><a class="header" href="#degree-radian-and-polar-conversions-confirmed">Degree, radian, and polar conversions [confirmed]</a></h2>
@@ -269,7 +274,7 @@ These constants are the BCD floats <code>π/180 = 1.745…e-2</code> and <code>1
 <p>The ln/e^x sites that look similar are local calls, not cross-page dispatches.
 <code>fp_mul_indexed_constant</code> (<code>ram:2362</code>) reaches <code>coeff_fetch</code> (<code>02:7D1E</code>)
 through the inline descriptor at <code>ram:3DD1</code>. The preceding <code>LD A,3</code> or
-<code>LD A,6</code> selects a coefficient, not a page. <code>_EToX</code> falls through locally into
+<code>LD A,6</code> selects a coefficient, not a page. <code>_EToX</code> branches locally into
 the <code>_TenX</code> body at <code>02:7069</code>. <code>logexp_digit_table</code> (<code>02:7181</code>),
 <code>trig_recurrence_table_a</code> (<code>02:7201</code>), <code>trig_recurrence_table_b</code> (<code>02:7281</code>),
 and <code>fp_constant_table</code> (<code>02:7D42</code>) all reside on page <code>02</code>. [confirmed]</p>
@@ -277,26 +282,30 @@ and <code>fp_constant_table</code> (<code>02:7D42</code>) all reside on page <co
 <h2 id="transcendentals"><a class="header" href="#transcendentals">Transcendentals</a></h2>
 <h3 id="logarithms-confirmed"><a class="header" href="#logarithms-confirmed">Logarithms [confirmed]</a></h3>
 <ul>
-<li><code>_LnX</code> <code>02:6EFD</code>: <code>_CkOP1Pos</code>; non-positive real → <code>_ErrDomain</code>. For a positive real it calls the real-log core (<code>_CLN</code> path, selector <code>C=2</code>); the <em>generic</em> entry handles complex args.</li>
+<li><code>_LnX</code> <code>02:6EFD</code> is a real-input entry. <code>_CkOP1Pos</code> rejects a negative sign, then the routine selects <code>C=2</code> and joins <code>02:6F1B</code>; a separate guard rejects zero. It does not type-check or dispatch every complex input.</li>
 <li><code>_LogX</code> <code>02:6F16</code>: same structure, base-10 selector <code>C=0</code>, guards <code>_ErrD_OP1_0</code>/<code>_ErrD_OP1NotPos</code>.</li>
-<li><code>_CLN</code> <code>02:6CCA</code> / <code>_CLog</code> <code>02:6CE7</code> — complex log: <code>_CAbs</code> (magnitude) → real <code>_LnX</code>/<code>_LogX</code> for the real part, <code>_ATan2Rad</code> (<code>02:76D4</code>) for the imaginary part (the argument/angle). Uses <code>_PushRealO1</code>/<code>_PopRealO2</code> to juggle the operand. This is why <code>ln(-2)</code> returns a complex result in <code>a+bi</code> mode but raises <code>_ErrNonReal</code> (0x87) in real mode.</li>
+<li><code>_CLN</code> <code>02:6CCA</code> / <code>_CLog</code> <code>02:6CE7</code> compute the real part from <code>_CAbs</code> followed by <code>_LnX</code>/<code>_LogX</code>. <code>_ATan2Rad</code> supplies the argument in radians. <code>_CLog</code> additionally multiplies that angle by <code>log10(e)</code> at <code>02:6CFE</code>–<code>6D03</code>, so its imaginary part is <code>arg(z)/ln(10)</code>, not <code>arg(z)</code>. <code>_PushRealO1</code>/<code>_PopRealO2</code> preserve the original real component for the angle calculation. Parser mode checks are separate from these raw arithmetic bodies.</li>
 </ul>
+<p>The real-log core has both a table-driven path and a near-one path at
+<code>02:6F33</code>–<code>6F7C</code>. The latter forms and rescales <code>(x-1)/(x+1)</code>, calls the digit recurrence
+at <code>02:77A6</code> with <code>A=0x80</code>, and doubles the result. See
+<a href="floating-point.html">Floating-point engine</a>.</p>
 <h3 id="exponentials-confirmed"><a class="header" href="#exponentials-confirmed">Exponentials [confirmed]</a></h3>
 <ul>
 <li><code>_EToX</code> <code>02:705C</code> (e^x): loads the <code>log10(e)</code> constant through <code>fp_mul_indexed_constant</code>,
-then falls through into the local <code>_TenX</code> body.</li>
+then branches into the shared <code>_TenX</code> body at <code>02:7069</code>.</li>
 <li><code>_TenX</code> <code>02:7066</code> (10^x): splits exponent into integer (digit shift) + fractional
-(16-slot table-driven evaluation through <code>logexp_digit_table</code>). Argument too large → <code>_ErrOverflow</code>.</li>
+(16-slot table-driven evaluation through <code>logexp_digit_table</code>). The magnitude gate at <code>02:7076</code>–<code>7078</code> reaches <code>02:7053</code>: positive inputs of magnitude at least 100 overflow; negative inputs at that gate return zero.</li>
 </ul>
 <h3 id="trigonometric-functions-confirmed"><a class="header" href="#trigonometric-functions-confirmed">Trigonometric functions [confirmed]</a></h3>
 <ul>
 <li><code>_SinCosRad</code> <code>02:733E</code>, <code>_Sin</code> <code>7342</code>, <code>_Cos</code> <code>7346</code>, <code>_Tan</code> <code>734A</code>. Each loads a
 function selector byte into <code>0x8499</code> (<code>1</code>=sin, <code>2</code>=cos, <code>4</code>=tan; <code>0x80</code> bit set when
 the rad-special mode tested by <code>BIT 2,(IY+0)</code> is off; <code>_SinCosRad</code> forces <code>0x81</code>).</li>
-<li>Range reduction: reads OP1 exponent; exponent ≥ 0x0C (|x| ≳ 10^12·) → <code>_ErrDomain</code>
+<li>Range reduction: subtracts the exponent bias; unbiased exponent ≥ <code>0x0C</code> (|x| ≥ 10^12) → <code>_ErrDomain</code>
 (“argument out of range”). It then reduces the angle modulo a quarter-period using the
-BCD constant table near <code>02:7D81</code> and runs the same table-driven digit recurrence
-as ln/eˣ over the two trig recurrence tables (one row per digit step,
+BCD constants near <code>02:7D81</code> and runs a separate table-driven digit recurrence
+over the two trig recurrence tables (one row per digit step,
 sign-variant picked by <code>OP5.value.type</code> bit 7) — the per-step <code>bcd_sub_op1_op2</code>
 (<code>ram:1D8A</code>) / <code>bcd_add_8496_8480</code> (<code>ram:1D26</code>) are the shift-and-add BCD steps of that
 recurrence, not a fixed polynomial and not CORDIC for the forward trig. The per-row
@@ -314,14 +323,20 @@ via atan2 of (x, √(1−x²)).</li>
 </ul>
 <h3 id="hyperbolics-confirmed"><a class="header" href="#hyperbolics-confirmed">Hyperbolics [confirmed]</a></h3>
 <ul>
-<li><code>_SinHCosH</code> <code>7626</code>, <code>_TanH</code> <code>762A</code>, <code>_CosH</code> <code>762E</code>, <code>_SinH</code> <code>7632</code>; <code>_ATanH</code>/<code>_ASinH</code>/<code>_ACosH</code>
-at <code>7909</code>/<code>7956</code>/<code>7964</code>. Same <code>0x8499</code> selector mechanism; built from <code>_EToX</code> (<code>sinh = (e^x−e^-x)/2</code>, visible in the <code>_EToX</code>+<code>_FPDiv</code> sequence near <code>02:6D08</code>).</li>
+<li><code>_SinHCosH</code> <code>02:7626</code>, <code>_TanH</code> <code>02:762A</code>, <code>_CosH</code> <code>02:762E</code>, <code>_SinH</code> <code>02:7632</code>; <code>_ATanH</code>/<code>_ASinH</code>/<code>_ACosH</code>
+at <code>02:7909</code>/<code>02:7956</code>/<code>02:7964</code>. The forward entries store their selector at <code>0x8499</code>. The large-argument sinh/cosh path calls <code>_EToX</code> at <code>02:7680</code>, takes a reciprocal at <code>02:7683</code>, combines the two magnitudes according to the selector, and halves the result. Small arguments branch through <code>02:7489</code>; the exponential identity is not the only path.</li>
 </ul>
 <h3 id="power-operator--confirmed"><a class="header" href="#power-operator--confirmed">Power operator <code>^</code> [confirmed]</a></h3>
-<p>The general <code>a^b</code> lives at <code>02:6D08</code>+: it computes <code>b·ln(a)</code> then <code>e^()</code> and reconstructs
-with <code>_SinCosRad</code> for the complex case — i.e. <code>a^b = e^(b·Ln a)</code>, with <code>_FPDiv</code>/<code>_FPMult</code>
-glue and <code>_OP2ToOP6</code>/<code>_OP6ToOP1</code> shuffles. Integer/√ special cases short-circuit to
-<code>_FPMult</code>/<code>_SqRoot</code>. <code>^</code> is the most FP-stack-heavy single operator.</p>
+<p>The real <code>_YToX</code> entry is bcall <code>47A1h</code>, targeting <code>33:6340</code>. It handles
+zero and sign cases, then uses repeated multiplication for suitable small
+positive integer exponents (<code>33:63DD</code>–<code>6408</code>). Its general path calls
+<code>50FEh</code> → <code>02:6F1B</code> with <code>C=1</code> for a base-10 logarithm, multiplies by the
+saved exponent at <code>33:641C</code>, then calls <code>5101h</code> → <code>02:7069</code> for <code>10^x</code>.
+Thus this path evaluates <code>10^(b*log10(a))</code>; it does not enter at <code>02:6D08</code>.</p>
+<p>The complex power entry <code>_CYtoX = 4EB2h</code> targets <code>02:6D5C</code>. Its general
+branch calls <code>_CLN</code> at <code>02:6D7B</code>, <code>_CMult</code> at <code>02:6D7E</code>, then enters
+<code>_CEtoX</code> at <code>02:6D1D</code>. The neighboring <code>02:6D08</code> entry is <code>_CTenX = 4EA6h</code>,
+complex <code>10^x</code>, which rescales its input before joining <code>_CEtoX</code>.</p>
 <hr>
 <h2 id="number-entry-and-display-formatting"><a class="header" href="#number-entry-and-display-formatting">Number entry and display formatting</a></h2>
 <p>When the homescreen shows a result (or <code>Ans</code>), the engine converts the <code>OP1</code> <code>TIFloat</code> to a
@@ -330,28 +345,31 @@ digit string honoring the <strong>MODE</strong> screen (Normal/Sci/Eng, Float/Fi
 <li><code>_FormReal</code> <code>06:5ACF</code> — real-number formatter. [confirmed]
 <ul>
 <li><code>fp_clear_guard</code>; zero → <code>_OP1Set0</code>; copies arg to OP5.</li>
-<li>Reads the digit-count/mode flags from <code>(IY+0xc)</code> and the byte at <code>0x89FA</code> (active
-fixed/decimal-places setting; <code>(IX-1)</code> local holds the effective format byte).</li>
+<li>Uses <code>(IY+0x0C)</code> bit 0 to select an override or <code>fmtFlags</code> at <code>0x89FA</code>;
+<code>(IX-1)</code> holds the effective format byte. <code>0x89FA</code> is not the decimal-place
+count; <code>fmtDigits</code> is at <code>0x97B0</code>.</li>
 <li>Exponent thresholds drive Normal↔Sci switchover: it compares <code>OP1.value.exp</code> against <code>0x7D</code>/<code>0x7F</code>
 (≈ the ±-exponent window) and renormalizes (<code>ram:1BE7</code>) to bring the value into the
 displayable mantissa range, bumping a digit counter. Negative sign decrements the leading
 column count (<code>DEC (IX-3)</code>).</li>
 </ul>
 </li>
-<li><code>_FormEReal</code> <code>06:5799</code> — forces scientific/E notation by setting <code>0,(IY+0xc)</code> then calling <code>_FormReal</code>. [confirmed]</li>
-<li><code>_FormBase</code> <code>06:57C0</code> — integer formatting in a base; requires <code>_CkOP1Real</code> (→ DATA TYPE / DOMAIN on non-real). [confirmed]</li>
+<li><code>_FormEReal</code> <code>06:5799</code> calls <code>06:57A1</code>, which sets <code>(IY+0x0C)</code> bit 0 but clears it when <code>cxCurApp</code> (<code>0x859A</code>) equals <code>0x53</code>. It calls <code>_FormReal</code> and clears the override on return; the override is not unconditional. [confirmed]</li>
+<li><code>_FormBase</code> <code>06:57C0</code> is a typed numeric formatter dispatcher, not an arbitrary-radix integer converter. It classifies <code>OP1.type &amp; 0x1F</code> through <code>ram:21C1</code>, handles types <code>0x18</code>/<code>0x19</code> through <code>06:60FC</code>, and routes to the relevant formatting body. <code>_CkOP1Real</code> itself returns a masked type and flags; it does not raise DATA TYPE or DOMAIN. [confirmed]</li>
 <li><code>_FormDCplx</code> <code>06:59D3</code> — complex <code>a+bi</code> / <code>r∠θ</code> formatting (calls <code>_FormReal</code> twice). [standard]</li>
-<li>Exponent ↔ ASCII helpers on page 0: <code>_ExpToHex</code> <code>ram:1E4E</code>, <code>_OP1ExpToDec</code> <code>ram:1E77</code>,
-<code>_DecO1Exp</code> <code>ram:1E6F</code> (decrement exp), <code>ram:1BCB</code> (BCD-digit → value). [confirmed]</li>
+<li>Exponent helpers on page 0: <code>_ExpToHex</code> at <code>ram:1E4E</code> replaces the pointed exponent with its unbiased magnitude; <code>_OP1ExpToDec</code> at <code>ram:1E77</code> applies it to OP1 and returns a packed-BCD magnitude in A, not ASCII. <code>_DecO1Exp</code> at <code>ram:1E6F</code> decrements the exponent; <code>_ShRAcc</code> at <code>ram:1BCB</code> extracts A’s high nibble. [confirmed]</li>
 <li>The formatted string is then drawn by <code>_DispOP1A</code> (<code>04:7844</code>) / homescreen put-string
 routines (see <a href="display-lcd.html">display-lcd.md</a>).</li>
 </ul>
-<p><code>Ans</code> is the last-result <code>TIFloat</code> saved in a system var and reloaded into <code>OP1</code>
-(via <code>_Mov9ToOP1</code> = RST 20h) when the token <code>Ans</code> is evaluated. [standard]</p>
+<p><code>Ans</code> holds the last result, which may be a real, complex, list, matrix, or
+string value. <code>_RclAns</code> (<code>38:679F</code>) enters the typed recall machinery; the
+9-byte <code>_Mov9ToOP1</code> transfer describes a real scalar, not every <code>Ans</code> value.
+[standard]</p>
 <hr>
 <h2 id="error-handling-confirmed"><a class="header" href="#error-handling-confirmed">Error handling [confirmed]</a></h2>
 <p>Errors are raised by loading an error code in <code>A</code> and jumping to <code>_JError</code> (<code>ram:2793</code>),
-which unwinds to the error context and shows the named message. The raiser cluster lives at
+which unwinds to the installed error callback. The callback can handle an error
+without displaying it; <code>_JError</code> itself does not guarantee a dialog. The raiser cluster lives at
 <code>ram:26E8</code>+ — exact code map read from disassembly:</p>
 <div class="table-wrapper">
 <table>
@@ -374,12 +392,12 @@ which unwinds to the error context and shows the named message. The raiser clust
 </tbody>
 </table>
 </div>
-<p><strong>Domain pre-checks</strong> (page-0, set Z if OK else jump to <code>_ErrDomain</code>):</p>
+<p><strong>Domain pre-checks</strong> (page 0; success flags differ between entries):</p>
 <ul>
-<li><code>_ErrD_OP1NotPos</code> <code>ram:2119</code> — <code>_CkOP1Pos</code>; not &gt;0 ⇒ DOMAIN (used by <code>_SqRoot</code>, <code>_LogX</code>).</li>
-<li><code>_ErrD_OP1Not_R</code> <code>ram:2120</code> — <code>_CkOP1Real</code>; complex ⇒ DOMAIN.</li>
+<li><code>_ErrD_OP1NotPos</code> <code>ram:2119</code> — tests the sign bit through <code>_CkOP1Pos</code>; a negative sign raises DOMAIN. This helper accepts positive zero.</li>
+<li><code>_ErrD_OP1Not_R</code> <code>ram:2120</code> — <code>_CkOP1Real</code>; any nonzero low-five-bit type raises DOMAIN, while type 0 returns Z.</li>
 <li><code>_ErrD_OP1NotPosInt</code> <code>ram:2125</code> — <code>_CkPosInt</code>.</li>
-<li><code>_ErrD_OP1_LE_0</code> <code>ram:212A</code>, <code>_ErrD_OP1_0</code> <code>ram:212D</code> — zero/sign guards (e.g. <code>ln(0)</code>).</li>
+<li><code>_ErrD_OP1_LE_0</code> <code>ram:212A</code> checks sign then zero; <code>_ErrD_OP1_0</code> <code>ram:212D</code> checks zero only. Both return NZ on a nonzero accepted input.</li>
 </ul>
 <p><strong>Where the calc engine raises what:</strong></p>
 <ul>
@@ -396,12 +414,13 @@ which unwinds to the error context and shows the named message. The raiser clust
 <code>_InvOP1S 24BD</code>, <code>_InvOP2S 24CD</code>, <code>_InvOP1SC 24BA</code>, <code>_CkOP1Pos 1E5D</code>, <code>fp_clear_guard 2627</code>,
 <code>fpmul_expadd 250F</code>, <code>_DToR 236B</code>, <code>_RToD 2374</code>, <code>cross_page_jump 2B09</code>.</p>
 <p>Transcendentals (page 02): <code>_SqRoot 6E38</code>, <code>_LnX 6EFD</code>, <code>_LogX 6F16</code>, <code>_CLN 6CCA</code>,
-<code>_CLog 6CE7</code>, <code>pow_core 6D08</code>, <code>_EToX 705C</code>, <code>_TenX 7066</code>, <code>_SinCosRad 733E</code>, <code>_Sin 7342</code>,
+<code>_CLog 6CE7</code>, <code>_CTenX 6D08</code>, <code>_CEtoX 6D1D</code>, <code>_CYtoX 6D5C</code>, <code>_EToX 705C</code>, <code>_TenX 7066</code>, <code>_SinCosRad 733E</code>, <code>_Sin 7342</code>,
 <code>_Cos 7346</code>, <code>_Tan 734A</code>, <code>_SinHCosH 7626</code>, <code>_TanH 762A</code>, <code>_CosH 762E</code>, <code>_SinH 7632</code>,
 <code>_ACosRad 76C9</code>, <code>_ATanRad 76CF</code>, <code>_ATan2Rad 76D4</code>, <code>_ASinRad 76DA</code>, <code>_ACos 76DF</code>,
 <code>_ATan 76E9</code>, <code>_ASin 76F1</code>, <code>_ATan2 7749</code>, <code>atan_cordic 774B</code>, <code>coeff_fetch 7D1E</code>,
 <code>trig_coeff_table 7D81</code>.</p>
 <p>Formatting (page 06): <code>_FormReal 5ACF</code>, <code>_FormEReal 5799</code>, <code>_FormBase 57C0</code>, <code>_FormDCplx 59D3</code>.</p>
+<p>Real power (page <code>33</code>): <code>_YToX 6340</code>.</p>
 <p>Errors (page 0): <code>_JError 2793</code>, raiser table <code>26E8</code>+, domain pre-checks <code>2119</code>–<code>2131</code>.</p>
 <hr>
 <h2 id="worked-flow-2sinπ6ln5-hypothesis"><a class="header" href="#worked-flow-2sinπ6ln5-hypothesis">Worked flow: <code>2*sin(π/6)+ln(5)</code> [hypothesis]</a></h2>

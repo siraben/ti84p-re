@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-2255016c.js";
+            window.path_to_searchindex_js = "searchindex-dcd58526.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d9f1b932.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -180,31 +180,32 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="subsystem-map-bcall-api-surface"><a class="header" href="#subsystem-map-bcall-api-surface">Subsystem map (bcall API surface)</a></h1>
-<p>This page groups the roughly 600 named bcall entry points by subsystem. The
-result shows the public API used by both application code and the OS itself.</p>
+<p>This page groups representative bcall entry points by subsystem. The
+<a href="bcall-index.html">bcall index</a> records 645 main-table mappings and 87 retail
+boot-table mappings, including project-inferred names. [confirmed] for the
+checked maps; a name or mapping alone does not establish a public ABI.</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Subsystem</th><th style="text-align: right">~bcalls</th><th>Representative entry points</th></tr>
+<tr><th>Subsystem</th><th>Representative entry points</th></tr>
 </thead>
 <tbody>
-<tr><td><strong>Floating-point / numeric</strong></td><td style="text-align: right">~230 (+~120 more in “misc”)</td><td><code>_FPAdd</code>,<code>_Times2</code>,<code>_DivHLBy10</code>,<code>_Intgr</code>,<code>_Trunc</code>,<code>_DToR</code>,<code>_RToD</code>,<code>_Min</code>,<code>_Max</code>,<code>_SqRoot</code></td></tr>
-<tr><td><strong>Display / LCD</strong></td><td style="text-align: right">~41</td><td><code>_PutMap</code>,<code>_PutC</code>,<code>_PutS</code>,<code>_DispHL</code>,<code>_NewLine</code>,<code>_ClrLCDFull</code>,<code>_VPutS</code>,<code>_GrBufCpy</code></td></tr>
-<tr><td><strong>Variables / VAT</strong></td><td style="text-align: right">~37</td><td><code>_FindSym</code>,<code>_ChkFindSym</code>,<code>_CreateReal</code>,<code>_CreateStrng</code>,<code>_CreateAppVar</code>,<code>_DelVar</code>,<code>_InsertMem</code>,<code>_Arc_Unarc</code></td></tr>
-<tr><td><strong>String / convert</strong></td><td style="text-align: right">~18</td><td><code>_ExpToHex</code>,<code>_OP1ExpToDec</code>,<code>_CreateStrng</code>,<code>_StrCopy</code>,<code>_Get_Tok_Strng</code></td></tr>
-<tr><td><strong>Parser / TI-BASIC</strong></td><td style="text-align: right">~18</td><td><code>_IsA2ByteTok</code>,<code>_GetTokLen</code>,<code>_BinOPExec</code>,<code>_ParseInp</code></td></tr>
-<tr><td><strong>Link / I-O</strong></td><td style="text-align: right">~15</td><td><code>_SendAByte</code>,<code>_RecAByteIO</code>,<code>_SendVarCmd</code>,<code>_Rec1stByte</code>,<code>link_xfer_op</code></td></tr>
-<tr><td><strong>System / power</strong></td><td style="text-align: right">~15</td><td><code>_AppInit</code>,<code>_PutAway</code>,<code>_RandInit</code>,<code>_ApdSetup</code>,<code>_Chk_Batt_Low</code>,<code>_SetExSpeed</code>,<code>_JForceCmd</code></td></tr>
-<tr><td><strong>Boot cryptography</strong></td><td style="text-align: right">5</td><td><code>_MD5Init</code>, <code>_MD5Update</code>, <code>_MD5Final</code>, <code>_SigModR</code>, <code>_TransformHash</code></td></tr>
-<tr><td><strong>List / Matrix</strong></td><td style="text-align: right">~13</td><td><code>_CreateRList</code>,<code>_CreateCList</code>,<code>_CreateRMat</code>,<code>_ErrDimMismatch</code>,dim/element ops</td></tr>
-<tr><td><strong>Keyboard</strong></td><td style="text-align: right">~5</td><td><code>_GetCSC</code>,<code>_GetKey</code>,<code>_KeyToString</code></td></tr>
-<tr><td><strong>Menu / UI</strong></td><td style="text-align: right">~5</td><td><code>_DispMenuTitle</code>,<code>_CursorOn</code>,<code>_CursorOff</code>,<code>_RunIndicOn</code>,<code>_RunIndicOff</code></td></tr>
+<tr><td>Floating-point / numeric</td><td><code>_FPAdd</code>, <code>_Times2</code>, <code>_DivHLBy10</code>, <code>_Intgr</code>, <code>_Trunc</code>, <code>_DToR</code>, <code>_RToD</code>, <code>_Min</code>, <code>_Max</code>, <code>_SqRoot</code></td></tr>
+<tr><td>Display / LCD</td><td><code>_PutMap</code>, <code>_PutC</code>, <code>_PutS</code>, <code>_DispHL</code>, <code>_NewLine</code>, <code>_ClrLCDFull</code>, <code>_VPutS</code>, <code>_GrBufCpy</code></td></tr>
+<tr><td>Variables / VAT</td><td><code>_FindSym</code>, <code>_ChkFindSym</code>, <code>_CreateReal</code>, <code>_CreateStrng</code>, <code>_CreateAppVar</code>, <code>_DelVar</code>, <code>_InsertMem</code>, <code>_Arc_Unarc</code></td></tr>
+<tr><td>String / convert</td><td><code>_ExpToHex</code>, <code>_OP1ExpToDec</code>, <code>_CreateStrng</code>, <code>_StrCopy</code>, <code>_Get_Tok_Strng</code></td></tr>
+<tr><td>Parser / TI-BASIC</td><td><code>_IsA2ByteTok</code>, <code>_GetTokLen</code>, <code>_BinOPExec</code>, <code>_ParseInp</code></td></tr>
+<tr><td>Link / I/O</td><td><code>_SendAByte</code>, <code>_RecAByteIO</code>, <code>_SendVarCmd</code>, <code>_Rec1stByte</code>, <code>_GetVarCmdUSB</code></td></tr>
+<tr><td>System / power</td><td><code>_AppInit</code>, <code>_PutAway</code>, <code>_RandInit</code>, <code>_ApdSetup</code>, <code>_Chk_Batt_Low</code>, <code>_SetExSpeed</code>, <code>_JForceCmd</code></td></tr>
+<tr><td>Boot cryptography</td><td><code>_MD5Init</code>, <code>_MD5Update</code>, <code>_MD5Final</code>, <code>_SigModR</code>, <code>_TransformHash</code></td></tr>
+<tr><td>List / matrix</td><td><code>_CreateRList</code>, <code>_CreateCList</code>, <code>_CreateRMat</code>, <code>_ErrDimMismatch</code></td></tr>
+<tr><td>Keyboard</td><td><code>_GetCSC</code>, <code>_GetKey</code>, <code>_KeyToString</code></td></tr>
+<tr><td>Menu / UI</td><td><code>_DispMenuTitle</code>, <code>_CursorOn</code>, <code>_CursorOff</code>, <code>_RunIndicOn</code>, <code>_RunIndicOff</code></td></tr>
 </tbody>
 </table>
 </div>
-<p>(Counts approximate — keyword buckets overlap; ~170 “misc” are mostly more math/int helpers.)</p>
 <h2 id="reading-the-map"><a class="header" href="#reading-the-map">Reading the map</a></h2>
-<p>This is a calculator: roughly two-thirds of the API is numeric, and everything else is comparatively small glue. The architecture flows:</p>
+<p>Numeric evaluation uses the parser, VAT, arithmetic engine, and display:</p>
 <pre class="mermaid">flowchart TD
     KP([keypad]) --&gt; GK["_GetKey"] --&gt; P[parser] --&gt; TD[token dispatch]
     TD --&gt; VAT["VAT · _FindSym&lt;br/&gt;variables"]
