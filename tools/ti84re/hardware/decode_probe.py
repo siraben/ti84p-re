@@ -36,6 +36,10 @@ def main() -> None:
             f"verification={report['verification_code_decimal']} "
             f"payload={report['payload_hex']}"
         )
+        print(
+            f"frame_sha256={report['frame_sha256']} "
+            f"appvar_sha256={report['appvar_file_sha256']}"
+        )
         print(json.dumps(report["measurements"], indent=2))
 
 

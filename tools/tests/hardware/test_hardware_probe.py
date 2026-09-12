@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Regression tests for physical hardware-probe result containers."""
 
+import hashlib
 import unittest
 
 
@@ -41,6 +42,26 @@ class HardwareProbeTests(unittest.TestCase):
         self.assertEqual("HWPMD51", variable.name)
         self.assertEqual(0x15, variable.variable_type)
         self.assertEqual(frame, decoded)
+
+    def test_report_retains_complete_container_and_frame_identities(self):
+        frame = ProbeFrame(
+            probe_id=3,
+            asic_id=0x45,
+            status=0xE3,
+            payload=bytes.fromhex("06013317272F3B454BF0A5"),
+        )
+        blob = encode_probe_appvar("HWPASIC1", frame)
+
+        report = probe_appvar_report(blob)
+
+        self.assertEqual(len(blob), report["appvar_file_size"])
+        self.assertEqual(hashlib.sha256(blob).hexdigest(), report["appvar_file_sha256"])
+        self.assertEqual(frame.encode().hex().upper(), report["frame_hex"])
+        self.assertEqual(
+            hashlib.sha256(frame.encode()).hexdigest(), report["frame_sha256"]
+        )
+        self.assertEqual(0, report["variable_version"])
+        self.assertEqual("Codex hardware probe", report["container_comment"])
 
     def test_generic_ti_program_container_remains_compatible(self):
         body = b"\x01\x00\xC9"
