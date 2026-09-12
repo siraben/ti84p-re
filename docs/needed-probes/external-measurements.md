@@ -7,6 +7,25 @@ itself.
 
 ## Instrumented experiments
 
+The rows below are experiment requirements, not executable bench procedures.
+Keep every active-drive experiment blocked until its unit-specific procedure
+defines all of the following:
+
+- board revision, connector pin map, and expected voltage domain;
+- deenergized hookup and ESD/ground order;
+- battery removal or isolation and the single permitted power source;
+- polarity protection, hard voltage ceiling, series resistance, and current
+  limit;
+- probe impedance and capacitance, stimulus dwell, ramp rate, and automatic
+  timeout;
+- brownout or overcurrent abort thresholds; and
+- post-run hashes, panel inspection, power-cycle state, and restore steps.
+
+USB work must also declare host/device roles and exactly one VBUS source. An
+LCD procedure needs a controller-specific command and value allowlist. A link
+procedure must prohibit an active peer until passive measurements establish
+the line state. Do not infer numerical limits from emulator register models.
+
 | Question | Calculator-side action | External equipment | Required capture |
 |----------|------------------------|--------------------|------------------|
 | Battery thresholds and hysteresis | run `HWBATT`, then `HWBRAW`, at each stable point | current-limited adjustable supply and calibrated DMM | upward/downward voltage, load current, both AppVars, and settling time |

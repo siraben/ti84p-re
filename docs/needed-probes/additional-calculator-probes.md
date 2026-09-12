@@ -1,6 +1,6 @@
 # Guarded mapper, LCD, and interrupt probes
 
-The three previously missing digital experiments now have SPASM-ng sources,
+The mapper, LCD, and interrupt experiments have SPASM-ng sources,
 builder validators, result decoders, and exact-byte emulator runners. Their
 AppVars remain physical measurements only after export from an identified
 calculator. [confirmed] for the assembled artifacts and emulator executions;
@@ -27,7 +27,7 @@ The entry guard requires the OS 2.55MP direct-`Asm(` mapping: ports `0x05`,
 `0x06`, `0x07`, `0x0E`, `0x0F`, `0x27`, and `0x28` must read `0x00`,
 `0x3F`, `0x81`, `0x00`, `0x00`, `0x00`, and `0x00`. It also verifies the
 fixed-page helper at
-`00:0CE6`. Port `0x04` readback is interrupt status, not mapper-mode
+`ram:0CE6`. Port `0x04` readback is interrupt status, not mapper-mode
 readback, so the program does not pretend to save mode from that port. It
 normalizes independent mode with port `0x04 = 0x06` during cleanup.
 
@@ -44,6 +44,12 @@ The 47-byte payload contains nine entry-port bytes, an outcome, independent
 read/write rows, paired read/write rows, the even-Flash discriminator, restore
 flags, and nine exit-port bytes. The decoder names the closest emulator
 profile and separately reports marker and readable-port restoration.
+
+Do not run this artifact on physical hardware. The worker's instruction fetch
+remains in a mapped RAM window while it changes paired mode. A physical ASIC
+that maps that window differently can make cleanup unreachable. The build
+manifest marks the artifact `blocked`, and the physical-evidence bundler
+refuses it. [confirmed]
 
 Fresh exact-image runs selected the TilEm profile with decimal verification
 code `58756` and the Wabbitemu profile with code `21062`; all four restore
@@ -68,7 +74,8 @@ original value of one tracked visible cell. It rereads and restores that cell
 before creating `HWPLCD02`. [confirmed]
 
 Every ready poll and measurement counter is bounded. A timeout suppresses the
-pending LCD transfer. The measurement sends no display-enable, power, test,
+pending LCD transfer and enters a separately bounded fixed-delay movement and
+pointer recovery path. The measurement sends no display-enable, power, test,
 contrast, row-shift, or OPA command. It does not write the ASIC wait ports.
 [confirmed]
 
@@ -166,7 +173,7 @@ standard-timer watchdog. [confirmed]
 A Z80 program cannot read the current interrupt mode. This artifact therefore
 requires direct `Asm(` on unmodified OS 2.55MP in IM1; do not launch it through
 a shell, hook, or resident interrupt replacement. It guards `IY = 0x89F0`,
-the six-byte IM1 vector signature at `00:0038`, enabled entry interrupts, an
+the six-byte IM1 vector signature at `ram:0038`, enabled entry interrupts, an
 unheld ON key, idle programmable timer 1, no pending legacy/completion source,
 and an inactive USB interrupt gate.
 
@@ -178,6 +185,11 @@ OS port-`0x03` mask from `(IY+0x16)` bit 0. It does not trust undocumented
 bit-3 readback. It then returns to IM1, restores `I`, verifies the documented
 readable mask bits, updates the pending frame, and only then restores entry
 interrupt enable state.
+
+An entry guard failure occurs before `state_touched` is set. That path performs
+no timer, mask, `I`, or interrupt-mode write and verifies the six sampled bytes
+unchanged. This prevents an unsupported shell, live source, or vector context
+from being altered by cleanup intended for the mutating path. [confirmed]
 
 The watchdog bounds emulator and expected physical runs, but an ASIC that
 wakes for neither source can remain halted until reset. In that case the

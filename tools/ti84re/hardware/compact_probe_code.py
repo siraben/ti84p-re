@@ -118,7 +118,10 @@ def base32_decode(text: str) -> bytes:
 def encode_compact_probe_code(frame: bytes) -> str:
     """Return one reversible, checksummed compact code for an HWP1 frame."""
 
-    decode_probe_frame(frame)
+    try:
+        decode_probe_frame(frame)
+    except ProbeFormatError as error:
+        raise CompactProbeCodeError(f"frame is invalid: {error}") from error
     if len(frame) > 0xFFFF:
         raise ValueError("HWP1 frame is too large for compact-code version 1")
     crc = binascii.crc_hqx(frame, 0xFFFF)
@@ -141,7 +144,10 @@ def decode_compact_probe_code(code: str) -> bytes:
         raise CompactProbeCodeError("compact-code envelope is shorter than four bytes")
     expected_size = int.from_bytes(envelope[:2], "little")
     expected_crc = int.from_bytes(envelope[2:4], "little")
-    frame = rle_decompress(envelope[4:], expected_size)
+    compressed = envelope[4:]
+    frame = rle_decompress(compressed, expected_size)
+    if rle_compress(frame) != compressed:
+        raise CompactProbeCodeError("compact code has noncanonical escape-run encoding")
     actual_crc = binascii.crc_hqx(frame, 0xFFFF)
     if actual_crc != expected_crc:
         raise CompactProbeCodeError(
@@ -161,7 +167,8 @@ def main() -> None:
     try:
         frame_bytes = decode_compact_probe_code(args.code)
         frame = decode_probe_frame(frame_bytes)
-    except CompactProbeCodeError as error:
+        measurements = decode_probe_measurements(frame)
+    except (CompactProbeCodeError, ProbeFormatError) as error:
         parser.error(str(error))
     print(
         json.dumps(
@@ -171,7 +178,7 @@ def main() -> None:
                 "asic_id": frame.asic_id,
                 "status": frame.status,
                 "payload_hex": frame.payload.hex().upper(),
-                "measurements": decode_probe_measurements(frame),
+                "measurements": measurements,
             },
             indent=2,
         )
