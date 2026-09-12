@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-dbb60da9.js";
+            window.path_to_searchindex_js = "searchindex-5f5cd3b1.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-ba6dda15.js"></script>
@@ -295,13 +295,15 @@ gate accepts compiled <code>BB 6D</code> at <code>07:5772</code>. The nonmatchin
 <code>07:5774</code> selects the text path at <code>07:57D4</code>; its helper checks <code>BB 6C</code>
 at <code>07:5849</code>/<code>07:5850</code> and decodes hexadecimal source through
 <code>07:5717</code>–<code>07:5755</code>. Both launch forms are decoded. [confirmed]</p>
-<p>Remaining: the meaning of the loop-record state word (it varies per fixture:
-<code>0012h</code> in one trace, <code>0007h</code> in another) and the per-iteration split between
-<code>parse_end_ops_record</code> re-entry and direct continuation jumps for <code>While</code>/
-<code>Repeat</code>. The record shapes themselves are pinned: all three loops share the
-5-byte form <code>00 | continuation word | state word</code>, with <code>For(</code> continuations
-<code>38:5836</code>/<code>38:587D</code> and the observed <code>Repeat</code> runtime continuation <code>38:57E7</code>.
-[confirmed]</p>
+<p>The loop records are resolved. <code>For(</code> owns four 9-byte FPS slots; <code>While</code> and
+<code>Repeat</code> own one. Their OPS records contain the continuation, one-based parser
+offset, and previous <code>cleanTmp</code> depth. Six TilEm cases cover normal loops,
+nesting, <code>Return</code>, <code>Stop</code>, and error cleanup. [confirmed]</p>
+<p>The <code>Input</code>/<code>Prompt</code> entry editor is also resolved at the requested boundary.
+The page-06 editor maintains left and right token spans around a movable gap,
+then hands accepted text to <code>38:5978</code> → <code>38:5B2B</code>. Four TilEm cases cover an
+empty retry, wrapped edit/cursor redraw, <strong>[ON]</strong> cleanup, <code>Prompt</code>, and the
+separate <code>Menu(</code> route. [confirmed]</p>
 <p>Also open: a direct assembly-to-TI-BASIC program-call entry beyond VAT lookup
 and the cooperative <code>Ans</code> callback. The generated <code>ZZRUN</code> negative probe
 resolves <code>prgmOO</code>, sets the observed parser interval, and enters <code>38:6910</code>, but
