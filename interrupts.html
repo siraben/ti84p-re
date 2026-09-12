@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-87a3f2ca.js";
+            window.path_to_searchindex_js = "searchindex-2d2e8939.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-ba6dda15.js"></script>
@@ -544,7 +544,7 @@ or establish physical interrupt acknowledgement behavior. [standard]</p>
 </table>
 </div>
 <h3 id="native-mame-interrupt-edges"><a class="header" href="#native-mame-interrupt-edges">Native MAME interrupt edges</a></h3>
-<p>The guarded MAME run parks the Z80 in a <code>DI</code> loop on page-0 RAM and disables
+<p>The guarded MAME run parks the Z80 in a <code>DI</code> loop on physical RAM page 0 and disables
 the programmable timers. At reset, ports <code>0x03</code> and <code>0x04</code> both read released
 ON status <code>0x08</code>. Writes <code>00</code>, <code>01</code>, <code>02</code>, <code>04</code>, <code>08</code>, <code>10</code>, and <code>FF</code> to port
 <code>0x03</code> leave both reads at <code>0x08</code>; the driver does not return the written mask.

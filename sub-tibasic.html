@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-87a3f2ca.js";
+            window.path_to_searchindex_js = "searchindex-2d2e8939.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-ba6dda15.js"></script>
@@ -532,7 +532,7 @@ guard paths. This table groups related paths so the mechanism stays visible:</p>
 <tr><th>Program</th><th>Originating guard</th><th>Predicate</th><th>Error shim</th></tr>
 </thead>
 <tbody>
-<tr><td><code>Disp 1/0</code></td><td><code>00:2548–254B</code></td><td>divisor in OP1 is zero</td><td><code>_ErrDivBy0</code> at <code>00:26EC</code></td></tr>
+<tr><td><code>Disp 1/0</code></td><td><code>00:2548–254B</code></td><td>divisor in OP2 is zero</td><td><code>_ErrDivBy0</code> at <code>00:26EC</code></td></tr>
 <tr><td><code>Disp 10^100</code></td><td><code>02:7076–7078</code>, then <code>02:7053–7059</code></td><td>positive exponent argument is at least 100</td><td><code>_ErrOverflow</code> at <code>00:26E8</code></td></tr>
 <tr><td><code>Disp 1E99*1E99</code></td><td><code>00:2513–251D</code></td><td>adjusted sum of biased decimal exponents overflows</td><td><code>_ErrOverflow</code> at <code>00:26E8</code></td></tr>
 <tr><td><code>Disp ln(0)</code></td><td><code>02:6F1E</code>, then <code>00:212D–2131</code></td><td>logarithm operand in OP1 is zero</td><td><code>_ErrDomain</code> at <code>00:26F4</code></td></tr>

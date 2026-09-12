@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-87a3f2ca.js";
+            window.path_to_searchindex_js = "searchindex-2d2e8939.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-ba6dda15.js"></script>
@@ -907,7 +907,7 @@ tests whether <code>0x85DE</code> is class <code>0x02</code>. The ascending clas
 <code>39:59AF</code>, emits <code>0Dh</code> through <code>RST 28h</code>, and seeds OP1 with <code>14h</code> at
 <code>39:59C6</code>. The descending path enters <code>39:59B6</code>, scans the eight payload bytes
 at <code>0x85E7+1</code> through <code>39:5A2E</code>, emits <code>0Ch</code>, and conditionally calls
-<code>39:1BAF</code> when the emitter leaves carry set before the same <code>14h</code> seed.
+<code>ram:1BAF</code> when the emitter leaves carry set before the same <code>14h</code> seed.
 [confirmed]</p>
 <p>For other classes the ascending and descending paths execute <code>XOR A</code>, then
 cross to <code>00:3A53</code> and <code>00:306F</code>, respectively. The fixed-bank stubs reach
@@ -915,7 +915,7 @@ cross to <code>00:3A53</code> and <code>00:306F</code>, respectively. The fixed-
 (<code>_FindAlphaDn = 4A47h</code>). Both bcalls take the current variable name in OP1.
 They return the selected variable in OP1 and OP3 and its VAT pointer in <code>HL</code>;
 carry reports that no matching entry remains. Carry clear then calls
-<code>39:5C2E</code>; only class <code>0x03</code> with subclass byte <code>0x01</code> enters <code>39:1942</code>.
+<code>39:5C2E</code>; only class <code>0x03</code> with subclass byte <code>0x01</code> enters <code>ram:1942</code>.
 <code>A = 06h</code> repeats the alphabetic search, while every other value returns with
 carry clear. The JavaScript model derives each result from OP1 and a logical
 VAT snapshot. It derives the post-search <code>A</code> from the selected OP1 type, so a
@@ -1209,9 +1209,9 @@ paragraphs below retain the coordinate and trace details for each row.</p>
 <tr><td><code>0x21</code></td><td>Absolute value</td><td><code>34:6347</code></td><td>Two vertical bars, then child 1.</td></tr>
 <tr><td><code>0x22</code></td><td>Integral</td><td><code>34:622F</code></td><td>Inclusive stem and four hook points; child placement comes from the record.</td></tr>
 <tr><td><code>0x23</code></td><td><code>nDeriv(</code></td><td><code>eqdisp_render_handler_table</code></td><td>Derivative fraction, body, variable, evaluation bar, then repeated variable and value.</td></tr>
-<tr><td><code>0x24</code></td><td>nth root</td><td><code>34:6315</code></td><td>Index, root hook and stem, radicand, then vinculum.</td></tr>
+<tr><td><code>0x24</code></td><td>nth root</td><td><code>34:6315</code></td><td>Index, root hook and stem, vinculum, then radicand.</td></tr>
 <tr><td><code>0x25</code> / <code>0x26</code></td><td>$e^x$ / $10^x$</td><td><code>34:6381</code></td><td>Fixed glyph, then exponent child.</td></tr>
-<tr><td><code>0x27</code></td><td>Square root</td><td><code>34:62A1</code></td><td>Root hook and stem, radicand, then vinculum.</td></tr>
+<tr><td><code>0x27</code></td><td>Square root</td><td><code>34:62A1</code></td><td>Root hook and stem, vinculum, then radicand.</td></tr>
 <tr><td><code>0x28</code></td><td><code>logBASE(</code></td><td><code>34:63B2</code></td><td>Prefix, base, opening shape, argument, then closing shape.</td></tr>
 <tr><td><code>0x29</code></td><td>Summation</td><td><code>34:6504</code></td><td>Sigma/equals forms, children 1–3, then delimited child 4.</td></tr>
 <tr><td><code>0x2A</code></td><td>Postfix power wrapper</td><td><code>34:6375</code></td><td>Recursively renders child 1; emits no primitive itself.</td></tr>
@@ -1251,7 +1251,7 @@ handler draws inclusive vertical bars at <code>x=2</code> and <code>x=w-4</code>
 wrapper with <code>(x,y_1,y_2)=(2,0,6)</code> and <code>(0x1A,0,6)</code>. [confirmed]</p>
 <p>Render-record type <code>0x24</code> dispatches to the nth-root handler at <code>34:6315</code>. It
 renders index child 1, emits the root-hook bitmap at <code>x=w_1-1</code>, draws its short
-vertical segment, renders radicand child 2, and draws the vinculum. The
+vertical segment, draws the vinculum, and renders radicand child 2. The
 cursor-free <code>nthroot(3,X+1)</code> history redraw reaches the wrappers with vertical
 segment <code>(5,3)</code>–<code>(5,4)</code> and vinculum <code>(5,2)</code>–<code>(0x18,2)</code>. [confirmed]</p>
 <p>The remaining settled render types map to calculator constructs through
@@ -1526,8 +1526,8 @@ combines an outer fraction with $(h,b)=(21,6)$ and a summation with
 $(h,b)=(19,9)$. Its live root record stores
 $(H_{\mathrm{out}},B_{\mathrm{out}})=(24,9)$. Maximizing the
 height and baseline independently would produce the incorrect height 21.</p>
-<p>The small-font table at <code>03:4CD6</code> stores seven rows per glyph. <code>_VPutMap</code> emits
-the five interior rows. It retains an interior zero row, but it does not emit
+<p>The small-font table at <code>03:4CD6</code> stores seven rows per glyph. The MathPrint
+raised-glyph caller makes <code>_VPutMap</code> emit the five interior rows. It retains an interior zero row, but it does not emit
 the padding row above or below the glyph. A row that crosses an LCD byte
 boundary writes the right byte before the left byte at <code>01:63CE</code>–<code>01:641A</code>.
 The large-font path emits all seven rows of its fixed cell. [confirmed]</p>
@@ -1815,7 +1815,7 @@ H &amp;= y_b+h_b+s_l, \\
 B &amp;= y_b+b_b.
 \end{aligned}
 $$</p>
-<p>The horizontal positions and width are:</p>
+<p>At root render depth, the horizontal positions and width are:</p>
 <p>$$
 \begin{aligned}
 x_b &amp;= \max(w_l,w_u)+12, \\
@@ -1827,6 +1827,8 @@ $$</p>
 <p>The lower bound begins at $(6,H-h_l)$, the upper bound at $(6,0)$, and the body
 at $(x_b,y_b)$. The type-<code>0x22</code> record stores $H$, $W$, and $B$ in the words at
 <code>+7</code>, <code>+9</code>, and <code>+0x0B</code>. The variable child uses render type <code>1</code>. [confirmed]</p>
+<p>At raised render depth, the body-to-variable gap in $x_v$ is ten pixels rather
+than twelve; the other terms above are unchanged. [confirmed]</p>
 <p>Twelve reset-origin traces cover unequal token-bound widths, a multi-token body,
 a different variable, power, radical, fraction, and nth-root bodies, structural
 bounds, and a nested integral. The JavaScript constructor matches every record

@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-87a3f2ca.js";
+            window.path_to_searchindex_js = "searchindex-2d2e8939.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-ba6dda15.js"></script>
@@ -340,7 +340,7 @@ IN  1C, 1D, 1E, 1F            R, little-endian
 </div>
 <p><code>X = 0x80636261</code> is the first little-endian message word: ASCII <code>61 62 63</code> followed by the <code>0x80</code> padding byte. Independent evaluation of the formula returns <code>0xD6D117B4</code>. [confirmed]</p>
 <h3 id="immediate-result-and-timing-boundary"><a class="header" href="#immediate-result-and-timing-boundary">Immediate result and timing boundary</a></h3>
-<p>The boot routine reads <code>0x1C</code> on the instruction following the rotate-count output. This proves that software does not initiate a separate operation or wait for completion. It does not establish whether the physical ASIC is combinational, completes within the I/O cycle, or inserts an internal wait state. [confirmed] for instruction order; [hypothesis] for the physical circuit.</p>
+<p>After the rotate-count output at <code>3F:6BDF</code>, the helper returns and <code>3F:6A65</code> pops the result destination into <code>DE</code>. The next instruction reads <code>0x1C</code>. No separate start command or completion poll intervenes. This does not establish whether the physical ASIC is combinational, completes within the I/O cycle, or inserts an internal wait state. [confirmed] for instruction order; [hypothesis] for the physical circuit.</p>
 <p>TilEm and Wabbitemu recalculate the full result on every read. Mutating an operand between result-byte reads can therefore create a word assembled from different calculations in those emulators. The ROM never does this. Physical result latching has not been tested. [standard] for emulator behavior; [hypothesis] for hardware.</p>
 <h2 id="boot-page-md5-api"><a class="header" href="#boot-page-md5-api">Boot-page MD5 API</a></h2>
 <p>The retail boot bcall table exposes three streaming routines. A bcall ID is the word after <code>rst 28h</code>; the body executes on page <code>3F</code>. [confirmed]</p>
@@ -456,10 +456,10 @@ $$</p>
 <pre><code class="language-text">00 04 08 0C  00 07  78 A4 6A D7
 </code></pre>
 <p>It selects the working words at offsets <code>0</code>, <code>4</code>, <code>8</code>, and <code>12</code>, message word 0, rotation 7, and <code>T=0xD76AA478</code>. The next descriptors rotate the destination offsets through <code>12</code>, <code>8</code>, and <code>4</code>. The table bytes reproduce all standard MD5 word schedules, rotation counts, and constants. [confirmed]</p>
-<p>After all 64 operations, <code>3F:69D9</code> adds the four original words saved at <code>MD5Temp</code> into the four working words at <code>MD5Hash</code>. This is the MD5 compression feed-forward step. [confirmed]</p>
+<p>After all 64 operations, <code>3F:69D9</code> adds the four working words at <code>MD5Temp</code> into the four original state words retained at <code>MD5Hash</code>. This is the MD5 compression feed-forward step. [confirmed]</p>
 <h3 id="why-the-descriptor-table-matters"><a class="header" href="#why-the-descriptor-table-matters">Why the descriptor table matters</a></h3>
 <p>The table separates algorithm data from the I/O driver. The four round wrappers at <code>3F:69FD</code>, <code>3F:6A02</code>, <code>3F:6A07</code>, and <code>3F:6A0C</code> differ only in the mode written to <code>0x1F</code>. <code>md5_assist_step</code> handles all operand selection and result placement. Changing one table row would change one message index, rotation, or constant without changing the port code. [confirmed]</p>
-<p>The local boot page therefore supplies almost the entire MD5 control structure in software. The ASIC replaces the Boolean expression, five-word addition, rotation, and final addition for one step. It does not replace block scheduling, state rotation, feed-forward, buffering, or padding. [confirmed]</p>
+<p>The local boot page therefore supplies almost the entire MD5 control structure in software. The ASIC replaces the Boolean expression, four-term sum, rotation, and final addition for one step. It does not replace block scheduling, state rotation, feed-forward, buffering, or padding. [confirmed]</p>
 <h2 id="finalization"><a class="header" href="#finalization">Finalization</a></h2>
 <p><code>_MD5Final</code> obtains the current buffer index <code>i</code> and chooses the number of padding bytes needed to stop at byte 56: [confirmed]</p>
 <p>$$

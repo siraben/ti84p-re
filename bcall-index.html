@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-87a3f2ca.js";
+            window.path_to_searchindex_js = "searchindex-2d2e8939.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-ba6dda15.js"></script>
@@ -180,7 +180,12 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="bcall-index"><a class="header" href="#bcall-index">bcall index</a></h1>
-<p>The main table below lists the live-confirmed <code>0x4xxx</code> bcall system calls. Each has an <em>ID</em> (the 2-byte value after <code>rst 28h</code>) and a <em>body</em> at <code>page:addr</code>. Use your browser’s find, or the wiki search box. See <a href="bcall-mechanism.html">The bcall Mechanism</a> for how dispatch works. The <code>0x8xxx</code> boot bcall names at the end are official SDK equates resolved from the retail boot table on page <code>3F</code>; USB boot entries point into page <code>2F</code>.</p>
+<p>The main table below lists 645 byte-resolved bcall mappings in the
+<code>0x4000</code>–<code>0x7FFF</code> ID range. Each has an <em>ID</em> (the word after <code>rst 28h</code>) and
+a <em>body</em> at <code>page:addr</code>; a mapping does not establish runtime coverage or the
+complete ABI. See <a href="bcall-mechanism.html">The bcall mechanism</a> for dispatch.
+The retail boot table below contains 83 SDK names and four inferred names;
+USB boot targets lie on page <code>2F</code>.</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -202,7 +207,7 @@
 <tr><td><code>edt_5d6f</code></td><td><code>5464</code></td><td><code>03:5D6F</code></td></tr>
 <tr><td><code>edt_69f8</code></td><td><code>5461</code></td><td><code>03:69F8</code></td></tr>
 <tr><td><code>edt_6bd1</code></td><td><code>5458</code></td><td><code>03:6BD1</code></td></tr>
-<tr><td><code>fps_push_real</code></td><td><code>4A83</code></td><td><code>07:6365</code></td></tr>
+<tr><td><code>fnint_integrate</code></td><td><code>4A83</code></td><td><code>07:6365</code></td></tr>
 <tr><td><code>fpx_4a7b</code></td><td><code>5185</code></td><td><code>02:4A7B</code></td></tr>
 <tr><td><code>fpx_5d70</code></td><td><code>4669</code></td><td><code>02:5D70</code></td></tr>
 <tr><td><code>fpx_5dbb</code></td><td><code>466C</code></td><td><code>02:5DBB</code></td></tr>

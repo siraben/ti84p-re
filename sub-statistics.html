@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-87a3f2ca.js";
+            window.path_to_searchindex_js = "searchindex-2d2e8939.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-ba6dda15.js"></script>
@@ -248,8 +248,9 @@ menu) and are written by the test commands, not by 1/2-Var Stats. An ANOVA block
 <code>2-SampFTest</code>/<code>ANOVA(</code> etc. come in as their own 2-byte <code>t2ByteTok</code> (<code>0xBB</code>)-prefixed command tokens — e.g.
 <code>LinRegTTest=34h</code> in the <a href="#stat-command-token-map-confirmed">STAT command token map</a> — and are not dispatched through <code>_OneVar</code> (whose token map is
 only <code>F2</code>–<code>FF</code>). They fill the <code>PStat…SStat</code>/<code>anovaf_vars</code> block above directly. Test
-handlers appear on both sides of the named <code>stat_*</code> accumulation, variance,
-median, and regression routines within <code>3A:4A00</code>–<code>3A:7E60</code>. See
+handlers and helpers appear alongside accumulation, variance,
+median, and regression code within <code>3A:4A00</code>–<code>3A:7E60</code>; that span
+also contains coefficients and UI data, not one continuous test engine. See
 <a href="#stat-tests-engine-on-page-3a-confirmed">STAT-TESTS engine</a>. The per-test entry addresses are
 not exposed as named routines and remain [hypothesis].</p>
 <p>A scratch byte <code>stat_calc_command</code> (<code>0x8A36</code>, immediately below <code>statVars</code>) holds the stat-command
@@ -259,17 +260,19 @@ in the OP-scratch RAM <code>0x84AF…0x84DB</code> (<code>84D3</code>=median dat
 x/y element ptr, <code>84D9</code>=sums matrix base, <code>84DB</code>=freq list ptr, <code>84B1/84B2</code>=loop
 counters, <code>84B3</code>=element count). [confirmed]</p>
 <p><strong>Recall by name:</strong> <code>_Rcl_StatVar</code> (<code>00:2149</code>, id <code>0x42DC</code>) is a page-0 bcall
-trampoline (<code>CALL 0x3E07</code> → dispatcher, inline id <code>0xC9E7</code>) that loads the named
+wrapper (<code>CALL 0x3E07</code>, then <code>RST 20h</code>) that loads the named
 statVar into <code>OP1</code>; the VAT-level recall (<code>_RclVarSym</code>/<code>rcl_var_push</code>, see
 <a href="sub-vat-archive.html">sub-vat-archive.md</a>) routes the stat-var name tokens (<code>tRegEq 0x01</code>, <code>tStatN 0x02</code>,
 <code>tXMean 0x03</code>, … <code>tCorr 0x12</code>, the <code>STATVARS</code> token group) to it. The name-token
 values are in <code>ti83plus.inc</code> (<code>tStatN=02h … tSumXY=11h, tCorr=12h, tMedX=13h</code>,
-regression coeffs via <code>tRegEq=01h</code>). [standard]</p>
+regression coefficients via tokens <code>16h</code>–<code>1Ah</code>). [standard]</p>
 <hr>
 <h2 id="_onevar-stat-calc-entry-confirmed"><a class="header" href="#_onevar-stat-calc-entry-confirmed"><code>_OneVar</code> STAT-CALC entry [confirmed]</a></h2>
-<p><code>bcall(_OneVar)</code> is the single entry point for <em>all</em> STAT-CALC commands
-(1-Var, 2-Var, and every regression). The parser invokes it after pushing the
-list arguments; the <a href="#stat-command-token-map-confirmed">command token</a> (<code>F2</code>–<code>FF</code>) selects the behavior.</p>
+<p><code>bcall(_OneVar)</code> enters the shared 1-Var, 2-Var, and polynomial/transformed
+regression path. Separate nonlinear regression entries require their own caller
+analysis. The parser invokes it after pushing the
+list arguments; the normalized selector derived from the
+<a href="#stat-command-token-map-confirmed">command token</a> selects the behavior.</p>
 <pre><code class="language-z80">_OneVar (3A:6420):
   SET 5,(IY+9)            ; statFlags: "stat computation active"
   LD B,0                  ; arg counter
@@ -296,12 +299,12 @@ list arguments; the <a href="#stat-command-token-map-confirmed">command token</a
   CALL 6572                     ; accumulation pass
   CALL 2800
   CALL 6345         ; tear down frame
-  ; ---- regression coefficient region select (6506..652f) ----
+  ; ---- coefficient ordering (6506..652f) ----
   LD A,(8a36)
   CP 4
-  JR NC,..  ; A&lt;4 ⇒ polynomial regression
-       LD A,16
-       LD HL,8aee      ; coeff dest = QuadA block; … solve
+  JR NC,..  ; other selectors take further ordering checks
+       ; A&lt;4: exchange coefficient slots through IDs 16h and 17h
+       LD HL,8aee      ; read the first coefficient
   …
   SET 7,(IY+9)                  ; mark results valid
   CALL 67c1 …                   ; finalize / median
@@ -319,8 +322,9 @@ body jumps to <code>0x2741</code> on e.g. fewer than the required data points.
 </ul>
 <hr>
 <h2 id="stat-command-token-map-confirmed"><a class="header" href="#stat-command-token-map-confirmed">STAT command token map [confirmed]</a></h2>
-<p>The parser passes the command token; <code>_OneVar</code> stores it in
-<code>stat_calc_command</code> (<code>0x8A36</code>) and treats it as a model index. From
+<p>The parser normalizes command selectors before the calculation path stores
+them in <code>stat_calc_command</code> (<code>0x8A36</code>). The source token bytes below must
+not be used directly as model indices. From
 <code>ti83plus.inc</code>:</p>
 <div class="table-wrapper">
 <table>
@@ -340,10 +344,13 @@ body jumps to <code>0x2741</code> on e.g. fewer than the required data points.
 </tbody>
 </table>
 </div>
-<p><code>CubicReg</code>/<code>QuartReg</code> come in as the regression tokens <code>tCubicR=2Eh</code>/<code>tQuartR=2Fh</code>;
+<p><code>CubicReg</code>/<code>QuartReg</code> use single-byte tokens <code>FAh</code>/<code>FBh</code>;
 <code>SinReg=32h</code>, <code>Logistic=33h</code>, <code>LinRegTTest=34h</code> are 2-byte <code>t2ByteTok</code> (<code>0xBB</code>)-prefixed
-tokens (their <code>2Eh</code>/<code>2Fh</code>/<code>32h</code>/<code>33h</code>/<code>34h</code> values are the <em>second</em> byte after <code>0xBB</code>). Degree for the polynomial solver = the model index; the coefficient
-fan-out into <code>QuadA..QuartE</code> is naturally sized by degree. [standard]</p>
+tokens (their <code>32h</code>/<code>33h</code>/<code>34h</code> values are the second byte after <code>0xBB</code>).
+The stored model selector is not the polynomial degree: the dimension setup
+at <code>3A:65A8</code>–<code>3A:65C1</code> handles special selectors before subtracting two
+from the selected value. The coefficient fan-out depends on the resulting
+matrix dimensions. [confirmed]</p>
 <p><code>SortA(</code>/<code>SortD(</code> are separate tokens (<code>tSortA=E3h</code>, <code>tSortD=E4h</code>) with their
 own command handler — not <code>_OneVar</code>. The sort used here, <code>stat_sort</code> (<code>3A:7935</code>),
 is stat-internal: its only callers are <code>stat_median_quartile</code> (<code>3A:79B9</code>) and
@@ -374,7 +381,7 @@ mean, variance, and least-squares normal equations. Read from disassembly:</p>
    LD DE,8a94                ; YMean/Σy slots
    CALL 110f                 ; allocate the sums matrix (84d9 = base)
 6646..66fe: ---- per-element loop ----
-   6f6a  : fetch next x (and y) list element, advance ptr
+   6f6a  : conditionally logarithm-transform the current operand
    28e4/2297 : loop bound (RST FPSub / compare)
    6567  : helper = (RST 8: OP1→OP2)
    LD HL,(84af)
@@ -395,12 +402,16 @@ power-sums <code>Σxⁱ</code> (i = 0 … 2d) and the right-hand side <code>Σx�
 <code>658a</code>+ checks the command code and, for <code>ExpReg</code>/<code>PwrReg</code> (<code>ln y</code>),
 <code>LnReg</code>/<code>PwrReg</code> (<code>ln x</code>), pre-applies the logarithm to each element before
 accumulating, then exponentiates the resulting linear coefficients off page 0x3A. The
-per-element <code>ln</code> is in the element fetch <code>stat_next_elem</code> (<code>3A:6F6A</code>):</p>
+per-element <code>ln</code> is selected by the transform helper at <code>3A:6F6A</code>:</p>
 <pre><code class="language-z80">LD A,(8A36)
 CP 4
 RET NC
+AND B
+RET Z
 </code></pre>
-<p>It then bcalls <code>_LnX</code> at <code>3A:6F72</code> for model codes <code>&lt; 4</code> (<code>ExpReg</code>/<code>LnReg</code>/<code>PwrReg</code>); the
+<p>It bcalls <code>_LnX</code> at <code>3A:6F72</code> only when the model code is below four
+and its intersection with the caller’s mask in <code>B</code> is nonzero. This helper
+neither loads an element nor advances a data pointer. The
 back-transform <code>_EToX</code>/<code>_TenX</code> lives on page <code>02</code>; see <a href="sub-calculation.html#transcendentals">Transcendentals</a>. This is the standard
 “linearize, fit a line, transform back” method; <code>r</code> is the correlation of the
 <em>transformed</em> data.</p>
@@ -433,13 +444,13 @@ matrix <code>[ M | Σxⁱy ]</code>. <code>_OneVar</code> solves it in place by 
 67d4..67e3: scale the pivot row
 67ec: LD BC,0202
 CALL 3aad        ; pivot element (2,2)
-67f7: CALL 212d                     ; _ErrD check (zero pivot → SINGULAR MAT 0x83)
+67f7: CALL 212d                     ; zero guard -&gt; _ErrDomain (84h)
 67fa: RST 8 ; …                     ; pivot reciprocal
 6804: CALL 2541 (_FPDiv)            ; divide row by pivot
 680d..6815: elimination loop
 </code></pre>
 <p>The <code>3A:6845</code>–<code>6891</code> cluster, byte by byte:</p>
-<pre><code class="language-text">6845  CALL 3939  (cross_page_jump)   ; OP1 = √OP1 (page-39 _SqRoot body)
+<pre><code class="language-text">6845  CALL 3939  (cross_page_jump)   ; OP1 = √OP1 (_SqRoot at 02:6E38)
 6848  RST 08h   (_OP1ToOP2)          ; OP2 = √…
 6849  CALL 1674  (_CpyTo1FPST)       ; OP1 ← FPS−9 (the saved numerator sum)
 684C  CALL 2541  (_FPDiv)            ; OP1 = numerator/denominator = r
@@ -473,11 +484,10 @@ fits in separate statVar slots at <code>0x8C05</code> and <code>0x8C0E</code>. [
 </code></pre>
 <ul>
 <li>
-<p>A zero/near-zero pivot raises <code>_ErrSingularMat</code> (<code>0x83</code>, <code>SINGULAR MAT</code>),
-for example when all x values are equal or the degree exceeds the number of
-distinct points. The guard is the <code>3A:67F7</code> call to <code>ram:212D</code>; the
-<code>0x35</code>/<code>0x36</code> calls at <code>3A:6888</code>–<code>3A:688E</code> are stat-variable stores.
-[confirmed]</p>
+<p>The zero guard at <code>3A:67F7</code> calls <code>ram:212D</code>.
+That helper calls <code>_CkOP1FP0</code> and jumps to <code>_ErrDomain</code> on
+zero; this site raises DOMAIN (<code>0x84</code>), not SINGULAR MAT.
+Other matrix/regression guards must be classified separately. [confirmed]</p>
 </li>
 <li>
 <p>The solver is dimension-generic: <code>LinReg</code> (2×2) → <code>a,b</code>; <code>QuadReg</code> (3×3) →
@@ -538,7 +548,7 @@ saves the model code to <code>stat_calc_command</code>.</li>
 <li><strong>Moments:</strong> $\bar x=\tfrac{\sum x}{n}$, $\bar y=\tfrac{\sum y}{n}$; the sample/population
 spreads $S_x,\sigma_x,S_y,\sigma_y$ via the variance helper (divide by $n-1$ vs $n$).</li>
 <li><strong>Solve:</strong> Gauss-Jordan on the normal equations $\left[\begin{array}{cc|c}\sum 1&amp;\sum x&amp;\sum y\\\sum x&amp;\sum x^2&amp;\sum xy\end{array}\right]$ →
-<code>b=slope</code>, <code>a=intercept</code> → <code>QuadA/QuadB</code>; <code>r,r²</code> → <code>Corr</code>; equation → <code>RegEQ</code>,
+<code>b=slope</code>, <code>a=intercept</code> → <code>QuadA/QuadB</code>; <code>r</code> → <code>Corr</code>, <code>r²</code> → its separate stat-variable slot; equation → <code>RegEQ</code>,
 pasted into <code>Y1</code>.</li>
 <li>Results displayed by the STAT-CALC report screen; all of x̄/Σx/…/a/b/r persist
 in <code>statVars</code> for later recall by name (<code>_Rcl_StatVar</code>).</li>
@@ -553,41 +563,21 @@ id <code>0x47A4</code>) is the <strong>ZoomStat</strong> routine that auto-scale
 list data (sets <code>Xmin/Xmax/Ymin/Ymax</code> from <code>minX/maxX/minY/maxY</code>). See
 <a href="sub-graphing.html">sub-graphing.md</a>. [standard]</p>
 <hr>
-<h2 id="distr-functions-confirmed"><a class="header" href="#distr-functions-confirmed">DISTR functions [confirmed]</a></h2>
-<p><code>normalpdf(</code>, <code>normalcdf(</code>, <code>invNorm(</code>, <code>binompdf(</code>, <code>tcdf(</code>, <code>χ²cdf(</code>, <code>Fcdf(</code>,
-etc. are parser functions (DISTR-menu tokens, the <code>t2ByteTok</code> (<code>0xBB</code>)-prefixed
-two-byte tokens like <code>tShadeNorm=35h</code>), evaluated through the normal function
-dispatch of the TI-BASIC parser, not through <code>_OneVar</code>. They are not
-exposed as named bcalls in this OS image (a search of <code>bcall_targets.txt</code> finds
-only <code>_SetNorm_Vals</code> <code>00:220F</code>, a helper that copies the <em>display</em> “Normal mode”
-default values — unrelated to the normal <em>distribution</em>). Their numerical cores
-(error-function / incomplete-gamma / incomplete-beta continued fractions) live on
-a banked flash page reached via the parser’s function table and the page-02 FP
-transcendentals; they belong to the parser/<code>sub-tibasic</code> dispatch rather than the
-STAT subsystem documented here. [hypothesis]</p>
-<p><strong>Negative search.</strong> [confirmed] A name search of the whole-OS image for <code>norm</code>/<code>stat</code>/distribution
-cores returns no <code>normalcdf</code>/<code>erf</code>/incomplete-gamma/incomplete-beta entry points — the only
-<code>*norm*</code> symbols are <code>_SetNorm_Vals</code> (<code>00:220F</code>, display “Normal mode” defaults),
-<code>fp_normalize</code>/<code>fp_norm_left</code> (mantissa normalisation), <code>cplx_norm_*</code> (complex modulus) and the
-<code>eqdisp_setnorm_split</code> layout helpers — none is a distribution. Likewise every <code>stat_*</code>
-symbol on page 0x3A is part of the <code>_OneVar</code> STAT-CALC engine (accumulate / variance / median /
-sort / regression), not a DISTR core. The <code>normalcdf(</code> evaluation path runs in the
-page <code>39</code> FP core described below. The STAT-TESTS p-value approximation carries
-its coefficients in a table on page <code>3A</code>
-(<a href="#stat-tests-engine-on-page-3a-confirmed">STAT-TESTS engine</a>). The erf / incomplete-gamma /
-incomplete-beta continued fractions behind the remaining DISTR tokens remain
-[hypothesis]. The parser’s two-byte, <code>0xBB</code>-prefixed DISTR-token function table does
-not expose them as named routines in this database.</p>
-<p><strong>Traced <code>normalcdf(</code> path.</strong> [confirmed] A headless TilEm trace of
-<code>normalcdf(0,1)</code> through the OS 2.55 interactive prompt identifies the evaluation
-path (<code>tools/macros/distr-normalcdf.macro</code>). Coverage against <code>boot-idle.macro</code>
-shows the parser collecting the fields on the FP stack. A <code>cross_page_jump</code> chain
-through <code>ram:2B09</code> reaches page <code>39</code> through page <code>01</code> glue. The numerical core
-occupies <code>39:4A02</code>–<code>39:4F5B</code>, with helpers at <code>39:5D2D</code>–<code>39:5E41</code>,
-<code>39:6C63</code>–<code>39:6D31</code>, and <code>39:57CF</code>–<code>39:57FC</code>. The trace does not execute the
-page <code>38</code> slot suggested by a raw token-index read (<code>38:459F</code> for <code>tDNormal</code>).
-The table at <code>38:4000</code> contains parse-side argument-class stubs such as
-<code>LD B,0x29</code><br><code>JR 4A44</code>; it is not the execution dispatch.</p>
+<h2 id="distr-functions"><a class="header" href="#distr-functions">DISTR functions</a></h2>
+<p>Distribution functions use the <code>BB</code> token family. For example,
+<code>BB 0F</code> is <code>normalcdf(</code> and <code>BB 1B</code> is <code>normalpdf(</code>;
+they are expression functions rather than <code>_OneVar</code> commands.
+The complete numerical caller paths remain open on this page. [standard]</p>
+<p>The macro <code>tools/macros/distr-normalcdf.macro</code> enters
+<code>normalcdf(0,1)</code> through the interactive UI. Its visits to
+<code>39:4A02</code>–<code>39:4F5B</code> belong to the MathPrint editor/layout
+family documented in <a href="sub-equation-display.html">Equation display</a>.
+Whole-run coverage of those routines does not identify the distribution
+calculation. A reduced trace anchored around numeric evaluation is needed.</p>
+<p>The coefficient table at <code>3A:554F</code> below directly establishes a
+normal-tail approximation in the statistics code. Which DISTR entries use
+that approximation, and which use other integration or special-function
+routines, remains [hypothesis].</p>
 <hr>
 <h2 id="stat-tests-engine-on-page-3a-confirmed"><a class="header" href="#stat-tests-engine-on-page-3a-confirmed">STAT-TESTS engine on page 3A [confirmed]</a></h2>
 <p>The inferential-statistics commands execute in their own engine on page <code>3A</code>, sharing the bank
@@ -599,12 +589,14 @@ with <code>_OneVar</code> but distinct from it. Three byte-pinned structures loc
 Because the scan does not recover instruction boundaries, these hits locate a
 search cluster but do not by themselves establish a writer count or exclude
 references on other pages. [hypothesis]</p>
-<p><strong>A T-Test output stage at <code>3A:5500</code>.</strong> [confirmed] The routine multiplies <code>OP1</code> through
-<code>fp_mult_const</code> (<code>ram:2385</code>), scales by <code>StdPX</code> (<code>0x8A67</code>), divides through <code>fp_div_const</code>
-(<code>ram:2532</code>) against <code>SStat</code> (<code>0x8BFC</code>), then stores the result with
-<code>LD A,0x24</code><br><code>CALL _Sto_StatVar</code>. ID <code>0x24</code> is <code>tStatT</code>, the <code>TStat</code> slot. The
-routine then references <code>DF</code> at <code>0x8B87</code>. The surrounding code reads and clears
-<code>statFlags</code> bits and dispatches on the stored model ID.</p>
+<p><strong>A <code>TStat</code> output stage at <code>3A:54C0</code>–<code>3A:54D9</code>.</strong> The code loads
+<code>StdX</code> (<code>0x8A5E</code>) at <code>3A:54C1</code>, divides through <code>_FPDiv</code> at
+<code>3A:54C5</code>, and calls the subtraction/division helper at <code>3A:544C</code>
+through <code>3A:54D4</code>. It stores the result with <code>LD A,24h</code> at
+<code>3A:54D7</code> followed by <code>_Sto_StatVar</code> at <code>3A:54D9</code>.
+The common resolver at <code>38:618A</code> maps ID <code>24h</code> to <code>TStat</code> at
+<code>0x8B6C</code>. This pins a result-store stage, not every command caller.
+<code>3A:5500</code> instead belongs to the normal-tail arithmetic below. [confirmed]</p>
 <p><strong>The normal p-value coefficient table at <code>3A:554F</code>.</strong> [confirmed] Nine-byte <code>TIFloat</code>
 constants, byte-verified in sequence:</p>
 <div class="table-wrapper">
@@ -622,12 +614,18 @@ constants, byte-verified in sequence:</p>
 </tbody>
 </table>
 </div>
-<p>This coefficient set matches the Zelen–Severo approximation of the standard normal tail,
-$\Phi(z)\approx 1-\varphi(z),(b_1t+b_2t^2+b_3t^3+b_4t^4+b_5t^5)$ with
-$t=1/(1+pz)$. The loop at <code>3A:551F</code> evaluates the five coefficients in descending order by
+<p>For nonnegative $z$, this coefficient set gives the Zelen–Severo upper-tail
+approximation $Q(z)\approx\varphi(z),(b_1t+b_2t^2+b_3t^3+b_4t^4+b_5t^5)$,
+where $Q(z)=1-\Phi(z)$ and $t=1/(1+pz)$.
+The loop at <code>3A:551F</code> evaluates the five coefficients in descending order by
 Horner steps; <code>LD HL,554Fh</code> at <code>3A:550E</code> pins the table start. The type bytes at <code>3A:5561</code>
 and <code>3A:5573</code> are <code>0x80</code>, which supplies the negative signs on <code>b4</code> and <code>b2</code>.
-The STAT-TESTS handlers use the result to form <code>PStat</code>. [confirmed]</p>
+The routine evaluates the polynomial using the absolute standardized argument
+(<code>3A:550A</code>). After multiplying by the normal density, it tests the saved
+argument’s sign at <code>3A:553F</code> and conditionally calls <code>3A:447A</code> to replace
+the result with <code>1-Q(|z|)</code>. Thus the returned tail has the correct symmetry
+for negative arguments. Caller-level conversion to a test’s <code>PStat</code> must be
+checked separately. [confirmed]</p>
 <p><strong>UI descriptor tables at <code>3A:7D00</code>–<code>3A:7E60</code>.</strong> [confirmed] The same bank carries
 the test editor’s data. It includes alternative-hypothesis strings for the
 1-PropZTest and 2-PropZTest menus, plus the <code>F</code>-test tail strings. It also contains
@@ -637,7 +635,7 @@ from array slots to menu items remains open.</p>
 <hr>
 <h2 id="subsystem-integration"><a class="header" href="#subsystem-integration">Subsystem integration</a></h2>
 <pre><code class="language-text">  L1..L6 lists (VAT data)                 statVars (0x8A3A)  ← results, recall-by-name
-        │ (element fetch 3A:6F6A)               ▲
+        │ (VAT element access)                 ▲
         ▼                                       │ (_Rcl_StatVar 00:2149)
    _OneVar (3A:6420, id 0x4BA3)  ──►  per-element accumulation pass (3A:6572)
         │  cmd code → stat_calc_command          │  uses FP engine:
@@ -661,7 +659,7 @@ equations, depositing every output as a named <code>TIFloat</code> in the <code>
 <tr><th>space:addr</th><th>name</th><th>what</th></tr>
 </thead>
 <tbody>
-<tr><td><code>3A:6420</code></td><td><code>_OneVar</code></td><td>STAT-CALC entry (1/2-Var + all regressions), id 0x4BA3</td></tr>
+<tr><td><code>3A:6420</code></td><td><code>_OneVar</code></td><td>Shared 1/2-Var and regression entry, id 0x4BA3</td></tr>
 <tr><td><code>3A:6572</code></td><td><code>onevar_accumulate</code></td><td>one-pass power-sum accumulation loop</td></tr>
 <tr><td><code>3A:6567</code></td><td><code>onevar_powmul</code></td><td>running power·freq product (OP1→OP2, ×)</td></tr>
 <tr><td><code>3A:6345</code></td><td><code>onevar_frame_teardown</code></td><td>restore stat error frame</td></tr>
@@ -672,16 +670,16 @@ equations, depositing every output as a named <code>TIFloat</code> in the <code>
 <tr><td><code>3A:67C6</code></td><td><code>reg_gauss_solve</code></td><td>Gauss-Jordan solve of normal equations</td></tr>
 <tr><td><code>3A:69AF</code></td><td><code>reg_store_coeff</code></td><td>write a solved coefficient (matrix set)</td></tr>
 <tr><td><code>00:3A8F</code>/<code>3AA1</code>/<code>3AA7</code>/<code>3AAD</code>/<code>3AB9</code></td><td><code>stat_mtx_index/get/set</code></td><td>RAM trampolines for sums-matrix element access by (row,col)</td></tr>
-<tr><td><code>3A:6F6A</code></td><td><code>stat_next_elem</code></td><td>fetch next list element, advance ptr</td></tr>
+<tr><td><code>3A:6F6A</code></td><td>conditional logarithm helper</td><td>apply <code>_LnX</code> when the model selector and caller mask require it</td></tr>
 <tr><td><code>3A:6F7D</code>/<code>6F90</code></td><td><code>stat_freq_default</code></td><td>default frequency = 1</td></tr>
 <tr><td><code>3A:7935</code></td><td><code>stat_sort</code></td><td>stat-internal data sort (median/quartile, Med-Med)</td></tr>
 <tr><td><code>3A:79B9</code></td><td><code>stat_median_quartile</code></td><td>median/Q1/Q3 + Med-Med medians</td></tr>
 <tr><td><code>3A:760F</code>/<code>75E4</code></td><td><code>medmed_partition</code></td><td>Med-Med 3-partition setup</td></tr>
-<tr><td><code>3A:5500</code></td><td><code>ttest_output_stage</code></td><td>T-Test result store: ×<code>StdPX</code>, ÷<code>SStat</code>, <code>_Sto_StatVar</code> ID <code>0x24</code> (<code>TStat</code>)</td></tr>
-<tr><td><code>3A:554F</code></td><td><code>normal_tail_coef_tbl</code></td><td>Zelen–Severo coefficients (<code>p</code>, <code>b5</code>…<code>b1</code>) for <code>PStat</code> p-values</td></tr>
+<tr><td><code>3A:54C0</code>–<code>54D9</code></td><td><code>TStat</code> output stage</td><td>arithmetic through <code>StdX</code>, <code>_FPDiv</code>, and <code>544C</code>; <code>_Sto_StatVar</code> ID <code>24h</code> at <code>54D9</code></td></tr>
+<tr><td><code>3A:54FD</code>–<code>554D</code></td><td>normal-tail arithmetic</td><td>standardize an operand and evaluate the coefficient polynomial</td></tr>
+<tr><td><code>3A:554F</code></td><td><code>normal_tail_coef_tbl</code></td><td>Zelen–Severo coefficients (<code>p</code>, <code>b5</code>…<code>b1</code>) for the normal upper-tail approximation</td></tr>
 <tr><td><code>00:2385</code></td><td><code>fp_mult_const</code></td><td>OP1 ×= (HL)-pointed float constant</td></tr>
 <tr><td><code>00:2532</code></td><td><code>fp_div_const</code></td><td>OP1 ÷= (HL)-pointed float constant</td></tr>
-<tr><td><code>39:4A02</code>–<code>39:4F5B</code></td><td><code>distr_normal_core</code> (unnamed)</td><td>traced <code>normalcdf(</code> evaluation core on page 39</td></tr>
 <tr><td><code>00:2149</code></td><td><code>_Rcl_StatVar</code></td><td>recall a named statVar into OP1, id 0x42DC</td></tr>
 <tr><td><code>00:2741</code></td><td><code>_ErrStat</code></td><td>raise STAT error (code 0x15), id 0x44C2</td></tr>
 <tr><td><code>00:2759</code></td><td><code>_ErrStatPlot</code></td><td>raise STAT PLOT error (0x1B), id 0x44D1</td></tr>
@@ -695,7 +693,7 @@ equations, depositing every output as a named <code>TIFloat</code> in the <code>
 (<code>84D3</code> x/median ptr, <code>84D5/84D7</code> element ptrs, <code>84D9</code> sums-matrix base,
 <code>84DB</code> freq ptr, <code>84B1/84B2</code> loop counters, <code>84B3</code> element count).
 <strong>FP engine reused:</strong> <code>RST 30h</code>=<code>_FPAdd</code>, <code>RST 08h</code>=OP1→OP2, <code>00:238B</code>=<code>_FPMult</code>,
-<code>00:238A</code>=<code>_FPSquare</code>, <code>00:2541</code>=<code>_FPDiv</code>, <code>00:2294</code>=<code>_Minus1</code>, <code>02:6E38</code>/<code>3A:3939</code>
+<code>00:238A</code>=<code>_FPSquare</code>, <code>00:2541</code>=<code>_FPDiv</code>, <code>00:2294</code>=<code>_Minus1</code>, <code>02:6E38</code> via the fixed-page stub <code>ram:3939</code>
 =<code>_SqRoot</code>, <code>24BD</code>=<code>_InvOP1S</code>.</p>
 <h2 id="remaining-questions"><a class="header" href="#remaining-questions">Remaining questions</a></h2>
 <ul>
@@ -704,23 +702,20 @@ equations, depositing every output as a named <code>TIFloat</code> in the <code>
 coefficient of determination from the following column-weighted pass, stored through IDs
 <code>0x35</code>/<code>0x36</code> at <code>0x8C05</code>/<code>0x8C0E</code>. See the annotated <code>3A:6845</code>–<code>3A:6891</code>
 listing under <a href="#regression-solver-confirmed">Regression solver</a>. [confirmed]</li>
-<li><strong>DISTR numerical cores.</strong> The <code>normalcdf(</code> evaluation path is traced to the
-page <code>39</code> FP core (<code>39:4A02</code>–<code>39:4F5B</code> and helpers) — see
-<a href="#distr-functions-confirmed">DISTR functions</a>. The erf / incomplete-gamma /
-incomplete-beta continued fractions behind the remaining DISTR tokens are unnamed and
-untraced; the page <code>38</code> parse-side table is not the execution dispatch. The exact algorithm in
-the page <code>39</code> core (continued fraction versus polynomial or rational fit) remains
-[hypothesis].</li>
+<li><strong>DISTR numerical cores.</strong> The interactive <code>normalcdf(</code> trace visits
+MathPrint UI routines, but its numerical evaluator has not been isolated.
+The normal-tail coefficients on page <code>3A</code> are decoded; the complete
+DISTR caller graph and algorithms remain open.</li>
 <li><strong>STAT-TESTS</strong> (Z/T/χ²/F/ANOVA) fill <code>PStat…SStat</code>/<code>anovaf_vars</code> from their own engine on
-page <code>3A</code>. A pinned T-Test output stage, the normal-tail coefficient table, and
-the UI descriptor area locate the engine. See
+page <code>3A</code>. A pinned <code>TStat</code> store, the normal-tail coefficient table, and
+the UI descriptor area provide separate anchors. See
 <a href="#stat-tests-engine-on-page-3a-confirmed">STAT-TESTS engine</a>. The per-test entry
 addresses and the slot-to-menu mapping for the <code>3A:7DF4</code> pointer array remain
 [hypothesis].
 The <code>_Sto_StatVar</code>/<code>_Rcl_StatVar</code> stubs (<code>ram:213D</code>/<code>ram:2149</code>) funnel through the
-cross-page-jump table at <code>ram:3E07</code> (one <code>CALL 2B09</code> + inline <code>addr,page</code>
-descriptor per ID); resolving those descriptors gives the per-ID bodies
-without needing a live trace.</li>
+stub at <code>ram:3E07</code>. Its descriptor <code>8A 61 78</code> selects the common
+stat-variable address resolver at <code>38:618A</code>; the variable ID in <code>A</code>
+selects a RAM slot, not a separate cross-page descriptor.</li>
 <li><code>stat_sort</code> (<code>3A:7935</code>) is a 49-byte setup that validates/counts the elements
 then dispatches the compare-swap via <code>rst 28h</code> (the bcall site isn’t fully
 analyzed in the DB). The <code>SortA(</code>/<code>SortD(</code> <em>command</em> sort is a different routine

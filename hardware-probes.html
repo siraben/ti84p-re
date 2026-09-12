@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-87a3f2ca.js";
+            window.path_to_searchindex_js = "searchindex-2d2e8939.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-ba6dda15.js"></script>
@@ -407,11 +407,15 @@ probe measures return-versus-reset behavior, not the precise exception point.
 <code>08</code>–<code>29</code>, and RAM chunk bounds <code>10</code>–<code>20</code>. They are predictions from the pinned
 emulator predicates, not physical results. The decoder reports ports <code>0x04</code>,
 <code>0x06</code>, <code>0x21</code>–<code>0x23</code>, <code>0x25</code>, and <code>0x26</code> from immediately before the test.</p>
-<p>In paired mapper mode, a port-<code>0x06</code> write remaps bank B with bank A. That can
-unmap the running probe. Every artifact therefore records
-<code>unsupported-paired-mapping</code> without writing port <code>0x06</code> or attempting the
-fetch when port <code>0x04</code> bit 0 is set. [standard] for the emulator predictions;
-[confirmed] for the artifact guard.</p>
+<p>Run these probes only through the ordinary TI-OS <code>Asm(</code> launcher in independent
+mapping mode, not through a custom launcher or a paired-mode harness. In paired
+mode, a port-<code>0x06</code> write also remaps bank B and can unmap the running probe.
+Port <code>0x04</code> reads interrupt status: bit 0 is ON-interrupt pending, not the mapping
+mode selected by writes to that port. The probe therefore cannot verify this
+entry precondition from its status snapshot. Older artifacts incorrectly used
+that bit as a guard; decoder outcome 4 now identifies that legacy rejection and
+must not be interpreted as mapping evidence. [confirmed] for the corrected
+source; [standard] for the separate read/write port semantics.</p>
 <p>The other outcomes are <code>no-ret-found</code> and <code>target-changed-before-fetch</code>.
 Neither measures execution protection. A pending AppVar after an observed
 reset is evidence only if the AppVar survived that reset unchanged. Export the
@@ -445,14 +449,20 @@ the final call, and after cleanup: [confirmed]</p>
 <tr><td style="text-align: right"><code>0</code>–<code>3</code></td><td>pre-call ports <code>0x04</code>, <code>0x39</code>, and <code>0x3A</code>, then <code>(IY+0x18)</code> <code>traceFlags</code></td></tr>
 <tr><td style="text-align: right"><code>4</code>–<code>19</code></td><td>16 <code>_Chk_Batt_Level</code> results</td></tr>
 <tr><td style="text-align: right"><code>20</code>–<code>24</code></td><td>post-call status, ports <code>0x04</code>, <code>0x39</code>, <code>0x3A</code>, and <code>traceFlags</code></td></tr>
-<tr><td style="text-align: right"><code>25</code>–<code>28</code></td><td>readback after restoring the three ports and <code>traceFlags</code></td></tr>
+<tr><td style="text-align: right"><code>25</code>–<code>28</code></td><td>port-<code>0x04</code> interrupt status, restored GPIO ports <code>0x39</code>/<code>0x3A</code>, and <code>traceFlags</code></td></tr>
 <tr><td style="text-align: right"><code>29</code></td><td>final port-<code>0x02</code> status</td></tr>
 </tbody>
 </table>
 </div>
 <p>The decoder rejects result bytes outside 0–4. It reports a five-bin histogram,
 a stable level only when all 16 samples agree, and <code>cleanup_matches</code> only when
-the three port readbacks and complete flag byte match their saved values.
+the two GPIO port readbacks and complete flag byte match their saved values.
+Port <code>0x04</code> is normalized to the OS idle configuration <code>0x06</code>, not restored
+from its readback: reads return interrupt status, not the write configuration.
+Its recorded status can change during the test and is excluded from
+<code>cleanup_matches</code>. Both battery probes require ordinary TI-OS independent
+mapping; arbitrary caller timer-rate or battery-selector settings are not
+preserved.
 The probe restores the caller’s interrupt-enable state before creating the
 AppVar. [confirmed] for source, assembled bytes, and decoder behavior.</p>
 <p>Run the probe at a stable supply voltage, export <code>HWBATT01</code>, record the measured
@@ -460,10 +470,10 @@ rail voltage and load externally, and delete the AppVar before the next point.
 An upward and downward sweep can locate OS-visible transitions and hysteresis.
 The result is the retail bcall’s level, not a direct voltage measurement or a
 raw comparator-bit trace. [hypothesis] for pending physical results.</p>
-<p>The pinned SPASM-ng build produces 304 machine-code bytes with SHA-256
-<code>4fcb9e9052fcccad350cd3b7901235a4cb87390eeb764e78e7be0686d0da99ea</code>.
-The packaged 688-byte <code>HWBATT.8xp</code> has SHA-256
-<code>9d075837dc399ec0771e563c747e7498b4c260fe6f4fee128f17a57ba238fea0</code>.
+<p>The pinned SPASM-ng build produces 303 machine-code bytes with SHA-256
+<code>f721739c712195fee54da0d307ea0bed47a8f6fe879a6d422d8f777f2a911b4c</code>.
+The packaged 686-byte <code>HWBATT.8xp</code> has SHA-256
+<code>f20ff3d1c555e43f34d0ba742e4e3d8c1327c1bb9e6f310fe9d2818307fd4c4c</code>.
 [confirmed]</p>
 <h2 id="raw-battery-selector-probe"><a class="header" href="#raw-battery-selector-probe">Raw battery-selector probe</a></h2>
 <p>Probe ID 7 samples the port-<code>0x02</code> comparator after each selector used by
@@ -506,10 +516,10 @@ physical results.</p>
 reset before cleanup can leave the selection state changed. Use a backed-up
 test calculator, stable externally current-limited power, and an independently
 verified voltage before running it. Do not run it as the first probe on a unit.</p>
-<p>The pinned SPASM-ng build produces 397 machine-code bytes with SHA-256
-<code>d28548e32a53189f32c6ba7f2a4aba85278453ebcf8d1fba8f788f735f24b57c</code>.
-The packaged 874-byte <code>HWBRAW.8xp</code> has SHA-256
-<code>c0316a51a5262a32143fa72fe11c8ba510ee9aee1f87f8e28466777c54057586</code>.
+<p>The pinned SPASM-ng build produces 396 machine-code bytes with SHA-256
+<code>7bec2f356c9e47bfe30ed85a87e5552035b1baf3b6c0b50e8c2d02e1afb599ec</code>.
+The packaged 872-byte <code>HWBRAW.8xp</code> has SHA-256
+<code>6fd3a36129873eaac658d9655b7100d9d3eec46c1e1d1fb674d1cf7c944fd27a</code>.
 [confirmed]</p>
 <h2 id="usb-control-snapshot"><a class="header" href="#usb-control-snapshot">USB control snapshot</a></h2>
 <p>Probe ID 5 reads ports <code>0x49</code>, <code>0x4A</code>–<code>0x4D</code>, <code>0x4F</code>–<code>0x52</code>,
@@ -911,7 +921,8 @@ cannot be replaced.</p>
 <p>The snapshot, battery, raw-battery, raw-link, keypad, bus-timing, prefix-M1,
 programmable-timer, and alias probes restore interrupt enable state before
 creating the result AppVar.
-Both battery probes restore ports <code>0x04</code>, <code>0x39</code>, <code>0x3A</code>, and the complete
+Both battery probes normalize port <code>0x04</code> to <code>0x06</code>, restore ports <code>0x39</code> and
+<code>0x3A</code>, and restore the complete
 saved <code>traceFlags</code> byte.
 The raw-battery probe also executes the ROM’s selector cleanup after every
 sample sequence. The raw-link probe releases both link lines during cleanup. A

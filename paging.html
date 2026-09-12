@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-87a3f2ca.js";
+            window.path_to_searchindex_js = "searchindex-2d2e8939.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-ba6dda15.js"></script>
@@ -245,8 +245,8 @@ window; the mapper supplies the physical page.</p>
 RAM values match the OS trace. [confirmed]</p>
 <p>A physical page can appear in more than one window. During boot, Flash page
 <code>3F</code> is visible through both A and B for part of the transition. Logical
-addresses in those windows then alias the same physical bytes at different
-offsets. [confirmed]</p>
+addresses at matching offsets within those windows then alias the same physical
+bytes despite their different logical window bases. [confirmed]</p>
 <p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/paging-windows.svg" alt="Independent mode gives each banked window its own selector; paired mode maps an adjacent page pair through windows A and B."><span class="img-wrapper"><img src="images/paging-windows.svg" alt="Independent mode gives each banked window its own selector; paired mode maps an adjacent page pair through windows A and B."></span></label></p>
 <p><strong>Mapper view.</strong> Window 0 remains fixed. The boot example is [confirmed]; the complete paired and independent register contract is [standard].</p>
 <h2 id="mapping-modes--port-0x04-bit-0"><a class="header" href="#mapping-modes--port-0x04-bit-0">Mapping modes — port <code>0x04</code> bit 0</a></h2>
@@ -446,7 +446,7 @@ Both values written to <code>0x0E</code> have low two bits equal to three. [conf
 <p><code>boot_os_entry</code> at <code>3F:412C</code> changes to independent mode without paging out its
 next instruction: [confirmed]</p>
 <pre><code class="language-z80">3F:412C  IM 1
-          ; stack/RAM probe omitted
+          ; nested reset-delay loop omitted
 3F:4142  LD A,0x03
 3F:4144  OUT (0x0F),A
 3F:4146  LD A,0x7F
