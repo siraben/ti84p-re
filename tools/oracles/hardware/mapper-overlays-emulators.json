@@ -10,7 +10,7 @@
   "sources": {
     "tools/probes/hardware/mapper-overlays.asm": "2842658e4d69f8b9c97a560ff4480b2a6f5c1cf09e9f9ea59dd92a953783f83c",
     "tools/probes/hardware/common.inc": "22d8adf8be0348eb73e2c51b8ff6411b23ddaf66777ea585b6d530f1bb024ddc",
-    "tools/probes/hardware/display.inc": "9e2a5d73b9f539222e0d8087e5978981f5a975df15534332c04d9c83c8694412",
+    "tools/probes/hardware/display.inc": "592d4c4ebd917abcdfc4810fd4288a0747289cddfeb9700c156676a27c4864e5",
     "tools/ti84re/emulators/tilem/build_exact_probe.py": "42e594c18464327e6162b106e33420a45f1b8105cba6111cfe2d8fa0695028f1",
     "tools/ti84re/emulators/wabbitemu/build_exact_probe.py": "3e7d21fb2f5aed595ce7da939ee8255d13a6df84a6d24d14deb0829e0b04a089",
     "tools/probes/tilem/tilem_probe_support.c": "cf9e554bab3cfe90b9faf034bf98003263638a18d276355e1cca16da339bb8a5",
@@ -21,10 +21,10 @@
     "tools/probes/mame/mame_mapper_probe.lua": "90bdbd4be2369ddb085f9d5eae61d2977a4b2068638da429b23aba217dfb32a7"
   },
   "artifact": {
-    "machine_code_size": 1348,
-    "machine_code_sha256": "b8486d223aa48a336fc5d245d98abcf9cd875542c3c0def5cbdf6ed760d7d3ef",
-    "program_file_size": 2776,
-    "program_file_sha256": "e613c552450eff7698b59748cd8ef492a71271bef86bad5707e0fd398904b840"
+    "machine_code_size": 1802,
+    "machine_code_sha256": "8f8809709c7393b5f4c17f79e9b55d883f8fd13603b61ce5500775d42897fc26",
+    "program_file_size": 3684,
+    "program_file_sha256": "84b3a551b96d4d82109a98b52bf618a1568409f084eef038d4a65d0f65765d77"
   },
   "source_rom_sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d",
   "emulators": {
@@ -35,8 +35,8 @@
       "commit": "f56ad637d0524ee841dd381be6ecbaf5b8975600",
       "git_tree": "58316afe35d69e69353f0f743698144153051d4a",
       "runner_sha256": "ac280251dcda1cda083196abf88032502420351732cb689cac38d20348126408",
-      "machine_code_size": 1348,
-      "machine_code_sha256": "b8486d223aa48a336fc5d245d98abcf9cd875542c3c0def5cbdf6ed760d7d3ef",
+      "machine_code_size": 1802,
+      "machine_code_sha256": "8f8809709c7393b5f4c17f79e9b55d883f8fd13603b61ce5500775d42897fc26",
       "verification_code_decimal": 58756,
       "frame_hex": "48575031010E2F0045E10B08003F810000000000A1A2B3464445464A48B1C147D1A1A2E3464445464A48E1C241D2670F0B08003F8100000000",
       "decoded_frame": {
@@ -112,9 +112,9 @@
         }
       },
       "native_counts": {
-        "run_clocks": "37490",
+        "run_clocks": "37542",
         "create_intercepts": "1",
-        "final_pc": "0xA254"
+        "final_pc": "0xA25B"
       },
       "launch": "exact ROM load and guarded direct-Asm core baseline",
       "host_intercepts": "_CreateAppVar is redirected to a private RAM buffer; execution stops at the first display bcall after the assembly CRC routine",
@@ -126,9 +126,9 @@
       "execution": "exact-assembled-bytes",
       "commit": "48c2dc0e6d1d87bb5cf9611efbeb0d048b19c422",
       "source_tree_sha256": "a8a4f97fc7952770bed317b4a477f80345894da38d14fad8f0bf0ee60aae71ba",
-      "runner_sha256": "0f4cb971b3ff1475f2293c2e50db4c6207af92f69e670c0cf0c053901be90569",
-      "machine_code_size": 1348,
-      "machine_code_sha256": "b8486d223aa48a336fc5d245d98abcf9cd875542c3c0def5cbdf6ed760d7d3ef",
+      "runner_sha256": "643607b5acee38813b221f3e91e24de31332acc8be25368e1d281e1a07c31d79",
+      "machine_code_size": 1802,
+      "machine_code_sha256": "8f8809709c7393b5f4c17f79e9b55d883f8fd13603b61ce5500775d42897fc26",
       "verification_code_decimal": 21062,
       "frame_hex": "48575031010E2F0044E10B08003F810000000000A1A2B3464748464A48B1C1D1D1E1E2E3464148494A4BC2C2D2D2180F0B08003F8100000000",
       "decoded_frame": {
@@ -205,9 +205,9 @@
       },
       "native_counts": {
         "boot_steps": "134845",
-        "probe_steps": "4826",
+        "probe_steps": "4829",
         "create_intercepts": "1",
-        "final_pc": "0xA254"
+        "final_pc": "0xA25B"
       },
       "launch": "retail-ROM boot and exact user-RAM injection",
       "host_intercepts": "_CreateAppVar is redirected to a private RAM buffer; execution stops at the first display bcall after the assembly CRC routine",

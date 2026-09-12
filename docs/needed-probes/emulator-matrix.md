@@ -62,16 +62,47 @@ completed probe's decimal verification code and both runner hashes.
 | `HWEF07` | returned; resident-frame code `26515` | returned; resident-frame code `38818` |
 | `HWTMR` | completed after 16,855,833 clocks; restore fields pass; `3397` | completed; restore fields pass; `41549` |
 
+The compact-display record `tools/oracles/hardware/compact-probe-e2e.json` runs the
+current 1,385-byte `HWTMR` image through the complete decimal and `HWPZ1`
+paths. TilEm emitted a
+170-character code and Wabbitemu emitted a 182-character code. Both required
+one decimal-screen key and two compact-page keys. Each assembly-produced code
+equaled the independent host encoding and decoded to the exact resident frame.
+The different strings preserve real differences between the two emulator
+frames. [confirmed]
+
+`tools/oracles/hardware/compact-probe-link-e2e.json` repeats the test with the 276-byte
+`HWLINK` frame. This crosses the compact encoder's 8-bit frame-length boundary.
+Wabbitemu also traversed a compact-page boundary. [confirmed]
+
+Wabbitemu executed the OS `_VPutMap` small-font renderer and retained the final
+LCD hash. The TilEm adapter intercepted `_VPutMap` while validating the same
+assembly codec, pagination, and return control flow; it did not render pixels.
+This distinction is recorded as `rendered_small_font` for each backend.
+[confirmed]
+
+The adapters redirect `_CreateAppVar` to private emulator RAM and synthesize
+the page-advance keys. They require the probe to return with its private stack
+balanced. This is exact probe and display control-flow evidence, not a link
+transfer or retail VAT-allocation test. Check the tracked record with:
+
+```sh
+python3 -m ti84re.hardware.run_compact_probe_e2e \
+  --check tools/oracles/hardware/compact-probe-e2e.json
+python3 -m ti84re.hardware.run_compact_probe_e2e \
+  --check tools/oracles/hardware/compact-probe-link-e2e.json
+```
+
 The deterministic `HWPMAP` record is
 `tools/oracles/hardware/mapper-overlays-emulators.json`. It binds the two exact runs to
-the 1,348-byte assembly image and preserves the displayed decimal codes, raw
+the 1,802-byte assembly image and preserves the displayed decimal codes, raw
 frames, decoded routing rows, restoration results, emulator revisions, and
 runner hashes. Its MAME row labels exact image execution `unsupported` and
 keeps the completed direct-handler profile as a different evidence class.
 [confirmed]
 
-The exact `HWPLCD` rows use the same 803-byte image. Its SHA-256 is
-`fa59b12a0a1e329e23ffc9b84acbd6fc78f4bfbcb83d54813fc1cb3e8da9ec21`.
+The exact `HWPLCD` rows use the same 1,257-byte image. Its SHA-256 is
+`e69f8a091a3c84f6cfb5dd46b0aebdb612b782657bd045b5f59f140dfa3bc031`.
 Both runs matched the AppVar-resident frame and the assembly CRC. Both also
 preserved the visible cell, movement bits, and wait-register snapshot.
 [confirmed]
@@ -86,10 +117,10 @@ permanent busy-clear status, constant ASIC-ready state, and absent wait ports.
 device-specific. `run_lcd_hidden_lab_emulator.py` compiles the expected ASIC
 byte for one emulator, runs the exact image, requires the AppVar and staging
 frames to match, and checks the displayed decimal CRC. The TilEm image has
-SHA-256 `09e778ec832f5e69bf0a444d3d9a7cf20cd43bb426a080b6f1ea596b2ad3506e`.
+SHA-256 `c10676d8f7798d0ce92c5abac7cab49fe117805dc18bf34969b1137cb3cf326c`.
 The Wabbitemu image has SHA-256
-`dc683dccfc25f76c59c79776e4311d6655da75647d01c11be266d86c8b7699dd`.
-Each image is 3,450 bytes. [confirmed]
+`2fd3f5605bc1df2b9ee274e869560b01c84fbc382d46a285332c2c2ced410190`.
+Each image is 3,904 bytes. [confirmed]
 
 The TilEm adapter runs in 10,000,000-clock slices until it reaches a display
 breakpoint, an exception, an unexpected stop reason, or its 100,000,000-clock
@@ -103,7 +134,7 @@ locally reproduced generic runner hashes are:
 - TilEm `f56ad637` runner:
   `ac280251dcda1cda083196abf88032502420351732cb689cac38d20348126408`;
 - Wabbitemu `48c2dc0` runner:
-  `0f4cb971b3ff1475f2293c2e50db4c6207af92f69e670c0cf0c053901be90569`.
+  `643607b5acee38813b221f3e91e24de31332acc8be25368e1d281e1a07c31d79`.
 
 Build either runner from its guarded source tree, then run any probe name
 through the normalized CLI:
