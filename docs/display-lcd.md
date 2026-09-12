@@ -14,7 +14,7 @@ flowchart LR
     BUF --> CPY["_GrBufCpy"]
     CPY --> LCD
     LCD --> PANEL["96×64 panel"]
-    LCD --> SAVE["_SaveDisp → saveSScreen"]
+    LCD --> SAVE["_SaveDisp → caller-selected buffer"]
     SAVE --> RESTORE["_RestoreDisp"]
     RESTORE --> LCD
 ```

@@ -13,7 +13,7 @@ ASM-initiated BASIC execution.
 | Prompted arithmetic (`FACTOR`) | loop-body reseed, FP multiply, display | Keep loop bodies short; store loop-invariant values before `For(`. |
 | List built-ins (`DATA`) | `sum(` reaches `list_fold_dispatch` | Prefer built-ins when one parser setup can cover many elements. |
 | Text animation (`ANIMTXT`) | `Output(` plus LCD text paths on every loop | Precompute positions/strings and update the smallest region possible. |
-| Graph drawing (`GRAPHV`) | primitives draw into `plotSScreen`, then `_PDspGrph` | Batch graph primitives before `DispGraph`. |
+| Graph drawing (`GRAPHV`) | primitives and `_PDspGrph` update graph state | Keep graph-oriented output together; individual DRAW commands can refresh the display. |
 | Graph visualization (`GRAPHDFS`, `GRAPHLST`) | window stores plus repeated `Line(`/`Circle(`/`Text(` reach `_StoSysTok`, `_ILine`, `_IPoint`, `graph_pixel_op`, `_PDspGrph`, and small-font paths; `GRAPHLST` also reaches list indexing in draw arguments | Store graph topology in lists; draw the whole view in one graph-buffer pass. |
 | BASIC subprogram (`CALLSUB`, `CALLABI`) | page-38 program-body evaluator and shared VAT variables | Treat globals/lists/`Ans` as the calling convention. |
 | List algorithms (`BIGADD`, `BIGMUL`, `DFS`) | VAT lookup, element address, OP-register move per access | Preallocate lists; cache dimensions and reused elements in scalars. |
@@ -64,16 +64,16 @@ and the diagonal line visible. The trace hits `_GrBufClr`, `_StoSysTok`,
 `_ILine` (`04:4029`), `graph_pixel_op`, `_IPoint`, `_PDspGrph` (`04:7904`), and
 the page-38 argument parser. [confirmed]
 
-The performance lesson is to draw several primitives into the graph buffer, then
-display the graph buffer once. Repeated home-screen `Output(` calls give you
-more text-layout overhead and less control over redraw timing.
+Graph commands share `plotSScreen` and graph coordinates. Individual DRAW
+handlers also call `_PDspGrph`; placing several before `DispGraph` does not
+establish that the LCD is updated only once.
 
 Text animation and graph-buffer animation have different costs. `Output(` keeps
 the home/text display model active and pays row/column formatting on every
 iteration. Graph-buffer animation pays coordinate conversion, pixel primitive
-work, and a display-buffer copy at `DispGraph`. For visible motion, batch one
-frame in `plotSScreen`, call `DispGraph`, then compute the next frame; avoid
-alternating graph primitives with home-screen output inside the same hot loop.
+work, and display updates through the DRAW handlers and `DispGraph`.
+Avoid alternating graph primitives with home-screen output inside the same
+hot loop when the desired output is one graph view.
 
 ### Graph visualization of DFS topology
 
@@ -102,7 +102,7 @@ DispGraph
 The graph data from `DFS.8xp` maps to graph pixels through fixed coordinate
 lists:
 
-| Node | DFS value | Pixel center | Label position |
+| Node | DFS value | Graph-coordinate center | Label position |
 |------|-----------|--------------|----------------|
 | 1 | root | `(10,44)` | `Text(16,8,"1")` |
 | 2 | first edge target | `(35,54)` | `Text(6,33,"2")` |
@@ -278,7 +278,7 @@ Disp L3(6)
 Observed run: the list line begins `{0 1 1 1 1 ...}`, the explicit carry line is
 `1`, and the program ends with `Done`. The trace hits list element address and
 store paths (`list_var_index`, `_AdrLEle`, `_GetLToOP1`, `_PutToL`,
-`store_list_elem*`) plus `fnint_body`, `_FPDiv`, `_FPAdd`, `_FPSub`, and
+`store_list_elem*`) plus `_FPDiv`, `_FPAdd`, `_FPSub`, and
 `_FPMult`. [confirmed]
 
 Performance notes: this is intentionally simple, but it is parser-heavy. For a
@@ -289,10 +289,16 @@ tolerate more carry and display conversion work.
 For a reusable arbitrary-precision add routine, treat `L1` and `L2` as
 little-endian digit arrays and compute the loop bound from list lengths:
 
+This illustrative variant assumes nonempty lists containing integer digits
+`0`–`9` and room for an `N+1`-element destination. The observed run above
+belongs to the fixed-size `BIGADD` fixture, not this generalized listing.
+
 ```ti-basic
 dim(L1)->N
 If dim(L2)>N
 dim(L2)->N
+N+1->dim(L3)
+Fill(0,L3)
 0->C
 For(I,1,N)
 0->A
@@ -307,6 +313,8 @@ S-10C->L3(I)
 End
 If C
 C->L3(N+1)
+If C=0
+N->dim(L3)
 ```
 
 The invariant after iteration `I` is that `L3(1..I)` contains the low `I`
@@ -429,7 +437,7 @@ bcalls `_ExecutePrgm` (`4E7C`, target `07:5758`). The trace shows that path
 compile or copy the `AsmPrgm` body and hand off through `07:57B4`, execute the
 payload byte at `ram:9D95` with opcode `C9h`, and return to BASIC. [confirmed]
 
-`tools/asm_execution.py` byte-pins the complete setup and cleanup path:
+The ROM setup and cleanup sites are:
 [confirmed]
 
 | Address | Operation |

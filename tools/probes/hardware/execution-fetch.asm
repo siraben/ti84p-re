@@ -1,4 +1,6 @@
-; Read-only execution-protection fetch probe.
+; Execution-protection fetch probe. Requires ordinary TI-OS independent
+; mapping on entry (and after AppVar allocation). Port 04h status reads do
+; not reveal the write-only mapping configuration; custom launchers excluded.
 ; The builder supplies the target kind, selector, scan range, and AppVar name.
 ; Probe ID 4, payload 16 bytes.
 
@@ -10,7 +12,6 @@ OUTCOME_PENDING         .equ 0
 OUTCOME_RETURNED        .equ 1
 OUTCOME_NO_RET          .equ 2
 OUTCOME_TARGET_CHANGED  .equ 3
-OUTCOME_PAIRED_MAPPING  .equ 4
 
 start:
     ld a,i
@@ -37,16 +38,6 @@ start:
     in a,($26)
     ld (payload_port26),a
 
-    ; In paired mapper mode port 06h remaps both bank A and the bank-B program.
-    ; Refuse the case before a mapping write can unmap this probe.
-    ld a,(payload_port04)
-    and 1
-    jr z,mapping_supported
-    ld a,OUTCOME_PAIRED_MAPPING
-    ld (payload_outcome),a
-    jr create_result
-
-mapping_supported:
     ld a,TARGET_SELECTOR
     out ($06),a
     ld hl,SCAN_START
@@ -85,11 +76,10 @@ create_result:
     ld (result_outcome_ptr),hl
 
     ; Record the mapper and protection state after AppVar allocation, directly
-    ; before any guarded mapping write.
+    ; before the target mapping write. Port 04h is interrupt status only.
     inc hl
     in a,($04)
     ld (hl),a
-    ld d,a
     inc hl
     in a,($06)
     ld (hl),a
@@ -109,17 +99,7 @@ create_result:
     in a,($26)
     ld (hl),a
 
-    ld a,d
-    and 1
-    jr z,post_create_mapping_supported
-    ld hl,(result_outcome_ptr)
-    ld (hl),OUTCOME_PAIRED_MAPPING
-    jr finish_without_port_restore
-
-post_create_mapping_supported:
     ld a,(payload_outcome)
-    cp OUTCOME_PAIRED_MAPPING
-    jr z,finish_without_port_restore
     or a
     jr nz,finish
 
@@ -147,7 +127,6 @@ returned:
 finish:
     ld a,(saved_port6)
     out ($06),a
-finish_without_port_restore:
     pop af
     jp po,interrupts_restored
     ei

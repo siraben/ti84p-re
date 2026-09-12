@@ -65,8 +65,8 @@ RAM values match the OS trace. [confirmed]
 
 A physical page can appear in more than one window. During boot, Flash page
 `3F` is visible through both A and B for part of the transition. Logical
-addresses in those windows then alias the same physical bytes at different
-offsets. [confirmed]
+addresses at matching offsets within those windows then alias the same physical
+bytes despite their different logical window bases. [confirmed]
 
 ![Independent mode gives each banked window its own selector; paired mode maps an adjacent page pair through windows A and B.](images/paging-windows.svg)
 
@@ -285,7 +285,7 @@ next instruction: [confirmed]
 
 ```z80
 3F:412C  IM 1
-          ; stack/RAM probe omitted
+          ; nested reset-delay loop omitted
 3F:4142  LD A,0x03
 3F:4144  OUT (0x0F),A
 3F:4146  LD A,0x7F

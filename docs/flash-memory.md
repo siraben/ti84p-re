@@ -481,7 +481,8 @@ caller sets without relying on disassembler labels: [confirmed]
 | `3D:5252` | `0x1FE0` | `3D:430E` |
 
 The model-selected helper calls `00:1837`. That probe reads port `0x02`, masks
-bit 7, and preserves the resulting flags while restoring `A` and `BC`.
+bit 7, then executes `XOR 0x80`. It returns Z when bit 7 was set and NZ
+when it was clear, while restoring `A` and `BC`.
 `3D:5247` branches to the fixed `0x1F18` helper when the bit is clear and falls
 through to `0x1E50` when it is set. The resolved TI-84 Plus traces read `0xE1`,
 `0xE3`, or `0xE7`, so every observed TI-84 Plus state selects `0x1E50`.

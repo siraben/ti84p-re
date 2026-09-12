@@ -87,7 +87,7 @@ Then open `ti84.gpr` in Ghidra for interactive analysis.
 ## Tests
 
 ```sh
-cd tools && python3 -m unittest discover -s tests -t .   # Python suite
+python3 -m unittest discover -s tools/tests -t tools     # Python suite
 node tools/js/test-mathprint.js                          # MathPrint corpus + fuzz
 ```
 
@@ -103,7 +103,7 @@ error out without them.
 | bcall routines named | 728 total: 645 main-table bcalls + 83 retail boot-table bcalls |
 | bjump sites modeled | every disassembled inline `CALL cross_page_jump` site; the total includes the 87-entry trampoline table |
 | parser handlers | 84 (page 0x38 dispatch table) |
-| Defined data (strings/floats/typed) | 618 |
+| Database coverage | versioned counts and unresolved locations in `tools/data/database-health.json` |
 | Flash pages loaded | 64 (1 MiB) |
 | Docs | 55 rendered content pages |
 
@@ -167,5 +167,5 @@ affiliated with or endorsed by TI.
 ## Evidence limits
 
 - `ti83plus.inc` is the full 2007 TI-83 Plus SDK equates file hosted on WikiTI. It defines the TI-84 Plus-era `0x8xxx` boot bcall IDs. With the validated local ROM assembled from `ti84plus_patched.rom`, `D84PBE1.8Xv`, and `D84PBE2.8Xv`, those entries resolve through retail page `3F`; the USB boot routines land on page `2F`. These files have exact, reproducible identities, but their acquisition history does not establish a physical-calculator capture.
-- About 1,600 function names beyond the official bcalls are inferred from behavior, including callees and RAM or port accesses. A specific low-level helper name remains a best-effort interpretation; `snake_case` distinguishes inferred names from official `_CamelCase` TI names.
+- The additional function names in `tools/symbols/names.txt` are inferred from behavior, including callees and RAM or port accesses. A specific low-level helper name remains a best-effort interpretation; `snake_case` distinguishes inferred names from official `_CamelCase` TI names.
 - Confidence flags in the docs: [confirmed] (direct ROM or labeled-trace evidence), [standard] (documented TI architecture consistent with the ROM), and [hypothesis] (an inference that remains open).

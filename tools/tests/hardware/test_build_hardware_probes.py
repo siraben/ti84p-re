@@ -10,6 +10,7 @@ from ti84re.hardware.build_probes import (
     CREATE_APPVAR_COPY,
     PROBE_START,
     PROBES,
+    USER_MEM,
     build_probes,
     initial_probe_payload,
     package_probe,
@@ -62,7 +63,7 @@ def fixture_raw_battery_machine_code() -> bytes:
     )
     ports = (
         bytes.fromhex("DB04") * 3
-        + bytes.fromhex("D304") * 3
+        + bytes.fromhex("3E06D304") + bytes.fromhex("D304") * 2
         + bytes.fromhex("DB39") * 4
         + bytes.fromhex("D339") * 2
         + bytes.fromhex("DB3A") * 7
@@ -184,14 +185,14 @@ class HardwareProbeBuilderTests(unittest.TestCase):
             )
 
     def test_battery_probe_requires_bcall_samples_and_restoration(self):
-        with self.assertRaisesRegex(ValueError, "call _Chk_Batt_Level"):
+        with self.assertRaisesRegex(ValueError, "normalize port 0x04"):
             validate_machine_code(
                 "battery-level",
                 fixture_machine_code("battery-level"),
             )
 
     def test_raw_battery_probe_requires_repeated_sampler(self):
-        with self.assertRaisesRegex(ValueError, "16 identical sampler calls"):
+        with self.assertRaisesRegex(ValueError, "normalize port 0x04"):
             validate_machine_code(
                 "battery-raw",
                 fixture_machine_code("battery-raw"),
@@ -202,6 +203,17 @@ class HardwareProbeBuilderTests(unittest.TestCase):
             "battery-raw",
             fixture_raw_battery_machine_code(),
         )
+
+    def test_raw_battery_probe_rejects_status_writeback(self):
+        machine_code = fixture_raw_battery_machine_code()
+        saved_status_address = USER_MEM + len(machine_code) + 3 - 30
+        machine_code = machine_code.replace(
+            bytes.fromhex("3E06D304D304D304"),
+            bytes.fromhex("3E06D3043A") + saved_status_address.to_bytes(2, "little")
+            + bytes.fromhex("D304D304")
+        )
+        with self.assertRaisesRegex(ValueError, "saved status byte"):
+            validate_machine_code("battery-raw", machine_code)
 
     def test_raw_battery_probe_requires_delay_loop(self):
         machine_code = fixture_raw_battery_machine_code().replace(

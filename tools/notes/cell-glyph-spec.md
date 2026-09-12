@@ -67,7 +67,7 @@ return from `39:4E8E`: the caller restores the original `D:E`, may emit the
 counted string, and still probes `39:4F1A`. The JavaScript translation models
 the complete outer controller through `39:4F19`. A pinned-byte oracle checks
 196,608 representative full-byte states, and the finite model partitions all
-1,048,576 projected flag/result states into 39 paths. The installed callback
+2,097,152 projected flag/result states into 39 paths. The installed callback
 and output helpers remain explicit boundaries. [confirmed]
 
 The result can therefore be an ordered sequence of a layout prepass, a counted
@@ -109,9 +109,9 @@ and all eight conditional sites through `39:4F43`. The handler-cell classifier
 uses that translation. A pinned-byte interpreter compares all 65,536 `D:E`
 inputs and reduces them to nine complete paths. [confirmed]
 
-The FC/FE codepoints `5`–`9` and `0`–`4` occupy consecutive font cells. In the
-ROM large font, `0x00`–`0x09` are small/subscript digit forms, and
-`0x05`–`0x09` are the alternate forms used by exponent layouts.
+The FC/FE codepoints `5`–`9` and `0`–`4` occupy consecutive font cells. They
+include recurrence symbols, arrows, `Lintegral` at `0x08`, and `Lcross` at
+`0x09`. The subscript digits occupy `0x80`–`0x89`, not `0x00`–`0x09`.
 
 ---
 
@@ -136,21 +136,22 @@ d6 5a 21 00 40  sub 5A ; hl=0x4000     (default)
 
 The in-family index is the font/mode subcode at `0x8446`, stored by `07:4539`.
 
-- `cp 0x05` maps directly to glyph `0x3F`.
-- The default case reads `glyph = byte[07:4000 + (A - 0x5A)]`.
+- `cp 0x05` maps directly to token `0x3F`.
+- The default case reads `token = byte[07:4000 + uint8(A - 0x5A)]`.
 - The FE family (`l451E`) uses `i = 0x8446`.
-  - If `i < 0x69`, `glyph = byte[07:4099 + i]`.
+  - If `i < 0x69`, `token = byte[07:4099 + i]`.
   - If `i >= 0x69`, subtract `0x69` and read the pair at `07:4102 + 2*i`.
 - The FC family (`l4516`) reads a word at `07:422C + 2*i`.
 - The FB family (`l4508`) subtracts `0x7F` when `i >= 0x8C`, then reads
   a word at `07:4426 + 2*i`.
 
-The FE-high, FC, and FB word tables contain expanded TI tokens, not
-font codepoints. Each 2-byte entry is itself a TI token `(lead, second)` — the
-lead bytes seen are 0x7E, 0x5D, 0x5C, 0x63, 0x60, 0x61, 0x62, 0xAA, 0xBB, 0xEF,
-0xFE, 0x28. `07:44DE` therefore *expands* a 1-byte editor code into a 2-byte
-token, which is then drawn by name or recursively classified. Only the default
-and `cp 0x05` cases yield a font glyph directly.
+The FE-high, FC, and FB tables expand valid menu indices into two-byte TI
+tokens, not font codepoints. The unrestricted byte-index domain also reaches
+adjacent ROM bytes. For example, the listed FB outputs `FEFE` and `283C`
+are instruction bytes, not native token identities. A byte-accurate lookup
+therefore does not establish that every raw index is a valid editor input.
+The default and `cp 0x05` cases return `D=0` with the selected single-byte
+token in `E`.
 
 `settledPage7DisplayByteRemap()` executes the main-entry branch and index
 logic. `web/mathprint/layout.json` contains every table entry that the two-byte
@@ -165,7 +166,7 @@ pinned bytes. `settledPage1KeyToStringSelection()` then carries the mapped
 cell through `01:6702` to the extracted counted display string. [confirmed]
 
 ### Default table at `07:4000`
-Code to large-font glyph:
+Editor code to single-byte token:
 
 ```text
 5A→84 5B→00 5C→89 5D→8A 5E→8D 5F→88 60→8E 61→00 62→8B 63→86 64→87 65→90
@@ -183,11 +184,11 @@ DE→DD DF→DE E0→DF E1→E5 E2→E0 E3→AD E4→E1 E5→91 E6→C8 E7→CA 
 EA→CB EB→CD EC→08 ED→09 EE→2C EF→00 F0→EE F1→27 F2→28 F3→A8 F4→A9 F5→A1
 F6→A2 F7→13 F8→9B F9→99 FA→9A FB→98 FC→B2 FD→6A FE→6F FF→6C
 ```
-(Note: maps the editor's letter/op codes onto the large font; e.g. C7→0x25 "/",
-C8→0x24, C9→0x22, B6→0x0C etc.)
+For example, `C7` maps to `nDeriv(` token `25h`, `C8` to `fnInt(` token `24h`,
+and `C9` to `solve(` token `22h`. These values are token IDs, not font indices.
 
 ### FE-low table at `07:4099`
-Index to glyph:
+Index to single-byte token:
 
 ```text
 00→A8 01→A9 02→A1 03→A2 04→13 05→9B 06→99 07→9A 08→98 09→B2 0A→6A 0B→6F
@@ -249,8 +250,8 @@ Each entry is a 2-byte TI token `(D,E)`:
 ## `00:E` cells
 
 For `D = 0x00`, the cell takes the generic path. `39:4F1A` returns carry
-(D=0 matches none of FC/FE/xx42), so no single-glyph mapping; instead the draw
-happens inside `39:6B66`:
+except when `E=42h`, which maps directly to glyph zero. Other `00:E` cells
+obtain a counted string through `39:6B66`:
 
 - `39:6B66`: `D ≠ 0xFB` falls to `39:6B9C`, whose complete bytes are
   `EF CA 45 C9`: `_KeyToString = 45CAh` followed by `RET`.
@@ -295,7 +296,7 @@ absent/RAM/archive projections. The finite model reduces them to 13 paths and
 ## Inline `FB` strings
 
 When `D = 0xFB`, `39:6B66` maps certain `E` values to a hardcoded
-length-prefixed ASCII string in `0x97F2`. The caller at `39:4EE6` then invokes
+length-prefixed display-code string in `0x97F2`. The caller at `39:4EE6` then invokes
 `_PutPSB = 450Dh` (body `01:5C52`) to draw the selected string. [confirmed]
 
 | cell `FB:E` | E    | string drawn (len-prefixed) |
@@ -343,8 +344,8 @@ Any other `FB:E` (and any non-FB pair on this path) falls through to
   translated for every `D:E` input. See `tools/notes/token-name-spec.md`.
 - FE-high, FC, and FB word tables emit *expanded TI tokens*, not font
   codepoints. `_KeyToString` sends those pairs through `01:6702`; the
-  JavaScript translation now performs that second selection. Only the default
-  and `cp 0x05` branches of `07:44DE` produce font codepoints directly.
+  JavaScript translation performs that second selection. The default
+  and `cp 0x05` branches of `07:44DE` instead produce single-byte tokens.
 - `0x8446` is a RAM mode/subcode byte set by the classic editor encoder
   (`07:4539`); the page `0x39` MathPrint path sets it from `E` in the
   styled path. Its full lifecycle across both paths was not exhaustively

@@ -69,7 +69,7 @@ conditional ownership, and the bank-A page-mapping protocol. [confirmed]
 ## Flash archive [confirmed]
 
 To save scarce RAM, variables can be archived to Flash. The archive entry point is on `flash page 0x07`, while the low-level flash read/write/erase workers are on `page 0x3D`:
-- `_Arc_Unarc` (`07:6248`) — move OP1's variable between RAM and the Flash archive (toggles the archive bit, then relocates the data and rewrites the VAT entry's page to the Flash page).
+- `_Arc_Unarc` (`07:6248`) — move OP1's variable between RAM and the Flash archive, then rewrite its VAT data pointer and page. Page zero identifies RAM; a nonzero page identifies Flash.
 - `_FlashToRam` (id `5017` → body `3D:6745`) — copy archived data back into RAM.
 Archived vars are *appended* to Flash, which cannot be overwritten in place, so deleting one only marks it dead. `archive_gc_collect` at `3C:7733` rewrites live records in 64 KiB sector units and erases the old sectors. `gc_show_screen` at `3C:7E0D` displays `"Garbage"` and `"Collecting..."` from page `01`. The collector also journals its phase in the inactive 8 KiB half of page `3E`. [confirmed]
 

@@ -235,11 +235,15 @@ These outcomes assume the retail boot values: port `0x21` mode 0, Flash bounds
 emulator predicates, not physical results. The decoder reports ports `0x04`,
 `0x06`, `0x21`–`0x23`, `0x25`, and `0x26` from immediately before the test.
 
-In paired mapper mode, a port-`0x06` write remaps bank B with bank A. That can
-unmap the running probe. Every artifact therefore records
-`unsupported-paired-mapping` without writing port `0x06` or attempting the
-fetch when port `0x04` bit 0 is set. [standard] for the emulator predictions;
-[confirmed] for the artifact guard.
+Run these probes only through the ordinary TI-OS `Asm(` launcher in independent
+mapping mode, not through a custom launcher or a paired-mode harness. In paired
+mode, a port-`0x06` write also remaps bank B and can unmap the running probe.
+Port `0x04` reads interrupt status: bit 0 is ON-interrupt pending, not the mapping
+mode selected by writes to that port. The probe therefore cannot verify this
+entry precondition from its status snapshot. Older artifacts incorrectly used
+that bit as a guard; decoder outcome 4 now identifies that legacy rejection and
+must not be interpreted as mapping evidence. [confirmed] for the corrected
+source; [standard] for the separate read/write port semantics.
 
 The other outcomes are `no-ret-found` and `target-changed-before-fetch`.
 Neither measures execution protection. A pending AppVar after an observed
@@ -277,12 +281,18 @@ the final call, and after cleanup: [confirmed]
 | `0`–`3` | pre-call ports `0x04`, `0x39`, and `0x3A`, then `(IY+0x18)` `traceFlags` |
 | `4`–`19` | 16 `_Chk_Batt_Level` results |
 | `20`–`24` | post-call status, ports `0x04`, `0x39`, `0x3A`, and `traceFlags` |
-| `25`–`28` | readback after restoring the three ports and `traceFlags` |
+| `25`–`28` | port-`0x04` interrupt status, restored GPIO ports `0x39`/`0x3A`, and `traceFlags` |
 | `29` | final port-`0x02` status |
 
 The decoder rejects result bytes outside 0–4. It reports a five-bin histogram,
 a stable level only when all 16 samples agree, and `cleanup_matches` only when
-the three port readbacks and complete flag byte match their saved values.
+the two GPIO port readbacks and complete flag byte match their saved values.
+Port `0x04` is normalized to the OS idle configuration `0x06`, not restored
+from its readback: reads return interrupt status, not the write configuration.
+Its recorded status can change during the test and is excluded from
+`cleanup_matches`. Both battery probes require ordinary TI-OS independent
+mapping; arbitrary caller timer-rate or battery-selector settings are not
+preserved.
 The probe restores the caller's interrupt-enable state before creating the
 AppVar. [confirmed] for source, assembled bytes, and decoder behavior.
 
@@ -292,10 +302,10 @@ An upward and downward sweep can locate OS-visible transitions and hysteresis.
 The result is the retail bcall's level, not a direct voltage measurement or a
 raw comparator-bit trace. [hypothesis] for pending physical results.
 
-The pinned SPASM-ng build produces 304 machine-code bytes with SHA-256
-`4fcb9e9052fcccad350cd3b7901235a4cb87390eeb764e78e7be0686d0da99ea`.
-The packaged 688-byte `HWBATT.8xp` has SHA-256
-`9d075837dc399ec0771e563c747e7498b4c260fe6f4fee128f17a57ba238fea0`.
+The pinned SPASM-ng build produces 303 machine-code bytes with SHA-256
+`f721739c712195fee54da0d307ea0bed47a8f6fe879a6d422d8f777f2a911b4c`.
+The packaged 686-byte `HWBATT.8xp` has SHA-256
+`f20ff3d1c555e43f34d0ba742e4e3d8c1327c1bb9e6f310fe9d2818307fd4c4c`.
 [confirmed]
 
 ## Raw battery-selector probe
@@ -339,10 +349,10 @@ reset before cleanup can leave the selection state changed. Use a backed-up
 test calculator, stable externally current-limited power, and an independently
 verified voltage before running it. Do not run it as the first probe on a unit.
 
-The pinned SPASM-ng build produces 397 machine-code bytes with SHA-256
-`d28548e32a53189f32c6ba7f2a4aba85278453ebcf8d1fba8f788f735f24b57c`.
-The packaged 874-byte `HWBRAW.8xp` has SHA-256
-`c0316a51a5262a32143fa72fe11c8ba510ee9aee1f87f8e28466777c54057586`.
+The pinned SPASM-ng build produces 396 machine-code bytes with SHA-256
+`7bec2f356c9e47bfe30ed85a87e5552035b1baf3b6c0b50e8c2d02e1afb599ec`.
+The packaged 872-byte `HWBRAW.8xp` has SHA-256
+`6fd3a36129873eaac658d9655b7100d9d3eec46c1e1d1fb674d1cf7c944fd27a`.
 [confirmed]
 
 ## USB control snapshot
@@ -757,7 +767,8 @@ cannot be replaced.
 The snapshot, battery, raw-battery, raw-link, keypad, bus-timing, prefix-M1,
 programmable-timer, and alias probes restore interrupt enable state before
 creating the result AppVar.
-Both battery probes restore ports `0x04`, `0x39`, `0x3A`, and the complete
+Both battery probes normalize port `0x04` to `0x06`, restore ports `0x39` and
+`0x3A`, and restore the complete
 saved `traceFlags` byte.
 The raw-battery probe also executes the ROM's selector cleanup after every
 sample sequence. The raw-link probe releases both link lines during cleanup. A

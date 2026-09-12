@@ -8,6 +8,7 @@ import csv
 import hashlib
 import json
 from pathlib import Path
+import re
 import shlex
 import subprocess
 from typing import Iterable
@@ -28,8 +29,11 @@ from ti84re.paths import ROOT, TOOLS, SYMBOLS, DEFAULT_ROM
 
 
 PAGE_SIZE = 0x4000
-ANALYSIS_SUFFIXES = {".java", ".py", ".sh", ".txt"}
-ANALYSIS_NAMES = {"ti83plus.inc"}
+ANALYSIS_SUFFIXES = {
+    ".java", ".py", ".sh", ".txt", ".inc", ".asm", ".c", ".cpp", ".h",
+    ".lua", ".macro", ".js",
+}
+ANALYSIS_DIRECTORIES = ("ghidra", "ti84re", "symbols", "probes", "macros", "js")
 
 
 def digest(path: Path) -> str:
@@ -41,13 +45,14 @@ def digest(path: Path) -> str:
 
 
 def analysis_files() -> list[Path]:
-    files = []
-    for path in TOOLS.iterdir():
-        if not path.is_file():
-            continue
-        if path.name in ANALYSIS_NAMES or path.suffix in ANALYSIS_SUFFIXES:
-            files.append(path)
-    return sorted(files)
+    """Bind maintained analysis code and inputs, excluding generated evidence."""
+    candidates = list(TOOLS.iterdir())
+    for directory in ANALYSIS_DIRECTORIES:
+        candidates.extend((TOOLS / directory).rglob("*"))
+    return sorted(
+        path for path in candidates
+        if path.is_file() and path.suffix in ANALYSIS_SUFFIXES
+    )
 
 
 def combined_digest(paths: Iterable[Path]) -> str:
@@ -172,16 +177,21 @@ def build_manifest(
     }
 
 
+def checked_rom_hash(value: object) -> str:
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", value):
+        raise ValueError("ROM SHA-256 must contain exactly 64 hexadecimal digits")
+    return value.lower()
+
+
 def recursive_rom_hashes(value: object) -> set[str]:
     found: set[str] = set()
     if isinstance(value, dict):
         for key, item in value.items():
-            if key == "rom_sha256" and isinstance(item, str):
-                found.add(item.lower())
-            elif key == "rom" and isinstance(item, dict):
-                digest_value = item.get("sha256")
-                if isinstance(digest_value, str):
-                    found.add(digest_value.lower())
+            if key == "rom_sha256":
+                found.add(checked_rom_hash(item))
+            elif key == "rom" and not isinstance(item, str):
+                digest_value = item.get("sha256") if isinstance(item, dict) else None
+                found.add(checked_rom_hash(digest_value))
             found.update(recursive_rom_hashes(item))
     elif isinstance(value, list):
         for item in value:
@@ -193,11 +203,15 @@ def artifact_rom_hashes(path: Path) -> set[str]:
     if path.suffix.lower() == ".csv":
         with path.open(newline="", encoding="utf-8") as stream:
             rows = csv.DictReader(stream)
-            return {
-                row["rom_sha256"].lower()
-                for row in rows
-                if row.get("rom_sha256")
-            }
+            if "rom_sha256" not in (rows.fieldnames or []):
+                raise ValueError(f"{path}: missing rom_sha256 column")
+            found = set()
+            for line, row in enumerate(rows, 2):
+                try:
+                    found.add(checked_rom_hash(row.get("rom_sha256")))
+                except ValueError as error:
+                    raise ValueError(f"{path}:{line}: {error}") from error
+            return found
     if path.suffix.lower() == ".json":
         return recursive_rom_hashes(json.loads(path.read_text(encoding="utf-8")))
     raise ValueError(
@@ -212,9 +226,7 @@ def manifest_rom_hash(path: Path) -> str:
         value = data["rom"]["sha256"]
     except (KeyError, TypeError) as error:
         raise ValueError(f"{path}: missing rom.sha256") from error
-    if not isinstance(value, str):
-        raise ValueError(f"{path}: rom.sha256 is not a string")
-    return value.lower()
+    return checked_rom_hash(value)
 
 
 def write_json(value: object, output: Path | None) -> None:
@@ -238,7 +250,7 @@ def main() -> None:
     manifest.add_argument("--asic", default="unknown")
     manifest.add_argument("--emulator-profile", default="unknown")
     manifest.add_argument("--os-version", default="2.55MP")
-    manifest.add_argument("--ghidra-version", default="12.1.2")
+    manifest.add_argument("--ghidra-version", default="unknown")
     manifest.add_argument("--output", type=Path)
 
     verify = commands.add_parser("verify")

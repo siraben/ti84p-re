@@ -278,11 +278,12 @@ def validate_machine_code(probe_name: str, machine_code: bytes) -> None:
         required = (
             (bytes((0x21, scan_start & 0xFF, scan_start >> 8)), "scan start"),
             (bytes((0x01, scan_length & 0xFF, scan_length >> 8)), "scan length"),
-            (bytes.fromhex("E601"), "paired-mapping guard"),
         )
         for sequence, label in required:
             if sequence not in machine_code:
                 raise ValueError(f"{probe_name} omits its {label}")
+        if bytes.fromhex("E601") in machine_code:
+            raise ValueError(f"{probe_name} must not infer mapping from port 0x04 status")
         selector_write = bytes((0x3E, selector, 0xD3, 0x06))
         if machine_code.count(selector_write) != 2:
             raise ValueError(f"{probe_name} must map and recheck its target selector")
@@ -302,6 +303,15 @@ def validate_machine_code(probe_name: str, machine_code: bytes) -> None:
                 raise ValueError(
                     f"{probe_name} must read port 0x{port:02X} exactly once"
                 )
+    if probe.probe_id in (6, 7):
+        if bytes.fromhex("3E06D304") not in machine_code:
+            raise ValueError(f"{probe_name} must normalize port 0x04 to 0x06")
+        saved_status_address = USER_MEM + len(machine_code) - probe.payload_size
+        status_writeback = (
+            b"\x3A" + saved_status_address.to_bytes(2, "little") + b"\xD3\x04"
+        )
+        if status_writeback in machine_code:
+            raise ValueError(f"{probe_name} must not restore port 0x04 from a saved status byte")
     if probe.probe_id == 6:
         bcall = bytes.fromhex("EF2152")
         if machine_code.count(bcall) != 16:

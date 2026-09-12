@@ -4,8 +4,10 @@ Build [fb39ca4/badapple-ti84](https://github.com/fb39ca4/badapple-ti84), render
 the tracker music that feeds its interrupt-driven link-port player, and run the
 application under the TI-84+ OS in headless TilEm.
 
-Run `ROM=/path/to/ti84plus.rom ./build_and_capture.sh` (a 1 MB TI-84+ OS image —
-the same one Ghidra/TilEm use). The checked-in WAVs are decoded music renders:
+Run `ROM=/absolute/path/to/ti84plus.rom ./build_and_capture.sh` with the
+canonical 1 MiB retail OS 2.55MP image identified in
+[Provenance](../../docs/provenance.md). The injector rejects other images.
+The checked-in WAVs are decoded music renders:
 
 - `badapple_music.wav` — the decoded four-channel music, including the
   randomized percussion/noise voice.
@@ -48,29 +50,40 @@ values. The distinction is detailed under [Sound ISR rate](#sound-isr-rate).
 
 `ti84re.badapple.extract_linkport_audio` remains a dynamic trace tool. It replays every
 `OUT (0x00),A` in the trace, holds each level until the next write (zero-order
-hold), and resamples to 44.1 kHz. Use it to verify that the ROM writes the link
+hold), and resamples to 44.1 kHz. Use it to verify that the injected app writes the link
 port, not as the primary music decoder. [standard]
 
 ## How it runs headless
 
-The full app is a 58-page signed Flash application that needs an SE-class
-(2 MiB) calculator. On a 1 MiB TI-84 Plus, the OS-only image has 43 erased
-pages (`0x08`–`0x32`)—
-enough for the first ~2.5 min of the dynamic run. The app is relocatable
-(`in a,(0x06)` at entry), so `ti84re.badapple.inject` writes its pages starting at
-Flash page `0x08`.
-
-Headless TilEm has no link/file transfer, and the OS app-loader path (page 0x3D)
-is fragile to drive, so instead the injector overwrites the entry of `_GetCSC`
+The full app used for the recorded experiment is a 58-page signed Flash
+application that needs an SE-class (2 MiB) calculator. The canonical 1 MiB
+retail image has 42 erased pages in total, but only 39 contiguous erased pages
+at `0x08`–`0x2E`. Page `0x2F` contains the boot USB stack. The injector now
+uses those 39 pages for a partial fixture. The app is relocatable
+(`in a,(0x06)` at entry), but its page traversal decrements the selector.
+`ti84re.badapple.inject` therefore places the first file page at `0x2E` and
+successive pages downward through `0x08`. This matches `NextPage` and the
+tracker's `originalPage - 1` in [the application source](https://github.com/fb39ca4/badapple-ti84/blob/master/badapple.asm).
+The injector bypasses link installation and the OS application loader by
+overwriting the entry of `_GetCSC`
 (`ram:04B2`, a page-0 key scanner the OS calls at the splash/home wait, after
-full RAM, `IY`, and hardware initialization) with `ld a,0x08; out
-(0x06),a; jp 0x4080`. The app's entry follows its 128-byte header. [confirmed]
+full RAM, `IY`, and hardware initialization): [confirmed]
+
+```z80
+ld a,0x2E
+out (0x06),a
+jp 0x4080
+```
+
+The app's entry follows its 128-byte header.
 
 ## Flash and RAM execution protection
 
 The launch hook bypasses the OS application loader, so it also bypasses the
 loader's normal protection setup. The injector changes three bytes in the
-pinned OS 2.55MP boot image before TilEm starts: [confirmed]
+pinned retail OS 2.55MP boot image before TilEm starts: immediates at
+`3F:41E0`, `3F:41F4`, and `3F:41FE`. The injector checks the whole-ROM identity
+and the expected immediate bytes before producing output. [confirmed]
 
 | Port | Boot byte | Patched byte | TilEm effect |
 |------|----------:|-------------:|--------------|
@@ -81,10 +94,12 @@ pinned OS 2.55MP boot image before TilEm starts: [confirmed]
 With the unmodified boot bytes, TilEm denies Flash pages `0x08`–`0x29` and
 allows RAM instruction fetches only when the masked physical RAM offset lies
 in 1 KiB chunks `0x10`–`0x20`. These are physical-offset bounds, not a logical
-Z80 address interval. The injected app begins on Flash page `0x08`; under the
-run's active mapping, its main loop at logical `statVars = 0x8A3A` also resolves
-outside the permitted RAM chunks. Both fetch paths would therefore violate
-TilEm's initial bounds. [standard]
+Z80 address interval. The corrected injection starts on page `0x2E`, outside
+that Flash exclusion interval. Its copied main loop at logical
+`statVars = 0x8A3A` must be evaluated against the active physical RAM mapping,
+not that logical address alone. The fixture deliberately opens both sets of
+bounds; this does not establish which relaxations a normal OS launch needs.
+[standard] for TilEm's predicates; [confirmed] for the fixture writes.
 
 The protected output instructions in the boot image are preceded by fetched
 bytes `00 00 ED 56 F3 D3` (`nop; nop; im 1; di; out`). TilEm uses that sequence
@@ -125,20 +140,23 @@ varies by unit and ASIC revision, so a physical waveform measurement is still
 needed. [confirmed] for the program bytes and encoder constant; [standard] for
 the public timer decode and nominal clock; [hypothesis] for physical cadence.
 
-One headless TilEm trace produced only about 4,674 writes/s when its timestamps
+A retained headless TilEm report lists about 4,674 writes/s when its timestamps
 were interpreted at 15 MHz. That is evidence about that particular injected
-emulator run, not evidence that TI-84 Plus hardware divides this timer by a
+emulator run, not a regenerated result for the corrected retail injector or
+evidence that TI-84 Plus hardware divides this timer by a
 further factor of about 7. The optional pitch-corrected trace WAV is therefore
-a diagnostic time normalization, not a hardware-accurate render. [standard]
+a diagnostic time normalization, not a hardware-accurate render. [hypothesis]
 
 ## Verifying the run
 
-The injected app is live in the recorded emulator trace: about 52,000 writes
+The retained injection report lists about 52,000 writes
 to LCD data port `0x11`, 28,000 to LCD command port `0x10`, 13,000 Flash bank
 swaps through port `0x06`, and 17,000 link-port writes through port `0x00` in
-about four interpreted seconds. These counts establish that the injected code
-reaches its rendering and audio output paths. They do not establish physical
-display output or timer cadence. [standard]
+about four interpreted seconds. The raw trace and complete image
+identity are not checked in, so these historical counts have not been
+independently reproduced here. They do not establish physical display output,
+timer cadence, or successful execution of the corrected 39-page injection.
+[hypothesis] for reproducing the historical report.
 
 ## Files
 

@@ -316,7 +316,14 @@ and the data pointer in `DE`. [confirmed]
 |---|---|
 | Carry set | No matching VAT entry |
 | Carry clear, `B=0` | `DE` is a RAM pointer to the two-byte data-size field |
-| Carry clear, `B!=0` | `B:DE` identifies Flash data through bank A |
+| Carry clear, `B!=0` | `B:DE` identifies the archived record's status byte, before its metadata and data |
+
+For a named program or AppVar, the record has three leading status/size bytes,
+six VAT metadata bytes, a name-length byte, and the name. Its variable data
+begins at record offset `10 + name_length`; the two-byte data-size field is
+there, followed by the payload. The ROM helper at `3D:6625` skips these
+fields with page-crossing normalization. Fixed-token variables have a different
+name field and need that helper's type-specific path. [confirmed]
 
 An archived `DE` value is not a flat RAM pointer. Direct access must preserve
 port `0x06`, map page `B`, handle the `0x8000` → next-page crossing, and restore
@@ -335,9 +342,14 @@ The three useful access strategies have different memory and paging costs:
 
 `_FlashToRam` has bcall ID `5017h` and body `3D:6745`. Its copier saves port
 `0x06`, maps the source page, advances from `0x8000` to `0x4000` on the next
-Flash page, and restores the saved mapping. A streaming interpreter can copy
+Flash page, and restores the saved mapping. After skipping the archive record
+header, a streaming interpreter can copy
 repeated bounded chunks into a RAM buffer and process a source larger than free
 RAM. [confirmed]
+
+Skip an empty chunk: `_FlashToRam` has no zero-count guard. Its first `LDI`
+at `3D:677E` decrements zero to `0xFFFF`, so zero is not a safe no-op.
+[confirmed]
 
 `_Arc_Unarc` at `07:6248` enters the unarchive path at `07:61F4` when `B` is
 nonzero. Unarchiving requires enough RAM for the complete variable and cannot

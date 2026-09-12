@@ -576,7 +576,7 @@
 48DC	vert_split_draw
 49DB	mde_7da9
 4A68	arc_59f1
-4A83	fps_push_real
+4A83	fnint_integrate
 4B49	_AHEADEQUAL
 4B4C	_PARSAHEADS
 4B4F	_PARSAHEAD

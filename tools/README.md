@@ -72,7 +72,7 @@ Module names follow a fixed vocabulary inside each package:
 ## Tests
 
 ```sh
-cd tools && python3 -m unittest discover -s tests -t .
+python3 -m unittest discover -s tools/tests -t tools
 node tools/js/test-mathprint.js
 node tools/js/test-graph-coordinate.js
 node tools/js/test-graphing-demo.js
@@ -81,6 +81,19 @@ node tools/js/test-graphing-demo.js
 Tests that need the local ROM, `z80dasm`, or the retail artifacts under
 `tools/roms/` error out when those are absent; `nix build` runs the
 ROM-independent subset.
+
+Check the wiki's bcall catalogs, per-page counts, and bjump descriptors against
+the canonical ROM without regenerating the checked files:
+
+```sh
+python3 -m ti84re.wiki.audit_rom_claims
+```
+
+This verifies ID-to-body mappings and selected ROM layout facts. It does not
+establish routine semantics or runtime coverage.
+
+[Evidence audit coverage](notes/evidence-audit.md) records the page-by-page
+review scope, reproducible checks, and remaining evidence limits.
 
 ## Ghidra build
 

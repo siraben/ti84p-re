@@ -86,7 +86,10 @@ start:
     ld a,(iy+$18)
     ld (payload_post_trace),a
 
-    ld a,(payload_pre_port04)
+    ; Port 04h reads interrupt status, not its write configuration. These
+    ; probes require ordinary TI-OS independent mapping and normalize the
+    ; write-only configuration to the OS battery routine's idle value.
+    ld a,$06
     out ($04),a
     ld a,(payload_pre_port39)
     out ($39),a

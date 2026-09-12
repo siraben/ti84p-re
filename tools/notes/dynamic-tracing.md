@@ -189,7 +189,7 @@ python3 -m ti84re.trace.resolve /tmp/b.trace --initial-mapping ti84p-reset \
 ```
 
 TilEm's TLMT records identify CPU writes to mapped Flash. They do not encode
-whether the ASIC gate or Flash device accepted a write. `analyze_flash_trace.py`
+whether the ASIC gate or Flash device accepted a write. `ti84re.flash.analyze_trace`
 therefore reports command-shaped write attempts. Check port-`0x14`/port-`0x02`
 state and final array data before treating a decoded sequence as a completed
 program or erase.
@@ -249,10 +249,13 @@ same ground:
 ### Coverage diff (the workhorse)
 
 Run the action and a baseline that differs by *only* the step of interest, then
-subtract the address sets. Everything left is that step's code. Example —
+subtract the address sets. The difference identifies candidate code for that
+action; interrupt timing and other state differences can also add addresses.
+Confirm the caller, operands, and output before attributing a routine's
+semantics. Example —
 isolating the `2+3` evaluation against an idle baseline
-([`boot-idle.macro`](macros/boot-idle.macro) vs
-[`home-2plus3.macro`](macros/home-2plus3.macro)):
+([`boot-idle.macro`](../macros/boot-idle.macro) vs
+[`home-2plus3.macro`](../macros/home-2plus3.macro)):
 
 ```sh
 $TILEM --headless --rom tools/rom.bin --model ti84p --normal-speed --reset \
@@ -275,7 +278,7 @@ parser/float pillars the static docs describe.
 
 ### Stored TI-BASIC programs
 
-The sample programs in [`tools/tibasic-samples/`](tibasic-samples/) are generated
+The sample programs in [`tools/tibasic-samples/`](../tibasic-samples/) are generated
 from token bodies by:
 
 ```sh

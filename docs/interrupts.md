@@ -413,7 +413,7 @@ MAME 0.287 provides a third comparison with larger known gaps: [standard]
 
 ### Native MAME interrupt edges
 
-The guarded MAME run parks the Z80 in a `DI` loop on page-0 RAM and disables
+The guarded MAME run parks the Z80 in a `DI` loop on physical RAM page 0 and disables
 the programmable timers. At reset, ports `0x03` and `0x04` both read released
 ON status `0x08`. Writes `00`, `01`, `02`, `04`, `08`, `10`, and `FF` to port
 `0x03` leave both reads at `0x08`; the driver does not return the written mask.

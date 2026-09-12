@@ -110,7 +110,7 @@ page_02:6efd	_LnX
 page_02:6f16	_LogX
 page_02:6cca	_CLN
 page_02:6ce7	_CLog
-page_02:6d08	pow_core
+page_02:6d08	_CTenX
 page_02:705c	_EToX
 page_02:7066	_TenX
 page_02:733e	_SinCosRad
@@ -283,11 +283,11 @@ page_39:4413	solver_iterate
 page_39:463A	solver_sign_test
 page_39:468F	solver_eval_fx
 page_39:46C7	solver_eval_errfilter
-page_3A:70A2	tvm_solve_iterate
-page_3A:7F02	tvm_load_var_D35B
-page_33:4C80	nderiv_body
-page_33:4D00	fnint_body
-page_33:504E	bb_token_scanner
+page_3A:70A2	numeric_iterate_64
+page_3A:7F02	stat_load_work_element
+page_33:4C80	numeric_work_4c80
+page_33:4D00	numeric_work_4d00
+page_33:504E	var_version_extended_scan
 ram:2749	_ErrSignChange
 ram:274D	_ErrIterations
 ram:2751	_ErrBadGuess
@@ -299,7 +299,7 @@ page_05:5dd7	table_recompute
 page_05:774b	table_seed_runX
 page_05:65dc	table_next_X
 page_05:5ee1	table_fill_cache_loop
-page_05:6014	table_scroll_cache
+page_05:6014	table_refresh_cache_anchor
 page_05:6d40	table_mode_test
 page_05:7e45	table_paint_grid
 page_38:62a3	_StoX
@@ -412,7 +412,7 @@ page_02:4552	err_op1_not_posint
 page_02:4663	mat_gauss_engine
 page_02:471c	mat_elim_row
 page_02:475e	j_stat_mtx_index
-page_02:4773	mat_clear_subdiag
+page_02:4773	matrix_cumulative_columns
 page_02:479f	fp_op2_apply_9d65
 page_02:47a7	fp_op1_apply_9d65
 page_02:47b9	fp_op2_apply_9d65b
@@ -421,7 +421,7 @@ page_02:47e3	lele_get_af_cplx
 page_02:47e6	lele_get_d3_cplx
 page_02:4813	lele_get_af_848e
 page_02:4825	lele_store_cplx
-page_02:49e3	lele_copy_until_eq
+page_02:49e3	list_cumulative_sum
 page_02:4a09	lele_store_loop
 page_02:4a15	idx_dec_test
 page_02:4bba	cplx_polar_form
@@ -488,7 +488,7 @@ page_02:606f	ck_type_not_e
 page_02:61d9	str_get_ptr_or_err
 page_02:61ee	str_copy_xpage
 page_02:6230	store_to_var_dims
-page_02:6238	store_to_var_mem
+page_02:6238	matrix_prepare_work_copy
 page_02:6241	store_d3_from_d7
 page_02:63a5	ck_real_or_list
 page_02:63c0	one_not_real_c00
@@ -543,10 +543,10 @@ page_02:7305	coeff_load_idx_b
 page_02:7312	coeff_load_signed
 page_02:731a	coeff_load_signed_b
 page_02:731d	coeff_load_signed_c
-page_02:7489	transcendental_eval
+page_02:7489	trig_hyperbolic_recurrence
 page_02:76ad	exp_reflect_78
 page_02:76bb	exp_split_halves
-page_02:77a6	trig_range_reduce
+page_02:77a6	inverse_digit_recurrence
 page_02:796c	asinh_acosh_eval
 page_02:7977	asinh_acosh_tail
 page_02:79be	atan_sign_fixup
@@ -1265,7 +1265,7 @@ page_3A:7b30	med_scan_up
 page_3A:7b4c	med_scan_down
 page_3A:7b62	med_advance_jp
 page_3A:7b6e	med_accumulate
-page_3A:7f0f	tvm_load_var_D55B
+page_3A:7f0f	stat_load_work_element_alt
 page_3B:5e8e	bcall_init_819d
 page_3B:5ebb	bcall_clr_flag_jump
 page_3B:5f2d	bcall_chk_range_jump

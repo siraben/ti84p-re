@@ -1,9 +1,10 @@
 # Solver and numerical methods
 
-The numeric solver paths implement root finding, numerical differentiation,
-integration, and time-value-of-money calculations. Each path repeatedly
-evaluates an expression through the [calculation engine](sub-calculation.md) and
-the [TI-BASIC interpreter](sub-tibasic.md).
+The mapped numeric paths implement root finding, numerical differentiation,
+and integration. Root and derivative callbacks repeatedly evaluate a stored
+expression through the [calculation engine](sub-calculation.md) and
+the [TI-BASIC interpreter](sub-tibasic.md). Finance-command bodies and the
+complete integration callback path remain open here.
 
 Raw opcode checks supply banked-page evidence where Ghidra does not recover a
 complete function body.
@@ -11,9 +12,7 @@ complete function body.
 ## Solver errors [confirmed]
 
 The numerical routines raise four dedicated errors. Each has a tiny page-0 raiser stub
-that loads an error code into `A` and tail-jumps to `_JError` (`ram:2793`); most banked
-pages also keep a local copy of each stub so the iteration loop can reach it with a
-cheap relative jump.
+that loads an error code into `A` and branches to `_JError` (`ram:2793`).
 
 | Error | bcall | page-0 stub | code | Message |
 |-------|-------|-------------|------|---------|
@@ -32,8 +31,8 @@ cheap relative jump.
         NO SIGN CHNG(98) ITERATIONS(99) BAD GUESS(9A) STAT PLOT(9B) TOL NOT MET(9C)
 ```
 
-`SOLVER`=`0x96` is the *context name* shown on the Solver app's error screen;
-`SINGULARTY`=`0x97` is raised when a step lands on a pole. [confirmed]
+`SOLVER` (`0x96`) and `SINGULARTY` (`0x97`) are separate error messages.
+Their names alone do not establish the exact predicate at each caller.
 
 ---
 
@@ -80,368 +79,157 @@ and XORs them: Z = same sign, NZ = opposite sign — the bracket sign-change pre
 
 ### Iteration loop [confirmed]
 
-Setup (`39:43AD…4410`) evaluates `f` at the two user bounds, records their signs, and
-seeds the bracket. The main loop runs from `39:4413`:
+The page-`39` root engine combines bracket/sign checks, half-width
+calculations, and interpolation steps. The midpoint calculation uses
+`_InvSub` followed by `_TimesPt5` at `39:443C`/`39:443F`.
+The sign helper at `39:463A` saves work values, then compares the sign
+bits of OP1 and OP2 at `39:4640`–`39:464B`.
 
-- Loop / iteration counter is carried in `A`, `INC A` each pass (`39:44BF`), pushed on
-  the stack. Two caps are compared with `SBC HL,…`:
-  - `LD HL,0x01F3` (= `499`) at `39:4479`/`39:458B` → exceeding it jumps to
-    `39:45A0 LD A,0x99 … JP 2793` = ITERATIONS, and the early `LD A,0x9A` path
-    (`39:45AD`) = BAD GUESS (raised when the initial bracket is unusable).
-  - A small count (`CP 0x04`, `39:44C3`) gates the early Illinois/secant correction.
-- **Bisection midpoint:** `_InvSub` (`ram:227D`, = b−a) then `_TimesPt5` (`ram:2382`, ×0.5)
-  give the half-width $\tfrac{1}{2}(b-a)$ at `39:443C/443F`; adding $a$ yields the midpoint $m=a+\tfrac{1}{2}(b-a)$. [confirmed]
-- **Secant / regula-falsi step:** `_FPMult` (`238B`), `_FPSub` (`2297`), `_FPDiv`-class and
-  `_InvOP1S` (`24BD`) around `39:4488…44F2` compute the linear-interpolation step
-  $x_{n+1}=x_n-f(x_n)\\,\dfrac{b-a}{f(b)-f(a)}$. The result is compared against the bisection bound; the
-  algorithm keeps the secant guess only if it stays inside the bracket, otherwise it
-  falls back to the midpoint — a classic bisection ⊕ secant (Illinois/regula-falsi)
-  hybrid, the documented TI behavior. [standard]
-- **Sign-change bookkeeping:** the byte at `0x84AF` (OP6 area) holds the running sign of
-  `f` at the bracket ends; `XOR 0x80` toggles it (`39:44AB…44B3`). If the two bounds never
-  bracketed a sign change, the path at `39:45CD…45DA JP 2749` raises NO SIGN CHNG.
-  [confirmed]
-- **Convergence / tolerance test:** `_AbsO1O2Cp` (`ram:1987`, compares |OP1| vs |OP2|) is
-  used repeatedly (`39:446F`, `44D7`, `44F8`, `45C7`) to test the bracket width / residual
-  against tolerance. `const_solver_tol_1e13` (`39:46EA`) stores the
-  `1.0e-13` tolerance; `const_solver_floor_1e99` (`39:46E1`) stores the `1.0e-99`
-  (`00 1D 10 …`). On reaching tolerance the solver exits through the `39:4540 → 4553`
-  branch (dynamically traced on an `X²−2 = 0` solve that converged to √2 ≈ 1.41421356);
-  `39:4547` is a `CALL`, not the converged return, and the observed path bypassed it.
-  The tolerance tests at `446F`/`44D7`/`44F8` run under that trace; `45C7` is reached only
-  on other convergence sub-paths. [confirmed]
+Two iteration checks compare a 16-bit counter with `01F3h` (499).
+At `39:4479`–`39:447F`, `499-DE` branches to ITERATIONS on
+borrow. At `39:458B`–`39:4591`, `HL-499` takes the retry path
+only below the threshold. These are distinct control states; an 8-bit
+`INC A` elsewhere does not define the total iteration count.
 
-```pseudocode
-\begin{algorithm}
-\caption{Solver root-finder --- bracketed secant / regula-falsi (page 0x39)}
-\begin{algorithmic}
-\REQUIRE bracket $[a,b]$ with $\mathrm{sign}(f(a)) \neq \mathrm{sign}(f(b))$ \COMMENT{else \textsc{no sign change} (0x98)}
-\FOR{$k = 0$ \TO $499$}
-    \STATE $m \gets a + \tfrac{1}{2}(b-a)$ \COMMENT{bisection midpoint: \texttt{\_InvSub}, \texttt{\_TimesPt5}}
-    \STATE $s \gets a - f(a)\,\dfrac{b-a}{f(b)-f(a)}$ \COMMENT{secant: \texttt{\_FPMult/\_FPSub/\_FPDiv}}
-    \STATE $x \gets s$ \textbf{if} $s \in [a,b]$ \textbf{else} $m$ \COMMENT{fall back to bisection}
-    \STATE $f_x \gets \mathrm{eval\_equation}(x)$ \COMMENT{re-parse, error-trapped (39:468F)}
-    \IF{$\mathrm{sign}(f_x) = \mathrm{sign}(f(a))$}
-        \STATE $a \gets x$ \COMMENT{keep the sign change in the new bracket}
-    \ELSE
-        \STATE $b \gets x$
-    \ENDIF
-    \IF{$|b-a| < 10^{-13}$}
-        \RETURN $x$ \COMMENT{converged, exits via 39:4540 -> 4553}
-    \ENDIF
-\ENDFOR
-\STATE \textbf{raise} \textsc{iterations} (0x99) / \textsc{bad guess} (0x9A)
-\end{algorithmic}
-\end{algorithm}
-```
+The constants at `39:46E1` and `39:46EA` are
+`00 1D 10 00 00 00 00 00 00` (`1e-99`) and
+`00 73 10 00 00 00 00 00 00` (`1e-13`).
+The latter is multiplied into an operand at `39:4673`–`39:4676`
+before the magnitude comparison at `39:467D`. It therefore does not
+establish a universal absolute stopping rule `|b-a| < 1e-13`.
 
-> **Dynamic confirmation.** Traced end-to-end under headless TilEm by driving the
-> built-in Equation Solver to solve `X²−2 = 0`
-> ([`solver-sqrt2.macro`](https://github.com/siraben/ti84p-re/blob/main/tools/macros/solver-sqrt2.macro)). It converged on screen
-> to `X = 1.4142135623…` (√2) with `left-rt = 0`. The mem-write records show the guess
-> at `0x8478` climbing `1.40898 → 1.41421335 → 1.4142135623645 → 1.4142135623731`
-> (|err| ≈ 4.9e-15, crossing below the `1e-13` tolerance on the final step).
-> `solver_iterate` (`39:4413`) ran 808×; the per-iteration re-parse
-> (`parse_eval_expr` `38:5AB3`) ran 834×; the secant-in-bracket-else-bisect test
-> (`39:44F8`), the `499`-cap compare (`39:4479 LD HL,0x01F3`), and the `1e-13`/`1e-99`
-> constants (`39:46EA`/`46E1`) all executed as the pseudocode describes.
+The macro `tools/macros/solver-sqrt2.macro` exercises the Equation Solver
+on `X²−2=0`. The recorded observation is convergence to
+`1.4142135623731` with a zero displayed residual. The retained notes
+count 808 visits to `39:4413` and 834 to `38:5AB3`; these
+whole-run counts are not one invocation's bounded iteration count.
+A reduced trace separating solver calls and counter states is still needed.
+
+The complete recurrence, interpolation acceptance conditions, and convergence
+predicate remain [hypothesis]. Half-width arithmetic and a few comparison
+sites do not by themselves identify a particular Illinois or regula-falsi
+variant.
 
 `left-rt` shown on the Solver screen is the final residual `f(root)` (the
 `left-side − right-side` value the evaluator computed). [standard]
 
 ---
 
-## TVM finance solver [confirmed]
+## `nDeriv(` and `fnInt(` numeric calculus
 
-The five-variable time-value-of-money solver (`N`, `I%`, `PV`, `PMT`, `FV`, plus
-`P/Y`, `C/Y`, and the PMT:END/BEGIN flag) lives on flash page `0x3A`. Each variable is a
-named system FP var; the routine loads them via small accessors:
+The source tokens are single bytes: `22h` for `solve(`,
+`24h` for `fnInt(`, and `25h` for `nDeriv(`.
+The SDK's `IMUN=12h` defines these offsets. They are distinct from the
+`BB` extensions with the same second byte. [confirmed]
 
-- `3A:7F02` loads the pointer at `(84D3)` (`iMathPtr1`; `ED 5B D3 84` = `LD DE,(84D3)`), `3A:7F0F` the one at `(84D5)` (`iMathPtr2`), etc.
-  (`(D?5B)` are the finance sysvar VAT slots). `(84D3)`=`iMathPtr1`, `(84D9)`=`iMathPtr4`,
-  `(84AF)`=OP6, `(84D3)`/`(84D9)`/`(84D3)` hold the iteration state. [confirmed]
+### `nDeriv(` symmetric difference quotient [confirmed]
 
-### TVM equation
+The `25h` compare at `02:6904` leads through `02:690B`
+to `02:6AF3`. The default-argument entry at `02:6AF6` saves the
+operand, constructs one, and sets its exponent to `7Dh` at
+`02:6AFB`–`02:6AFD`, giving `ε=1e-3`.
 
-The solver evaluates the standard cash-flow identity (rate $i = \tfrac{I\\%}{100}\big/\tfrac{C}{Y}$, with $S=0$ for
-END / $1$ for BEGIN):
+The calculation forms the two trial arguments with addition at `02:6B30`
+and subtraction at `02:6B41`. Both call the expression evaluator
+helper at `02:6B7C`, which reaches the parser through `ram:391B`
+at `02:6B86`. The difference at `02:6B4A`, doubling at
+`02:6B51`, and division at `02:6B58` implement the centered
+quotient:
 
-$$0 = PV + (1+iS)\\,PMT\\,\frac{1-(1+i)^{-N}}{i} + FV\\,(1+i)^{-N}$$
+$$
+\frac{f(x+\varepsilon)-f(x-\varepsilon)}{2\varepsilon}.
+$$
 
-Implemented with `_FPRecip` (`ram:253D`, for `(1+i)^(−N)` via reciprocal/power),
-`_FPMult` (`238B`), `_FPDiv` (`2541`), `_FPAdd` (RST 30h), `_InvSub`/`_FPSub`
-(`227D`/`2297`) around `3A:70D6…7140`. The compound factor `(1+i)^N` is built with the
-power/exp helpers. [standard]
-
-### Iteration [confirmed]
-
-Solving for `I%` (the only variable with no closed form) uses Newton's method on the
-rate:
-
-- Iteration state is allocated as a small FPS frame at `3A:70A2`:
-
-  ```z80
-  LD HL,0x0005
-  bcall(_AllocFPS)
-  ```
-
-  The loop counter is `B = 0x40` (= `64` iterations max), `3A:70AB`.
-- Each pass recomputes the TVM residual and its derivative, takes a Newton step, and tests
-  the exponent of the correction against `CP 0x74` (`3A:71F4`) — i.e. converged when the
-  update is ≤ ~10⁻¹². The new estimate is written back via `(84D9)→(84D3)`
-  (`3A:71F9…71FE`). [confirmed]
-
-### `_SinH` call in the TVM rate loop [confirmed]
-
-At `3A:710B` the TVM body contains `EF CF 40`:
-
-```z80
-RST 0x28
-.dw 0x40CF
-```
-
-The bcall
-table maps `0x40CF` to `_SinH` (`_SinHCosH`=`0x40C6`, `_SinH`=`0x40CF`, `_ASinH`=`0x40ED`
-are three consecutive distinct entries). A scan of the whole loop body (`3A:70A0…7210`) finds
-three bcalls: `_SinH` (`0x40CF`, `3A:710B`), an unmapped helper `0x462A` (adjacent to
-`_AdrLEle 0x462D` — a list/element accessor for the finance sysvar slots), and `_SetXXOP2`
-(`0x478F`, `3A:71C5`). The `_SinH` call carries the math: the surrounding
-`_FPMult`/`_OP1ToOP2`/`_FPSub` sequence (`CD 8B 23 … CD D4 16 CD 51 16 EF CF 40 CD 3F 16`)
-evaluates the annuity / compound-growth factor in hyperbolic form — the numerically
-stable way to form `(1+i)^N − 1` and `[1−(1+i)^-N]/i` for small rates `i`, avoiding
-catastrophic cancellation. This is the only transcendental call in the rate-Newton loop. [confirmed]
-- Exhausting the 64-iteration `DJNZ`/`DEC B` budget falls to `3A:7206 JP 274D` =
-  ITERATIONS (0x99). Solving for `N`/`PV`/`PMT`/`FV` is closed-form (algebraic
-  rearrangement) and does not iterate. [standard]
-
-The amortization helpers (`ΣPrn`, `ΣInt`, `bal(`, `Pmt_End`/`Pmt_Bgn`) and the finance
-function tokens (`tFinNPV 0x00`, `tFinIRR 0x01`, `tFinBAL 0x02`, `tFinPRN 0x03`,
-`tFinINT 0x04`, `tFinPV 0x2D`, `tFinPMT 0x2E`, `tFinFPMT 0x20`, `tFinPMTend 0x4B`,
-`tFinPMTbeg 0x4C`; all 0xEF-prefixed 2-byte tokens) are dispatched into this page.
-`IRR(` internally uses the same rate-Newton iteration and can also raise ITERATIONS. [hypothesis]
-
----
-
-## `nDeriv(` and `fnInt(` numeric calculus [hypothesis]
-
-The numeric-calculus engine is on flash page `0x33` (the graph-math page — appropriate,
-since both operate on a Y= expression). The function tokens are 0xBB-prefixed:
-`tRoot 0x22` (the `solve(`-style root token), `tFnInt 0x24` (fnInt), and
-`tNDeriv 0x25` (nDeriv). They are recognised by the 0xBB-group scanners
-(`33:504E CP 0xBB`, also `38:4E3F`).
-
-### `nDeriv(` symmetric difference quotient [standard]
-
-`nDeriv(expr, var, value [,ε])` computes the centered difference
-`(f(x+ε) − f(x−ε)) / (2ε)` with default `ε = 1e-3`. The setup region `33:4C80…4D00`
-stores/restores the variable, evaluates `f` at `x±ε`, and divides by `2ε` using
-`_FPSub`/`_FPDiv` (`2297`/`2541`) and `_TimesPt5`. The `(97E7)`/`(97E9)` counters at
-`33:4C80`/`33:4CB4` track the two/three sub-evaluations. The finite-difference
-and variable save/restore flow is [confirmed]. The default `ε` is [standard].
+The wrapper installs cleanup at `02:6B13`–`02:6B16` and frees
+its temporary frame at `02:6B5E`–`02:6B61`. Full error-path and
+variable-restoration coverage remains open.
 
 ### `fnInt(` adaptive numeric integration [confirmed]
 
-`fnInt(expr, var, a, b [,tol])` is an adaptive iterative quadrature. The body is the
-Ghidra function `fnint_body` at `33:4D00` (extent `33:4D00…4E91`):
+The `24h` compare at `02:68F3` selects the integration path.
+Its default-tolerance setup constructs one, sets exponent `7Bh`
+(`1e-5`), then executes `EF 83 4A` at `02:6900`.
+Bcall ID `4A83h` has table bytes `65 63 07`, so the callee is
+`07:6365`.
 
-- builds interval midpoints and half-widths: `_FPSub` (`2297`), `_TimesPt5` (`2382`, ×0.5),
-  `_FPDiv` (`2541`). The bytes at `33:4D18` are executable code — `33:4D18 21 83 84`
-  (`LD HL,0x8483`), `33:4D1B 3E 60` (`LD A,0x60`), `33:4D1D CD 65 1B` (`CALL fp_set_digit` `1B65`; not `_OP2SetA`, whose body is `1B24`) — loading the
-  scalar `0x60 = 96`
-  (a working digit/scale count), not a quadrature weight. [confirmed]
-- maintains a working set of partial sums in an FPS frame (`_AllocFPS 1534`,
-  `_PopRealOx 14F6/150F/1505`, `_DeallocFPS 1526`, with slot offsets `DE=0x15/0x1B/0x24`)
-  — endpoint values, the running estimate, and the previous estimate for the error test.
-  [confirmed]
-- iterates, refining the partition by interval bisection. The ×0.5 `_TimesPt5` halving
-  refines the interval, the `97E7`/`84AF` depth counters track subdivision depth, and the loop tail includes
-  `33:4E81 LD DE,0x0024 … C3 CB 45`, while `33:4E8C 3D F5 C2 57 4D` decodes as:
+That body checks the nesting flag at `07:6365`, prepares FP work
+storage, sets the flag at `07:63D3`, and installs its error handler
+at `07:63D7`. Its loop can reach `_ErrTolTooSmall` through
+`07:6412`. The complete quadrature rule and all refinement/error
+paths have not been decoded here.
 
-  ```z80
-  DEC A
-  PUSH AF
-  JP NZ,0x4D57
-  ```
+The labels `fnint_body` at `33:4D00` and `nderiv_body` at
+`33:4C80` do not establish those functions' identities. Neither is
+the callee selected by the dispatch above. In particular, the absence of
+quadrature weights in that page-`33` span cannot exclude
+Gauss–Kronrod from `fnInt(`. Its instruction pair
+`LD A,60h` followed by `CALL 1B65h` stores packed BCD `60h` into a mantissa,
+constructing 6 rather than decimal 96. [confirmed]
 
-  It converges when the change in the estimate has exponent `≤ CP 0x74` (~10⁻¹²,
-  `33:4E74`). Exhausting the refinement budget falls through to `33:4E8F JP 274D` =
-  ITERATIONS (0x99). [confirmed]
+## Finance and other iterative routines
 
-**Quadrature rule.** A full byte scan of `33:4D00…4F00` finds exactly one
-floating-point constant in the body: `const_ln10x100` (`33:4E92`)
-(`00 82 23 02 58 50 92 99 40` = 2.30258509…×10², i.e. `ln(10)·100`). It is referenced at
-`33:4E5D`:
+Finance commands use the `BB` extension family. For example,
+`BB 00` is `npv(`, `BB 01` is `irr(`, and
+`BB 20`–`BB 24` are the TVM payment, rate, present-value,
+period-count, and future-value functions. Their numerical bodies remain
+unmapped on this page. [standard]
 
-```z80
-LD HL,0x4E92
-CALL 0x1982
-```
+The iterative body at `3A:70A2` allocates five FP slots, uses a
+64-pass counter, and calls `_SinH` at `3A:710B`. It also calls
+`_ROWECHELON = 462Ah`, body `02:4663`. Those instructions
+describe an iterative matrix-based calculation; they do not establish a
+TVM interest-rate solver. Its exact command caller and recurrence remain
+[hypothesis].
 
-This is immediately after the only transcendental bcall in
-the body, `33:4E56 EF AB 40` = bcall `_LnX` (0x40AB). So `ln(10)·100` is used purely to
-convert the requested significant-digit tolerance into a decimal error bound via
-`ln` — it is a tolerance scaler, not a quadrature node or weight. There is no node/weight table anywhere in
-the body (the data after `33:4E92`, `FD CB 18 AE …`, decodes as code: `RES 5,(IY+0x18)`
-followed by LCD/keypad port I/O `DB 3A / D3 3A`). A Gauss–Kronrod rule would require a fixed
-block of ~7–15 irrational node and weight constants stored as TIFloats; their complete
-absence, together with the explicit ×0.5 interval bisection and the coarse-vs-fine estimate
-comparison, rules out Gauss–Kronrod. The rule is an adaptive Newton–Cotes-style scheme
-with recursive interval bisection (Simpson-class), not Gauss–Kronrod.
-[confirmed] The only constant present is the ln-based tolerance scaler; no
-quadrature node table exists.
+## Parser feedback loop [confirmed]
 
-Both nDeriv( and fnInt( evaluate the user's `f` by storing the running argument into the
-integration/derivative variable and re-running the parser, exactly like the Solver's
-[`f(x)` callback](#function-value-evaluator-fx-confirmed) — the same "store var → parse_eval → read OP1" loop. [standard]
+The root and derivative evaluators store trial values and evaluate the existing
+token stream again. They do not tokenize visible source text on each iteration.
+The root callback at `39:46A9` and the derivative callback at
+`02:6B86` both call `ram:391B`, whose inline descriptor selects
+the prepared-state parser entry at `38:5992`.
 
----
-
-## Parser feedback loop [standard]
-
-Every routine above shares this inner cycle, which is the whole reason they are slow:
-
-1. Place the trial value in `OP1` (`_Mov9ToOP1` / arithmetic result).
-2. `_MovFrOP1` (`ram:1B0C`) store it into the named variable the expression mentions
-   (the solve var, the `nDeriv`/`fnInt` integration var, or the TVM var).
-3. Re-evaluate the expression through the TI-BASIC parser (`_ParseInp 38:5987` /
-   `parse_eval_expr 38:5AB3` / `_Find_Parse_Formula 38:758A`; the Solver uses its own
-   `parse_inp_current_state` entry at `38:5992`). The parser walks the *same
-   stored token stream* each pass.
-4. Read the numeric result back from `OP1`, form the residual / difference, decide the next
-   step. The error handler at `39:46C7`, its `(IY+7).2` state bit, and the
-   `_FixTempCnt` cleanup catch a DOMAIN/NONREAL error at one sample. The solver
-   treats that point as undefined instead of aborting, as described under [Function-value evaluator](#function-value-evaluator-fx-confirmed).
-
-Because the expression is re-tokenised and re-evaluated on *every* iteration, a `solve(`
-with a 499-iteration cap can parse the equation up to ~499 times, and a `fnInt` over a fine
-adaptive partition can parse it thousands of times — the dominant cost.
+The root solver's caught-error behavior belongs to `39:46C7`; it
+must not be generalized to integration or derivative errors without following
+their respective cleanup handlers.
 
 ### Parser routing for `tFnInt`, `tNDeriv`, and `tRoot` [confirmed]
 
-These three are 2-byte tokens with the `t2ByteTok = 0xBB` lead byte (ti83plus.inc:
-`tRoot = 0x22`, `tFnInt = 0x24`, `tNDeriv = 0x25`), so in the token stream they appear as
-`BB 22` / `BB 24` / `BB 25`. The routing is a generic paged command call, not an inline
-bjump, and goes through the page-0x02 command-execution layer:
+| Source byte | Dispatch | Next numeric entry |
+|-------------|----------|--------------------|
+| `24h`, `fnInt(` | `02:68F3` → bcall `4A83h` at `02:6900` | `07:6365` |
+| `25h`, `nDeriv(` | `02:6904` → call at `02:690B` | `02:6AF3` |
+| `22h`, `solve(` | `02:690F` → bcall `4B94h` at `02:6927` on the shown argument path | `_ITSOLVERB`, `39:4039` |
 
-1. The evaluator hands the operand token to the page-0x02 dispatcher, which recognises the
-   `0xBB` group and the second byte: `tFnInt` at `02:68F3` (`CP 0x24`), `tNDeriv` at
-   `02:6904` (`CP 0x25`), `tRoot` at `02:58AD`/`02:69BC` (`CP 0x22`). [confirmed]
-2. The page-0x02 handler parses the comma-separated argument list and sets defaults. For
-   example, the `nDeriv`/`fnInt` prologue at `02:6AF6` does:
-
-   ```z80
-   LD A,0x7D
-   LD (0x8479),A
-   ```
-
-   This seeds the
-   default tolerance exponent `0x7D` (= `1e-3`, the documented nDeriv ε) before the call.
-   [confirmed]
-3. It then performs a paged call into page 0x33. The page-0x33 entry re-validates the token
-   through the `33:504E` `bb_token_scanner` (`CP 0xBB`, then `CP 0x68 / 0xCF / 0xDB / 0xF6`
-   to assign a small class index in `C` and `CALL 0x50AC`) and dispatches into the numeric
-   bodies `nderiv_body` (`33:4C80`) / `fnint_body` (`33:4D00`). Because the call crosses
-   pages through the bcall/app-call trampoline, no static xref to these bodies survives
-   in the Ghidra database — the mark of a generic paged call rather than an inline bjump.
-   [confirmed]
-
----
+The `BB` scanner at `33:504E` belongs to
+`_GetVarVersion` (`33:5023`). Its compatibility-tier comparisons
+do not dispatch these numerical functions.
 
 ## Routine index [confirmed]
 
-Equation Solver / `solve(` (page 0x39):
-```text
-39:43AD  solver_root_setup          (eval f at both bounds, seed bracket)
-39:4413  solver_iterate             (bisection+secant hybrid main loop)
-39:463A  solver_sign_test           (OP1/OP2 sign-change predicate; Z=same sign)
-39:468F  solver_eval_fx             (store guess -> reparse equation -> f=left-right)
-39:46C7  solver_eval_errfilter      (swallow <0x86 and 0x87/NONREAL; re-raise 0x86/BREAK and >=0x88 via _JErrorNo)
-ram:391B parse_inp_current_state_bjump (cross-page stub to 38:5992)
-38:5992  parse_inp_current_state    (interior _ParseInp entry used with selected state)
-ram:327F fix_temp_count_bjump       (cross-page stub to _FixTempCnt at 07:4FEC)
-39:46EA  const_solver_tol_1e13      (convergence tolerance, TIFloat 00 73 10..)
-39:46E1  const_solver_floor_1e99    (residual-zero floor, TIFloat 00 1D 10..)
-39:45A0  ->ITERATIONS(0x99)  39:45AD ->BAD GUESS(0x9A)  39:45DA ->NO SIGN CHNG(0x98)
-```
-
-TVM / finance solver (page 0x3A):
-```text
-3A:70A2  tvm_solve_iterate          (Newton on I%, 64-iter FPS-framed loop)
-3A:7F02  tvm_load_var (iMathPtr1)   3A:7F0F  tvm_load_var (iMathPtr2)   (finance var accessors)
-3A:7206  ->ITERATIONS(0x99)
-```
-
-Numeric calculus (page 0x33):
-```text
-33:4C80  nderiv_body                (centered difference (f(x+e)-f(x-e))/2e, e=1e-3)
-33:4D00  fnint_body                 (adaptive bisection integrator; extent 4D00..4E91)
-33:4E56  ->bcall _LnX (0x40AB)       (digit-tolerance -> decimal error bound)
-33:4E8F  ->ITERATIONS(0x99)
-33:4E92  const_ln10x100             (TIFloat 00 82 23 02 58 50 92 99 40 = ln(10)*100; the
-                                     ONLY FP constant in fnint_body -- no node/weight table)
-33:504E  bb_token_scanner           (CP 0xBB then class-index 0x68/0xCF/0xDB/0xF6 -> CALL 50AC)
-33:4381  ctrlflow_handler_table     (13-entry jump table for For/While/Repeat/End/Return, etc.)
-33:435F  ctrlflow_dispatch          (entry from bcall 0x5140/0x513D; SUB 0x20; index the table)
-```
-
-Page-0 FPS register save/restore + active-frame bookkeeping cluster (the "solver helper
-cluster" — these are generic FPS slot accessors used by the solver, fnInt/nDeriv and other
-FPS-framed routines; each slot is 9 bytes = one TIFloat, offset `-(9*slot)` from the frame
-base pointer `(9302)`):
-```text
-ram:2800  fps_swap_active_frame      (swaps the active FPS frame pointer at (86DE) -- the
-                                      bracket/scope bookkeeping primitive)
-ram:2895/28C3/28D8/28E9/2903/2908/2914/291B  fp_st_slotN_opX
-                                      (store OP1/OP3 into FPS slot 2/4/5/6/7/7/8/9)
-ram:29CF/29D7/29DB/2A0B/2A0F/2A13/2A17        fp_ld_op1_slotN
-                                      (load OP1 from FPS slot 5/7/8/10/11/12/13)
-```
-
-Error stubs / table (page 0 & 0x07):
-```text
-ram:2749 _ErrSignChange(0x98)  ram:274D _ErrIterations(0x99)
-ram:2751 _ErrBadGuess(0x9A)    ram:2755 _ErrTolTooSmall(0x9C)
-ram:2793 _JError               07:6B81  error_name_table (indexed by code-0x88)
-```
-
-Shared FP/parse helpers (page 0): `_FPAdd 229E`, `_FPSub 2297`, `_FPMult 238B`,
-`_FPDiv 2541`, `_FPRecip 253D`, `_InvSub 227D`, `_TimesPt5 2382`, `_InvOP1S 24BD`,
-`_AbsO1O2Cp 1987`, `_OP1ToOP4 19EC`, `_OP4ToOP2 19FE`, `_CkValidNum 1E9B`,
-`_MovFrOP1 1B0C`, `_AllocFPS 1534`, `_DeallocFPS 1526`, `_PopRealOx 14F6/150F/1505`.
-Parser entries (page 0x38): `_ParseInp 5987`, `parse_eval_expr 5AB3`,
-`_Find_Parse_Formula 758A`.
-
----
+| Address | Role |
+|---------|------|
+| `39:4039` | `_ITSOLVERB = 4B94h`, root-solver entry |
+| `39:4413` | Root-iteration region |
+| `39:463A` | Saved-value and sign-comparison helper |
+| `39:468F` | Root trial-value evaluator |
+| `39:46C7` | Root caught-error filter |
+| `ram:391B` | Prepared-state parser stub to `38:5992` |
+| `02:6AF3` / `02:6AF6` | Derivative entries with supplied/default step |
+| `02:6B7C` | Derivative trial-value evaluator |
+| `07:6365` | Integration bcall `4A83h` body |
+| `ram:2749` / `ram:274D` | NO SIGN CHNG / ITERATIONS raisers |
+| `ram:2751` / `ram:2755` | BAD GUESS / TOL NOT MET raisers |
 
 ## Resolved behavior and remaining questions
 
-Summary of the four sub-results:
+The token widths and caller-to-body mappings above come from ROM bytes and the
+SDK token definitions. The centered derivative formula and default step are
+decoded, as are the integration entry/default tolerance and root error filter.
 
-- **`fnInt(` quadrature rule.** Not Gauss–Kronrod. The [body](#fnint-adaptive-numeric-integration-confirmed) has no node or
-  weight table; its sole FP constant is `const_ln10x100`, used with bcall `_LnX`
-  to convert digit-tolerance to a decimal error bound. With explicit ×0.5 interval bisection
-  and a coarse-vs-fine estimate comparison, it is an adaptive Newton–Cotes / Simpson-class
-  bisection integrator. `33:4D1B` is executable code:
-
-  ```z80
-  LD A,0x60
-  CALL fp_set_digit
-  ```
-- **TVM `_SinH` (id `0x40CF`).** The [TVM rate loop](#_sinh-call-in-the-tvm-rate-loop-confirmed) calls `_SinH` at
-  `3A:710B` (`0x40C6/0x40CF/0x40ED` are three distinct hyperbolic bcalls); it evaluates the
-  annuity / compound factor in hyperbolic form for numerical stability at small rates.
-- **Class-3 routing of `tFnInt`, `tNDeriv`, and `tRoot`.** The [parser route](#parser-routing-for-tfnint-tnderiv-and-troot-confirmed) is
-  `BB-token → page-0x02 dispatcher (02:68F3/6904/58AD) → arg-parse + default-tol (02:6AF6,
-  exp 0x7D = 1e-3) → paged call → page-0x33 bodies`, re-validated by `bb_token_scanner`
-  (`33:504E`). The trampoline hides the static xref, confirming it is a generic paged call.
-- **Page-0 helper cluster.** The [routine index](#routine-index-confirmed) identifies generic FPS slot save/restore (9-byte
-  TIFloat slots at `-(9*slot)` from frame base `(9302)`) plus the active-frame swapper at
-  `ram:2800`, renamed `fps_swap_active_frame`; the store/load stubs are
-  `fp_st_slotN_opX` / `fp_ld_op1_slotN`.
-
-Residual (genuinely unverified, would need deeper paged tracing):
-- The exact byte layout of the For/While/Repeat loop-control record pushed by the
-  page-33 control-flow handlers (`ctrlflow_handler_table`) is not yet field-mapped; only the
-  dispatch path is confirmed. See the [TI-BASIC execution pipeline](sub-tibasic.md#the-execution-pipeline).
-- bcall `0x462A` in the TVM body is unmapped (adjacent to `_AdrLEle`; likely a finance-sysvar
-  list/element accessor).
+Remaining work includes a complete integration-rule decode, root convergence
+and per-invocation counter traces, finance-command caller mapping, and each
+function's variable restoration after non-local errors. Five-byte natural-loop
+OPS records belong to page `38`, as documented in
+[TI-BASIC execution](sub-tibasic.md); they are not established by the
+page-`33` dispatcher table.

@@ -68,8 +68,10 @@ The bytes at `39:683D`–`39:685E` are:
 685e  c9            ret
 ```
 
-`dec`-then-`jp m` means the counter value `N` produces exactly `N` additions
-(`N=0` → no add; underflow to `0xFF` sets the sign flag and exits).
+For counter values `N=0`–`128`, `DEC` followed by `JP M` produces exactly
+`N` additions. Values `129`–`255` exit without adding because the first
+decrement leaves the sign bit set. The decoded descriptors use small row and
+slot indices inside the first domain. All coordinate additions wrap to bytes.
 
 `39:6A2A` stores `HL` directly into the pen pair:
 
@@ -156,8 +158,8 @@ x_right  = x_left + 4
 y_bottom = y_top + 6        (y_top supplied by the caller in H)
 ```
 
-Caveat: `djnz` with `n=0` underflows (256 iterations); callers always pass `n ≥ 1`
-(the measured numerator/denominator cell count).
+`DJNZ` with `n=0` executes 256 additions. The byte-sized result still equals
+`0x1B + 7*n` modulo 256. The helper does not reject a zero input.
 
 ### Box wrappers
 
@@ -289,8 +291,8 @@ For each argument, the routine:
 3. `39:5B10` emits forward, while `39:5B1D`/`39:5B38` emit in reverse.
 4. `39:4E14`/`39:4E0A` advance and mark the next argument.
 
-Styled overflow saves `0x97A5`, writes 1, calls `39:3C81` while moving forward
-or `39:3C93` while moving backward, and restores `0x97A5`. Carry from
+Styled overflow saves `0x97A5`, writes 1, calls `ram:3C81` while moving forward
+or `ram:3C93` while moving backward, and restores `0x97A5`. Carry from
 `39:5B2B` or `39:5B38` skips that scroll sequence. [confirmed]
 
 The bytes restore the baseline at `0x984A` and reset `0x844B` to row 7 at
@@ -320,8 +322,8 @@ scan finds no references to the measured fraction fields `0x85EE`, `0x85EF`,
 or `0x9D27`. It is therefore a post-overflow display/menu helper, not evidence
 for a proportional MathPrint glyph-width service. [confirmed]
 
-The `C9` byte after the bcall is a `RET`. The owner of MathPrint body-glyph
-advance remains [hypothesis].
+The `C9` byte after the bcall is a `RET`. The settled body-glyph advance is separately decoded at `34:6C4D`–`34:6C6B`;
+see the settled-rendering article. This bcall does not establish that advance.
 
 ### Classic hardware large font
 
@@ -336,8 +338,8 @@ positioning uses the hardware text grid rather than pixel penX:
 ```
 
 curCol selects a fixed 6-pixel hardware text column (`column reg = (curCol &
-0x1F) + 0x20`). This is the fixed-pitch path. The owner of MathPrint body
-advance is still unresolved.
+0x1F) + 0x20`). This is the fixed-pitch path. The settled MathPrint body uses
+the separately decoded logical-pen advance at `34:6C6B`.
 
 ---
 
@@ -362,7 +364,7 @@ Multi-arg row step (39:5167/5949): 0x844B += 2 if (class==6 && slot<=2) else += 
 
 Body glyph advance:
   small/variable font (_VPutMap 01:6293): penX += measured glyph width
-  MathPrint body glyph advance:            not statically attributed here
+  settled MathPrint body glyph advance:   34:6C4D–6C6B (font width plus delimiter adjustment)
   classic hardware (_PutMap 01:5A98):     LCD col reg = (curCol & 0x1F) + 0x20  (6-px pitch)
 ```
 
@@ -370,7 +372,7 @@ Body glyph advance:
 
 ## Open questions
 
-- Body-glyph advance remains [hypothesis]. Bcall ID `51F4h` does not identify
-  the routine that owns each advance.
+- Settled body-glyph advance is decoded at `34:6C4D`–`34:6C6B`; bcall ID
+  `51F4h` is a separate display/menu boundary.
 - The runtime selector for `39:5167` remains [hypothesis]. The retained filled
   and nested-integral traces use `39:4CA4` instead.

@@ -308,7 +308,7 @@ The resolved trace shows the first band as row command `0xB8`, column commands `
 
 Retail page `3F` contains `boot_lcd_keypad_diagnostic` at `3F:4658`. Its only
 incoming branch, `boot_diagnostic_gate` at `3F:4615`, follows `XOR A`,
-`OUT (0x05),A`, and `CP 0x09`, so it is constant-false. The **MODE** boot path
+`OUT (0x05),A`, and `CP 0x09`, so it is constant-false. The dormant **MODE** diagnostic branch
 can execute `boot_ram_test` at `3F:461A`, but it cannot continue into this LCD
 routine under Z80 semantics. [confirmed]
 
@@ -370,7 +370,12 @@ Changing one RAM buffer does not update the panel until a routine copies or rend
 
 `lcd_read_block` at `ram:1890` reads `B` bytes from port `0x11` into banked RAM. It temporarily maps RAM page `0x83`, preserves the previous port-`0x06` value, and restores the caller's interrupt state. The caller must establish the controller address and consume any required dummy read before a sequential block. [confirmed]
 
-`_SaveDisp` at `39:5DD8` uses this helper to capture controller video RAM into the saved-display RAM page. Dynamic RAM-page traces record writes across the 768-byte capture extent. `_RestoreDisp` later copies the saved image back through the display paths. [confirmed]
+`_SaveDisp` at `39:5DD8` accepts the destination in `HL`. At `39:5DFF`, it tests
+bit 7 of `H`: a destination below `0x8000` uses the page-`83` helper through
+`CALL ram:1890` at `39:5E03`; a destination at or above `0x8000` uses the direct
+RAM loop at `39:5E08`. The saved-page caller's dynamic trace records the
+768-byte capture extent, but the bcall is not restricted to that destination.
+`_RestoreDisp` later copies saved image data through the display paths. [confirmed]
 
 ## Contrast and power-off
 
@@ -425,7 +430,7 @@ TilEm models the controller and the ASIC wait timer as separate mechanisms. [sta
 | Ports `0x12`/`0x13` | aliases command/status and data | models the documented second-chip-select mirrors |
 | Controller busy | 50 emulated cycles after an accepted access | direct too-fast accesses are ignored when delay emulation is enabled |
 | ASIC wait | port-`0x02` bit 1 remains clear for the port-`0x2F` interval | reproduces the OS wait loop independently of controller busy |
-| I/O overhead | adds five emulated CPU cycles per LCD-port access | emulator policy, not a physical bus measurement |
+| I/O overhead | adds the configured `LCD_PORT_DELAY` per LCD-port access; defaults are 5/9/11/14 cycles by speed mode | emulator policy, not a physical bus measurement |
 | Read latch | returns `nextbyte`, then loads the addressed byte | reproduces the dummy-read requirement |
 | 6-bit mode | packs six-pixel writes into the internal byte array | supports OS edge-rendering paths |
 | Z address | displays `(row + shift) mod 64` | reproduces vertical display rotation |
@@ -617,7 +622,7 @@ nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_lcd_probe 
 - [standard] Datamath attributes the photographed March 2004 module to Toshiba `T6K04`, whose primary data sheet specifies 128×64 RAM. The die is hidden under epoxy, so the photograph does not independently expose its marking.
 - [hypothesis] The exact controller and off-screen RAM behavior still require per-calculator identification or measurement outside that source-attributed March 2004 module.
 - [hypothesis] The late-controller status-read pointer mutation, power-command analog effects, and off-screen retention need physical tests across TA2/TA3 board revisions.
-- [hypothesis] TilEm's five-cycle LCD I/O overhead and 50-cycle controller busy period should be compared with bus captures rather than treated as hardware constants.
+- [hypothesis] TilEm's configured LCD I/O delay and controller busy period should be compared with bus captures rather than treated as hardware constants.
 - [standard] Wabbitemu's 15-column increment cycle and write-based ready timer, plus MAME's unchecked 15-byte row, are emulator limits rather than hardware results.
 - [standard] A guarded MAME run verifies its startup state, status and command decode, permanent busy-clear state, mirror ports, safe hidden-column aliases, dummy-read latch, 6-bit packing, stored analog fields, constant ASIC-ready bit, and missing delay ports.
 - [hypothesis] Physical tests should sweep hidden columns and time readiness after reads and writes independently.

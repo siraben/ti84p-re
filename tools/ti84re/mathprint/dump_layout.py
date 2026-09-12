@@ -1721,19 +1721,19 @@ FNINT_TOKEN_FLOW_ANCHORS = [
         0x02,
         0x68F3,
         "fe24200ddfcd381b3e7b327984ef834a",
-        "page-2 evaluator branch recognises second byte 24 for tFnInt",
+        "page-2 evaluator branch recognises single byte 24 for tFnInt",
     ),
     (
         0x02,
         0x6904,
         "fe252007cd2d21cdf36ac9",
-        "page-2 evaluator branch recognises second byte 25 for tNDeriv",
+        "page-2 evaluator branch recognises single byte 25 for tNDeriv",
     ),
     (
         0x02,
         0x6AF6,
         "f5dfcd381b3e7d327984cd8316dfcd8d16cd",
-        "shared numeric-calculus prologue: parse/default setup before argument handling",
+        "nDeriv default-step entry: initialize OP1 to 1e-3 before argument handling",
     ),
     (
         0x39,
@@ -1760,13 +1760,13 @@ EXTENDED_TOKEN_TABLE_FLOW_ANCHORS = [
         0x07,
         0x428A,
         "bb25bb26bb28bb08bb09bb0abb1fbb30bb2f",
-        "page-7 extended-command/token run containing the only BB25 (tNDeriv) bytes",
+        "page-7 extended-command/token run containing the only BB25 (conj) bytes",
     ),
     (
         0x07,
         0x42EE,
         "bb20bb21bb22bb23bb24bb00bb01bb02bb03bb04",
-        "page-7 extended-command/token run containing the only BB24 (tFnInt) bytes",
+        "page-7 extended-command/token run containing the only BB24 (tvm_FV) bytes",
     ),
     (
         0x07,
@@ -1809,19 +1809,19 @@ FNINT_TEMPLATE_FLOW_ANCHORS = [
         0x02,
         0x68F3,
         "fe24200ddfcd381b3e7b327984ef834ac9",
-        "tFnInt evaluator branch: second byte 24 pushes a seeded OP1 constant through fps_push_real",
+        "tFnInt evaluator branch: single byte 24 seeds tolerance 1e-5 and calls fnint_integrate at 07:6365",
     ),
     (
         0x02,
         0x6904,
         "fe252007cd2d21cdf36ac9",
-        "tNDeriv evaluator branch: second byte 25 runs zero/domain guard, then shared constant push path",
+        "tNDeriv evaluator branch: single byte 25 checks zero and enters nDeriv at 02:6AF3",
     ),
     (
         0x02,
         0x6AF3,
         "f5180a",
-        "shared numeric-calculus constant push shim: preserve A, then jump into the 6AF6 constant setup tail",
+        "nDeriv explicit-step entry: preserve A and jump to 6B00, skipping the 6AF6 default-step load",
     ),
     (
         0x02,
@@ -1836,49 +1836,49 @@ FNINT_EVAL_FLOW_ANCHORS = [
         0x02,
         0x68F3,
         "fe24200ddfcd381b3e7b327984ef834ac9",
-        "page-2 tFnInt branch: recognise second byte 24, seed OP1, push real through fps_push_real",
+        "page-2 tFnInt branch: recognise single byte 24, seed tolerance 1e-5, call fnint_integrate at 07:6365",
     ),
     (
         0x02,
         0x6AF6,
         "f5dfcd381b3e7d327984cd8316dfcd8d16cd061f",
-        "shared numeric-calculus default setup: set OP1=1e-3-ish exponent 7D and copy into FPS defaults",
+        "nDeriv default setup: set OP1=1e-3 with exponent 7D and copy into FPS defaults",
     ),
     (
         0x33,
         0x4D00,
         "cd3f16cd9c16cd9722cd8223cdec19cd3f16cd8d16cd97222183843e60cd651bcd4125cdfe19",
-        "fnInt body prologue: load parsed FPS3/FPS2 endpoint slots, subtract, halve, set scale 0x60, divide",
+        "unattributed page-33 numeric span: subtract FPS values, halve, construct BCD 6, divide; not the fnInt callee",
     ),
     (
         0x33,
         0x4DEA,
         "111b00cd2a15cde91d2813cfcd4e1acd4125cd0117cd",
-        "fnInt loop frame update: dealloc 0x1B-byte FPS work frame, test OP1 zero, update accumulated estimate",
+        "unattributed page-33 frame update: deallocate 0x1B bytes and test OP1 zero",
     ),
     (
         0x33,
         0x4E74,
         "3a7984fe74300ef1f1cd0f15112400cd2a15",
-        "fnInt convergence/finalization: compare tolerance exponent 8479 against 0x74, pop result, dealloc 0x24-byte frame",
+        "unattributed page-33 exit: compare exponent 8479 against 0x74, pop result, deallocate 0x24 bytes",
     ),
     (
         0x00,
         0x163F,
         "1183841806cd9716",
-        "page-0 helper _CpyTo2FPS3: copy parsed FPS slot 3 into OP2",
+        "page-0 helper _CpyTo2FPS3: copy FPS slot 3 into OP2",
     ),
     (
         0x00,
         0x169C,
         "1178842a24980e1b18",
-        "page-0 helper _CpyTo1FPS2: copy parsed FPS slot 2 into OP1",
+        "page-0 helper _CpyTo1FPS2: copy FPS slot 2 into OP1",
     ),
     (
         0x00,
         0x168D,
         "1178842a24980e1218",
-        "page-0 helper _CpyTo1FPS1: copy parsed FPS slot 1 into OP1",
+        "page-0 helper _CpyTo1FPS1: copy FPS slot 1 into OP1",
     ),
 ]
 
@@ -1941,16 +1941,16 @@ FNINT_ARGUMENT_ORDER_FLOW_ANCHORS = [
         0x33,
         0x4D00,
         "cd3f16cd9c16cd9722cd8223cdec19cd3f16cd8d16cd97222183843e60cd651bcd4125cdfe19",
-        "fnInt evaluator prologue: consume parsed FPS3/FPS2 endpoints, halve interval, then use FPS1",
+        "unattributed page-33 work routine; this anchor does not establish fnInt identity or argument roles",
     ),
 ]
 
 FNINT_ARGUMENT_SLOTS = [
-    (0, "integrand/expression", "ordinary operand slot displayed to the right of the integral"),
-    (1, "differential variable", "variable operand slot displayed as d<var>"),
-    (2, "lower bound", "numeric evaluator consumes FPS slot 2 as one interval endpoint"),
-    (3, "upper bound", "numeric evaluator consumes FPS slot 3 as the other interval endpoint"),
-    (4, "optional tolerance", "numeric evaluator has the shared default-tolerance path"),
+    (0, "integrand/expression", "native fnInt source argument 0; page-34 construction assigns child 3"),
+    (1, "differential variable", "native fnInt source argument 1; page-34 construction assigns child 4"),
+    (2, "lower bound", "native fnInt source argument 2; page-34 construction assigns child 1"),
+    (3, "upper bound", "native fnInt source argument 3; page-34 construction assigns child 2"),
+    (4, "optional tolerance", "native fnInt optional argument; page-2 default is 1e-5, separate from nDeriv"),
 ]
 
 FNINT_ROW_WINDOW_FLOW_ANCHORS = [
@@ -2430,7 +2430,7 @@ PAGE1_ACTION_TABLE_ANCHORS = [
     (
         0x7D3D,
         "fee0fbcdff3dff53ff5200f200f100c8ff5fff5efdd0fe1ffc8f",
-        "action 9F packed list includes display-name cell 00C8, not parser token BB24",
+        "action 9F packed list includes display-name cell 00C8, not single-byte parser token 24",
     ),
     (
         0x7DE1,
@@ -2443,8 +2443,8 @@ PAGE1_ACTION_TABLE_BASE = 0x7BEB
 PAGE1_ACTION_TABLE_COUNT = 27
 PAGE1_ACTION_TABLE_LAST_END = 0x7F39
 PAGE1_ACTION_TABLE_INTERESTING_CELLS = [
-    ((0xBB, 0x24), "BB24 parser token"),
-    ((0xBB, 0x25), "BB25 parser token"),
+    ((0xBB, 0x24), "BB24 finance token (not fnInt)"),
+    ((0xBB, 0x25), "BB25 conj token (not nDeriv)"),
     ((0x00, 0xC8), "00C8 fnInt display-name cell"),
     ((0x00, 0xC7), "00C7 nDeriv display-name cell"),
     ((0xFC, 0x3F), "FC3F Lintegral direct cell"),
@@ -6656,7 +6656,7 @@ def dump_geometry_handoff_flow(rom):
     print("\ninterpretation")
     print("  incoming byte 3D is the only page-39 direct control-flow entry to the 672E handoff")
     print("  9D27 is written from 85EE in the kind-2 fraction path and read back only by the 6753/6758 handoff")
-    print("  this proves a measured-geometry handoff; row composition is handled by 5167, while this path covers the template-state bridge")
+    print("  this proves a measured-geometry handoff; 39:5167 defines a separate argument-row controller whose selection remains open")
 
 
 def dump_template_handoff_guard_flow(rom):
@@ -6902,7 +6902,7 @@ def dump_fnint_token_flow(rom):
         print(f"  {page:02X}:{addr:04X}: {status} {actual.hex().upper()}  {note}")
 
     print("\nidentity split")
-    print("  parser token: BB24 = tFnInt, BB25 = tNDeriv")
+    print("  parser token: 24 = tFnInt, 25 = tNDeriv (single-byte tokens)")
     print("  display cells: 00C8 = fnInt(, 00C7 = nDeriv(")
     print("  unresolved here: which recursive operand slot is displayed as each visible field")
 
@@ -6916,7 +6916,7 @@ def dump_extended_token_table_flow(rom):
         print(f"  {page:02X}:{addr:04X}: {status} {actual.hex().upper()}  {note}")
 
     print("\nROM-wide parser-token occurrences")
-    for label, hex_bytes in (("BB24 tFnInt", "bb24"), ("BB25 tNDeriv", "bb25")):
+    for label, hex_bytes in (("BB24 tvm_FV", "bb24"), ("BB25 conj", "bb25")):
         hits = rom_pattern_hits(rom, bytes.fromhex(hex_bytes))
         rendered = " ".join(f"{page:02X}:{addr:04X}" for page, addr in hits) or "none"
         print(f"  {label}: {rendered}")
@@ -6967,8 +6967,8 @@ def dump_fnint_template_flow(rom):
     print("\ninterpretation")
     print("  fnInt( is row 0 slot 8 under the MATH row-action label; nDeriv( is row 0 slot 7")
     print("  slots 9 and 10 are the adjacent square-up/down template markers, not integral glyph pieces")
-    print("  page-2 evaluator bytes prove a numeric-calculus parser/evaluator bridge for BB24/BB25")
-    print("  this labels operator/menu identity; visible integrand/variable/lower/upper field placement is handled by 5167")
+    print("  page-2 evaluator bytes prove numeric-calculus dispatch for single-byte 24/25")
+    print("  this labels operator/menu identity; settled integral field placement is handled by page 34, while caller selection of 39:5167 remains open")
 
 
 def dump_fnint_eval_flow(rom):
@@ -6983,17 +6983,17 @@ def dump_fnint_eval_flow(rom):
         print(f"  {page:02X}:{addr:04X}: {status} {actual.hex().upper()}  {note}")
 
     print("\nraw Ghidra helper names used by these anchors")
-    print("  00:163F _CpyTo2FPS3 -> OP2 from parsed FPS slot 3")
-    print("  00:169C _CpyTo1FPS2 -> OP1 from parsed FPS slot 2")
-    print("  00:168D _CpyTo1FPS1 -> OP1 from parsed FPS slot 1")
-    print("  33:4D00 fnint_body starts by subtracting FPS2/FPS3 and applying _TimesPt5")
-    print("  02:6AF6 push_half_const seeds the default tolerance/exponent path before page-33 execution")
+    print("  00:163F _CpyTo2FPS3 -> OP2 from FPS slot 3")
+    print("  00:169C _CpyTo1FPS2 -> OP1 from FPS slot 2")
+    print("  00:168D _CpyTo1FPS1 -> OP1 from FPS slot 1")
+    print("  33:4D00 numeric_work_4d00 subtracts FPS values and applies _TimesPt5; its caller is unresolved")
+    print("  02:6AF6 seeds nDeriv step 1e-3; fnInt dispatches separately to 07:6365")
 
     print("\ninterpretation")
-    print("  the numeric engine consumes parsed FPS slots 2 and 3 as the interval endpoints and immediately forms a half-width")
+    print("  the page-33 arithmetic cannot identify fnInt argument roles without a verified caller")
     print("  the public token syntax names those endpoints as lower/upper bounds in fnInt(expr,var,a,b[,tol])")
-    print("  this backs the endpoint/tolerance side of field naming, but page 39 still provides only generic operand-slot rendering")
-    print("  display-side tall integral placement is separate from this numeric evaluator flow and is handled by 5167")
+    print("  field naming follows native syntax and record oracles; the page-33 span does not prove it")
+    print("  settled integral placement is separate from this numeric dispatch and uses the page-34 record renderer")
 
 
 def dump_fnint_argument_order_flow(rom):
@@ -7008,7 +7008,7 @@ def dump_fnint_argument_order_flow(rom):
     print("  39:5167 is eqdisp_layout_multiarg")
     print("  39:5B10/5B1D are the saved-E7 ascending/descending alpha-search wrappers")
     print("  39:59E0 is eqdisp_find_alpha_up; 39:59F9 is eqdisp_find_alpha_down")
-    print("  33:4D00 is fnint_body")
+    print("  33:4D00 is numeric_work_4d00, with numerical command identity unresolved")
 
     print("\nordered parser-argument slots")
     for slot, label, note in FNINT_ARGUMENT_SLOTS:
@@ -7159,7 +7159,7 @@ def dump_page39_external_entry_flow(rom):
     print("  3B13 -> 4F9A is the only external entry into the large layout/action dispatcher already audited by --layout-flow")
     print("  3B0D/3B19/3B1F are menu/template-cell and string-loader paths, not independent tall-symbol builders")
     print("  3B01 exposes structural class predicates but no record walk or draw primitive")
-    print("  no additional public page-39 bjump target remains as a hidden BB24 definite-integral pixel-placement routine")
+    print("  no additional public page-39 bjump target remains as a hidden definite-integral pixel-placement routine")
 
 
 def dump_structural_predicate_flow(rom):
@@ -7390,7 +7390,7 @@ def dump_page1_action_table_flow(rom):
     print("\ninterpretation")
     print("  79B9 maps only incoming actions 9A..B3 and CC through this page-1 pointer table")
     print("  the table contains fnInt/nDeriv display-name cells 00C8/00C7, plus square-marker cells in later entries")
-    print("  it contains no BB24/BB25 parser tokens, no Lintegral direct cells FC3F/0842, and no Lroot literal cell 0010")
+    print("  it contains no BB24 finance or BB25 conjugate tokens, no Lintegral direct cells FC3F/0842, and no Lroot literal cell 0010")
     print("  therefore the page-1 action table is a display-cell remap list, not the hidden tall-integral/radical pixel builder")
 
 
@@ -10000,7 +10000,7 @@ def dump_structural_record_placement_flow(rom):
         print("    direct 4F1A glyph: " + (f"L{mapped:02X}" if mapped is not None else "no"))
 
     print("\nparser-token boundary")
-    for label, hex_bytes in (("BB24 tFnInt", "bb24"), ("BB25 tNDeriv", "bb25")):
+    for label, hex_bytes in (("BB24 tvm_FV", "bb24"), ("BB25 conj", "bb25")):
         hits = rom_pattern_hits(rom, bytes.fromhex(hex_bytes))
         rendered = " ".join(f"{page:02X}:{addr:04X}" for page, addr in hits) or "none"
         print(f"  {label}: {rendered}")
@@ -10008,8 +10008,8 @@ def dump_structural_record_placement_flow(rom):
     print("\ninterpretation")
     print("  class 0D is a fixed three-row record selected by raw byte 37, with row labels NAMES/MATH/EDIT")
     print("  FC3F and 0842 are ROM-backed fixed Lintegral cells, emitted by ordinary row-cell placement through 4E8E/4F1A")
-    print("  that record proves fixed structural glyph placement, not the inserted BB24 fnInt( display template")
-    print("  BB24/BB25 remain page-7 parser-token table entries with no direct page-39 record-cell occurrence")
+    print("  that record proves fixed structural glyph placement, not the inserted single-byte 24 fnInt( display template")
+    print("  BB24/BB25 are finance/conjugate table entries; their occurrence does not locate fnInt/nDeriv")
     print("  the 5167 static path can map parsed operands around fixed structural cells, but its runtime selector remains unidentified")
 
 
