@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-8eae034c.js";
+            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-ba6dda15.js"></script>
@@ -308,14 +308,15 @@ The page-06 editor maintains left and right token spans around a movable gap,
 then hands accepted text to <code>38:5978</code> → <code>38:5B2B</code>. Four TilEm cases cover an
 empty retry, wrapped edit/cursor redraw, <strong>[ON]</strong> cleanup, <code>Prompt</code>, and the
 separate <code>Menu(</code> route. [confirmed]</p>
-<p>Also open: a direct assembly-to-TI-BASIC program-call entry beyond VAT lookup
-and the cooperative <code>Ans</code> callback. The generated <code>ZZRUN</code> negative probe
-resolves <code>prgmOO</code>, sets the observed parser interval, and enters <code>38:6910</code>, but
-the carry-guarded run terminates at <code>_ErrSyntax</code> (<code>ram:2700</code>) with the cursor
-inside the target body. An 80-byte layout of the same probe ended at
-<code>_ErrArgument</code> (<code>ram:2711</code>), so the terminal error depends on state outside the
-copied name and cursor interval. The remaining gap is the native caller’s
-stack, error-handler, FPS/OPS, and run-state setup around that private entry.
+<p>The ASM/BASIC boundary is resolved within an exact bounded census. All 1,732
+main bcall slots, all 825 raw cross-page-call descriptors, and every direct
+edge in <code>38:4100</code>–<code>38:77FF</code> expose no separate ASM-to-BASIC program-call ABI.
+T042 saves and restores the parser, VAT, FPS/OPS, flag, and error state; an
+incomplete direct call raises <code>E_DataType</code> before <code>38:6910</code>, while the ordinary
+<code>prgmNAME</code> caller reaches <code>38:6910</code>, <code>38:6914</code>, and <code>38:778F</code> and returns
+normally. Fully constructing every private grammar/type and return record is
+the ordinary caller reproduced in ASM, not a distinct ABI. The supported route
+remains an ASM result through <code>Ans</code>, followed by a BASIC-owned <code>prgmNAME</code> call.
 [confirmed]</p>
 <p>The group receive path is resolved. Receiving a <code>.8xg</code> stores each member as an
 individual variable through the standard link variable-receive loop; no
