@@ -19,8 +19,8 @@ executed emulator paths.
 | Timers and RTC | direct-core pass; divisor 33 model and separately read RTC bytes | direct-core pass; exact `HWTMR` pass selects divisor 32, no port-`0x2F` prescaler, and first-expiry bit 2 | direct Lua pass; divisor 32 model, different zero and mode behavior, RTC unmapped | `HWTMR` distinguishes timer behavior; `HWPRTC` records RTC rollover coherence |
 | Prefix M1 waits | source model predicts the ordinary two-M1 indexed-CB interpretation | exact `HWPFX` pass selects `wabbitemu-three-m1`; all restoration fields match | delay-register block absent | physical indexed-CB timer delta remains open |
 | ASIC, protection, and GPIO | battery comparator direct-core pass; other handler behavior is source evidence | ASIC and protection direct-core passes | ASIC Lua pass; protection/GPIO ports absent | constant or absent reads are unsupported cases, not hardware values |
-| Mapper overlays | exact `HWPMAP` pass; overlays remain active in paired mode and cutoff starts at `0xFB40` | exact `HWPMAP` pass; overlays are disabled in paired mode and the `0xFB64` cutoff is present | Lua pass; overlay ports are absent | physical paired-mode and cutoff behavior remain open |
-| LCD | exact `HWPLCD` pass selects 16-column rows | exact `HWPLCD` pass selects 15-column wrap | Lua pass selects a 15-byte linear spill, with no busy model and absent delay ports | controller revision and physical timing remain open |
+| Mapper overlays | exact `HWPMAP` pass; overlays remain active in paired mode and cutoff starts at `0xFB40` | exact `HWPMAP` pass; overlays are disabled in paired mode and the `0xFB64` cutoff is present | exact execution unsupported; direct Lua pass finds the overlay ports absent | physical paired-mode and cutoff behavior remain open |
+| LCD | exact `HWPLCD` pass reports ready counts 2/2/2 and three busy samples | exact `HWPLCD` pass reports ready counts 4/0/3 and busy set/clear/set | direct Lua pass has no busy model, constant ASIC-ready state, and absent delay ports | physical timing and hidden geometry remain open |
 | Raw link and assist | direct-core pass | direct-core pass | Lua pass; assist block absent | logic-model results cannot provide voltage or rise time |
 | Keypad and ON | direct-core pass | direct-core pass | Lua matrix pass | electrical settling, bounce, and ON waveform remain open |
 | Flash | direct-core command/status pass | guarded command and restart runners exist | Lua command/status pass | no backend proves silicon timing or real power-loss atomicity |
@@ -43,13 +43,43 @@ displayed CRC is checked against that resident frame. The measurement,
 cleanup, frame update, and verification-number computation are therefore
 exact; OS variable allocation and rendered screen pixels are not. [confirmed]
 
+The exhaustive matrix completed all 24 non-interactive images with zero
+failures in each backend. `HWKEYS` is recorded separately as
+`interactive-input-required`: its calculator contract waits for the launch key
+to be released and then for an operator-held key or chord. The generic
+injection adapters do not synthesize that sequence. The guarded direct-core
+keypad cases remain the emulator evidence for that device family. The tracked
+summary `tools/oracles/hardware/exact-hardware-probe-matrix.json` contains every
+completed probe's decimal verification code and both runner hashes.
+[confirmed]
+
 | Probe | TilEm result and code | Wabbitemu result and code |
 |-------|-----------------------|---------------------------|
 | `HWPMAP` | `tilem`; all restore flags set; `58756` | `wabbitemu`; all restore flags set; `21062` |
-| `HWPLCD` | `tilem-16-column`; restore true; `43477` | `wabbitemu-15-column-wrap`; restore true; `61237` |
+| `HWPLCD` | ready 2/2/2; busy set/set/set; restore true; `21731` | ready 4/0/3; busy set/clear/set; restore true; `23959` |
 | `HWPIRQ` | programmable-timer wake; restore true; `44737` | standard-timer-watchdog wake; restore true; `19672` |
 | `HWEF07` | returned; resident-frame code `26515` | returned; resident-frame code `38818` |
 | `HWTMR` | completed after 16,855,833 clocks; restore fields pass; `3397` | completed; restore fields pass; `41549` |
+
+The deterministic `HWPMAP` record is
+`tools/oracles/hardware/mapper-overlays-emulators.json`. It binds the two exact runs to
+the 1,348-byte assembly image and preserves the displayed decimal codes, raw
+frames, decoded routing rows, restoration results, emulator revisions, and
+runner hashes. Its MAME row labels exact image execution `unsupported` and
+keeps the completed direct-handler profile as a different evidence class.
+[confirmed]
+
+The exact `HWPLCD` rows use the same 803-byte image. Its SHA-256 is
+`fa59b12a0a1e329e23ffc9b84acbd6fc78f4bfbcb83d54813fc1cb3e8da9ec21`.
+Both runs matched the AppVar-resident frame and the assembly CRC. Both also
+preserved the visible cell, movement bits, and wait-register snapshot.
+[confirmed]
+
+MAME 0.287 completed only `tools/ti84re/emulators/mame/run_lcd_probe.py`. That adapter drives
+the LCD handlers directly from isolated CPU state. It did not execute the
+`HWPLCD` assembly image. Its guarded run reports a 15-byte linear-spill model,
+permanent busy-clear status, constant ASIC-ready state, and absent wait ports.
+[confirmed]
 
 The TilEm adapter runs in 10,000,000-clock slices until it reaches a display
 breakpoint, an exception, an unexpected stop reason, or its 100,000,000-clock
@@ -81,6 +111,22 @@ nix develop -c python3 -m ti84re.hardware.run_exact_probe \
     ac280251dcda1cda083196abf88032502420351732cb689cac38d20348126408 \
   --probe lcd-controller --output-dir /tmp/tilem-hwplcd --json
 ```
+
+Run every non-interactive image without allowing one failure to hide later
+results:
+
+```sh
+nix develop -c python3 -m ti84re.hardware.run_exact_probe_matrix \
+  --backend tilem --binary /tmp/tilem-exact \
+  --expected-binary-sha256 \
+    ac280251dcda1cda083196abf88032502420351732cb689cac38d20348126408 \
+  --output-dir /tmp/tilem-hardware-matrix
+```
+
+The matrix manifest uses distinct `completed`, `failed`, and
+`interactive-input-required` statuses. It keeps each child manifest and both
+stdout/stderr streams. A timeout or unsupported handler is therefore never
+reported as a physical observation.
 
 The older exact `HWTMR` and `HWPFX` paths provide independent prior evidence
 through a pinned Wabbitemu binary with

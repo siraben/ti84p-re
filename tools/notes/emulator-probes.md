@@ -732,6 +732,33 @@ matrix covers legal success, illegal lower-bit false success, illegal DQ7
 failure with both stored DQ5 states, and both initial DQ6 states. It does not
 exercise the protected unlock sequence, an OS/UI caller, or physical Flash.
 
+Run the bounded failure and restart fixture separately:
+
+```sh
+wabbit_failure_parent=$(mktemp -d /tmp/ti84-wabbit-failure.XXXXXX)
+python3 -m ti84re.emulators.wabbitemu.run_flash_failure_fixture \
+  --rom tools/rom.bin \
+  --binary "$wabbit_tmp/wabbitemu-headless" \
+  --expected-binary-sha256 \
+    aa3abcc50eb4963a280af9d60c09ed2c260f46709383813b638fbef4c589fed7 \
+  --output-dir "$wabbit_failure_parent/run" --json
+```
+
+The preflight case calls the exact `00:02BF` entry with `SP=0xBFFE`. It requires
+the gate to remain locked, observes the jump through `00:02CE` to `00:0000`,
+and compares the complete allocated Flash array with the input before and after
+a bounded CPU reset plus retail boot. Numeric status `0` means the expected
+failure path, zero Flash differences, and completed restart all passed.
+
+The worker cases have a second guard. They can alter only allocated byte
+`0x20100` in the 64 KiB archive sector beginning at `0x20000`. The CLI rejects
+targets outside that constant sector and verifies the source-ROM hash again
+after execution. The native report also counts changes across the complete
+array, the target sector, protected ranges, and all addresses outside the
+target byte. It writes only a JSON manifest. Wabbitemu has no byte-program busy
+interval, so this is not evidence for an interruption during a physical command.
+The required adapter hash rejects any binary other than the documented build.
+
 ### Retail Flash bcall usage probe
 
 The programmer-facing examples have a separate assembled probe. The reusable

@@ -43,33 +43,53 @@ read/write rows, paired read/write rows, the even-Flash discriminator, restore
 flags, and nine exit-port bytes. The decoder names the closest emulator
 profile and separately reports marker and readable-port restoration.
 
+Fresh exact-image runs selected the TilEm profile with decimal verification
+code `58756` and the Wabbitemu profile with code `21062`; all four restore
+flags and both derived restoration checks passed. The normalized record is
+`tools/oracles/hardware/mapper-overlays-emulators.json`. MAME 0.287 completed a
+separate direct-handler Lua profile, but exact `HWPMAP` image execution is
+unsupported until a guarded MAME injection adapter exists. [confirmed] for
+the emulator runs; [hypothesis] for the still-unmeasured physical routing.
+
 ## LCD controller edges — `HWPLCD`
 
 `lcd-controller.asm` measures whether command writes, data reads, and data
-writes restart the ASIC port-`0x02` ready interval. It writes three sentinels
-from row 0, column 14 and reads the seven-cell alias union needed to
-distinguish a 16-column row, 15-column wrap, and MAME's 15-byte linear spill.
-Direct column-16 and column-31 cases are read-only. [confirmed]
+writes restart the ASIC port-`0x02` ready interval. Separate port-`0x10`
+samples record the controller busy bit after each access. [confirmed]
 
 The entry guard rejects controller reset, six-bit mode, and invalid TI-OS
-tracked row or column variables. Every ready poll and measurement counter is
-bounded. The measurement sends no display-enable, power, test, contrast,
-row-shift, or OPA command and does not write ports `0x29`–`0x2F`. It backs up
-the complete seven-cell write/alias union before the first sentinel, restores
-and rereads every cell, returns to eight-bit mode with normal movement, and
-restores the OS-tracked row and column commands before creating `HWPLCD01`.
+tracked row or column variables. It rejects columns outside visible command
+range `0x20`–`0x2B`. It also rejects rows outside `0x80`–`0xBF`. [confirmed]
+
+The default artifact does not address hidden columns. It writes only the
+original value of one tracked visible cell. It rereads and restores that cell
+before creating `HWPLCD02`. [confirmed]
+
+Every ready poll and measurement counter is bounded. A timeout suppresses the
+pending LCD transfer. The measurement sends no display-enable, power, test,
+contrast, row-shift, or OPA command. It does not write the ASIC wait ports.
+[confirmed]
 
 The controller's exact entry pointer, output latch, contrast, and row shift
 are not readable through this interface. The probe therefore restores the
-documented OS pointer state rather than claiming an unknowable byte-for-byte
-controller snapshot. A reset during the short write window can alter several
-display-RAM cells, but it does not issue a Flash command or deliberately write
-user-variable RAM beyond the result AppVar.
+documented OS pointer state. A status read can move the pointer on replacement
+controllers. Cleanup therefore restores the guarded pointer after its final
+status sample. [confirmed]
 
-The 43-byte payload records entry status and wait registers, three ready
-counts, immediate status, observed alias cells, direct hidden-column reads, a
-restore byte, and exit status and wait registers. Outcome 6 or
-`restore_ok = false` invalidates a physical run.
+The 42-byte payload records entry status and wait registers, three ready
+counts, six immediate samples, the visible-cell values, and exit state.
+Outcome 5 records a safely rejected hidden pointer. Outcome 6 or
+`restore_ok = false` invalidates a physical run. [confirmed]
+
+Pinned exact-byte runs completed with restoration true. TilEm printed
+`21731`; Wabbitemu printed `23959`. These codes identify emulator frames, not
+physical controller behavior. [confirmed]
+
+The emulator-only hidden-column tools retain three competing models. TilEm
+uses 16-column rows, Wabbitemu wraps a 15-column sequence, and MAME exposes a
+15-byte linear spill. Those tools do not make hidden writes safe on an
+unknown physical module. [hypothesis] Physical hidden geometry remains open
+until a separately gated, recoverable protocol exists.
 
 ## Interrupt and `HALT` policy — `HWPIRQ`
 

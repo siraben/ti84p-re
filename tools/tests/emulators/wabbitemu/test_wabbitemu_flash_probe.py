@@ -7,12 +7,33 @@ from ti84re.emulators.wabbitemu.flash_probe import (
     FlashProgramCase,
     parse_flash_program_case,
     validate_command_report,
+    validate_failure_fixture_target,
+    validate_flash_preflight_report,
     validate_worker_report,
 )
 from ti84re.emulators.wabbitemu.headless import (
     WabbitemuFlashCommandReport,
+    WabbitemuFlashPreflightReport,
     WabbitemuFlashWorkerReport,
     WabbitemuHeadlessError,
+    parse_flash_preflight_report,
+)
+
+
+PREFLIGHT_NATIVE_REPORT = " ".join(
+    (
+        "mode=flash-preflight-probe status=0 preflight_address=0x02BF",
+        "failure_address=0x02CE reset_address=0x0000 configured_sp=0xBFFE",
+        "signature_size=18 source_signature_match=1 mapped_signature_match=1",
+        "boot_steps=134845 boot_tstates=1746999 boot_pc=0x4223 boot_page=3F",
+        "boot_flash_locked=1 max_probe_steps=10000 probe_steps=9",
+        "harness_visits=1 preflight_visits=1 failure_visits=1 reset_visits=1",
+        "return_visits=0 violation_resets=0 gate_locked_before_restart=1",
+        "step_before_restart=read flash_changed_before_restart=0",
+        "restart_reset_pc=0x0000 max_restart_steps=5000000",
+        "restart_steps=134845 restart_tstates=1746999 restart_pc=0x4223",
+        "restart_page=3F restart_ready=1 flash_changed_after_restart=0",
+    )
 )
 
 
@@ -115,11 +136,54 @@ def worker_report(**changes) -> WabbitemuFlashWorkerReport:
         "return_hl": 0x9D99,
         "port06": 0x3F,
         "bank1_page": "3F",
+        "flash_changed_bytes": 1,
+        "target_sector_changed_bytes": 1,
+        "protected_changed_bytes": 0,
+        "outside_target_changed_bytes": 0,
         "final_pc": 0x9D98,
         "classification": "failure",
     }
     values.update(changes)
     return WabbitemuFlashWorkerReport(**values)
+
+
+def preflight_report(**changes) -> WabbitemuFlashPreflightReport:
+    values = {
+        "status": 0,
+        "preflight_address": 0x02BF,
+        "failure_address": 0x02CE,
+        "reset_address": 0,
+        "configured_sp": 0xBFFE,
+        "signature_size": 18,
+        "source_signature_match": True,
+        "mapped_signature_match": True,
+        "boot_steps": 134_845,
+        "boot_tstates": 1_746_999,
+        "boot_pc": 0x4223,
+        "boot_page": "3F",
+        "boot_flash_locked": True,
+        "max_probe_steps": 10_000,
+        "probe_steps": 9,
+        "harness_visits": 1,
+        "preflight_visits": 1,
+        "failure_visits": 1,
+        "reset_visits": 1,
+        "return_visits": 0,
+        "violation_resets": 0,
+        "gate_locked_before_restart": True,
+        "step_before_restart": "read",
+        "flash_changed_before_restart": 0,
+        "restart_reset_pc": 0,
+        "max_restart_steps": 5_000_000,
+        "restart_steps": 134_845,
+        "restart_tstates": 1_746_999,
+        "restart_pc": 0x4223,
+        "restart_page": "3F",
+        "restart_ready": True,
+        "flash_changed_after_restart": 0,
+    }
+    values.update(changes)
+    return WabbitemuFlashPreflightReport(**values)
 
 
 class WabbitemuFlashProbeTests(unittest.TestCase):
@@ -176,12 +240,58 @@ class WabbitemuFlashProbeTests(unittest.TestCase):
                 worker_report(classification="success"),
             )
 
+    def test_worker_oracle_allows_a_no_change_control(self):
+        result = validate_worker_report(
+            FlashProgramCase(0xFF, 0xFF),
+            worker_report(
+                initial=0xFF,
+                requested=0xFF,
+                probe_steps=348,
+                probe_tstates=5_375,
+                final_dq7_read_visits=0,
+                success_reset_visits=1,
+                failure_reset_visits=0,
+                poll_reads=(0xFF,),
+                stored=0xFF,
+                flash_toggle=0,
+                return_af=0x0044,
+                return_de=0x4101,
+                return_hl=0x9D9A,
+                flash_changed_bytes=0,
+                target_sector_changed_bytes=0,
+                classification="success",
+            ),
+        )
+
+        self.assertEqual(0, result["native"]["flash_changed_bytes"])
+
     def test_worker_oracle_requires_return_before_bound(self):
         with self.assertRaisesRegex(WabbitemuHeadlessError, "step bound"):
             validate_worker_report(
                 FlashProgramCase(0x50, 0xD0),
                 worker_report(max_probe_steps=347),
             )
+
+    def test_failure_target_guard_accepts_only_fixed_archive_sector(self):
+        result = validate_failure_fixture_target(0x08, 0x0100, 0x20100)
+
+        self.assertEqual([0x20000, 0x30000], result["sector"])
+        self.assertFalse(result["source_image_written"])
+
+    def test_failure_target_guard_rejects_certificate_page(self):
+        with self.assertRaisesRegex(WabbitemuHeadlessError, "fixed disposable"):
+            validate_failure_fixture_target(0x3E, 0x0100, 0xF8100)
+
+    def test_preflight_parser_and_oracle_require_numeric_zero_status(self):
+        parsed = parse_flash_preflight_report(PREFLIGHT_NATIVE_REPORT)
+        result = validate_flash_preflight_report(parsed)
+
+        self.assertEqual(0, result["numeric_status"])
+        self.assertEqual(0, result["source_model"]["flash_changes"])
+
+    def test_preflight_oracle_rejects_no_restart_progress(self):
+        with self.assertRaisesRegex(WabbitemuHeadlessError, "disagrees"):
+            validate_flash_preflight_report(preflight_report(restart_steps=0))
 
 
 if __name__ == "__main__":
