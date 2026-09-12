@@ -20,7 +20,7 @@ executed emulator paths.
 | Prefix M1 waits | source model predicts the ordinary two-M1 indexed-CB interpretation | exact `HWPFX` pass selects `wabbitemu-three-m1`; all restoration fields match | delay-register block absent | physical indexed-CB timer delta remains open |
 | ASIC, protection, and GPIO | battery comparator direct-core pass; other handler behavior is source evidence | ASIC and protection direct-core passes | ASIC Lua pass; protection/GPIO ports absent | constant or absent reads are unsupported cases, not hardware values |
 | Mapper overlays | exact `HWPMAP` pass; overlays remain active in paired mode and cutoff starts at `0xFB40` | exact `HWPMAP` pass; overlays are disabled in paired mode and the `0xFB64` cutoff is present | exact execution unsupported; direct Lua pass finds the overlay ports absent | physical paired-mode and cutoff behavior remain open |
-| LCD | exact `HWPLCD` pass reports ready counts 2/2/2 and three busy samples | exact `HWPLCD` pass reports ready counts 4/0/3 and busy set/clear/set | direct Lua pass has no busy model, constant ASIC-ready state, and absent delay ports | physical timing and hidden geometry remain open |
+| LCD | exact `HWPLCD` pass reports ready counts 2/2/2 and three busy samples; exact `HWPLAB` selects 16 columns and prints `62131` | exact `HWPLCD` pass reports ready counts 4/0/3 and busy set/clear/set; exact `HWPLAB` wraps into visible index 0 and prints `42103` | direct Lua pass has no busy model, constant ASIC-ready state, and a 15-byte linear spill | physical timing and hidden geometry remain open |
 | Raw link and assist | direct-core pass | direct-core pass | Lua pass; assist block absent | logic-model results cannot provide voltage or rise time |
 | Keypad and ON | direct-core pass | direct-core pass | Lua matrix pass | electrical settling, bounce, and ON waveform remain open |
 | Flash | direct-core command/status pass | guarded command and restart runners exist | Lua command/status pass | no backend proves silicon timing or real power-loss atomicity |
@@ -57,6 +57,7 @@ completed probe's decimal verification code and both runner hashes.
 |-------|-----------------------|---------------------------|
 | `HWPMAP` | `tilem`; all restore flags set; `58756` | `wabbitemu`; all restore flags set; `21062` |
 | `HWPLCD` | ready 2/2/2; busy set/set/set; restore true; `21731` | ready 4/0/3; busy set/clear/set; restore true; `23959` |
+| `HWPLAB` | hidden bytes `A5 5A C3 3C`; increment keeps `A1 A2` in hidden columns; restore true; `62131` | hidden bytes `A5 5A C3 3C`; second increment reaches visible index 0; restore true; `42103` |
 | `HWPIRQ` | programmable-timer wake; restore true; `44737` | standard-timer-watchdog wake; restore true; `19672` |
 | `HWEF07` | returned; resident-frame code `26515` | returned; resident-frame code `38818` |
 | `HWTMR` | completed after 16,855,833 clocks; restore fields pass; `3397` | completed; restore fields pass; `41549` |
@@ -80,6 +81,15 @@ the LCD handlers directly from isolated CPU state. It did not execute the
 `HWPLCD` assembly image. Its guarded run reports a 15-byte linear-spill model,
 permanent busy-clear status, constant ASIC-ready state, and absent wait ports.
 [confirmed]
+
+`HWPLAB` is outside the default 25-image matrix because its physical build is
+device-specific. `run_lcd_hidden_lab_emulator.py` compiles the expected ASIC
+byte for one emulator, runs the exact image, requires the AppVar and staging
+frames to match, and checks the displayed decimal CRC. The TilEm image has
+SHA-256 `09e778ec832f5e69bf0a444d3d9a7cf20cd43bb426a080b6f1ea596b2ad3506e`.
+The Wabbitemu image has SHA-256
+`dc683dccfc25f76c59c79776e4311d6655da75647d01c11be266d86c8b7699dd`.
+Each image is 3,450 bytes. [confirmed]
 
 The TilEm adapter runs in 10,000,000-clock slices until it reaches a display
 breakpoint, an exception, an unexpected stop reason, or its 100,000,000-clock
