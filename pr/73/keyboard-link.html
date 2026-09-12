@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-dcd58526.js";
+            window.path_to_searchindex_js = "searchindex-8eae034c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-ba6dda15.js"></script>
@@ -192,6 +192,10 @@
 <li><code>_KeyToString</code> at <code>01:6D10</code> maps a cooked key code to an editor token or string. [confirmed]</li>
 </ul>
 <p>Scan codes such as <code>skEnter</code> identify a matrix position. Cooked key codes such as <code>kEnter = 5</code> incorporate OS modifier and context policy. <code>_GetCSC</code> returns the former; <code>_GetKey</code> returns the latter. The complete matrix, scan-code formula, diagonal-arrow exception, five-sample release filter, repeat timing, modifier state, and 46.7 ms ON debounce are reconstructed in <a href="keypad-on-hardware.html">Keypad and ON-key hardware</a>.</p>
+<p>The Ghidra build types <code>kbdKey</code> at <code>0x8444</code> and <code>cxCurApp</code> at <code>0x859A</code> as
+<code>TIKeyCode</code>. It applies <code>kLeft</code> and <code>kAlphaDown</code> to the byte-checked comparisons
+at <code>39:5048</code> and <code>39:507C</code>. Other numeric operands keep their raw values unless
+their key-code role is established. [confirmed]</p>
 <h3 id="key--token-translation-confirmed"><a class="header" href="#key--token-translation-confirmed">Key → token translation [confirmed]</a></h3>
 <p><code>_KeyToString</code> (<code>01:6D10</code>) turns a key code into a TI-BASIC token for the editor. It’s not a single flat table — it combines:</p>
 <ul>

@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-dcd58526.js";
+            window.path_to_searchindex_js = "searchindex-8eae034c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-ba6dda15.js"></script>
@@ -345,6 +345,10 @@ throughout the wiki.</p>
 <li><code>tools/symbols/poffsets.txt</code> contains reviewed base-plus-offset references. These make an operand such as <code>mathprintArenaState + 0x0D</code> render as a structure member without inventing a second global name for the field address.</li>
 </ul>
 <p><code>tools/symbols/ty_regions.txt</code> applies the C layouts built by <code>BuildTypes.java</code>. The prose can therefore use expressions such as <code>table_value_cache.band[1].value[row]</code> once it introduces the typed base and its concrete address. A physical boundary, trace target, or byte-level proof still keeps its concrete address. [confirmed]</p>
+<p><code>tools/symbols/ty_enum_operands.txt</code> applies enum-member equates only at reviewed scalar
+operands. Each row includes the instruction bytes, so a changed opcode or
+constant stops the database build instead of attaching a stale enum name.
+[confirmed]</p>
 <h2 id="math-notation"><a class="header" href="#math-notation">Math notation</a></h2>
 <p>Formulas are written in LaTeX and rendered by KaTeX (offline, client-side): <code>$…$</code> for inline math and <code>$$…$$</code> for display. Algorithms render as pseudocode blocks and data/control-flow diagrams as Mermaid.</p>
 <h2 id="evidence-and-reproducibility"><a class="header" href="#evidence-and-reproducibility">Evidence and reproducibility</a></h2>
@@ -387,8 +391,9 @@ different boot support. [confirmed]</p>
 </div>
 <p>The canonical image starts from <code>ti84plus_patched.rom</code>, whose SHA-256 is
 <code>90472848b5f56902287fd5d8b455e62d60e9ab054647c9a03c1c91a67fc1a95a</code>.
-<code>D84PBE2.8Xv</code> supplies page <code>0x2F</code>; <code>D84PBE1.8Xv</code> supplies page <code>0x3F</code>, although
-that decoded retail page is byte-identical to the base image’s page <code>0x3F</code>.
+<code>D84PBE2.8Xv</code> supplies Flash page <code>2F</code>; <code>D84PBE1.8Xv</code> supplies Flash page <code>3F</code>,
+although that decoded retail page is byte-identical to the base image’s page
+<code>3F</code>.
 The exact AppVar and decoded-page identities are pinned in
 <code>tools/ti84re/rom/signatures.py</code>. [confirmed]</p>
 <p>The BootFree image matches the patched base on pages <code>0x00</code>–<code>0x3E</code>. Only page
@@ -406,7 +411,7 @@ pages are also recorded. It cannot establish retail boot behavior.</p>
 table entries. Every target address differs. BootFree maps 38 entries to other
 bodies, 45 entries to a bare <code>RET</code>, and four entries to small
 constant-return stubs. The six retail entries whose bodies live on USB boot
-page <code>0x2F</code> all map to BootFree’s bare-<code>RET</code> stub. [confirmed]</p>
+page <code>2F</code> all map to BootFree’s bare-<code>RET</code> stub. [confirmed]</p>
 <p>The reset paths also differ before any OS code runs: [confirmed]</p>
 <div class="table-wrapper">
 <table>
@@ -414,7 +419,7 @@ page <code>0x2F</code> all map to BootFree’s bare-<code>RET</code> stub. [conf
 <tr><th>Step</th><th>Retail boot 1.03</th><th>BootFree 11.259</th></tr>
 </thead>
 <tbody>
-<tr><td>Reset stub</td><td>Writes ports <code>0x04</code>, <code>0x06</code>, and <code>0x0E</code>, then jumps to <code>0x812C</code></td><td>Maps page <code>0x3F</code> through ports <code>0x06</code> and <code>0x07</code>, then jumps to <code>0x812C</code></td></tr>
+<tr><td>Reset stub</td><td>Writes ports <code>0x04</code>, <code>0x06</code>, and <code>0x0E</code>, then jumps to <code>0x812C</code></td><td>Maps Flash page <code>3F</code> through ports <code>0x06</code> and <code>0x07</code>, then jumps to <code>0x812C</code></td></tr>
 <tr><td>Installed-OS test</td><td>Scans the keypad; <strong>DEL</strong> and <strong>STAT</strong> select recovery; otherwise tests byte <code>0x0038</code> and marker <code>0xA55A</code> at <code>0x0056</code></td><td>Tests only marker <code>0xA55A</code> at <code>0x0056</code>; it does not scan a recovery key</td></tr>
 <tr><td>Missing or rejected OS</td><td>Enters serial or USB-assisted recovery and can receive an OS</td><td>Displays <code>No OS Loaded</code> and halts</td></tr>
 <tr><td>Boot services</td><td>Certificate, validation, serial receive, USB receive, installer display, and error paths</td><td>Smaller Flash/certificate utility set; signature, receive, USB, and most installer-display entries are stubs</td></tr>
@@ -3791,12 +3796,20 @@ source. [confirmed]</p>
 </tbody>
 </table>
 </div>
-<p>The two status handlers visible in this dispatch are unrelated to the kernel’s APD tick: [confirmed]</p>
-<ul>
-<li><code>33:5EB4</code> continues the OS timer API’s programmable-timer-1 countdown.</li>
-<li><code>35:4792</code> stops programmable timer 3 and services a USB timeout/event structure through ports <code>0x8E</code>, <code>0x91</code>, and <code>0x92</code>.</li>
-<li><code>standard_timer1_irq</code> handles the tick that reaches keypad scanning, cursor blink, the run indicator, and APD.</li>
-</ul>
+<p>The two banked handlers visible in this dispatch are unrelated to the kernel’s
+APD tick: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Source</th><th>Dispatch target</th><th>Handler purpose</th></tr>
+</thead>
+<tbody>
+<tr><td>Programmable timer 3</td><td><code>ram:3FB1</code> → <code>35:4792</code></td><td>stop timer 3 and service a USB timeout/event structure through ports <code>0x8E</code>, <code>0x91</code>, and <code>0x92</code></td></tr>
+<tr><td>Programmable timer 1</td><td><code>ram:3FB7</code> → <code>33:5EB4</code></td><td>continue the OS timer API’s programmable-timer-1 countdown</td></tr>
+<tr><td>Standard timer 1</td><td><code>standard_timer1_irq</code> at <code>ram:0167</code></td><td>advance keypad scanning, cursor blink, the run indicator, and APD</td></tr>
+</tbody>
+</table>
+</div>
 <p>The status-test order is programmable timer 3, timer 1, timer 2, standard timer 2, link, ON, then standard timer 1. Programmable completion bits remain visible when their timer mode does not request an interrupt, so timers 1 and 3 receive an additional mode-bit check before their handlers run. [confirmed] for the test order and mode checks; [standard] for completion visibility.</p>
 <p>The kernel normally writes <code>0x0B</code> to port <code>0x03</code>: ON and standard timer 1 can interrupt, timer 2 and link cannot, and bit 3 keeps the ASIC powered during <code>HALT</code>. The acknowledge sequence at <code>ram:00DC</code> writes <code>0x08</code>, which clears all legacy source bits under the clear-on-zero contract, and then writes a handler-supplied byte. See <a href="#clear-on-zero-acknowledgement">Interrupts (IM1)</a> for the complete register tables and simultaneous-source behavior. [confirmed] for the writes; [standard] for latch semantics.</p>
 <h2 id="standard-hardware-timers"><a class="header" href="#standard-hardware-timers">Standard hardware timers</a></h2>
@@ -3819,6 +3832,12 @@ $$</p>
 </table>
 </div>
 <p>TI-OS writes <code>0x06</code> to port <code>0x04</code> at several setup sites, including <code>ram:09B7</code>. Bit 0 is clear, selecting memory-map mode 0, and bits 1–2 select the slowest standard-timer rate. The kernel tick period is therefore exactly $304/32768$ seconds under the documented quartz model. [confirmed] for the write; [standard] for the physical rate.</p>
+<p>The value $32768$ Hz is a nominal oscillator frequency. If a unit’s measured
+oscillator frequency is $f_{\mathrm{xtal}}$, its kernel tick is
+$304/f_{\mathrm{xtal}}$ seconds. Every APD and cursor wall time below scales by
+$32768/f_{\mathrm{xtal}}$. The ROM fixes the divider selection, but neither the
+ROM nor an emulator establishes a physical unit’s oscillator tolerance.
+[confirmed] for the divider selection; [standard] for the oscillator model.</p>
 <p>Wabbitemu instead stores a rounded rate table of 512, 227, 158, and 108 Hz.
 Its index-2 value differs from the documented 146.285714 Hz, while the other
 three approximate their corresponding public rates. A guarded initialized-core
@@ -3857,13 +3876,15 @@ not physical phase or frequency measurements. [standard]</p>
 </div>
 <p>The keypad mechanism is covered in <a href="#keypad-and-on-key-hardware">Keypad and ON-key hardware</a>. These consumers advance from standard timer 1, not from a programmable timer. [confirmed]</p>
 <h3 id="auto-power-down-timing"><a class="header" href="#auto-power-down-timing">Auto Power Down timing</a></h3>
-<p><code>_ApdSetup = 4C93</code> has body <code>ram:03AE</code>. It reloads only the high byte: [confirmed]</p>
-<pre><code class="language-z80">ram:03AE  ld hl,0x8449       ; apdTimer
+<p><code>_ApdSetup = 4C93h</code> has body <code>ram:03AE</code>. It reloads only the high byte: [confirmed]</p>
+<pre><code class="language-z80">; bytes 21 49 84 36 74 C9
+ram:03AE  ld hl,0x8449       ; apdTimer
 ram:03B1  ld (hl),0x74
 ram:03B3  ret
 </code></pre>
 <p>When <code>apdAble</code> and <code>apdRunning</code> are set, <code>ram:036C</code> decrements the low byte first and the high byte only when the low byte reaches zero: [confirmed]</p>
-<pre><code class="language-z80">ram:036C  ld hl,0x8448       ; apdSubTimer
+<pre><code class="language-z80">; bytes 21 48 84 35 C0 23 35 C0
+ram:036C  ld hl,0x8448       ; apdSubTimer
 ram:036F  dec (hl)
 ram:0370  ret nz
 ram:0371  inc hl             ; apdTimer
@@ -3874,7 +3895,9 @@ ram:0373  ret nz
 <p>$$
 N = d + 115 \times 256
 $$</p>
-<p>standard timer-1 ticks. The exact range is: [confirmed] for the counter arithmetic; [standard] for conversion through the documented timer rate.</p>
+<p>standard timer-1 ticks. The ROM arithmetic gives the exact tick range.
+[confirmed]</p>
+<p>The seconds and minutes below use the nominal 32.768 kHz oscillator. [standard]</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -3887,7 +3910,10 @@ $$</p>
 </tbody>
 </table>
 </div>
-<p>The low byte’s free-running phase explains the roughly 2.37-second spread after a reload. The high-byte constant alone therefore does not encode one exact number of minutes. [confirmed]</p>
+<p>The low byte’s free-running phase gives the 255-tick span after a reload.
+[confirmed]</p>
+<p>This is nominally 2.37 seconds. [standard]</p>
+<p>The high-byte constant alone does not encode one exact tick count. [confirmed]</p>
 <p>On expiry, <code>ram:0374</code> performs display/context cleanup, clears <code>apdRunning</code>,
 sets <code>apdWarmStart</code>, and jumps to <code>poweroff_shared_tail</code> at <code>ram:0A24</code>.
 [confirmed]</p>
@@ -3895,11 +3921,33 @@ sets <code>apdWarmStart</code>, and jumps to <code>poweroff_shared_tail</code> a
 <p><code>_CursorOn</code> and <code>_CursorOff</code> reload <code>curTime</code> with <code>0x32</code> (50).
 <code>cursor_blink_tick</code> decrements it, toggles <code>curOn</code> on expiry, and reloads the
 same value. [confirmed]</p>
-<p>At the OS standard-timer setting, one visible-state interval is [confirmed] for the tick count; [standard] for wall time.</p>
+<p>Converting the 50-tick interval through the nominal standard-timer period gives
+the following wall time: [standard]</p>
 <p>$$
 50 \times \frac{304}{32768} = 0.4638671875\text{ seconds}
 $$</p>
-<p>A complete on/off cycle is 0.927734375 seconds. The run indicator has a separate counter at <code>0x8476</code>; it does not share the APD word. [confirmed]</p>
+<p>The nominal on/off cycle is 0.927734375 seconds. [standard] The run indicator
+has a separate counter at <code>0x8476</code>; it does not share the APD word. [confirmed]</p>
+<p>Pinned emulator schedulers produce different wall times from the same ROM
+counters. These rows apply the 29,441–29,696 APD ticks and 50-tick cursor toggle
+to each implementation’s timer-1 period: [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Timing model</th><th style="text-align: right">Kernel tick</th><th style="text-align: right">APD range</th><th style="text-align: right">Cursor toggle</th><th style="text-align: right">Full cursor cycle</th></tr>
+</thead>
+<tbody>
+<tr><td>Nominal quartz model</td><td style="text-align: right">9.27734375 ms</td><td style="text-align: right">273.134277–275.500000 s</td><td style="text-align: right">0.463867 s</td><td style="text-align: right">0.927734 s</td></tr>
+<tr><td>TilEm <code>f56ad63</code></td><td style="text-align: right">9.277 ms</td><td style="text-align: right">273.124157–275.489792 s</td><td style="text-align: right">0.463850 s</td><td style="text-align: right">0.927700 s</td></tr>
+<tr><td>Wabbitemu <code>48c2dc0</code></td><td style="text-align: right">9.259259 ms</td><td style="text-align: right">272.601852–274.962963 s</td><td style="text-align: right">0.462963 s</td><td style="text-align: right">0.925926 s</td></tr>
+<tr><td>MAME 0.287</td><td style="text-align: right">3.90625 ms</td><td style="text-align: right">115.003906–116.000000 s</td><td style="text-align: right">0.195313 s</td><td style="text-align: right">0.390625 s</td></tr>
+</tbody>
+</table>
+</div>
+<p>TilEm rounds the selected period to whole microseconds. Wabbitemu uses 108 Hz.
+MAME keeps timer 1 fixed at 256 Hz and marks the TI-84 Plus driver not working.
+The emulator rows describe those schedulers; none measures a calculator’s
+oscillator.</p>
 <h2 id="programmable-timers"><a class="header" href="#programmable-timers">Programmable timers</a></h2>
 <p>The ASIC provides three independent eight-bit countdown timers. Each uses a source/frequency register, a mode/status register, and a counter register. [standard]</p>
 <div class="table-wrapper">
@@ -4300,7 +4348,24 @@ both masks: clearing their pending fields after reset allows both to regenerate
 status <code>0x0E</code> during the next frame. These are MAME scheduler and reset results,
 not physical timer periods or retention. [standard]</p>
 <h2 id="reusable-timer-tools"><a class="header" href="#reusable-timer-tools">Reusable timer tools</a></h2>
-<p><code>tools/ti84re/hardware/timer.py</code> exposes exact rational source rates, first-expiry timing, callback outcomes, the ROM’s radix-255 chunks, RTC implementation profiles, and the physical-probe discriminator. <code>tools/ti84re/hardware/describe_timer.py</code> is a JSON-capable front end. The TilEm, Wabbitemu, and MAME report oracles validate native observations against reusable source models; <code>tools/ti84re/emulators/jstified.py</code> supplies a separately hash-guarded source profile without claiming a native run. <code>tools/ti84re/emulators/tilem/timer.py</code> adds the complete direct-core programmable-timer and deterministic RTC matrix. <code>tools/ti84re/emulators/tilem/interrupt.py</code> adds direct standard-timer scheduling and programmable-timer HALT-gate observations. <code>tools/ti84re/emulators/mame/interrupt.py</code> adds fixed standard-timer and reset-retention observations through the immutable MAME state in <code>tools/ti84re/hardware/interrupt_controller.py</code>. Their guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope identities. CPU-speed and port-<code>0x2D</code> implementation edges use <code>tools/ti84re/emulators/wabbitemu/speed_probe.py</code> and its guarded CLI. <code>tools/ti84re/emulators/wabbitemu/run_timer_physical_probe.py</code> executes the assembled physical discriminator through the shared injected-program runner. These are emulator-comparison tools, not physical-hardware simulators.</p>
+<p><code>tools/ti84re/hardware/timer.py</code> exposes exact rational source rates, first-expiry
+timing, callback outcomes, APD and cursor cadence, the ROM’s radix-255 chunks,
+RTC implementation profiles, and the physical-probe discriminator.
+<code>tools/ti84re/hardware/describe_timer.py</code> is its JSON-capable front end.</p>
+<p>The TilEm, Wabbitemu, and MAME report oracles validate native observations
+against reusable source models. <code>tools/ti84re/emulators/jstified.py</code> supplies a
+separately hash-guarded source profile without claiming a native run.
+<code>tools/ti84re/emulators/tilem/timer.py</code> adds the complete direct-core programmable-timer and
+deterministic RTC matrix. <code>tools/ti84re/emulators/tilem/interrupt.py</code> adds direct standard-timer
+scheduling and programmable-timer HALT-gate observations.
+<code>tools/ti84re/emulators/mame/interrupt.py</code> adds fixed standard-timer and reset-retention
+observations through the immutable MAME state in <code>tools/ti84re/hardware/interrupt_controller.py</code>.</p>
+<p>The guarded CLIs retain exact binary, ROM, adapter, output, and evidence-scope
+identities. CPU-speed and port-<code>0x2D</code> implementation edges use
+<code>tools/ti84re/emulators/wabbitemu/speed_probe.py</code> and its guarded CLI.
+<code>tools/ti84re/emulators/wabbitemu/run_timer_physical_probe.py</code> executes the assembled physical
+discriminator through the shared injected-program runner. These tools compare
+emulators; they do not simulate physical hardware.</p>
 <pre><code class="language-sh">nix develop -c python3 -m ti84re.hardware.describe_timer \
   source 0x41 0x80 0xC0 --mode3-prescaler 4
 
@@ -4312,6 +4377,13 @@ nix develop -c python3 -m ti84re.hardware.describe_timer \
 
 nix develop -c python3 -m ti84re.hardware.describe_timer chunks 0x0100 0x0101
 nix develop -c python3 -m ti84re.hardware.describe_timer --json rtc
+
+nix develop -c python3 -m ti84re.hardware.describe_timer os-cadence \
+  --profile Documented --profile TilEm --profile Wabbitemu --profile MAME
+
+# Replace 32760 with a frequency measured on the target calculator.
+nix develop -c python3 -m ti84re.hardware.describe_timer os-cadence \
+  --profile Documented --crystal-hz 32760
 
 timer_probe_parent=$(mktemp -d /tmp/ti84-timer-probe.XXXXXX)
 nix develop -c python3 -m ti84re.emulators.wabbitemu.run_timer_edge_probe \
@@ -4339,6 +4411,7 @@ nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_timer_prob
 <li>[confirmed] <code>33:5EB4</code> is the programmable-timer API interrupt handler; <code>35:4792</code> is a USB timer-3 handler.</li>
 <li>[confirmed] APD expires 29,441–29,696 kernel ticks after <code>_ApdSetup</code>, depending on the untouched low-byte phase.</li>
 <li>[confirmed] The cursor toggles every 50 kernel ticks.</li>
+<li>[standard] Nominal wall times use 32.768 kHz; physical wall times scale with the measured oscillator frequency of the target unit.</li>
 <li>[confirmed] The timer bcall API exposes only ID <code>0x70</code>, uses radix-255 duration chunking, and keeps a saturating expiry count.</li>
 <li>[confirmed] The Bad Apple application writes timer-1 tuple <code>0x82</code>/<code>0x03</code>/<code>120</code>; the documented CPU-clock decode gives 31.25 kHz at nominal 15 MHz, while its companion encoder assumes 33,333.3 Hz.</li>
 <li>[confirmed] Explicit power-off and APD share <code>poweroff_shared_tail</code>.</li>
@@ -5752,6 +5825,38 @@ and <code>01:412E</code> (<code>"Collecting..."</code>). The related path at <co
 <code>GarbageCollect</code> prompt, and reaches <code>3C:71F8</code>, <code>3C:7219</code>, <code>3C:7733</code>, and <code>3C:7CFB</code> once each. The
 preflight branch at <code>3C:7232</code> sees carry set and returns through <code>3C:7246</code>; it does not enter the
 recovery dispatcher during this normal run. [confirmed]</p>
+<h3 id="archive-command-dispatcher"><a class="header" href="#archive-command-dispatcher">Archive command dispatcher</a></h3>
+<p><code>flash_cmd_dispatch</code> starts at <code>3C:7121</code>, immediately after the <code>RET</code> at
+<code>3C:7120</code>. The page-0 stub at <code>ram:2FFD</code> contains
+<code>CD 09 2B 21 71 7C</code>: a call to the cross-page dispatcher followed by logical
+address <code>0x7121</code> and raw page byte <code>0x7C</code>. The cross-page helper masks the page
+byte to <code>0x3C</code>. A ROM-wide scan finds 11 direct callers of <code>ram:2FFD</code>, including
+the RAM-to-Flash archive path at <code>07:61CE</code> and the catalog path at <code>38:5754</code>.
+[confirmed]</p>
+<p>The entry decodes selector <code>A</code> as follows: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: right"><code>A</code></th><th>Additional condition</th><th>Target</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: right"><code>0x05</code></td><td>none</td><td><code>3C:76EF</code></td></tr>
+<tr><td style="text-align: right"><code>0x06</code></td><td>none</td><td><code>3C:7F16</code></td></tr>
+<tr><td style="text-align: right"><code>0x03</code></td><td>bit 2 of <code>IY + 0x25</code> clear</td><td><code>3C:720D</code></td></tr>
+<tr><td style="text-align: right"><code>0x04</code></td><td>bit 2 of <code>IY + 0x25</code> clear</td><td><code>3C:7213</code></td></tr>
+<tr><td style="text-align: right"><code>0x01</code></td><td>bit 2 of <code>IY + 0x25</code> clear</td><td><code>3C:71EF</code></td></tr>
+<tr><td style="text-align: right"><code>0x00</code></td><td>bit 2 of <code>IY + 0x25</code> clear and <code>B = 0</code></td><td><code>3C:7204</code></td></tr>
+</tbody>
+</table>
+</div>
+<p><code>3C:7BD0</code> is the <code>CALL ram:2FE5</code> instruction inside
+<code>gc_check_interrupted</code>, whose entry is <code>3C:7BC7</code>. No call reference or function
+entry begins at <code>3C:7BD0</code>. <code>gc_show_screen</code> is the independent entry at
+<code>3C:7E0D</code>. [confirmed]</p>
+<p><code>tools/analyze_gc_journal.py</code> validates the dispatcher bytes, the page-0 stub,
+all 11 callers, the <code>3C:7BC7</code> function body, and the <code>3C:7E0D</code> display entry.
+Its JSON report retains selectors, targets, and conditions separately from the
+master-phase recovery dispatcher at <code>3C:7C1F</code>.</p>
 <h3 id="four-page-archive-sectors"><a class="header" href="#four-page-archive-sectors">Four-page archive sectors</a></h3>
 <p><code>3C:749C</code> groups the current archive page into one physical 64 KiB sector: [confirmed]</p>
 <pre><code class="language-z80">ld a,(8435h)
@@ -6149,6 +6254,7 @@ page. The catalog <strong>MEM</strong> path runs through <code>3C:7121</code>. [
 <tr><td><code>3D:7DEA</code></td><td><code>flash_find_nonff</code></td><td>scan 13-byte header for all-0xFF (free slot)</td></tr>
 <tr><td><code>00:1837</code> / <code>00:182F</code></td><td><code>probe_hw_model_keep_a</code> / <code>probe_port21_keep_a</code></td><td>model bits: port 2 bit7 / port 0x21 low</td></tr>
 <tr><td><code>3D:6B6D</code> / <code>3D:6B9B</code></td><td><code>flash_write_bounds_check</code> / <code>flash_write_byte_bounds_check</code></td><td>enforce page <code>08</code> and dynamic App-boundary limits before block or byte writes</td></tr>
+<tr><td><code>3C:7121</code></td><td><code>flash_cmd_dispatch</code></td><td>dispatch archive command selector <code>A</code> through the cross-page stub at <code>ram:2FFD</code></td></tr>
 <tr><td><code>3C:71F8</code></td><td><code>gc_command</code></td><td>display the Garbage Collecting screen, run recovery preflight, and call the collector</td></tr>
 <tr><td><code>3C:7219</code></td><td><code>gc_recovery_preflight</code></td><td>inspect persistent GC state and enter recovery only when needed</td></tr>
 <tr><td><code>3C:7733</code></td><td><code>archive_gc_collect</code></td><td>normal collector entry and Flash-unlock wrapper</td></tr>
@@ -7302,10 +7408,12 @@ screen. Addresses and confidence flags follow
 map). Flag bits use the <code>ti83plus.inc</code> equates; the SystemFlags base is
 <code>IY = flags = 0x89F0</code>, so, for example, <code>(IY+0x0A)</code> = <code>flags + fmtFlags</code>.</p>
 <h2 id="flash-apps--find-and-launch"><a class="header" href="#flash-apps--find-and-launch">Flash Apps — find and launch</a></h2>
-<p>This ROM ships with zero bundled apps in the local ROM-byte scan (zero <code>80 0F</code> headers found at page starts) [hypothesis],
-but the entire find/launch machinery is present on <code>page 0x3D</code> (<code>_FindApp*</code>) and
-<code>page 0x3B</code> (<code>_AppInit</code> glue / app-quit). Apps are TI Flash Applications: a contiguous
-run of 16 KiB flash pages whose first page begins with a TLV app header.</p>
+<p>This ROM contains no bundled Flash Apps. A complete-image scan finds no
+<code>80 0F</code> header at any byte offset in the 1 MiB image, including its 64 page
+boundaries. [confirmed]</p>
+<p>Flash page <code>3D</code> contains the <code>_FindApp*</code> routines, and Flash page <code>3B</code> contains
+the <code>_AppInit</code> glue and App quit handling. A Flash App occupies a contiguous run
+of 16 KiB Flash pages whose first page begins with a TLV App header.</p>
 <h3 id="app-header-format-tlv-confirmed"><a class="header" href="#app-header-format-tlv-confirmed">App header format (TLV) [confirmed]</a></h3>
 <p>An app header is a sequence of type-length-value fields starting at offset 0 of the
 app’s first page. Each field begins with two bytes in WikiTI’s <code>TT TS</code> notation: the high
@@ -7470,7 +7578,7 @@ database has no function record at that body address.</li>
 <p>State variables: <code>appSearchPage</code> = <code>0x82A3</code>, <code>0x8497</code>/<code>0x8481</code>/<code>0x9C87</code> are search-mode
 scratch (<code>0x9C87</code>=‘i’ selects the in-RAM “temp app” search variant).</p>
 <h3 id="launching-an-app-as-a-context-confirmed"><a class="header" href="#launching-an-app-as-a-context-confirmed">Launching an app as a context [confirmed]</a></h3>
-<p><code>_AppInit</code> (<code>ram:0936</code>, bcall <code>0x404B</code>) installs a context from an app header:</p>
+<p><code>_AppInit</code> (ID <code>404Bh</code>, body <code>ram:0936</code>) installs a context from an App header:</p>
 <pre><code class="language-text">_AppInit(byte *hdr):                 # HL -&gt; 13-byte vector block in the header
   copy 12 bytes hdr[0..11] -&gt; cxMain (0x858D)   # the 6 context vectors
   flags.appFlags (IY+0x0D) = hdr[12]            # appFlags byte
@@ -7687,8 +7795,8 @@ not as proof that the complete <code>ram:9D95</code>–<code>ram:BFFF</code> ran
 <hr>
 <h2 id="ram-clearing-and-memory-reset"><a class="header" href="#ram-clearing-and-memory-reset">RAM clearing and memory reset</a></h2>
 <p>The <strong>MEM</strong> menu (<code>[2nd][+]</code>, “MEMORY MANAGEMENT/DELETE” + “RESET”) and its messages are on
-<code>page 0x01</code> (text/homescreen page). The reset <em>engine</em> is on <code>page 0x35</code>; the user-RAM
-re-init lands in page-0 boot code.</p>
+Flash page <code>01</code> (text/homescreen page). The reset engine is on Flash page <code>35</code>;
+the user-RAM reinitialization lands in fixed page-<code>00</code> boot code.</p>
 <h3 id="user-facing-strings-on-page-01-confirmed"><a class="header" href="#user-facing-strings-on-page-01-confirmed">User-facing strings on page <code>01</code> [confirmed]</a></h3>
 <div class="table-wrapper">
 <table>
@@ -7779,8 +7887,8 @@ touched by a plain RAM reset.</p>
 </code></pre>
 <p>This zeroes the <em>entire</em> 32 KiB RAM and does the deepest re-init.</p>
 <h3 id="_cleanall-and-cleanup_temp_ram-0752cf-confirmed"><a class="header" href="#_cleanall-and-cleanup_temp_ram-0752cf-confirmed"><code>_CleanAll</code> and <code>cleanup_temp_ram</code> (<code>07:52CF</code>) [confirmed]</a></h3>
-<p>Distinct from the MEM reset. <code>_CleanAll</code> (bcall <code>0x4A50</code>) only compacts temporary RAM
-after a command finishes: it shifts the FP stack (<code>fpBase</code>/<code>FPS</code>) down to <code>tempMem</code>, resets
+<p><code>_CleanAll</code> (ID <code>4A50h</code>) is distinct from the <strong>MEM</strong> reset. It only compacts
+temporary RAM after a command finishes: it shifts the FP stack (<code>fpBase</code>/<code>FPS</code>) down to <code>tempMem</code>, resets
 the <code>OPBase</code>/<code>OPS</code>/<code>pTemp</code> scratch pointers, and clears <code>pTempCnt</code>/<code>cleanTmp</code>. It does not
 clear the VAT, user vars, or Flash (see <a href="#memory-management-ram-heap-and-flash-archive">Memory management</a>). <code>_FixTempCnt</code> (<code>07:4FEC</code>) marks temps
 ≥ a count reclaimable then tail-calls the same compaction.</p>
@@ -7804,8 +7912,8 @@ BIT 2,(IY+0)   ; FD CB 00 56  -&gt; tested by _Sin/_Cos/_Tan to select degree vs
 <p>Math routines branch on this bit to choose degree/radian variants (<code>_SinCosRad</code> etc. force
 radians; the degree paths convert first).</p>
 <h3 id="graph-type-in-grfmodeflags-iy0x02-confirmed"><a class="header" href="#graph-type-in-grfmodeflags-iy0x02-confirmed">Graph type in <code>grfModeFlags</code> (<code>IY+0x02</code>) [confirmed]</a></h3>
-<p>The four graph-mode setters on <code>page 0x36</code> are mutually exclusive: each first clears
-all four bits via <code>clr_grfmode (36:7D00)</code>, then ORs in its own bit, then calls
+<p>The four graph-mode setters on Flash page <code>36</code> are mutually exclusive: each first clears
+all four bits via <code>clr_grfmode</code> (<code>36:7D00</code>), then ORs in its own bit, then calls
 <code>_SetTblGraphDraw</code>. <code>param_1</code> is <code>IY</code>, so <code>*(param_1+2)</code> = <code>grfModeFlags</code>.</p>
 <pre><code class="language-text">clr_grfmode (36:7D00):  grfModeFlags &amp;= 0xEF &amp; 0xDF &amp; 0xBF &amp; 0x7F   # clear bits 4,5,6,7
 </code></pre>
@@ -7852,9 +7960,9 @@ bit5 <code>grfNoAxis</code>; <code>seqFlags</code> (<code>IY+0x0F</code>).</p>
 <code>0x97B0</code>: value <code>0x00-0x09</code> = Fix-N decimal places, <code>0xFF</code> = Float.</p>
 <h3 id="mode-screen-plumbing"><a class="header" href="#mode-screen-plumbing">MODE screen plumbing</a></h3>
 <p>The MODE screen is a menu context (<code>cxMode</code>/<code>kMode</code>=0x45) reached via the event/key router
-(<a href="#boot-contexts-and-errors">Boot contexts &amp; errors</a>). Its row strings live as token names on page 0x01 (<code>RadianN</code>/<code>DegreeO</code>/<code>NormalP</code>/
+(<a href="#boot-contexts-and-errors">Boot contexts &amp; errors</a>). Its row strings live as token names on Flash page <code>01</code> (<code>RadianN</code>/<code>DegreeO</code>/<code>NormalP</code>/
 <code>Float</code> at <code>01:49E4</code>–<code>01:4A06</code>; trailing letters are token-id bytes) and full-caps menu
-labels on page 0x37 (<code>DEGREE</code> <code>4A85</code>, <code>RADIAN</code> <code>4A8C</code>). The setters and inc
+labels on Flash page <code>37</code> (<code>DEGREE</code> at <code>37:4A85</code>, <code>RADIAN</code> at <code>37:4A8C</code>). The setters and inc
 equates confirm the target bits and bytes. [confirmed] The per-row path through
 the menu dispatcher to the corresponding <code>SET</code>/<code>RES</code> or <code>fmtDigits</code> store has
 not been traced line by line. [hypothesis]</p>
@@ -10663,7 +10771,11 @@ including aliases and inferred names; they are not recovered function counts.</p
 </table>
 </div>
 <h2 id="blank-boot-and-system-pages"><a class="header" href="#blank-boot-and-system-pages">Blank, boot, and system pages</a></h2>
-<p>No Flash-App headers (<code>80 0F</code>) appear at any page boundary; the image is OS-only [hypothesis]. Byte-level notes on the empty page range and the boot/system pages (some of which, e.g. <code>34-39</code>/<code>3B</code>/<code>3C</code>, also carry the bcalls listed above):</p>
+<p>The complete 1 MiB image contains no <code>80 0F</code> Flash App header at any byte
+offset, including its 64 page boundaries. The image therefore contains no
+bundled Flash App. [confirmed]</p>
+<p>Byte-level notes on the empty page range and the boot/system pages, some of
+which also carry the bcalls listed above:</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -10675,12 +10787,16 @@ including aliases and inferred names; they are not recovered function counts.</p
 <tr><td><code>34</code>–<code>39</code></td><td>More OS code (parser scan, USB, graph, mode, menu, and RTC); approximately 0.2–17.3% of each page’s bytes are <code>0xFF</code>.</td></tr>
 <tr><td><code>3B</code></td><td>bcall jump table — starts <code>99 27 00</code> = entry 0 (<code>_JErrorNo</code> → <code>ram:2799</code>).</td></tr>
 <tr><td><code>3C</code></td><td>Link code, archive garbage collection, and the OS version string — page starts with ASCII <code>32 2E 35 35 4D 50</code> = <code>"2.55MP"</code>; <code>archive_gc_collect</code> is at <code>3C:7733</code>.</td></tr>
-<tr><td><code>3E</code></td><td>Certification page and GC journal — two physical 8 KiB sectors. <code>_GetCertificateStart</code> (bcall <code>0x8057</code>) selects the active half; <code>_GetCertificateEnd</code> (<code>0x802D</code>) bounds it; <code>_FindFirstCertField</code> (<code>0x8027</code>) and <code>_FindNextCertField</code> (<code>0x8078</code>) walk TLV fields. GC transactionally copies the used tail through the inactive half and stores phase bytes near its end. [confirmed] for the ROM and GC trace.</td></tr>
-<tr><td><code>3F</code></td><td>Retail boot page — the pinned base already matches the checksum- and hash-validated local <code>D84PBE1.8Xv</code> payload byte for byte; starts <code>3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81</code>, carries boot version <code>1.03</code>, and hosts the <code>0x8xxx</code> boot bcall table. Boot and hardware-version bcalls resolve to <code>_getBootVer</code> <code>3F:477C</code> (<code>0x80B7</code>) and <code>_getHardwareVersion</code> <code>3F:4781</code> (<code>0x80BA</code>). [confirmed]</td></tr>
+<tr><td><code>3E</code></td><td>Certification page and GC journal — two physical 8 KiB sectors. <code>_GetCertificateStart</code> (ID <code>8057h</code>) selects the active half; <code>_GetCertificateEnd</code> (ID <code>802Dh</code>) bounds it; <code>_FindFirstCertField</code> (ID <code>8027h</code>) and <code>_FindNextCertField</code> (ID <code>8078h</code>) walk TLV fields. GC transactionally copies the used tail through the inactive half and stores phase bytes near its end. [confirmed]</td></tr>
+<tr><td><code>3F</code></td><td>Retail boot page — the pinned base matches the checksum- and hash-validated local <code>D84PBE1.8Xv</code> payload byte for byte; starts <code>3E 07 D3 04 3E 7F D3 06 3E 03 D3 0E C3 2C 81</code>, carries boot version <code>1.03</code>, and hosts the boot bcall table. Boot and hardware-version bcalls resolve to <code>_getBootVer</code> (ID <code>80B7h</code>, body <code>3F:477C</code>) and <code>_getHardwareVersion</code> (ID <code>80BAh</code>, body <code>3F:4781</code>). [confirmed]</td></tr>
 </tbody>
 </table>
 </div>
-<p>The large-font glyph table is on page <code>0x07</code> (see <a href="#large-font-text">Display and LCD</a>). Alternate large fonts live on pages <code>0x01</code> and <code>0x36</code> (selected by <code>IY+0x35</code> bits 5 and 1). Page <code>0x07</code> also holds archive code, list and matrix code, and error messages. [confirmed]</p>
+<p>The large-font glyph table is on Flash page <code>07</code>; see
+<a href="#large-font-text">Display and LCD</a>. Alternate large fonts live
+on Flash pages <code>01</code> and <code>36</code>, selected by <code>IY+0x35</code> bits 5 and 1. Flash page
+<code>07</code> contains archive code, list and matrix code, error messages, and the large
+font. [confirmed]</p>
 <h2 id="page-specialization"><a class="header" href="#page-specialization">Page specialization</a></h2>
 <p>Related routines often share a page, but subsystem boundaries cross pages.
 For example, graph rendering uses pages <code>04</code>, <code>33</code>, and <code>37</code>, and page <code>07</code>
@@ -12144,9 +12260,17 @@ retain the six metadata bytes at <code>N+1</code> through <code>N+6</code>. [con
 <p>$$v = \pm\,(d_0.d_1d_2\cdots d_{13})\times 10^{\,e-\mathtt{0x80}}$$</p>
 <p>where $e$ is the biased exponent byte and $d_0\ldots d_{13}$ are the 14 BCD
 mantissa digits. For a normalized nonzero value, $d_0$ is nonzero; zero is a
-special representation. This is decimal precision, not a binary IEEE format.
-The constants below include $\pi/180$, $180/\pi$, and the page-<code>02</code>
-transcendental tables; their bytes are checked against the ROM.</p>
+special representation. This is decimal precision, not a binary IEEE format.</p>
+<p>The guarded raw-byte scan finds 144 overlapping nine-byte
+windows that satisfy the type, exponent, packed-digit, and normalization
+heuristic. Greedily skipping nine bytes after each match leaves 134 candidates.
+These counts include instruction bytes and unrelated data. Counts derived from
+Ghidra data definitions instead depend on listing state and do not measure the
+same ROM-only candidate set. [confirmed]</p>
+<p>The constants used below are confirmed separately by Ghidra references and raw
+ROM bytes. Examples include $\pi/180 = 1.745\ldots\mathrm{e}{-2}$,
+$180/\pi = 5.729\ldots\mathrm{e}{1}$, 65536, and the Flash page <code>02</code>
+transcendental coefficient tables. [confirmed]</p>
 <h2 id="op-registers--11-bytes-each-confirmed"><a class="header" href="#op-registers--11-bytes-each-confirmed">OP registers — 11 bytes each [confirmed]</a></h2>
 <p><code>OP1</code>–<code>OP6</code> begin at <code>0x8478</code> and occupy 11 bytes each. Their shared layout is:</p>
 <pre><code class="language-c">typedef struct {
@@ -12246,7 +12370,8 @@ subtract trace, so the pseudocode’s sign dispatch is confirmed both ways.</p>
 </table>
 </div>
 <p><code>ram:1d2f</code> and <code>ram:1d37</code> are two entry points into the same BCD-subtract body — <code>1d2f</code> loads <code>HL=0x8481</code> (OP1 guard), <code>DE=0x848C</code> (OP2 guard) and computes <code>OP2 − OP1</code> into OP2 (<code>LD A,(DE)</code><br><code>SUB (HL)</code>), while <code>1d37</code> enters with the pointers swapped for the reverse <code>OP1 − OP2</code>, before joining the common loop — so the caller picks the subtraction direction by choosing the entry. This is what lets <code>_FPAdd</code> produce a non-negative magnitude and then fix the sign.</p>
-<p>Multiply/divide/transcendentals (on page 0x02) reuse the same align/normalize primitives.</p>
+<p>Multiply, divide, and the transcendental routines on Flash page <code>02</code> reuse the
+same alignment and normalization primitives.</p>
 <h3 id="accumulator-high-nibble-helper-confirmed"><a class="header" href="#accumulator-high-nibble-helper-confirmed">Accumulator high-nibble helper [confirmed]</a></h3>
 <p><code>_ShRAcc = 0x41D4</code>, body <code>ram:1BCB</code>, is a six-instruction scalar helper rather
 than an OP-register operation. It executes four <code>RRA</code> instructions, masks with
@@ -12258,7 +12383,8 @@ the bcall returns. The result is in <code>tools/data/community-bcall-semantics.c
 <h2 id="floating-point-stack-fps-standard"><a class="header" href="#floating-point-stack-fps-standard">Floating-point stack (FPS) [standard]</a></h2>
 <p><code>FPS</code> (<code>0x9824</code>) is a software stack for temporaries; <code>_PushRealO1</code> (= <code>RST 18h</code>, <code>ram:155C</code>), <code>_PushReal</code>, <code>_PopRealO1</code> through <code>_PopRealO6</code>, <code>_PopReal</code>, <code>_AllocFPS</code>, and <code>_DeallocFPS</code> manage it. Used to spill OP registers during nested expression evaluation.</p>
 <h2 id="multiplication-division-and-transcendentals-confirmed"><a class="header" href="#multiplication-division-and-transcendentals-confirmed">Multiplication, division, and transcendentals [confirmed]</a></h2>
-<p>The rest of the FP op set lives alongside add on page 0, with the transcendentals banked to page 0x02:</p>
+<p>The rest of the FP operation set lives alongside addition on page <code>00</code>; the
+transcendental routines are banked to Flash page <code>02</code>:</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -12365,7 +12491,7 @@ sign and reciprocal cases, then evaluates the fractional part through
 <code>logexp_digit_table</code>. The <code>CP 0x0F</code> bound at <code>02:7109</code> establishes 16 selector
 slots. [confirmed]</p>
 <h3 id="_sincosrad-sine-and-cosine-in-radians-02733e-confirmed"><a class="header" href="#_sincosrad-sine-and-cosine-in-radians-02733e-confirmed"><code>_SinCosRad</code> sine and cosine in radians (<code>02:733E</code>) [confirmed]</a></h3>
-<p>This one keeps its range reduction on page 0x02 and is the most fully recovered:</p>
+<p>This routine keeps its range reduction on Flash page <code>02</code>:</p>
 <ol>
 <li>
 <p><strong>Mode/select flags.</strong> <code>0x8499</code> holds the trig-op selector — <code>0x01</code> (sin), <code>0x02</code> (cos), <code>0x04</code> (tan) — ORed with <code>0x80</code> when <code>(IY+0)</code> bit 2 is clear (<code>BIT 2,(IY+0)</code><br><code>JR NZ,+2</code><br><code>OR 0x80</code>). <code>_SinCosRad</code> itself enters with <code>A=0x81</code>, so it stores <code>0x81</code> regardless. <code>fp_clear_guard</code> and <code>_ZeroOP3</code> initialize the work area.</p>
@@ -14448,72 +14574,53 @@ executing the intervening tokens. That is the purpose of
 only the latter opens a block. Nested <code>Else</code> tokens are ignored until the depth
 returns to zero. The comparisons and counter changes are visible at
 <code>38:4137–417E</code>; the counter is the 16-bit <code>DE</code> register. [confirmed]</p>
-<h3 id="natural-loops-use-a-page-38-ops-record"><a class="header" href="#natural-loops-use-a-page-38-ops-record">Natural loops use a page-38 OPS record</a></h3>
-<p>The public page-33 routine behind bcall <code>grf_435f = 5140h</code> subtracts <code>20h</code>,
-accepts 13 indices, and jumps through the table at <code>33:4381</code>. Three ABI probes
-confirm both bounds outcomes at <code>33:436D</code> and <code>33:4372</code>, but natural stored
-programs do not enter it. It is not the <code>For(</code>/<code>End</code> transition. [confirmed]</p>
+<h3 id="natural-loops-use-fps-and-ops-records"><a class="header" href="#natural-loops-use-fps-and-ops-records">Natural loops use FPS and OPS records</a></h3>
 <p>Natural <code>For(</code> execution reaches <code>parse_for_production</code> (<code>38:41E5</code>). Natural
-<code>End</code> execution reaches <code>parse_end_ops_record</code> (<code>38:4200</code>), which consumes a
-5-byte loop record from the operator stack at <code>OPS + 1</code>. All three structured
-loops share the shape — sentinel byte, continuation word, state word: [confirmed]</p>
-<pre><code class="language-c">#pragma pack(push, 1)
-typedef struct {
-    uint8_t sentinel;       /* 00h */
-    uint16_t continuation;  /* where the End token jumps back to */
-    uint16_t state;         /* varies per fixture; meaning open */
-} TILoopOpsRecord;
-#pragma pack(pop)
-</code></pre>
-<p>A shadow-memory replay of the headless trace records the loop state for a
-program that runs <code>For(θ,1,3)</code>, <code>While θ&lt;3</code>, and <code>Repeat θ≥2</code> in sequence. The
-reproduction macro is <code>tools/macros/run-loops-typed.macro</code>.</p>
+<code>End</code> execution reaches <code>parse_end_ops_record</code> (<code>38:4200</code>). Each loop owns
+floating-point operands on the FPS and three control words on the OPS.
+[confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Loop</th><th>Record at <code>End</code></th><th>Continuation</th><th>State</th></tr>
+<tr><th>Loop</th><th style="text-align: right">Offset below body <code>FPS</code></th><th>Meaning</th><th>OPS continuation</th></tr>
 </thead>
 <tbody>
-<tr><td><code>For(</code> first <code>End</code></td><td><code>00 36 58 07 00</code></td><td><code>for_first_update</code> (<code>38:5836</code>)</td><td><code>0007h</code></td></tr>
-<tr><td><code>For(</code> later <code>End</code>s</td><td><code>00 7D 58 07 00</code></td><td><code>for_steady_update</code> (<code>38:587D</code>)</td><td><code>0007h</code></td></tr>
-<tr><td><code>Repeat</code> <code>End</code></td><td><code>00 E7 57 23 00</code></td><td><code>38:57E7</code></td><td><code>0023h</code></td></tr>
+<tr><td><code>For(</code></td><td style="text-align: right"><code>-36</code></td><td>loop-variable descriptor</td><td><code>38:5836</code></td></tr>
+<tr><td><code>For(</code></td><td style="text-align: right"><code>-27</code></td><td>initial value</td><td>—</td></tr>
+<tr><td><code>For(</code></td><td style="text-align: right"><code>-18</code></td><td>limit</td><td>—</td></tr>
+<tr><td><code>For(</code></td><td style="text-align: right"><code>-9</code></td><td>step</td><td>—</td></tr>
+<tr><td><code>While</code></td><td style="text-align: right"><code>-9</code></td><td>condition operand</td><td><code>38:57C3</code></td></tr>
+<tr><td><code>Repeat</code></td><td style="text-align: right"><code>-9</code></td><td>condition operand</td><td><code>38:57E7</code></td></tr>
 </tbody>
 </table>
 </div>
-<p>The continuation field selects the loop mechanics. Observed state words include
-<code>0012h</code> and <code>0007h</code>, so the field is not a fixed constant; its exact role is
-still open. [confirmed]</p>
-<p><code>While</code> and <code>Repeat</code> push their records in a parse-time form with continuation
-<code>38:5AC1</code>. Three observed pushes carry marker bytes <code>F0 58</code>, <code>11 58</code>, and
-<code>2A 58</code>. The first condition evaluation rewrites the record to the runtime form
-above. That evaluation runs through
-<code>38:41CC</code> or <code>38:41D9</code> — each guards with <code>CALL 7203</code>, calls <code>71B4</code>, pops the
-saved value into <code>HL</code>, and jumps to <code>38:57A8</code> or <code>38:57E1</code> respectively;
-<code>38:57E1</code> sits immediately before the <code>Repeat</code> continuation <code>38:57E7</code>.
+<p>Each OPS record contains three little-endian words. Offset <code>+0</code> is the
+continuation address. Offset <code>+2</code> is the one-based parse offset. Offset <code>+4</code>
+is the previous <code>cleanTmp</code> depth. OPS grows downward, so transient evaluator
+objects can precede the record in an ascending RAM dump. [confirmed]</p>
+<p><code>38:595A</code> computes <code>nextParseByte - basic_start + 1</code>. The path at <code>38:5965</code>
+restores the cursor as <code>basic_start + offset</code>, then pushes the offset and
+continuation through <code>38:7511</code>. A <code>For(I,1,3)</code> trace records offset <code>7</code>; the
+tracked <code>While</code> and <code>Repeat</code> cases record offset <code>8</code>. [confirmed]</p>
+<p><code>38:58CE</code> pushes the condition for <code>While</code> and <code>Repeat</code>, then saves the cleanup
+link. <code>For(</code> enters the same save path at <code>38:58D1</code> because its parsed operands
+already occupy the FPS. <code>38:58DF</code> restores the previous cleanup depth.
 [confirmed]</p>
-<p>A single trace does not establish which loop re-enters through
-<code>parse_end_ops_record</code> on each iteration and which jumps directly from its
-continuation. [hypothesis]</p>
-<pre class="mermaid">flowchart LR
-    F["For( token"] --&gt; P["parse_for_production&lt;br/&gt;create production state"]
-    P --&gt; B["execute loop body"]
-    B --&gt; E["End token&lt;br/&gt;parse_end_ops_record"]
-    E --&gt; O["pop sentinel + continuation + state word"]
-    O --&gt; I["for_first_update"]
-    O --&gt; S["for_steady_update"]
-    I --&gt; B
-    S --&gt; B
-</pre>
-
-<p>The continuation path resolves the loop variable through the VAT, applies the
-floating-point increment, compares the updated value, and either revisits the
-body or removes the record. The paired trace confirms the record bytes and the
-two continuations. The complete layout of the associated limit, step, and
-temporary floating-point values is not yet decoded. [confirmed]</p>
-<p>The optional closing <code>)</code> in <code>For(</code> changes marker-to-marker work and parser
-buffer state. Neither spelling reaches the page-02 finalization gate in the
-paired trace, so the exact causal transition remains open. The measured effect
-is covered in <a href="#ti-basic-for-parenthesis-trap">the <code>For(</code> parenthesis trap</a>.</p>
+<p>A terminating <code>For(</code> removes <code>0x24</code> FPS bytes at <code>38:582A</code>. Its complete FPS
+record is 36 bytes, but the handler grows FPS by 27 bytes because it adopts the
+parsed loop-variable descriptor. A false <code>While</code> takes <code>38:57B0</code>, scans to the
+matching <code>End</code>, drops one FPS slot at <code>38:57B7</code>, and restores the cleanup link.
+<code>Repeat</code> reverses the condition at <code>38:57F8</code>. [confirmed]</p>
+<p>Nested-loop traces observe saved <code>cleanTmp</code> depths <code>1</code>, <code>2</code>, and <code>3</code>. A
+<code>Return</code> inside <code>For(</code> reaches <code>38:5836</code>, removes the 36-byte FPS record, and
+restores the cleanup link. <code>Stop</code> inside <code>While</code> bypasses <code>38:57C3</code> and exits
+the program chain. Divide-by-zero inside <code>Repeat</code> bypasses <code>38:57E7</code>; the OS
+error cleanup resets <code>cleanTmp</code>, FPS, and OPS before displaying the error.
+[confirmed]</p>
+<p>Six TilEm cases cover normal <code>For(</code>, <code>While</code>, and <code>Repeat</code>, nesting,
+<code>Return</code>/<code>Stop</code>, and an OS error. [confirmed]</p>
+<p>The optional closing <code>)</code> in <code>For(</code> changes parser work. The measured effect is
+covered in <a href="#ti-basic-for-parenthesis-trap">the <code>For(</code> parenthesis trap</a>.</p>
 <h3 id="labels-rescan-instead-of-indexing"><a class="header" href="#labels-rescan-instead-of-indexing">Labels rescan instead of indexing</a></h3>
 <p><code>goto_lbl_name_scanner</code> (<code>38:4870</code>) reads the label name after <code>Goto</code> or <code>Lbl</code>.
 The search path at <code>38:7600</code> rescans the program body for a matching <code>Lbl</code>, then
@@ -14559,7 +14666,7 @@ the operation itself:</p>
 <tbody>
 <tr><td><code>Disp</code></td><td>page-38 statement handler</td><td><code>_Disp</code> at <code>37:51D3</code>, then <code>_NewLine</code></td></tr>
 <tr><td><code>Output(</code></td><td><code>38:6AE6</code>, page-02 handler</td><td><code>_OutputExpr</code> at <code>03:4AF2</code></td></tr>
-<tr><td><code>Input</code></td><td><code>02:54EF</code></td><td>entry editor, <code>_ParseInp</code>, variable store</td></tr>
+<tr><td><code>Input</code></td><td><code>02:54EF</code></td><td>entry editor, <code>_ParseInpGraphReset</code>, variable store</td></tr>
 <tr><td><code>Prompt</code></td><td><code>02:562F</code></td><td>repeated named-variable entry and store</td></tr>
 <tr><td><code>Menu(</code></td><td><code>02:555D</code></td><td><code>_DispMenuTitle</code> at <code>39:4D21</code>, then label transfer</td></tr>
 <tr><td><code>Pause</code></td><td><code>02:55E7</code></td><td>display and key-wait loop</td></tr>
@@ -14569,9 +14676,35 @@ the operation itself:</p>
 </div>
 <p><code>Input</code> accepts either an optional prompt string or a row/column prefix before
 one store target. <code>Prompt</code> loops over comma-separated variables and generates
-the <code>NAME=</code> labels itself. <code>Menu(</code> parses a title followed by option-string and
-label pairs. These argument-order boundaries are [confirmed]; the entry
-editor’s internal cursor and redraw state are not yet mapped.</p>
+the <code>NAME=</code> labels itself. Accepted text enters <code>_ParseInpGraphReset</code> (bcall
+<code>4B04h</code>, body <code>38:5978</code>) and continues through the parser handoff at <code>38:5B2B</code>.
+It does not enter <code>_ParseInp</code> at <code>38:5987</code> in the tracked cases. [confirmed]</p>
+<p>The entry editor stores tokenized text in a split buffer: [confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Word</th><th>Address</th><th>Boundary</th></tr>
+</thead>
+<tbody>
+<tr><td><code>editTop</code></td><td><code>0x96F4</code></td><td>start of the left span</td></tr>
+<tr><td><code>editCursor</code></td><td><code>0x96F6</code></td><td>end of the left span and start of the gap</td></tr>
+<tr><td><code>editTail</code></td><td><code>0x96F8</code></td><td>end of the gap and start of the right span</td></tr>
+<tr><td><code>editBtm</code></td><td><code>0x96FA</code></td><td>end of the right span</td></tr>
+</tbody>
+</table>
+</div>
+<p>Insertion at <code>06:4341</code> writes at the cursor. Cursor movement transfers tokens
+across the gap through <code>06:441E</code>/<code>06:445C</code>; <code>06:43CA</code> and <code>06:472F</code> repack the
+two sides. Delete and redraw run through <code>06:45F8</code> and <code>06:46AF</code>. The
+<code>EDINPUT</code> trace submits an empty line, retries, edits an expression that wraps
+from row 0 to row 1, and displays <code>45</code> after parser handoff. [confirmed]</p>
+<p>The <strong>[ON]</strong> cancellation fixture reaches <code>_ErrBreak</code> at <code>ram:273D</code> and the
+error cleanup at <code>ram:2793</code>. It never reaches the parser handoff or the later
+<code>Disp 99</code>. Both <code>editOpen</code> (<code>0x89F1</code> bit 2) and <code>promptEdit</code> (<code>0x8A01</code> bit 0)
+are clear after cleanup. <code>Menu(</code> uses its separate title/key path at
+<code>39:4D21</code>/<code>39:5955</code>; the tracked numeric selection reaches the label scanner
+at <code>38:4870</code> and displays <code>22</code>. [confirmed]</p>
+<p>Four TilEm cases cover <code>Input</code>, <code>Prompt</code>, cancellation, and <code>Menu(</code>. [confirmed]</p>
 <p><code>getKey</code> is an expression value, not a statement. The table at <code>37:6700</code> is a
 token-attribute table; returned key codes come from <code>_GetKey</code> on page 06. This
 distinction prevents a common false inference from the nearby <code>CP ADh</code> bytes.
@@ -14745,7 +14878,7 @@ VAT/value boundary. [confirmed]</p>
 <tr><td>Prefer list or matrix primitives</td><td>One parsed command can run an internal ROM loop</td><td><a href="#trace-backed-examples">Trace-backed list fixture</a></td></tr>
 <tr><td>Cache repeated list elements in scalars</td><td>Avoid repeated VAT lookup and list-element address calculation</td><td><a href="#dfs-with-a-list-stack">DFS list stack</a></td></tr>
 <tr><td>Keep graph drawing in the graph buffer</td><td>Avoid repeated home-screen formatting and LCD updates</td><td><a href="#graph-buffer-visualization">Graph-buffer visualization</a></td></tr>
-<tr><td>Use structured loops instead of hot <code>Goto</code> paths</td><td>Avoid repeated label rescans through <code>38:7600</code></td><td><a href="#natural-loops-use-a-page-38-ops-record">Loop behavior</a></td></tr>
+<tr><td>Use structured loops instead of hot <code>Goto</code> paths</td><td>Avoid repeated label rescans through <code>38:7600</code></td><td><a href="#natural-loops-use-fps-and-ops-records">Loop behavior</a></td></tr>
 <tr><td>Include the optional <code>For(</code> closing parenthesis</td><td>Avoid the documented implicit-close parser trap</td><td><a href="#ti-basic-for-parenthesis-trap"><code>For(</code> parenthesis trap</a></td></tr>
 </tbody>
 </table>
@@ -15701,8 +15834,8 @@ whole-interpreter coverage.</p>
 49-class table used by <code>38:7244</code>, five literal command targets at <code>02:5675</code>,
 and 13 bounds-checked rows at <code>33:4380</code>. This does not establish behavior for a
 corrupted class, stack, or pointer outside those domains. Other open dimensions
-include arbitrary token-stream length, every nested error context, full OPS/FPS
-record layout, arbitrary VAT and list shapes, floating-point path classes, and
+include arbitrary token-stream length, every nested error context, corrupted
+OPS/FPS state, arbitrary VAT and list shapes, floating-point path classes, and
 display or graph subsystem continuations.</p>
 <p>The next useful coverage expansion starts with the unresolved caller census:</p>
 <ol>
@@ -20671,6 +20804,10 @@ the retained trace does not expose the final source buffer. [hypothesis]</p>
 <li><code>_KeyToString</code> at <code>01:6D10</code> maps a cooked key code to an editor token or string. [confirmed]</li>
 </ul>
 <p>Scan codes such as <code>skEnter</code> identify a matrix position. Cooked key codes such as <code>kEnter = 5</code> incorporate OS modifier and context policy. <code>_GetCSC</code> returns the former; <code>_GetKey</code> returns the latter. The complete matrix, scan-code formula, diagonal-arrow exception, five-sample release filter, repeat timing, modifier state, and 46.7 ms ON debounce are reconstructed in <a href="#keypad-and-on-key-hardware">Keypad and ON-key hardware</a>.</p>
+<p>The Ghidra build types <code>kbdKey</code> at <code>0x8444</code> and <code>cxCurApp</code> at <code>0x859A</code> as
+<code>TIKeyCode</code>. It applies <code>kLeft</code> and <code>kAlphaDown</code> to the byte-checked comparisons
+at <code>39:5048</code> and <code>39:507C</code>. Other numeric operands keep their raw values unless
+their key-code role is established. [confirmed]</p>
 <h3 id="key--token-translation-confirmed"><a class="header" href="#key--token-translation-confirmed">Key → token translation [confirmed]</a></h3>
 <p><code>_KeyToString</code> (<code>01:6D10</code>) turns a key code into a TI-BASIC token for the editor. It’s not a single flat table — it combines:</p>
 <ul>
@@ -24888,10 +25025,14 @@ resolve the remaining behavior. Detailed reconstructions and emulator
 comparisons remain on the subsystem pages linked below.</p>
 <h2 id="static-analysis-work"><a class="header" href="#static-analysis-work">Static-analysis work</a></h2>
 <h3 id="symbol-types"><a class="header" href="#symbol-types">Symbol types</a></h3>
-<p>The Ghidra model assigns <code>TIKeyCode</code> to <code>kbdKey</code>, <code>kbdGetKy</code>, and <code>keyExtend</code>
-(<code>0x8444</code>–<code>0x8446</code>), and <code>TIError</code> to <code>errNo</code> (<code>0x86DD</code>). <code>TIVarType</code> remains
-on <code>curType</code> and <code>varType</code>. <code>stat_calc_command</code> remains inside the typed
-<code>SystemFlags</code> span. [confirmed]</p>
+<p>The Ghidra model assigns <code>TIKeyCode</code> to <code>kbdKey</code>, <code>kbdGetKy</code>, <code>keyExtend</code>, and
+<code>cxCurApp</code>. It assigns <code>TIError</code> to <code>errNo</code> and
+<code>TIVarType</code> to <code>curType</code> and <code>varType</code>. A reviewed manifest also applies enum
+equates to 57 instruction operands: 16 object-type constructors, 39 named error
+stubs, and two MathPrint key-code comparisons. Each row binds the address,
+operand index, enum member, and instruction bytes. <code>BuildTypes.java</code> rejects a
+row if the instruction or scalar changes. [confirmed]</p>
+<p>No remaining items for this subsystem.</p>
 <h3 id="floating-point-table-semantics"><a class="header" href="#floating-point-table-semantics">Floating-point table semantics</a></h3>
 <p>The <code>_SinCosRad</code> recurrence is mechanically reconstructed. Phase 1 extracts one
 redundant BCD digit per row of <code>02:7201</code> by non-restoring modulo-1 subtraction
@@ -24997,13 +25138,15 @@ gate accepts compiled <code>BB 6D</code> at <code>07:5772</code>. The nonmatchin
 <code>07:5774</code> selects the text path at <code>07:57D4</code>; its helper checks <code>BB 6C</code>
 at <code>07:5849</code>/<code>07:5850</code> and decodes hexadecimal source through
 <code>07:5717</code>–<code>07:5755</code>. Both launch forms are decoded. [confirmed]</p>
-<p>Remaining: the meaning of the loop-record state word (it varies per fixture:
-<code>0012h</code> in one trace, <code>0007h</code> in another) and the per-iteration split between
-<code>parse_end_ops_record</code> re-entry and direct continuation jumps for <code>While</code>/
-<code>Repeat</code>. The record shapes themselves are pinned: all three loops share the
-5-byte form <code>00 | continuation word | state word</code>, with <code>For(</code> continuations
-<code>38:5836</code>/<code>38:587D</code> and the observed <code>Repeat</code> runtime continuation <code>38:57E7</code>.
-[confirmed]</p>
+<p>The loop records are resolved. <code>For(</code> owns four 9-byte FPS slots; <code>While</code> and
+<code>Repeat</code> own one. Their OPS records contain the continuation, one-based parser
+offset, and previous <code>cleanTmp</code> depth. Six TilEm cases cover normal loops,
+nesting, <code>Return</code>, <code>Stop</code>, and error cleanup. [confirmed]</p>
+<p>The <code>Input</code>/<code>Prompt</code> entry editor is also resolved at the requested boundary.
+The page-06 editor maintains left and right token spans around a movable gap,
+then hands accepted text to <code>38:5978</code> → <code>38:5B2B</code>. Four TilEm cases cover an
+empty retry, wrapped edit/cursor redraw, <strong>[ON]</strong> cleanup, <code>Prompt</code>, and the
+separate <code>Menu(</code> route. [confirmed]</p>
 <p>Also open: a direct assembly-to-TI-BASIC program-call entry beyond VAT lookup
 and the cooperative <code>Ans</code> callback. The generated <code>ZZRUN</code> negative probe
 resolves <code>prgmOO</code>, sets the observed parser interval, and enters <code>38:6910</code>, but

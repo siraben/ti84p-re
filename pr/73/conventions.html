@@ -37,7 +37,7 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-dcd58526.js";
+            window.path_to_searchindex_js = "searchindex-8eae034c.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-ba6dda15.js"></script>
@@ -226,6 +226,10 @@ throughout the wiki.</p>
 <li><code>tools/symbols/poffsets.txt</code> contains reviewed base-plus-offset references. These make an operand such as <code>mathprintArenaState + 0x0D</code> render as a structure member without inventing a second global name for the field address.</li>
 </ul>
 <p><code>tools/symbols/ty_regions.txt</code> applies the C layouts built by <code>BuildTypes.java</code>. The prose can therefore use expressions such as <code>table_value_cache.band[1].value[row]</code> once it introduces the typed base and its concrete address. A physical boundary, trace target, or byte-level proof still keeps its concrete address. [confirmed]</p>
+<p><code>tools/symbols/ty_enum_operands.txt</code> applies enum-member equates only at reviewed scalar
+operands. Each row includes the instruction bytes, so a changed opcode or
+constant stops the database build instead of attaching a stale enum name.
+[confirmed]</p>
 <h2 id="math-notation"><a class="header" href="#math-notation">Math notation</a></h2>
 <p>Formulas are written in LaTeX and rendered by KaTeX (offline, client-side): <code>$…$</code> for inline math and <code>$$…$$</code> for display. Algorithms render as pseudocode blocks and data/control-flow diagrams as Mermaid.</p>
 <h2 id="evidence-and-reproducibility"><a class="header" href="#evidence-and-reproducibility">Evidence and reproducibility</a></h2>
