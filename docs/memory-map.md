@@ -61,7 +61,7 @@ targets when the retail pages are absent.
 | `0x9340` | `plotSScreen` | byte[768] | Graph/display buffer (96×64/8) [confirmed] |
 | `0x86EC` | `saveSScreen` | byte[768] | Saved screen buffer [confirmed] |
 | `0x9824` | `FPS` | — | Floating-point stack pointer [standard] |
-| `0x85BC` | `onSP` | — | SP saved by ON-interrupt [confirmed] |
+| `0x85BC` | `onSP` | word | Context-start stack checkpoint written at `ram:0BE9`; error callbacks use the separate `errSP` chain [confirmed] |
 
 `IY` is held at `flags` (`0x89F0`) almost everywhere, so `(IY+off)` accesses index `SystemFlags` fields (`appFlags`, `kbdFlags`, …).
 

@@ -13,28 +13,30 @@ RST 28h          ; opcode 0xEF
 
 ## The dispatcher — `bcall_dispatcher` @ `ram:2a2f` [confirmed]
 
-From the decompiler:
+The dispatcher at `ram:2A2F`–`ram:2A97` performs these steps. [confirmed]
+
 1. Read the 2-byte ID `dw` from the caller's return address.
 2. Decode the ID's high bits: `bit15`/`bit14` select the address class; the low bits form the table offset.
 3. Bank the bcall table page into slot A (via the helper at `ram:181c`, which sets `port_mapBankA`).
 4. Read the 3-byte table entry: target address (2) + target page (1).
-5. Bank the target page into slot A (`port_mapBankA = page`), save the previous page.
-6. `call` the target. On return, restore the previous page and resume the caller at `+3`.
+5. Bank the target page into slot A. A zero page byte keeps the caller's bank-A mapping for a fixed-page target (`ram:2A8B`–`ram:2A90`).
+6. Restore the input registers and enter the target with `RET`. Its normal return reaches `ram:2B41`, which restores the saved bank-A selector, then resumes the caller at `+3`.
 
 ## The jump table — flash page `0x3B` [confirmed]
 
 - Located at the start of physical flash page `0x3B` (file offset `0x3B*0x4000 = 0xEC000`).
 - **3-byte entries**: `addr_lo, addr_hi, page`. IDs step by 3 from `0x4000`, so entry for ID *X* is at table offset `X-0x4000`.
-- Resolution method (`tools/` Python): scored all 64 pages by how many named IDs produced a valid `(addr∈4000..7FFF or page-0, page<0x40)` entry; page `0x3B` scored highest (the page-selection heuristic uses a conservative validity filter chosen only to pick the table). Once `0x3B` is selected and applied, 645 entries resolve and are live-confirmed. Of those IDs, 623 also appear in the included SDK equates and 22 are project-inferred additions.
+- The resolver scores all 64 pages by plausible target addresses; page `0x3B` scores highest. The dispatcher independently selects it at `ram:2A5E`–`ram:2A6D`. The 645 checked rows resolve from ROM bytes; 623 IDs also appear in the SDK equates and 22 have project-inferred names. This is mapping evidence, not runtime coverage of every body.
 - Validation: known bcalls land exactly where expected — `_PutS`→`01:5C39`, `_GetKey`→`06:491E`, `_ClrLCDFull`→`01:60E4`, `_GetCSC`→`00:04B2`, `_CreateReal`→`00:10B8`.
 
 `tools/symbols/bcall_targets.txt` holds 645 resolved main-table bcall rows.
 The retail boot table has 87 populated entries. `tools/symbols/bcalls8x_targets.txt`
 holds the 83 rows with official SDK names; four populated slots have only
 project-inferred names in the [bcall index](bcall-index.md#retail-boot-0x8xxx-bcalls).
-`tools/ti84re/rom/resolve_bcalls.py` emits the official-name rows only when page `3F` has
-the retail prefix and page `2F` contains the companion USB payload; its
-BootFree guard otherwise leaves only diagnostic comments.
+`tools/ti84re/rom/resolve_bcalls.py` emits the official-name rows when page `3F` has
+the retail prefix. It does not hash the companion USB payload; validate the
+complete image using [provenance](provenance.md) before using those targets.
+A BootFree or unknown prefix leaves diagnostic comments instead.
 `tools/ghidra/ApplyBcalls.java` disassembles and names the confirmed bodies.
 `tools/ghidra/BcallEvidenceStudy.java` then provides a read-only listing, reference,
 and decompiler dump for a selected set of IDs. For example:
@@ -49,7 +51,7 @@ nix develop -c ghidra-analyzeHeadless "$PWD" ti84 \
 ## Jump-table ID ranges
 
 The dispatcher (`bcall_dispatcher`) decodes the ID's top two bits to pick the table page: bit 15 set → page-byte `0x7F` (masked `& 0x3F` → page `0x3F`); bit 14 set → `0x7B` (→ page `0x3B`); with *neither* bit set it falls through to `lookup_bcall_table_page` (`ram:2ADA`). The two tables real bcall IDs use:
-- `0x4xxx`–`0x7FFF` (bit 14 set): the main table on flash page `0x3B`, entry at offset `ID − 0x4000` (645 live-confirmed bcalls: 623 IDs also present in the included SDK equates and 22 project-inferred additions).
+- `0x4000`–`0x7FFF` (bit 14 set): the main table on flash page `0x3B`, entry at offset `ID − 0x4000` (645 byte-resolved rows: 623 IDs also present in the included SDK equates and 22 project-inferred names).
 - `0x8xxx` (bit 15 set): the retail boot table is on physical page `3F`, indexed by `ID & 0x7FFF`. Its real entries occupy IDs `0x8018`–`0x80D2` and `0x80E4`–`0x8129`; bytes `3F:40D5`–`3F:40E3` between those ranges are executable dispatch-stub bytes, not five table entries. `D84PBE1.8Xv` supplies the retail page `3F`; `D84PBE2.8Xv` supplies the companion USB boot support page `2F`. Most entries resolve to `3F:addr`; USB entries such as `_AttemptUSBOSReceive` (`80E4`) and `_InitUSB` (`8108`) resolve to `2F:addr`. `tools/ti84re/rom/resolve_bcalls.py` refuses to emit these targets from a BootFree-substituted page. [confirmed]
 
 Both resolved table formats are 3-byte entries: target address (little endian) plus page byte masked with `& 0x3F`.
@@ -80,14 +82,24 @@ CALL cross_page_jump ; = CALL ram:2B09
 .db page
 ```
 
-`cross_page_jump` reads the stacked return address (its caller's, via an
-`SP`-relative load — it does not `POP` it), fetches the 2-byte target + 1-byte
-page from the inline descriptor there, rewrites the return frame past those 3
-bytes, banks the page (`& 0x3F`), and returns into the target. The target's
-`RET` then returns to *the bjump's caller*, so it behaves like a call that
-consumes the 3 inline bytes.
+`cross_page_jump` reads the stacked descriptor address through an `SP`-relative
+load at `ram:2B0E`–`ram:2B14`. It replaces that frame with the saved bank-A
+selector and constructs a target/restore frame at `ram:2B15`–`ram:2B26`.
+On this TI-84 Plus, the page byte is masked with `0x3F` when port `0x21`
+bits 0–1 are zero (`ram:2B32`–`ram:2B3B`). It restores the input registers
+and enters the target with `RET`. [confirmed]
 
-There is a trampoline table in the page-0 address range `ram:3B01`–`ram:3D0A`: 87 packed 6-byte entries, each a bjump to a hot OS routine on another page (`ram:3D0B` already begins a separate `CALL ram:2B49` table). The static Ghidra database models it in the page-0/ROM address space; whether the table is copied to RAM at runtime remains a hypothesis. Code invokes a routine by `CALL ram:3Bxx` into the table. `tools/symbols/bjumps.txt` lists every entry's `(offset → page:addr)`; `tools/ghidra/RamRoutines.java` marks the inline `.dw/.db` as data and comments each target.
+The target's normal `RET` enters `ram:2B41`, restores bank A, and returns
+through the enclosing routine's return address. Execution does not resume
+after the inline descriptor. This is a tail-jump, so a trampoline needs no
+separate `RET` after its six-byte encoding. [confirmed]
+
+The fixed Flash page-0 range `ram:3B01`–`ram:3D0A` contains 87 packed
+six-byte trampolines. `ram:3D0B` begins a separate `CALL ram:2B49` table.
+Calls to `ram:3Bxx` execute the Flash bytes directly; the `ram` prefix is
+Ghidra's address-space name. `tools/symbols/bjumps.txt` lists every entry's
+target, and `tools/ghidra/RamRoutines.java` marks the descriptors as data.
+[confirmed]
 
 Example: `_PutMap`'s glyph blitter is reached via the trampoline at `ram:3B3D → 07:4588`.
 

@@ -66,7 +66,12 @@ matched function-entry recovery for both images. [confirmed]
 hardware or emulator environment, ASIC revision, emulator profile, OS version,
 boot-page classification, component page ranges, the 2007 include-file
 identity, Ghidra version, Git revision, dirty-tree state, and a digest over the
-top-level analysis scripts.
+maintained analysis code and inputs. The digest covers top-level tool scripts
+and supported source files beneath `tools/ghidra`, `tools/ti84re`,
+`tools/symbols`, `tools/probes`, `tools/macros`, and `tools/js`. Generated
+reports, ROM inputs, and Python bytecode are excluded. Supply
+`--ghidra-version` when the result depends on a known Ghidra installation;
+otherwise that field remains `unknown`.
 
 ```sh
 nix develop -c python3 -m ti84re.rom.provenance manifest \
@@ -93,7 +98,11 @@ nix develop -c python3 -m ti84re.rom.provenance verify \
   tools/data/resident-launch-snapshot.csv
 ```
 
-The command rejects missing, mixed, or mismatched identities. Raw TLMT traces
+The command requires a valid identity on every CSV row. For JSON it checks
+every `rom_sha256` and `rom.sha256` declaration, including nested objects;
+a report-level declaration may cover rows without separate declarations.
+Descriptive strings such as `"rom": "38:4180–419D"` are locations, not hashes.
+It rejects missing, malformed, mixed, or mismatched declared identities. Raw TLMT traces
 do not embed a ROM hash, so they require a JSON provenance sidecar; verify the
 sidecar rather than treating the trace filename as evidence. [confirmed]
 

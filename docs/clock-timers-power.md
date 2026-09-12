@@ -287,7 +287,7 @@ physical measurement. [confirmed] for the constants and control flow;
 the [standard] timer decode. The encoder and trace lanes preserve their source
 contexts; neither measures physical calculator cadence.
 
-Port `0x2D` controls low-power behavior. Bit 0 keeps the quartz oscillator active on the TI-83 Plus Silver Edition; the TI-84 Plus RTC already requires it. Bit 1 allows the programmable timers to continue counting in low power. TI writes `0x03`. Public hardware tests report that these timers still do not reliably interrupt a halted CPU, so software should keep a standard timer enabled when it must escape `HALT`. [standard]
+Port `0x2D` controls low-power behavior. Bit 0 keeps the quartz oscillator active on the TI-83 Plus Silver Edition; the TI-84 Plus RTC already requires it. Bit 1 allows the programmable timers to continue counting in low power. Public hardware notes describe `0x03`; this retail ROM instead writes `0x02` at `3F:41B8`. Public hardware tests report that these timers still do not reliably interrupt a halted CPU, so software should keep a standard timer enabled when it must escape `HALT`. [standard] for the public bit meanings; [confirmed] for the ROM write.
 
 ### Prepared physical discriminator
 
@@ -414,7 +414,7 @@ aligned instructions with a statically resolved port. Regression tests pin
 their ports to `0x48` and `0x44`. This is ROM evidence; the separate TilEm RTC
 probes below test emulator behavior. [confirmed]
 
-The hardware documentation does not describe a snapshot/latch operation for current-time reads. The OS reads high byte first, which reduces but does not eliminate the possibility of a rollover between the four port reads. No retry or two-pass coherence check appears at `37:58A1`. [confirmed] for the OS sequence; [hypothesis] for physical rollover behavior.
+The hardware documentation does not describe a snapshot/latch operation for current-time reads. The OS reads high byte first, but separate byte reads can straddle a rollover and produce an incoherent value if the hardware does not latch them. No retry or two-pass coherence check appears at `37:58A1`. [confirmed] for the OS sequence; [hypothesis] for physical rollover behavior.
 
 TilEm reads host `time_t` separately on every current-register access. A
 probe-controlled rollover from `0x00FFFFFF` to `0x01000000` between the

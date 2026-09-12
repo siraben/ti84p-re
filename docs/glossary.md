@@ -47,7 +47,7 @@ the wiki.
 | `flags` | 0x89F0 | The IY-indexed system flag area (`SystemFlags` struct). |
 | `OP1` | 0x8478 | Primary FP accumulator. |
 | `FPS` | 0x9824 | Floating-point stack pointer. |
-| `onSP` | 0x85BC | SP saved at context/parse start; `_JError` unwinds to it (try/catch). |
+| `onSP` | 0x85BC | Context-start stack checkpoint written at `ram:0BE9`; `_JError` instead unwinds through `errSP`. |
 | `symTable` | 0xFE66 | Top of RAM; the VAT grows down from here. |
 | `kbdScanCode` | 0x843F | Last keypad scan code (filled by the ISR, read by `_GetCSC`). |
 | `plotSScreen` | 0x9340 | The 768-byte graph/display buffer (96×64). |

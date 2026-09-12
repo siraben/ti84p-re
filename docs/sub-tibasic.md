@@ -368,7 +368,7 @@ guard paths. This table groups related paths so the mechanism stays visible:
 
 | Program | Originating guard | Predicate | Error shim |
 |---------|-------------------|-----------|------------|
-| `Disp 1/0` | `00:2548–254B` | divisor in OP1 is zero | `_ErrDivBy0` at `00:26EC` |
+| `Disp 1/0` | `00:2548–254B` | divisor in OP2 is zero | `_ErrDivBy0` at `00:26EC` |
 | `Disp 10^100` | `02:7076–7078`, then `02:7053–7059` | positive exponent argument is at least 100 | `_ErrOverflow` at `00:26E8` |
 | `Disp 1E99*1E99` | `00:2513–251D` | adjusted sum of biased decimal exponents overflows | `_ErrOverflow` at `00:26E8` |
 | `Disp ln(0)` | `02:6F1E`, then `00:212D–2131` | logarithm operand in OP1 is zero | `_ErrDomain` at `00:26F4` |

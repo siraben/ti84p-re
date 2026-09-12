@@ -72,9 +72,9 @@ Only two scan codes have first-scan boot meanings: [confirmed]
 ```z80
 3F:422D  call raw_key_scan
 3F:4230  cp 0x38             ; DEL
-3F:4232  jp z,3F:4279
-3F:4235  cp 0x20             ; STAT
-3F:4237  jr z,3F:4270
+3F:4232  jr z,3F:4279
+3F:4234  cp 0x20             ; STAT
+3F:4236  jr z,3F:4270
 ```
 
 All other keys, including MODE (`0x37`), take the fast installed-OS check:
@@ -99,7 +99,7 @@ flowchart TD
     init --> scan[First raw key scan]
     scan -->|DEL 0x38| del[Initialize recovery]
     scan -->|STAT 0x20| stat[Set USB-first flag and initialize recovery]
-    scan -->|Any other code| marker{RAM sentinels valid?}
+    scan -->|Any other code| marker{Page-0 Flash markers valid?}
     marker -->|Yes| os[ram:0053 to installed OS]
     marker -->|No| del
     del --> receive[boot_receive_dispatch]
@@ -163,7 +163,7 @@ a controlled sending peer. [hypothesis]
 
 ## OS validation and invalid-image handling
 
-The fast reset path deliberately uses only the RAM sentinel at `0x0038` and
+The fast reset path deliberately uses only the Flash byte at `00:0038` and
 handoff marker `0xA55A` at `0x0056`. It does not call `_CheckOSValidated`.
 [confirmed]
 
@@ -179,7 +179,7 @@ state, validates again, erases Flash page 0 if the image remains invalid,
 closes the protected gate, and enters a power/HALT loop. [confirmed]
 
 This split matters when interpreting a normal trace: reaching the installed
-OS proves that the two RAM markers passed on that boot, not that the trace
+OS proves that the two page-0 Flash markers passed on that boot, not that the trace
 executed a fresh certificate or cryptographic validation. [confirmed]
 
 ## Reproduction

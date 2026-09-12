@@ -11,8 +11,9 @@ browser-arithmetic boundary.
 
 ## Window variables [confirmed]
 
-All graph window state lives in a contiguous block of 9-byte `TIFloat`s starting at `0x8F50`.
-These are the values the WINDOW editor writes and the grapher reads.
+The active window values occupy a contiguous block of 9-byte `TIFloat`s
+starting at `0x8F50`. Derived scales, integer sampling state, and the alternate
+window copy occupy separate addresses below.
 
 | Addr | Name | Meaning |
 |------|------|---------|
@@ -109,25 +110,31 @@ A function value `y` at sample `x` becomes a `(column, row)` pair through these
 subtract-and-multiply transforms. The same conversion serves graph plotting
 and TRACE coordinate display. [confirmed]
 
-### Inverse: pixel index → real coordinate
+### Integer-to-real coordinate helpers
 
-`_SetXXOP1` (`33:5F7E`) and `_SetXXOP2` (`33:5F83`) take an integer pixel value in A
-and build a real `TIFloat` in OP1 / OP2 (`0x8478` / `0x8483`). [confirmed]
+`_SetXXOP1` (`33:5F7E`) and `_SetXXOP2` (`33:5F83`) convert a two-digit
+unsigned integer in `A` to a real `TIFloat` in OP1 / OP2
+(`0x8478` / `0x8483`). They do not check that `A` is below 100. [confirmed]
 - `CALL 1BA7` zeroes the destination mantissa,
-- `CALL 5F6A` converts the binary value to packed BCD by repeated `ADD A,0x16 / DAA`
-  (binary→decimal nibble accumulation), looping A times,
-- the exponent byte is set so OP1 holds the integer; `_SetXXXXOP2` (`33:5F9E`) is the
-  4-digit (up to 9999) variant for larger pixel/coordinate counts.
+- `CALL 5F6A` splits the input into nibbles. It starts with the low nibble,
+  then adds packed-BCD `16` once per high-nibble unit. The byte result wraps
+  modulo 100.
+- The destination exponent is adjusted to normalize that packed byte.
+  `_SetXXXXOP2` (`33:5F9E`) instead accepts the unsigned word in `HL`.
+  It accumulates all four nibbles with weights 1, 16, 256, and 4096 across
+  three BCD bytes, then normalizes. Its input range extends through 65535.
 
-These are used to turn a pixel column/row (e.g. under the TRACE cursor) back into the real
-X/Y shown at the bottom of the screen, and by DRAW commands that take pixel arguments.
+These helpers construct real-valued integers. Converting a pixel index back to
+a window coordinate additionally requires the caller's scale and origin;
+these bodies alone do not perform that inverse transform.
 
 ---
 
 ## Graph buffer and pixel addressing
 
 - `plotSScreen` = `0x9340`, 768 bytes = 96×64/8. Monochrome, 1 bit/pixel, 12 bytes per
-  scanline (8 pixels per byte). This is the back buffer everything draws into. [confirmed]
+  scanline (8 pixels per byte). It is one destination selected by the drawing
+  flags; other states draw directly to the LCD or `appBackUpScreen`. [confirmed]
 - `saveSScreen` = `0x86EC`, 768 bytes — a saved copy (e.g. for redrawing the graph after
   a menu covers it). [confirmed]
 
@@ -223,7 +230,7 @@ compared with the pinned helper bytes for all 65,536 16-bit test seeds.
 
 ### DRAW menu commands (page 0x04 handlers)
 
-Each DRAW menu command has a page-04 bcall handler that draws into `plotSScreen`:
+DRAW menu commands have page-04 handlers that use the shared drawing routes:
 
 | bcall | Addr | Command |
 |-------|------|---------|
@@ -359,13 +366,13 @@ repository.
 ### Graph databases (GDB) [confirmed]
 
 `_StoGDB2` (`33:71AC`) / `_RclGDB2` (`33:72D9`) store/recall a GraphDataBase
-(`GDBObj`, type/exp marker `0x61`) — the bundle of window vars + mode + selected equations
+(`GDBObj`, type `0x08`, fixed-name prefix `0x61`) — the bundle of window vars + mode + selected equations
 that the `StoreGDB`/`RecallGDB` commands save. `_JError(0x89)` on a type mismatch.
 
 ### Indexed pointer helpers [confirmed]
 
 `_PUT_INDEX_LST` (`33:7066`) and `_GET_INDEX_LST` (`33:707A`) store and load
-2-byte slots at `iMathPtr4 + 2n`; `_HEAP_SORT` (`33:7097`) sorts a
+2-byte slots at `word_at(iMathPtr4) + 2n`; `_HEAP_SORT` (`33:7097`) sorts a
 caller-supplied indexed range. Their bodies do not establish a selected-equation
 list or show that Regraph and TABLE share one iterator.
 
@@ -382,9 +389,10 @@ list or show that Regraph and TABLE share one iterator.
   cross-cursor, and uses `_SetXXOP1`/`_SetXXOP2` to convert the cursor pixel back to the real
   X/Y it prints at the bottom. The exact TRACE-side evaluator entry has not yet
   been traced. [confirmed]
-- A `DRAW` command (`_DrawCmd`) or `Line(`/`Circle(`/`Pt-On(` draws straight into
-  `plotSScreen` over the current plot and persists across a SmartGraph redraw (it is not
-  re-evaluated) until `ClrDraw` is issued. [confirmed]
+- A `DRAW` command modifies the current display/buffer through the selected
+  drawing route. A SmartGraph buffer reuse can preserve that drawing without
+  evaluating the command again. A full `_Regraph` clears `plotSScreen` and
+  recomputes the plot, so persistence is not guaranteed until `ClrDraw`. [confirmed]
 
 ---
 

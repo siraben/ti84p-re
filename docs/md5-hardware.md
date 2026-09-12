@@ -166,7 +166,7 @@ The first operation in the `"abc"` trace uses: [confirmed]
 
 ### Immediate result and timing boundary
 
-The boot routine reads `0x1C` on the instruction following the rotate-count output. This proves that software does not initiate a separate operation or wait for completion. It does not establish whether the physical ASIC is combinational, completes within the I/O cycle, or inserts an internal wait state. [confirmed] for instruction order; [hypothesis] for the physical circuit.
+After the rotate-count output at `3F:6BDF`, the helper returns and `3F:6A65` pops the result destination into `DE`. The next instruction reads `0x1C`. No separate start command or completion poll intervenes. This does not establish whether the physical ASIC is combinational, completes within the I/O cycle, or inserts an internal wait state. [confirmed] for instruction order; [hypothesis] for the physical circuit.
 
 TilEm and Wabbitemu recalculate the full result on every read. Mutating an operand between result-byte reads can therefore create a word assembled from different calculations in those emulators. The ROM never does this. Physical result latching has not been tested. [standard] for emulator behavior; [hypothesis] for hardware.
 
@@ -290,13 +290,13 @@ The first descriptor is: [confirmed]
 
 It selects the working words at offsets `0`, `4`, `8`, and `12`, message word 0, rotation 7, and `T=0xD76AA478`. The next descriptors rotate the destination offsets through `12`, `8`, and `4`. The table bytes reproduce all standard MD5 word schedules, rotation counts, and constants. [confirmed]
 
-After all 64 operations, `3F:69D9` adds the four original words saved at `MD5Temp` into the four working words at `MD5Hash`. This is the MD5 compression feed-forward step. [confirmed]
+After all 64 operations, `3F:69D9` adds the four working words at `MD5Temp` into the four original state words retained at `MD5Hash`. This is the MD5 compression feed-forward step. [confirmed]
 
 ### Why the descriptor table matters
 
 The table separates algorithm data from the I/O driver. The four round wrappers at `3F:69FD`, `3F:6A02`, `3F:6A07`, and `3F:6A0C` differ only in the mode written to `0x1F`. `md5_assist_step` handles all operand selection and result placement. Changing one table row would change one message index, rotation, or constant without changing the port code. [confirmed]
 
-The local boot page therefore supplies almost the entire MD5 control structure in software. The ASIC replaces the Boolean expression, five-word addition, rotation, and final addition for one step. It does not replace block scheduling, state rotation, feed-forward, buffering, or padding. [confirmed]
+The local boot page therefore supplies almost the entire MD5 control structure in software. The ASIC replaces the Boolean expression, four-term sum, rotation, and final addition for one step. It does not replace block scheduling, state rotation, feed-forward, buffering, or padding. [confirmed]
 
 ## Finalization
 

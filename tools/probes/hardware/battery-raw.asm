@@ -68,7 +68,9 @@ start:
     ld a,(iy+$18)
     ld (payload_post_trace),a
 
-    ld a,(payload_pre_port04)
+    ; Port 04h reads interrupt status, not its write configuration. Normalize
+    ; to the ordinary TI-OS independent-mapping / idle-selector value.
+    ld a,$06
     out ($04),a
     ld a,(payload_pre_port39)
     out ($39),a

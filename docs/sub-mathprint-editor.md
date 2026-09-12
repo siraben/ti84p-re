@@ -822,7 +822,7 @@ tests whether `0x85DE` is class `0x02`. The ascending class-2 path enters
 `39:59AF`, emits `0Dh` through `RST 28h`, and seeds OP1 with `14h` at
 `39:59C6`. The descending path enters `39:59B6`, scans the eight payload bytes
 at `0x85E7+1` through `39:5A2E`, emits `0Ch`, and conditionally calls
-`39:1BAF` when the emitter leaves carry set before the same `14h` seed.
+`ram:1BAF` when the emitter leaves carry set before the same `14h` seed.
 [confirmed]
 
 For other classes the ascending and descending paths execute `XOR A`, then
@@ -831,7 +831,7 @@ cross to `00:3A53` and `00:306F`, respectively. The fixed-bank stubs reach
 (`_FindAlphaDn = 4A47h`). Both bcalls take the current variable name in OP1.
 They return the selected variable in OP1 and OP3 and its VAT pointer in `HL`;
 carry reports that no matching entry remains. Carry clear then calls
-`39:5C2E`; only class `0x03` with subclass byte `0x01` enters `39:1942`.
+`39:5C2E`; only class `0x03` with subclass byte `0x01` enters `ram:1942`.
 `A = 06h` repeats the alphabetic search, while every other value returns with
 carry clear. The JavaScript model derives each result from OP1 and a logical
 VAT snapshot. It derives the post-search `A` from the selected OP1 type, so a
@@ -1159,9 +1159,9 @@ paragraphs below retain the coordinate and trace details for each row.
 | `0x21` | Absolute value | `34:6347` | Two vertical bars, then child 1. |
 | `0x22` | Integral | `34:622F` | Inclusive stem and four hook points; child placement comes from the record. |
 | `0x23` | `nDeriv(` | `eqdisp_render_handler_table` | Derivative fraction, body, variable, evaluation bar, then repeated variable and value. |
-| `0x24` | nth root | `34:6315` | Index, root hook and stem, radicand, then vinculum. |
+| `0x24` | nth root | `34:6315` | Index, root hook and stem, vinculum, then radicand. |
 | `0x25` / `0x26` | $e^x$ / $10^x$ | `34:6381` | Fixed glyph, then exponent child. |
-| `0x27` | Square root | `34:62A1` | Root hook and stem, radicand, then vinculum. |
+| `0x27` | Square root | `34:62A1` | Root hook and stem, vinculum, then radicand. |
 | `0x28` | `logBASE(` | `34:63B2` | Prefix, base, opening shape, argument, then closing shape. |
 | `0x29` | Summation | `34:6504` | Sigma/equals forms, children 1–3, then delimited child 4. |
 | `0x2A` | Postfix power wrapper | `34:6375` | Recursively renders child 1; emits no primitive itself. |
@@ -1204,7 +1204,7 @@ wrapper with `(x,y_1,y_2)=(2,0,6)` and `(0x1A,0,6)`. [confirmed]
 
 Render-record type `0x24` dispatches to the nth-root handler at `34:6315`. It
 renders index child 1, emits the root-hook bitmap at `x=w_1-1`, draws its short
-vertical segment, renders radicand child 2, and draws the vinculum. The
+vertical segment, draws the vinculum, and renders radicand child 2. The
 cursor-free `nthroot(3,X+1)` history redraw reaches the wrappers with vertical
 segment `(5,3)`–`(5,4)` and vinculum `(5,2)`–`(0x18,2)`. [confirmed]
 
@@ -1526,8 +1526,8 @@ $(h,b)=(19,9)$. Its live root record stores
 $(H_{\mathrm{out}},B_{\mathrm{out}})=(24,9)$. Maximizing the
 height and baseline independently would produce the incorrect height 21.
 
-The small-font table at `03:4CD6` stores seven rows per glyph. `_VPutMap` emits
-the five interior rows. It retains an interior zero row, but it does not emit
+The small-font table at `03:4CD6` stores seven rows per glyph. The MathPrint
+raised-glyph caller makes `_VPutMap` emit the five interior rows. It retains an interior zero row, but it does not emit
 the padding row above or below the glyph. A row that crosses an LCD byte
 boundary writes the right byte before the left byte at `01:63CE`–`01:641A`.
 The large-font path emits all seven rows of its fixed cell. [confirmed]
@@ -1868,7 +1868,7 @@ B &= y_b+b_b.
 \end{aligned}
 $$
 
-The horizontal positions and width are:
+At root render depth, the horizontal positions and width are:
 
 $$
 \begin{aligned}
@@ -1882,6 +1882,9 @@ $$
 The lower bound begins at $(6,H-h_l)$, the upper bound at $(6,0)$, and the body
 at $(x_b,y_b)$. The type-`0x22` record stores $H$, $W$, and $B$ in the words at
 `+7`, `+9`, and `+0x0B`. The variable child uses render type `1`. [confirmed]
+
+At raised render depth, the body-to-variable gap in $x_v$ is ten pixels rather
+than twelve; the other terms above are unchanged. [confirmed]
 
 Twelve reset-origin traces cover unequal token-bound widths, a multi-token body,
 a different variable, power, radical, fraction, and nth-root bodies, structural

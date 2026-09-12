@@ -34,8 +34,8 @@ reentrant mover at `07:61DC` copies the distinct 12-byte tail beginning at
 `arcInfo.vat_ptr`: `LD HL,83F1 / LD DE,8406 / LD BC,0C / LDIR`. The slice runs
 through `arcInfo.unknown_tail[1]`. [confirmed]
 
-The matching `07:61E8` restore candidate is an inferred label, not
-byte-confirmed in the disassembly. [hypothesis]
+The matching restore at `07:61E8` reverses that copy: `LD HL,8406 / LD
+DE,83F1 / LD BC,0C / LDIR / RET`. Both directions copy 12 bytes. [confirmed]
 
 | Addr | Field | Meaning |
 |------|-------------------------|---------|
@@ -50,7 +50,7 @@ byte-confirmed in the disassembly. [hypothesis]
 | `0x8406` | `savedArcInfo` | 12-byte save slot for `arcInfo.vat_ptr` through `unknown_tail[1]` |
 
 RAM-heap pointers used by the mem checks (cluster at `0x9820`–`0x983A`, confirmed in `.inc`):
-`FPS=9824`, `OPBase=9826`, `OPS=9828` (top of the upward data heap), `pTemp=982E`,
+`FPS=9824`, `OPBase=9826`, `OPS=9828` (operand/symbol stack boundary), `pTemp=982E`,
 `progPtr=9830`. The VAT grows *down* from `symTable=0xFE66`. `chkDelPtr3=981C` holds the result
 pointer from the last lookup (`_Arc_Unarc` does `LD (981C),HL`) — note `981C` is `chkDelPtr3` in
 `ti83plus.inc`, not `tSymPtr1` (which is `9818h`). `ramCode=8100h` is where Flash
@@ -79,11 +79,14 @@ with the 2 name bytes at `847A`/`847B`:
 ```z80
 findsym_scan (07:565F):
   CALL FUN_ram_20d6           ; classify OP1 name
-  if name-token (8479) == 0x24 (list-name token):
-        scan the temp/list region: HL from progPtr(9830) down toward OPBase(9826), pTemp(982E)
+  if Z: jump to the length-prefixed-name scanner at 07:55D1
+  if name-token (8479) == 0x24:
+        scan the temporary region: HL from pTemp(982E) down toward OPBase(9826)
   else: HL = symTable (0xFE66), scan downward to progPtr
   loop:
-     A = (HL); A &= 0x1F            ; *** mask off archive flag bits in high nibble ***
+     A = (HL)
+     CALL ram:1784                 ; advance HL from type to name token
+     A &= 0x1F                     ; retain the object class, discard metadata bits
      SBC HL,DE
      RET C  (ran past end → not found)
      CP (HL) against token (8479); on match check name bytes (847A/847B) at HL-1/HL-2
@@ -93,13 +96,14 @@ findsym_scan (07:565F):
 ```
 
 So each VAT entry is read high-address-first; the type byte's low 5 bits are the `TIVarType`; the
-high bits flag the archive state. `_FindSym` returns: type in `A` and `8478`, data pointer in DE,
+high bits carry other metadata. Archive location is recorded in the page byte,
+not a type-byte archive flag. `_FindSym` returns: type in `A` and `8478`, data pointer in DE,
 and the page byte in `B` — `B` is the discriminator: zero for an in-RAM var, nonzero for a var
 whose data lives on a Flash page.
 
 VAT entry shapes (consistent with `_CreateR*` header writes — see [variables-vat.md](variables-vat.md)):
 - fixed-token entries (real/cplx/`Ln`/`[A]`/sysvars) occupy nine bytes. Relative to matched name token `N`, `findsym_scan` reads page at `N+1`, the high/low data-address bytes at `N+2`/`N+3`, skips version and T2 at `N+4`/`N+5`, and reads type at `N+6`.
-- named entries (prog/appvar/group/str/equ) use a high-address-first variable-length name plus the same six metadata bytes. The exact byte order is easiest to reason about relative to the matched name token rather than as a forward C struct.
+- named entries (programs, AppVars, groups, and named lists) use a high-address-first variable-length name plus the same six metadata bytes. Token-named strings and equations use the fixed-token form.
 
 For an archived entry the data address (`addrLSB/MSB`) points into the Flash window and the
 page byte selects the Flash page; the VAT record itself always stays in RAM.
@@ -169,12 +173,12 @@ confusing lookup or display results. [hypothesis]
 
 The older `HIDE` utility directly replaces the complete VAT type byte with
 `ProgObj`, `ProtProgObj`, or `AppVarObj`. It does not test the returned Flash
-page or preserve archive-state bits. A source-matched trace reaches its write
+page or preserve the type byte's metadata bits. A source-matched trace reaches its write
 at `ram:9E29` and changes a RAM `ProgObj` into an `AppVarObj` without moving its
-data. [confirmed] Applying it to an archived object can clear the archived flag
-while leaving the page and address fields unchanged. That unsafe case was not
-executed because it deliberately creates an inconsistent VAT; the resulting OS
-behavior remains a hypothesis. [hypothesis]
+data. [confirmed] Applied to an archived object, this RAM-only write leaves the
+Flash record's saved type unchanged. The VAT page remains the archive
+discriminator. The archived case was not executed; later OS handling and VAT
+reconstruction after reset remain untraced. [hypothesis]
 
 PRGMAPPV provides the safer counterexample. It refuses archived inputs, creates
 a destination through `_CreateAppVar` or `_CreateProtProg`, copies the data,
@@ -259,7 +263,7 @@ and error unwinding remain [hypothesis].
 - Set OP1 type = 0xFF placeholder (`62A9: LD A,FF / LD (8478),A`), parse the destination name.
 - `5F45` resolves/creates the target symbol; then it copies the value. It dispatches on the
   destination name token (`849B`): list-element store (`0x2A` → bounds-checks via `_ErrDimension`),
-  matrix element, etc. Ultimately a `_Create*` routine carves RAM with `_InsertMem` and the data is copied.
+  matrix element, etc. Ultimately a `_Create*` routine carves RAM through the internal gap routine at `ram:0F0C` and the data is copied.
 - A store into an archived var is not done in place; the OS unarchives first (you cannot rewrite
   Flash in place); see the [`_Arc_Unarc` direction logic](#archive-and-unarchive-confirmed). [hypothesis]
 
@@ -304,6 +308,9 @@ _Arc_Unarc (07:6248):
   CP 0x17
   JP Z,26E0                    ; reject GroupObj
   CALL 61F4                    ; Flash → RAM: unarchive
+  OR 1
+  LD A,0
+  RET                          ; unarchive returns here, without falling into archive
 6272:
   CALL 6107                    ; RAM → Flash: archive
   ... name-token-0x5D (list name, `tVarLst`) special-case via 32A9 / cross_page 05:4A6E
@@ -342,7 +349,8 @@ RAM copy; `61F4` is the one that carves RAM and copies the data back out of Flas
        reserves a Flash slot via archive_prepare_scan / archive_find_free_span
 ```
 The data is appended to the archive Flash (Flash cannot be overwritten in place). The VAT entry's
-type byte gets its archive flag set and its data ptr/page rewritten to point into Flash; the old RAM
+type is masked to its low five bits at `07:6176`–`07:6178`, and its data
+pointer/page are rewritten through `07:6236`; the old RAM
 copy is then released (the upward data heap shrinks). `archive_write_record` at `3D:64AA` lays down a fresh archived record plus a copy of the symbol header, name, and data. The status markers are `0xFE` for in progress, `0xFC` for valid, `0xF0` for deleted, and `0xFF` for erased space. The successful archive trace executes the complete body and its six boot-page writes. [confirmed] `_Chk_Batt_Low` (`00:0D07`) gates the Flash write — archiving aborts on low battery (`07:61C5: CALL _Chk_Batt_Low`).
 
 ### Flash-to-RAM unarchive path [confirmed]
@@ -363,11 +371,13 @@ copy is then released (the upward data heap shrinks). `archive_write_record` at 
        CALL 3003 (unarchive_record_to_ram) ; copy Flash→RAM, retire old record
        RET
 ```
-The data is copied from Flash into the freshly-carved RAM gap. The VAT entry's archive flag is
-cleared and its data ptr/page rewritten back to the new RAM address; the old Flash record is left
+The data is copied from Flash into the freshly-carved RAM gap. The VAT entry's
+data pointer is rewritten to the new RAM address and its page becomes zero; the old Flash record is left
 marked dead (`0xF0`, reclaimed at the next GC). `unarchive_record_to_ram`
-at `3D:6440` shares the page-3D flash-control prologue
-(`OUT (0x14)`) and is an inferred label, not byte-confirmed in the disassembly.
+at `3D:6440` unlocks through `OUT (0x14)` at `3D:644E`, copies through
+`_FlashToRam2` at `3D:646C`, and writes `0xF0` through `_WriteAByte` at
+`3D:6478`. It clears `arcInfo.page` at `3D:6483`–`3D:6485`, then updates
+the VAT location through `ram:301B` → `07:6236`. [confirmed]
 
 ### Errors [confirmed]
 
@@ -896,17 +906,19 @@ archive operation at `3C:7F1C`. [confirmed]
 
 ## Memory checks [confirmed]
 
-- `_MemChk` (`00:0E20`) — free RAM = `OPS(0x9828) − FPS(0x9824)`; returns 0 if the heap top
-  has met the FP stack, else `count` (`INC HL` ⇒ off-by-one inclusive). `OPS` is the top of the
-  upward data heap; the gap to the downward VAT is the real free RAM (see `_InsertMem` collision
-  check). The decompiler's trivial 2-line view is wrong — the real routine subtracts the two
-  pointers.
+- `_MemChk` (`00:0E20`) returns `OPS(0x9828) − FPS(0x9824) + 1` when
+  `OPS >= FPS`, and zero otherwise. Equal pointers return one byte. `FPS`
+  bounds the upward floating-point stack; `OPS` bounds the operand/symbol
+  stack above the free span. The subtract and inclusive increment are at
+  `00:0E28` and `00:0E30`.
 - `_EnoughMem` (`00:0FA6`) — ensure N free bytes; if short it walks the temp/scratch entries from
   `pTemp(982E)` down toward `OPBase(9826)` at a 9-byte stride, and `_DelVar`s any entry whose flag
   byte has bit 7 (`& 0x80`) set (a reclaimable temporary), looping until enough or exhausted. Used by
   the `_Create*` routines and by the unarchive RAM-fit check (`61F4` calls it before allocating).
-- `_InsertMem` (`00:0F81`) / `_DelMem` (`00:1368`) — open / close a gap at HL by block-moving
-  everything above; `_InsertMem` fails `E_Memory` if it would collide with the VAT.
+- `_InsertMem` (`00:0F81`) opens `HL` bytes at `DE`; `_DelMem`
+  (`00:1368`) closes `DE` bytes at `HL`. They move the affected RAM and
+  repair OS pointers. `_InsertMem` performs no free-space check; callers must
+  check capacity before entering it.
 - Free archive is computed inside the page-3D archive layer.
   `archive_prepare_scan` at `3D:61AF` prepares its accounting state,
   `archive_find_free_span` at `3D:62C2` searches for placement, and
@@ -919,12 +931,12 @@ archive operation at `3C:7F1C`. [confirmed]
 
 | space:addr | name | what |
 |------------|------|------|
-| `07:6248` | `_Arc_Unarc` | archive/unarchive entry; toggles arc flag, dispatches RAM↔Flash |
+| `07:6248` | `_Arc_Unarc` | archive/unarchive entry; dispatches RAM↔Flash from the VAT page byte |
 | `07:628B` | `arc_chk_name` | archivable-name validator |
 | `07:6107` | `arc_ram_to_flash` | RAM→Flash archive worker (programs Flash, frees old RAM) |
 | `07:61F4` | `arc_flash_to_ram` | Flash→RAM unarchive worker (carves RAM, copies from Flash) |
 | `07:6331` | `arc_size_setup` | stash vatPtr, compute dataSize into arcInfo |
-| `07:61DC` | `arc_save_info` | save the 12-byte tail from `arcInfo.vat_ptr` into `savedArcInfo`; `07:61E8` is an inferred restore candidate |
+| `07:61DC` | `arc_save_info` | save the 12-byte tail from `arcInfo.vat_ptr` into `savedArcInfo`; `07:61E8` restores it |
 | `07:565F` | `findsym_scan` | the real `_FindSym` VAT scanner |
 | `00:0E65` | `_FindSym` | RST10 trampoline → findsym_scan |
 | `00:0E60` | `_ChkFindSym` | type-check OP1 then FindSym |
@@ -956,7 +968,7 @@ archive operation at `3C:7F1C`. [confirmed]
 | `3C:7C1F` | `gc_recover_by_phase` | dispatch interrupted states `FF/FE/FC/F8/F0/E0` |
 | `3C:7CFB` | `gc_run_phase_machine` | run the normal sector pass and advance persistent phases |
 | `3C:7E0D` | `gc_show_screen` | display `"Garbage"` and `"Collecting..."` from page `01` |
-| `00:0E20` | `_MemChk` | free RAM = OPS − FPS |
+| `00:0E20` | `_MemChk` | free RAM = OPS − FPS + 1 when OPS ≥ FPS; zero otherwise |
 | `00:0FA6` | `_EnoughMem` | ensure N bytes; reclaim temps |
 | `00:0F81` | `_InsertMem` | open a RAM gap |
 | `00:1368` | `_DelMem` | close a RAM gap |

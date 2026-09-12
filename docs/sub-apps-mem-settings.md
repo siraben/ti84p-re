@@ -514,7 +514,7 @@ The second contains the VAT and user variables and programs. [confirmed]
 A small amount of state survives the wipe. The path restores bits 0–6 of
 `IY+0x3F` and clears bit 7. It conditionally restores `IY+0x34` bit 6 and
 `IY+0x35` bit 0, sets `IY+0x35` bit 1, and restores `localLanguage` at
-`0x9B73`. It then `JP 0x0BD9`, the RAM-init entry (`OUT (0)` page select, `LD SP,0xFFF7`,
+`0x9B73`. It then `JP 0x0BD9`, the RAM-init entry (`OUT (0)` releases the raw link lines, `LD SP,0xFFF7`,
 then `CALL 0x3EC1` — the cross-page trampoline that rebuilds the VAT, system vars, and LCD; see [Boot contexts & errors](boot-contexts-errors.md)), which rebuilds a
 clean default VAT and system state and re-enters the homescreen. The Flash archive is not
 touched by a plain RAM reset.
@@ -591,8 +591,9 @@ clr_grfmode (36:7D00):  grfModeFlags &= 0xEF & 0xDF & 0xBF & 0x7F   # clear bits
 | `_SetParM`  | `36:7D39` | bit 6 (`\|0x40`) | `grfParamM` (Parametric) |
 | `_SetSeqM`  | `36:7D1F` | bit 7 (`\|0x80`) | `grfRecurM` (Sequence/Recursion) |
 
-Each setter first calls a small predicate (`36:0013/0254/0259/025E`) and only re-sets
-the mode if the parity/condition flag (`F` bit6) requires it, avoiding needless redraws.
+Each setter first calls a fixed-page predicate (`ram:0013`, `ram:0254`,
+`ram:0259`, or `ram:025E`) and executes `RET NZ`. It changes the mode only
+when the predicate returns Z. This is the zero flag (F bit 6), not parity.
 
 Other `grfModeFlags` bits (from inc, not in the setters above): bit3 `grfPolar`
 (rect↔polar coordinate readout). Related graph bytes: `grfDBFlags` (`IY+0x04`) bit0
@@ -612,7 +613,7 @@ bit5 `grfNoAxis`; `seqFlags` (`IY+0x0F`).
 | 6 | `fmtRect` | rectangular complex display (a+bi) |
 | 7 | `fmtPolar` | polar complex display (re^θi) |
 
-So Normal/Sci/Eng = (bit0, bit1): Normal = `00`, Sci = `01`, Eng = `11`.
+So Normal/Sci/Eng = (bit1, bit0): Normal = `00`, Sci = `01`, Eng = `11`.
 `fmtOverride` (`IY+0x0B`, `0x89FB`) is a working copy used during conversions.
 
 Float vs Fix N is not in `fmtFlags` — it is the separate byte `fmtDigits` =

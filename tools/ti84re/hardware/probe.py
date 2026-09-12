@@ -307,7 +307,11 @@ def _decode_restoring_samples(
             "trace_flags": f"0x{restored[3]:02X}",
             "status": f"0x{frame.payload[29]:02X}",
         },
-        "cleanup_matches": restored == pre,
+        # Port 04 reads interrupt status, not the configuration written there.
+        # A changed pending interrupt is not a failed GPIO/flag restoration.
+        "cleanup_matches": restored[1:] == pre[1:],
+        "cleanup_compared_fields": ["port_0x39", "port_0x3A", "trace_flags"],
+        "port_0x04_read_semantics": "interrupt-status-not-configuration",
     }
     return report, samples
 
@@ -491,7 +495,7 @@ def decode_probe_measurements(frame: ProbeFrame) -> dict[str, object]:
             1: "returned",
             2: "no-ret-found",
             3: "target-changed-before-fetch",
-            4: "unsupported-paired-mapping",
+            4: "legacy-port04-bit0-rejection-not-mapping-evidence",
         }
         kind = frame.payload[0]
         outcome = frame.payload[8]

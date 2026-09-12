@@ -332,8 +332,10 @@ the physical order of VAT records. [confirmed]
 
 For `fnInt(expr,var,lower,upper[,tol])`, the visible MathPrint fields preserve parser
 order: slot 0 is the integrand, slot 1 is the variable, slot 2 is the lower endpoint,
-slot 3 is the upper endpoint, and slot 4 is the optional tolerance. The evaluator on
-pages `02` and `33` consumes the same order. [confirmed]
+slot 3 is the upper endpoint, and slot 4 is the optional tolerance. The numeric
+dispatch for single-byte token `24h` calls `07:6365` through bcall ID `4A83h`;
+page-`33` editor visits do not identify the evaluator. See
+[Numeric calculus](sub-solver-numeric.md). [confirmed]
 
 The same routine implements tall-template row composition. `eqdisp_layout_main` reaches
 `39:5167` from the action-`0x08` window-advance path at `39:50A4` and the action-`0x04`
@@ -499,7 +501,9 @@ $$x_\text{right} = x_\text{left} + 4$$
 
 Static callers of `39:6ABF`, `39:6B1C`, and the box wrapper `39:6AF5` are all in this
 fraction-template UI path. The emitter for the visible bar in a generic
-expression remains unidentified. [confirmed]
+expression is described separately in the
+[settled fraction renderer](sub-mathprint-editor.md#nth-roots-and-fractions).
+These page-`39` helpers establish the template UI path. [confirmed]
 
 ## Exponents and raised rows
 
@@ -508,8 +512,9 @@ Superscripts are represented as row placement, not as a font attribute. The help
 to a higher display row before emitting the selected cell. The per-row height accounting
 then folds that raised row into the parent layout. [confirmed]
 
-This means `X^2` is stored and walked as ordinary cells in different rows. The row selection
-does the work; the glyph for `2` is the ordinary one.
+On this page-`39` path, raised cells use row selection rather than a special
+superscript glyph. The page-`34` settled power record has a separate structural
+representation and renderer.
 
 ## Radicals
 
@@ -529,8 +534,9 @@ special high-byte `D=1F` form used by the `39:4E8E` IX-backed branch.
 
 The static `39:5167` path can advance a recursive operand window when selected,
 but the demonstrated traces do not connect it to the radical records. The
-precise division between fixed root glyphs, radicand placement, and any
-vinculum drawing remains open.
+page-`39` entry that selects the root-mark emitter remains open. The
+[settled radical renderer](sub-mathprint-editor.md#absolute-values-powers-and-roots)
+separately pins radicand placement and vinculum drawing.
 
 ## Integrals and summations
 
@@ -549,7 +555,7 @@ to large-font code `0x08`, and emits it. [confirmed]
 The static `39:5167` path can compose argument slots around a fixed glyph:
 
 1. Place the tall integral glyph on the main axis.
-2. Walk the lower, upper, integrand, and variable slots in parser order.
+2. Walk argument slots; parser source order is integrand, variable, lower, upper.
 3. Update `0x844B` by the row step from `39:5949`.
 4. Emit slot markers through `39:4E0A`.
 5. Emit the operand bodies through `39:5B10` and `39:5B1D`.
@@ -1015,4 +1021,5 @@ commands place `EF 36 31 11` at the editor cursor. It is the sole synthetic
 source in the 276-trace report. It supplies the only evidence for
 `34:5A23` fallthrough and `34:6992` taken. The token-built matrix traversal
 supplies the first natural witness for `34:6B94` taken. The full minimum
-retains it; the natural minimum excludes it by construction. [confirmed]
+retains the synthetic trace; the natural minimum excludes that trace by
+construction and retains the token-built matrix traversal. [confirmed]

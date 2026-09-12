@@ -218,6 +218,18 @@ class HardwareProbeTests(unittest.TestCase):
         with self.assertRaisesRegex(ProbeFormatError, "range 0 through 4"):
             decode_probe_measurements(frame)
 
+    def test_battery_cleanup_does_not_compare_interrupt_status(self):
+        for probe_id in (6, 7):
+            pre = bytes.fromhex("08F08020")
+            restored = bytes.fromhex("09F08020")
+            frame = ProbeFrame(
+                probe_id=probe_id, asic_id=0x45, status=0xE3,
+                payload=pre + bytes(16) + bytes(5) + restored + bytes((0xE3,)),
+            )
+            report = decode_probe_measurements(frame)
+            self.assertTrue(report["cleanup_matches"])
+            self.assertNotIn("port_0x04", report["cleanup_compared_fields"])
+
     def test_raw_battery_probe_reports_masks_selectors_and_cleanup(self):
         pre = bytes.fromhex("06F08020")
         masks = bytes((0x0D,)) * 16

@@ -9,8 +9,8 @@ All TI-BASIC arithmetic runs through a BCD floating-point engine centered on the
 ```text
 +0  type      0x00 = real (positive), 0x80 = negative real;
               0x0C/0x8C = complex (paired with the imaginary part)
-+1  exp       base-100? no — base-10 exponent, biased by 0x80 (0x80 = 10^0)
-+2..+8  mantissa   7 bytes = 14 packed BCD digits, normalized d.dddddddddddddd
++1  exp       base-10 exponent, biased by 0x80 (0x80 = 10^0)
++2..+8  mantissa   7 bytes = 14 packed BCD digits, normalized d.ddddddddddddd
 ```
 
 As a C struct:
@@ -19,7 +19,7 @@ As a C struct:
 typedef struct {
     uint8_t type;          /* +0: 0x00 real (positive), 0x80 negative; 0x0C/0x8C complex part */
     uint8_t exp;           /* +1: base-10 exponent, biased by 0x80 (0x80 == 10^0)             */
-    uint8_t mantissa[7];   /* +2..+8: 14 packed BCD digits, normalized d.dddddddddddddd        */
+    uint8_t mantissa[7];   /* +2..+8: 14 packed BCD digits, normalized d.ddddddddddddd         */
 } TIFloat;                                              /* 9 bytes on disk / in a stored var   */
 /* In an OP register slot the number occupies 11 bytes: the 9 above plus 2 trailing guard      */
 /* digit bytes (OP1EXT at +9/+10) used during math — see "OP registers" below.                 */
@@ -28,7 +28,11 @@ The stored value is
 
 $$v = \pm\\,(d_0.d_1d_2\cdots d_{13})\times 10^{\\,e-\mathtt{0x80}}$$
 
-where $e$ is the biased exponent byte and $d_0\ldots d_{13}$ are the 14 BCD mantissa digits. A ROM-byte scan found roughly 126 candidate BCD constants ROM-wide [hypothesis] ($\pi/180 = 1.745\ldots\mathrm{e}{-2}$, $180/\pi = 5.729\ldots\mathrm{e}{1}$, 65536, plus the FP transcendental coefficient tables on page 0x02). The table addresses below are confirmed by Ghidra disassembly and raw ROM bytes.
+where $e$ is the biased exponent byte and $d_0\ldots d_{13}$ are the 14 BCD
+mantissa digits. For a normalized nonzero value, $d_0$ is nonzero; zero is a
+special representation. This is decimal precision, not a binary IEEE format.
+The constants below include $\pi/180$, $180/\pi$, and the page-`02`
+transcendental tables; their bytes are checked against the ROM.
 
 ## OP registers — 11 bytes each [confirmed]
 
@@ -42,16 +46,25 @@ typedef struct {
 ```
 
 The guard bytes extend the stored BCD mantissa during calculation. `OP1` is
-the primary accumulator; binary operations use `OP2` and return in `OP1`.
+the primary accumulator. The real add/subtract/multiply/divide entries use
+`OP2` as their second operand and return in `OP1`; complex operations and
+comparisons have distinct register and flag contracts.
 
 ## Core operations [confirmed]
 
-Every binary operation has the shape `OP1 ∘ OP2 → OP1`. Add and subtract walk the same five stages below; multiply and divide instead *combine* exponents (add them for `×`, subtract for `÷`) and multiply/divide the mantissas. Because the format is sign-magnitude BCD, the sign is settled separately — negating a value is a single `XOR 0x80` on its type byte — so the digit work always runs on a non-negative 14-digit mantissa:
+The four basic real arithmetic entries have the shape `OP1 ∘ OP2 → OP1`.
+Add and subtract align exponents; multiply and divide instead combine them.
+The sign is handled separately from the BCD digit work. For nonzero inputs,
+negation toggles type bit 7; `_InvOP1S` also clears the sign of zero.
+The add/subtract helpers process eight bytes: seven stored mantissa bytes plus
+the first extension byte, giving 16 working decimal digits. The second
+extension byte is cleared too, but is not part of that eight-byte add loop.
+The following flow describes add/subtract, not every binary operation:
 
 ```mermaid
 flowchart LR
     A["clear guard digits<br/>fp_clear_guard"] --> B["align exponents<br/>shift smaller right by Δ"]
-    B --> C["BCD digit op<br/>add / sub / mul / div"]
+    B --> C["BCD digit op<br/>add / subtract"]
     C --> D["renormalize<br/>back to d.dddd…"]
     D --> E["round on guards<br/>write type/exp to OP1"]
 ```
@@ -63,8 +76,8 @@ The page-0 entry points — the hottest get a one-byte `RST` shortcut, which is 
 | `_FPAdd` | `ram:229E` | `RST 30h` | `OP1 ← OP1 + OP2` |
 | `_OP1ToOP2` | `ram:1A2F` | `RST 08h` | copy `OP1 → OP2` (11 bytes, via `copy_op11` `ram:1a8e`) |
 | `_Mov9ToOP1` | `ram:1B01` | `RST 20h` | load 9 bytes at `HL → OP1` (a constant/var) |
-| `_CkOP1FP0` / `_CkOP2FP0` | `ram:1DE9` / `ram:1DEE` | — | test `OP1`/`OP2 == 0` (sets `Z`) |
-| `_CkOP1Real` | `ram:1942` | — | type-check `OP1` is real |
+| `_CkOP1FP0` / `_CkOP2FP0` | `ram:1DE9` / `ram:1DEE` | — | load the first mantissa byte and `AND A`; Z denotes zero for normalized inputs, not a full mantissa validation |
+| `_CkOP1Real` | `ram:1942` | — | return `A = OP1.type & 0x1F`; Z identifies real type 0. Does not raise an error or validate exponent/mantissa bytes |
 
 ### Alignment, then the worked example — `_FPAdd`
 
@@ -86,10 +99,10 @@ one nibble per `fp_shift_right_digit` call; if $\Delta > 15$ the smaller operand
     \RETURN $OP1$
 \ENDIF
 \STATE $\Delta \gets \mathrm{exp}(OP1) - \mathrm{exp}(OP2)$ \COMMENT{\texttt{fp\_exp\_diff}}
-\STATE shift the smaller mantissa right by $|\Delta|$ digits to align \COMMENT{\texttt{fp\_shift\_right\_digit}}
 \IF{$|\Delta| > 15$}
     \RETURN larger operand \COMMENT{other is negligible}
 \ENDIF
+\STATE shift the smaller mantissa right by $|\Delta|$ digits to align \COMMENT{\texttt{fp\_shift\_right\_digit}}
 \IF{$\mathrm{sign}(OP1) = \mathrm{sign}(OP2)$}
     \STATE $\mathrm{mantissa} \gets$ BCD-add
 \ELSE
@@ -119,7 +132,7 @@ These five page-0 primitives are shared by add/sub/mult/div and the transcendent
 | Helper | Addr | Role [confirmed] |
 |--------|------|------|
 | `fp_shift_right_digit` | `ram:1bea` | Mantissa shift-right by one BCD digit (one nibble). Cascades nibbles down 8 bytes (`b[i] = b[i]>>4 \| b[i-1]<<4`) and returns the digit shifted out. Called per step to align the smaller operand. |
-| `fp_exp_diff` | `ram:1fbf` | Exponent difference `OP1.value.exp − OP2.value.exp` (signed). Drives how many `fp_shift_right_digit` steps are needed for alignment. |
+| `fp_exp_diff` | `ram:1fbf` | Returns the low eight bits of `OP1.value.exp − OP2.value.exp` in A, with carry for unsigned borrow. The caller derives alignment distance; this is not a signed-byte return contract. |
 | `fp_add_mantissa` | `ram:1cb9` | BCD add of the two mantissa+guard runs. Sets `HL=0x848C` (OP2 guard), `DE=0x8481` (OP1 guard) and runs the shared BCD add/`DAA`-style adjust loop (`bcd_add_pair`). Used for same-sign add. |
 | `fp_sub_mantissa` | `ram:1d37` | BCD subtract (`OP1 − OP2`) of mantissa+guard with borrow, via repeated `DAA`-style BCD adjust across all 7 mantissa bytes plus the guard byte. Used for opposite-sign add. (`ram:1d2f`, `fp_sub_mantissa_fwd`, is the same subtract entered with the operand pointers swapped.) |
 | `fp_clear_guard` | `ram:2627` | Zero the extended guard bytes (`OP1EXT`/`OP2EXT`). |
@@ -170,28 +183,30 @@ it does not select a flash page. The actual banked-call helper is
 
 ### The shared algorithm — digit-by-digit pseudo-division [confirmed]
 
-The forward log and exp evaluators use a digit-by-digit pseudo-division
+The table paths in the forward log and exp evaluators use a digit-by-digit pseudo-division
 recurrence. `logexp_digit_table` (`02:7181`) contains the 16 values
 $\log_{10}(1+10^{-k})$ for $k=0\ldots15$. Each step scales a BCD value by
 $1+10^{-k}$ with one digit shift and one BCD addition. Only base conversion
-uses `fp_mul_indexed_constant` and general multiplication. The traces also
+uses `fp_mul_indexed_constant` and general multiplication within these table
+paths. Logarithms also have a near-one path using division, described below.
+The traces also
 separate the accumulator entries: `_EToX` uses `fp_add_mantissa`
 (`ram:1CB9`), while `_LnX` uses its sibling at `ram:1CA9`. [confirmed]
 
-**Logarithm.** With the exponent already split off so the mantissa is $x\in[1,10)$, the loop (`02:6F80`–`6FEE`) drives $x$ up toward $10$ by repeatedly scaling by the largest table factor that doesn't overshoot; the number of scalings at each position *is* the corresponding digit of the answer, and the running sum of the table entries is the logarithm:
+**Logarithm.** With the exponent already split off so the mantissa is $x\in[1,10)$, the loop (`02:6F80`–`6FEE`) drives $x$ up toward $10$ by repeatedly scaling by the largest table factor that doesn't overshoot. The weighted sum of the table entries approximates $\log_{10}(10/x)$; the repetition counts are not decimal digits of the logarithm.
 
 ```pseudocode
 \begin{algorithm}
 \caption{Logarithm by pseudo-division (table $c_k=\log_{10}(1+10^{-k})$ at \texttt{02:7181})}
 \begin{algorithmic}
-\REQUIRE reduced mantissa $x \in [1,10)$, accumulator $L \gets 0$
+\REQUIRE reduced mantissa $x_0 \in [1,10)$, working value $x \gets x_0$, accumulator $L \gets 0$
 \FOR{$k = 0$ \TO $15$}
     \WHILE{$x \cdot (1+10^{-k}) \le 10$}
         \STATE $x \gets x + (x \gg k\text{ digits})$ \COMMENT{$\times(1+10^{-k})$ is a BCD shift-add}
-        \STATE $L \gets L + c_k$ \COMMENT{add count = the $k$-th digit of the answer}
+        \STATE $L \gets L + c_k$
     \ENDWHILE
 \ENDFOR
-\RETURN $\log_{10}x = 1 - L$ \COMMENT{$x$ driven up to $10$, then $\ln x = \log_{10}x \cdot \ln 10$}
+\RETURN $\log_{10}x_0 \approx 1 - L$ \COMMENT{$x$ driven toward $10$, base conversion multiplies by $\ln 10$}
 \end{algorithmic}
 \end{algorithm}
 ```
@@ -200,20 +215,20 @@ The two passes split the coarse digits ($k=0\ldots7$) from the fine digits
 ($k=8\ldots15$). `fp_constant_table` (`02:7D42`) supplies $\ln 10$ as row 6
 through `fp_mul_indexed_constant`; `_LogX` skips that final multiply.
 
-**Exponential.** `_EToX`/`_TenX` (`02:7066`+) run the *same* table backwards — consuming the fractional part $y$ digit by digit, subtracting $\log_{10}(1+10^{-k})$ while building $10^{y}=\prod_k(1+10^{-k})^{d_k}$ into an accumulator, again with only shift-adds:
+**Exponential.** `_EToX`/`_TenX` (`02:7066`+) reverse the recurrence, consuming the fractional part $y$ by subtracting $\log_{10}(1+10^{-k})$ while building a product of the factors $1+10^{-k}$. Both paths visit table selectors in increasing order.
 
 ```pseudocode
 \begin{algorithm}
-\caption{Exponential by pseudo-multiplication (same table, run in reverse)}
+\caption{Exponential by pseudo-multiplication (inverse recurrence)}
 \begin{algorithmic}
-\REQUIRE $y = $ fractional part of $x\log_{10}e$, accumulator $A \gets 1$
+\REQUIRE $y_0 = $ fractional part of $x\log_{10}e$, residual $y \gets y_0$, accumulator $A \gets 1$
 \FOR{$k = 0$ \TO $15$}
     \WHILE{$y \ge c_k$}
         \STATE $y \gets y - c_k$
         \STATE $A \gets A + (A \gg k\text{ digits})$ \COMMENT{$\times(1+10^{-k})$}
     \ENDWHILE
 \ENDFOR
-\RETURN $10^{y} = A$
+\RETURN $10^{y_0} \approx A$
 \end{algorithmic}
 \end{algorithm}
 ```
@@ -227,7 +242,7 @@ supplies the base-conversion and trig-reduction constants. [confirmed]
 > / `6FD3 BIT 4` tests), walking successive `02:7181` rows with a per-step
 > shift-add, then fetches $\ln 10$ via <code>LD A,6</code><br><code>CALL ram:2362</code> and multiplies.
 > `e^{1}` ([`exp1.macro`](https://github.com/siraben/ti84p-re/blob/main/tools/macros/exp1.macro)) drives `_EToX`, which consumes
-> the same table in reverse (the inner step is `fp_sub_mantissa` `1d37`, the
+> the inverse recurrence with increasing table indices (the inner step is `fp_sub_mantissa` `1d37`, the
 > accumulator add `fp_add_mantissa` `1cb9`), selector sweeping `00…0F` under the
 > `710A CP 0x0F` bound. On-screen results: `.6931471806` and `2.718281828`.
 
@@ -239,8 +254,14 @@ identity encoded by each row remains open. [confirmed]
 
 ### `_LnX` — natural log (`02:6EFD`) [confirmed]
 
-`_LnX` first calls `_CkOP1Pos` (`ram:1E5D`) and raises a domain error for
-$x \le 0$. The core at `02:6F1B` splits $x$ into mantissa and exponent. Its
+The real-input `_LnX` entry first calls `_CkOP1Pos` (`ram:1E5D`) and rejects
+a negative sign. The shared core separately rejects zero at `02:6F1E` through
+`ram:212D`; the sign helper alone does not reject zero or check the type.
+The core at `02:6F1B` selects between two paths. Near one, `02:6F33`–`6F7C`
+forms `(x-1)/(x+1)`, rescales it, calls the shared digit recurrence at `02:77A6` with
+`A=0x80`, and doubles its result. This branch bypasses `logexp_digit_table`;
+it corresponds to the identity $\ln x=2\operatorname{atanh}((x-1)/(x+1))$.
+The table path splits $x$ into mantissa and exponent. Its
 pseudo-division loop at `02:6F8C`–`6FEC` steps through
 `logexp_digit_table`. The first phase stops when the selector reaches bit 3;
 the second stops at bit 4. Calls to `fp_mul_indexed_constant` select row 3 for
@@ -249,7 +270,7 @@ $\log_{10}e$ and row 6 for $\ln 10$. [confirmed]
 ### `_EToX` — eˣ (`02:705C`) [confirmed]
 
 `_EToX` clears the guard digits, then uses `fp_mul_indexed_constant` row 3
-for $\log_{10}e$. It skips `_TenX`'s separate guard initialization and joins
+for $\log_{10}e$. Its `JR` at `02:7064` skips `_TenX`'s guard initialization and joins
 the shared body at `02:7069`. That body splits the integer digit shift, handles
 sign and reciprocal cases, then evaluates the fractional part through
 `logexp_digit_table`. The `CP 0x0F` bound at `02:7109` establishes 16 selector
@@ -260,13 +281,13 @@ slots. [confirmed]
 This one keeps its range reduction on page 0x02 and is the most fully recovered:
 
 1. **Mode/select flags.** `0x8499` holds the trig-op selector — `0x01` (sin), `0x02` (cos), `0x04` (tan) — ORed with `0x80` when `(IY+0)` bit 2 is clear (<code>BIT 2,(IY+0)</code><br><code>JR NZ,+2</code><br><code>OR 0x80</code>). `_SinCosRad` itself enters with `A=0x81`, so it stores `0x81` regardless. `fp_clear_guard` and `_ZeroOP3` initialize the work area.
-2. **Exponent gate.** <code>LD A,(0x8479)</code><br><code>SUB 0x80</code><br><code>JP C,02:73D4</code><br><code>CP 0x0C</code><br><code>JP NC</code> — tiny arguments (negative exponent) take a fast path at `02:73D4`, and arguments with decimal exponent ≥ 12 are rejected to the slow/error path (`_JError 0x84` for out-of-range), because reduction can no longer be done accurately.
+2. **Exponent gate.** <code>LD A,(0x8479)</code><br><code>SUB 0x80</code><br><code>JP C,02:73D4</code><br><code>CP 0x0C</code><br><code>JP NC,ram:26F4</code> — magnitudes below 1 skip the initial full-period reduction. Decimal exponents ≥ 12 raise DOMAIN directly. The bound is ROM-confirmed; a formal reduction-error bound is not established here.
 3. **Reduce the angle.** It reduces against the stored period constants and takes the fractional part to find the quadrant. The reduction constants are the page-0x02 BCD block:
    - `02:7D81` — the 2π full-turn modulus (mantissa `62 83 18 53 07 17 96` = `6.2831853…`), copied to the OP3 work reg via <code>LD HL,02:7D81</code><br><code>CALL ram:1AE2</code> (`ram:1AE2`/`copy7_from_8490` copies 7 mantissa bytes to `0x8490`).
    - `02:7D8E`, `02:7D95`, `02:7D96` — companion constants used in the quadrant-fixup / remainder comparisons (`CALL ram:1D7B` magnitude compare at `02:73B1`/`02:7447`).
    The quadrant (0–3) is accumulated in `B`/`bStack_1` (bits 0/3/6) and decides sin-vs-cos and the result sign (the `XOR 0x1 / OR 0x8 / XOR 0x8` flag juggling at `02:7424`–`02:7464`).
 4. **Per-digit evaluation.** The reduced argument enters
-   `transcendental_eval` (`02:7498`), the shared engine used by $\ln$ and $e^x$. For
+   `trig_hyperbolic_recurrence` (`02:7489`), distinct from the log/exp table loops. For
    `sin(1)`, the reduced argument is
    $r = \pi/2 - 1 = 0.5707963267948966$. The engine computes $\cos r$, while
    the quadrant bits in `OP5.value.type` carry the sign and phase. The
@@ -285,8 +306,9 @@ This one keeps its range reduction on page 0x02 and is the most fully recovered:
      loads `trig_recurrence_table_b[0]`, where
      $b_0 = 0.9509852944837202$, into `OP2M`. At each digit position $k$, the
      loop performs $n_k = \lfloor(11-d_k)/2\rfloor$ BCD shift-add steps of
-     $\mathtt{OP2} \gets \mathtt{OP2} + \mathtt{OP2}\cdot10^{-2k}$. This builds
-     $b_0\cdot\prod_k(1+10^{-2k})^{n_k}$ without general multiplication. For
+     $\mathtt{OP2} \gets \mathtt{OP2} + \mathtt{OP2}\cdot10^{-2(k+1)}$. The
+     `INC B` at `02:74F8` precedes the doubled shift count at `02:7504`–`7506`.
+     This builds $b_0\cdot\prod_k(1+10^{-2(k+1)})^{n_k}$ without general multiplication. For
      `sin(1)`, the product is $0.9704891777365256$. [confirmed]
    - **Phase 3 — result assembly (`02:752A` onward).** The engine walks the
      stored digits again with align/add-sub steps and exponent bookkeeping.
@@ -299,7 +321,7 @@ This one keeps its range reduction on page 0x02 and is the most fully recovered:
 > ([`sin1.macro`](https://github.com/siraben/ti84p-re/blob/main/tools/macros/sin1.macro)) drives `_SinCosRad`. The flag init,
 > the exponent gate (<code>735D LD A,(0x8479)</code><br><code>SUB 0x80</code><br><code>JP C,02:73D4</code><br><code>CP 0x0C</code><br><code>JP NC</code> — neither
 > branch taken, since the decimal exponent of 1 is `0`), and
-> the reduction multiply by the `02:7D81` constant
+> the period-constant load from `02:7D81`
 > (<code>7372 LD HL,02:7D81</code><br><code>CALL ram:1AE2</code>). The trace records all three recurrence
 > phases and the on-screen result `.8414709848`. It also records eight phase-1
 > entries at `02:731D`, with `B = 0`–`7` and
@@ -308,14 +330,21 @@ This one keeps its range reduction on page 0x02 and is the most fully recovered:
 
 ### Coefficient tables [confirmed]
 
-`coeff_fetch` zeroes `OP2.value.type`, indexes `fp_constant_table[A]`, then
-copies the selected constant into `OP2`. The only
+`coeff_fetch` zeroes `OP2.value.type` and indexes `fp_constant_table[A]` with
+a nine-byte stride. Rows 0–6 contain one exponent byte and eight packed-BCD
+mantissa bytes: 16 decimal digits, with no stored type byte. The copy at
+`02:7D39` plus two `LDI`s actually reads ten bytes into `OP2+1` through
+`OP2+10`, so the second extension byte receives the byte immediately following
+the nine-byte coefficient. For row 6, that byte is the first direct trig mantissa
+byte at `02:7D81`, not another exponent-prefixed row.
+The first nine copied bytes supply the coefficient and first guard byte.
+The only
 <code>LD A,n</code><br><code>CALL fp_mul_indexed_constant</code> uses in this cluster select row 3
 (`log10(e)`) and row 6 (`ln(10)`). Later trig reduction constants are loaded
 directly from the same block.
 
 ```text
-02:7D42 constants, 9-byte stride:
+02:7D42 constants, exponent + eight BCD bytes, 9-byte stride:
   [00] 81 57 29 57 79 51 30 82 32
   [01] 80 15 70 79 63 26 79 48 97
   [02] 7F 78 53 98 16 33 97 44 83
@@ -323,9 +352,10 @@ directly from the same block.
   [04] 80 31 41 59 26 53 58 98 00
   [05] 7E 17 45 32 92 51 99 43 30
   [06] 80 23 02 58 50 92 99 40 46  ; ln(10) fetch site
-  [07] 62 83 18 53 07 17 96 31 41  ; direct trig-reduction region starts here
-  [08] 59 26 53 58 98 78 53 98 16
 ```
+
+The following bytes at `02:7D81` belong to directly loaded trig-reduction
+mantissas, not further exponent-prefixed rows in this constant table.
 
 Three entry paths share the indexing tail at `02:7320`. Entry `02:7301`
 selects `logexp_digit_table` and `OP4M`. Entry `02:7312` selects
@@ -374,7 +404,7 @@ Each row is 16 bytes: the first eight-byte variant is selected when
 [07] 99 99 99 99 99 99 99 95 | 10 00 00 00 00 00 00 01
 ```
 
-The forward ln, e^x, and sin/cos paths all advance one coefficient-table row
+The table-driven ln, e^x, and sin/cos paths advance one coefficient-table row
 at a time with shift-and-add. Ln/e^x use `logexp_digit_table`; sin/cos use the
 two trig recurrence tables. The inverse-trig arctangent engine instead uses a
 base-10 CORDIC iteration, documented in [Calculation engine](sub-calculation.md).

@@ -1,6 +1,11 @@
 # bcall index
 
-The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each has an *ID* (the 2-byte value after `rst 28h`) and a *body* at `page:addr`. Use your browser's find, or the wiki search box. See [The bcall Mechanism](bcall-mechanism.md) for how dispatch works. The `0x8xxx` boot bcall names at the end are official SDK equates resolved from the retail boot table on page `3F`; USB boot entries point into page `2F`.
+The main table below lists 645 byte-resolved bcall mappings in the
+`0x4000`–`0x7FFF` ID range. Each has an *ID* (the word after `rst 28h`) and
+a *body* at `page:addr`; a mapping does not establish runtime coverage or the
+complete ABI. See [The bcall mechanism](bcall-mechanism.md) for dispatch.
+The retail boot table below contains 83 SDK names and four inferred names;
+USB boot targets lie on page `2F`.
 
 | bcall | ID | Body (page:addr) |
 |-------|----|------------------|
@@ -19,7 +24,7 @@ The main table below lists the live-confirmed `0x4xxx` bcall system calls. Each 
 | `edt_5d6f` | `5464` | `03:5D6F` |
 | `edt_69f8` | `5461` | `03:69F8` |
 | `edt_6bd1` | `5458` | `03:6BD1` |
-| `fps_push_real` | `4A83` | `07:6365` |
+| `fnint_integrate` | `4A83` | `07:6365` |
 | `fpx_4a7b` | `5185` | `02:4A7B` |
 | `fpx_5d70` | `4669` | `02:5D70` |
 | `fpx_5dbb` | `466C` | `02:5DBB` |

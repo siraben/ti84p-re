@@ -19,7 +19,7 @@ on `curType` and `varType`. `stat_calc_command` remains inside the typed
 The `_SinCosRad` recurrence is mechanically reconstructed. Phase 1 extracts one
 redundant BCD digit per row of `02:7201` by non-restoring modulo-1 subtraction
 or addition of the row aligned at $10^{-(k+1)}$. Phase 2 builds
-$b_0\cdot\prod_k(1+10^{-2k})^{\lfloor(11-d_k)/2\rfloor}$ from the digits. The
+$b_0\cdot\prod_{k=0}^{7}(1+10^{-2(k+1)})^{\lfloor(11-d_k)/2\rfloor}$ from the digits. The
 row values approach $1 - s^2/3$ for the aligned scale $s = 10^{-(k+1)}$, but
 they do not reduce to a clean rotation identity. This suggests tuned or
 truncated constants. [confirmed]
@@ -30,6 +30,19 @@ combines it with the phase-2 product and the residual to assemble the result.
 A second traced input (e.g. `sin(0.5)`, digits `3,9,9,3,8,4,4,2`, residual
 $3.81\times10^{-9}$) is available to constrain the fit. See
 [Floating point](floating-point.md#_sincosrad-sine-and-cosine-in-radians-02733e-confirmed).
+
+### Numerical calculus and finance
+
+Single-byte `24h` (`fnInt(`) dispatches through bcall `4A83h` to
+`07:6365`; `25h` (`nDeriv(`) calls `02:6AF3`. The derivative forms a
+centered difference quotient, with default step `1e-3` selected at `02:6AF6`.
+The integration default tolerance is `1e-5`, set at `02:68F8`–`02:68FD`.
+[confirmed]
+
+Remaining: the integration rule and complete refinement/error paths, the root
+solver's full recurrence and stopping predicate, and the finance command caller
+graph. Unattributed numeric spans on pages `33` and `3A` do not establish
+those algorithm identities. See [Solver and numerical methods](sub-solver-numeric.md).
 
 ### Graph raster details
 
@@ -44,18 +57,20 @@ pinned in [Graphing](sub-graphing.md#evidence-summary-and-open-items).
 
 ### TABLE evaluation
 
-Driver `05:6205` loops over seven visible rows and calls bcall ID `4741h` →
-`35:7C7C` for each row. The `_ParseInp` region executes once per row; `_StoX`
-does not execute during the fill. The Ask-mode bodies are also decoded.
-`Indpnt=Ask` prompts through the editor at `05:7303`, with an OPS continuation
+Driver `05:6205` loops over seven visible rows. The retained `Y1=X²`
+observation visits the `_ParseInp` region once per row and does not visit
+`_StoX` during the fill. Bcall `4741h` → `35:7C7C` is the expression-stack
+helper `_CPYO1TOES15`; its entry does not identify the evaluator call edge.
+`Indpnt=Ask` prompts through the editor at `05:7303`, with an error continuation
 at `05:7329`, and finalizes the row through the value-cache shift at `05:6032`.
-`Depend=Ask` evaluates one requested cell through `05:637C`, with an OPS
+`Depend=Ask` evaluates one requested cell through `05:637C`, with an error
 continuation at `05:644E`. Both mode tests honor an override check at `05:74BE`.
-The `TblRng` validation at `38:72DA` and `38:7260` reduces to parse-boundary
-checking: the range variable must be followed by a legal statement delimiter.
 [confirmed]
 
-No remaining items for this subsystem.
+Remaining: the exact evaluator call edge, selected-equation iterator,
+independent-value arithmetic, and complete parser/error paths. Adjacent
+parser comparisons do not establish a `TblRng` special case. See
+[TABLE and Y-variables](sub-table-yvars.md).
 
 ### Statistics command families
 
@@ -65,28 +80,34 @@ column-weighted residual sum over the augmented matrix, and — when the
 denominator is nonzero — stores `r²` (id `0x35`, slot `0x8C05`) or `R²`
 (id `0x36`, slot `0x8C0E`). [confirmed]
 
-The STAT-TESTS engine occupies `3A:4A00`–`3A:7E60`. A raw operand scan finds
-about 50 candidate `PStat`–`SStat` references in that window. Byte-pinned
-evidence includes a T-Test output stage at `3A:5500` that stores `TStat` (id
-`0x24`), the Zelen–Severo normal-tail coefficient table at
+The window `3A:4A00`–`3A:7E60` contains statistical code and data. A raw
+operand scan finds about 50 candidate `PStat`–`SStat` references there;
+instruction and caller checks are needed to classify each occurrence.
+`3A:54D7`–`3A:54D9` stores `TStat` (id `0x24`, slot `0x8B6C`), but its
+complete test-command caller is not established. Separate byte-pinned
+evidence includes the normal-tail arithmetic at `3A:54FD`–`3A:554D`,
+the Zelen–Severo coefficient table at
 `3A:554F`–`3A:5584`, and the test-editor descriptor tables at
-`3A:7D00`–`3A:7E60`. The `normalcdf(` evaluation reaches the page-`39`
-floating-point core at `39:4A02`–`39:4F5B` and its helpers. [confirmed]
+`3A:7D00`–`3A:7E60`. The interactive `normalcdf(` observation visits
+`39:4A02`–`39:4F5B`, but that range belongs to MathPrint layout. Its
+presence in the trace does not locate the numerical evaluator. [confirmed]
 
 Remaining: the per-test entry addresses (the parser's execution dispatch into
 the page-`3A` engine — the page-`38` table is parse-side only), the
-menu-slot mapping of the `3A:7DF4` pointer array, and the algorithm identity
-of the page-`39` core. See [Statistics](sub-statistics.md#remaining-questions).
+menu-slot mapping of the `3A:7DF4` pointer array, and the numerical bodies
+and algorithms for DISTR functions. See [Statistics](sub-statistics.md#remaining-questions).
 
 ### MathPrint runtime paths
 
 The action byte entering `eqdisp_layout_main` (`39:4F9A`) is a raw TI key code:
 `kLeft` opens the backward-walk path (`CP 2` at `39:5048`) and `kAlphaDown`
 opens window advance (`CP 8` at `39:507C`), which loops `CALL 39:5167`. The
-`kAlphaUp`/`kAlphaDown` codes come from a translator at `39:53A1` — get-key
-variant bcall ID `4A68h`, compare against `0xFB`, state byte `0x8446` selects up
-vs down. In-slot character scrolling bypasses `eqdisp_layout_main` entirely, as
-does nested-template insertion. [confirmed]
+`kAlphaUp`/`kAlphaDown` codes come from a translator at `39:53A1`.
+Bcall `4A68h` tests the current context while preserving the incoming `A`;
+the translator compares it against `0xFB` and uses template ID `0x8446`
+to select action `7` or `8`. Observed in-slot character scrolling bypasses
+`eqdisp_layout_main`. Nested insertion enters at `39:507C` but takes the
+branch to `39:5112`, without selecting window advance. [confirmed]
 
 Remaining: make get-key return `0xFB` inside a template editor state — neither
 sequential ALPHA-then-arrow keystrokes nor overlapping press/release chords do.
@@ -98,40 +119,35 @@ bytes in the page-`07` 11-byte OP scratch registers also remain open. See
 
 ### Matrix and list paths
 
-Plain `augment(` enters the partial-pivoting engine at `02:4663` but never
-eliminates: the `0x91` branch sets carry (`02:6361 SCF`, restored by the
-`POP AF` at `02:6378`), and the engine gates its elimination body on that flag
-(<code>46DA POP AF</code><br><code>JR C,46EF</code>). The elimination pass belongs to the statistics
-regression path, which enters the same dispatcher through `3A:6398`. [confirmed]
+`BB 2D` (`ref(`) and `BB 2E` (`rref(`) normalize to selectors `0x91`
+and `0x92`. Both enter `_ROWECHELON` at `02:4663` through `02:6379`.
+Carry set skips above-pivot elimination at `02:46DC`; both modes execute
+the below-pivot loop at `02:46EF`–`02:470D`. The carry-set path is `ref(`,
+not `augment(`. [confirmed]
 
-The `randM(` fill is decoded: `02:5CC1`–`02:5CE6` computes `int(19·rand)−9` per
-cell, drawing from `_Random` (`36:7DC9`) through the page 0 banked-call stub
-at `ram:392D`. The `ref(` driver dispatches at `02:609A` via bcall ID `4B85h`
-→ `35:7995`; the `rref(` executor runs through bcall ID `4B88h` → `02:7C23`
-from page-38 stubs at `38:514F`/`38:5157`; `SortA(`/`SortD(` share one body at
-`02:652F` with direction discriminators `0x0E`/`0x10`. The `seq(` collection is
-traced per element: entry `37:6E87`, expression eval through the standard
-parser, element append via `02:69BC` → `37:4260`–`37:4285`, list growth via page-`07`
-VAT routines, final `_CreateRList` through `37:70DC`. [confirmed]
-
-No remaining items for this subsystem.
+The separate single-byte `2Dh` branch calls `_Factorial = 4B85h`;
+`4B88h` names `_YONOFF`. Neither identifies a row-reduction evaluator.
+Remaining: complete matrix multiply/inverse paths, command-specific error
+and archive behavior, and bounded traces distinguishing numeric `seq(`
+evaluation from editor and parse-ahead visits. See [Matrices and lists](sub-matrix-list.md).
 
 ### Parser and archive residuals
 
 The `Asm(`/`AsmPrgm` setup before the `ram:9D95` payload handoff is
 byte-pinned at `07:5762`–`57D4`: `_ChkFindSym`, size checks against `0x2000`,
-`_InsertMem` growth of `userMem`, `LDIR` payload copy, USB port-`0x20` state
+`_InsertMem` growth of `userMem`, `LDIR` payload copy, CPU-speed port-`0x20` state
 save, cleanup handler `0x5800`, and the `07:57FD` jump to `0x9D95`. The entry
-gate compares the second body byte to `6D` (`07:5772`, `FE 6D`), while working
-fixtures emit `AsmPrgm` as `BB 6C` and still reach the payload — reconciling
-the gate byte remains open. [confirmed]
+gate accepts compiled `BB 6D` at `07:5772`. The nonmatching branch at
+`07:5774` selects the text path at `07:57D4`; its helper checks `BB 6C`
+at `07:5849`/`07:5850` and decodes hexadecimal source through
+`07:5717`–`07:5755`. Both launch forms are decoded. [confirmed]
 
 Remaining: the meaning of the loop-record state word (it varies per fixture:
 `0012h` in one trace, `0007h` in another) and the per-iteration split between
 `parse_end_ops_record` re-entry and direct continuation jumps for `While`/
 `Repeat`. The record shapes themselves are pinned: all three loops share the
 5-byte form `00 | continuation word | state word`, with `For(` continuations
-`38:5836`/`38:587D` and the `While`/`Repeat` runtime continuation `38:57E7`.
+`38:5836`/`38:587D` and the observed `Repeat` runtime continuation `38:57E7`.
 [confirmed]
 
 Also open: a direct assembly-to-TI-BASIC program-call entry beyond VAT lookup

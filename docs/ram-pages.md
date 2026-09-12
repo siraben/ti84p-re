@@ -60,7 +60,8 @@ selectors. They do not change a selector with bit 7 set for RAM. See
 [Paging](paging.md#extended-flash-bits--ports-0x0e-and-0x0f). [standard]
 
 ```text
-OUT (port 7) <- 0x7f   8000-BFFF = page_3F
+OUT (port 7) <- 0x7f   C000-FFFF = page_3F (still paired mode)
+OUT (port 4) <- 0x06   switch to independent mode before the RAM mappings below
 OUT (port 7) <- 0x81   8000-BFFF = RAM/0x81
 OUT (port 5) <- 0x00   C000-FFFF = RAM/0x80
 OUT (port 7) <- 0x80   8000-BFFF = RAM/0x80

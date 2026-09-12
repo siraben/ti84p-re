@@ -36,7 +36,16 @@ The OS passes variable identity through `OP1` as a "name string": `OP1[0]` = typ
 | `_DelVar`/`_DelVarArc` | `00:1308`/`00:12D9` | delete (and handle archived copies) |
 | `_InsertMem`/`_DelMem` | `00:0F81`/`00:1368` | public low-level grow/shrink of a RAM region (the create path instead uses the internal gap routine at `ram:0F0C`) |
 
-`_CreateReal` (recovered): sets the type byte and a fixed size of 9, then jumps to the common create core at `00:1011`. That core stores the type, type-checks the object (`chk_type_not_str` at `ram:2045`), handles the complex-list special case (`OP1.value.exp == 0x5D`), applies the 6-character name limit (`00:1023 CP 0x7`; `00:1025 JP NC,00:2700 → LD A,0x88`, `E_Syntax`), and carves the gap via the internal routine at `ram:0F0C` (`00:1034`). Aggregate creators (lists/matrices) instead enter through the size prelude `var_alloc` (`00:1005`), which computes count×element-size + the 2-byte header and raises `E_Memory` on overflow (`JP C,00:2721` at `00:1008` → `LD A,0x8E`) before falling into the same `00:1011` core.
+`_CreateReal` sets the type byte and a fixed size of nine, then jumps to the
+common create core at `ram:1011`. The core stores the type and checks the
+object class through `ram:2045`. The name-token test for `0x5D` at
+`ram:1019`–`ram:101E` selects a named-list path; that path enforces the
+six-character name limit with `CP 7` at `ram:1023`. An excessive list name
+reaches `ram:2700`, which loads `E_Syntax = 0x88`. This limit does not apply
+to program and AppVar names, whose path branches to `ram:102B`. Allocation
+uses the internal gap routine at `ram:0F0C`. Aggregate creators first use
+`var_alloc` (`ram:1005`) to compute count × element size plus the two-byte
+header, raising `E_Memory` on overflow before joining `ram:1011`. [confirmed]
 
 ## Variable data formats — rendered as C [confirmed]
 
@@ -105,7 +114,7 @@ the matched name pointer `N`:
 | `N+2` / `N+3` | data address — high byte, then low byte |
 | `N+4` | version metadata |
 | `N+5` | T2 metadata |
-| `N+6` | type — low 5 bits = `TIVarType` class, high bits flag archive state; copied to `OP1` at `0x8478` |
+| `N+6` | type — low 5 bits = `TIVarType` class; high bits carry other metadata, not the archive location; copied to `OP1` at `0x8478` |
 
 The fixed-token form has a forward C view when its base is the lowest name
 byte, `N-2`:

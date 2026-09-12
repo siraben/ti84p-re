@@ -50,7 +50,7 @@ def collect_port0(path):
     return events
 
 
-# Link-port bits -> a 4-level differential amplitude. On the I/O jack the two
+# Four link-port drive states -> three differential levels. On the I/O jack the two
 # lines are pulled high and driven low; bit set => line LOW. The speaker sits
 # across tip/ring, so the audible signal tracks (line0 - line1).
 def level(value):

@@ -1,27 +1,27 @@
 # Subsystem map (bcall API surface)
 
-This page groups the roughly 600 named bcall entry points by subsystem. The
-result shows the public API used by both application code and the OS itself.
+This page groups representative bcall entry points by subsystem. The
+[bcall index](bcall-index.md) records 645 main-table mappings and 87 retail
+boot-table mappings, including project-inferred names. [confirmed] for the
+checked maps; a name or mapping alone does not establish a public ABI.
 
-| Subsystem | ~bcalls | Representative entry points |
-|-----------|--------:|------------------------------|
-| **Floating-point / numeric** | ~230 (+~120 more in "misc") | `_FPAdd`,`_Times2`,`_DivHLBy10`,`_Intgr`,`_Trunc`,`_DToR`,`_RToD`,`_Min`,`_Max`,`_SqRoot` |
-| **Display / LCD** | ~41 | `_PutMap`,`_PutC`,`_PutS`,`_DispHL`,`_NewLine`,`_ClrLCDFull`,`_VPutS`,`_GrBufCpy` |
-| **Variables / VAT** | ~37 | `_FindSym`,`_ChkFindSym`,`_CreateReal`,`_CreateStrng`,`_CreateAppVar`,`_DelVar`,`_InsertMem`,`_Arc_Unarc` |
-| **String / convert** | ~18 | `_ExpToHex`,`_OP1ExpToDec`,`_CreateStrng`,`_StrCopy`,`_Get_Tok_Strng` |
-| **Parser / TI-BASIC** | ~18 | `_IsA2ByteTok`,`_GetTokLen`,`_BinOPExec`,`_ParseInp` |
-| **Link / I-O** | ~15 | `_SendAByte`,`_RecAByteIO`,`_SendVarCmd`,`_Rec1stByte`,`link_xfer_op` |
-| **System / power** | ~15 | `_AppInit`,`_PutAway`,`_RandInit`,`_ApdSetup`,`_Chk_Batt_Low`,`_SetExSpeed`,`_JForceCmd` |
-| **Boot cryptography** | 5 | `_MD5Init`, `_MD5Update`, `_MD5Final`, `_SigModR`, `_TransformHash` |
-| **List / Matrix** | ~13 | `_CreateRList`,`_CreateCList`,`_CreateRMat`,`_ErrDimMismatch`,dim/element ops |
-| **Keyboard** | ~5 | `_GetCSC`,`_GetKey`,`_KeyToString` |
-| **Menu / UI** | ~5 | `_DispMenuTitle`,`_CursorOn`,`_CursorOff`,`_RunIndicOn`,`_RunIndicOff` |
-
-(Counts approximate — keyword buckets overlap; ~170 "misc" are mostly more math/int helpers.)
+| Subsystem | Representative entry points |
+|-----------|------------------------------|
+| Floating-point / numeric | `_FPAdd`, `_Times2`, `_DivHLBy10`, `_Intgr`, `_Trunc`, `_DToR`, `_RToD`, `_Min`, `_Max`, `_SqRoot` |
+| Display / LCD | `_PutMap`, `_PutC`, `_PutS`, `_DispHL`, `_NewLine`, `_ClrLCDFull`, `_VPutS`, `_GrBufCpy` |
+| Variables / VAT | `_FindSym`, `_ChkFindSym`, `_CreateReal`, `_CreateStrng`, `_CreateAppVar`, `_DelVar`, `_InsertMem`, `_Arc_Unarc` |
+| String / convert | `_ExpToHex`, `_OP1ExpToDec`, `_CreateStrng`, `_StrCopy`, `_Get_Tok_Strng` |
+| Parser / TI-BASIC | `_IsA2ByteTok`, `_GetTokLen`, `_BinOPExec`, `_ParseInp` |
+| Link / I/O | `_SendAByte`, `_RecAByteIO`, `_SendVarCmd`, `_Rec1stByte`, `_GetVarCmdUSB` |
+| System / power | `_AppInit`, `_PutAway`, `_RandInit`, `_ApdSetup`, `_Chk_Batt_Low`, `_SetExSpeed`, `_JForceCmd` |
+| Boot cryptography | `_MD5Init`, `_MD5Update`, `_MD5Final`, `_SigModR`, `_TransformHash` |
+| List / matrix | `_CreateRList`, `_CreateCList`, `_CreateRMat`, `_ErrDimMismatch` |
+| Keyboard | `_GetCSC`, `_GetKey`, `_KeyToString` |
+| Menu / UI | `_DispMenuTitle`, `_CursorOn`, `_CursorOff`, `_RunIndicOn`, `_RunIndicOff` |
 
 ## Reading the map
 
-This is a calculator: roughly two-thirds of the API is numeric, and everything else is comparatively small glue. The architecture flows:
+Numeric evaluation uses the parser, VAT, arithmetic engine, and display:
 
 ```mermaid
 flowchart TD

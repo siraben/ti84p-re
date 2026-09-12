@@ -41,8 +41,9 @@ LD B,0
 LD SP,0xFDFA
 ```
 
-The boot page eventually initializes RAM, the VAT, system flags, the LCD, and
-enters the main context (the homescreen).
+After accepting the installed OS, the boot page transfers control to page-0
+startup. OS initialization builds RAM state, the VAT, system flags, and the LCD,
+then enters the homescreen context.
 [confirmed]
 
 The boot page (`3F`) and its version queries are exposed to the OS through `ti83plus.inc` bcalls: `_getBootVer` (bcall `0x80B7` → `3F:477C`) and `_getHardwareVersion` (bcall `0x80BA` → `3F:4781`). The USB boot support entry points route through the same table but land on page `2F`, for example `_AttemptUSBOSReceive` (`0x80E4` → `2F:4145`) and `_InitUSB` (`0x8108` → `2F:52A4`).
@@ -53,14 +54,14 @@ The RAM-init proper is `ram_reset_wipe` (`35:719F`, reached on a full reset; the
 
 ```z80
 ram_reset_wipe (35:719f):
-  ; save flags to preserve: (9B73), (IY+34).6, (IY+35).0, (IY+35).1, (IY+3F)&0x7F
+  ; save word (9B73), (IY+34).6, (IY+35).0, (IY+3F)&0x7F
   DI
   LD HL,0x8000
   LD DE,0x8001
   LD BC,0x1BC3
   LD (HL),0
   LDIR                          ; clear 8000..9BC3
-  ... restore the saved flag bits ...
+  ... restore saved state and set (IY+35).1 ...
   LD HL,0x9BD0
   LD DE,0x9BD1
   LD BC,0x642F
@@ -69,12 +70,12 @@ ram_reset_wipe (35:719f):
   JP 0x0BD9
 ram_init_after_reset (ram:0BD9):
   LD A,0xC0
-  OUT (0),A                    ; port 0 = memory-map control
+  OUT (0),A                    ; release the raw link lines (low two bits clear)
   LD SP,0xFFF7                 ; reset stack to top of RAM
   CALL 0x3EC1                  ; continue init (page-0 kernel): VAT, sysflags, LCD …
 ```
 
-So RAM is wiped in two LDIR runs (`0x8000`–`0x9BC3`, then `0x9BD0`–`0xFFFF`, leaving the `0x9BC4`–`0x9BCF` window and the explicitly-saved flag bytes intact), then `ram:0BD9` resets the memory map (port 0) and the stack and hands off through `ram:3EC1`. This `ram:0BD9` entry is the same RAM re-init point cross-referenced from [Memory management](memory-management.md). The `ram:3EC1` continuation (VAT/sysflag/LCD bring-up) is page-0 kernel code and begins with `CALL 0x2B09`. The reset jump to `boot_os_entry` is also present in the assembled database, so the page-0 and retail boot portions can be followed in one project.
+RAM is wiped in two LDIR runs (`0x8000`–`0x9BC3`, then `0x9BD0`–`0xFFFF`), leaving the `0x9BC4`–`0x9BCF` window and explicitly restored state intact. The `ram:0BD9` continuation releases the raw link lines through port `0`, resets the stack, and hands off through `ram:3EC1`. Port `0` is the link port; the paging controls are separate. This RAM re-init point is cross-referenced from [Memory management](memory-management.md). The `ram:3EC1` trampoline begins with `CALL 0x2B09`.
 
 ### The main event loop [confirmed]
 
@@ -197,10 +198,14 @@ Cancel and invalid-expression exits remain untraced. The reduced result is in
 
 Errors use a non-local exit, not return codes:
 - A routine detects a fault and calls `_JError` (`ram:2793`) with an error code in `A` (the `TIError` enum: `E_Domain`, `E_DivBy0`, `E_Memory`, … each ORed with `E_EDIT`=0x80 if re-editable). `_JError` stores the code to `errNo` (`0x86DD`); the sibling entry `_JErrorNo` (`ram:2799`) raises the already-stored `errNo` without taking a new code.
-- The handler restores the stack from `errSP` (`0x86DE`, `LD SP,(errSP)` at `ram:27BB`), restores a sane state, and displays the error screen (`ERR:` + message, with `1:Quit 2:Goto`). `errSP` is the current error frame; `_resetStacks` seeds it from `onSP` (`0x85BC`, the context-level saved SP) at context/parse start.
+- The handler restores the stack from `errSP` (`0x86DE`, `LD SP,(errSP)` at `ram:27BB`). It restores `OPS` and `FPS` relative to their current bases, pops the previous `errSP`, restores port `0x06`, and returns with `A=errNo` into the installed callback at `ram:27D9`. The callback decides whether to handle the error or reach the error screen (`ERR:` + message, with **1:Quit** and, where applicable, **2:Goto**).
 - The `E_EDIT` bit (0x80) tells the handler the error is editable (offer "2:Goto" to jump to the offending token).
 
-So `errSP` + `_JError` together implement try/catch: a context seeds `errSP` (from `onSP`) at entry, and any depth of nested calls can abort straight back to it.
+The frame installer at `ram:27DA` pushes the callback, bank-A selector,
+previous `errSP`, and relative FP/operand-stack offsets, then stores the frame
+SP at `ram:27FA`. Nested calls can abort to this frame through `_JError`.
+`onSP` (`0x85BC`) is a separate context-level saved SP; it is not the stack
+word that `_JError` reads. [confirmed]
 
 ### Custom-error wrapper [confirmed]
 

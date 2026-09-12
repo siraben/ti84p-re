@@ -443,7 +443,7 @@ _CmpSyms	4A4A	519E	07
 _CleanAll	4A50	52CF	07
 _ConvLrToLc	4A56	5368	07
 arc_59f1	4A68	59F1	07
-fps_push_real	4A83	6365	07
+fnint_integrate	4A83	6365	07
 _ErrNonReal	4A8C	42E1	38
 _ParseInp	4A9B	5987	38
 _OP2Set60	4AB0	5DDC	38

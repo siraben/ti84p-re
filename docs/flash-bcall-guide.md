@@ -330,6 +330,7 @@ This wrapper records IFF2 through `LD A,I`, calls the bcall, then conditionally
 restores interrupts. `POP AF` also restores the caller's original `AF`:
 
 ```z80
+    push af                     ; preserve the original A and flags
     ld a,i
     push af                     ; P/V records the prior IFF2 value
     ld a,0x2A
@@ -339,6 +340,7 @@ restores interrupts. `POP AF` also restores the caller's original `AF`:
     jp po,interrupts_restored   ; prior IFF2 was clear
     ei
 interrupts_restored:
+    pop af                      ; restore the original A and flags
 ```
 
 The example assumes that trusted code already opened the protected-write gate
@@ -390,6 +392,13 @@ at `0x8100` and page scratch at `0x9868`, so a verification buffer must avoid
 those locations while the copier runs. Locked certificate-page reads remain
 subject to the ASIC's separate read protection. [confirmed] for the ROM
 scratch and worker; [standard] for the read gate.
+
+Require `BC != 0`. The Flash-source loop executes `LDI` at `3D:677E`
+before testing the remaining count; the RAM-source branch uses `LDIR` at
+`3D:6788`. An initial zero therefore wraps the count and attempts 65,536
+copies, rather than returning without work. Such a call can overwrite the
+running worker or stack and has not been executed. [confirmed] for the ROM
+control flow and Z80 count semantics.
 
 The executable example reads back the complete two-byte `_WriteFlash` vector:
 
