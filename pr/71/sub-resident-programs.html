@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-44e119bf.js";
+            window.path_to_searchindex_js = "searchindex-5f5cd3b1.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d9f1b932.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -232,7 +232,7 @@ its length. It consequently reads two bytes beyond the size-described program
 data. Those bytes occupy the final two bytes of the execution allocation.
 [confirmed] A boundary fixture should place guard bytes after the variable to
 record their exact values at <code>ram:BD93</code> and <code>ram:BD94</code>.</p>
-<p>The builders and TilEm runner in <code>tools/launch-fixtures/</code> exercise the three
+<p>The builders and TilEm runner in <code>tools/probes/launch-fixtures/</code> exercise the three
 adjacent boundary sizes. Each accepted trace reaches <code>_ExecutePrgm</code>, the limit
 test, the <code>_InsertMem</code> call site, the payload handoff, and <code>ram:9D95</code>. The
 rejected trace reaches the <code>E_Invalid</code> shim at <code>ram:2729</code> before insertion.
@@ -333,7 +333,7 @@ these checkpoints; cleanup restores the two shifted fields. The nested bcall
 uses six more stack bytes than payload entry, but does not change the measured
 heap pointers or <code>_MemChk</code>. [confirmed]</p>
 <p>The fixture, decoder, analyzer, capture recipe, and compact provenance rows are
-under <code>tools/launch-probes/</code> and <code>tools/data/resident-launch-snapshot.csv</code>.
+under <code>tools/probes/launch/</code> and <code>tools/data/resident-launch-snapshot.csv</code>.
 These observations do not establish an entry ABI or cover <code>_ExecAsm</code>, an
 archived launcher path, shell launchers, other OS releases, or hardware.
 [confirmed]</p>
@@ -412,7 +412,7 @@ non-execution for that exact emulator scenario, not the result of an archived
 source store. Shell-mediated archived launches remain open. [confirmed] for
 the observed boundary.</p>
 <h2 id="resident-allocation-trace"><a class="header" href="#resident-allocation-trace">Resident allocation trace</a></h2>
-<p>The fixture under <code>tools/allocation-probes/</code> calls <code>_EnoughMem</code>,
+<p>The fixture under <code>tools/probes/allocation/</code> calls <code>_EnoughMem</code>,
 <code>_CreateAppVar</code>, <code>_DelVar</code>, <code>_CreateProg</code>, <code>_InsertMem</code>, and <code>_DelMem</code> from a
 compiled program at <code>ram:9D95</code>. Its trace replays RAM writes at ten timed
 checkpoints. [confirmed]</p>
@@ -474,10 +474,16 @@ and the data pointer in <code>DE</code>. [confirmed]</p>
 <tbody>
 <tr><td>Carry set</td><td>No matching VAT entry</td></tr>
 <tr><td>Carry clear, <code>B=0</code></td><td><code>DE</code> is a RAM pointer to the two-byte data-size field</td></tr>
-<tr><td>Carry clear, <code>B!=0</code></td><td><code>B:DE</code> identifies Flash data through bank A</td></tr>
+<tr><td>Carry clear, <code>B!=0</code></td><td><code>B:DE</code> identifies the archived record’s status byte, before its metadata and data</td></tr>
 </tbody>
 </table>
 </div>
+<p>For a named program or AppVar, the record has three leading status/size bytes,
+six VAT metadata bytes, a name-length byte, and the name. Its variable data
+begins at record offset <code>10 + name_length</code>; the two-byte data-size field is
+there, followed by the payload. The ROM helper at <code>3D:6625</code> skips these
+fields with page-crossing normalization. Fixed-token variables have a different
+name field and need that helper’s type-specific path. [confirmed]</p>
 <p>An archived <code>DE</code> value is not a flat RAM pointer. Direct access must preserve
 port <code>0x06</code>, map page <code>B</code>, handle the <code>0x8000</code> → next-page crossing, and restore
 the caller’s mapping. Any operation that can run archive garbage collection
@@ -498,9 +504,13 @@ invalidates a saved <code>B:DE</code>; call <code>_ChkFindSym</code> again after
 </div>
 <p><code>_FlashToRam</code> has bcall ID <code>5017h</code> and body <code>3D:6745</code>. Its copier saves port
 <code>0x06</code>, maps the source page, advances from <code>0x8000</code> to <code>0x4000</code> on the next
-Flash page, and restores the saved mapping. A streaming interpreter can copy
+Flash page, and restores the saved mapping. After skipping the archive record
+header, a streaming interpreter can copy
 repeated bounded chunks into a RAM buffer and process a source larger than free
 RAM. [confirmed]</p>
+<p>Skip an empty chunk: <code>_FlashToRam</code> has no zero-count guard. Its first <code>LDI</code>
+at <code>3D:677E</code> decrements zero to <code>0xFFFF</code>, so zero is not a safe no-op.
+[confirmed]</p>
 <p><code>_Arc_Unarc</code> at <code>07:6248</code> enters the unarchive path at <code>07:61F4</code> when <code>B</code> is
 nonzero. Unarchiving requires enough RAM for the complete variable and cannot
 stream an object larger than free RAM. [confirmed]</p>
