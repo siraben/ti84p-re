@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-47f51819.js";
+            window.path_to_searchindex_js = "searchindex-dbb60da9.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d9f1b932.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -245,7 +245,7 @@ conditional ownership, and the bank-A page-mapping protocol. [confirmed]</p>
 <h2 id="flash-archive-confirmed"><a class="header" href="#flash-archive-confirmed">Flash archive [confirmed]</a></h2>
 <p>To save scarce RAM, variables can be archived to Flash. The archive entry point is on <code>flash page 0x07</code>, while the low-level flash read/write/erase workers are on <code>page 0x3D</code>:</p>
 <ul>
-<li><code>_Arc_Unarc</code> (<code>07:6248</code>) — move OP1’s variable between RAM and the Flash archive (toggles the archive bit, then relocates the data and rewrites the VAT entry’s page to the Flash page).</li>
+<li><code>_Arc_Unarc</code> (<code>07:6248</code>) — move OP1’s variable between RAM and the Flash archive, then rewrite its VAT data pointer and page. Page zero identifies RAM; a nonzero page identifies Flash.</li>
 <li><code>_FlashToRam</code> (id <code>5017</code> → body <code>3D:6745</code>) — copy archived data back into RAM.
 Archived vars are <em>appended</em> to Flash, which cannot be overwritten in place, so deleting one only marks it dead. <code>archive_gc_collect</code> at <code>3C:7733</code> rewrites live records in 64 KiB sector units and erases the old sectors. <code>gc_show_screen</code> at <code>3C:7E0D</code> displays <code>"Garbage"</code> and <code>"Collecting..."</code> from page <code>01</code>. The collector also journals its phase in the inactive 8 KiB half of page <code>3E</code>. [confirmed]</li>
 </ul>

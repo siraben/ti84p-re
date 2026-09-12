@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-47f51819.js";
+            window.path_to_searchindex_js = "searchindex-dbb60da9.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d9f1b932.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -212,21 +212,22 @@ the installation changes no bytes. The continuation begins:</p>
 LD B,0
 LD SP,0xFDFA
 </code></pre>
-<p>The boot page eventually initializes RAM, the VAT, system flags, the LCD, and
-enters the main context (the homescreen).
+<p>After accepting the installed OS, the boot page transfers control to page-0
+startup. OS initialization builds RAM state, the VAT, system flags, and the LCD,
+then enters the homescreen context.
 [confirmed]</p>
 <p>The boot page (<code>3F</code>) and its version queries are exposed to the OS through <code>ti83plus.inc</code> bcalls: <code>_getBootVer</code> (bcall <code>0x80B7</code> → <code>3F:477C</code>) and <code>_getHardwareVersion</code> (bcall <code>0x80BA</code> → <code>3F:4781</code>). The USB boot support entry points route through the same table but land on page <code>2F</code>, for example <code>_AttemptUSBOSReceive</code> (<code>0x80E4</code> → <code>2F:4145</code>) and <code>_InitUSB</code> (<code>0x8108</code> → <code>2F:52A4</code>).</p>
 <h3 id="ram-clearing-and-reinitialization-ram_reset_wipe-at-ram0bd9-confirmed"><a class="header" href="#ram-clearing-and-reinitialization-ram_reset_wipe-at-ram0bd9-confirmed">RAM clearing and reinitialization (<code>ram_reset_wipe</code> at <code>ram:0BD9</code>) [confirmed]</a></h3>
 <p>The RAM-init proper is <code>ram_reset_wipe</code> (<code>35:719F</code>, reached on a full reset; the same routine backs the <code>[2nd]+[+] · 7 · 1 · 2</code> RAM-reset and the post-boot RAM clear). It zero-fills RAM in two blocks, preserving a handful of flag bits and <code>0x9B73</code> across the wipe:</p>
 <pre><code class="language-z80">ram_reset_wipe (35:719f):
-  ; save flags to preserve: (9B73), (IY+34).6, (IY+35).0, (IY+35).1, (IY+3F)&amp;0x7F
+  ; save word (9B73), (IY+34).6, (IY+35).0, (IY+3F)&amp;0x7F
   DI
   LD HL,0x8000
   LD DE,0x8001
   LD BC,0x1BC3
   LD (HL),0
   LDIR                          ; clear 8000..9BC3
-  ... restore the saved flag bits ...
+  ... restore saved state and set (IY+35).1 ...
   LD HL,0x9BD0
   LD DE,0x9BD1
   LD BC,0x642F
@@ -235,11 +236,11 @@ enters the main context (the homescreen).
   JP 0x0BD9
 ram_init_after_reset (ram:0BD9):
   LD A,0xC0
-  OUT (0),A                    ; port 0 = memory-map control
+  OUT (0),A                    ; release the raw link lines (low two bits clear)
   LD SP,0xFFF7                 ; reset stack to top of RAM
   CALL 0x3EC1                  ; continue init (page-0 kernel): VAT, sysflags, LCD …
 </code></pre>
-<p>So RAM is wiped in two LDIR runs (<code>0x8000</code>–<code>0x9BC3</code>, then <code>0x9BD0</code>–<code>0xFFFF</code>, leaving the <code>0x9BC4</code>–<code>0x9BCF</code> window and the explicitly-saved flag bytes intact), then <code>ram:0BD9</code> resets the memory map (port 0) and the stack and hands off through <code>ram:3EC1</code>. This <code>ram:0BD9</code> entry is the same RAM re-init point cross-referenced from <a href="memory-management.html">Memory management</a>. The <code>ram:3EC1</code> continuation (VAT/sysflag/LCD bring-up) is page-0 kernel code and begins with <code>CALL 0x2B09</code>. The reset jump to <code>boot_os_entry</code> is also present in the assembled database, so the page-0 and retail boot portions can be followed in one project.</p>
+<p>RAM is wiped in two LDIR runs (<code>0x8000</code>–<code>0x9BC3</code>, then <code>0x9BD0</code>–<code>0xFFFF</code>), leaving the <code>0x9BC4</code>–<code>0x9BCF</code> window and explicitly restored state intact. The <code>ram:0BD9</code> continuation releases the raw link lines through port <code>0</code>, resets the stack, and hands off through <code>ram:3EC1</code>. Port <code>0</code> is the link port; the paging controls are separate. This RAM re-init point is cross-referenced from <a href="memory-management.html">Memory management</a>. The <code>ram:3EC1</code> trampoline begins with <code>CALL 0x2B09</code>.</p>
 <h3 id="the-main-event-loop-confirmed"><a class="header" href="#the-main-event-loop-confirmed">The main event loop [confirmed]</a></h3>
 <p><code>main_event_loop</code> @ <code>ram:05e6</code> (page 0) is the OS root dispatcher. Structure:</p>
 <pre><code class="language-z80">05e6: LD B,8
@@ -347,10 +348,14 @@ Cancel and invalid-expression exits remain untraced. The reduced result is in
 <p>Errors use a non-local exit, not return codes:</p>
 <ul>
 <li>A routine detects a fault and calls <code>_JError</code> (<code>ram:2793</code>) with an error code in <code>A</code> (the <code>TIError</code> enum: <code>E_Domain</code>, <code>E_DivBy0</code>, <code>E_Memory</code>, … each ORed with <code>E_EDIT</code>=0x80 if re-editable). <code>_JError</code> stores the code to <code>errNo</code> (<code>0x86DD</code>); the sibling entry <code>_JErrorNo</code> (<code>ram:2799</code>) raises the already-stored <code>errNo</code> without taking a new code.</li>
-<li>The handler restores the stack from <code>errSP</code> (<code>0x86DE</code>, <code>LD SP,(errSP)</code> at <code>ram:27BB</code>), restores a sane state, and displays the error screen (<code>ERR:</code> + message, with <code>1:Quit 2:Goto</code>). <code>errSP</code> is the current error frame; <code>_resetStacks</code> seeds it from <code>onSP</code> (<code>0x85BC</code>, the context-level saved SP) at context/parse start.</li>
+<li>The handler restores the stack from <code>errSP</code> (<code>0x86DE</code>, <code>LD SP,(errSP)</code> at <code>ram:27BB</code>). It restores <code>OPS</code> and <code>FPS</code> relative to their current bases, pops the previous <code>errSP</code>, restores port <code>0x06</code>, and returns with <code>A=errNo</code> into the installed callback at <code>ram:27D9</code>. The callback decides whether to handle the error or reach the error screen (<code>ERR:</code> + message, with <strong>1:Quit</strong> and, where applicable, <strong>2:Goto</strong>).</li>
 <li>The <code>E_EDIT</code> bit (0x80) tells the handler the error is editable (offer “2:Goto” to jump to the offending token).</li>
 </ul>
-<p>So <code>errSP</code> + <code>_JError</code> together implement try/catch: a context seeds <code>errSP</code> (from <code>onSP</code>) at entry, and any depth of nested calls can abort straight back to it.</p>
+<p>The frame installer at <code>ram:27DA</code> pushes the callback, bank-A selector,
+previous <code>errSP</code>, and relative FP/operand-stack offsets, then stores the frame
+SP at <code>ram:27FA</code>. Nested calls can abort to this frame through <code>_JError</code>.
+<code>onSP</code> (<code>0x85BC</code>) is a separate context-level saved SP; it is not the stack
+word that <code>_JError</code> reads. [confirmed]</p>
 <h3 id="custom-error-wrapper-confirmed"><a class="header" href="#custom-error-wrapper-confirmed">Custom-error wrapper [confirmed]</a></h3>
 <p><code>_ErrCustom1</code> (bcall <code>0x4D41</code> → <code>ram:2771</code>) loads <code>A = 0xAB</code> and branches to
 <code>_JError</code> at <code>ram:2793</code>. After the error handler masks off <code>E_EDIT</code>, code
@@ -410,7 +415,7 @@ it is not a physical-hardware result. [confirmed]</p>
 </tbody>
 </table>
 </div>
-<p>The <code>Code</code> column is each error’s low 7 bits. Re-editable errors set the <code>E_EDIT</code> (<code>0x80</code>) bit on top — <code>E_Overflow equ 1+E_EDIT</code>, <code>E_DivBy0 equ 2+E_EDIT</code>, … — while non-editable ones (<code>E_Label equ 20</code>, <code>E_Stat equ 21</code>, …) carry no such bit. The handler masks the code (<code>AND 0x7F</code>) before indexing. Thus <code>_JError(0x22)</code> and <code>_JError(0x9F)</code> both select <code>LINK</code> at <code>07:6C55</code>, through pointer entries <code>07:6B0E</code> and <code>07:6B08</code>. <code>tools/describe_error.py</code> reproduces the table lookup from the ROM. [confirmed]</p>
+<p>The <code>Code</code> column is each error’s low 7 bits. Re-editable errors set the <code>E_EDIT</code> (<code>0x80</code>) bit on top — <code>E_Overflow equ 1+E_EDIT</code>, <code>E_DivBy0 equ 2+E_EDIT</code>, … — while non-editable ones (<code>E_Label equ 20</code>, <code>E_Stat equ 21</code>, …) carry no such bit. The handler masks the code (<code>AND 0x7F</code>) before indexing. Thus <code>_JError(0x22)</code> and <code>_JError(0x9F)</code> both select <code>LINK</code> at <code>07:6C55</code>, through pointer entries <code>07:6B0E</code> and <code>07:6B08</code>. <code>tools/ti84re/rom/describe_error.py</code> reproduces the table lookup from the ROM. [confirmed]</p>
 <h2 id="confirmed-details"><a class="header" href="#confirmed-details">Confirmed details</a></h2>
 <ul>
 <li><strong><code>cx*</code> vector layout — confirmed.</strong> The six 2-byte handler slots and <code>cxPage</code> offsets are pinned by tracing <code>_AppInit</code> (<code>ram:0936</code>): <code>LD DE,0x858D / LD BC,0x000C / LDIR</code> then <code>IN A,(6) / LD (0x8599),A</code>. See <a href="#context-block-layout-confirmed">Context block layout</a> above for the full offset table and <code>_AppInit</code> body. <code>_AppInit</code> installs the block; it is not the sole writer — <code>_POPCX</code> (bcall <code>0x49E1</code> → <code>07:6D1C</code>) restores a saved context into <code>cxMain</code>, and a save path at <code>07:5A8C</code> copies <code>cxMain</code> into the <code>cxPrev</code> shadow.</li>

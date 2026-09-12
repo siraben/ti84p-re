@@ -37,10 +37,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-47f51819.js";
+            window.path_to_searchindex_js = "searchindex-dbb60da9.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-d9f1b932.js"></script>
+        <script src="toc-ba6dda15.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -224,7 +224,16 @@
 </tbody>
 </table>
 </div>
-<p><code>_CreateReal</code> (recovered): sets the type byte and a fixed size of 9, then jumps to the common create core at <code>00:1011</code>. That core stores the type, type-checks the object (<code>chk_type_not_str</code> at <code>ram:2045</code>), handles the complex-list special case (<code>OP1.value.exp == 0x5D</code>), applies the 6-character name limit (<code>00:1023 CP 0x7</code>; <code>00:1025 JP NC,00:2700 → LD A,0x88</code>, <code>E_Syntax</code>), and carves the gap via the internal routine at <code>ram:0F0C</code> (<code>00:1034</code>). Aggregate creators (lists/matrices) instead enter through the size prelude <code>var_alloc</code> (<code>00:1005</code>), which computes count×element-size + the 2-byte header and raises <code>E_Memory</code> on overflow (<code>JP C,00:2721</code> at <code>00:1008</code> → <code>LD A,0x8E</code>) before falling into the same <code>00:1011</code> core.</p>
+<p><code>_CreateReal</code> sets the type byte and a fixed size of nine, then jumps to the
+common create core at <code>ram:1011</code>. The core stores the type and checks the
+object class through <code>ram:2045</code>. The name-token test for <code>0x5D</code> at
+<code>ram:1019</code>–<code>ram:101E</code> selects a named-list path; that path enforces the
+six-character name limit with <code>CP 7</code> at <code>ram:1023</code>. An excessive list name
+reaches <code>ram:2700</code>, which loads <code>E_Syntax = 0x88</code>. This limit does not apply
+to program and AppVar names, whose path branches to <code>ram:102B</code>. Allocation
+uses the internal gap routine at <code>ram:0F0C</code>. Aggregate creators first use
+<code>var_alloc</code> (<code>ram:1005</code>) to compute count × element size plus the two-byte
+header, raising <code>E_Memory</code> on overflow before joining <code>ram:1011</code>. [confirmed]</p>
 <h2 id="variable-data-formats--rendered-as-c-confirmed"><a class="header" href="#variable-data-formats--rendered-as-c-confirmed">Variable data formats — rendered as C [confirmed]</a></h2>
 <p>A VAT entry points at the variable’s data, whose layout depends on the object type. Every numeric value is a 9-byte BCD <code>TIFloat</code> (see <a href="floating-point.html">Floating-Point</a>); aggregates are a small header followed by an element array or a tokenized blob. These mirror the project’s DB types (<code>TIFloat</code>, <code>TIComplex</code>, <code>TIListHdr</code>, <code>TIMatrixHdr</code>), with fields shown in ROM byte order:</p>
 <pre><code class="language-c">/* ── numeric primitives ───────────────────────────────────────────── */
@@ -291,7 +300,7 @@ the matched name pointer <code>N</code>:</p>
 <tr><td><code>N+2</code> / <code>N+3</code></td><td>data address — high byte, then low byte</td></tr>
 <tr><td><code>N+4</code></td><td>version metadata</td></tr>
 <tr><td><code>N+5</code></td><td>T2 metadata</td></tr>
-<tr><td><code>N+6</code></td><td>type — low 5 bits = <code>TIVarType</code> class, high bits flag archive state; copied to <code>OP1</code> at <code>0x8478</code></td></tr>
+<tr><td><code>N+6</code></td><td>type — low 5 bits = <code>TIVarType</code> class; high bits carry other metadata, not the archive location; copied to <code>OP1</code> at <code>0x8478</code></td></tr>
 </tbody>
 </table>
 </div>
