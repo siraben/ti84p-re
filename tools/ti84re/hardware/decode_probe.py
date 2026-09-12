@@ -32,7 +32,9 @@ def main() -> None:
         print(
             f"{report['variable_name']}: {report['probe_name']} "
             f"format={report['format_version']} ASIC={report['asic_id_hex']} "
-            f"status={report['status_hex']} payload={report['payload_hex']}"
+            f"status={report['status_hex']} "
+            f"verification={report['verification_code_decimal']} "
+            f"payload={report['payload_hex']}"
         )
         print(json.dumps(report["measurements"], indent=2))
 

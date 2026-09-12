@@ -175,6 +175,9 @@ interrupts_restored:
     ld hl,frame
     ld bc,frame_end-frame
     call create_probe_appvar
+    ld bc,frame_end-frame
+    ld hl,display_label
+    call display_created_probe_code
     ret
 
 ; A is the port-0x2E mask. The 4,096 calls execute five opcodes each from
@@ -323,6 +326,10 @@ helper_signature:
     .db $F5,$23,$2B,$F1,$C9
 scratch_byte:
     .db 0
+
+display_label:
+    .db "HWBUS CODE ",0
+#include "display.inc"
 
 appvar_name:
     .db AppVarObj,"HWBUS001"
