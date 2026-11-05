@@ -54,7 +54,14 @@ interrupts_restored:
     ld hl,frame
     ld bc,frame_end-frame
     call create_probe_appvar
+    ld bc,frame_end-frame
+    ld hl,display_label
+    call display_created_probe_code
     ret
+
+display_label:
+    .db "HWPUSB CODE ",0
+#include "display.inc"
 
 appvar_name:
     .db AppVarObj,"HWPUSB01"

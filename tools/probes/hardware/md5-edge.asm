@@ -114,6 +114,9 @@ interrupts_restored:
     ld hl,frame
     ld bc,frame_end-frame
     call create_probe_appvar
+    ld bc,frame_end-frame
+    ld hl,display_label
+    call display_created_probe_code
     ret
 
 clear_operands:
@@ -140,6 +143,10 @@ read_result_byte:
     inc c
     djnz read_result_byte
     ret
+
+display_label:
+    .db "HWPMD5 CODE ",0
+#include "display.inc"
 
 appvar_name:
     .db AppVarObj,"HWPMD511"
