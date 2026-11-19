@@ -74,7 +74,7 @@ initialized-core port handlers. Neither adapter executes the retail MD5
 routine. The Wabbitemu adapter initializes its core with the exact OS 2.55MP
 image; the TilEm adapter does not load a ROM. [standard]
 
-| Case | Native result |
+| Case | GCC-built TilEm and pinned Wabbitemu result |
 |------|---------------|
 | Fresh reads from `0x18`–`0x1B` | `00 00 00 00`; the fresh calculated result is `0x00000000` |
 | One byte `11` written to operand `A` | `0x11000000` |
@@ -101,10 +101,13 @@ Their canonical native JSON has SHA-256
 
 TilEm computes a zero-count rotation as
 `(result << s) | (result >> (32 - s))`. With `s = 0`, the second operand shifts
-a 32-bit value by 32, which C99 leaves undefined. The locked GCC build produces
-the one-, three-, four-, and five-write results in the table. That observation
-is a property of this binary, not a portable result guaranteed by TilEm's C
-source. [standard]
+a 32-bit value by 32, which C99 leaves undefined. An arm64 build of the same
+TilEm source with Apple Clang 21.0.0 at `-O2` returns `0x22000000`,
+`0x66442200`, `0x88664422`, and `0xAA886644` for the four zero-rotation
+write cases. Its other probe fields match the GCC build, including all three
+mutation results. The Apple Clang binary SHA-256 is
+`f7ff144660d619b01a5dd7208d4664ed4e295518940a1e8230ee0f252f7949dc`.
+[standard]
 
 **Native Wabbitemu confirmation.** The Wabbitemu binary SHA-256 is
 `e5c64ec8630b0eaa9d42632ae8f559440678a567c00d0d1ce903fc99815afe81`.

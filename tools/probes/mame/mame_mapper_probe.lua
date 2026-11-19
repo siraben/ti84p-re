@@ -1,4 +1,5 @@
 -- Memory-mapper and fixed-page handoff probe for MAME's TI-84 Plus driver.
+-- Keep subscription handles reachable after the autoboot script returns.
 
 local cpu = assert(manager.machine.devices[":maincpu"], "missing :maincpu")
 local program = assert(cpu.spaces["program"], "maincpu has no program space")
@@ -69,8 +70,7 @@ local function run_boot_case(address, mode, bank_a, bank_b)
     cpu.state["PC"].value = 0xc000
     io:write_u8(0x03, 0x00)
 
-    local frame_subscription
-    frame_subscription = emu.add_machine_frame_notifier(function()
+    _G.ti84_frame_subscription = emu.add_machine_frame_notifier(function()
         print(string.format(
             "MAME_MAPPER boot case=%s mode=%02X bank_a=%02X bank_b=%02X " ..
             "address=%04X fixed_before=%s observed=%02X fixed_after=%s pc=%04X",
@@ -196,8 +196,7 @@ local function run_mapping_case()
     cpu.state["PC"].value = 0x8100
     io:write_u8(0x03, 0x00)
 
-    local frame_subscription
-    frame_subscription = emu.add_machine_frame_notifier(function()
+    _G.ti84_frame_subscription = emu.add_machine_frame_notifier(function()
         print(string.format(
             "MAME_MAPPER fetch marker=%02X pc=%04X",
             program:read_u8(0xc200),

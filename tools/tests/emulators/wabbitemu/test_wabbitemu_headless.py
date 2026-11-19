@@ -50,6 +50,7 @@ class WabbitemuHeadlessTests(unittest.TestCase):
         self.assertEqual("c++", command[0])
         self.assertIn("-D_LINUX", command)
         self.assertIn("-D__pragma(x)=", command)
+        self.assertIn("-Wno-error=narrowing", command)
         self.assertEqual(
             [str(source / relative) for relative in COMPILE_SOURCES],
             [item for item in command if item.startswith(str(source)) and item.endswith(".c")],

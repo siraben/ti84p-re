@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -91,7 +92,7 @@ def build_command(
         f"-I{source / 'emu'}",
         *(str(path) for path in adapters),
         *(str(path) for path in tilem_sources(source)),
-        "-Wl,--gc-sections",
+        "-Wl,-dead_strip" if sys.platform == "darwin" else "-Wl,--gc-sections",
         "-lm",
         "-o",
         str(output),
