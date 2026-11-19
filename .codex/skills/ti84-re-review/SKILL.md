@@ -32,10 +32,12 @@ universal precedence order.
 1. **Identity and provenance.** Identify the complete ROM, relevant page
    variants, include revision, tool revision, emulator binary, model, and OS.
    Read `docs/provenance.md` before using boot, certificate, USB, reset, or page
-   `0x3F` evidence. Use `tools/rom_provenance.py` where applicable.
+   `0x3F` evidence. Use `python3 -m ti84re.rom.provenance` with `tools/` on
+   `PYTHONPATH` where applicable.
 2. **ROM mapping.** Decode table entries and raw bytes. Verify that an address
    starts an instruction and that bank/page selection is correct. Use
-   `tools/bcall_targets.txt`, `tools/ti83plus.inc`, `tools/ram.txt`, and the
+   `tools/symbols/bcall_targets.txt`, `tools/symbols/ti83plus.inc`,
+   `tools/symbols/ram.txt`, and the
    typed symbol files as distinct sources rather than interchangeable truth.
 3. **Static control flow.** Use Ghidra listing, xrefs, and decompiler output;
    confirm ambiguous instructions from raw bytes or
@@ -99,7 +101,7 @@ disagreements, and validate the combined result.
 
 ## Dynamic-trace discipline
 
-- Read `tools/dynamic-tracing.md` before capturing TilEm traces.
+- Read `tools/notes/dynamic-tracing.md` before capturing TilEm traces.
 - Capture all banked windows when page resolution matters.
 - Use the reset mapping only when tracing begins at reset. A trace started after
   file transfer needs its actual initial selectors or a later proven mapping.

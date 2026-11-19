@@ -7,7 +7,7 @@ hash-guarded and built by a `ti84re` module, so no binary is checked in.
 
 ## Cross-page Flash-programming fixture
 
-`build_ti_program.py` generates large storage fixtures without checking binary
+`ti84re.tifiles.build_program` generates large storage fixtures without checking binary
 files into the repository. The following pair sorts `AARCHIVE` before
 `ZBIGDATA`; the macro then selects the second program in the memory manager and
 archives it without executing its deliberately repetitive body:
@@ -107,7 +107,7 @@ Both launch methods remain emulator evidence, not physical ASIC measurements.
 
 ## Guarded Flash-worker fixtures
 
-`build_flash_emulator_fixture.py` creates a fixture copy of the exact local OS
+`ti84re.flash.build_emulator_fixture` creates a fixture copy of the exact local OS
 2.55MP image and two program files. It refuses a ROM whose SHA-256 is not
 `7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d`.
 Fixtures that need accepted Flash commands change eight bytes at physical
@@ -128,7 +128,7 @@ worker's fixed-ROM source branch across logical `0x7FFF` into RAM.
 patched ROM copy. `erase-busy-range` samples selected and unselected Flash
 regions during an active erase. Fixture metadata, optional patching,
 validation, and TI link-file packaging live in
-`flash_emulator_fixture.py`; the CLI only assembles the selected source and
+`ti84re.flash.emulator_fixture`; the CLI only assembles the selected source and
 writes its artifacts.
 
 ### Entry-return probe
@@ -413,7 +413,7 @@ python3 -m ti84re.trace.analyze_points /tmp/writeflash-3e-cross.trace \
 
 The validated TilEm run produced byte-program commands at physical `0xF7FFF`
 and `0xF4000`, followed by the worker reset at `0xF4000`. `ram:8122` was not
-executed. `flash_trace.py` labels the resulting physical-address jump
+executed. `ti84re.flash.trace` labels the resulting physical-address jump
 `same-page-window-wrap`. This is emulator evidence for the ROM branch, not a
 physical-calculator result.
 
@@ -544,9 +544,10 @@ generated `_Find_Parse_Formula` (`4AF2`) negative fixture. It enters
 `38:5984`). It reaches `_ParseInpLastEnt`, `_ParseInp` (`38:5987`),
 `parseinp_find_setup` (`38:5B2B`), `findsym_scan`, `parse_init`, and
 `eval_stmt_entry`, but the final screen is `ERR:INVALID` / `1:Quit` / `2:Goto`;
-it never displays `CALLED`. This supports the static reading that `_ParseInp`
-variants expect a live parser/FPS stack frame, not just an OP1 program name
-from an arbitrary `AsmPrgm`.
+`38:5984` calls `ram:1F23` and replaces the supplied name with the last-entry
+program. The matched direct `_ParseInp` case changes only the bcall operand
+to `4A9Bh`. Its RAM target displays `CALLED`, and the wrapper resumes at
+`AFTER`. [Matched fixture and results](../probes/tibasic-parseinp/result.json)
 
 Forced-command/edit-buffer probes (2026-06-07): a payload that calls
 `_JForceCmd(kEnter)` (`402A`) enters `ram:0747` and re-enters the command loop
@@ -571,9 +572,9 @@ baseline and coverage diff if you need to isolate only interpreter execution.
 
 ## Flash command replay and GC restart
 
-`flash_replay.py` applies accepted byte-program commands with the NOR
+`ti84re.flash.replay` applies accepted byte-program commands with the NOR
 `old & requested` rule and erases the top-boot sector selected by each erase
-command. `replay_flash_trace.py` is the guarded CLI. It requires an expected
+command. `ti84re.flash.replay_trace` is the guarded CLI. It requires an expected
 source-ROM hash, rejects unresolved or unmatched writes and non-successful OS
 program-worker outcomes, refuses existing outputs by default, and reports both
 input and output hashes.

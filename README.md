@@ -146,7 +146,7 @@ the shortest paths into the main kinds of material:
 | [Display and LCD](docs/display-lcd.md) | LCD driver, fonts, screen buffers |
 | [Keyboard and link](docs/keyboard-link.md) | Key input and wired-transfer overview |
 | [Keypad and ON-key hardware](docs/keypad-on-hardware.md) | Matrix timing, ghosting, debounce, repeat, ON interrupts, and wake |
-| [Subsystem map](docs/subsystem-map.md) | bcall API surface, system through-line |
+| [Subsystem map](docs/subsystem-map.md) | bcall API and the subsystems that use it |
 | [Boot, contexts, and errors](docs/boot-contexts-errors.md) | Boot, the context system, `_JError`, and `onSP` |
 | [Memory management](docs/memory-management.md) | RAM heap, VAT, Flash archive, and garbage collection |
 | [Flash memory](docs/flash-memory.md) | Flash geometry, ASIC protection, program and erase bcalls, and archive traces |

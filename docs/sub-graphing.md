@@ -249,7 +249,7 @@ X range — with `_Mov9B` (`00:1A92`, which reads a window float into the frame)
 line's Y (`OP1`) via `_MovFrOP1` (`00:1B0C`), so the endpoints are `(Xmin, y)` and `(Xmax, y)`.
 `_VertCmd` does the same with `Ymin` (`0x8F6B`)/`Ymax` (`0x8F74`) and the line's X. It renders with
 `_PDspGrph`, then `_DeallocFPS1(0x24)` frees the frame — the window variables are read only,
-so the line just spans the current window edges. [confirmed]
+so the line spans the current window edges. [confirmed]
 
 ---
 
