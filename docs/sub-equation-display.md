@@ -76,7 +76,7 @@ the transient layout view of that live equation. [confirmed]
 token-and-marker payload. [confirmed]
 
 ```mermaid
-flowchart LR
+flowchart TD
     tokens["Native token bytes"] --> gap["Editor gap buffer<br/>active leaf bytes"]
     gap --> editor["Page 39 layout state<br/>classes, rows, slots, D:E cells"]
     gap --> scan["34:58F9 / 34:5A99<br/>token and argument scans"]

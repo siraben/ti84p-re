@@ -61,7 +61,7 @@ Toshiba documentation names the pixel row *X* and the byte column *Y*. Software 
 
 The Z-address command `0x40 + shift` changes which controller row appears at the top of the panel. It does not copy video RAM. Rows wrap modulo 64 when displayed. [standard]
 
-![A TI-84 Plus calculator skin locates the selected row and byte column on the physical LCD; an enlarged controller row shows twelve visible byte columns, four off-screen columns, and the eight pixels in one data byte.](images/lcd-addressing.svg)
+<p><a class="lcd-diagram" href="images/lcd-addressing.svg" aria-label="Open full-size LCD addressing diagram. The calculator skin marks the selected row and byte column. Controller RAM has twelve visible byte columns and four off-screen columns."><object data="images/lcd-addressing.svg" type="image/svg+xml" aria-hidden="true" tabindex="-1">Open the LCD addressing diagram</object></a></p>
 
 **Ordinary 8-bit addressing.** The TilEm skin locates the controller model on the calculator face. The visible 12-byte row and OS command ranges are [confirmed]; the T6K04's 16-byte controller row, read latch, and off-screen storage are [standard].
 

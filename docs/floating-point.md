@@ -72,7 +72,7 @@ extension byte is cleared too, but is not part of that eight-byte add loop.
 The following flow describes add/subtract, not every binary operation:
 
 ```mermaid
-flowchart LR
+flowchart TD
     A["clear guard digits<br/>fp_clear_guard"] --> B["align exponents<br/>shift smaller right by Δ"]
     B --> C["BCD digit op<br/>add / subtract"]
     C --> D["renormalize<br/>back to d.dddd…"]

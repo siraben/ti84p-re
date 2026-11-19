@@ -283,7 +283,7 @@ existing buffer when the graph state is still valid. [confirmed]
 The function-mode path has this observed shape:
 
 ```mermaid
-flowchart LR
+flowchart TD
     A[Regraph setup] --> B[Clear plotSScreen]
     B --> C[Select equation]
     C --> D[Prepare sample X]
