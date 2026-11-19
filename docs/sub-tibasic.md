@@ -95,9 +95,13 @@ block delimiter.
 ## Expressions are nested productions
 
 `_ParseInp` (`38:5987`) initializes parser state for a homescreen expression or
-formula and enters the shared evaluator. Stored-program execution arrives with
-the program body and parser frame already selected. Both converge on the
-recursive expression machinery around `parse_eval_expr` (`38:5AB3`) and the
+formula and enters the shared evaluator. A RAM assembly caller can also give
+`_ParseInp` the name of a BASIC program in OP1. A paired TilEm run exercises
+this route through normal return. The ordinary BASIC `prgmNAME` caller
+selects the program body and parser frame internally.
+[ASM to BASIC](sub-tibasic-examples.md#asm-to-basic)
+
+These paths use the recursive expression machinery around `parse_eval_expr` (`38:5AB3`) and the
 statement loop at `38:59C5`. [confirmed]
 
 The evaluator is not a flat “token to function” switch. It first maps the

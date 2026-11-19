@@ -158,16 +158,13 @@ then hands accepted text to `38:5978` → `38:5B2B`. Four TilEm cases cover an
 empty retry, wrapped edit/cursor redraw, **[ON]** cleanup, `Prompt`, and the
 separate `Menu(` route. [confirmed]
 
-The ASM/BASIC boundary is resolved within an exact bounded census. All 1,732
-main bcall slots, all 825 raw cross-page-call descriptors, and every direct
-edge in `38:4100`–`38:77FF` expose no separate ASM-to-BASIC program-call ABI.
-T042 saves and restores the parser, VAT, FPS/OPS, flag, and error state; an
-incomplete direct call raises `E_DataType` before `38:6910`, while the ordinary
-`prgmNAME` caller reaches `38:6910`, `38:6914`, and `38:778F` and returns
-normally. Fully constructing every private grammar/type and return record is
-the ordinary caller reproduced in ASM, not a distinct ABI. The supported route
-remains an ASM result through `Ans`, followed by a BASIC-owned `prgmNAME` call.
-[confirmed]
+A RAM assembly program can bcall `_ParseInp` (`4A9Bh`) with a BASIC program
+name in OP1. In a matched TilEm comparison on the retail OS 2.55MP image,
+the named target displayed `CALLED` and its wrapper resumed at `AFTER`.
+Changing only the operand to `_ParseInpLastEnt` (`4B07h`) selected the
+last-entry program and produced `ERR:INVALID`. [confirmed] Interactive
+commands, archived targets, and direct-call error unwinding remain untested.
+See [ASM to BASIC](sub-tibasic-examples.md#asm-to-basic).
 
 The group receive path is resolved. Receiving a `.8xg` stores each member as an
 individual variable through the standard link variable-receive loop; no

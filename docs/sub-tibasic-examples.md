@@ -2,8 +2,8 @@
 
 These trace-backed examples connect source-level choices to the interpreter
 paths documented in [TI-BASIC execution](sub-tibasic.md). The page also records
-the supported BASIC/ASM boundary and the tested failures around direct
-ASM-initiated BASIC execution.
+how a RAM assembly program calls a BASIC program with the public `_ParseInp`
+bcall and returns to its BASIC wrapper.
 
 ## Trace-backed examples
 
@@ -466,8 +466,7 @@ validate inputs on the BASIC side, and make the ASM payload return normally with
 
 ### Cooperative ASM-directed BASIC callback
 
-The run-confirmed way to let ASM choose a BASIC continuation is to keep BASIC in
-charge of the program call. `ASMSIG.8xp` sets `Ans` to `1` and returns:
+In this example, the ASM result selects a continuation in BASIC. `ASMSIG.8xp` sets `Ans` to `1` and returns:
 
 ```z80
 RST 28h
@@ -532,21 +531,50 @@ hits `userMem`, `_OP1Set2` (`00:1B50`), `_StoAns` (`38:6251`), `_AnsName`,
 |-----------|---------------------|--------|
 | BASIC → ASM | `Asm(prgmNAME)` parses `prgmNAME`, bcalls `_ExecutePrgm`, copies the `AsmPrgm` payload, then jumps through `userMem`. | The payload runs in the calculator OS process; a bad payload can corrupt interpreter state. |
 | BASIC → BASIC | `prgmNAME` enters the page-38 parser/VAT/body evaluator path and `Return` resumes the caller. | There is no local frame; variables, lists, and `Ans` are shared. |
-| ASM → BASIC callback | ASM stores a signal/result such as `Ans=1`, returns, and the BASIC wrapper conditionally runs `prgmNAME`. | BASIC must own the actual `prgm` call; this is cooperative, not an arbitrary ASM bcall into BASIC. |
+| ASM → BASIC callback | ASM stores a signal/result such as `Ans=1`, returns, and the BASIC wrapper conditionally runs `prgmNAME`. | In this wrapper, BASIC owns the `prgm` call. |
 | ASM → BASIC value return | ASM stores a numeric result in `Ans` with `_StoAns`; BASIC resumes and evaluates `Ans`. | This returns data to BASIC, not control into a BASIC program body. |
 | ASM → VAT lookup | `ASMFIND` builds `OP1={ProgObj,"ZZBASIC"}` and bcalls `_ChkFindSym`. | Lookup is not execution; the wrapper returns and `ZZBASIC` does not display `CALLED`. |
-| Direct ASM → BASIC | The bounded OS 2.55MP census finds no distinct callable ABI. | A private construction must reproduce the ordinary parser, VAT, FPS/OPS, error, and return records; supported applications should return to a BASIC-owned `prgmNAME` call. |
+| Direct ASM → BASIC | A RAM ASM caller puts the program name in OP1 and bcalls `_ParseInp`. | The paired TilEm run covers a one-statement BASIC target and normal return. |
 
 ### ASM to BASIC
 
-OS 2.55MP has no distinct public or private-funnel ABI for calling a BASIC
-program from arbitrary ASM within the bounded search described below. ASM can
-enter private parser addresses after constructing their state, but the required
-parser, VAT, FPS, OPS, error, and return records are the ordinary BASIC caller
-frame. Constructing all of them duplicates that caller rather than invoking a
-separate ABI. [confirmed]
+Texas Instruments documents `_ParseInp` (`4A9Bh`, `38:5987`) as taking the
+name of an equation or a program in OP1. The SDK specifies a result for an
+equation and no return value for a program. The worked example evaluates
+`Y1`. [standard] [TI-83 Plus System Routines, “ParseInp”](https://education.ti.com/html/eguides/discontinued/computer-software/EN/SDK-TI-83-System-Routines_EN.pdf)
 
-Four apparent public candidates are not that entry point:
+On OS 2.55MP, a RAM assembly program can call a BASIC program directly
+through `_ParseInp` and return to its BASIC wrapper. In two TilEm runs on
+the canonical retail image, `ASMPARSE` displays `BEFORE`, runs
+`Asm(prgmZZPARSE)`, and displays `AFTER`. The ASM payload places the name
+`{ProgObj,"ZZBASIC"}` in OP1. Only the bcall operand differs between runs.
+[confirmed]
+
+| Bcall operand | Target selected | Final LCD |
+|---------------|-----------------|-----------|
+| `4A9Bh` (`_ParseInp`) | `ZZBASIC` in RAM, containing `Disp "CALLED"` | `BEFORE`, `CALLED`, `AFTER`, `Done` |
+| `4B07h` (`_ParseInpLastEnt`) | The system's last-entry program | `ERR:INVALID`, `1:Quit`, `2:Goto` |
+
+The direct case covers normal return from this one-statement program.
+Interactive commands, archived targets, and error unwinding require separate
+caller tests. The paired fixtures, ROM and emulator identities, trace hashes,
+and LCD checks are in `tools/probes/tibasic-parseinp/result.json`. The replay
+requires ImageMagick and a TilEm build that transfers positional program files
+before its headless macro runs. The recorded binary includes a local patch
+for that transfer. Run from the repository root with a fresh output directory.
+
+```sh
+PYTHONPATH=tools python3 tools/probes/tibasic-parseinp/compare.py \
+  --tilem "$TILEM" --rom "$ROM" --out-dir /tmp/ti84-parseinp-comparison
+```
+
+A published Flash App caller sets `progExecuting` and `cmdExec`, installs an
+error handler, and calls `_ParseInp` with the program name in OP1. It also
+manages the App's homescreen hook. This source describes a Flash App caller.
+The paired TilEm fixtures exercise the separate RAM caller described above.
+[Kerm Martian and Dan E., “RunBASICProgram”](https://www.cemetech.net/forum/viewtopic.php?t=1449)
+
+Four public routines serve other roles:
 
 - `_ExecutePrgm` is the `AsmPrgm` executor reached by `Asm(prgmNAME)`, not a
   general "run a BASIC program" entry.
@@ -563,10 +591,7 @@ The confirmed BASIC subprogram path is different: the `CALLSUB`/`SUBRT` trace
 does not hit `_ParsePrgmName`, `_ExecutePrgm`, `_Find_Parse_Formula`, or
 `_SetParseVarProg`. It resolves the program name through the page-38
 parser/VAT path, enters the program-body evaluator at `38:6914` →
-`38:778F`, and lets `Return` unwind to the caller. Calling that same machinery
-from arbitrary ASM requires more than loading OP1 and bcalling a single public
-entry; it needs the same parser cursor, stack, error, and run-state setup that a
-live BASIC caller already has. [confirmed]
+`38:778F`, and lets `Return` unwind to the caller. [confirmed]
 
 A typed two-program trace of `prgmPP` calling `prgmOO` captures the live parser
 frame at each `38:6914` entry through shadow-memory replay. The reproduction
@@ -583,15 +608,8 @@ macro is `tools/macros/run-callsub-typed.macro`.
 | gate bits | `BIT 0,(IY+28h)` and `BIT 7,(IY+48h)` are both zero (`IY=0x89F0`; bytes at `0x8A18` and `0x8A38`) |
 
 Both gate bits read zero in the working path. The private callee transition at
-`38:6910` executes <code>XOR A</code><br><code>CALL 6A15</code> before entering the evaluator. These
-observations suggest that an ASM payload must locate the target through
-`_ChkFindSym` into OP1, copy the name header to `0x9652`, point
-`start`/`cursor` at `_ChkFindSym`'s data pointer plus two (past the size word),
-set `end` = start + size, store `01h` at `0x9661`, ensure the FPS/OPS bounds
-are sane, bank page `38` into port `0x06`, and enter `38:6910`. No identified
-public bcall performs this setup. This proposed hand-built state transplant
-also accounts for the parser-frame failures in the negative probes
-(`ZZFIND`/`ZZFORM`/`ZZPARSE`). [hypothesis]
+`38:6910` executes <code>XOR A</code><br><code>CALL 6A15</code> before entering the evaluator. The following probe copies the target's name and parser bounds and enters
+that private address directly.
 
 The generated negative probe consists of `OO.8xp`, `ZZRUN.8xp`, and
 `ZZRUNWR.8xp`. `ZZRUN` is an 81-byte payload targeting `prgmOO`; it returns
@@ -645,10 +663,9 @@ reproducible. The payload is the same OP1-name setup as `ZZFIND`, but it bcalls
 Observed run: the trace reaches `_ParseInpLastEnt`, `_ParseInp` (`38:5987`),
 `parseinp_find_setup` (`38:5B2B`), `findsym_scan`, `parse_init`, and
 `eval_stmt_entry`; the final screen is `ERR:INVALID` with `1:Quit` and
-`2:Goto`. `ZZBASIC` never displays `CALLED`. Static disassembly explains the
-mismatch: after resolving the OP1-named object, `_ParseInp` continues through
-parser setup that expects a live parser/FPS call-frame shape. It is not a
-general "run this token stream" ABI for an arbitrary `AsmPrgm`. [confirmed]
+`2:Goto`. At `38:5984`, `CALL 1F23h` replaces the OP1 name with `05 23 00`, the system's last-entry program. Control then falls through to
+`_ParseInp` at `38:5987`. This run therefore exercises the last-entry
+program. A direct bcall to `4A9Bh` skips the name replacement. [confirmed]
 
 The homescreen command/edit-buffer route is also not a safe callable ABI. A
 payload that did only:
@@ -690,17 +707,19 @@ ABI for `AsmPrgm` payloads. [confirmed]
 
 #### Bounded ABI census
 
-The bounded census covers:
+The OS 2.55MP main bcall table spans `4000h`–`54ACh`. All 1,765 slots
+precede the code at `3B:54AF`, and 98 target page `38`. The 1 MiB retail
+image also contains 825 raw matches for the cross-page call prefix
+`CD 09 2B`. Neither the table slots nor the address/page triples following
+those byte matches point to `38:59C5`, `38:6910`, `38:6914`, or `38:778F`.
+A raw prefix can occur in data. [confirmed]
 
-- all 1,732 three-byte main bcall slots from `4000h` through `5449h`;
-- all 825 raw `CALL 2B09h` cross-page-call descriptors in the 1 MiB ROM; and
-- every direct control-flow edge in the disassembled page-38 parser region
-  `38:4100`–`38:77FF`.
-
-None of the 1,732 public slots and none of the 825 cross-page descriptors
-targets `38:59C5`, `38:6910`, `38:6914`, or `38:778F`. Of the 95 public slots
-whose target is on page `38`, only six land in the conservative 613-instruction
-direct reverse slice of `38:778F`:
+A table entry can reach these addresses through ordinary instructions.
+Starting at `_ParseInp` (`38:5987`), the fallthrough at `38:59C2` leads to
+`38:59C5`. The conditional jump at `38:59CE` can then reach `38:6910`
+and the call to `38:778F` at `38:6914`. The conditions on that path depend
+on parser state. Six other table entries with paths through this parser
+region appear below. [confirmed]
 
 | Bcall | Target | Role |
 |-------|--------|------|
@@ -711,60 +730,29 @@ direct reverse slice of `38:778F`:
 | `_HandleMathTokenParse` (`5218`) | `38:6963` | Continue an existing math-token parse. |
 | `_RestartParseOP1Result` (`521E`) | `38:5CA7` | Resume parsing with an existing OP1 result. |
 
-These are mid-parser helpers, not frame constructors. The exact incoming-edge
-census further narrows the private funnel: `38:59C5` has the local
-`38:5C03` jump and the `38:59C2` fallthrough; `38:6910` has the conditional
-`38:59CE` jump and `38:690D` fallthrough; `38:6914` follows `38:6911`; and
-only `38:6914` calls `38:778F`. [confirmed]
+The linear disassembly from `38:4100` through `38:77FF` has two direct
+predecessors of `38:59C5`, the jump at `38:5C03` and the fallthrough at
+`38:59C2`. The two direct predecessors of `38:6910` are the conditional
+jump at `38:59CE` and the fallthrough at `38:690D`. The instruction at
+`38:6911` falls through to `38:6914`, the only direct call site for
+`38:778F` in this range. [confirmed]
 
 The separate semantic-candidate experiments cover `_ExecutePrgm`,
 `_ExecuteNewPrgm`, `_SetParseVarProg`, `_ParsePrgmName`,
 `_ParseInpLastEnt`, `_Find_Parse_Formula`, `_JForceCmd`, `_PutTokString`, and
-`_rclToQueue`. They either execute compiled ASM, modify only part of parser or
-editor state, or enter the parser with a malformed caller frame. None is a
-standalone direct-call ABI. [confirmed]
+`_rclToQueue`. The tested callers execute compiled ASM, change parser or editor state, or
+produce the errors described above. The separate direct `4A9Bh` case above executes the named program and returns. [confirmed]
 
-This is a scoped negative result for the complete public table, standard
-cross-page-call descriptors, and the declared page-38 direct graph on OS
-2.55MP. It does not claim that manually reproducing every private caller record
-cannot execute a token stream; that construction is specifically excluded
-because it is a reimplementation of the ordinary BASIC caller, not a distinct
-callable ABI.
+The census checks table entries, raw byte patterns, and direct branches. It
+does not establish complete reachability through computed dispatch, routines
+outside that region, or callers with different state. The failed candidate
+experiments therefore leave other private calling sequences open.
 
-#### Private-frame comparison
+#### Private-frame comparison evidence gap
 
-The T042 probe compares an incomplete direct call with the ordinary caller in
-one reset-origin TilEm run. `ZZFRAME` saves four state groups before the
-experiment: [confirmed]
-
-| Saved group | Range | Contents |
-|-------------|-------|----------|
-| Parser and name | `0x9652`–`0x9662` | `basic_prog`, parser pointers, and `numArguments` |
-| VAT and temporary stacks | `0x981C`–`0x9831` | VAT scratch, FPS, OPS, `pTemp`, and `progPtr` |
-| Parser flags | `0x89F0`–`0x8A39` | IY flags read by the page-38 parser |
-| Error state | `0x86DD` | prior `errNo` value |
-
-The payload installs a caught-error frame through `_pushErrorHandleR` at
-`ram:27DA`, substitutes a token stream containing `prgmZZGOOD`, and calls
-`eval_stmt_entry` at `38:59C5`. It reaches the statement entry once, then
-raises `E_DataType` before `38:6910`, `38:6914`, or `38:778F`. `_JError`
-transfers through `ram:27BB`; the payload restores every saved group before it
-stores error code `9` in `Ans`. The combined frame SHA-256 matches before and
-after the failed call. [confirmed]
-
-The BASIC wrapper then calls `prgmZZGOOD` normally. That path reaches
-`38:59C5` twice and `38:6910`, `38:6914`, and `38:778F` once each, returns
-value `2`, and resumes at `AFTER`. The final screen reads `BEFORE`, `9`, `2`,
-`AFTER`, and `Done`. [confirmed]
-
-The comparison pins the missing boundary for this construction. Parser
-pointers and copied RAM blocks do not create the OPS grammar/type record, FPS
-baselines, VAT adoption, and return record consumed before `38:6914`. The
-ordinary `prgmNAME` handler creates them. Reproducing all of that state would
-duplicate the BASIC caller rather than expose a separate supported ABI.
-[confirmed]
-
-`tools/probes/scratch-guard/asm-basic-frames-tilem.json` records the pinned TilEm run,
-screen contract, ROM spans, SPASM-ng output, and source/program hashes. The
-supported application pattern remains `Asm(` → `_ExecutePrgm` → `ram:9D95`,
-return a value through `Ans`, and let BASIC perform `prgmNAME`.
+The reported T042 comparison used an ASM payload named `ZZFRAME` and a
+BASIC target named `ZZGOOD`. The cited manifest
+(`tools/probes/scratch-guard/asm-basic-frames-tilem.json`) and both fixtures
+are missing from the repository. The error attributed to the private call at `38:59C5` and the claimed
+restoration of the caller's state therefore remain unverified. The separate `ASMBRIDG` fixture above exercises the cooperative
+`Ans` route.
