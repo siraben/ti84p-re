@@ -358,7 +358,7 @@ that point it becomes tree navigation:
 \begin{algorithm}
 \caption{Move the MathPrint cursor}
 \begin{algorithmic}
-\IF{a packed token exists in the requested direction}
+\IF{an ordinary packed token exists in the requested direction}
   \STATE move the complete one- or two-byte token across the gap
 \ELSIF{the cursor is entering a structural marker}
   \STATE select the first child for \textsc{right}, or the last child for \textsc{left}

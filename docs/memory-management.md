@@ -12,10 +12,12 @@ The dynamic region runs from `userMem` (`0x9D95`) up to `symTable` (`0xFE66`). T
 flowchart TB
     A["0xFE66 · symTable — top of user RAM"]
     B["VAT — variable names + metadata<br/>type, data ptr/page, name · grows DOWNWARD ↓"]
-    C["( free RAM )"]
+    O["operand stack · OPS"]
+    C["free RAM · OPS − FPS + 1"]
+    F["floating-point stack · FPS"]
     D["user data — variable contents<br/>grows UPWARD ↑"]
     E["0x9D95 · userMem — bottom of user RAM"]
-    A --- B --- C --- D --- E
+    A --- B --- O --- C --- F --- D --- E
     style C fill:#1b1b1b,stroke-dasharray:5 5
 ```
 

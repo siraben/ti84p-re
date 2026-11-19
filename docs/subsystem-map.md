@@ -25,13 +25,13 @@ Numeric evaluation uses the parser, VAT, arithmetic engine, and display:
 
 ```mermaid
 flowchart TD
-    KP([keypad]) --> GK["_GetKey"] --> P[parser] --> TD[token dispatch]
-    TD --> VAT["VAT · _FindSym<br/>variables"]
-    TD --> FP["FP engine · OP1..6<br/>arithmetic / transcendentals"]
-    TD --> DISP["display · _PutMap<br/>homescreen / graph"]
-    VAT --> R["result in OP1<br/>shown via _DispOP1A / _PutS"]
-    FP --> R
-    DISP --> R
+    KP([keypad]) --> GK["_GetKey"] --> HOME["homescreen edit buffer"]
+    HOME -->|evaluate entered tokens| P[parser]
+    P -->|name token| VAT["VAT lookup"]
+    VAT -->|recalled numeric operand| FP["FP arithmetic"]
+    P -->|numeric operation| FP
+    FP --> R["result in OP1"]
+    R --> DISP["format and display result"]
 ```
 
 Cross-cutting services used by all of the above: [the bcall mechanism](bcall-mechanism.md), [interrupt dispatch](interrupts.md), [clock/timers/APD/power](clock-timers-power.md), [MD5 and boot signature arithmetic](md5-hardware.md), error handling (`_JError` + `TIError` codes), and the system flags (`SystemFlags` @ `flags`).

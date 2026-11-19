@@ -29,7 +29,7 @@ flowchart LR
     H --> D["command or control transfer"]
     E --> R["OP1 result"]
     M --> R
-    D --> R
+    D -->|"continue or branch"| C
     R -->|"advance or replace cursor"| C
 ```
 

@@ -295,8 +295,9 @@ flowchart LR
     H --> J[Advance curInc by Xres]
     I --> J
     J -->|more columns| D
-    J -->|done| K[Next selected equation]
-    K -->|done| L[Return with plotSScreen]
+    J -->|last column| K{Another selected equation?}
+    K -->|yes| C
+    K -->|no| L[Return with plotSScreen]
 ```
 
 `graph_advance_sample_column` (`04:69CF`) compares `curInc` (`0x8E67`) with
