@@ -91,16 +91,25 @@ python3 -m unittest discover -s tools/tests -t tools     # Python suite
 node tools/js/test-mathprint.js                          # MathPrint corpus + fuzz
 ```
 
-`nix build` renders the wiki and runs the ROM-independent checks; tests that
-need `tools/rom.bin`, `z80dasm`, or the retail artifacts under `tools/roms/`
-error out without them.
+`nix build` renders the wiki and runs the ROM-independent checks. On Linux it
+also checks Mermaid, KaTeX, and pseudocode in headless Chromium. On macOS,
+run the same browser check after building, using the path to an installed
+Chromium executable. For example:
+
+```sh
+PYTHONPATH=tools python3 -m ti84re.wiki.check_rendering docs result \
+  '/Applications/Chromium.app/Contents/MacOS/Chromium'
+```
+
+The full Python suite also needs `tools/rom.bin`, `z80dasm`, and the retail
+artifacts under `tools/roms/`.
 
 ## Current state
 
 | Metric | Value |
 |--------|-------|
 | Functions | rebuilt from the local ROM by `tools/build.sh` |
-| bcall routines named | 728 total: 645 main-table bcalls + 83 retail boot-table bcalls |
+| Named entries in the bcall index | 732 entries across the main table (645) and retail boot table (83 SDK names and four inferred names) |
 | bjump sites modeled | every disassembled inline `CALL cross_page_jump` site; the total includes the 87-entry trampoline table |
 | parser handlers | 84 (page 0x38 dispatch table) |
 | Database coverage | versioned counts and unresolved locations in `tools/data/database-health.json` |

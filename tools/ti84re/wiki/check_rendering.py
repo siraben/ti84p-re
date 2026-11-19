@@ -178,7 +178,9 @@ def browser_dom(chromium: str, page: Path, virtual_time_ms: int) -> str:
                 "--allow-file-access-from-files",
                 "--enable-logging=stderr",
                 "--v=0",
-                "--run-all-compositor-stages-before-draw",
+                # This switch can stall macOS headless capture in CVDisplayLink.
+                *([] if sys.platform == "darwin" else
+                  ["--run-all-compositor-stages-before-draw"]),
                 f"--virtual-time-budget={virtual_time_ms}",
                 f"--user-data-dir={temp_path / 'profile'}",
                 "--dump-dom",
