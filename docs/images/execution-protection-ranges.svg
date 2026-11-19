@@ -19,7 +19,7 @@
     <rect class="deny" x="126" y="0" width="462" height="70"/>
     <rect class="allow" x="588" y="0" width="308" height="70" rx="8"/>
     <text class="mono" x="56" y="31" text-anchor="middle">00–07</text><text class="text" x="56" y="55" text-anchor="middle">allow</text>
-    <text class="mono" x="119" y="-8" text-anchor="middle">08</text>
+    <text class="mono" x="119" y="-8" text-anchor="middle">08 deny</text>
     <path d="M119 -5 V0" stroke="#d97706" stroke-width="2"/>
     <text class="mono" x="357" y="31" text-anchor="middle">09–29</text><text class="text" x="357" y="55" text-anchor="middle">deny</text>
     <text class="mono" x="742" y="31" text-anchor="middle">2A–3F</text><text class="text" x="742" y="55" text-anchor="middle">allow</text>
@@ -38,8 +38,8 @@
   <rect class="panel" x="60" y="485" width="1080" height="185" rx="14"/>
   <text class="head" x="90" y="523">Emulator RAM predicates · boot bounds port 25 = 10h, port 26 = 20h</text>
   <rect class="port" x="90" y="550" width="300" height="82" rx="10"/>
-  <text class="mono" x="240" y="580" text-anchor="middle">10h × 400h → lower</text>
-  <text class="mono" x="240" y="608" text-anchor="middle">20h × 400h → upper</text>
+  <text class="mono" x="240" y="580" text-anchor="middle">lower address 4000h</text>
+  <text class="mono" x="240" y="608" text-anchor="middle">upper address 83FFh</text>
   <rect class="dash" x="450" y="550" width="650" height="82" rx="10"/>
   <text class="text" x="775" y="575" text-anchor="middle">Port 21 bits 4–5 select the address mask.</text>
   <text class="text" x="775" y="599" text-anchor="middle">TilEm repeats the interval by mode.</text>

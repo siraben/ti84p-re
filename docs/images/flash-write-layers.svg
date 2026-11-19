@@ -50,7 +50,7 @@
     <text class="text" x="850" y="272" text-anchor="middle">DQ status while busy</text>
 
     <rect class="array" x="985" y="75" width="80" height="220" rx="12"/>
-    <text class="head" x="1025" y="112" text-anchor="middle" transform="rotate(90 1025 185)">physical sector</text>
+    <text class="head" x="1025" y="185" text-anchor="middle" dominant-baseline="central" transform="rotate(90 1025 185)">physical sector</text>
 
     <path class="arrow" d="M215 185 H252"/><path class="arrow" d="M445 185 H482"/><path class="arrow" d="M715 185 H752"/><path class="arrow" d="M945 185 H982"/>
 
