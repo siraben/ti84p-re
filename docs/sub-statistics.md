@@ -12,7 +12,7 @@ mis-render.
 
 ## `statVars` result block [confirmed]
 
-Every STAT-CALC result is a 9-byte `TIFloat` (see [floating-point.md](floating-point.md)) written
+Numeric STAT-CALC results use 9-byte `TIFloat` values (see [floating-point.md](floating-point.md)) written
 into a fixed RAM table beginning at `statVars = 0x8A3A` (`statVars EQU 8A3Ah`
 in `ti83plus.inc`). Entries are packed at the 9-byte `FPLEN` stride. These are the
 system variables recalled by name (`[2nd][STAT] ▸ VARS`):
@@ -498,24 +498,21 @@ from array slots to menu items remains open.
 ## Subsystem integration
 
 ```text
-  L1..L6 lists (VAT data)                 statVars (0x8A3A)  ← results, recall-by-name
-        │ (VAT element access)                 ▲
-        ▼                                       │ (_Rcl_StatVar 00:2149)
-   _OneVar (3A:6420, id 0x4BA3)  ──►  per-element accumulation pass (3A:6572)
-        │  cmd code → stat_calc_command          │  uses FP engine:
-        │                                        │   RST30 _FPAdd, 238B _FPMult,
-        ├─ moments / Sx,σx (3A:6984..)           │   238A _FPSquare, 2541 _FPDiv,
-        ├─ Gauss-Jordan solve (3A:67C6..) ───►   │   3939 _SqRoot, 2294 _Minus1
-        │     → QuadA..QuartE, Corr, RegEQ       │
-        └─ sort + median/quartile (3A:7935/79B9) ┘
-  errors: _ErrStat 00:2741 (0x15), _ErrStatPlot 00:2759 (0x1B),
-          _ErrSingularMat 0x83, _ErrDimMismatch 00:2715 (0x8B)
+list arguments in the VAT
+    ↓
+_OneVar (3A:6420) saves the command selector at 8A36h
+    ↓
+accumulate list elements (3A:6572)
+    ↓
+command-specific work includes
+    ├─ moments and standard deviations
+    ├─ polynomial fit via Gauss-Jordan (3A:67C6)
+    └─ medians and quartiles via the internal sort (3A:7935)
 ```
 
-The STAT subsystem is a thin data-driven front-end on page 0x3A that reads list
-data via the VAT, drives the page-0/page-02 BCD FP engine to build power-sums, then
-either finalizes the moments or runs an in-place Gauss-Jordan solve of the normal
-equations, depositing every output as a named `TIFloat` in the `statVars` block.
+Numeric results occupy slots in `statVars` starting at `8A3Ah`.
+`_Rcl_StatVar` (`00:2149`) recalls a named numeric result into OP1.
+Regression also produces the fitted equation, `RegEQ`.
 
 ---
 

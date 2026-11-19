@@ -215,19 +215,27 @@ stores the command from `H`, and calls `41C3`. Convenience entries: `4195` H=0x9
 
 ```z80
 4338: CALL _RecAByteIO
-      (8674)=A                       ; machine-ID, validated against the known set:
-      0x95 0x73 0x23 0x74 0x82 0x02 0x12 0x83 0x03 0x13 0x08   (else fall to 2nd-byte machine list)
-4370: CALL _RecAByteIO
-      (8675)=A                       ; command-ID, validated: 0x68 0x47 0x74 0x2D … else _JErrorNo
-438F: CALL _RecAByteIO
-      (8675)=A                       ; command ID on the validated path
-4392: CALL _RecAByteIO
-      (8676)=A                       ; length lo
+433B: LD (8674h),A           ; machine ID
+      ; peer flags and machine ID select the command-read path
+      ; bit 1 set or ID recognized → 4389h
+4370: CALL _RecAByteIO       ; alternative path for an unrecognized ID
+4373: LD (8675h),A           ; accept commands 68h, 47h, 74h, 2Dh
+      ; accepted → 438Fh, otherwise jump to 2799h
+4389: CALL _RecAByteIO       ; direct command read
+438C: LD (8675h),A           ; command
+438F: CALL _RecAByteIO       ; both paths resume here
+4392: LD (8676h),A           ; length low
 4395: CALL _RecAByteIO
-      (8677)=A                       ; length hi
-      RET
+4398: LD (8677h),A           ; length high
+439B: RET
 ```
-An unrecognised machine-ID or command-ID byte aborts via `_JErrorNo` (→ `E_LnkErr` 0x9F).
+
+Both paths consume the four bytes in the framing diagram. With peer flag
+`IY+0x1B` bit 1 set, the receiver compares the ID with `95h` and jumps
+unconditionally to the command read at `3C:4389`. With that
+flag clear, it accepts IDs `73h`, `23h`, `74h`, `82h`, `02h`, `12h`,
+`83h`, `03h`, `13h`, and `08h` directly. An unrecognized ID in the
+flag-clear path can still pass through the command check at `3C:4376`.
 
 ### Machine-ID selector [confirmed]
 
