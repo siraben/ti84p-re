@@ -30,6 +30,7 @@
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="katex-383e7b8d.min.css">
         <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+        <link rel="stylesheet" href="figure-layout-22be1045.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
+            window.path_to_searchindex_js = "searchindex-b63be77c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ba6dda15.js"></script>
+        <script src="toc-dfcf5070.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -214,16 +215,16 @@ data sheets specify 15 bytes per row, or 120 pixels, for T6A04A and 16 bytes
 per row, or 128 pixels, for T6K04. The T6K04 contains 8,192 bits of display RAM
 and exposes 128 column outputs plus 64 row outputs. Later Novatek replacements
 can differ. [standard]</p>
-<p>Datamath attributes the LCD module photographed from a March 2004 TI-84 Plus
-to Toshiba <code>T6K04</code>. The photograph shows the controller area under opaque
-epoxy, so it does not expose a readable die marking. The identification is a
-source-attributed module record rather than a marking read from the image.
-[standard]</p>
+<p>Datamath identifies a Toshiba <code>T6K04</code> in a March 2004 TI-84 Plus and a
+Novatek <code>NT7564H</code> in a March 2008 revision-J unit. The 2004 photograph shows
+epoxy over the controller die. Two revision-L Silver Editions in the same
+board inventory carry the same PCB ID and date code. The March 2008 unit has
+the Toshiba driver and the April unit has the Novatek. A case revision alone
+therefore cannot identify the controller. [standard]
+<a href="https://datamath.org/Graphing/TI-84PLUS_WM08_TL.htm">Datamath board inventory</a></p>
 <p>The local ROM uses only visible columns <code>0</code>–<code>11</code> in its full-screen clear and
-graph blit loops. It does not distinguish the 15-byte T6A04A row from the
-16-byte T6K04 row. Datamath’s attribution supplies revision-specific external
-evidence that the ROM cannot. [confirmed] for the ROM access range; [standard]
-for the March 2004 controller attribution.</p>
+graph blit loops. These accesses fit both the 15-byte T6A04A row and the
+16-byte T6K04 row. [confirmed]</p>
 <h3 id="coordinate-vocabulary"><a class="header" href="#coordinate-vocabulary">Coordinate vocabulary</a></h3>
 <p>Toshiba documentation names the pixel row <em>X</em> and the byte column <em>Y</em>. Software often uses the opposite convention. This page uses <em>row</em> for <code>0</code>–<code>63</code> vertically and <em>byte column</em> for the horizontal group selected by commands <code>0x20</code>–<code>0x3F</code>.</p>
 <div class="table-wrapper">
@@ -240,7 +241,8 @@ for the March 2004 controller attribution.</p>
 </table>
 </div>
 <p>The Z-address command <code>0x40 + shift</code> changes which controller row appears at the top of the panel. It does not copy video RAM. Rows wrap modulo 64 when displayed. [standard]</p>
-<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/lcd-addressing.svg" alt="A TI-84 Plus calculator skin locates the selected row and byte column on the physical LCD; an enlarged controller row shows twelve visible byte columns, four off-screen columns, and the eight pixels in one data byte."><span class="img-wrapper"><img src="images/lcd-addressing.svg" alt="A TI-84 Plus calculator skin locates the selected row and byte column on the physical LCD; an enlarged controller row shows twelve visible byte columns, four off-screen columns, and the eight pixels in one data byte."></span></label></p>
+<p><a class="lcd-diagram" href="images/lcd-addressing.svg" aria-label="Open full-size LCD addressing diagram. The calculator skin marks the selected row and byte column. Controller RAM has twelve visible byte columns and four off-screen columns."><object data="images/lcd-addressing.svg" type="image/svg+xml" aria-hidden="true" tabindex="-1">Open the LCD addressing diagram</object></a></p>
+
 <p><strong>Ordinary 8-bit addressing.</strong> The TilEm skin locates the controller model on the calculator face. The visible 12-byte row and OS command ranges are [confirmed]; the T6K04’s 16-byte controller row, read latch, and off-screen storage are [standard].</p>
 <h2 id="port-interface"><a class="header" href="#port-interface">Port interface</a></h2>
 <div class="table-wrapper">
@@ -741,7 +743,7 @@ nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_lcd_probe 
 <li>[confirmed] <code>_GrBufClr</code> changes only RAM, while <code>_GrBufCpy</code> performs the controller transfer.</li>
 <li>[confirmed] <code>_PowerOff</code> disables display output before the ASIC enters low power.</li>
 <li>[standard] Datamath attributes the photographed March 2004 module to Toshiba <code>T6K04</code>, whose primary data sheet specifies 128×64 RAM. The die is hidden under epoxy, so the photograph does not independently expose its marking.</li>
-<li>[hypothesis] The exact controller and off-screen RAM behavior still require per-calculator identification or measurement outside that source-attributed March 2004 module.</li>
+<li>[standard] Datamath identifies both Toshiba and Novatek controllers on revision-L Silver Editions with the same PCB ID and date code. Hidden-column addressing and retention on the Novatek still need a controller-specific measurement. [hypothesis]</li>
 <li>[hypothesis] The late-controller status-read pointer mutation, power-command analog effects, and off-screen retention need physical tests across TA2/TA3 board revisions.</li>
 <li>[hypothesis] TilEm’s configured LCD I/O delay and controller busy period should be compared with bus captures rather than treated as hardware constants.</li>
 <li>[standard] Wabbitemu’s 15-column increment cycle and write-based ready timer, plus MAME’s unchecked 15-byte row, are emulator limits rather than hardware results.</li>
@@ -830,6 +832,7 @@ nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_lcd_probe 
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
         <script src="pseudocode-init-a22cdb5c.js"></script>
+        <script src="figure-layout-047a3260.js"></script>
 
 
 

@@ -30,6 +30,7 @@
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="katex-383e7b8d.min.css">
         <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+        <link rel="stylesheet" href="figure-layout-22be1045.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
+            window.path_to_searchindex_js = "searchindex-b63be77c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ba6dda15.js"></script>
+        <script src="toc-dfcf5070.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -182,8 +183,8 @@
                         <h1 id="ti-basic-examples-and-asm-interop"><a class="header" href="#ti-basic-examples-and-asm-interop">TI-BASIC examples and ASM interop</a></h1>
 <p>These trace-backed examples connect source-level choices to the interpreter
 paths documented in <a href="sub-tibasic.html">TI-BASIC execution</a>. The page also records
-the supported BASIC/ASM boundary and the tested failures around direct
-ASM-initiated BASIC execution.</p>
+how a RAM assembly program calls a BASIC program with the public <code>_ParseInp</code>
+bcall and returns to its BASIC wrapper.</p>
 <h2 id="trace-backed-examples"><a class="header" href="#trace-backed-examples">Trace-backed examples</a></h2>
 <div class="table-wrapper">
 <table>
@@ -586,8 +587,7 @@ than a fixed-size region. [confirmed]</p>
 validate inputs on the BASIC side, and make the ASM payload return normally with
 <code>RET</code> unless it intentionally transfers control elsewhere.</p>
 <h3 id="cooperative-asm-directed-basic-callback"><a class="header" href="#cooperative-asm-directed-basic-callback">Cooperative ASM-directed BASIC callback</a></h3>
-<p>The run-confirmed way to let ASM choose a BASIC continuation is to keep BASIC in
-charge of the program call. <code>ASMSIG.8xp</code> sets <code>Ans</code> to <code>1</code> and returns:</p>
+<p>In this example, the ASM result selects a continuation in BASIC. <code>ASMSIG.8xp</code> sets <code>Ans</code> to <code>1</code> and returns:</p>
 <pre><code class="language-z80">RST 28h
 .dw 419Bh         ; _OP1Set1
 RST 28h
@@ -638,21 +638,51 @@ hits <code>userMem</code>, <code>_OP1Set2</code> (<code>00:1B50</code>), <code>_
 <tbody>
 <tr><td>BASIC → ASM</td><td><code>Asm(prgmNAME)</code> parses <code>prgmNAME</code>, bcalls <code>_ExecutePrgm</code>, copies the <code>AsmPrgm</code> payload, then jumps through <code>userMem</code>.</td><td>The payload runs in the calculator OS process; a bad payload can corrupt interpreter state.</td></tr>
 <tr><td>BASIC → BASIC</td><td><code>prgmNAME</code> enters the page-38 parser/VAT/body evaluator path and <code>Return</code> resumes the caller.</td><td>There is no local frame; variables, lists, and <code>Ans</code> are shared.</td></tr>
-<tr><td>ASM → BASIC callback</td><td>ASM stores a signal/result such as <code>Ans=1</code>, returns, and the BASIC wrapper conditionally runs <code>prgmNAME</code>.</td><td>BASIC must own the actual <code>prgm</code> call; this is cooperative, not an arbitrary ASM bcall into BASIC.</td></tr>
+<tr><td>ASM → BASIC callback</td><td>ASM stores a signal/result such as <code>Ans=1</code>, returns, and the BASIC wrapper conditionally runs <code>prgmNAME</code>.</td><td>In this wrapper, BASIC owns the <code>prgm</code> call.</td></tr>
 <tr><td>ASM → BASIC value return</td><td>ASM stores a numeric result in <code>Ans</code> with <code>_StoAns</code>; BASIC resumes and evaluates <code>Ans</code>.</td><td>This returns data to BASIC, not control into a BASIC program body.</td></tr>
 <tr><td>ASM → VAT lookup</td><td><code>ASMFIND</code> builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym</code>.</td><td>Lookup is not execution; the wrapper returns and <code>ZZBASIC</code> does not display <code>CALLED</code>.</td></tr>
-<tr><td>Direct ASM → BASIC</td><td>The bounded OS 2.55MP census finds no distinct callable ABI.</td><td>A private construction must reproduce the ordinary parser, VAT, FPS/OPS, error, and return records; supported applications should return to a BASIC-owned <code>prgmNAME</code> call.</td></tr>
+<tr><td>Direct ASM → BASIC</td><td>A RAM ASM caller puts the program name in OP1 and bcalls <code>_ParseInp</code>.</td><td>The paired TilEm run covers a one-statement BASIC target and normal return.</td></tr>
 </tbody>
 </table>
 </div>
 <h3 id="asm-to-basic"><a class="header" href="#asm-to-basic">ASM to BASIC</a></h3>
-<p>OS 2.55MP has no distinct public or private-funnel ABI for calling a BASIC
-program from arbitrary ASM within the bounded search described below. ASM can
-enter private parser addresses after constructing their state, but the required
-parser, VAT, FPS, OPS, error, and return records are the ordinary BASIC caller
-frame. Constructing all of them duplicates that caller rather than invoking a
-separate ABI. [confirmed]</p>
-<p>Four apparent public candidates are not that entry point:</p>
+<p>Texas Instruments documents <code>_ParseInp</code> (<code>4A9Bh</code>, <code>38:5987</code>) as taking the
+name of an equation or a program in OP1. The SDK specifies a result for an
+equation and no return value for a program. The worked example evaluates
+<code>Y1</code>. [standard] <a href="https://education.ti.com/html/eguides/discontinued/computer-software/EN/SDK-TI-83-System-Routines_EN.pdf">TI-83 Plus System Routines, “ParseInp”</a></p>
+<p>On OS 2.55MP, a RAM assembly program can call a BASIC program directly
+through <code>_ParseInp</code> and return to its BASIC wrapper. In two TilEm runs on
+the canonical retail image, <code>ASMPARSE</code> displays <code>BEFORE</code>, runs
+<code>Asm(prgmZZPARSE)</code>, and displays <code>AFTER</code>. The ASM payload places the name
+<code>{ProgObj,"ZZBASIC"}</code> in OP1. Only the bcall operand differs between runs.
+[confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Bcall operand</th><th>Target selected</th><th>Final LCD</th></tr>
+</thead>
+<tbody>
+<tr><td><code>4A9Bh</code> (<code>_ParseInp</code>)</td><td><code>ZZBASIC</code> in RAM, containing <code>Disp "CALLED"</code></td><td><code>BEFORE</code>, <code>CALLED</code>, <code>AFTER</code>, <code>Done</code></td></tr>
+<tr><td><code>4B07h</code> (<code>_ParseInpLastEnt</code>)</td><td>The system’s last-entry program</td><td><code>ERR:INVALID</code>, <code>1:Quit</code>, <code>2:Goto</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The direct case covers normal return from this one-statement program.
+Interactive commands, archived targets, and error unwinding require separate
+caller tests. The paired fixtures, ROM and emulator identities, trace hashes,
+and LCD checks are in <code>tools/probes/tibasic-parseinp/result.json</code>. The replay
+requires ImageMagick and a TilEm build that transfers positional program files
+before its headless macro runs. The recorded binary includes a local patch
+for that transfer. Run from the repository root with a fresh output directory.</p>
+<pre><code class="language-sh">PYTHONPATH=tools python3 tools/probes/tibasic-parseinp/compare.py \
+  --tilem "$TILEM" --rom "$ROM" --out-dir /tmp/ti84-parseinp-comparison
+</code></pre>
+<p>A published Flash App caller sets <code>progExecuting</code> and <code>cmdExec</code>, installs an
+error handler, and calls <code>_ParseInp</code> with the program name in OP1. It also
+manages the App’s homescreen hook. This source describes a Flash App caller.
+The paired TilEm fixtures exercise the separate RAM caller described above.
+<a href="https://www.cemetech.net/forum/viewtopic.php?t=1449">Kerm Martian and Dan E., “RunBASICProgram”</a></p>
+<p>Four public routines serve other roles:</p>
 <ul>
 <li><code>_ExecutePrgm</code> is the <code>AsmPrgm</code> executor reached by <code>Asm(prgmNAME)</code>, not a
 general “run a BASIC program” entry.</li>
@@ -669,10 +699,7 @@ frame.</li>
 does not hit <code>_ParsePrgmName</code>, <code>_ExecutePrgm</code>, <code>_Find_Parse_Formula</code>, or
 <code>_SetParseVarProg</code>. It resolves the program name through the page-38
 parser/VAT path, enters the program-body evaluator at <code>38:6914</code> →
-<code>38:778F</code>, and lets <code>Return</code> unwind to the caller. Calling that same machinery
-from arbitrary ASM requires more than loading OP1 and bcalling a single public
-entry; it needs the same parser cursor, stack, error, and run-state setup that a
-live BASIC caller already has. [confirmed]</p>
+<code>38:778F</code>, and lets <code>Return</code> unwind to the caller. [confirmed]</p>
 <p>A typed two-program trace of <code>prgmPP</code> calling <code>prgmOO</code> captures the live parser
 frame at each <code>38:6914</code> entry through shadow-memory replay. The reproduction
 macro is <code>tools/macros/run-callsub-typed.macro</code>.</p>
@@ -693,15 +720,8 @@ macro is <code>tools/macros/run-callsub-typed.macro</code>.</p>
 </table>
 </div>
 <p>Both gate bits read zero in the working path. The private callee transition at
-<code>38:6910</code> executes <code>XOR A</code><br><code>CALL 6A15</code> before entering the evaluator. These
-observations suggest that an ASM payload must locate the target through
-<code>_ChkFindSym</code> into OP1, copy the name header to <code>0x9652</code>, point
-<code>start</code>/<code>cursor</code> at <code>_ChkFindSym</code>’s data pointer plus two (past the size word),
-set <code>end</code> = start + size, store <code>01h</code> at <code>0x9661</code>, ensure the FPS/OPS bounds
-are sane, bank page <code>38</code> into port <code>0x06</code>, and enter <code>38:6910</code>. No identified
-public bcall performs this setup. This proposed hand-built state transplant
-also accounts for the parser-frame failures in the negative probes
-(<code>ZZFIND</code>/<code>ZZFORM</code>/<code>ZZPARSE</code>). [hypothesis]</p>
+<code>38:6910</code> executes <code>XOR A</code><br><code>CALL 6A15</code> before entering the evaluator. The following probe copies the target’s name and parser bounds and enters
+that private address directly.</p>
 <p>The generated negative probe consists of <code>OO.8xp</code>, <code>ZZRUN.8xp</code>, and
 <code>ZZRUNWR.8xp</code>. <code>ZZRUN</code> is an 81-byte payload targeting <code>prgmOO</code>; it returns
 immediately if <code>_ChkFindSym</code> sets carry. <code>ZZRUNWR</code> contains the one-line
@@ -746,10 +766,9 @@ reproducible. The payload is the same OP1-name setup as <code>ZZFIND</code>, but
 Observed run: the trace reaches <code>_ParseInpLastEnt</code>, <code>_ParseInp</code> (<code>38:5987</code>),
 <code>parseinp_find_setup</code> (<code>38:5B2B</code>), <code>findsym_scan</code>, <code>parse_init</code>, and
 <code>eval_stmt_entry</code>; the final screen is <code>ERR:INVALID</code> with <code>1:Quit</code> and
-<code>2:Goto</code>. <code>ZZBASIC</code> never displays <code>CALLED</code>. Static disassembly explains the
-mismatch: after resolving the OP1-named object, <code>_ParseInp</code> continues through
-parser setup that expects a live parser/FPS call-frame shape. It is not a
-general “run this token stream” ABI for an arbitrary <code>AsmPrgm</code>. [confirmed]</p>
+<code>2:Goto</code>. At <code>38:5984</code>, <code>CALL 1F23h</code> replaces the OP1 name with <code>05 23 00</code>, the system’s last-entry program. Control then falls through to
+<code>_ParseInp</code> at <code>38:5987</code>. This run therefore exercises the last-entry
+program. A direct bcall to <code>4A9Bh</code> skips the name replacement. [confirmed]</p>
 <p>The homescreen command/edit-buffer route is also not a safe callable ABI. A
 payload that did only:</p>
 <pre><code class="language-z80">LD A,05h          ; kEnter
@@ -783,17 +802,18 @@ It still ends at <code>ERR:SYNTAX</code> and never runs the target body. That ma
 <code>_ExecuteNewPrgm</code> another stateful OS helper, not a standalone program executor
 ABI for <code>AsmPrgm</code> payloads. [confirmed]</p>
 <h4 id="bounded-abi-census"><a class="header" href="#bounded-abi-census">Bounded ABI census</a></h4>
-<p>The bounded census covers:</p>
-<ul>
-<li>all 1,732 three-byte main bcall slots from <code>4000h</code> through <code>5449h</code>;</li>
-<li>all 825 raw <code>CALL 2B09h</code> cross-page-call descriptors in the 1 MiB ROM; and</li>
-<li>every direct control-flow edge in the disassembled page-38 parser region
-<code>38:4100</code>–<code>38:77FF</code>.</li>
-</ul>
-<p>None of the 1,732 public slots and none of the 825 cross-page descriptors
-targets <code>38:59C5</code>, <code>38:6910</code>, <code>38:6914</code>, or <code>38:778F</code>. Of the 95 public slots
-whose target is on page <code>38</code>, only six land in the conservative 613-instruction
-direct reverse slice of <code>38:778F</code>:</p>
+<p>The OS 2.55MP main bcall table spans <code>4000h</code>–<code>54ACh</code>. All 1,765 slots
+precede the code at <code>3B:54AF</code>, and 98 target page <code>38</code>. The 1 MiB retail
+image also contains 825 raw matches for the cross-page call prefix
+<code>CD 09 2B</code>. Neither the table slots nor the address/page triples following
+those byte matches point to <code>38:59C5</code>, <code>38:6910</code>, <code>38:6914</code>, or <code>38:778F</code>.
+A raw prefix can occur in data. [confirmed]</p>
+<p>A table entry can reach these addresses through ordinary instructions.
+Starting at <code>_ParseInp</code> (<code>38:5987</code>), the fallthrough at <code>38:59C2</code> leads to
+<code>38:59C5</code>. The conditional jump at <code>38:59CE</code> can then reach <code>38:6910</code>
+and the call to <code>38:778F</code> at <code>38:6914</code>. The conditions on that path depend
+on parser state. Six other table entries with paths through this parser
+region appear below. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -809,61 +829,28 @@ direct reverse slice of <code>38:778F</code>:</p>
 </tbody>
 </table>
 </div>
-<p>These are mid-parser helpers, not frame constructors. The exact incoming-edge
-census further narrows the private funnel: <code>38:59C5</code> has the local
-<code>38:5C03</code> jump and the <code>38:59C2</code> fallthrough; <code>38:6910</code> has the conditional
-<code>38:59CE</code> jump and <code>38:690D</code> fallthrough; <code>38:6914</code> follows <code>38:6911</code>; and
-only <code>38:6914</code> calls <code>38:778F</code>. [confirmed]</p>
+<p>The linear disassembly from <code>38:4100</code> through <code>38:77FF</code> has two direct
+predecessors of <code>38:59C5</code>, the jump at <code>38:5C03</code> and the fallthrough at
+<code>38:59C2</code>. The two direct predecessors of <code>38:6910</code> are the conditional
+jump at <code>38:59CE</code> and the fallthrough at <code>38:690D</code>. The instruction at
+<code>38:6911</code> falls through to <code>38:6914</code>, the only direct call site for
+<code>38:778F</code> in this range. [confirmed]</p>
 <p>The separate semantic-candidate experiments cover <code>_ExecutePrgm</code>,
 <code>_ExecuteNewPrgm</code>, <code>_SetParseVarProg</code>, <code>_ParsePrgmName</code>,
 <code>_ParseInpLastEnt</code>, <code>_Find_Parse_Formula</code>, <code>_JForceCmd</code>, <code>_PutTokString</code>, and
-<code>_rclToQueue</code>. They either execute compiled ASM, modify only part of parser or
-editor state, or enter the parser with a malformed caller frame. None is a
-standalone direct-call ABI. [confirmed]</p>
-<p>This is a scoped negative result for the complete public table, standard
-cross-page-call descriptors, and the declared page-38 direct graph on OS
-2.55MP. It does not claim that manually reproducing every private caller record
-cannot execute a token stream; that construction is specifically excluded
-because it is a reimplementation of the ordinary BASIC caller, not a distinct
-callable ABI.</p>
-<h4 id="private-frame-comparison"><a class="header" href="#private-frame-comparison">Private-frame comparison</a></h4>
-<p>The T042 probe compares an incomplete direct call with the ordinary caller in
-one reset-origin TilEm run. <code>ZZFRAME</code> saves four state groups before the
-experiment: [confirmed]</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Saved group</th><th>Range</th><th>Contents</th></tr>
-</thead>
-<tbody>
-<tr><td>Parser and name</td><td><code>0x9652</code>–<code>0x9662</code></td><td><code>basic_prog</code>, parser pointers, and <code>numArguments</code></td></tr>
-<tr><td>VAT and temporary stacks</td><td><code>0x981C</code>–<code>0x9831</code></td><td>VAT scratch, FPS, OPS, <code>pTemp</code>, and <code>progPtr</code></td></tr>
-<tr><td>Parser flags</td><td><code>0x89F0</code>–<code>0x8A39</code></td><td>IY flags read by the page-38 parser</td></tr>
-<tr><td>Error state</td><td><code>0x86DD</code></td><td>prior <code>errNo</code> value</td></tr>
-</tbody>
-</table>
-</div>
-<p>The payload installs a caught-error frame through <code>_pushErrorHandleR</code> at
-<code>ram:27DA</code>, substitutes a token stream containing <code>prgmZZGOOD</code>, and calls
-<code>eval_stmt_entry</code> at <code>38:59C5</code>. It reaches the statement entry once, then
-raises <code>E_DataType</code> before <code>38:6910</code>, <code>38:6914</code>, or <code>38:778F</code>. <code>_JError</code>
-transfers through <code>ram:27BB</code>; the payload restores every saved group before it
-stores error code <code>9</code> in <code>Ans</code>. The combined frame SHA-256 matches before and
-after the failed call. [confirmed]</p>
-<p>The BASIC wrapper then calls <code>prgmZZGOOD</code> normally. That path reaches
-<code>38:59C5</code> twice and <code>38:6910</code>, <code>38:6914</code>, and <code>38:778F</code> once each, returns
-value <code>2</code>, and resumes at <code>AFTER</code>. The final screen reads <code>BEFORE</code>, <code>9</code>, <code>2</code>,
-<code>AFTER</code>, and <code>Done</code>. [confirmed]</p>
-<p>The comparison pins the missing boundary for this construction. Parser
-pointers and copied RAM blocks do not create the OPS grammar/type record, FPS
-baselines, VAT adoption, and return record consumed before <code>38:6914</code>. The
-ordinary <code>prgmNAME</code> handler creates them. Reproducing all of that state would
-duplicate the BASIC caller rather than expose a separate supported ABI.
-[confirmed]</p>
-<p><code>tools/probes/scratch-guard/asm-basic-frames-tilem.json</code> records the pinned TilEm run,
-screen contract, ROM spans, SPASM-ng output, and source/program hashes. The
-supported application pattern remains <code>Asm(</code> → <code>_ExecutePrgm</code> → <code>ram:9D95</code>,
-return a value through <code>Ans</code>, and let BASIC perform <code>prgmNAME</code>.</p>
+<code>_rclToQueue</code>. The tested callers execute compiled ASM, change parser or editor state, or
+produce the errors described above. The separate direct <code>4A9Bh</code> case above executes the named program and returns. [confirmed]</p>
+<p>The census checks table entries, raw byte patterns, and direct branches. It
+does not establish complete reachability through computed dispatch, routines
+outside that region, or callers with different state. The failed candidate
+experiments therefore leave other private calling sequences open.</p>
+<h4 id="private-frame-comparison-evidence-gap"><a class="header" href="#private-frame-comparison-evidence-gap">Private-frame comparison evidence gap</a></h4>
+<p>The reported T042 comparison used an ASM payload named <code>ZZFRAME</code> and a
+BASIC target named <code>ZZGOOD</code>. The cited manifest
+(<code>tools/probes/scratch-guard/asm-basic-frames-tilem.json</code>) and both fixtures
+are missing from the repository. The error attributed to the private call at <code>38:59C5</code> and the claimed
+restoration of the caller’s state therefore remain unverified. The separate <code>ASMBRIDG</code> fixture above exercises the cooperative
+<code>Ans</code> route.</p>
 
                     </main>
 
@@ -924,6 +911,7 @@ return a value through <code>Ans</code>, and let BASIC perform <code>prgmNAME</c
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
         <script src="pseudocode-init-a22cdb5c.js"></script>
+        <script src="figure-layout-047a3260.js"></script>
 
 
 

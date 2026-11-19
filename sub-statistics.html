@@ -30,6 +30,7 @@
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="katex-383e7b8d.min.css">
         <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+        <link rel="stylesheet" href="figure-layout-22be1045.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
+            window.path_to_searchindex_js = "searchindex-b63be77c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ba6dda15.js"></script>
+        <script src="toc-dfcf5070.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -189,7 +190,7 @@ floating-point engine. The engine lives on Flash page <code>3A</code>; raw disas
 supplies indexed-bit and cross-page operations that the decompiler can
 mis-render.</p>
 <h2 id="statvars-result-block-confirmed"><a class="header" href="#statvars-result-block-confirmed"><code>statVars</code> result block [confirmed]</a></h2>
-<p>Every STAT-CALC result is a 9-byte <code>TIFloat</code> (see <a href="floating-point.html">floating-point.md</a>) written
+<p>Numeric STAT-CALC results use 9-byte <code>TIFloat</code> values (see <a href="floating-point.html">floating-point.md</a>) written
 into a fixed RAM table beginning at <code>statVars = 0x8A3A</code> (<code>statVars EQU 8A3Ah</code>
 in <code>ti83plus.inc</code>). Entries are packed at the 9-byte <code>FPLEN</code> stride. These are the
 system variables recalled by name (<code>[2nd][STAT] ▸ VARS</code>):</p>
@@ -634,23 +635,20 @@ vectors, and an ascending handler-pointer array at <code>3A:7DF4</code>–<code>
 from array slots to menu items remains open.</p>
 <hr>
 <h2 id="subsystem-integration"><a class="header" href="#subsystem-integration">Subsystem integration</a></h2>
-<pre><code class="language-text">  L1..L6 lists (VAT data)                 statVars (0x8A3A)  ← results, recall-by-name
-        │ (VAT element access)                 ▲
-        ▼                                       │ (_Rcl_StatVar 00:2149)
-   _OneVar (3A:6420, id 0x4BA3)  ──►  per-element accumulation pass (3A:6572)
-        │  cmd code → stat_calc_command          │  uses FP engine:
-        │                                        │   RST30 _FPAdd, 238B _FPMult,
-        ├─ moments / Sx,σx (3A:6984..)           │   238A _FPSquare, 2541 _FPDiv,
-        ├─ Gauss-Jordan solve (3A:67C6..) ───►   │   3939 _SqRoot, 2294 _Minus1
-        │     → QuadA..QuartE, Corr, RegEQ       │
-        └─ sort + median/quartile (3A:7935/79B9) ┘
-  errors: _ErrStat 00:2741 (0x15), _ErrStatPlot 00:2759 (0x1B),
-          _ErrSingularMat 0x83, _ErrDimMismatch 00:2715 (0x8B)
+<pre><code class="language-text">list arguments in the VAT
+    ↓
+_OneVar (3A:6420) saves the command selector at 8A36h
+    ↓
+accumulate list elements (3A:6572)
+    ↓
+command-specific work includes
+    ├─ moments and standard deviations
+    ├─ polynomial fit via Gauss-Jordan (3A:67C6)
+    └─ medians and quartiles via the internal sort (3A:7935)
 </code></pre>
-<p>The STAT subsystem is a thin data-driven front-end on page 0x3A that reads list
-data via the VAT, drives the page-0/page-02 BCD FP engine to build power-sums, then
-either finalizes the moments or runs an in-place Gauss-Jordan solve of the normal
-equations, depositing every output as a named <code>TIFloat</code> in the <code>statVars</code> block.</p>
+<p>Numeric results occupy slots in <code>statVars</code> starting at <code>8A3Ah</code>.
+<code>_Rcl_StatVar</code> (<code>00:2149</code>) recalls a named numeric result into OP1.
+Regression also produces the fitted equation, <code>RegEQ</code>.</p>
 <hr>
 <h2 id="routine-index"><a class="header" href="#routine-index">Routine index</a></h2>
 <div class="table-wrapper">
@@ -782,6 +780,7 @@ analyzed in the DB). The <code>SortA(</code>/<code>SortD(</code> <em>command</em
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
         <script src="pseudocode-init-a22cdb5c.js"></script>
+        <script src="figure-layout-047a3260.js"></script>
 
 
 

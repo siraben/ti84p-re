@@ -30,6 +30,7 @@
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="katex-383e7b8d.min.css">
         <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+        <link rel="stylesheet" href="figure-layout-22be1045.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
+            window.path_to_searchindex_js = "searchindex-b63be77c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ba6dda15.js"></script>
+        <script src="toc-dfcf5070.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -678,6 +679,64 @@ port <code>0x39</code>. Their low-bit read-modify-write sequences are decoded in
 <a href="asic-status-gpio.html#usb-gpio-sequence">ASIC status, identity, protection, and GPIO</a>.
 The ROM ties those bits to USB setup but does not expose their electrical signal
 names. [confirmed] for the operations; [hypothesis] for signal assignments.</p>
+<h3 id="usb-traffic-during-an-os-transfer"><a class="header" href="#usb-traffic-during-an-os-transfer">USB traffic during an OS transfer</a></h3>
+<p>The TiLP link guide files a historical host-side UsbSnoop capture under
+<code>ti84+_usb/send_flash_os.log</code>. USB request block 459 reads a device descriptor
+with vendor ID <code>0x0451</code> and product ID <code>0xE008</code>.
+Request block 462 sends <code>00 00 00 04 01 00 00 04 00</code> on
+endpoint <code>0x02</code> OUT. Request block 463 receives <code>00 00 00 04 02 00 00 00 FA</code>
+on endpoint <code>0x81</code> IN. The computer requests a 1,024-byte raw-packet payload
+and the calculator allocates 250 bytes, for a 255-byte packet including its
+five-byte header. [standard]
+<a href="https://github.com/debrouxl/tilp-linkguide/blob/1f7f31ec311481bb6359d79ff402e7ced5c2cfe3/analysis/logs/ti84%2B_usb/send_flash_os.log">Captured OS transfer</a>
+and <a href="https://github.com/debrouxl/tilp-linkguide/blob/1f7f31ec311481bb6359d79ff402e7ced5c2cfe3/usb-protocol.txt">Benjamin Moody’s protocol description</a></p>
+<p>Request block 472 identifies the receiving calculator <strong>before the transfer</strong>.
+Its parameter reply contains these fields. [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Parameter</th><th>Value in the reply</th><th>Meaning</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0002h</code></td><td><code>TI-84 Plus Silver Edition</code></td><td>Product name</td></tr>
+<tr><td><code>0004h</code></td><td><code>00 03</code></td><td>Hardware version reported by the firmware</td></tr>
+<tr><td><code>0009h</code></td><td><code>00 01 00 00</code></td><td>Boot 1.00</td></tr>
+<tr><td><code>000Ah</code></td><td><code>01</code></td><td>OS loaded</td></tr>
+<tr><td><code>000Bh</code></td><td><code>00 02 28 00</code></td><td>OS 2.40 (minor version <code>28h</code> = 40)</td></tr>
+</tbody>
+</table>
+</div>
+<p>The host switches from normal mode to basic mode. For the OS transfer, the
+calculator requests a 266-byte raw payload and the host grants it (blocks
+502–503). Each of the 1,154 OS data records carries 256 data bytes and four
+address, page, and flag bytes. Together they account for all 300,040 bytes
+announced in block 500. The calculator acknowledges each record.
+Block 774 carries the string <code>BASE Code 2.21</code> in the outgoing image.
+Block 5130 acknowledges the end of transmission. The trace ends before a
+post-restart version query. [standard]
+<a href="https://github.com/debrouxl/tilp-linkguide/blob/1f7f31ec311481bb6359d79ff402e7ced5c2cfe3/analysis/logs/ti84%2B_usb/send_flash_os.log">OS transfer log</a>
+(SHA-256 <code>5d8674d00109d5681f60bcdf54e887a2108803ec14af8c6468d653e9a00ae7de</code>)</p>
+<p>The five-byte calculator ID in block 472 matches the ID in block 124 of the
+separate USB device-info capture. The archive also records that ID on a
+two-wire link session with OS 2.22 and boot 1.00. The screenshot from that
+session was in the archive by July 5, 2005. The July 20 USB device-info
+reply independently returns the same ID, OS 2.22, and boot 1.00. [standard]
+<a href="https://github.com/debrouxl/tilp-linkguide/blob/1f7f31ec311481bb6359d79ff402e7ced5c2cfe3/analysis/logs/ti84%2B_usb/device_info.log">USB device-info capture</a>,
+<a href="https://github.com/debrouxl/tilp-linkguide/blob/5657ba3a8166f2eeafae45ef2ba62f2218380b02/analysis/logs/ti84%2B/device_info.png">two-wire device-info screenshot</a>,
+<a href="https://github.com/debrouxl/tilp-linkguide/commit/5657ba3a8166f2eeafae45ef2ba62f2218380b02">July 5 archive entry</a>,
+and <a href="https://github.com/debrouxl/tilp-linkguide/blob/8ac6400099be90522f9a78e7566214eefffd063d/analysis/logs/ti84%2B_usb/device_info.log">July 20 USB capture</a></p>
+<p>The date makes the TA2 a plausible ASIC for this unit. Datamath identifies
+TA2 packages on its April and May 2004 Silver Editions and a TA3 on its June
+2006 sample. Identifying the captured unit’s ASIC would require a package
+marking or a port-<code>0x15</code> reading from that unit. [hypothesis]
+<a href="https://datamath.org/Graphing/TI-84PLUS_WM08_TL.htm">Datamath board inventory</a></p>
+<p>A separate screenshot capture records the host requesting LCD parameter
+<code>0022h</code> in block 754 and receiving 768 zero bytes on endpoint <code>0x81</code> in
+blocks 758–764. This establishes host-requested screen readout. The
+presentation-link hypothesis concerns a calculator sending individual LCD
+writes on endpoint 2. It still requires a capture in presentation mode.
+[standard] for the parameter exchange.
+<a href="https://github.com/debrouxl/tilp-linkguide/blob/1f7f31ec311481bb6359d79ff402e7ced5c2cfe3/analysis/logs/ti84%2B_usb/screenshot.log">USB screenshot capture</a></p>
 <h2 id="emulator-comparison"><a class="header" href="#emulator-comparison">Emulator comparison</a></h2>
 <p>The four pinned emulators implement disconnected or partial USB behavior. None implements the page-35 endpoint transactions needed for a connected transfer. [standard]</p>
 <div class="table-wrapper">
@@ -954,7 +1013,7 @@ a stable public API.</li>
 <ul>
 <li>The ROM calls <code>ram:2E0B</code>, a <code>cross_page_jump</code> thunk to <code>35:4280</code>. Its
 carry-clear/carry-set result is decoded above.</li>
-<li>The public <code>0x50xx</code>/<code>0x52xx</code>/<code>0x53xx</code> USB APIs and the boot-page <code>0x8xxx</code> USB entries are mapped above. The controlled harness executes <code>_InitUSB</code>, both timeout paths, <code>_AttemptUSBOSReceive</code> through <code>2F:4170</code>, and a scripted <code>_ReceiveOS_USB</code> installer record through invalid-page cleanup. A natural connected transfer and valid page-programming session remain dynamically untested.</li>
+<li>The public <code>0x50xx</code>/<code>0x52xx</code>/<code>0x53xx</code> USB APIs and the boot-page <code>0x8xxx</code> USB entries are mapped above. The controlled harness executes <code>_InitUSB</code>, both timeout paths, <code>_AttemptUSBOSReceive</code> through <code>2F:4170</code>, and a scripted <code>_ReceiveOS_USB</code> installer record through invalid-page cleanup. Tracing a connected transfer through these OS 2.55MP and boot 1.03 routines still requires calculator-side evidence. The <a href="#usb-traffic-during-an-os-transfer">historical OS transfer</a> records host traffic for OS 2.40 and boot 1.00.</li>
 <li>The FDRC layout names the endpoint register block, but physical tests have not confirmed every
 imported bit meaning or the TI-specific PHY at ports <code>0x4A</code>–<code>0x5B</code>. TilEm does not model physical
 timing from the assist setup values. ROM-confirmed claims remain limited to written constants,
@@ -1056,6 +1115,7 @@ levels, or reset retention.</li>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
         <script src="pseudocode-init-a22cdb5c.js"></script>
+        <script src="figure-layout-047a3260.js"></script>
 
 
 

@@ -30,6 +30,7 @@
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="katex-383e7b8d.min.css">
         <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+        <link rel="stylesheet" href="figure-layout-22be1045.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
+            window.path_to_searchindex_js = "searchindex-b63be77c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ba6dda15.js"></script>
+        <script src="toc-dfcf5070.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -207,13 +208,13 @@ checked maps; a name or mapping alone does not establish a public ABI.</p>
 <h2 id="reading-the-map"><a class="header" href="#reading-the-map">Reading the map</a></h2>
 <p>Numeric evaluation uses the parser, VAT, arithmetic engine, and display:</p>
 <pre class="mermaid">flowchart TD
-    KP([keypad]) --&gt; GK["_GetKey"] --&gt; P[parser] --&gt; TD[token dispatch]
-    TD --&gt; VAT["VAT · _FindSym&lt;br/&gt;variables"]
-    TD --&gt; FP["FP engine · OP1..6&lt;br/&gt;arithmetic / transcendentals"]
-    TD --&gt; DISP["display · _PutMap&lt;br/&gt;homescreen / graph"]
-    VAT --&gt; R["result in OP1&lt;br/&gt;shown via _DispOP1A / _PutS"]
-    FP --&gt; R
-    DISP --&gt; R
+    KP([keypad]) --&gt; GK["_GetKey"] --&gt; HOME["homescreen edit buffer"]
+    HOME --&gt;|evaluate entered tokens| P[parser]
+    P --&gt;|name token| VAT["VAT lookup"]
+    VAT --&gt;|recalled numeric operand| FP["FP arithmetic"]
+    P --&gt;|numeric operation| FP
+    FP --&gt; R["result in OP1"]
+    R --&gt; DISP["format and display result"]
 </pre>
 
 <p>Cross-cutting services used by all of the above: <a href="bcall-mechanism.html">the bcall mechanism</a>, <a href="interrupts.html">interrupt dispatch</a>, <a href="clock-timers-power.html">clock/timers/APD/power</a>, <a href="md5-hardware.html">MD5 and boot signature arithmetic</a>, error handling (<code>_JError</code> + <code>TIError</code> codes), and the system flags (<code>SystemFlags</code> @ <code>flags</code>).</p>
@@ -287,6 +288,7 @@ checked maps; a name or mapping alone does not establish a public ABI.</p>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
         <script src="pseudocode-init-a22cdb5c.js"></script>
+        <script src="figure-layout-047a3260.js"></script>
 
 
 

@@ -30,6 +30,7 @@
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="katex-383e7b8d.min.css">
         <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+        <link rel="stylesheet" href="figure-layout-22be1045.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
+            window.path_to_searchindex_js = "searchindex-b63be77c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ba6dda15.js"></script>
+        <script src="toc-dfcf5070.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -190,18 +191,17 @@ entry points with <a href="sub-tibasic.html">TI-BASIC execution</a>, VAT objects
 LCD</a>.</p>
 <h2 id="subsystem-components"><a class="header" href="#subsystem-components">Subsystem components</a></h2>
 <pre class="mermaid">flowchart TB
-    TBLSET["TBLSET screen · page 37 + 02&lt;br/&gt;TblMin 92B3 / TblStep 92BC&lt;br/&gt;tblFlags IY+19: autoFill / autoCalc / reTable"]
+    TBLSET["TBLSET · pages 37 and 02&lt;br/&gt;TblMin 92B3 / TblStep 92BC"]
     YEQ["Y= equations in VAT&lt;br/&gt;EquObj tokens · tY1..tY0"]
-    PARSER["parser · page 38&lt;br/&gt;_ParseInp / parse_eval_expr"]
-    subgraph GEN["TABLE generator · page 05 — per X row"]
+    PARSER["page-38 parser"]
+    subgraph GEN["TABLE generator · page 05 · automatic X and Y"]
       direction TB
-      S1["1 · X = TblMin + k·TblStep"]
-      S2["2 · running-X staged in OP registers"]
-      S3["3 · evaluate each selected Y= → OP1"]
-      S4["4 · format OP1 → cell string"]
-      S5["5 · write into table data cache"]
-      S6["6 · paint cache as text grid on LCD"]
-      S1 --&gt; S2 --&gt; S3 --&gt; S4 --&gt; S5 --&gt; S6
+      S1["X = TblMin + k·TblStep"]
+      S2["stage X in OP registers"]
+      S3["evaluate selected equation"]
+      S4["store numeric result in nine-byte cache slot"]
+      S5["format cell and draw text"]
+      S1 --&gt; S2 --&gt; S3 --&gt; S4 --&gt; S5
     end
     TBLSET --&gt;|settings| S1
     YEQ --&gt; S3
@@ -397,7 +397,7 @@ The observed parser cluster includes <code>38:5B7B</code>, <code>38:5B10</code>,
 <code>_ParseInp</code> region. The exact evaluator call edge remains open. Bcall
 <code>4741h</code> is <code>_CPYO1TOES15</code> at <code>35:7C7C</code>, an expression-stack helper;
 its name and entry do not establish a parser dispatcher.</li>
-<li>Format OP1 and store the result in the row’s cache slot.</li>
+<li>Copy the nine-byte value from OP1 to the row’s cache slot. The display path formats it when drawing the cell.</li>
 </ol>
 <p>The fill setup at <code>05:6200</code> loads <code>B = 7</code> for the visible rows. Its loop at
 <code>05:6205</code> increments
@@ -488,27 +488,14 @@ the cell expression through the standard OPS machinery. [confirmed]</li>
 bypasses the <code>(IY+0x13)</code> bit tests. This override behavior is [confirmed], but
 the condition detected by <code>05:74BE</code> remains [hypothesis].</p>
 <h3 id="grid-rendering-confirmed"><a class="header" href="#grid-rendering-confirmed">Grid rendering [confirmed]</a></h3>
-<p>The table is a text grid (not the pixel graph buffer): up to 8 visible rows ×
-columns, drawn with the large font through the home-screen text primitives
-(<code>_PutMap</code>/<code>_PutC</code>, <a href="display-lcd.html">display-lcd.md</a>). The paint loop:</p>
-<pre><code class="language-z80">05:7E45  loop over visible rows:
-           CALL 0x7E7C            ; position/clear the cell (selects buffer
-                                  ;   0x9221 for one column or 0x91E2 for the other)
-           CALL 0x7E9D
-           LD DE,(0x9192 YOutDat) ; the Y-column value pointer
-           CP 2 / CP 5            ; column-kind dispatch (X col vs Y col vs input)
-           CALL 0x7E7C
-           CALL 0x7E98             ; render the cached value into the cell
-           CALL 0x65DC            ; row-index bound check (current row vs last)
-           INC row
-           …
-           LD (0x91DC),A
-</code></pre>
-<p><code>05:7E7C</code> chooses the destination cache band (<code>table_value_cache.band[1]</code> at
-<code>0x9221</code> versus <code>band[0]</code> at <code>0x91E2</code>) based on the
-column index, and writes <code>0xFF</code>/blank sentinels for empty (Ask) cells. The bottom
-status line and the highlighted-cell full-precision readout reuse the same value
-cache. [confirmed]</p>
+<p>The table paints its values as text. The cell display path calls the formatter
+at <code>05:6CD9</code> from <code>05:6C67</code>. Its output loop reads each character from <code>(HL)</code>,
+calls the output trampoline at <code>ram:3CDB</code>, and advances <code>HL</code>. [confirmed]</p>
+<p>The separate row loop at <code>05:7E45</code> fills numeric cache bands.
+<code>05:7E7C</code> loads a row value or sets the OP1 type byte to <code>0xFF</code> for a missing
+value. <code>05:7E98</code> and <code>05:7E9D</code> select the destination band at <code>0x9221</code> or
+<code>0x91E2</code>. Both reach <code>05:614A</code>, which computes the row offset and jumps to
+<code>ram:1B0C</code> to copy nine bytes from OP1 into RAM. [confirmed]</p>
 <h3 id="split-graph-table-mode-confirmed"><a class="header" href="#split-graph-table-mode-confirmed">Split graph-table mode [confirmed]</a></h3>
 <p>The <strong>G-T</strong> mode (graph on the left half, table on the right) is set up by
 <code>screen_split</code> (bcall <code>0x5227</code>): it checks the split flag, calls <code>_Bit_VertSplit</code>,
@@ -551,13 +538,12 @@ bit set (the <code>=</code> is highlighted). The parser store path sets <code>re
 <li>walk the selected equation set — here only <code>Y1</code>; the exact builder and
 iterator remain open,</li>
 <li>per row: stage the running-X through OP1/OP2, evaluate <code>Y1</code>’s tokens via
-the page <code>38</code> parser cluster → OP1 = <code>X²+1</code>, format and
-stash into <code>table_value_cache.band[0]</code>/<code>band[1]</code>,</li>
+the page <code>38</code> parser cluster → OP1 = <code>X²+1</code>, and store the numeric result in the row cache,</li>
 <li>advance to the next row (bound-checked at <code>05:65DC</code>; X = <code>TblStart + k·TblStep</code>) and repeat,</li>
 <li>clear <code>reTable</code>.</li>
 </ul>
 </li>
-<li>The grid paints (<code>05:7E45</code>) the cached <code>X</code> and <code>Y1</code> columns as large-font text;
+<li>The grid formats and displays cached values through <code>05:6C57</code>;
 scrolling uses the cache-copy/shift helpers and computes newly exposed rows.</li>
 <li>Deselecting <code>Y1</code> (or editing the formula, or changing <code>ΔTbl</code>) sets <code>reTable</code>
 again and the next view recomputes.</li>
@@ -585,8 +571,8 @@ IY+19 b6    tblFlags.reTable  = table-dirty
 05:601E / 6026                            ; copy cache band 1↔2
 05:6032                                  ; shift cached values through LDDR
 05:6d40  table_mode_test                  ; BIT autoFill/autoCalc (Auto vs Ask)
-05:7e45  table_paint_grid_loop            ; render cached cells as text columns
-05:7e7c  table_cell_select_buffer         ; pick cache band 1/0
+05:7e45  row cache loop                   ; populate numeric bands
+05:7e7c  tbl_load_rowval                  ; load a value or blank sentinel into OP1
 05:7712  screen_split                     ; Graph-Table split-screen setup
 05:62fd  table_recompute_clear_reTable    ; another RES6 recompute exit
 
@@ -705,6 +691,7 @@ do not establish a <code>TblRng</code> special case in <code>_Find_Parse_Formula
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
         <script src="pseudocode-init-a22cdb5c.js"></script>
+        <script src="figure-layout-047a3260.js"></script>
 
 
 

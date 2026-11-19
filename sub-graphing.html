@@ -30,6 +30,7 @@
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="katex-383e7b8d.min.css">
         <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+        <link rel="stylesheet" href="figure-layout-22be1045.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
+            window.path_to_searchindex_js = "searchindex-b63be77c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ba6dda15.js"></script>
+        <script src="toc-dfcf5070.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -396,7 +397,7 @@ X range — with <code>_Mov9B</code> (<code>00:1A92</code>, which reads a window
 line’s Y (<code>OP1</code>) via <code>_MovFrOP1</code> (<code>00:1B0C</code>), so the endpoints are <code>(Xmin, y)</code> and <code>(Xmax, y)</code>.
 <code>_VertCmd</code> does the same with <code>Ymin</code> (<code>0x8F6B</code>)/<code>Ymax</code> (<code>0x8F74</code>) and the line’s X. It renders with
 <code>_PDspGrph</code>, then <code>_DeallocFPS1(0x24)</code> frees the frame — the window variables are read only,
-so the line just spans the current window edges. [confirmed]</p>
+so the line spans the current window edges. [confirmed]</p>
 <hr>
 <h2 id="rendering-the-graph-to-the-lcd"><a class="header" href="#rendering-the-graph-to-the-lcd">Rendering the graph to the LCD</a></h2>
 <p><code>_PDspGrph</code> (<code>04:7904</code>, “possibly-display graph”) decides whether to copy the buffer to the
@@ -422,7 +423,7 @@ bjump thunk at <code>ram:3F27</code>. Its observed bytes, <code>CD 09 2B 18 65 0
 SmartGraph (<code>grfModeFlags.smartGraph</code>) can bypass this work and copy the
 existing buffer when the graph state is still valid. [confirmed]</p>
 <p>The function-mode path has this observed shape:</p>
-<pre class="mermaid">flowchart LR
+<pre class="mermaid">flowchart TD
     A[Regraph setup] --&gt; B[Clear plotSScreen]
     B --&gt; C[Select equation]
     C --&gt; D[Prepare sample X]
@@ -434,8 +435,9 @@ existing buffer when the graph state is still valid. [confirmed]</p>
     H --&gt; J[Advance curInc by Xres]
     I --&gt; J
     J --&gt;|more columns| D
-    J --&gt;|done| K[Next selected equation]
-    K --&gt;|done| L[Return with plotSScreen]
+    J --&gt;|last column| K{Another selected equation?}
+    K --&gt;|yes| C
+    K --&gt;|no| L[Return with plotSScreen]
 </pre>
 
 <p><code>graph_advance_sample_column</code> (<code>04:69CF</code>) compares <code>curInc</code> (<code>0x8E67</code>) with
@@ -602,6 +604,7 @@ and style values <code>0</code>–<code>6</code> agree with the
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
         <script src="pseudocode-init-a22cdb5c.js"></script>
+        <script src="figure-layout-047a3260.js"></script>
 
 
 

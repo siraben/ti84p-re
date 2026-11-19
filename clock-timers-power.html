@@ -30,6 +30,7 @@
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="katex-383e7b8d.min.css">
         <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+        <link rel="stylesheet" href="figure-layout-22be1045.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
+            window.path_to_searchindex_js = "searchindex-b63be77c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ba6dda15.js"></script>
+        <script src="toc-dfcf5070.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -211,7 +212,8 @@
     ST --&gt; ISR["im1_vector · ram:0038"]
     PTCPU --&gt; ISR
     PTX --&gt; ISR
-    ISR --&gt; APD["keypad · cursor · APD"]
+    ISR --&gt;|standard timer 1| APD["keypad · cursor · APD"]
+    ISR --&gt;|programmable timer 3| USB["USB timeout handler · 35:4792"]
 </pre>
 
 <p>The three timing blocks have different contracts: [standard]</p>
@@ -981,6 +983,7 @@ nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_timer_prob
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
         <script src="pseudocode-init-a22cdb5c.js"></script>
+        <script src="figure-layout-047a3260.js"></script>
 
 
 

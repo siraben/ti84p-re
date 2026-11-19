@@ -31,6 +31,7 @@
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="katex-383e7b8d.min.css">
         <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+        <link rel="stylesheet" href="figure-layout-22be1045.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -38,10 +39,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
+            window.path_to_searchindex_js = "searchindex-b63be77c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ba6dda15.js"></script>
+        <script src="toc-dfcf5070.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -186,7 +187,7 @@ calculator hardware, and its internal software subsystems. It keeps direct ROM
 evidence, emulator observations, public hardware behavior, and unresolved
 inferences distinct.</p>
 <p>The target is a validated 1 MiB Flash image whose OS identifies itself as
-2.55MP. <a href="#conventions-and-evidence">Conventions and methodology</a> defines the address
+2.55MP. <a href="#conventions-and-evidence">Conventions and evidence</a> defines the address
 notation and confidence flags used throughout the book.</p>
 <h2 id="machine-and-os"><a class="header" href="#machine-and-os">Machine and OS</a></h2>
 <p>The TI-84 Plus is a Z80 machine that can only see 64 KiB at once. The target has
@@ -277,13 +278,13 @@ checked maps; a name or mapping alone does not establish a public ABI.</p>
 <h2 id="reading-the-map"><a class="header" href="#reading-the-map">Reading the map</a></h2>
 <p>Numeric evaluation uses the parser, VAT, arithmetic engine, and display:</p>
 <pre class="mermaid">flowchart TD
-    KP([keypad]) --&gt; GK["_GetKey"] --&gt; P[parser] --&gt; TD[token dispatch]
-    TD --&gt; VAT["VAT · _FindSym&lt;br/&gt;variables"]
-    TD --&gt; FP["FP engine · OP1..6&lt;br/&gt;arithmetic / transcendentals"]
-    TD --&gt; DISP["display · _PutMap&lt;br/&gt;homescreen / graph"]
-    VAT --&gt; R["result in OP1&lt;br/&gt;shown via _DispOP1A / _PutS"]
-    FP --&gt; R
-    DISP --&gt; R
+    KP([keypad]) --&gt; GK["_GetKey"] --&gt; HOME["homescreen edit buffer"]
+    HOME --&gt;|evaluate entered tokens| P[parser]
+    P --&gt;|name token| VAT["VAT lookup"]
+    VAT --&gt;|recalled numeric operand| FP["FP arithmetic"]
+    P --&gt;|numeric operation| FP
+    FP --&gt; R["result in OP1"]
+    R --&gt; DISP["format and display result"]
 </pre>
 
 <p>Cross-cutting services used by all of the above: <a href="#the-bcall-mechanism">the bcall mechanism</a>, <a href="#interrupts-im1">interrupt dispatch</a>, <a href="#clock-timers-and-power">clock/timers/APD/power</a>, <a href="#md5-accelerator-and-boot-api">MD5 and boot signature arithmetic</a>, error handling (<code>_JError</code> + <code>TIError</code> codes), and the system flags (<code>SystemFlags</code> @ <code>flags</code>).</p>
@@ -1328,7 +1329,7 @@ $$</p>
 <li>bits 2–7 select the T-states added to each LCD-port instruction;</li>
 <li>bit 0 enables the Flash bits in port <code>0x2E</code>, and bit 1 enables the RAM bits.</li>
 </ul>
-<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/bus-wait-timing.svg" alt="CPU speed selects one delay register; that register controls LCD instruction additions and gates port 2E memory waits, while port 2F reports a separate LCD busy interval for software to poll."><span class="img-wrapper"><img src="images/bus-wait-timing.svg" alt="CPU speed selects one delay register; that register controls LCD instruction additions and gates port 2E memory waits, while port 2F reports a separate LCD busy interval for software to poll."></span></label></p>
+<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/bus-wait-timing.svg" alt="CPU speed selects a delay register for LCD instruction timing and port 2E memory waits. Port 2F configures a separate LCD hold interval. Software polls bit 1 of port 02."><span class="img-wrapper"><img src="images/bus-wait-timing.svg" alt="CPU speed selects a delay register for LCD instruction timing and port 2E memory waits. Port 2F configures a separate LCD hold interval. Software polls bit 1 of port 02."></span></label></p>
 <p><strong>Timing model.</strong> The register behavior is [standard], and the diagram’s widths are conceptual. OS 2.55MP’s register bytes and executed speed values are [confirmed].</p>
 <p>Changing port <code>0x20</code> changes the active byte immediately in TilEm and
 Wabbitemu. The OS does not need to rewrite ports <code>0x29</code>–<code>0x2C</code> when it moves
@@ -3149,14 +3150,18 @@ emulator agreement is only a test oracle for emulator behavior.</p>
 <li>Restore the input registers and enter the target with <code>RET</code>. Its normal return reaches <code>ram:2B41</code>, which restores the saved bank-A selector, then resumes the caller at <code>+3</code>.</li>
 </ol>
 <h2 id="the-jump-table--flash-page-0x3b-confirmed"><a class="header" href="#the-jump-table--flash-page-0x3b-confirmed">The jump table — flash page <code>0x3B</code> [confirmed]</a></h2>
-<ul>
-<li>Located at the start of physical flash page <code>0x3B</code> (file offset <code>0x3B*0x4000 = 0xEC000</code>).</li>
-<li><strong>3-byte entries</strong>: <code>addr_lo, addr_hi, page</code>. IDs step by 3 from <code>0x4000</code>, so entry for ID <em>X</em> is at table offset <code>X-0x4000</code>.</li>
-<li>The resolver scores all 64 pages by plausible target addresses; page <code>0x3B</code> scores highest. The dispatcher independently selects it at <code>ram:2A5E</code>–<code>ram:2A6D</code>. The 645 checked rows resolve from ROM bytes; 623 IDs also appear in the SDK equates and 22 have project-inferred names. This is mapping evidence, not runtime coverage of every body.</li>
-<li>Validation: known bcalls land exactly where expected — <code>_PutS</code>→<code>01:5C39</code>, <code>_GetKey</code>→<code>06:491E</code>, <code>_ClrLCDFull</code>→<code>01:60E4</code>, <code>_GetCSC</code>→<code>00:04B2</code>, <code>_CreateReal</code>→<code>00:10B8</code>.</li>
-</ul>
-<p><code>tools/symbols/bcall_targets.txt</code> holds 645 resolved main-table bcall rows.
-The retail boot table has 87 populated entries. <code>tools/symbols/bcalls8x_targets.txt</code>
+<p>The main table starts at file offset <code>0xEC000</code>. Its 1,765 three-byte entries
+span IDs <code>4000h</code>–<code>54ACh</code>. Each entry contains <code>addr_lo, addr_hi, page</code>, so
+the offset for ID <em>X</em> is <code>X-0x4000</code>. Code begins at <code>3B:54AF</code>. [confirmed]</p>
+<p>The resolver scores all 64 pages by their target addresses. Page <code>3B</code> scores
+highest, and the dispatcher selects it at <code>ram:2A5E</code>–<code>ram:2A6D</code>. For
+example, <code>_PutS</code> resolves to <code>01:5C39</code> and <code>_GetKey</code> to <code>06:491E</code>.
+<code>tools/symbols/bcall_targets.txt</code> catalogs 645 main-table IDs. Of those,
+623 have a bcall equate in the bundled 2007 include. The catalog uses the
+same name, ignoring case, for 580 IDs. See the
+<a href="#corpus-coverage-and-map-provenance">bcall index</a> for an
+example of a project label at an SDK-named ID. [confirmed]</p>
+<p>The retail boot table has 87 populated entries. <code>tools/symbols/bcalls8x_targets.txt</code>
 holds the 83 rows with official SDK names; four populated slots have only
 project-inferred names in the <a href="#retail-boot-0x8xxx-bcalls">bcall index</a>.
 <code>tools/ti84re/rom/resolve_bcalls.py</code> emits the official-name rows when page <code>3F</code> has
@@ -3174,7 +3179,7 @@ and decompiler dump for a selected set of IDs. For example:</p>
 <h2 id="jump-table-id-ranges"><a class="header" href="#jump-table-id-ranges">Jump-table ID ranges</a></h2>
 <p>The dispatcher (<code>bcall_dispatcher</code>) decodes the ID’s top two bits to pick the table page: bit 15 set → page-byte <code>0x7F</code> (masked <code>&amp; 0x3F</code> → page <code>0x3F</code>); bit 14 set → <code>0x7B</code> (→ page <code>0x3B</code>); with <em>neither</em> bit set it falls through to <code>lookup_bcall_table_page</code> (<code>ram:2ADA</code>). The two tables real bcall IDs use:</p>
 <ul>
-<li><code>0x4000</code>–<code>0x7FFF</code> (bit 14 set): the main table on flash page <code>0x3B</code>, entry at offset <code>ID − 0x4000</code> (645 byte-resolved rows: 623 IDs also present in the included SDK equates and 22 project-inferred names).</li>
+<li><code>0x4000</code>–<code>0x7FFF</code> (bit 14 set): the main table on flash page <code>0x3B</code>, entry at offset <code>ID − 0x4000</code> (1,765 entries on OS 2.55MP, of which 645 appear in the checked catalog).</li>
 <li><code>0x8xxx</code> (bit 15 set): the retail boot table is on physical page <code>3F</code>, indexed by <code>ID &amp; 0x7FFF</code>. Its real entries occupy IDs <code>0x8018</code>–<code>0x80D2</code> and <code>0x80E4</code>–<code>0x8129</code>; bytes <code>3F:40D5</code>–<code>3F:40E3</code> between those ranges are executable dispatch-stub bytes, not five table entries. <code>D84PBE1.8Xv</code> supplies the retail page <code>3F</code>; <code>D84PBE2.8Xv</code> supplies the companion USB boot support page <code>2F</code>. Most entries resolve to <code>3F:addr</code>; USB entries such as <code>_AttemptUSBOSReceive</code> (<code>80E4</code>) and <code>_InitUSB</code> (<code>8108</code>) resolve to <code>2F:addr</code>. <code>tools/ti84re/rom/resolve_bcalls.py</code> refuses to emit these targets from a BootFree-substituted page. [confirmed]</li>
 </ul>
 <p>Both resolved table formats are 3-byte entries: target address (little endian) plus page byte masked with <code>&amp; 0x3F</code>.</p>
@@ -3744,7 +3749,8 @@ nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_interrupt_
     ST --&gt; ISR["im1_vector · ram:0038"]
     PTCPU --&gt; ISR
     PTX --&gt; ISR
-    ISR --&gt; APD["keypad · cursor · APD"]
+    ISR --&gt;|standard timer 1| APD["keypad · cursor · APD"]
+    ISR --&gt;|programmable timer 3| USB["USB timeout handler · 35:4792"]
 </pre>
 
 <p>The three timing blocks have different contracts: [standard]</p>
@@ -5244,10 +5250,12 @@ moves variables between that RAM heap and Flash.</p>
 <pre class="mermaid">flowchart TB
     A["0xFE66 · symTable — top of user RAM"]
     B["VAT — variable names + metadata&lt;br/&gt;type, data ptr/page, name · grows DOWNWARD ↓"]
-    C["( free RAM )"]
+    O["operand stack · OPS"]
+    C["free RAM · OPS − FPS + 1"]
+    F["floating-point stack · FPS"]
     D["user data — variable contents&lt;br/&gt;grows UPWARD ↑"]
     E["0x9D95 · userMem — bottom of user RAM"]
-    A --- B --- C --- D --- E
+    A --- B --- O --- C --- F --- D --- E
     style C fill:#1b1b1b,stroke-dasharray:5 5
 </pre>
 
@@ -5853,7 +5861,7 @@ the RAM-to-Flash archive path at <code>07:61CE</code> and the catalog path at <c
 <code>gc_check_interrupted</code>, whose entry is <code>3C:7BC7</code>. No call reference or function
 entry begins at <code>3C:7BD0</code>. <code>gc_show_screen</code> is the independent entry at
 <code>3C:7E0D</code>. [confirmed]</p>
-<p><code>tools/analyze_gc_journal.py</code> validates the dispatcher bytes, the page-0 stub,
+<p><code>python3 -m ti84re.flash.analyze_gc_journal</code> validates the dispatcher bytes, the page-0 stub,
 all 11 callers, the <code>3C:7BC7</code> function body, and the <code>3C:7E0D</code> display entry.
 Its JSON report retains selectors, targets, and conditions separately from the
 master-phase recovery dispatcher at <code>3C:7C1F</code>.</p>
@@ -10309,7 +10317,7 @@ image; the TilEm adapter does not load a ROM. [standard]</p>
 <div class="table-wrapper">
 <table>
 <thead>
-<tr><th>Case</th><th>Native result</th></tr>
+<tr><th>Case</th><th>GCC-built TilEm and pinned Wabbitemu result</th></tr>
 </thead>
 <tbody>
 <tr><td>Fresh reads from <code>0x18</code>–<code>0x1B</code></td><td><code>00 00 00 00</code>; the fresh calculated result is <code>0x00000000</code></td></tr>
@@ -10337,10 +10345,13 @@ Their canonical native JSON has SHA-256
 [standard]</p>
 <p>TilEm computes a zero-count rotation as
 <code>(result &lt;&lt; s) | (result &gt;&gt; (32 - s))</code>. With <code>s = 0</code>, the second operand shifts
-a 32-bit value by 32, which C99 leaves undefined. The locked GCC build produces
-the one-, three-, four-, and five-write results in the table. That observation
-is a property of this binary, not a portable result guaranteed by TilEm’s C
-source. [standard]</p>
+a 32-bit value by 32, which C99 leaves undefined. An arm64 build of the same
+TilEm source with Apple Clang 21.0.0 at <code>-O2</code> returns <code>0x22000000</code>,
+<code>0x66442200</code>, <code>0x88664422</code>, and <code>0xAA886644</code> for the four zero-rotation
+write cases. Its other probe fields match the GCC build, including all three
+mutation results. The Apple Clang binary SHA-256 is
+<code>f7ff144660d619b01a5dd7208d4664ed4e295518940a1e8230ee0f252f7949dc</code>.
+[standard]</p>
 <p><strong>Native Wabbitemu confirmation.</strong> The Wabbitemu binary SHA-256 is
 <code>e5c64ec8630b0eaa9d42632ae8f559440678a567c00d0d1ce903fc99815afe81</code>.
 Its initialized-core report matches every table row and advances zero
@@ -10818,9 +10829,19 @@ ASIC. An external SRAM package therefore is not part of that photographed
 revision. [standard]</p>
 <p>WikiTI’s hardware history reports 128 KiB in the original TI-84 Plus design
 and a later reduction to 48 KiB. Its RAM-page table says units with port
-<code>0x15 &gt;= 0x55</code> map selectors <code>82</code>–<code>87</code> to one physical 16 KiB block. These are
-community hardware reports. Neither page supplies a primary TI specification,
-a dated transition, or a measurement tied to a photographed board. [standard]</p>
+<code>0x15 &gt;= 0x55</code> map selectors <code>82</code>–<code>87</code> to one physical 16 KiB block. [standard]</p>
+<p>DrDnar wrote a test that mapped those six selectors in pairs across memory
+banks. On September 20, 2009, calcdude84se reported the same eight bytes (<code>00 00 82 83 84 85 86 87</code>)
+in all six rows. All six selectors exposed the same writes on that calculator.
+The report omits the port-<code>0x15</code> reading. [standard]
+<a href="https://www.cemetech.net/projects/uti/viewtopic.php?start=60&amp;t=8913">DrDnar’s test and calcdude84se’s output</a></p>
+<p>Critor reported that both BANKTEST and MEMTST83 passed on a March 2007
+revision-G TI-84 Plus and failed on a March 2008 revision-J TI-84 Plus.
+Both ran OS 2.41 and boot 1.02. These results date two sampled units.
+The TI-Boy SE compatibility guide places the change between case revisions G
+and H. [standard]
+<a href="https://www.cemetech.net/uti/t15238-extra-ram-page-trouble?page=3">Critor’s five-unit test</a>
+and <a href="https://github.com/calc84maniac/tiboyse#q-which-calculators-have-a-large-enough-ram-chip-for-this-ram-hogging-game-i-want-to-play">TI-Boy SE’s hardware guide</a></p>
 <p>The two reported topologies use the same eight selector values: [standard]</p>
 <div class="table-wrapper">
 <table>
@@ -10835,9 +10856,9 @@ a dated transition, or a measurement tied to a photographed board. [standard]</p
 </div>
 <p>Port <code>0x15</code> does not appear in any statically resolved OS 2.55MP I/O
 instruction. The public identity table associates <code>0x44</code> and <code>0x45</code> with
-128 KiB and <code>0x55</code> with 48 KiB, while Datamath identifies TA2 and TA3 package
-families without assigning their RAM capacity. Do not infer capacity from an
-ASIC label alone. The restoring probe records the package-independent port
+128 KiB and <code>0x55</code> with 48 KiB. Datamath identifies the <code>84PLCR/TA1</code>
+package on a March 2008 revision-J board and credits the RAM-capacity
+measurements to Xavier Andréani’s group. The restoring probe records the port
 <code>0x15</code> byte and the observed selector groups in one frame. [confirmed] for
 the ROM scan and probe format; [standard] for the public identities;
 [hypothesis] for an unmeasured calculator’s topology.</p>
@@ -11265,6 +11286,7 @@ including the final <code>port 7 = 81</code> and <code>port 5 = 00</code> writes
 </thead>
 <tbody>
 <tr><td><a href="http://www.datamath.org/Graphing/TI-84PLUS.htm">Datamath TI-84 Plus hardware</a> and <a href="http://www.datamath.org/Graphing/JPEG_TI-84PLUS_A.htm#PCB">March 2004 board photographs</a></td><td>Three-IC board inventory, ASIC-integrated RAM, and photographed <code>83PLUSB/TA2</code> package</td></tr>
+<tr><td><a href="https://datamath.org/Graphing/TI-84PLUS_WM08_TL.htm">Datamath March 2008 TI-84 Plus</a></td><td>Revision-J <code>84PLCR/TA1</code> identification and attribution of the capacity tests</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:History_of_TI-8x_hardware&amp;oldid=10880">WikiTI hardware history, revision 10880</a></td><td>Reported 128 KiB design and later 48 KiB revision</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:OS:Ram_Pages&amp;oldid=11670">WikiTI RAM pages, revision 11670</a></td><td>Reported selector uses and <code>82</code>–<code>87</code> alias threshold</td></tr>
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code></a> and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c"><code>x4_memory.c</code></a></td><td>Independent-page emulator mapping</td></tr>
@@ -12291,7 +12313,7 @@ The add/subtract helpers process eight bytes: seven stored mantissa bytes plus
 the first extension byte, giving 16 working decimal digits. The second
 extension byte is cleared too, but is not part of that eight-byte add loop.
 The following flow describes add/subtract, not every binary operation:</p>
-<pre class="mermaid">flowchart LR
+<pre class="mermaid">flowchart TD
     A["clear guard digits&lt;br/&gt;fp_clear_guard"] --&gt; B["align exponents&lt;br/&gt;shift smaller right by Δ"]
     B --&gt; C["BCD digit op&lt;br/&gt;add / subtract"]
     C --&gt; D["renormalize&lt;br/&gt;back to d.dddd…"]
@@ -12320,6 +12342,7 @@ The following flow describes add/subtract, not every binary operation:</p>
 <pre><code class="language-pseudocode">\begin{algorithm}
 \caption{\texttt{\_FPAdd}: $OP1 \gets OP1 + OP2$ (sign-magnitude BCD)}
 \begin{algorithmic}
+\STATE clear the two extension bytes in each operand
 \IF{$OP2 = 0$}
     \RETURN $OP1$
 \ENDIF
@@ -12329,7 +12352,8 @@ The following flow describes add/subtract, not every binary operation:</p>
 \ENDIF
 \STATE $\Delta \gets \mathrm{exp}(OP1) - \mathrm{exp}(OP2)$ \COMMENT{\texttt{fp\_exp\_diff}}
 \IF{$|\Delta| &gt; 15$}
-    \RETURN larger operand \COMMENT{other is negligible}
+    \STATE copy the operand with the larger exponent to $OP1$ if needed
+    \RETURN $OP1$
 \ENDIF
 \STATE shift the smaller mantissa right by $|\Delta|$ digits to align \COMMENT{\texttt{fp\_shift\_right\_digit}}
 \IF{$\mathrm{sign}(OP1) = \mathrm{sign}(OP2)$}
@@ -12338,7 +12362,7 @@ The following flow describes add/subtract, not every binary operation:</p>
     \STATE $\mathrm{mantissa} \gets$ BCD-subtract
     \STATE fix result sign \COMMENT{\texttt{fp\_sub\_mantissa}}
 \ENDIF
-\STATE round via the guard digits, renormalize, store exp/type in $OP1$
+\STATE normalize the result as needed, then round $OP1$ using its first guard digit
 \RETURN $OP1$
 \end{algorithmic}
 \end{algorithm}
@@ -12885,7 +12909,7 @@ floating-point engine. The engine lives on Flash page <code>3A</code>; raw disas
 supplies indexed-bit and cross-page operations that the decompiler can
 mis-render.</p>
 <h2 id="statvars-result-block-confirmed"><a class="header" href="#statvars-result-block-confirmed"><code>statVars</code> result block [confirmed]</a></h2>
-<p>Every STAT-CALC result is a 9-byte <code>TIFloat</code> (see <a href="#floating-point-engine">floating-point.md</a>) written
+<p>Numeric STAT-CALC results use 9-byte <code>TIFloat</code> values (see <a href="#floating-point-engine">floating-point.md</a>) written
 into a fixed RAM table beginning at <code>statVars = 0x8A3A</code> (<code>statVars EQU 8A3Ah</code>
 in <code>ti83plus.inc</code>). Entries are packed at the 9-byte <code>FPLEN</code> stride. These are the
 system variables recalled by name (<code>[2nd][STAT] ▸ VARS</code>):</p>
@@ -13330,23 +13354,20 @@ vectors, and an ascending handler-pointer array at <code>3A:7DF4</code>–<code>
 from array slots to menu items remains open.</p>
 <hr>
 <h2 id="subsystem-integration"><a class="header" href="#subsystem-integration">Subsystem integration</a></h2>
-<pre><code class="language-text">  L1..L6 lists (VAT data)                 statVars (0x8A3A)  ← results, recall-by-name
-        │ (VAT element access)                 ▲
-        ▼                                       │ (_Rcl_StatVar 00:2149)
-   _OneVar (3A:6420, id 0x4BA3)  ──►  per-element accumulation pass (3A:6572)
-        │  cmd code → stat_calc_command          │  uses FP engine:
-        │                                        │   RST30 _FPAdd, 238B _FPMult,
-        ├─ moments / Sx,σx (3A:6984..)           │   238A _FPSquare, 2541 _FPDiv,
-        ├─ Gauss-Jordan solve (3A:67C6..) ───►   │   3939 _SqRoot, 2294 _Minus1
-        │     → QuadA..QuartE, Corr, RegEQ       │
-        └─ sort + median/quartile (3A:7935/79B9) ┘
-  errors: _ErrStat 00:2741 (0x15), _ErrStatPlot 00:2759 (0x1B),
-          _ErrSingularMat 0x83, _ErrDimMismatch 00:2715 (0x8B)
+<pre><code class="language-text">list arguments in the VAT
+    ↓
+_OneVar (3A:6420) saves the command selector at 8A36h
+    ↓
+accumulate list elements (3A:6572)
+    ↓
+command-specific work includes
+    ├─ moments and standard deviations
+    ├─ polynomial fit via Gauss-Jordan (3A:67C6)
+    └─ medians and quartiles via the internal sort (3A:7935)
 </code></pre>
-<p>The STAT subsystem is a thin data-driven front-end on page 0x3A that reads list
-data via the VAT, drives the page-0/page-02 BCD FP engine to build power-sums, then
-either finalizes the moments or runs an in-place Gauss-Jordan solve of the normal
-equations, depositing every output as a named <code>TIFloat</code> in the <code>statVars</code> block.</p>
+<p>Numeric results occupy slots in <code>statVars</code> starting at <code>8A3Ah</code>.
+<code>_Rcl_StatVar</code> (<code>00:2149</code>) recalls a named numeric result into OP1.
+Regression also produces the fitted equation, <code>RegEQ</code>.</p>
 <hr>
 <h2 id="routine-index-3"><a class="header" href="#routine-index-3">Routine index</a></h2>
 <div class="table-wrapper">
@@ -14324,11 +14345,10 @@ from ROM control flow, not exhaustively traced. Reduced results are in
 <pre><code class="language-ti-basic">cumSum(L1)-&gt;L2
 </code></pre>
 <p>is stored as:</p>
-<pre><code class="language-text">BB 29  5D 00  11  04  5D 01  3F
-└───┘  └───┘   │   │   └───┘   └─ EOL
-cumSum(  L1    )   →     L2
+<pre><code class="language-text">BB 29     5D 00   11   04   5D 01   3F
+cumSum(   L1      )    →    L2      EOL
 </code></pre>
-<p>No source spaces or character count are preserved. The editor reconstructs
+<p>Each column pairs the stored bytes with one token. The editor reconstructs
 the spelling from token tables. The interpreter sees typed operations and
 names immediately, without reparsing the visible word <code>cumSum</code>. [confirmed]</p>
 <h2 id="token-streams-and-execution"><a class="header" href="#token-streams-and-execution">Token streams and execution</a></h2>
@@ -14379,7 +14399,7 @@ structure.</p>
 many token bytes. There are no stored line numbers: <code>3Fh</code> separates lines, and
 <code>3Eh</code> separates colon-delimited statements. [confirmed]</p>
 <p>Execution can be read as a pipeline:</p>
-<pre class="mermaid">flowchart LR
+<pre class="mermaid">flowchart TD
     V["VAT program object"] --&gt;|"size selects token body"| C["parse cursor&lt;br/&gt;nextParseByte … basic_end"]
     C --&gt;|"fetch and classify"| H["statement or expression handler"]
     H --&gt; E["recursive expression"]
@@ -14387,7 +14407,7 @@ many token bytes. There are no stored line numbers: <code>3Fh</code> separates l
     H --&gt; D["command or control transfer"]
     E --&gt; R["OP1 result"]
     M --&gt; R
-    D --&gt; R
+    D --&gt;|"continue or branch"| C
     R --&gt;|"advance or replace cursor"| C
 </pre>
 
@@ -14447,9 +14467,12 @@ preserve token boundaries while another routine searches for a statement or
 block delimiter.</p>
 <h2 id="expressions-are-nested-productions"><a class="header" href="#expressions-are-nested-productions">Expressions are nested productions</a></h2>
 <p><code>_ParseInp</code> (<code>38:5987</code>) initializes parser state for a homescreen expression or
-formula and enters the shared evaluator. Stored-program execution arrives with
-the program body and parser frame already selected. Both converge on the
-recursive expression machinery around <code>parse_eval_expr</code> (<code>38:5AB3</code>) and the
+formula and enters the shared evaluator. A RAM assembly caller can also give
+<code>_ParseInp</code> the name of a BASIC program in OP1. A paired TilEm run exercises
+this route through normal return. The ordinary BASIC <code>prgmNAME</code> caller
+selects the program body and parser frame internally.
+<a href="#asm-to-basic">ASM to BASIC</a></p>
+<p>These paths use the recursive expression machinery around <code>parse_eval_expr</code> (<code>38:5AB3</code>) and the
 statement loop at <code>38:59C5</code>. [confirmed]</p>
 <p>The evaluator is not a flat “token to function” switch. It first maps the
 current token to a grammar class, selects a production family, and lets that
@@ -14535,7 +14558,7 @@ pointer; only then does the recall path copy or address the value payload.
 </tbody>
 </table>
 </div>
-<pre class="mermaid">flowchart LR
+<pre class="mermaid">flowchart TD
     T["name token"] --&gt; N["OP1 name descriptor"]
     N --&gt; V["07:565F&lt;br/&gt;VAT scan"]
     V --&gt;|"recall"| P["typed payload"]
@@ -14760,7 +14783,7 @@ to the six shims. The natural corpus reaches 11 distinct direct callers:</p>
 predicates. The scan can decode data as instructions. It also omits indirect
 transfers and helpers that load an error code before entering the common path.
 The report preserves that distinction. [confirmed]</p>
-<pre class="mermaid">flowchart LR
+<pre class="mermaid">flowchart TD
     S["TI-BASIC expression"] --&gt; E["operator evaluator"]
     E --&gt; G["numeric guard&lt;br/&gt;zero, range, or exponent"]
     G --&gt; R["shared error shim&lt;br/&gt;00:26E8–2708"]
@@ -14788,7 +14811,7 @@ unwind_error(error_code):
   restore_flash_page(pop_word())
   return error_code
 </code></pre>
-<pre class="mermaid">flowchart LR
+<pre class="mermaid">flowchart TD
     E["error entry&lt;br/&gt;82h or 88h"] --&gt; C["00:270A&lt;br/&gt;common error path"]
     C --&gt; U["00:27BB&lt;br/&gt;load saved error SP"]
     U --&gt; O["restore OPS delta"]
@@ -14908,8 +14931,8 @@ comparison are documented under
 <h1 id="ti-basic-examples-and-asm-interop"><a class="header" href="#ti-basic-examples-and-asm-interop">TI-BASIC examples and ASM interop</a></h1>
 <p>These trace-backed examples connect source-level choices to the interpreter
 paths documented in <a href="#ti-basic-execution">TI-BASIC execution</a>. The page also records
-the supported BASIC/ASM boundary and the tested failures around direct
-ASM-initiated BASIC execution.</p>
+how a RAM assembly program calls a BASIC program with the public <code>_ParseInp</code>
+bcall and returns to its BASIC wrapper.</p>
 <h2 id="trace-backed-examples"><a class="header" href="#trace-backed-examples">Trace-backed examples</a></h2>
 <div class="table-wrapper">
 <table>
@@ -15312,8 +15335,7 @@ than a fixed-size region. [confirmed]</p>
 validate inputs on the BASIC side, and make the ASM payload return normally with
 <code>RET</code> unless it intentionally transfers control elsewhere.</p>
 <h3 id="cooperative-asm-directed-basic-callback"><a class="header" href="#cooperative-asm-directed-basic-callback">Cooperative ASM-directed BASIC callback</a></h3>
-<p>The run-confirmed way to let ASM choose a BASIC continuation is to keep BASIC in
-charge of the program call. <code>ASMSIG.8xp</code> sets <code>Ans</code> to <code>1</code> and returns:</p>
+<p>In this example, the ASM result selects a continuation in BASIC. <code>ASMSIG.8xp</code> sets <code>Ans</code> to <code>1</code> and returns:</p>
 <pre><code class="language-z80">RST 28h
 .dw 419Bh         ; _OP1Set1
 RST 28h
@@ -15364,21 +15386,51 @@ hits <code>userMem</code>, <code>_OP1Set2</code> (<code>00:1B50</code>), <code>_
 <tbody>
 <tr><td>BASIC → ASM</td><td><code>Asm(prgmNAME)</code> parses <code>prgmNAME</code>, bcalls <code>_ExecutePrgm</code>, copies the <code>AsmPrgm</code> payload, then jumps through <code>userMem</code>.</td><td>The payload runs in the calculator OS process; a bad payload can corrupt interpreter state.</td></tr>
 <tr><td>BASIC → BASIC</td><td><code>prgmNAME</code> enters the page-38 parser/VAT/body evaluator path and <code>Return</code> resumes the caller.</td><td>There is no local frame; variables, lists, and <code>Ans</code> are shared.</td></tr>
-<tr><td>ASM → BASIC callback</td><td>ASM stores a signal/result such as <code>Ans=1</code>, returns, and the BASIC wrapper conditionally runs <code>prgmNAME</code>.</td><td>BASIC must own the actual <code>prgm</code> call; this is cooperative, not an arbitrary ASM bcall into BASIC.</td></tr>
+<tr><td>ASM → BASIC callback</td><td>ASM stores a signal/result such as <code>Ans=1</code>, returns, and the BASIC wrapper conditionally runs <code>prgmNAME</code>.</td><td>In this wrapper, BASIC owns the <code>prgm</code> call.</td></tr>
 <tr><td>ASM → BASIC value return</td><td>ASM stores a numeric result in <code>Ans</code> with <code>_StoAns</code>; BASIC resumes and evaluates <code>Ans</code>.</td><td>This returns data to BASIC, not control into a BASIC program body.</td></tr>
 <tr><td>ASM → VAT lookup</td><td><code>ASMFIND</code> builds <code>OP1={ProgObj,"ZZBASIC"}</code> and bcalls <code>_ChkFindSym</code>.</td><td>Lookup is not execution; the wrapper returns and <code>ZZBASIC</code> does not display <code>CALLED</code>.</td></tr>
-<tr><td>Direct ASM → BASIC</td><td>The bounded OS 2.55MP census finds no distinct callable ABI.</td><td>A private construction must reproduce the ordinary parser, VAT, FPS/OPS, error, and return records; supported applications should return to a BASIC-owned <code>prgmNAME</code> call.</td></tr>
+<tr><td>Direct ASM → BASIC</td><td>A RAM ASM caller puts the program name in OP1 and bcalls <code>_ParseInp</code>.</td><td>The paired TilEm run covers a one-statement BASIC target and normal return.</td></tr>
 </tbody>
 </table>
 </div>
 <h3 id="asm-to-basic"><a class="header" href="#asm-to-basic">ASM to BASIC</a></h3>
-<p>OS 2.55MP has no distinct public or private-funnel ABI for calling a BASIC
-program from arbitrary ASM within the bounded search described below. ASM can
-enter private parser addresses after constructing their state, but the required
-parser, VAT, FPS, OPS, error, and return records are the ordinary BASIC caller
-frame. Constructing all of them duplicates that caller rather than invoking a
-separate ABI. [confirmed]</p>
-<p>Four apparent public candidates are not that entry point:</p>
+<p>Texas Instruments documents <code>_ParseInp</code> (<code>4A9Bh</code>, <code>38:5987</code>) as taking the
+name of an equation or a program in OP1. The SDK specifies a result for an
+equation and no return value for a program. The worked example evaluates
+<code>Y1</code>. [standard] <a href="https://education.ti.com/html/eguides/discontinued/computer-software/EN/SDK-TI-83-System-Routines_EN.pdf">TI-83 Plus System Routines, “ParseInp”</a></p>
+<p>On OS 2.55MP, a RAM assembly program can call a BASIC program directly
+through <code>_ParseInp</code> and return to its BASIC wrapper. In two TilEm runs on
+the canonical retail image, <code>ASMPARSE</code> displays <code>BEFORE</code>, runs
+<code>Asm(prgmZZPARSE)</code>, and displays <code>AFTER</code>. The ASM payload places the name
+<code>{ProgObj,"ZZBASIC"}</code> in OP1. Only the bcall operand differs between runs.
+[confirmed]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Bcall operand</th><th>Target selected</th><th>Final LCD</th></tr>
+</thead>
+<tbody>
+<tr><td><code>4A9Bh</code> (<code>_ParseInp</code>)</td><td><code>ZZBASIC</code> in RAM, containing <code>Disp "CALLED"</code></td><td><code>BEFORE</code>, <code>CALLED</code>, <code>AFTER</code>, <code>Done</code></td></tr>
+<tr><td><code>4B07h</code> (<code>_ParseInpLastEnt</code>)</td><td>The system’s last-entry program</td><td><code>ERR:INVALID</code>, <code>1:Quit</code>, <code>2:Goto</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The direct case covers normal return from this one-statement program.
+Interactive commands, archived targets, and error unwinding require separate
+caller tests. The paired fixtures, ROM and emulator identities, trace hashes,
+and LCD checks are in <code>tools/probes/tibasic-parseinp/result.json</code>. The replay
+requires ImageMagick and a TilEm build that transfers positional program files
+before its headless macro runs. The recorded binary includes a local patch
+for that transfer. Run from the repository root with a fresh output directory.</p>
+<pre><code class="language-sh">PYTHONPATH=tools python3 tools/probes/tibasic-parseinp/compare.py \
+  --tilem "$TILEM" --rom "$ROM" --out-dir /tmp/ti84-parseinp-comparison
+</code></pre>
+<p>A published Flash App caller sets <code>progExecuting</code> and <code>cmdExec</code>, installs an
+error handler, and calls <code>_ParseInp</code> with the program name in OP1. It also
+manages the App’s homescreen hook. This source describes a Flash App caller.
+The paired TilEm fixtures exercise the separate RAM caller described above.
+<a href="https://www.cemetech.net/forum/viewtopic.php?t=1449">Kerm Martian and Dan E., “RunBASICProgram”</a></p>
+<p>Four public routines serve other roles:</p>
 <ul>
 <li><code>_ExecutePrgm</code> is the <code>AsmPrgm</code> executor reached by <code>Asm(prgmNAME)</code>, not a
 general “run a BASIC program” entry.</li>
@@ -15395,10 +15447,7 @@ frame.</li>
 does not hit <code>_ParsePrgmName</code>, <code>_ExecutePrgm</code>, <code>_Find_Parse_Formula</code>, or
 <code>_SetParseVarProg</code>. It resolves the program name through the page-38
 parser/VAT path, enters the program-body evaluator at <code>38:6914</code> →
-<code>38:778F</code>, and lets <code>Return</code> unwind to the caller. Calling that same machinery
-from arbitrary ASM requires more than loading OP1 and bcalling a single public
-entry; it needs the same parser cursor, stack, error, and run-state setup that a
-live BASIC caller already has. [confirmed]</p>
+<code>38:778F</code>, and lets <code>Return</code> unwind to the caller. [confirmed]</p>
 <p>A typed two-program trace of <code>prgmPP</code> calling <code>prgmOO</code> captures the live parser
 frame at each <code>38:6914</code> entry through shadow-memory replay. The reproduction
 macro is <code>tools/macros/run-callsub-typed.macro</code>.</p>
@@ -15419,15 +15468,8 @@ macro is <code>tools/macros/run-callsub-typed.macro</code>.</p>
 </table>
 </div>
 <p>Both gate bits read zero in the working path. The private callee transition at
-<code>38:6910</code> executes <code>XOR A</code><br><code>CALL 6A15</code> before entering the evaluator. These
-observations suggest that an ASM payload must locate the target through
-<code>_ChkFindSym</code> into OP1, copy the name header to <code>0x9652</code>, point
-<code>start</code>/<code>cursor</code> at <code>_ChkFindSym</code>’s data pointer plus two (past the size word),
-set <code>end</code> = start + size, store <code>01h</code> at <code>0x9661</code>, ensure the FPS/OPS bounds
-are sane, bank page <code>38</code> into port <code>0x06</code>, and enter <code>38:6910</code>. No identified
-public bcall performs this setup. This proposed hand-built state transplant
-also accounts for the parser-frame failures in the negative probes
-(<code>ZZFIND</code>/<code>ZZFORM</code>/<code>ZZPARSE</code>). [hypothesis]</p>
+<code>38:6910</code> executes <code>XOR A</code><br><code>CALL 6A15</code> before entering the evaluator. The following probe copies the target’s name and parser bounds and enters
+that private address directly.</p>
 <p>The generated negative probe consists of <code>OO.8xp</code>, <code>ZZRUN.8xp</code>, and
 <code>ZZRUNWR.8xp</code>. <code>ZZRUN</code> is an 81-byte payload targeting <code>prgmOO</code>; it returns
 immediately if <code>_ChkFindSym</code> sets carry. <code>ZZRUNWR</code> contains the one-line
@@ -15472,10 +15514,9 @@ reproducible. The payload is the same OP1-name setup as <code>ZZFIND</code>, but
 Observed run: the trace reaches <code>_ParseInpLastEnt</code>, <code>_ParseInp</code> (<code>38:5987</code>),
 <code>parseinp_find_setup</code> (<code>38:5B2B</code>), <code>findsym_scan</code>, <code>parse_init</code>, and
 <code>eval_stmt_entry</code>; the final screen is <code>ERR:INVALID</code> with <code>1:Quit</code> and
-<code>2:Goto</code>. <code>ZZBASIC</code> never displays <code>CALLED</code>. Static disassembly explains the
-mismatch: after resolving the OP1-named object, <code>_ParseInp</code> continues through
-parser setup that expects a live parser/FPS call-frame shape. It is not a
-general “run this token stream” ABI for an arbitrary <code>AsmPrgm</code>. [confirmed]</p>
+<code>2:Goto</code>. At <code>38:5984</code>, <code>CALL 1F23h</code> replaces the OP1 name with <code>05 23 00</code>, the system’s last-entry program. Control then falls through to
+<code>_ParseInp</code> at <code>38:5987</code>. This run therefore exercises the last-entry
+program. A direct bcall to <code>4A9Bh</code> skips the name replacement. [confirmed]</p>
 <p>The homescreen command/edit-buffer route is also not a safe callable ABI. A
 payload that did only:</p>
 <pre><code class="language-z80">LD A,05h          ; kEnter
@@ -15509,17 +15550,18 @@ It still ends at <code>ERR:SYNTAX</code> and never runs the target body. That ma
 <code>_ExecuteNewPrgm</code> another stateful OS helper, not a standalone program executor
 ABI for <code>AsmPrgm</code> payloads. [confirmed]</p>
 <h4 id="bounded-abi-census"><a class="header" href="#bounded-abi-census">Bounded ABI census</a></h4>
-<p>The bounded census covers:</p>
-<ul>
-<li>all 1,732 three-byte main bcall slots from <code>4000h</code> through <code>5449h</code>;</li>
-<li>all 825 raw <code>CALL 2B09h</code> cross-page-call descriptors in the 1 MiB ROM; and</li>
-<li>every direct control-flow edge in the disassembled page-38 parser region
-<code>38:4100</code>–<code>38:77FF</code>.</li>
-</ul>
-<p>None of the 1,732 public slots and none of the 825 cross-page descriptors
-targets <code>38:59C5</code>, <code>38:6910</code>, <code>38:6914</code>, or <code>38:778F</code>. Of the 95 public slots
-whose target is on page <code>38</code>, only six land in the conservative 613-instruction
-direct reverse slice of <code>38:778F</code>:</p>
+<p>The OS 2.55MP main bcall table spans <code>4000h</code>–<code>54ACh</code>. All 1,765 slots
+precede the code at <code>3B:54AF</code>, and 98 target page <code>38</code>. The 1 MiB retail
+image also contains 825 raw matches for the cross-page call prefix
+<code>CD 09 2B</code>. Neither the table slots nor the address/page triples following
+those byte matches point to <code>38:59C5</code>, <code>38:6910</code>, <code>38:6914</code>, or <code>38:778F</code>.
+A raw prefix can occur in data. [confirmed]</p>
+<p>A table entry can reach these addresses through ordinary instructions.
+Starting at <code>_ParseInp</code> (<code>38:5987</code>), the fallthrough at <code>38:59C2</code> leads to
+<code>38:59C5</code>. The conditional jump at <code>38:59CE</code> can then reach <code>38:6910</code>
+and the call to <code>38:778F</code> at <code>38:6914</code>. The conditions on that path depend
+on parser state. Six other table entries with paths through this parser
+region appear below. [confirmed]</p>
 <div class="table-wrapper">
 <table>
 <thead>
@@ -15535,61 +15577,28 @@ direct reverse slice of <code>38:778F</code>:</p>
 </tbody>
 </table>
 </div>
-<p>These are mid-parser helpers, not frame constructors. The exact incoming-edge
-census further narrows the private funnel: <code>38:59C5</code> has the local
-<code>38:5C03</code> jump and the <code>38:59C2</code> fallthrough; <code>38:6910</code> has the conditional
-<code>38:59CE</code> jump and <code>38:690D</code> fallthrough; <code>38:6914</code> follows <code>38:6911</code>; and
-only <code>38:6914</code> calls <code>38:778F</code>. [confirmed]</p>
+<p>The linear disassembly from <code>38:4100</code> through <code>38:77FF</code> has two direct
+predecessors of <code>38:59C5</code>, the jump at <code>38:5C03</code> and the fallthrough at
+<code>38:59C2</code>. The two direct predecessors of <code>38:6910</code> are the conditional
+jump at <code>38:59CE</code> and the fallthrough at <code>38:690D</code>. The instruction at
+<code>38:6911</code> falls through to <code>38:6914</code>, the only direct call site for
+<code>38:778F</code> in this range. [confirmed]</p>
 <p>The separate semantic-candidate experiments cover <code>_ExecutePrgm</code>,
 <code>_ExecuteNewPrgm</code>, <code>_SetParseVarProg</code>, <code>_ParsePrgmName</code>,
 <code>_ParseInpLastEnt</code>, <code>_Find_Parse_Formula</code>, <code>_JForceCmd</code>, <code>_PutTokString</code>, and
-<code>_rclToQueue</code>. They either execute compiled ASM, modify only part of parser or
-editor state, or enter the parser with a malformed caller frame. None is a
-standalone direct-call ABI. [confirmed]</p>
-<p>This is a scoped negative result for the complete public table, standard
-cross-page-call descriptors, and the declared page-38 direct graph on OS
-2.55MP. It does not claim that manually reproducing every private caller record
-cannot execute a token stream; that construction is specifically excluded
-because it is a reimplementation of the ordinary BASIC caller, not a distinct
-callable ABI.</p>
-<h4 id="private-frame-comparison"><a class="header" href="#private-frame-comparison">Private-frame comparison</a></h4>
-<p>The T042 probe compares an incomplete direct call with the ordinary caller in
-one reset-origin TilEm run. <code>ZZFRAME</code> saves four state groups before the
-experiment: [confirmed]</p>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr><th>Saved group</th><th>Range</th><th>Contents</th></tr>
-</thead>
-<tbody>
-<tr><td>Parser and name</td><td><code>0x9652</code>–<code>0x9662</code></td><td><code>basic_prog</code>, parser pointers, and <code>numArguments</code></td></tr>
-<tr><td>VAT and temporary stacks</td><td><code>0x981C</code>–<code>0x9831</code></td><td>VAT scratch, FPS, OPS, <code>pTemp</code>, and <code>progPtr</code></td></tr>
-<tr><td>Parser flags</td><td><code>0x89F0</code>–<code>0x8A39</code></td><td>IY flags read by the page-38 parser</td></tr>
-<tr><td>Error state</td><td><code>0x86DD</code></td><td>prior <code>errNo</code> value</td></tr>
-</tbody>
-</table>
-</div>
-<p>The payload installs a caught-error frame through <code>_pushErrorHandleR</code> at
-<code>ram:27DA</code>, substitutes a token stream containing <code>prgmZZGOOD</code>, and calls
-<code>eval_stmt_entry</code> at <code>38:59C5</code>. It reaches the statement entry once, then
-raises <code>E_DataType</code> before <code>38:6910</code>, <code>38:6914</code>, or <code>38:778F</code>. <code>_JError</code>
-transfers through <code>ram:27BB</code>; the payload restores every saved group before it
-stores error code <code>9</code> in <code>Ans</code>. The combined frame SHA-256 matches before and
-after the failed call. [confirmed]</p>
-<p>The BASIC wrapper then calls <code>prgmZZGOOD</code> normally. That path reaches
-<code>38:59C5</code> twice and <code>38:6910</code>, <code>38:6914</code>, and <code>38:778F</code> once each, returns
-value <code>2</code>, and resumes at <code>AFTER</code>. The final screen reads <code>BEFORE</code>, <code>9</code>, <code>2</code>,
-<code>AFTER</code>, and <code>Done</code>. [confirmed]</p>
-<p>The comparison pins the missing boundary for this construction. Parser
-pointers and copied RAM blocks do not create the OPS grammar/type record, FPS
-baselines, VAT adoption, and return record consumed before <code>38:6914</code>. The
-ordinary <code>prgmNAME</code> handler creates them. Reproducing all of that state would
-duplicate the BASIC caller rather than expose a separate supported ABI.
-[confirmed]</p>
-<p><code>tools/probes/scratch-guard/asm-basic-frames-tilem.json</code> records the pinned TilEm run,
-screen contract, ROM spans, SPASM-ng output, and source/program hashes. The
-supported application pattern remains <code>Asm(</code> → <code>_ExecutePrgm</code> → <code>ram:9D95</code>,
-return a value through <code>Ans</code>, and let BASIC perform <code>prgmNAME</code>.</p>
+<code>_rclToQueue</code>. The tested callers execute compiled ASM, change parser or editor state, or
+produce the errors described above. The separate direct <code>4A9Bh</code> case above executes the named program and returns. [confirmed]</p>
+<p>The census checks table entries, raw byte patterns, and direct branches. It
+does not establish complete reachability through computed dispatch, routines
+outside that region, or callers with different state. The failed candidate
+experiments therefore leave other private calling sequences open.</p>
+<h4 id="private-frame-comparison-evidence-gap"><a class="header" href="#private-frame-comparison-evidence-gap">Private-frame comparison evidence gap</a></h4>
+<p>The reported T042 comparison used an ASM payload named <code>ZZFRAME</code> and a
+BASIC target named <code>ZZGOOD</code>. The cited manifest
+(<code>tools/probes/scratch-guard/asm-basic-frames-tilem.json</code>) and both fixtures
+are missing from the repository. The error attributed to the private call at <code>38:59C5</code> and the claimed
+restoration of the caller’s state therefore remain unverified. The separate <code>ASMBRIDG</code> fixture above exercises the cooperative
+<code>Ans</code> route.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="ti-basic-dynamic-tracing"><a class="header" href="#ti-basic-dynamic-tracing">TI-BASIC dynamic tracing</a></h1>
 <p>TI-BASIC coverage combines exhaustive local models, natural calculator traces,
@@ -16162,16 +16171,16 @@ data sheets specify 15 bytes per row, or 120 pixels, for T6A04A and 16 bytes
 per row, or 128 pixels, for T6K04. The T6K04 contains 8,192 bits of display RAM
 and exposes 128 column outputs plus 64 row outputs. Later Novatek replacements
 can differ. [standard]</p>
-<p>Datamath attributes the LCD module photographed from a March 2004 TI-84 Plus
-to Toshiba <code>T6K04</code>. The photograph shows the controller area under opaque
-epoxy, so it does not expose a readable die marking. The identification is a
-source-attributed module record rather than a marking read from the image.
-[standard]</p>
+<p>Datamath identifies a Toshiba <code>T6K04</code> in a March 2004 TI-84 Plus and a
+Novatek <code>NT7564H</code> in a March 2008 revision-J unit. The 2004 photograph shows
+epoxy over the controller die. Two revision-L Silver Editions in the same
+board inventory carry the same PCB ID and date code. The March 2008 unit has
+the Toshiba driver and the April unit has the Novatek. A case revision alone
+therefore cannot identify the controller. [standard]
+<a href="https://datamath.org/Graphing/TI-84PLUS_WM08_TL.htm">Datamath board inventory</a></p>
 <p>The local ROM uses only visible columns <code>0</code>–<code>11</code> in its full-screen clear and
-graph blit loops. It does not distinguish the 15-byte T6A04A row from the
-16-byte T6K04 row. Datamath’s attribution supplies revision-specific external
-evidence that the ROM cannot. [confirmed] for the ROM access range; [standard]
-for the March 2004 controller attribution.</p>
+graph blit loops. These accesses fit both the 15-byte T6A04A row and the
+16-byte T6K04 row. [confirmed]</p>
 <h3 id="coordinate-vocabulary"><a class="header" href="#coordinate-vocabulary">Coordinate vocabulary</a></h3>
 <p>Toshiba documentation names the pixel row <em>X</em> and the byte column <em>Y</em>. Software often uses the opposite convention. This page uses <em>row</em> for <code>0</code>–<code>63</code> vertically and <em>byte column</em> for the horizontal group selected by commands <code>0x20</code>–<code>0x3F</code>.</p>
 <div class="table-wrapper">
@@ -16188,7 +16197,8 @@ for the March 2004 controller attribution.</p>
 </table>
 </div>
 <p>The Z-address command <code>0x40 + shift</code> changes which controller row appears at the top of the panel. It does not copy video RAM. Rows wrap modulo 64 when displayed. [standard]</p>
-<p><label class="checkbox-label"><input class="checkbox-img" type="checkbox"><img src="images/lcd-addressing.svg" alt="A TI-84 Plus calculator skin locates the selected row and byte column on the physical LCD; an enlarged controller row shows twelve visible byte columns, four off-screen columns, and the eight pixels in one data byte."><span class="img-wrapper"><img src="images/lcd-addressing.svg" alt="A TI-84 Plus calculator skin locates the selected row and byte column on the physical LCD; an enlarged controller row shows twelve visible byte columns, four off-screen columns, and the eight pixels in one data byte."></span></label></p>
+<p><a class="lcd-diagram" href="images/lcd-addressing.svg" aria-label="Open full-size LCD addressing diagram. The calculator skin marks the selected row and byte column. Controller RAM has twelve visible byte columns and four off-screen columns."><object data="images/lcd-addressing.svg" type="image/svg+xml" aria-hidden="true" tabindex="-1">Open the LCD addressing diagram</object></a></p>
+
 <p><strong>Ordinary 8-bit addressing.</strong> The TilEm skin locates the controller model on the calculator face. The visible 12-byte row and OS command ranges are [confirmed]; the T6K04’s 16-byte controller row, read latch, and off-screen storage are [standard].</p>
 <h2 id="port-interface-1"><a class="header" href="#port-interface-1">Port interface</a></h2>
 <div class="table-wrapper">
@@ -16689,7 +16699,7 @@ nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_lcd_probe 
 <li>[confirmed] <code>_GrBufClr</code> changes only RAM, while <code>_GrBufCpy</code> performs the controller transfer.</li>
 <li>[confirmed] <code>_PowerOff</code> disables display output before the ASIC enters low power.</li>
 <li>[standard] Datamath attributes the photographed March 2004 module to Toshiba <code>T6K04</code>, whose primary data sheet specifies 128×64 RAM. The die is hidden under epoxy, so the photograph does not independently expose its marking.</li>
-<li>[hypothesis] The exact controller and off-screen RAM behavior still require per-calculator identification or measurement outside that source-attributed March 2004 module.</li>
+<li>[standard] Datamath identifies both Toshiba and Novatek controllers on revision-L Silver Editions with the same PCB ID and date code. Hidden-column addressing and retention on the Novatek still need a controller-specific measurement. [hypothesis]</li>
 <li>[hypothesis] The late-controller status-read pointer mutation, power-command analog effects, and off-screen retention need physical tests across TA2/TA3 board revisions.</li>
 <li>[hypothesis] TilEm’s configured LCD I/O delay and controller busy period should be compared with bus captures rather than treated as hardware constants.</li>
 <li>[standard] Wabbitemu’s 15-column increment cycle and write-based ready timer, plus MAME’s unchecked 15-byte row, are emulator limits rather than hardware results.</li>
@@ -16936,7 +16946,7 @@ X range — with <code>_Mov9B</code> (<code>00:1A92</code>, which reads a window
 line’s Y (<code>OP1</code>) via <code>_MovFrOP1</code> (<code>00:1B0C</code>), so the endpoints are <code>(Xmin, y)</code> and <code>(Xmax, y)</code>.
 <code>_VertCmd</code> does the same with <code>Ymin</code> (<code>0x8F6B</code>)/<code>Ymax</code> (<code>0x8F74</code>) and the line’s X. It renders with
 <code>_PDspGrph</code>, then <code>_DeallocFPS1(0x24)</code> frees the frame — the window variables are read only,
-so the line just spans the current window edges. [confirmed]</p>
+so the line spans the current window edges. [confirmed]</p>
 <hr>
 <h2 id="rendering-the-graph-to-the-lcd"><a class="header" href="#rendering-the-graph-to-the-lcd">Rendering the graph to the LCD</a></h2>
 <p><code>_PDspGrph</code> (<code>04:7904</code>, “possibly-display graph”) decides whether to copy the buffer to the
@@ -16962,7 +16972,7 @@ bjump thunk at <code>ram:3F27</code>. Its observed bytes, <code>CD 09 2B 18 65 0
 SmartGraph (<code>grfModeFlags.smartGraph</code>) can bypass this work and copy the
 existing buffer when the graph state is still valid. [confirmed]</p>
 <p>The function-mode path has this observed shape:</p>
-<pre class="mermaid">flowchart LR
+<pre class="mermaid">flowchart TD
     A[Regraph setup] --&gt; B[Clear plotSScreen]
     B --&gt; C[Select equation]
     C --&gt; D[Prepare sample X]
@@ -16974,8 +16984,9 @@ existing buffer when the graph state is still valid. [confirmed]</p>
     H --&gt; J[Advance curInc by Xres]
     I --&gt; J
     J --&gt;|more columns| D
-    J --&gt;|done| K[Next selected equation]
-    K --&gt;|done| L[Return with plotSScreen]
+    J --&gt;|last column| K{Another selected equation?}
+    K --&gt;|yes| C
+    K --&gt;|no| L[Return with plotSScreen]
 </pre>
 
 <p><code>graph_advance_sample_column</code> (<code>04:69CF</code>) compares <code>curInc</code> (<code>0x8E67</code>) with
@@ -17094,18 +17105,17 @@ entry points with <a href="#ti-basic-execution">TI-BASIC execution</a>, VAT obje
 LCD</a>.</p>
 <h2 id="subsystem-components"><a class="header" href="#subsystem-components">Subsystem components</a></h2>
 <pre class="mermaid">flowchart TB
-    TBLSET["TBLSET screen · page 37 + 02&lt;br/&gt;TblMin 92B3 / TblStep 92BC&lt;br/&gt;tblFlags IY+19: autoFill / autoCalc / reTable"]
+    TBLSET["TBLSET · pages 37 and 02&lt;br/&gt;TblMin 92B3 / TblStep 92BC"]
     YEQ["Y= equations in VAT&lt;br/&gt;EquObj tokens · tY1..tY0"]
-    PARSER["parser · page 38&lt;br/&gt;_ParseInp / parse_eval_expr"]
-    subgraph GEN["TABLE generator · page 05 — per X row"]
+    PARSER["page-38 parser"]
+    subgraph GEN["TABLE generator · page 05 · automatic X and Y"]
       direction TB
-      S1["1 · X = TblMin + k·TblStep"]
-      S2["2 · running-X staged in OP registers"]
-      S3["3 · evaluate each selected Y= → OP1"]
-      S4["4 · format OP1 → cell string"]
-      S5["5 · write into table data cache"]
-      S6["6 · paint cache as text grid on LCD"]
-      S1 --&gt; S2 --&gt; S3 --&gt; S4 --&gt; S5 --&gt; S6
+      S1["X = TblMin + k·TblStep"]
+      S2["stage X in OP registers"]
+      S3["evaluate selected equation"]
+      S4["store numeric result in nine-byte cache slot"]
+      S5["format cell and draw text"]
+      S1 --&gt; S2 --&gt; S3 --&gt; S4 --&gt; S5
     end
     TBLSET --&gt;|settings| S1
     YEQ --&gt; S3
@@ -17301,7 +17311,7 @@ The observed parser cluster includes <code>38:5B7B</code>, <code>38:5B10</code>,
 <code>_ParseInp</code> region. The exact evaluator call edge remains open. Bcall
 <code>4741h</code> is <code>_CPYO1TOES15</code> at <code>35:7C7C</code>, an expression-stack helper;
 its name and entry do not establish a parser dispatcher.</li>
-<li>Format OP1 and store the result in the row’s cache slot.</li>
+<li>Copy the nine-byte value from OP1 to the row’s cache slot. The display path formats it when drawing the cell.</li>
 </ol>
 <p>The fill setup at <code>05:6200</code> loads <code>B = 7</code> for the visible rows. Its loop at
 <code>05:6205</code> increments
@@ -17392,27 +17402,14 @@ the cell expression through the standard OPS machinery. [confirmed]</li>
 bypasses the <code>(IY+0x13)</code> bit tests. This override behavior is [confirmed], but
 the condition detected by <code>05:74BE</code> remains [hypothesis].</p>
 <h3 id="grid-rendering-confirmed"><a class="header" href="#grid-rendering-confirmed">Grid rendering [confirmed]</a></h3>
-<p>The table is a text grid (not the pixel graph buffer): up to 8 visible rows ×
-columns, drawn with the large font through the home-screen text primitives
-(<code>_PutMap</code>/<code>_PutC</code>, <a href="#display-and-lcd">display-lcd.md</a>). The paint loop:</p>
-<pre><code class="language-z80">05:7E45  loop over visible rows:
-           CALL 0x7E7C            ; position/clear the cell (selects buffer
-                                  ;   0x9221 for one column or 0x91E2 for the other)
-           CALL 0x7E9D
-           LD DE,(0x9192 YOutDat) ; the Y-column value pointer
-           CP 2 / CP 5            ; column-kind dispatch (X col vs Y col vs input)
-           CALL 0x7E7C
-           CALL 0x7E98             ; render the cached value into the cell
-           CALL 0x65DC            ; row-index bound check (current row vs last)
-           INC row
-           …
-           LD (0x91DC),A
-</code></pre>
-<p><code>05:7E7C</code> chooses the destination cache band (<code>table_value_cache.band[1]</code> at
-<code>0x9221</code> versus <code>band[0]</code> at <code>0x91E2</code>) based on the
-column index, and writes <code>0xFF</code>/blank sentinels for empty (Ask) cells. The bottom
-status line and the highlighted-cell full-precision readout reuse the same value
-cache. [confirmed]</p>
+<p>The table paints its values as text. The cell display path calls the formatter
+at <code>05:6CD9</code> from <code>05:6C67</code>. Its output loop reads each character from <code>(HL)</code>,
+calls the output trampoline at <code>ram:3CDB</code>, and advances <code>HL</code>. [confirmed]</p>
+<p>The separate row loop at <code>05:7E45</code> fills numeric cache bands.
+<code>05:7E7C</code> loads a row value or sets the OP1 type byte to <code>0xFF</code> for a missing
+value. <code>05:7E98</code> and <code>05:7E9D</code> select the destination band at <code>0x9221</code> or
+<code>0x91E2</code>. Both reach <code>05:614A</code>, which computes the row offset and jumps to
+<code>ram:1B0C</code> to copy nine bytes from OP1 into RAM. [confirmed]</p>
 <h3 id="split-graph-table-mode-confirmed"><a class="header" href="#split-graph-table-mode-confirmed">Split graph-table mode [confirmed]</a></h3>
 <p>The <strong>G-T</strong> mode (graph on the left half, table on the right) is set up by
 <code>screen_split</code> (bcall <code>0x5227</code>): it checks the split flag, calls <code>_Bit_VertSplit</code>,
@@ -17455,13 +17452,12 @@ bit set (the <code>=</code> is highlighted). The parser store path sets <code>re
 <li>walk the selected equation set — here only <code>Y1</code>; the exact builder and
 iterator remain open,</li>
 <li>per row: stage the running-X through OP1/OP2, evaluate <code>Y1</code>’s tokens via
-the page <code>38</code> parser cluster → OP1 = <code>X²+1</code>, format and
-stash into <code>table_value_cache.band[0]</code>/<code>band[1]</code>,</li>
+the page <code>38</code> parser cluster → OP1 = <code>X²+1</code>, and store the numeric result in the row cache,</li>
 <li>advance to the next row (bound-checked at <code>05:65DC</code>; X = <code>TblStart + k·TblStep</code>) and repeat,</li>
 <li>clear <code>reTable</code>.</li>
 </ul>
 </li>
-<li>The grid paints (<code>05:7E45</code>) the cached <code>X</code> and <code>Y1</code> columns as large-font text;
+<li>The grid formats and displays cached values through <code>05:6C57</code>;
 scrolling uses the cache-copy/shift helpers and computes newly exposed rows.</li>
 <li>Deselecting <code>Y1</code> (or editing the formula, or changing <code>ΔTbl</code>) sets <code>reTable</code>
 again and the next view recomputes.</li>
@@ -17489,8 +17485,8 @@ IY+19 b6    tblFlags.reTable  = table-dirty
 05:601E / 6026                            ; copy cache band 1↔2
 05:6032                                  ; shift cached values through LDDR
 05:6d40  table_mode_test                  ; BIT autoFill/autoCalc (Auto vs Ask)
-05:7e45  table_paint_grid_loop            ; render cached cells as text columns
-05:7e7c  table_cell_select_buffer         ; pick cache band 1/0
+05:7e45  row cache loop                   ; populate numeric bands
+05:7e7c  tbl_load_rowval                  ; load a value or blank sentinel into OP1
 05:7712  screen_split                     ; Graph-Table split-screen setup
 05:62fd  table_recompute_clear_reTable    ; another RES6 recompute exit
 
@@ -17621,7 +17617,7 @@ the transient layout view of that live equation. [confirmed]</p>
 <p><code>eqdisp_allocate_record</code> (<code>34:4900</code>) commits a prepared arena record.
 <code>eqdisp_render_leaf_program</code> (<code>34:660A</code>) later executes the settled leaf’s
 token-and-marker payload. [confirmed]</p>
-<pre class="mermaid">flowchart LR
+<pre class="mermaid">flowchart TD
     tokens["Native token bytes"] --&gt; gap["Editor gap buffer&lt;br/&gt;active leaf bytes"]
     gap --&gt; editor["Page 39 layout state&lt;br/&gt;classes, rows, slots, D:E cells"]
     gap --&gt; scan["34:58F9 / 34:5A99&lt;br/&gt;token and argument scans"]
@@ -17808,7 +17804,7 @@ endpoint, body, and variable in the order consumed by the type-<code>0x22</code>
 <p><code>eqdisp_dispatch_token</code> (<code>39:4A74</code>) turns an incoming token or action byte into a layout
 class. It first handles the special <code>0x3D</code> template handoff, then applies context bias. [confirmed]</p>
 <pre><code class="language-pseudocode">\begin{algorithm}
-\caption{Class selection}
+\caption{Class selection before special handlers and hooks}
 \begin{algorithmic}
 \REQUIRE incoming byte $a$
 \IF{$a = \mathtt{0x3D}$}
@@ -17816,19 +17812,27 @@ class. It first handles the special <code>0x3D</code> template handoff, then app
   \RETURN
 \ENDIF
 \STATE $c \gets a - \mathtt{0x2A}$
-\IF{exponent/edit-context flags select an alternate form}
-  \STATE bias $c$ into the alternate class family
+\IF{$c = \mathtt{0x11}$ and bit 4 of $(IY+2)$ is clear}
+  \STATE $c \gets \mathtt{0x3A}$
+  \IF{bit 6 of $(IY+2)$ is clear}
+    \STATE $c \gets c+1$
+    \IF{bit 5 of $(IY+2)$ is clear}
+      \STATE $c \gets c+1$
+    \ENDIF
+  \ENDIF
 \ENDIF
-\IF{fraction or argument context is active and $c \in \{3,4,5,6,7,8\}$}
+\IF{bit 0 of $(IY+9)$ is set and $3 \le c \le 8$}
   \STATE $c \gets c + \mathtt{0x28}$
 \ENDIF
-\STATE $\mathtt{85DE} \gets c$
-\STATE $HL \gets \mathrm{word}(\mathtt{39:5E45} + 2c)$
+\RETURN $c$ to the class-specific dispatch at \texttt{39:4AB5}
 \end{algorithmic}
 \end{algorithm}
 </code></pre>
-<p>This is why the same token can render differently in ordinary and stacked contexts. For
-example, class <code>0x08</code> and class <code>0x30</code> share the <code>fnInt(</code>/<code>nDeriv(</code> operator family, but
+<p>Classes 2 and 3 have additional handlers at <code>39:4AB9</code> and <code>39:4ADA</code>.
+The ordinary lookup path stores its class byte at <code>0x85DE</code> and calls
+<code>39:4C27</code>. With the hook disabled, that routine doubles the class byte and
+loads the little-endian record pointer from <code>39:5E45</code> plus that offset.
+For example, class <code>0x08</code> and class <code>0x30</code> share the <code>fnInt(</code>/<code>nDeriv(</code> operator family, but
 <code>0x30</code> is selected after the fraction-context bias. [confirmed]</p>
 <h2 id="argument-composition"><a class="header" href="#argument-composition">Argument composition</a></h2>
 <p>The high-level loop is:</p>
@@ -18831,7 +18835,7 @@ that point it becomes tree navigation:</p>
 <pre><code class="language-pseudocode">\begin{algorithm}
 \caption{Move the MathPrint cursor}
 \begin{algorithmic}
-\IF{a packed token exists in the requested direction}
+\IF{an ordinary packed token exists in the requested direction}
   \STATE move the complete one- or two-byte token across the gap
 \ELSIF{the cursor is entering a structural marker}
   \STATE select the first child for \textsc{right}, or the last child for \textsc{left}
@@ -21003,15 +21007,16 @@ surrounding instructions confirm all five as code. [confirmed]</p>
 the previous movement and jumps back to that wait. The scanner can therefore
 publish held diagonal repeats while the app continues the update/get-key loop,
 but unrelated input code sees ordinary multi-key rejection. [confirmed]</p>
-<pre class="mermaid">flowchart LR
+<pre class="mermaid">flowchart TD
     START["_AppStartMouse&lt;br/&gt;4D47 · 3B:78F9"] --&gt; SETUP["setup 0x8100 workspace&lt;br/&gt;row 31 · column 48"]
     SETUP --&gt; DISP["display cursor"]
     DISP --&gt; WAIT["_AppMouseGetKey&lt;br/&gt;set mouseFlag1 bit 0"]
     WAIT --&gt; SCAN["timer scanner&lt;br/&gt;ram:0406"]
     SCAN --&gt; CSC["_GetCSC&lt;br/&gt;ram:04B2"]
     CSC --&gt; FORCE["_AppMouseForceKey&lt;br/&gt;clear bit 0 · classify"]
-    FORCE --&gt; APP["return pending movement to app"]
-    APP --&gt; UPDATE["_AppUpdateMouse&lt;br/&gt;redraw · commit"]
+    FORCE --&gt;|blocked direction| WAIT
+    FORCE --&gt;|movement or ENTER| APP["return event to app"]
+    APP --&gt;|commit movement| UPDATE["_AppUpdateMouse&lt;br/&gt;redraw · commit"]
     UPDATE --&gt; WAIT
 </pre>
 
@@ -22101,7 +22106,9 @@ The silent-link engine shares Flash page <code>3C</code> with archive command co
       direction LR
       SB["_SendAByte 420D"]
       RB["_RecAByteIO 443F"]
-      HW["bit-bang port 0 + HW-assist FIFO ports 8/9/0D"]
+      HW["software handshake on port 00&lt;br/&gt;or hardware link-assist FIFO"]
+      SB --&gt; HW
+      RB --&gt; HW
     end
     USB["native USB transport · pages 35/36"]
     SRC --&gt; VAR
@@ -22256,19 +22263,26 @@ stores the command from <code>H</code>, and calls <code>41C3</code>. Convenience
 <code>4199</code> H=0x09 (CTS), <code>41BC</code> ID=0x73/cmd=0x68 (RTS).</p>
 <h3 id="receiving-a-header-confirmed"><a class="header" href="#receiving-a-header-confirmed">Receiving a header [confirmed]</a></h3>
 <pre><code class="language-z80">4338: CALL _RecAByteIO
-      (8674)=A                       ; machine-ID, validated against the known set:
-      0x95 0x73 0x23 0x74 0x82 0x02 0x12 0x83 0x03 0x13 0x08   (else fall to 2nd-byte machine list)
-4370: CALL _RecAByteIO
-      (8675)=A                       ; command-ID, validated: 0x68 0x47 0x74 0x2D … else _JErrorNo
-438F: CALL _RecAByteIO
-      (8675)=A                       ; command ID on the validated path
-4392: CALL _RecAByteIO
-      (8676)=A                       ; length lo
+433B: LD (8674h),A           ; machine ID
+      ; peer flags and machine ID select the command-read path
+      ; bit 1 set or ID recognized → 4389h
+4370: CALL _RecAByteIO       ; alternative path for an unrecognized ID
+4373: LD (8675h),A           ; accept commands 68h, 47h, 74h, 2Dh
+      ; accepted → 438Fh, otherwise jump to 2799h
+4389: CALL _RecAByteIO       ; direct command read
+438C: LD (8675h),A           ; command
+438F: CALL _RecAByteIO       ; both paths resume here
+4392: LD (8676h),A           ; length low
 4395: CALL _RecAByteIO
-      (8677)=A                       ; length hi
-      RET
+4398: LD (8677h),A           ; length high
+439B: RET
 </code></pre>
-<p>An unrecognised machine-ID or command-ID byte aborts via <code>_JErrorNo</code> (→ <code>E_LnkErr</code> 0x9F).</p>
+<p>Both paths consume the four bytes in the framing diagram. With peer flag
+<code>IY+0x1B</code> bit 1 set, the receiver compares the ID with <code>95h</code> and jumps
+unconditionally to the command read at <code>3C:4389</code>. With that
+flag clear, it accepts IDs <code>73h</code>, <code>23h</code>, <code>74h</code>, <code>82h</code>, <code>02h</code>, <code>12h</code>,
+<code>83h</code>, <code>03h</code>, <code>13h</code>, and <code>08h</code> directly. An unrecognized ID in the
+flag-clear path can still pass through the command check at <code>3C:4376</code>.</p>
 <h3 id="machine-id-selector-confirmed"><a class="header" href="#machine-id-selector-confirmed">Machine-ID selector [confirmed]</a></h3>
 <p>The <em>local</em> machine-ID advertised in outgoing packets depends on the peer-type bits in <code>IY+0x1B</code>:</p>
 <pre><code class="language-z80">620A: LD L,0x82                     ; default / TI-84+ silent
@@ -23307,6 +23321,64 @@ port <code>0x39</code>. Their low-bit read-modify-write sequences are decoded in
 <a href="#usb-gpio-sequence">ASIC status, identity, protection, and GPIO</a>.
 The ROM ties those bits to USB setup but does not expose their electrical signal
 names. [confirmed] for the operations; [hypothesis] for signal assignments.</p>
+<h3 id="usb-traffic-during-an-os-transfer"><a class="header" href="#usb-traffic-during-an-os-transfer">USB traffic during an OS transfer</a></h3>
+<p>The TiLP link guide files a historical host-side UsbSnoop capture under
+<code>ti84+_usb/send_flash_os.log</code>. USB request block 459 reads a device descriptor
+with vendor ID <code>0x0451</code> and product ID <code>0xE008</code>.
+Request block 462 sends <code>00 00 00 04 01 00 00 04 00</code> on
+endpoint <code>0x02</code> OUT. Request block 463 receives <code>00 00 00 04 02 00 00 00 FA</code>
+on endpoint <code>0x81</code> IN. The computer requests a 1,024-byte raw-packet payload
+and the calculator allocates 250 bytes, for a 255-byte packet including its
+five-byte header. [standard]
+<a href="https://github.com/debrouxl/tilp-linkguide/blob/1f7f31ec311481bb6359d79ff402e7ced5c2cfe3/analysis/logs/ti84%2B_usb/send_flash_os.log">Captured OS transfer</a>
+and <a href="https://github.com/debrouxl/tilp-linkguide/blob/1f7f31ec311481bb6359d79ff402e7ced5c2cfe3/usb-protocol.txt">Benjamin Moody’s protocol description</a></p>
+<p>Request block 472 identifies the receiving calculator <strong>before the transfer</strong>.
+Its parameter reply contains these fields. [standard]</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Parameter</th><th>Value in the reply</th><th>Meaning</th></tr>
+</thead>
+<tbody>
+<tr><td><code>0002h</code></td><td><code>TI-84 Plus Silver Edition</code></td><td>Product name</td></tr>
+<tr><td><code>0004h</code></td><td><code>00 03</code></td><td>Hardware version reported by the firmware</td></tr>
+<tr><td><code>0009h</code></td><td><code>00 01 00 00</code></td><td>Boot 1.00</td></tr>
+<tr><td><code>000Ah</code></td><td><code>01</code></td><td>OS loaded</td></tr>
+<tr><td><code>000Bh</code></td><td><code>00 02 28 00</code></td><td>OS 2.40 (minor version <code>28h</code> = 40)</td></tr>
+</tbody>
+</table>
+</div>
+<p>The host switches from normal mode to basic mode. For the OS transfer, the
+calculator requests a 266-byte raw payload and the host grants it (blocks
+502–503). Each of the 1,154 OS data records carries 256 data bytes and four
+address, page, and flag bytes. Together they account for all 300,040 bytes
+announced in block 500. The calculator acknowledges each record.
+Block 774 carries the string <code>BASE Code 2.21</code> in the outgoing image.
+Block 5130 acknowledges the end of transmission. The trace ends before a
+post-restart version query. [standard]
+<a href="https://github.com/debrouxl/tilp-linkguide/blob/1f7f31ec311481bb6359d79ff402e7ced5c2cfe3/analysis/logs/ti84%2B_usb/send_flash_os.log">OS transfer log</a>
+(SHA-256 <code>5d8674d00109d5681f60bcdf54e887a2108803ec14af8c6468d653e9a00ae7de</code>)</p>
+<p>The five-byte calculator ID in block 472 matches the ID in block 124 of the
+separate USB device-info capture. The archive also records that ID on a
+two-wire link session with OS 2.22 and boot 1.00. The screenshot from that
+session was in the archive by July 5, 2005. The July 20 USB device-info
+reply independently returns the same ID, OS 2.22, and boot 1.00. [standard]
+<a href="https://github.com/debrouxl/tilp-linkguide/blob/1f7f31ec311481bb6359d79ff402e7ced5c2cfe3/analysis/logs/ti84%2B_usb/device_info.log">USB device-info capture</a>,
+<a href="https://github.com/debrouxl/tilp-linkguide/blob/5657ba3a8166f2eeafae45ef2ba62f2218380b02/analysis/logs/ti84%2B/device_info.png">two-wire device-info screenshot</a>,
+<a href="https://github.com/debrouxl/tilp-linkguide/commit/5657ba3a8166f2eeafae45ef2ba62f2218380b02">July 5 archive entry</a>,
+and <a href="https://github.com/debrouxl/tilp-linkguide/blob/8ac6400099be90522f9a78e7566214eefffd063d/analysis/logs/ti84%2B_usb/device_info.log">July 20 USB capture</a></p>
+<p>The date makes the TA2 a plausible ASIC for this unit. Datamath identifies
+TA2 packages on its April and May 2004 Silver Editions and a TA3 on its June
+2006 sample. Identifying the captured unit’s ASIC would require a package
+marking or a port-<code>0x15</code> reading from that unit. [hypothesis]
+<a href="https://datamath.org/Graphing/TI-84PLUS_WM08_TL.htm">Datamath board inventory</a></p>
+<p>A separate screenshot capture records the host requesting LCD parameter
+<code>0022h</code> in block 754 and receiving 768 zero bytes on endpoint <code>0x81</code> in
+blocks 758–764. This establishes host-requested screen readout. The
+presentation-link hypothesis concerns a calculator sending individual LCD
+writes on endpoint 2. It still requires a capture in presentation mode.
+[standard] for the parameter exchange.
+<a href="https://github.com/debrouxl/tilp-linkguide/blob/1f7f31ec311481bb6359d79ff402e7ced5c2cfe3/analysis/logs/ti84%2B_usb/screenshot.log">USB screenshot capture</a></p>
 <h2 id="emulator-comparison-8"><a class="header" href="#emulator-comparison-8">Emulator comparison</a></h2>
 <p>The four pinned emulators implement disconnected or partial USB behavior. None implements the page-35 endpoint transactions needed for a connected transfer. [standard]</p>
 <div class="table-wrapper">
@@ -23583,7 +23655,7 @@ a stable public API.</li>
 <ul>
 <li>The ROM calls <code>ram:2E0B</code>, a <code>cross_page_jump</code> thunk to <code>35:4280</code>. Its
 carry-clear/carry-set result is decoded above.</li>
-<li>The public <code>0x50xx</code>/<code>0x52xx</code>/<code>0x53xx</code> USB APIs and the boot-page <code>0x8xxx</code> USB entries are mapped above. The controlled harness executes <code>_InitUSB</code>, both timeout paths, <code>_AttemptUSBOSReceive</code> through <code>2F:4170</code>, and a scripted <code>_ReceiveOS_USB</code> installer record through invalid-page cleanup. A natural connected transfer and valid page-programming session remain dynamically untested.</li>
+<li>The public <code>0x50xx</code>/<code>0x52xx</code>/<code>0x53xx</code> USB APIs and the boot-page <code>0x8xxx</code> USB entries are mapped above. The controlled harness executes <code>_InitUSB</code>, both timeout paths, <code>_AttemptUSBOSReceive</code> through <code>2F:4170</code>, and a scripted <code>_ReceiveOS_USB</code> installer record through invalid-page cleanup. Tracing a connected transfer through these OS 2.55MP and boot 1.03 routines still requires calculator-side evidence. The <a href="#usb-traffic-during-an-os-transfer">historical OS transfer</a> records host traffic for OS 2.40 and boot 1.00.</li>
 <li>The FDRC layout names the endpoint register block, but physical tests have not confirmed every
 imported bit meaning or the TI-specific PHY at ports <code>0x4A</code>–<code>0x5B</code>. TilEm does not model physical
 timing from the assist setup values. ROM-confirmed claims remain limited to written constants,
@@ -24295,13 +24367,13 @@ numeric bcall macros, raw <code>rst 28h</code> plus word sequences, and complete
 bytes; the other 109 use macro or <code>rst 28h</code> forms. Exact archive and source
 hashes are in <code>tools/data/community-bcall-uses.csv</code>. [confirmed] for the
 checked scan output.</p>
-<p>The scan exposed 24 aligned main-table IDs that the old generated map omitted.
-All 24 were already literal entries in the OS 2.55MP table on page <code>0x3B</code>, and
-all 24 names were already present in the bundled TI include. Adding them changed
-the main map from 621 to 645 rows and the include-backed subset from 599 to 623;
-the 22 project-inferred names did not change. They are therefore new to this
-repository’s resolver input, not new ROM routines or newly invented names.
-[confirmed]</p>
+<p>The corpus uses 24 ID/name pairs added to the resolver from the bundled TI
+include. All 24 decode to aligned table entries on page <code>3B</code>. Of the 645 IDs
+in the main catalog, 623 appear in that include and 22 have no bcall equate
+there. Name agreement is a separate count. At 580 IDs, the catalog name
+matches an include equate after case folding. For example, ID <code>4666h</code>
+appears as <code>_EXMEAN1</code> in the include and as <code>get_pos_list_elem</code> in the
+catalog. [confirmed]</p>
 <p>The main table above is the single address catalog. ABI and side-effect notes
 live with their subsystems: contexts and errors, display, floating point,
 keypad, tokenizer, link transfer, execution protection, resident hooks,
@@ -25194,16 +25266,13 @@ The page-06 editor maintains left and right token spans around a movable gap,
 then hands accepted text to <code>38:5978</code> → <code>38:5B2B</code>. Four TilEm cases cover an
 empty retry, wrapped edit/cursor redraw, <strong>[ON]</strong> cleanup, <code>Prompt</code>, and the
 separate <code>Menu(</code> route. [confirmed]</p>
-<p>The ASM/BASIC boundary is resolved within an exact bounded census. All 1,732
-main bcall slots, all 825 raw cross-page-call descriptors, and every direct
-edge in <code>38:4100</code>–<code>38:77FF</code> expose no separate ASM-to-BASIC program-call ABI.
-T042 saves and restores the parser, VAT, FPS/OPS, flag, and error state; an
-incomplete direct call raises <code>E_DataType</code> before <code>38:6910</code>, while the ordinary
-<code>prgmNAME</code> caller reaches <code>38:6910</code>, <code>38:6914</code>, and <code>38:778F</code> and returns
-normally. Fully constructing every private grammar/type and return record is
-the ordinary caller reproduced in ASM, not a distinct ABI. The supported route
-remains an ASM result through <code>Ans</code>, followed by a BASIC-owned <code>prgmNAME</code> call.
-[confirmed]</p>
+<p>A RAM assembly program can bcall <code>_ParseInp</code> (<code>4A9Bh</code>) with a BASIC program
+name in OP1. In a matched TilEm comparison on the retail OS 2.55MP image,
+the named target displayed <code>CALLED</code> and its wrapper resumed at <code>AFTER</code>.
+Changing only the operand to <code>_ParseInpLastEnt</code> (<code>4B07h</code>) selected the
+last-entry program and produced <code>ERR:INVALID</code>. [confirmed] Interactive
+commands, archived targets, and direct-call error unwinding remain untested.
+See <a href="#asm-to-basic">ASM to BASIC</a>.</p>
 <p>The group receive path is resolved. Receiving a <code>.8xg</code> stores each member as an
 individual variable through the standard link variable-receive loop; no
 <code>0x17</code> object or page-<code>07</code> guard is involved. A mixed group confirms that the
@@ -25275,7 +25344,9 @@ disconnected, before testing ports <code>0x49</code>, <code>0x51</code>, and <co
 setup sequence;</li>
 <li>capture port-<code>0x5A</code> presentation traffic to test the proposed two-byte
 endpoint-2 LCD packets and host-mode dependency; and</li>
-<li>exercise endpoint payload transfer and the connected boot receive path.</li>
+<li>trace endpoint payload transfer and flash programming on OS 2.55MP and boot
+1.03. A <a href="#usb-traffic-during-an-os-transfer">historical capture</a>
+records the host-side OS transfer on a Silver Edition running OS 2.40 with boot 1.00.</li>
 </ul>
 <p>The prepared <a href="#raw-two-wire-link-probe">raw two-wire link probe</a>
 measures digital settling but not analog voltage or pull-up behavior. See
@@ -25397,6 +25468,7 @@ calculator revision, PCB date, and ASIC marking with each result.</p>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
         <script src="pseudocode-init-a22cdb5c.js"></script>
+        <script src="figure-layout-047a3260.js"></script>
 
         <script>
         window.addEventListener('load', function() {

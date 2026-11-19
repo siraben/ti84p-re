@@ -8,8 +8,8 @@
     <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#475569"/></marker>
   </defs>
   <rect class="bg" width="1200" height="760" rx="18"/>
-  <text class="title" x="60" y="55">Four logical windows, two mapper interpretations</text>
-  <text class="small" x="60" y="85">The Z80 address selects a window; ASIC registers select the physical 16 KiB page behind it.</text>
+  <text class="title" x="60" y="55">The four logical windows after boot</text>
+  <text class="small" x="60" y="85">The mapper selects 16 KiB pages. Flash high bits from ports 0E and 0F wrap on the 64-page TI-84 Plus.</text>
 
   <g transform="translate(60 120)">
     <rect class="panel" width="510" height="550" rx="14"/>

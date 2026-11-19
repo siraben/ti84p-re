@@ -30,6 +30,7 @@
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="katex-383e7b8d.min.css">
         <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+        <link rel="stylesheet" href="figure-layout-22be1045.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
+            window.path_to_searchindex_js = "searchindex-b63be77c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ba6dda15.js"></script>
+        <script src="toc-dfcf5070.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -194,9 +195,19 @@ ASIC. An external SRAM package therefore is not part of that photographed
 revision. [standard]</p>
 <p>WikiTI’s hardware history reports 128 KiB in the original TI-84 Plus design
 and a later reduction to 48 KiB. Its RAM-page table says units with port
-<code>0x15 &gt;= 0x55</code> map selectors <code>82</code>–<code>87</code> to one physical 16 KiB block. These are
-community hardware reports. Neither page supplies a primary TI specification,
-a dated transition, or a measurement tied to a photographed board. [standard]</p>
+<code>0x15 &gt;= 0x55</code> map selectors <code>82</code>–<code>87</code> to one physical 16 KiB block. [standard]</p>
+<p>DrDnar wrote a test that mapped those six selectors in pairs across memory
+banks. On September 20, 2009, calcdude84se reported the same eight bytes (<code>00 00 82 83 84 85 86 87</code>)
+in all six rows. All six selectors exposed the same writes on that calculator.
+The report omits the port-<code>0x15</code> reading. [standard]
+<a href="https://www.cemetech.net/projects/uti/viewtopic.php?start=60&amp;t=8913">DrDnar’s test and calcdude84se’s output</a></p>
+<p>Critor reported that both BANKTEST and MEMTST83 passed on a March 2007
+revision-G TI-84 Plus and failed on a March 2008 revision-J TI-84 Plus.
+Both ran OS 2.41 and boot 1.02. These results date two sampled units.
+The TI-Boy SE compatibility guide places the change between case revisions G
+and H. [standard]
+<a href="https://www.cemetech.net/uti/t15238-extra-ram-page-trouble?page=3">Critor’s five-unit test</a>
+and <a href="https://github.com/calc84maniac/tiboyse#q-which-calculators-have-a-large-enough-ram-chip-for-this-ram-hogging-game-i-want-to-play">TI-Boy SE’s hardware guide</a></p>
 <p>The two reported topologies use the same eight selector values: [standard]</p>
 <div class="table-wrapper">
 <table>
@@ -211,9 +222,9 @@ a dated transition, or a measurement tied to a photographed board. [standard]</p
 </div>
 <p>Port <code>0x15</code> does not appear in any statically resolved OS 2.55MP I/O
 instruction. The public identity table associates <code>0x44</code> and <code>0x45</code> with
-128 KiB and <code>0x55</code> with 48 KiB, while Datamath identifies TA2 and TA3 package
-families without assigning their RAM capacity. Do not infer capacity from an
-ASIC label alone. The restoring probe records the package-independent port
+128 KiB and <code>0x55</code> with 48 KiB. Datamath identifies the <code>84PLCR/TA1</code>
+package on a March 2008 revision-J board and credits the RAM-capacity
+measurements to Xavier Andréani’s group. The restoring probe records the port
 <code>0x15</code> byte and the observed selector groups in one frame. [confirmed] for
 the ROM scan and probe format; [standard] for the public identities;
 [hypothesis] for an unmeasured calculator’s topology.</p>
@@ -641,6 +652,7 @@ including the final <code>port 7 = 81</code> and <code>port 5 = 00</code> writes
 </thead>
 <tbody>
 <tr><td><a href="http://www.datamath.org/Graphing/TI-84PLUS.htm">Datamath TI-84 Plus hardware</a> and <a href="http://www.datamath.org/Graphing/JPEG_TI-84PLUS_A.htm#PCB">March 2004 board photographs</a></td><td>Three-IC board inventory, ASIC-integrated RAM, and photographed <code>83PLUSB/TA2</code> package</td></tr>
+<tr><td><a href="https://datamath.org/Graphing/TI-84PLUS_WM08_TL.htm">Datamath March 2008 TI-84 Plus</a></td><td>Revision-J <code>84PLCR/TA1</code> identification and attribution of the capacity tests</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:History_of_TI-8x_hardware&amp;oldid=10880">WikiTI hardware history, revision 10880</a></td><td>Reported 128 KiB design and later 48 KiB revision</td></tr>
 <tr><td><a href="https://wikiti.brandonw.net/index.php?title=83Plus:OS:Ram_Pages&amp;oldid=11670">WikiTI RAM pages, revision 11670</a></td><td>Reported selector uses and <code>82</code>–<code>87</code> alias threshold</td></tr>
 <tr><td><a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c">TilEm <code>x4_io.c</code></a> and <a href="https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c"><code>x4_memory.c</code></a></td><td>Independent-page emulator mapping</td></tr>
@@ -709,6 +721,7 @@ including the final <code>port 7 = 81</code> and <code>port 5 = 00</code> writes
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
         <script src="pseudocode-init-a22cdb5c.js"></script>
+        <script src="figure-layout-047a3260.js"></script>
 
 
 

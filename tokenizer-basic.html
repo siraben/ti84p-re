@@ -30,6 +30,7 @@
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="katex-383e7b8d.min.css">
         <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+        <link rel="stylesheet" href="figure-layout-22be1045.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
+            window.path_to_searchindex_js = "searchindex-b63be77c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ba6dda15.js"></script>
+        <script src="toc-dfcf5070.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -256,11 +257,10 @@ from ROM control flow, not exhaustively traced. Reduced results are in
 <pre><code class="language-ti-basic">cumSum(L1)-&gt;L2
 </code></pre>
 <p>is stored as:</p>
-<pre><code class="language-text">BB 29  5D 00  11  04  5D 01  3F
-└───┘  └───┘   │   │   └───┘   └─ EOL
-cumSum(  L1    )   →     L2
+<pre><code class="language-text">BB 29     5D 00   11   04   5D 01   3F
+cumSum(   L1      )    →    L2      EOL
 </code></pre>
-<p>No source spaces or character count are preserved. The editor reconstructs
+<p>Each column pairs the stored bytes with one token. The editor reconstructs
 the spelling from token tables. The interpreter sees typed operations and
 names immediately, without reparsing the visible word <code>cumSum</code>. [confirmed]</p>
 <h2 id="token-streams-and-execution"><a class="header" href="#token-streams-and-execution">Token streams and execution</a></h2>
@@ -354,6 +354,7 @@ runtime behavior.</p>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
         <script src="pseudocode-init-a22cdb5c.js"></script>
+        <script src="figure-layout-047a3260.js"></script>
 
 
 

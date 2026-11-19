@@ -30,6 +30,7 @@
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="katex-383e7b8d.min.css">
         <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+        <link rel="stylesheet" href="figure-layout-22be1045.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
+            window.path_to_searchindex_js = "searchindex-b63be77c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ba6dda15.js"></script>
+        <script src="toc-dfcf5070.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -234,7 +235,7 @@ The add/subtract helpers process eight bytes: seven stored mantissa bytes plus
 the first extension byte, giving 16 working decimal digits. The second
 extension byte is cleared too, but is not part of that eight-byte add loop.
 The following flow describes add/subtract, not every binary operation:</p>
-<pre class="mermaid">flowchart LR
+<pre class="mermaid">flowchart TD
     A["clear guard digits&lt;br/&gt;fp_clear_guard"] --&gt; B["align exponents&lt;br/&gt;shift smaller right by Δ"]
     B --&gt; C["BCD digit op&lt;br/&gt;add / subtract"]
     C --&gt; D["renormalize&lt;br/&gt;back to d.dddd…"]
@@ -263,6 +264,7 @@ The following flow describes add/subtract, not every binary operation:</p>
 <pre><code class="language-pseudocode">\begin{algorithm}
 \caption{\texttt{\_FPAdd}: $OP1 \gets OP1 + OP2$ (sign-magnitude BCD)}
 \begin{algorithmic}
+\STATE clear the two extension bytes in each operand
 \IF{$OP2 = 0$}
     \RETURN $OP1$
 \ENDIF
@@ -272,7 +274,8 @@ The following flow describes add/subtract, not every binary operation:</p>
 \ENDIF
 \STATE $\Delta \gets \mathrm{exp}(OP1) - \mathrm{exp}(OP2)$ \COMMENT{\texttt{fp\_exp\_diff}}
 \IF{$|\Delta| &gt; 15$}
-    \RETURN larger operand \COMMENT{other is negligible}
+    \STATE copy the operand with the larger exponent to $OP1$ if needed
+    \RETURN $OP1$
 \ENDIF
 \STATE shift the smaller mantissa right by $|\Delta|$ digits to align \COMMENT{\texttt{fp\_shift\_right\_digit}}
 \IF{$\mathrm{sign}(OP1) = \mathrm{sign}(OP2)$}
@@ -281,7 +284,7 @@ The following flow describes add/subtract, not every binary operation:</p>
     \STATE $\mathrm{mantissa} \gets$ BCD-subtract
     \STATE fix result sign \COMMENT{\texttt{fp\_sub\_mantissa}}
 \ENDIF
-\STATE round via the guard digits, renormalize, store exp/type in $OP1$
+\STATE normalize the result as needed, then round $OP1$ using its first guard digit
 \RETURN $OP1$
 \end{algorithmic}
 \end{algorithm}
@@ -623,6 +626,7 @@ base-10 CORDIC iteration, documented in <a href="sub-calculation.html">Calculati
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
         <script src="pseudocode-init-a22cdb5c.js"></script>
+        <script src="figure-layout-047a3260.js"></script>
 
 
 

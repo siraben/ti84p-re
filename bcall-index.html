@@ -30,6 +30,7 @@
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="katex-383e7b8d.min.css">
         <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+        <link rel="stylesheet" href="figure-layout-22be1045.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
+            window.path_to_searchindex_js = "searchindex-b63be77c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ba6dda15.js"></script>
+        <script src="toc-dfcf5070.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -848,13 +849,13 @@ numeric bcall macros, raw <code>rst 28h</code> plus word sequences, and complete
 bytes; the other 109 use macro or <code>rst 28h</code> forms. Exact archive and source
 hashes are in <code>tools/data/community-bcall-uses.csv</code>. [confirmed] for the
 checked scan output.</p>
-<p>The scan exposed 24 aligned main-table IDs that the old generated map omitted.
-All 24 were already literal entries in the OS 2.55MP table on page <code>0x3B</code>, and
-all 24 names were already present in the bundled TI include. Adding them changed
-the main map from 621 to 645 rows and the include-backed subset from 599 to 623;
-the 22 project-inferred names did not change. They are therefore new to this
-repository’s resolver input, not new ROM routines or newly invented names.
-[confirmed]</p>
+<p>The corpus uses 24 ID/name pairs added to the resolver from the bundled TI
+include. All 24 decode to aligned table entries on page <code>3B</code>. Of the 645 IDs
+in the main catalog, 623 appear in that include and 22 have no bcall equate
+there. Name agreement is a separate count. At 580 IDs, the catalog name
+matches an include equate after case folding. For example, ID <code>4666h</code>
+appears as <code>_EXMEAN1</code> in the include and as <code>get_pos_list_elem</code> in the
+catalog. [confirmed]</p>
 <p>The main table above is the single address catalog. ABI and side-effect notes
 live with their subsystems: contexts and errors, display, floating point,
 keypad, tokenizer, link transfer, execution protection, resident hooks,
@@ -1057,6 +1058,7 @@ stub and evidence behind the inferred rows. [confirmed]</p>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
         <script src="pseudocode-init-a22cdb5c.js"></script>
+        <script src="figure-layout-047a3260.js"></script>
 
 
 

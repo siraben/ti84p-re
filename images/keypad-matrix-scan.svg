@@ -38,16 +38,19 @@
     </g>
   </g>
 
+  <circle class="unwired" cx="250" cy="651" r="10"/>
+  <text class="text" x="274" y="657">unwired matrix position</text>
+
   <g transform="translate(815 120)">
     <rect class="port" width="325" height="120" rx="12"/>
     <text class="head" x="162" y="34" text-anchor="middle">1. Select group 2</text>
-    <text class="mono" x="162" y="67" text-anchor="middle">OUT (01), FB</text>
+    <text class="mono" x="162" y="67" text-anchor="middle">A = FBh  ·  OUT (01h),A</text>
     <text class="text" x="162" y="96" text-anchor="middle">bit 2 low selects g2</text>
     <path class="arrow" d="M162 120 V162"/>
 
     <rect class="result" y="165" width="325" height="120" rx="12"/>
     <text class="head" x="162" y="199" text-anchor="middle">2. Sample pressed key</text>
-    <text class="mono" x="162" y="232" text-anchor="middle">IN A,(01) → FD</text>
+    <text class="mono" x="162" y="232" text-anchor="middle">IN A,(01h) → FDh</text>
     <text class="text" x="162" y="261" text-anchor="middle">read bit 1 is low</text>
     <path class="arrow" d="M162 285 V327"/>
 

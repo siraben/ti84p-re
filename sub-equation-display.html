@@ -30,6 +30,7 @@
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="katex-383e7b8d.min.css">
         <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+        <link rel="stylesheet" href="figure-layout-22be1045.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
+            window.path_to_searchindex_js = "searchindex-b63be77c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ba6dda15.js"></script>
+        <script src="toc-dfcf5070.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -250,7 +251,7 @@ the transient layout view of that live equation. [confirmed]</p>
 <p><code>eqdisp_allocate_record</code> (<code>34:4900</code>) commits a prepared arena record.
 <code>eqdisp_render_leaf_program</code> (<code>34:660A</code>) later executes the settled leaf’s
 token-and-marker payload. [confirmed]</p>
-<pre class="mermaid">flowchart LR
+<pre class="mermaid">flowchart TD
     tokens["Native token bytes"] --&gt; gap["Editor gap buffer&lt;br/&gt;active leaf bytes"]
     gap --&gt; editor["Page 39 layout state&lt;br/&gt;classes, rows, slots, D:E cells"]
     gap --&gt; scan["34:58F9 / 34:5A99&lt;br/&gt;token and argument scans"]
@@ -437,7 +438,7 @@ endpoint, body, and variable in the order consumed by the type-<code>0x22</code>
 <p><code>eqdisp_dispatch_token</code> (<code>39:4A74</code>) turns an incoming token or action byte into a layout
 class. It first handles the special <code>0x3D</code> template handoff, then applies context bias. [confirmed]</p>
 <pre><code class="language-pseudocode">\begin{algorithm}
-\caption{Class selection}
+\caption{Class selection before special handlers and hooks}
 \begin{algorithmic}
 \REQUIRE incoming byte $a$
 \IF{$a = \mathtt{0x3D}$}
@@ -445,19 +446,27 @@ class. It first handles the special <code>0x3D</code> template handoff, then app
   \RETURN
 \ENDIF
 \STATE $c \gets a - \mathtt{0x2A}$
-\IF{exponent/edit-context flags select an alternate form}
-  \STATE bias $c$ into the alternate class family
+\IF{$c = \mathtt{0x11}$ and bit 4 of $(IY+2)$ is clear}
+  \STATE $c \gets \mathtt{0x3A}$
+  \IF{bit 6 of $(IY+2)$ is clear}
+    \STATE $c \gets c+1$
+    \IF{bit 5 of $(IY+2)$ is clear}
+      \STATE $c \gets c+1$
+    \ENDIF
+  \ENDIF
 \ENDIF
-\IF{fraction or argument context is active and $c \in \{3,4,5,6,7,8\}$}
+\IF{bit 0 of $(IY+9)$ is set and $3 \le c \le 8$}
   \STATE $c \gets c + \mathtt{0x28}$
 \ENDIF
-\STATE $\mathtt{85DE} \gets c$
-\STATE $HL \gets \mathrm{word}(\mathtt{39:5E45} + 2c)$
+\RETURN $c$ to the class-specific dispatch at \texttt{39:4AB5}
 \end{algorithmic}
 \end{algorithm}
 </code></pre>
-<p>This is why the same token can render differently in ordinary and stacked contexts. For
-example, class <code>0x08</code> and class <code>0x30</code> share the <code>fnInt(</code>/<code>nDeriv(</code> operator family, but
+<p>Classes 2 and 3 have additional handlers at <code>39:4AB9</code> and <code>39:4ADA</code>.
+The ordinary lookup path stores its class byte at <code>0x85DE</code> and calls
+<code>39:4C27</code>. With the hook disabled, that routine doubles the class byte and
+loads the little-endian record pointer from <code>39:5E45</code> plus that offset.
+For example, class <code>0x08</code> and class <code>0x30</code> share the <code>fnInt(</code>/<code>nDeriv(</code> operator family, but
 <code>0x30</code> is selected after the fraction-context bias. [confirmed]</p>
 <h2 id="argument-composition"><a class="header" href="#argument-composition">Argument composition</a></h2>
 <p>The high-level loop is:</p>
@@ -1196,6 +1205,7 @@ construction and retains the token-built matrix traversal. [confirmed]</p>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
         <script src="pseudocode-init-a22cdb5c.js"></script>
+        <script src="figure-layout-047a3260.js"></script>
 
 
 

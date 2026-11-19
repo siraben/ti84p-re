@@ -30,6 +30,7 @@
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="katex-383e7b8d.min.css">
         <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+        <link rel="stylesheet" href="figure-layout-22be1045.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
+            window.path_to_searchindex_js = "searchindex-b63be77c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ba6dda15.js"></script>
+        <script src="toc-dfcf5070.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -195,7 +196,7 @@ structure.</p>
 many token bytes. There are no stored line numbers: <code>3Fh</code> separates lines, and
 <code>3Eh</code> separates colon-delimited statements. [confirmed]</p>
 <p>Execution can be read as a pipeline:</p>
-<pre class="mermaid">flowchart LR
+<pre class="mermaid">flowchart TD
     V["VAT program object"] --&gt;|"size selects token body"| C["parse cursor&lt;br/&gt;nextParseByte … basic_end"]
     C --&gt;|"fetch and classify"| H["statement or expression handler"]
     H --&gt; E["recursive expression"]
@@ -203,7 +204,7 @@ many token bytes. There are no stored line numbers: <code>3Fh</code> separates l
     H --&gt; D["command or control transfer"]
     E --&gt; R["OP1 result"]
     M --&gt; R
-    D --&gt; R
+    D --&gt;|"continue or branch"| C
     R --&gt;|"advance or replace cursor"| C
 </pre>
 
@@ -263,9 +264,12 @@ preserve token boundaries while another routine searches for a statement or
 block delimiter.</p>
 <h2 id="expressions-are-nested-productions"><a class="header" href="#expressions-are-nested-productions">Expressions are nested productions</a></h2>
 <p><code>_ParseInp</code> (<code>38:5987</code>) initializes parser state for a homescreen expression or
-formula and enters the shared evaluator. Stored-program execution arrives with
-the program body and parser frame already selected. Both converge on the
-recursive expression machinery around <code>parse_eval_expr</code> (<code>38:5AB3</code>) and the
+formula and enters the shared evaluator. A RAM assembly caller can also give
+<code>_ParseInp</code> the name of a BASIC program in OP1. A paired TilEm run exercises
+this route through normal return. The ordinary BASIC <code>prgmNAME</code> caller
+selects the program body and parser frame internally.
+<a href="sub-tibasic-examples.html#asm-to-basic">ASM to BASIC</a></p>
+<p>These paths use the recursive expression machinery around <code>parse_eval_expr</code> (<code>38:5AB3</code>) and the
 statement loop at <code>38:59C5</code>. [confirmed]</p>
 <p>The evaluator is not a flat “token to function” switch. It first maps the
 current token to a grammar class, selects a production family, and lets that
@@ -351,7 +355,7 @@ pointer; only then does the recall path copy or address the value payload.
 </tbody>
 </table>
 </div>
-<pre class="mermaid">flowchart LR
+<pre class="mermaid">flowchart TD
     T["name token"] --&gt; N["OP1 name descriptor"]
     N --&gt; V["07:565F&lt;br/&gt;VAT scan"]
     V --&gt;|"recall"| P["typed payload"]
@@ -576,7 +580,7 @@ to the six shims. The natural corpus reaches 11 distinct direct callers:</p>
 predicates. The scan can decode data as instructions. It also omits indirect
 transfers and helpers that load an error code before entering the common path.
 The report preserves that distinction. [confirmed]</p>
-<pre class="mermaid">flowchart LR
+<pre class="mermaid">flowchart TD
     S["TI-BASIC expression"] --&gt; E["operator evaluator"]
     E --&gt; G["numeric guard&lt;br/&gt;zero, range, or exponent"]
     G --&gt; R["shared error shim&lt;br/&gt;00:26E8–2708"]
@@ -604,7 +608,7 @@ unwind_error(error_code):
   restore_flash_page(pop_word())
   return error_code
 </code></pre>
-<pre class="mermaid">flowchart LR
+<pre class="mermaid">flowchart TD
     E["error entry&lt;br/&gt;82h or 88h"] --&gt; C["00:270A&lt;br/&gt;common error path"]
     C --&gt; U["00:27BB&lt;br/&gt;load saved error SP"]
     U --&gt; O["restore OPS delta"]
@@ -734,6 +738,7 @@ verify the pinned ROM before producing a report.</p>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
         <script src="pseudocode-init-a22cdb5c.js"></script>
+        <script src="figure-layout-047a3260.js"></script>
 
 
 

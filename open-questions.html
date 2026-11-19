@@ -30,6 +30,7 @@
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="katex-383e7b8d.min.css">
         <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+        <link rel="stylesheet" href="figure-layout-22be1045.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
+            window.path_to_searchindex_js = "searchindex-b63be77c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ba6dda15.js"></script>
+        <script src="toc-dfcf5070.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -308,16 +309,13 @@ The page-06 editor maintains left and right token spans around a movable gap,
 then hands accepted text to <code>38:5978</code> → <code>38:5B2B</code>. Four TilEm cases cover an
 empty retry, wrapped edit/cursor redraw, <strong>[ON]</strong> cleanup, <code>Prompt</code>, and the
 separate <code>Menu(</code> route. [confirmed]</p>
-<p>The ASM/BASIC boundary is resolved within an exact bounded census. All 1,732
-main bcall slots, all 825 raw cross-page-call descriptors, and every direct
-edge in <code>38:4100</code>–<code>38:77FF</code> expose no separate ASM-to-BASIC program-call ABI.
-T042 saves and restores the parser, VAT, FPS/OPS, flag, and error state; an
-incomplete direct call raises <code>E_DataType</code> before <code>38:6910</code>, while the ordinary
-<code>prgmNAME</code> caller reaches <code>38:6910</code>, <code>38:6914</code>, and <code>38:778F</code> and returns
-normally. Fully constructing every private grammar/type and return record is
-the ordinary caller reproduced in ASM, not a distinct ABI. The supported route
-remains an ASM result through <code>Ans</code>, followed by a BASIC-owned <code>prgmNAME</code> call.
-[confirmed]</p>
+<p>A RAM assembly program can bcall <code>_ParseInp</code> (<code>4A9Bh</code>) with a BASIC program
+name in OP1. In a matched TilEm comparison on the retail OS 2.55MP image,
+the named target displayed <code>CALLED</code> and its wrapper resumed at <code>AFTER</code>.
+Changing only the operand to <code>_ParseInpLastEnt</code> (<code>4B07h</code>) selected the
+last-entry program and produced <code>ERR:INVALID</code>. [confirmed] Interactive
+commands, archived targets, and direct-call error unwinding remain untested.
+See <a href="sub-tibasic-examples.html#asm-to-basic">ASM to BASIC</a>.</p>
 <p>The group receive path is resolved. Receiving a <code>.8xg</code> stores each member as an
 individual variable through the standard link variable-receive loop; no
 <code>0x17</code> object or page-<code>07</code> guard is involved. A mixed group confirms that the
@@ -389,7 +387,9 @@ disconnected, before testing ports <code>0x49</code>, <code>0x51</code>, and <co
 setup sequence;</li>
 <li>capture port-<code>0x5A</code> presentation traffic to test the proposed two-byte
 endpoint-2 LCD packets and host-mode dependency; and</li>
-<li>exercise endpoint payload transfer and the connected boot receive path.</li>
+<li>trace endpoint payload transfer and flash programming on OS 2.55MP and boot
+1.03. A <a href="sub-usb-asic.html#usb-traffic-during-an-os-transfer">historical capture</a>
+records the host-side OS transfer on a Silver Edition running OS 2.40 with boot 1.00.</li>
 </ul>
 <p>The prepared <a href="hardware-probes.html#raw-two-wire-link-probe">raw two-wire link probe</a>
 measures digital settling but not analog voltage or pull-up behavior. See
@@ -517,6 +517,7 @@ calculator revision, PCB date, and ASIC marking with each result.</p>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
         <script src="pseudocode-init-a22cdb5c.js"></script>
+        <script src="figure-layout-047a3260.js"></script>
 
 
 

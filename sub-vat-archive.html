@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Variables, archive and unarchive - TI-84 Plus OS — Reverse Engineering</title>
+        <title>Variables, archive, and unarchive - TI-84 Plus OS — Reverse Engineering</title>
 
 
         <!-- Custom HTML head -->
@@ -30,6 +30,7 @@
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="katex-383e7b8d.min.css">
         <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+        <link rel="stylesheet" href="figure-layout-22be1045.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
+            window.path_to_searchindex_js = "searchindex-b63be77c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ba6dda15.js"></script>
+        <script src="toc-dfcf5070.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -715,7 +716,7 @@ the RAM-to-Flash archive path at <code>07:61CE</code> and the catalog path at <c
 <code>gc_check_interrupted</code>, whose entry is <code>3C:7BC7</code>. No call reference or function
 entry begins at <code>3C:7BD0</code>. <code>gc_show_screen</code> is the independent entry at
 <code>3C:7E0D</code>. [confirmed]</p>
-<p><code>tools/analyze_gc_journal.py</code> validates the dispatcher bytes, the page-0 stub,
+<p><code>python3 -m ti84re.flash.analyze_gc_journal</code> validates the dispatcher bytes, the page-0 stub,
 all 11 callers, the <code>3C:7BC7</code> function body, and the <code>3C:7E0D</code> display entry.
 Its JSON report retains selectors, targets, and conditions separately from the
 master-phase recovery dispatcher at <code>3C:7C1F</code>.</p>
@@ -1269,6 +1270,7 @@ The target loads error code <code>0xAF</code> (<code>E_Archived</code>) and ente
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
         <script src="pseudocode-init-a22cdb5c.js"></script>
+        <script src="figure-layout-047a3260.js"></script>
 
 
 

@@ -30,6 +30,7 @@
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="katex-383e7b8d.min.css">
         <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+        <link rel="stylesheet" href="figure-layout-22be1045.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
+            window.path_to_searchindex_js = "searchindex-b63be77c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ba6dda15.js"></script>
+        <script src="toc-dfcf5070.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -197,14 +198,18 @@
 <li>Restore the input registers and enter the target with <code>RET</code>. Its normal return reaches <code>ram:2B41</code>, which restores the saved bank-A selector, then resumes the caller at <code>+3</code>.</li>
 </ol>
 <h2 id="the-jump-table--flash-page-0x3b-confirmed"><a class="header" href="#the-jump-table--flash-page-0x3b-confirmed">The jump table — flash page <code>0x3B</code> [confirmed]</a></h2>
-<ul>
-<li>Located at the start of physical flash page <code>0x3B</code> (file offset <code>0x3B*0x4000 = 0xEC000</code>).</li>
-<li><strong>3-byte entries</strong>: <code>addr_lo, addr_hi, page</code>. IDs step by 3 from <code>0x4000</code>, so entry for ID <em>X</em> is at table offset <code>X-0x4000</code>.</li>
-<li>The resolver scores all 64 pages by plausible target addresses; page <code>0x3B</code> scores highest. The dispatcher independently selects it at <code>ram:2A5E</code>–<code>ram:2A6D</code>. The 645 checked rows resolve from ROM bytes; 623 IDs also appear in the SDK equates and 22 have project-inferred names. This is mapping evidence, not runtime coverage of every body.</li>
-<li>Validation: known bcalls land exactly where expected — <code>_PutS</code>→<code>01:5C39</code>, <code>_GetKey</code>→<code>06:491E</code>, <code>_ClrLCDFull</code>→<code>01:60E4</code>, <code>_GetCSC</code>→<code>00:04B2</code>, <code>_CreateReal</code>→<code>00:10B8</code>.</li>
-</ul>
-<p><code>tools/symbols/bcall_targets.txt</code> holds 645 resolved main-table bcall rows.
-The retail boot table has 87 populated entries. <code>tools/symbols/bcalls8x_targets.txt</code>
+<p>The main table starts at file offset <code>0xEC000</code>. Its 1,765 three-byte entries
+span IDs <code>4000h</code>–<code>54ACh</code>. Each entry contains <code>addr_lo, addr_hi, page</code>, so
+the offset for ID <em>X</em> is <code>X-0x4000</code>. Code begins at <code>3B:54AF</code>. [confirmed]</p>
+<p>The resolver scores all 64 pages by their target addresses. Page <code>3B</code> scores
+highest, and the dispatcher selects it at <code>ram:2A5E</code>–<code>ram:2A6D</code>. For
+example, <code>_PutS</code> resolves to <code>01:5C39</code> and <code>_GetKey</code> to <code>06:491E</code>.
+<code>tools/symbols/bcall_targets.txt</code> catalogs 645 main-table IDs. Of those,
+623 have a bcall equate in the bundled 2007 include. The catalog uses the
+same name, ignoring case, for 580 IDs. See the
+<a href="bcall-index.html#corpus-coverage-and-map-provenance">bcall index</a> for an
+example of a project label at an SDK-named ID. [confirmed]</p>
+<p>The retail boot table has 87 populated entries. <code>tools/symbols/bcalls8x_targets.txt</code>
 holds the 83 rows with official SDK names; four populated slots have only
 project-inferred names in the <a href="bcall-index.html#retail-boot-0x8xxx-bcalls">bcall index</a>.
 <code>tools/ti84re/rom/resolve_bcalls.py</code> emits the official-name rows when page <code>3F</code> has
@@ -222,7 +227,7 @@ and decompiler dump for a selected set of IDs. For example:</p>
 <h2 id="jump-table-id-ranges"><a class="header" href="#jump-table-id-ranges">Jump-table ID ranges</a></h2>
 <p>The dispatcher (<code>bcall_dispatcher</code>) decodes the ID’s top two bits to pick the table page: bit 15 set → page-byte <code>0x7F</code> (masked <code>&amp; 0x3F</code> → page <code>0x3F</code>); bit 14 set → <code>0x7B</code> (→ page <code>0x3B</code>); with <em>neither</em> bit set it falls through to <code>lookup_bcall_table_page</code> (<code>ram:2ADA</code>). The two tables real bcall IDs use:</p>
 <ul>
-<li><code>0x4000</code>–<code>0x7FFF</code> (bit 14 set): the main table on flash page <code>0x3B</code>, entry at offset <code>ID − 0x4000</code> (645 byte-resolved rows: 623 IDs also present in the included SDK equates and 22 project-inferred names).</li>
+<li><code>0x4000</code>–<code>0x7FFF</code> (bit 14 set): the main table on flash page <code>0x3B</code>, entry at offset <code>ID − 0x4000</code> (1,765 entries on OS 2.55MP, of which 645 appear in the checked catalog).</li>
 <li><code>0x8xxx</code> (bit 15 set): the retail boot table is on physical page <code>3F</code>, indexed by <code>ID &amp; 0x7FFF</code>. Its real entries occupy IDs <code>0x8018</code>–<code>0x80D2</code> and <code>0x80E4</code>–<code>0x8129</code>; bytes <code>3F:40D5</code>–<code>3F:40E3</code> between those ranges are executable dispatch-stub bytes, not five table entries. <code>D84PBE1.8Xv</code> supplies the retail page <code>3F</code>; <code>D84PBE2.8Xv</code> supplies the companion USB boot support page <code>2F</code>. Most entries resolve to <code>3F:addr</code>; USB entries such as <code>_AttemptUSBOSReceive</code> (<code>80E4</code>) and <code>_InitUSB</code> (<code>8108</code>) resolve to <code>2F:addr</code>. <code>tools/ti84re/rom/resolve_bcalls.py</code> refuses to emit these targets from a BootFree-substituted page. [confirmed]</li>
 </ul>
 <p>Both resolved table formats are 3-byte entries: target address (little endian) plus page byte masked with <code>&amp; 0x3F</code>.</p>
@@ -340,6 +345,7 @@ entries. Raw byte matches outside disassembled code are not counted. [confirmed]
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
         <script src="pseudocode-init-a22cdb5c.js"></script>
+        <script src="figure-layout-047a3260.js"></script>
 
 
 

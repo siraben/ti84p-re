@@ -30,6 +30,7 @@
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="katex-383e7b8d.min.css">
         <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+        <link rel="stylesheet" href="figure-layout-22be1045.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
+            window.path_to_searchindex_js = "searchindex-b63be77c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ba6dda15.js"></script>
+        <script src="toc-dfcf5070.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -311,15 +312,16 @@ surrounding instructions confirm all five as code. [confirmed]</p>
 the previous movement and jumps back to that wait. The scanner can therefore
 publish held diagonal repeats while the app continues the update/get-key loop,
 but unrelated input code sees ordinary multi-key rejection. [confirmed]</p>
-<pre class="mermaid">flowchart LR
+<pre class="mermaid">flowchart TD
     START["_AppStartMouse&lt;br/&gt;4D47 · 3B:78F9"] --&gt; SETUP["setup 0x8100 workspace&lt;br/&gt;row 31 · column 48"]
     SETUP --&gt; DISP["display cursor"]
     DISP --&gt; WAIT["_AppMouseGetKey&lt;br/&gt;set mouseFlag1 bit 0"]
     WAIT --&gt; SCAN["timer scanner&lt;br/&gt;ram:0406"]
     SCAN --&gt; CSC["_GetCSC&lt;br/&gt;ram:04B2"]
     CSC --&gt; FORCE["_AppMouseForceKey&lt;br/&gt;clear bit 0 · classify"]
-    FORCE --&gt; APP["return pending movement to app"]
-    APP --&gt; UPDATE["_AppUpdateMouse&lt;br/&gt;redraw · commit"]
+    FORCE --&gt;|blocked direction| WAIT
+    FORCE --&gt;|movement or ENTER| APP["return event to app"]
+    APP --&gt;|commit movement| UPDATE["_AppUpdateMouse&lt;br/&gt;redraw · commit"]
     UPDATE --&gt; WAIT
 </pre>
 
@@ -832,6 +834,7 @@ physical AppVar has been recorded.</li>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
         <script src="pseudocode-init-a22cdb5c.js"></script>
+        <script src="figure-layout-047a3260.js"></script>
 
 
 

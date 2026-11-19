@@ -30,6 +30,7 @@
         <!-- Custom theme stylesheets -->
         <link rel="stylesheet" href="katex-383e7b8d.min.css">
         <link rel="stylesheet" href="pseudocode-570315ff.min.css">
+        <link rel="stylesheet" href="figure-layout-22be1045.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -37,10 +38,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-3ade45d2.js";
+            window.path_to_searchindex_js = "searchindex-b63be77c.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-ba6dda15.js"></script>
+        <script src="toc-dfcf5070.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -210,7 +211,9 @@ The silent-link engine shares Flash page <code>3C</code> with archive command co
       direction LR
       SB["_SendAByte 420D"]
       RB["_RecAByteIO 443F"]
-      HW["bit-bang port 0 + HW-assist FIFO ports 8/9/0D"]
+      HW["software handshake on port 00&lt;br/&gt;or hardware link-assist FIFO"]
+      SB --&gt; HW
+      RB --&gt; HW
     end
     USB["native USB transport · pages 35/36"]
     SRC --&gt; VAR
@@ -365,19 +368,26 @@ stores the command from <code>H</code>, and calls <code>41C3</code>. Convenience
 <code>4199</code> H=0x09 (CTS), <code>41BC</code> ID=0x73/cmd=0x68 (RTS).</p>
 <h3 id="receiving-a-header-confirmed"><a class="header" href="#receiving-a-header-confirmed">Receiving a header [confirmed]</a></h3>
 <pre><code class="language-z80">4338: CALL _RecAByteIO
-      (8674)=A                       ; machine-ID, validated against the known set:
-      0x95 0x73 0x23 0x74 0x82 0x02 0x12 0x83 0x03 0x13 0x08   (else fall to 2nd-byte machine list)
-4370: CALL _RecAByteIO
-      (8675)=A                       ; command-ID, validated: 0x68 0x47 0x74 0x2D … else _JErrorNo
-438F: CALL _RecAByteIO
-      (8675)=A                       ; command ID on the validated path
-4392: CALL _RecAByteIO
-      (8676)=A                       ; length lo
+433B: LD (8674h),A           ; machine ID
+      ; peer flags and machine ID select the command-read path
+      ; bit 1 set or ID recognized → 4389h
+4370: CALL _RecAByteIO       ; alternative path for an unrecognized ID
+4373: LD (8675h),A           ; accept commands 68h, 47h, 74h, 2Dh
+      ; accepted → 438Fh, otherwise jump to 2799h
+4389: CALL _RecAByteIO       ; direct command read
+438C: LD (8675h),A           ; command
+438F: CALL _RecAByteIO       ; both paths resume here
+4392: LD (8676h),A           ; length low
 4395: CALL _RecAByteIO
-      (8677)=A                       ; length hi
-      RET
+4398: LD (8677h),A           ; length high
+439B: RET
 </code></pre>
-<p>An unrecognised machine-ID or command-ID byte aborts via <code>_JErrorNo</code> (→ <code>E_LnkErr</code> 0x9F).</p>
+<p>Both paths consume the four bytes in the framing diagram. With peer flag
+<code>IY+0x1B</code> bit 1 set, the receiver compares the ID with <code>95h</code> and jumps
+unconditionally to the command read at <code>3C:4389</code>. With that
+flag clear, it accepts IDs <code>73h</code>, <code>23h</code>, <code>74h</code>, <code>82h</code>, <code>02h</code>, <code>12h</code>,
+<code>83h</code>, <code>03h</code>, <code>13h</code>, and <code>08h</code> directly. An unrecognized ID in the
+flag-clear path can still pass through the command check at <code>3C:4376</code>.</p>
 <h3 id="machine-id-selector-confirmed"><a class="header" href="#machine-id-selector-confirmed">Machine-ID selector [confirmed]</a></h3>
 <p>The <em>local</em> machine-ID advertised in outgoing packets depends on the peer-type bits in <code>IY+0x1B</code>:</p>
 <pre><code class="language-z80">620A: LD L,0x82                     ; default / TI-84+ silent
@@ -976,6 +986,7 @@ unnamed bits 0 and 1 and unreferenced bit 6 of <code>0x89F0</code> are set.</li>
         <script src="katex-init-5efd21f9.js"></script>
         <script src="pseudocode-695903c6.min.js"></script>
         <script src="pseudocode-init-a22cdb5c.js"></script>
+        <script src="figure-layout-047a3260.js"></script>
 
 
 
