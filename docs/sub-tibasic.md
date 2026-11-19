@@ -21,7 +21,7 @@ many token bytes. There are no stored line numbers: `3Fh` separates lines, and
 Execution can be read as a pipeline:
 
 ```mermaid
-flowchart LR
+flowchart TD
     V["VAT program object"] -->|"size selects token body"| C["parse cursor<br/>nextParseByte … basic_end"]
     C -->|"fetch and classify"| H["statement or expression handler"]
     H --> E["recursive expression"]
@@ -182,7 +182,7 @@ pointer; only then does the recall path copy or address the value payload.
 | Complex list | `0Dh` | 2-byte length, then complex elements |
 
 ```mermaid
-flowchart LR
+flowchart TD
     T["name token"] --> N["OP1 name descriptor"]
     N --> V["07:565F<br/>VAT scan"]
     V -->|"recall"| P["typed payload"]
@@ -407,7 +407,7 @@ transfers and helpers that load an error code before entering the common path.
 The report preserves that distinction. [confirmed]
 
 ```mermaid
-flowchart LR
+flowchart TD
     S["TI-BASIC expression"] --> E["operator evaluator"]
     E --> G["numeric guard<br/>zero, range, or exponent"]
     G --> R["shared error shim<br/>00:26E8–2708"]
@@ -439,7 +439,7 @@ unwind_error(error_code):
 ```
 
 ```mermaid
-flowchart LR
+flowchart TD
     E["error entry<br/>82h or 88h"] --> C["00:270A<br/>common error path"]
     C --> U["00:27BB<br/>load saved error SP"]
     U --> O["restore OPS delta"]

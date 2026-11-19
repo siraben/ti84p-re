@@ -126,7 +126,7 @@ publish held diagonal repeats while the app continues the update/get-key loop,
 but unrelated input code sees ordinary multi-key rejection. [confirmed]
 
 ```mermaid
-flowchart LR
+flowchart TD
     START["_AppStartMouse<br/>4D47 · 3B:78F9"] --> SETUP["setup 0x8100 workspace<br/>row 31 · column 48"]
     SETUP --> DISP["display cursor"]
     DISP --> WAIT["_AppMouseGetKey<br/>set mouseFlag1 bit 0"]
