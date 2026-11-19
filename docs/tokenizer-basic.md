@@ -88,12 +88,11 @@ cumSum(L1)->L2
 is stored as:
 
 ```text
-BB 29  5D 00  11  04  5D 01  3F
-└───┘  └───┘   │   │   └───┘   └─ EOL
-cumSum(  L1    )   →     L2
+BB 29     5D 00   11   04   5D 01   3F
+cumSum(   L1      )    →    L2      EOL
 ```
 
-No source spaces or character count are preserved. The editor reconstructs
+Each column pairs the stored bytes with one token. The editor reconstructs
 the spelling from token tables. The interpreter sees typed operations and
 names immediately, without reparsing the visible word `cumSum`. [confirmed]
 
