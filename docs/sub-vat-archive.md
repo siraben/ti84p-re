@@ -581,7 +581,7 @@ The entry decodes selector `A` as follows: [confirmed]
 entry begins at `3C:7BD0`. `gc_show_screen` is the independent entry at
 `3C:7E0D`. [confirmed]
 
-`tools/analyze_gc_journal.py` validates the dispatcher bytes, the page-0 stub,
+`python3 -m ti84re.flash.analyze_gc_journal` validates the dispatcher bytes, the page-0 stub,
 all 11 callers, the `3C:7BC7` function body, and the `3C:7E0D` display entry.
 Its JSON report retains selectors, targets, and conditions separately from the
 master-phase recovery dispatcher at `3C:7C1F`.

@@ -38,9 +38,10 @@ python3 -m ti84re.link.describe_port profiles
 python3 -m ti84re.rom.disassemble 0x3B --start 0x4000 --end 0x4040
 ```
 
-Every module resolves repository locations through `ti84re.paths`
-(`ROOT`, `TOOLS`, `SYMBOLS`, `ORACLES`, `DATA`, `MACROS`, `PROBES`,
-`DEFAULT_ROM`); nothing depends on the current working directory.
+`ti84re.paths` provides repository locations (`ROOT`, `TOOLS`, `SYMBOLS`,
+`ORACLES`, `DATA`, `MACROS`, `PROBES`, `DEFAULT_ROM`) for module defaults.
+Run the examples from the repository root: some tools, including the App-header
+corpus downloader, still use working-directory-relative paths.
 
 ## Package map
 

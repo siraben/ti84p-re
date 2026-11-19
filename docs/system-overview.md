@@ -6,7 +6,7 @@ evidence, emulator observations, public hardware behavior, and unresolved
 inferences distinct.
 
 The target is a validated 1 MiB Flash image whose OS identifies itself as
-2.55MP. [Conventions and methodology](conventions.md) defines the address
+2.55MP. [Conventions and evidence](conventions.md) defines the address
 notation and confidence flags used throughout the book.
 
 ## Machine and OS
