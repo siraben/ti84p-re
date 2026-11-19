@@ -521,6 +521,65 @@ port `0x39`. Their low-bit read-modify-write sequences are decoded in
 The ROM ties those bits to USB setup but does not expose their electrical signal
 names. [confirmed] for the operations; [hypothesis] for signal assignments.
 
+### USB traffic during an OS transfer
+
+The TiLP link guide files a historical host-side UsbSnoop capture under
+`ti84+_usb/send_flash_os.log`. USB request block 459 reads a device descriptor
+with vendor ID `0x0451` and product ID `0xE008`.
+Request block 462 sends `00 00 00 04 01 00 00 04 00` on
+endpoint `0x02` OUT. Request block 463 receives `00 00 00 04 02 00 00 00 FA`
+on endpoint `0x81` IN. The computer requests a 1,024-byte raw-packet payload
+and the calculator allocates 250 bytes, for a 255-byte packet including its
+five-byte header. [standard]
+[Captured OS transfer](https://github.com/debrouxl/tilp-linkguide/blob/1f7f31ec311481bb6359d79ff402e7ced5c2cfe3/analysis/logs/ti84%2B_usb/send_flash_os.log)
+and [Benjamin Moody's protocol description](https://github.com/debrouxl/tilp-linkguide/blob/1f7f31ec311481bb6359d79ff402e7ced5c2cfe3/usb-protocol.txt)
+
+Request block 472 identifies the receiving calculator **before the transfer**.
+Its parameter reply contains these fields. [standard]
+
+| Parameter | Value in the reply | Meaning |
+|-----------|--------------------|---------|
+| `0002h` | `TI-84 Plus Silver Edition` | Product name |
+| `0004h` | `00 03` | Hardware version reported by the firmware |
+| `0009h` | `00 01 00 00` | Boot 1.00 |
+| `000Ah` | `01` | OS loaded |
+| `000Bh` | `00 02 28 00` | OS 2.40 (minor version `28h` = 40) |
+
+The host switches from normal mode to basic mode. For the OS transfer, the
+calculator requests a 266-byte raw payload and the host grants it (blocks
+502–503). Each of the 1,154 OS data records carries 256 data bytes and four
+address, page, and flag bytes. Together they account for all 300,040 bytes
+announced in block 500. The calculator acknowledges each record.
+Block 774 carries the string `BASE Code 2.21` in the outgoing image.
+Block 5130 acknowledges the end of transmission. The trace ends before a
+post-restart version query. [standard]
+[OS transfer log](https://github.com/debrouxl/tilp-linkguide/blob/1f7f31ec311481bb6359d79ff402e7ced5c2cfe3/analysis/logs/ti84%2B_usb/send_flash_os.log)
+(SHA-256 `5d8674d00109d5681f60bcdf54e887a2108803ec14af8c6468d653e9a00ae7de`)
+
+The five-byte calculator ID in block 472 matches the ID in block 124 of the
+separate USB device-info capture. The archive also records that ID on a
+two-wire link session with OS 2.22 and boot 1.00. The screenshot from that
+session was in the archive by July 5, 2005. The July 20 USB device-info
+reply independently returns the same ID, OS 2.22, and boot 1.00. [standard]
+[USB device-info capture](https://github.com/debrouxl/tilp-linkguide/blob/1f7f31ec311481bb6359d79ff402e7ced5c2cfe3/analysis/logs/ti84%2B_usb/device_info.log),
+[two-wire device-info screenshot](https://github.com/debrouxl/tilp-linkguide/blob/5657ba3a8166f2eeafae45ef2ba62f2218380b02/analysis/logs/ti84%2B/device_info.png),
+[July 5 archive entry](https://github.com/debrouxl/tilp-linkguide/commit/5657ba3a8166f2eeafae45ef2ba62f2218380b02),
+and [July 20 USB capture](https://github.com/debrouxl/tilp-linkguide/blob/8ac6400099be90522f9a78e7566214eefffd063d/analysis/logs/ti84%2B_usb/device_info.log)
+
+The date makes the TA2 a plausible ASIC for this unit. Datamath identifies
+TA2 packages on its April and May 2004 Silver Editions and a TA3 on its June
+2006 sample. Identifying the captured unit's ASIC would require a package
+marking or a port-`0x15` reading from that unit. [hypothesis]
+[Datamath board inventory](https://datamath.org/Graphing/TI-84PLUS_WM08_TL.htm)
+
+A separate screenshot capture records the host requesting LCD parameter
+`0022h` in block 754 and receiving 768 zero bytes on endpoint `0x81` in
+blocks 758–764. This establishes host-requested screen readout. The
+presentation-link hypothesis concerns a calculator sending individual LCD
+writes on endpoint 2. It still requires a capture in presentation mode.
+[standard] for the parameter exchange.
+[USB screenshot capture](https://github.com/debrouxl/tilp-linkguide/blob/1f7f31ec311481bb6359d79ff402e7ced5c2cfe3/analysis/logs/ti84%2B_usb/screenshot.log)
+
 ## Emulator comparison
 
 The four pinned emulators implement disconnected or partial USB behavior. None implements the page-35 endpoint transactions needed for a connected transfer. [standard]
@@ -822,7 +881,7 @@ Practical rules:
 
 - The ROM calls `ram:2E0B`, a `cross_page_jump` thunk to `35:4280`. Its
   carry-clear/carry-set result is decoded above.
-- The public `0x50xx`/`0x52xx`/`0x53xx` USB APIs and the boot-page `0x8xxx` USB entries are mapped above. The controlled harness executes `_InitUSB`, both timeout paths, `_AttemptUSBOSReceive` through `2F:4170`, and a scripted `_ReceiveOS_USB` installer record through invalid-page cleanup. A natural connected transfer and valid page-programming session remain dynamically untested.
+- The public `0x50xx`/`0x52xx`/`0x53xx` USB APIs and the boot-page `0x8xxx` USB entries are mapped above. The controlled harness executes `_InitUSB`, both timeout paths, `_AttemptUSBOSReceive` through `2F:4170`, and a scripted `_ReceiveOS_USB` installer record through invalid-page cleanup. Tracing a connected transfer through these OS 2.55MP and boot 1.03 routines still requires calculator-side evidence. The [historical OS transfer](#usb-traffic-during-an-os-transfer) records host traffic for OS 2.40 and boot 1.00.
 - The FDRC layout names the endpoint register block, but physical tests have not confirmed every
   imported bit meaning or the TI-specific PHY at ports `0x4A`–`0x5B`. TilEm does not model physical
   timing from the assist setup values. ROM-confirmed claims remain limited to written constants,
