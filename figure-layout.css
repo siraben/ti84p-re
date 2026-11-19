@@ -47,3 +47,10 @@
         max-height: none;
     }
 }
+
+@media print {
+    pre.mermaid > svg {
+        /* Leave space for margins on both A4 and US Letter. */
+        max-height: 9in;
+    }
+}
