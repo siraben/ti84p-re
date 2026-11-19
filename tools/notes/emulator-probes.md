@@ -9,7 +9,7 @@ trace pipeline these probes complement.
 
 ## Pinned TilEm direct-core probes
 
-`tilem_core.py` supplies clean-source validation, source enumeration, compiler
+`ti84re.emulators.tilem.core` supplies clean-source validation, source enumeration, compiler
 construction, hashing, and captured native execution. `tilem_probe_support.c`
 supplies the allocation and diagnostic callbacks needed to link small probes
 against the complete core. Each builder requires the clean commit and Git tree
@@ -124,7 +124,7 @@ retention.
 
 ### Battery comparator matrix
 
-`battery_hardware.py` encodes the byte-verified `_Chk_Batt_Level` decision
+`ti84re.hardware.battery` encodes the byte-verified `_Chk_Batt_Level` decision
 tree and TilEm's four threshold constants. The native adapter sweeps the
 emulator's 0.1 V battery field and reads every port-`0x04` selector through the
 TI-84 Plus port-`0x02` handler:
@@ -155,7 +155,7 @@ initialized-core emulator behavior, not a measured calculator voltage.
 
 ### Programmable timer and RTC matrix
 
-`tilem_timer.py` derives source periods and expiry outcomes from the reusable
+`ti84re.emulators.tilem.timer` derives source periods and expiry outcomes from the reusable
 timer model, then adds pinned scheduling, readback, reset, and RTC edge values.
 The C adapter replaces `time()` only inside the probe executable, making every
 RTC transition and byte-level rollover deterministic:
@@ -194,8 +194,8 @@ physical divisor, power, rollover, or reset behavior.
 
 ### Keypad and ON-edge matrix
 
-`tilem_keypad.py` derives ordered matrix cases from the reusable model in
-`keypad_hardware.py`. The C adapter uses the initialized core's keypad API and
+`ti84re.emulators.tilem.keypad` derives ordered matrix cases from the reusable model in
+`ti84re.hardware.keypad`. The C adapter uses the initialized core's keypad API and
 TI-84 Plus port handlers. It checks transitive closure, all eight rows, exact
 group-byte storage, ordinary scancode bounds, duplicate events, the separate
 ON path, both enabled ON edges, and keypad reset:
@@ -230,8 +230,8 @@ physical ghosting, or ASIC ON edges.
 
 ### MD5-assist edge matrix
 
-`tilem_md5.py` checks an ordered native report against the shared arithmetic
-and edge oracle in `md5_hardware.py`. The C adapter calls the TI-84 Plus port
+`ti84re.emulators.tilem.md5` checks an ordered native report against the shared arithmetic
+and edge oracle in `ti84re.hardware.md5`. The C adapter calls the TI-84 Plus port
 handlers directly. It covers partial and fifth operand writes, control masks,
 undefined operand reads, mid-read mutation, modeled clock cost, and full reset:
 
@@ -263,15 +263,16 @@ Their canonical native JSON has SHA-256
 `97921226800da92b585b6d16a390355c157bf9aa5976fe47d183e87bbcbad1b8`.
 
 The zero-shift cases exercise a nonportable shift-by-32 expression in TilEm's
-C source. The manifest therefore scopes these observations to the locked
-compiler and exact binary. The run does not execute TI-OS or establish any
-physical ASIC behavior.
+C source. The guarded check expects the four GCC results above. With Apple
+Clang 21.0.0 on arm64 at `-O2`, it reports four mismatches. The same inputs
+return `22000000`, `66442200`, `88664422`, and `AA886644`. Every other
+reported field matches. Both runs exercise initialized emulator state.
 
 ### Raw link and assist matrix
 
-`tilem_link.py` validates raw line reads, link-activity interrupts, assist
+`ti84re.emulators.tilem.link` validates raw line reads, link-activity interrupts, assist
 ports, byte transfers, status acknowledgement, reset retention, and modeled
-clock cost against the reusable source model in `link_port.py`. The C adapter
+clock cost against the reusable source model in `ti84re.link.port`. The C adapter
 calls the registered TI-84 Plus port handlers and link state machine directly:
 
 ```sh
@@ -312,26 +313,30 @@ electrical timing, or establish physical reset retention.
 
 ## Pinned MAME Flash probe
 
-`mame_runtime.py` provides shared MAME identity, configuration, isolated
-headless-environment, command, process, logging, and manifest helpers. Its
-guarded probe operation validates the executable, ROM, and Lua script before
-creating the runtime tree. `mame_trace.py` reuses the lower-level library for
-I/O traces. The Flash-specific parser and oracle are in
-`mame_flash.py`; `run_mame_flash_probe.py` is the guarded CLI. The independent
-sector and chip-erase types, parser, and image oracle are in
-`mame_flash_erase.py`. `mame_flash_gate.py` provides the typed CPU-visible gate
-report and complete-image oracle; `run_mame_flash_gate_probe.py` is its guarded
-CLI.
+The `ti84re.emulators.mame` package contains the runtime, trace, and Flash
+probe modules. Its `runtime` module verifies executable, ROM, and Lua
+identities before creating an isolated runtime tree. The `trace` module
+reuses those helpers for I/O traces. The `flash`, `flash_erase`, and
+`flash_gate` modules parse the device, erase, and CPU-visible gate reports
+and compare them with their respective oracles. The CLI entry points are
+`run_flash_probe`, `run_flash_erase_probe`, and `run_flash_gate_probe`.
 
 The CLI requires a caller-supplied executable SHA-256 and MAME 0.287. It also
 requires the exact local OS 2.55MP ROM. It places the ROM, configuration,
 NVRAM, and snapshots under a new output directory, retains standard output and
 standard error, and writes a manifest with every input and result identity.
-Run the packaged MAME through Nix when it is not installed globally:
+The example hash identifies the archived reference executable. For another
+0.287 build, supply its verified executable SHA-256. Nixpkgs revision
+`ba7d1b65988e42427218ad4511405b322f8d51c5` packages this version. Set the
+package once for the MAME commands below:
+
+```sh
+mame_package=github:NixOS/nixpkgs/ba7d1b65988e42427218ad4511405b322f8d51c5#mame
+```
 
 ```sh
 mame_flash_parent=$(mktemp -d /tmp/ti84-mame-flash.XXXXXX)
-nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_flash_probe \
+nix shell "$mame_package" --command python3 -m ti84re.emulators.mame.run_flash_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_flash_parent/run" --json
@@ -355,7 +360,7 @@ take effect, with final byte `20`; the complete saved image must have SHA-256
 
 ```sh
 mame_gate_parent=$(mktemp -d /tmp/ti84-mame-gate.XXXXXX)
-nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_flash_gate_probe \
+nix shell "$mame_package" --command python3 -m ti84re.emulators.mame.run_flash_gate_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_gate_parent/run" --json
@@ -366,7 +371,7 @@ CPU-mapped and direct-device reads agree after each command. This confirms the
 MAME driver's missing write gate through its CPU and I/O spaces, but says
 nothing about the physical ASIC.
 
-`run_mame_flash_erase_probe.py` uses a separate runtime tree. It seeds each
+`ti84re.emulators.mame.run_flash_erase_probe` uses a separate runtime tree. It seeds each
 selected sector and adjacent probe through byte-program commands, waits for
 array reads before advancing, and then chip-erases the isolated image. A
 periodic callback observes chip completion because erasing boot Flash stops
@@ -376,7 +381,7 @@ exactly one MiB of `FF` with SHA-256
 
 ```sh
 mame_erase_parent=$(mktemp -d /tmp/ti84-mame-erase.XXXXXX)
-nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_flash_erase_probe \
+nix shell "$mame_package" --command python3 -m ti84re.emulators.mame.run_flash_erase_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_erase_parent/run" --json
@@ -390,13 +395,13 @@ MAME behavior rather than TI-OS or physical evidence.
 
 ## Pinned MAME MD5-port probe
 
-`mame_md5.py` parses the native port report and calculates the expected first
+`ti84re.emulators.mame.md5` parses the native port report and calculates the expected first
 padded-`"abc"` result with the independent arithmetic model in
-`md5_hardware.py`. `run_mame_md5_probe.py` uses the shared guarded MAME runtime:
+`ti84re.hardware.md5`. `ti84re.emulators.mame.run_md5_probe` uses the shared guarded MAME runtime:
 
 ```sh
 mame_md5_parent=$(mktemp -d /tmp/ti84-mame-md5.XXXXXX)
-nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_md5_probe \
+nix shell "$mame_package" --command python3 -m ti84re.emulators.mame.run_md5_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_md5_parent/run" --json
@@ -412,14 +417,14 @@ physical-hardware evidence.
 
 ## Pinned MAME raw-link probe
 
-`mame_link.py` parses raw-write, connector-output, peer-input, and assist-port
-cases. Its oracle derives the expected values from `link_port.py` rather than
+`ti84re.emulators.mame.link` parses raw-write, connector-output, peer-input, and assist-port
+cases. Its oracle derives the expected values from `ti84re.link.port` rather than
 duplicating the PCR and connector formulas. Run it through the shared guarded
 MAME runtime:
 
 ```sh
 mame_link_parent=$(mktemp -d /tmp/ti84-mame-link.XXXXXX)
-nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_link_probe \
+nix shell "$mame_package" --command python3 -m ti84re.emulators.mame.run_link_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_link_parent/run" --json
@@ -440,13 +445,13 @@ physical electrical behavior.
 
 ## Pinned MAME keypad probe
 
-`mame_keypad.py` parses the ordered live-input matrix and checks it against the
-MAME branch of the reusable model in `keypad_hardware.py`. The guarded CLI uses
+`ti84re.emulators.mame.keypad` parses the ordered live-input matrix and checks it against the
+MAME branch of the reusable model in `ti84re.hardware.keypad`. The guarded CLI uses
 the shared MAME runtime:
 
 ```sh
 mame_keypad_parent=$(mktemp -d /tmp/ti84-mame-keypad.XXXXXX)
-nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_keypad_probe \
+nix shell "$mame_package" --command python3 -m ti84re.emulators.mame.run_keypad_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_keypad_parent/run" --json
@@ -469,14 +474,14 @@ matrix.
 
 ## Pinned MAME legacy-interrupt probe
 
-`mame_interrupt.py` parses shared status reads, mask writes, ON transitions,
+`ti84re.emulators.mame.interrupt` parses shared status reads, mask writes, ON transitions,
 standard-timer latches, and reset retention. Its oracle uses the immutable MAME
 state model in `interrupt_controller.py`. Run it through the shared guarded
 runtime:
 
 ```sh
 mame_interrupt_parent=$(mktemp -d /tmp/ti84-mame-interrupt.XXXXXX)
-nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_interrupt_probe \
+nix shell "$mame_package" --command python3 -m ti84re.emulators.mame.run_interrupt_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_interrupt_parent/run" --json
@@ -503,13 +508,13 @@ link wake, low power, or reset retention.
 
 ## Pinned MAME timer and RTC probe
 
-`mame_timer.py` parses the complete timer, status, auxiliary-port, and RTC-port
+`ti84re.emulators.mame.timer` parses the complete timer, status, auxiliary-port, and RTC-port
 report. Its oracle derives source divisors and expiry polarity from
-`timer_hardware.py`. Run it through the shared guarded MAME runtime:
+`ti84re.hardware.timer`. Run it through the shared guarded MAME runtime:
 
 ```sh
 mame_timer_parent=$(mktemp -d /tmp/ti84-mame-timer.XXXXXX)
-nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_timer_probe \
+nix shell "$mame_package" --command python3 -m ti84re.emulators.mame.run_timer_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_timer_parent/run" --json
@@ -531,13 +536,13 @@ timer API or measure physical crystal, RTC, interrupt, or low-power behavior.
 
 ## Pinned MAME LCD-controller probe
 
-`mame_lcd.py` parses controller fields, status, pointer walks, read-latch
+`ti84re.emulators.mame.lcd` parses controller fields, status, pointer walks, read-latch
 values, 6-bit packing, and ASIC-port coverage. Its oracle reuses the MAME
 profile and pointer/latch models in `lcd_controller.py`:
 
 ```sh
 mame_lcd_parent=$(mktemp -d /tmp/ti84-mame-lcd.XXXXXX)
-nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_lcd_probe \
+nix shell "$mame_package" --command python3 -m ti84re.emulators.mame.run_lcd_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_lcd_parent/run" --json
@@ -559,14 +564,14 @@ controller or ASIC evidence.
 
 ## Pinned MAME ASIC-control probe
 
-`mame_asic.py` combines the reusable ASIC-control and MAME timing profiles with
+`ti84re.emulators.mame.asic` combines the reusable ASIC-control and MAME timing profiles with
 a typed native report. The Lua adapter drives mapped and absent ports through
 the CPU I/O space, runs a fixed RAM counter at both clocks, and schedules one
 soft reset:
 
 ```sh
 mame_asic_parent=$(mktemp -d /tmp/ti84-mame-asic.XXXXXX)
-nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_asic_probe \
+nix shell "$mame_package" --command python3 -m ti84re.emulators.mame.run_asic_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_asic_parent/run" --json
@@ -591,14 +596,14 @@ battery, protection, clock, GPIO, USB, or warm-reset behavior.
 
 ## Pinned MAME memory-mapper probe
 
-`mame_mapper.py` parses five fresh-machine reports and checks them against the
+`ti84re.emulators.mame.mapper` parses five fresh-machine reports and checks them against the
 MAME profile in `memory_mapper.py`. A fresh process is required for each
 fixed-page case because the TI-84 Plus driver does not register `m_booting` as
 a saved item. Run the complete guarded matrix through the shared runtime:
 
 ```sh
 mame_mapper_parent=$(mktemp -d /tmp/ti84-mame-mapper.XXXXXX)
-nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_mapper_probe \
+nix shell "$mame_package" --command python3 -m ti84re.emulators.mame.run_mapper_probe \
   --expected-mame-sha256 \
     fc5f4aba1aa6eb115d66decad13bb3f5313b9f3be9cff7c785d8d88e3fca0b91 \
   --output-dir "$mame_mapper_parent/run" --json
@@ -643,7 +648,8 @@ nix develop -c python3 -m ti84re.emulators.wabbitemu.build_headless \
   --output "$wabbit_tmp/wabbitemu-headless" --json
 ```
 
-The builder additionally checks the extracted 334-file path-and-content hash
+Extract on a case-sensitive filesystem. The archive has separate `Interface/`
+and `interface/` directories. The builder checks the extracted 334-file path-and-content hash
 `a8a4f97fc7952770bed317b4a477f80345894da38d14fad8f0bf0ee60aae71ba`
 and the translation-unit hashes. It compiles Wabbitemu's TI-84 Plus CPU and
 hardware core directly. The adapter removes an MSVC-only `__pragma` construct
@@ -677,7 +683,7 @@ the core, unlocks its in-memory ASIC gate, and sends `AA 55 A0` plus the target
 write through `CPU_mem_write`. It reads the target twice through
 `CPU_mem_read`. The guarded CLI requires the exact OS 2.55MP image. It checks
 the native report against fixed launch expectations and the independent source
-model in `flash_hardware.py`:
+model in `ti84re.flash.hardware`:
 
 ```sh
 wabbit_program_parent=$(mktemp -d /tmp/ti84-wabbit-program.XXXXXX)
@@ -735,7 +741,7 @@ exercise the protected unlock sequence, an OS/UI caller, or physical Flash.
 ### Retail Flash bcall usage probe
 
 The programmer-facing examples have a separate assembled probe. The reusable
-`flash_bcall_examples.py` library assembles the fixture, parses the native
+`ti84re.flash.bcall_examples` library assembles the fixture, parses the native
 report, and checks bcall visits, copied-worker entries, return values, scratch
 state, array bytes, `_FlashToRam` copies, the port-`0x23` value, and IFF2. The
 CLI requires the exact OS 2.55MP ROM and refuses to reuse an output directory:
@@ -826,7 +832,7 @@ T-states, and elapsed seconds explicitly. It compares crystal and CPU catch-up,
 expires a zero counter, acknowledges completion, observes the interrupt line
 during and after `HALT`, and commits, advances, and freezes the RTC. The
 reusable oracle derives source divisors and expiry fields from
-`timer_hardware.py`. This is emulator state-machine evidence rather than
+`ti84re.hardware.timer`. This is emulator state-machine evidence rather than
 TI-OS execution, host timing, or physical ASIC behavior.
 
 Run the assembled programmable-timer physical discriminator through the shared
@@ -1028,7 +1034,7 @@ high write-bit masking, raw transition interrupt omission, assist port
 coverage, idle-ready, one complete `0xA5` send and receive, data-register
 acknowledgement, and seeded-error read-to-clear behavior. The reusable oracle
 derives the raw matrix, LSB-first byte order, and status fields from
-`link_port.py`. It does not run TI-OS, exercise virtual-cable lifecycle code,
+`ti84re.link.port`. It does not run TI-OS, exercise virtual-cable lifecycle code,
 or measure electrical levels and timing.
 
 Run the guarded Fake USB edge probe through the same binary:
@@ -1046,8 +1052,8 @@ internal fields, event-mask storage, mask-independent and repeatable line
 events, the active-low interrupt-summary matrix, and the protocol-enable and
 device-address latches. Direct field seeding isolates the port-`0x4A` and
 port-`0x4D` handler arithmetic that registered ports cannot otherwise reach.
-The reusable oracle in `wabbitemu_usb_probe.py` derives every expected value
-from `usb_hardware.py`. This is pinned Wabbitemu handler evidence, not TI-OS
+The reusable oracle in `ti84re.emulators.wabbitemu.usb_probe` derives every expected value
+from `ti84re.hardware.usb`. This is pinned Wabbitemu handler evidence, not TI-OS
 execution, a connected endpoint transaction, or physical USB behavior.
 
 Run the guarded memory-mapper edge probe through the same binary:
@@ -1065,7 +1071,7 @@ the fixed-page opcode handoff, raw selector storage versus visible readback,
 the even-page paired expression, and both forced-RAM ranges. Seeded backing
 bytes distinguish boundary reads, low-level write destinations, and fetched
 NOP versus HALT bytes in independent and paired modes. The reusable oracle in
-`wabbitemu_mapper_probe.py` derives the expected mappings from
+`ti84re.emulators.wabbitemu.mapper_probe` derives the expected mappings from
 `memory_mapper.py`. This is pinned emulator routing evidence, not TI-OS
 execution, Flash command acceptance, or physical ASIC behavior.
 
@@ -1083,7 +1089,7 @@ python3 -m ti84re.emulators.wabbitemu.run_reset_retention_probe \
 
 This mode seeds state directly, calls `CPU_reset`, performs the frontend's
 `CPU_reset` plus LCD-reset sequence, and triggers two execution violations.
-The reusable source model in `wabbitemu_reset.py` separates cleared, rebuilt,
+The reusable source model in `ti84re.emulators.wabbitemu.reset` separates cleared, rebuilt,
 and retained fields. Its oracle checks all 14 retained component groups, the
 TI-84 Plus reset mapping, LCD-visible frontend state, and the program/error
 Flash-state paths through the remainder of `CPU_step`. The CLI guards the exact

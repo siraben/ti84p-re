@@ -1,4 +1,5 @@
 -- Trace selected Z80 I/O ports in MAME and optionally inject an ON press.
+-- Keep subscription handles reachable after the autoboot script returns.
 
 local cpu = manager.machine.devices[":maincpu"]
 assert(cpu, "MAME machine has no :maincpu device")
@@ -81,6 +82,7 @@ end
 
 local ports = selected_ports(os.getenv("MAME_TRACE_PORTS") or "03,04,55,56")
 local taps = {}
+_G.ti84_io_taps = taps
 for port, _ in pairs(ports) do
     taps[#taps + 1] = io:install_read_tap(
         port,
@@ -110,7 +112,7 @@ if press_frame or release_frame then
     on_field = assert(on_port.fields["ON/OFF"], "machine has no ON/OFF field")
 end
 
-local frame_subscription = emu.add_machine_frame_notifier(function()
+_G.ti84_frame_subscription = emu.add_machine_frame_notifier(function()
     frame = frame + 1
     if press_frame and frame == press_frame then
         flush_repeats()
@@ -127,7 +129,7 @@ local frame_subscription = emu.add_machine_frame_notifier(function()
     end
 end)
 
-local stop_subscription = emu.add_machine_stop_notifier(function()
+_G.ti84_stop_subscription = emu.add_machine_stop_notifier(function()
     flush_repeats()
 end)
 

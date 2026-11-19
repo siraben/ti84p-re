@@ -11,6 +11,7 @@ from ti84re.emulators.tilem.core import TilemCoreError, build_command
 
 class TilemCoreTests(unittest.TestCase):
     @patch("ti84re.emulators.tilem.core.validate_tilem_source")
+    @patch("ti84re.emulators.tilem.core.sys.platform", "linux")
     def test_build_command_accepts_multiple_adapters(self, validate_source):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory)
@@ -30,6 +31,13 @@ class TilemCoreTests(unittest.TestCase):
         )
         self.assertIn("-Wl,--gc-sections", command)
         self.assertEqual(["-lm", "-o", "/tmp/tilem-probe"], command[-3:])
+
+    @patch("ti84re.emulators.tilem.core.sys.platform", "darwin")
+    @patch("ti84re.emulators.tilem.core.validate_tilem_source")
+    def test_native_darwin_linker_uses_dead_strip(self, _validate_source):
+        command = build_command(Path("/source/tilem"), [Path("probe.c")], Path("probe"))
+        self.assertIn("-Wl,-dead_strip", command)
+        self.assertNotIn("-Wl,--gc-sections", command)
 
     @patch("ti84re.emulators.tilem.core.validate_tilem_source")
     def test_build_command_requires_an_adapter(self, _validate_source):

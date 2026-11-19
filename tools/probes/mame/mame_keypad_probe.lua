@@ -1,4 +1,5 @@
 -- Live-input keypad-matrix probe for the MAME TI-84 Plus driver.
+-- Keep subscription handles reachable after the autoboot script returns.
 
 local cpu = assert(manager.machine.devices[":maincpu"], "missing :maincpu")
 local io = assert(cpu.spaces["io"], "maincpu has no I/O space")
@@ -71,8 +72,8 @@ print(string.format(
 -- the same live-input path as an interactive key press.
 local case_index = 1
 local ready_to_read = false
-local frame_subscription
-frame_subscription = emu.add_machine_frame_notifier(function()
+
+_G.ti84_frame_subscription = emu.add_machine_frame_notifier(function()
     local case = cases[case_index]
     if not ready_to_read then
         apply_case(case)

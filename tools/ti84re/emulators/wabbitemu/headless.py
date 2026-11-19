@@ -1130,12 +1130,14 @@ def build_command(
     *,
     cxx: str = "g++",
 ) -> list[str]:
-    """Return the exact Linux compilation command for the pinned core."""
+    """Return the native compilation command for the pinned core."""
 
     includes = (source, source / "core", source / "hardware", source / "utilities")
     return [
         cxx,
         "-std=gnu++11",
+        # The pinned core initializes an unsigned bank number from int bootPage.
+        "-Wno-error=narrowing",
         "-O2",
         "-D_LINUX",
         "-D__pragma(x)=",

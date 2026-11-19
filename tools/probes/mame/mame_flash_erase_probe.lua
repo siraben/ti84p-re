@@ -1,4 +1,5 @@
 -- Direct sector-geometry and chip-erase probe for the MAME TI-84 Plus driver.
+-- Keep subscription handles reachable after the autoboot script returns.
 
 local cpu = assert(manager.machine.devices[":maincpu"], "missing :maincpu")
 local bank = assert(manager.machine.devices[":membank0"], "missing :membank0")
@@ -141,8 +142,7 @@ cpu.state["PC"].value = 0
 case_index = 1
 begin_sector(case_index)
 
-local frame_subscription
-frame_subscription = emu.add_machine_frame_notifier(function()
+_G.ti84_frame_subscription = emu.add_machine_frame_notifier(function()
     frame = frame + 1
     if phase ~= "sector" then
         return

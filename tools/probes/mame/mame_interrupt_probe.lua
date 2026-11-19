@@ -1,4 +1,5 @@
 -- Legacy interrupt-mask, ON-edge, timer, and reset probe for MAME 0.287.
+-- Keep subscription handles reachable after the autoboot script returns.
 
 if _G.TI84_MAME_INTERRUPT_PROBE_STARTED then
     return
@@ -99,8 +100,6 @@ local phase = "press_masked"
 local settle_frames = 0
 local on_values = {}
 local timer_values = {}
-local reset_subscription
-local frame_subscription
 
 local function after_on_sample(next_phase)
     phase = next_phase
@@ -109,7 +108,7 @@ local function after_on_sample(next_phase)
     settle_frames = 1
 end
 
-frame_subscription = emu.add_machine_frame_notifier(function()
+_G.ti84_frame_subscription = emu.add_machine_frame_notifier(function()
     if settle_frames > 0 then
         settle_frames = settle_frames - 1
         return
@@ -201,7 +200,7 @@ frame_subscription = emu.add_machine_frame_notifier(function()
         io:write_u8(0x02, 0x07)
         io:write_u8(0x03, 0x07)
         local before = io:read_u8(0x04)
-        reset_subscription = emu.add_machine_reset_notifier(function()
+        _G.ti84_reset_subscription = emu.add_machine_reset_notifier(function()
             local immediate03 = io:read_u8(0x03)
             local immediate04 = io:read_u8(0x04)
             local pc = cpu.state["PC"].value

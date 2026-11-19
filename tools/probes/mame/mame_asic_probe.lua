@@ -1,4 +1,5 @@
 -- ASIC status, speed, protection-port, GPIO, USB, and reset probe for MAME.
+-- Keep subscription handles reachable after the autoboot script returns.
 
 if _G.TI84_MAME_ASIC_PROBE_STARTED then
     return
@@ -164,9 +165,8 @@ local frames = 0
 local low_count = 0
 local low_elapsed = 0
 local start_seconds, start_attoseconds = machine_time()
-local reset_subscription
-local frame_subscription
-frame_subscription = emu.add_machine_frame_notifier(function()
+
+_G.ti84_frame_subscription = emu.add_machine_frame_notifier(function()
     frames = frames + 1
     if frames < 5 then
         return
@@ -202,7 +202,7 @@ frame_subscription = emu.add_machine_frame_notifier(function()
     io:write_u8(0x14, 0x01)
     io:write_u8(0x20, 0x03)
     io:write_u8(0x21, 0xab)
-    reset_subscription = emu.add_machine_reset_notifier(function()
+    _G.ti84_reset_subscription = emu.add_machine_reset_notifier(function()
         print(string.format(
             "MAME_ASIC soft_reset status02=%02X port14=%02X identity15=%02X " ..
             "speed20=%02X control21=%02X usb55=%02X usb56=%02X pc=%04X",
