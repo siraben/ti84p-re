@@ -19,6 +19,11 @@ class RomClaimTests(unittest.TestCase):
         self.assertEqual([], report["issues"])
         self.assertEqual(732, report["wiki_rows"])
         self.assertEqual(87, report["bjump_rows"])
+        self.assertEqual(1765, report["main_slots"])
+        self.assertEqual(98, report["page_38_main_slots"])
+        self.assertEqual(825, report["raw_cross_page_descriptors"])
+        self.assertEqual(623, report["main_ids_with_include_equates"])
+        self.assertEqual(580, report["main_names_matching_include"])
 
     def test_rejects_unrecognized_rom(self):
         with self.assertRaisesRegex(ValueError, "canonical retail"):

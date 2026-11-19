@@ -14,8 +14,10 @@ from pathlib import Path
 import re
 
 from ti84re.paths import DEFAULT_ROM, ROOT
-from ti84re.rom.bcall_tables import read_boot_names, read_main_names
+from ti84re.rom.bcall_tables import read_boot_names, read_equate_names, read_main_names
+from ti84re.rom.image import RomImage, RomLocation
 from ti84re.rom.signatures import TI84_PLUS_OS_255MP_SHA256
+from ti84re.rom.z80_disassembly import find_bjump_sites
 
 
 INDEX_ROW = re.compile(
@@ -53,6 +55,9 @@ def audit(rom: bytes, root: Path = ROOT) -> dict[str, object]:
 
     require(len(main) == 645, f"main name count: {len(main)}, expected 645")
     require(len(boot) == 83, f"SDK boot name count: {len(boot)}, expected 83")
+    include = read_equate_names(symbols / "ti83plus.inc", 0x4000, 0x5449)
+    shared_ids = main.keys() & include.keys()
+    matching_names = sum(main[i].casefold() == include[i].casefold() for i in shared_ids)
     for filename, names in (("bcall_targets.txt", main), ("bcalls8x_targets.txt", boot)):
         seen: set[int] = set()
         for line in (symbols / filename).read_text().splitlines():
@@ -108,6 +113,23 @@ def audit(rom: bytes, root: Path = ROOT) -> dict[str, object]:
             "Flash page map: main-table row counts")
     require(all((identifier - 0x4000) % 3 == 0 for identifier in main),
             "main table: unaligned ID")
+    # The 2007 include ends at 5449h. In 2.55MP, the three terminal
+    # stubs come 33 slots later, followed immediately by code at 3B:54AF.
+    image = RomImage(rom)
+    require([target(i) for i in (0x54A6, 0x54A9, 0x54AC)] ==
+            [(0x37, 0x4FE1), (0x37, 0x4FE3), (0x37, 0x4FE4)],
+            "main table: terminal stub targets")
+    require(image.bytes_at(0x37, 0x4FE1, 4) == bytes.fromhex("AF C9 37 C9") and
+            image.bytes_at(0x3B, 0x54AF, 7) == bytes.fromhex("21 B6 54 CD 36 09 C9") and
+            image.bytes_at(0x3B, 0x5A36, 3) == bytes.fromhex("CD AF 54"),
+            "main table: terminal stubs or following routine")
+    slots = [RomLocation(*target(i)) for i in range(0x4000, 0x54AF, 3)]
+    descriptors = [site for page in range(image.page_count)
+                   for site in find_bjump_sites(image, page)]
+    parser_entries = {RomLocation(0x38, a) for a in (0x59C5, 0x6910, 0x6914, 0x778F)}
+    require(parser_entries.isdisjoint(slots), "main table: direct parser-funnel target")
+    require(parser_entries.isdisjoint(site.target for site in descriptors),
+            "cross-page descriptor: direct parser-funnel target")
     expected_boot = set(range(0x8018, 0x80D3, 3)) | set(range(0x80E4, 0x812A, 3))
     require(boot.keys() | INFERRED_BOOT_NAMES.keys() == expected_boot,
             "boot table: slot coverage differs from both populated ranges")
@@ -134,8 +156,12 @@ def audit(rom: bytes, root: Path = ROOT) -> dict[str, object]:
     require(rom[0x3C * 0x4000:0x3C * 0x4000 + 6] == b"2.55MP", "OS version string")
     return {
         "rom_sha256": identity,
-        "scope": "bcall catalogs, bjump descriptors, RST vectors, blank pages, version bytes",
+        "scope": "bcall catalogs, main-table extent, direct parser targets, bjump descriptors, RST vectors, blank pages, version bytes",
         "main_rows": len(main), "sdk_boot_rows": len(boot),
+        "main_ids_with_include_equates": len(shared_ids),
+        "main_names_matching_include": matching_names,
+        "main_slots": len(slots), "page_38_main_slots": sum(slot.page == 0x38 for slot in slots),
+        "raw_cross_page_descriptors": len(descriptors),
         "inferred_boot_rows": len(INFERRED_BOOT_NAMES), "wiki_rows": len(wiki_rows),
         "bjump_rows": len(jumps), "blank_pages": len(blank_pages),
         "issues": issues,
