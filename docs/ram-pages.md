@@ -17,9 +17,21 @@ revision. [standard]
 
 WikiTI's hardware history reports 128 KiB in the original TI-84 Plus design
 and a later reduction to 48 KiB. Its RAM-page table says units with port
-`0x15 >= 0x55` map selectors `82`–`87` to one physical 16 KiB block. These are
-community hardware reports. Neither page supplies a primary TI specification,
-a dated transition, or a measurement tied to a photographed board. [standard]
+`0x15 >= 0x55` map selectors `82`–`87` to one physical 16 KiB block. [standard]
+
+DrDnar wrote a test that mapped those six selectors in pairs across memory
+banks. On September 20, 2009, calcdude84se reported the same eight bytes (`00 00 82 83 84 85 86 87`)
+in all six rows. All six selectors exposed the same writes on that calculator.
+The report omits the port-`0x15` reading. [standard]
+[DrDnar's test and calcdude84se's output](https://www.cemetech.net/projects/uti/viewtopic.php?start=60&t=8913)
+
+Critor reported that both BANKTEST and MEMTST83 passed on a March 2007
+revision-G TI-84 Plus and failed on a March 2008 revision-J TI-84 Plus.
+Both ran OS 2.41 and boot 1.02. These results date two sampled units.
+The TI-Boy SE compatibility guide places the change between case revisions G
+and H. [standard]
+[Critor's five-unit test](https://www.cemetech.net/uti/t15238-extra-ram-page-trouble?page=3)
+and [TI-Boy SE's hardware guide](https://github.com/calc84maniac/tiboyse#q-which-calculators-have-a-large-enough-ram-chip-for-this-ram-hogging-game-i-want-to-play)
 
 The two reported topologies use the same eight selector values: [standard]
 
@@ -30,9 +42,9 @@ The two reported topologies use the same eight selector values: [standard]
 
 Port `0x15` does not appear in any statically resolved OS 2.55MP I/O
 instruction. The public identity table associates `0x44` and `0x45` with
-128 KiB and `0x55` with 48 KiB, while Datamath identifies TA2 and TA3 package
-families without assigning their RAM capacity. Do not infer capacity from an
-ASIC label alone. The restoring probe records the package-independent port
+128 KiB and `0x55` with 48 KiB. Datamath identifies the `84PLCR/TA1`
+package on a March 2008 revision-J board and credits the RAM-capacity
+measurements to Xavier Andréani's group. The restoring probe records the port
 `0x15` byte and the observed selector groups in one frame. [confirmed] for
 the ROM scan and probe format; [standard] for the public identities;
 [hypothesis] for an unmeasured calculator's topology.
@@ -490,6 +502,7 @@ including the final `port 7 = 81` and `port 5 = 00` writes. [confirmed]
 | Source | Use here |
 |--------|----------|
 | [Datamath TI-84 Plus hardware](http://www.datamath.org/Graphing/TI-84PLUS.htm) and [March 2004 board photographs](http://www.datamath.org/Graphing/JPEG_TI-84PLUS_A.htm#PCB) | Three-IC board inventory, ASIC-integrated RAM, and photographed `83PLUSB/TA2` package |
+| [Datamath March 2008 TI-84 Plus](https://datamath.org/Graphing/TI-84PLUS_WM08_TL.htm) | Revision-J `84PLCR/TA1` identification and attribution of the capacity tests |
 | [WikiTI hardware history, revision 10880](https://wikiti.brandonw.net/index.php?title=83Plus:History_of_TI-8x_hardware&oldid=10880) | Reported 128 KiB design and later 48 KiB revision |
 | [WikiTI RAM pages, revision 11670](https://wikiti.brandonw.net/index.php?title=83Plus:OS:Ram_Pages&oldid=11670) | Reported selector uses and `82`–`87` alias threshold |
 | [TilEm `x4_io.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_io.c) and [`x4_memory.c`](https://github.com/debrouxl/tilem/blob/f56ad637d0524ee841dd381be6ecbaf5b8975600/emu/x4/x4_memory.c) | Independent-page emulator mapping |

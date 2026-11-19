@@ -36,17 +36,17 @@ per row, or 128 pixels, for T6K04. The T6K04 contains 8,192 bits of display RAM
 and exposes 128 column outputs plus 64 row outputs. Later Novatek replacements
 can differ. [standard]
 
-Datamath attributes the LCD module photographed from a March 2004 TI-84 Plus
-to Toshiba `T6K04`. The photograph shows the controller area under opaque
-epoxy, so it does not expose a readable die marking. The identification is a
-source-attributed module record rather than a marking read from the image.
-[standard]
+Datamath identifies a Toshiba `T6K04` in a March 2004 TI-84 Plus and a
+Novatek `NT7564H` in a March 2008 revision-J unit. The 2004 photograph shows
+epoxy over the controller die. Two revision-L Silver Editions in the same
+board inventory carry the same PCB ID and date code. The March 2008 unit has
+the Toshiba driver and the April unit has the Novatek. A case revision alone
+therefore cannot identify the controller. [standard]
+[Datamath board inventory](https://datamath.org/Graphing/TI-84PLUS_WM08_TL.htm)
 
 The local ROM uses only visible columns `0`–`11` in its full-screen clear and
-graph blit loops. It does not distinguish the 15-byte T6A04A row from the
-16-byte T6K04 row. Datamath's attribution supplies revision-specific external
-evidence that the ROM cannot. [confirmed] for the ROM access range; [standard]
-for the March 2004 controller attribution.
+graph blit loops. These accesses fit both the 15-byte T6A04A row and the
+16-byte T6K04 row. [confirmed]
 
 ### Coordinate vocabulary
 
@@ -620,7 +620,7 @@ nix shell nixpkgs#mame --command python3 -m ti84re.emulators.mame.run_lcd_probe 
 - [confirmed] `_GrBufClr` changes only RAM, while `_GrBufCpy` performs the controller transfer.
 - [confirmed] `_PowerOff` disables display output before the ASIC enters low power.
 - [standard] Datamath attributes the photographed March 2004 module to Toshiba `T6K04`, whose primary data sheet specifies 128×64 RAM. The die is hidden under epoxy, so the photograph does not independently expose its marking.
-- [hypothesis] The exact controller and off-screen RAM behavior still require per-calculator identification or measurement outside that source-attributed March 2004 module.
+- [standard] Datamath identifies both Toshiba and Novatek controllers on revision-L Silver Editions with the same PCB ID and date code. Hidden-column addressing and retention on the Novatek still need a controller-specific measurement. [hypothesis]
 - [hypothesis] The late-controller status-read pointer mutation, power-command analog effects, and off-screen retention need physical tests across TA2/TA3 board revisions.
 - [hypothesis] TilEm's configured LCD I/O delay and controller busy period should be compared with bus captures rather than treated as hardware constants.
 - [standard] Wabbitemu's 15-column increment cycle and write-based ready timer, plus MAME's unchecked 15-byte row, are emulator limits rather than hardware results.

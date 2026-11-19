@@ -246,7 +246,9 @@ On physical calculators:
   setup sequence;
 - capture port-`0x5A` presentation traffic to test the proposed two-byte
   endpoint-2 LCD packets and host-mode dependency; and
-- exercise endpoint payload transfer and the connected boot receive path.
+- trace endpoint payload transfer and flash programming on OS 2.55MP and boot
+  1.03. A [historical capture](sub-usb-asic.md#usb-traffic-during-an-os-transfer)
+  records the host-side OS transfer on a Silver Edition running OS 2.40 with boot 1.00.
 
 The prepared [raw two-wire link probe](hardware-probes.md#raw-two-wire-link-probe)
 measures digital settling but not analog voltage or pull-up behavior. See
