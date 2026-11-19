@@ -45,8 +45,8 @@
           src = ./.;
           nativeBuildInputs = [
             pkgs.mdbook pkgs.mdbook-mermaid pkgs.bash pkgs.python3 pkgs.katex
-            pkgs.chromium pkgs.nodejs pkgs.z3 z80dasm
-          ];
+            pkgs.nodejs pkgs.z3 z80dasm
+          ] ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.chromium ];
           buildPhase = ''
             export PYTHONPATH=$PWD/tools
             mdbook-mermaid install .       # generate mermaid.min.js + mermaid-init.js
@@ -57,7 +57,11 @@
             python3 -m ti84re.wiki.cachebust_mathprint $out/mathprint
             python3 -m ti84re.wiki.check_mdbook_output $out
             python3 -m ti84re.wiki.check_katex_output $out
-            python3 -m ti84re.wiki.check_rendering docs $out
+            ${if pkgs.stdenv.hostPlatform.isLinux then ''
+              python3 -m ti84re.wiki.check_rendering docs $out
+            '' else ''
+              echo "Browser rendering check requires an external Chromium on this platform; see README.md."
+            ''}
             node tools/js/test-mathprint.js
             python3 -m tests.trace.test_trace_lcd
             python3 -m tests.mathprint.test_mathprint_extractors
