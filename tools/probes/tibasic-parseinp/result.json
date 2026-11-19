@@ -1,0 +1,60 @@
+{
+  "rom_sha256": "7d9a7d96d89fc552ebee6afdbdd011fdc6047be9c16d308245dff07eb1f7bd6d",
+  "emulator": {
+    "model": "TilEm x4 (ti84p)",
+    "upstream": "https://github.com/siraben/tilem-headless",
+    "commit": "d1bdc58dd321ae462a701e556fcb62bb925a78b1",
+    "binary_sha256": "fbd8f2b6b93b21626dcdfda3a5dfc0dff75876c30efca1c99affe6e6a52dae89",
+    "local_changes": [
+      "gui/tilem2.c schedules positional calculator files for link transfer before the headless macro",
+      "headless/script.c changes alpha-key mapping and inter-key delays for typed text"
+    ],
+    "git_diff_sha256": "a404722d558305bc9fc80e8a3541017a0ce8a1f14e1b21804ee7900ef8cf9b73"
+  },
+  "macro_sha256": "29ac14f94e095eca672ff37da52bb207c9aba717aba86eae917a05e91354f9e2",
+  "trace_options": [
+    "--trace",
+    "run.trace",
+    "--trace-range",
+    "all"
+  ],
+  "text_rows": "Thresholded 8-bit grayscale pixels in LCD rectangle 96x48+0+0, top to bottom.",
+  "cases": {
+    "direct": {
+      "bcall_id": "4A9B",
+      "programs_sha256": {
+        "ASMPARSE.8xp": "58be9077625ff22b9100efc9167637a183a5c8e3ad30612ee4f124b507c7007a",
+        "ZZPARSE.8xp": "09625dd0456c8349624c6540a30292d9512030a07a07e6807a27380a274897d9",
+        "ZZBASIC.8xp": "3ee4968267dd2760605fcdf76cb1d5d2972cb27d1b29d30719299138a654f475"
+      },
+      "trace_sha256": "dd5e7687fb19867bbce0fb11b77b24298ff51ae5d1d508fa3c7540eb03ffdef0",
+      "final_ram_sha256": "4734365922306d369b9955c466f24d97aac310a66f15825efee3bf31688db53c",
+      "final_png_sha256": "9af834f812c14597fb11f8410b4997256ee0d938ce22723d2079fb8cf2ad0716",
+      "text_rows_sha256": "44bd7acb7d02e4d626555baedcd77df08f1bfa83078a28299d78afacdd8e9a0e",
+      "visible_text": [
+        "prgmASMPARSE",
+        "BEFORE",
+        "CALLED",
+        "AFTER",
+        "Done"
+      ]
+    },
+    "last-entry": {
+      "bcall_id": "4B07",
+      "programs_sha256": {
+        "ASMPARSE.8xp": "58be9077625ff22b9100efc9167637a183a5c8e3ad30612ee4f124b507c7007a",
+        "ZZPARSE.8xp": "2a3c227421ea39bd1e0ea2ca99ea85fee29b2b406f3f94aeffe9443b60d53666",
+        "ZZBASIC.8xp": "3ee4968267dd2760605fcdf76cb1d5d2972cb27d1b29d30719299138a654f475"
+      },
+      "trace_sha256": "aab36acfb8d2cb13e0151a6f0f2f35220ed70d15b254a9c544918d6e6eb2d0b6",
+      "final_ram_sha256": "0eea96e1c5bee2ec76bec9acedacd0d451f17b17d8d1adc88e83ab668d0bfd22",
+      "final_png_sha256": "378565734cc64312f1a6614113741c9d398d2cbb9d67f0a33a7e7b11f267cc99",
+      "text_rows_sha256": "c044acb3f7288e860e3c14c303d6b5b25422c337bc54ca501f2de6aaedebf077",
+      "visible_text": [
+        "ERR:INVALID",
+        "1:Quit",
+        "2:Goto"
+      ]
+    }
+  }
+}
