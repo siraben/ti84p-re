@@ -33,7 +33,8 @@ flowchart LR
     ST --> ISR["im1_vector · ram:0038"]
     PTCPU --> ISR
     PTX --> ISR
-    ISR --> APD["keypad · cursor · APD"]
+    ISR -->|standard timer 1| APD["keypad · cursor · APD"]
+    ISR -->|programmable timer 3| USB["USB timeout handler · 35:4792"]
 ```
 
 The three timing blocks have different contracts: [standard]

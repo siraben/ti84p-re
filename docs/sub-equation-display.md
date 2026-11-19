@@ -286,7 +286,7 @@ class. It first handles the special `0x3D` template handoff, then applies contex
 
 ```pseudocode
 \begin{algorithm}
-\caption{Class selection}
+\caption{Class selection before special handlers and hooks}
 \begin{algorithmic}
 \REQUIRE incoming byte $a$
 \IF{$a = \mathtt{0x3D}$}
@@ -294,20 +294,28 @@ class. It first handles the special `0x3D` template handoff, then applies contex
   \RETURN
 \ENDIF
 \STATE $c \gets a - \mathtt{0x2A}$
-\IF{exponent/edit-context flags select an alternate form}
-  \STATE bias $c$ into the alternate class family
+\IF{$c = \mathtt{0x11}$ and bit 4 of $(IY+2)$ is clear}
+  \STATE $c \gets \mathtt{0x3A}$
+  \IF{bit 6 of $(IY+2)$ is clear}
+    \STATE $c \gets c+1$
+    \IF{bit 5 of $(IY+2)$ is clear}
+      \STATE $c \gets c+1$
+    \ENDIF
+  \ENDIF
 \ENDIF
-\IF{fraction or argument context is active and $c \in \{3,4,5,6,7,8\}$}
+\IF{bit 0 of $(IY+9)$ is set and $3 \le c \le 8$}
   \STATE $c \gets c + \mathtt{0x28}$
 \ENDIF
-\STATE $\mathtt{85DE} \gets c$
-\STATE $HL \gets \mathrm{word}(\mathtt{39:5E45} + 2c)$
+\RETURN $c$ to the class-specific dispatch at \texttt{39:4AB5}
 \end{algorithmic}
 \end{algorithm}
 ```
 
-This is why the same token can render differently in ordinary and stacked contexts. For
-example, class `0x08` and class `0x30` share the `fnInt(`/`nDeriv(` operator family, but
+Classes 2 and 3 have additional handlers at `39:4AB9` and `39:4ADA`.
+The ordinary lookup path stores its class byte at `0x85DE` and calls
+`39:4C27`. With the hook disabled, that routine doubles the class byte and
+loads the little-endian record pointer from `39:5E45` plus that offset.
+For example, class `0x08` and class `0x30` share the `fnInt(`/`nDeriv(` operator family, but
 `0x30` is selected after the fraction-context bias. [confirmed]
 
 ## Argument composition

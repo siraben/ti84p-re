@@ -34,7 +34,9 @@ flowchart TB
       direction LR
       SB["_SendAByte 420D"]
       RB["_RecAByteIO 443F"]
-      HW["bit-bang port 0 + HW-assist FIFO ports 8/9/0D"]
+      HW["software handshake on port 00<br/>or hardware link-assist FIFO"]
+      SB --> HW
+      RB --> HW
     end
     USB["native USB transport · pages 35/36"]
     SRC --> VAR

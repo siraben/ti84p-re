@@ -133,8 +133,9 @@ flowchart LR
     WAIT --> SCAN["timer scanner<br/>ram:0406"]
     SCAN --> CSC["_GetCSC<br/>ram:04B2"]
     CSC --> FORCE["_AppMouseForceKey<br/>clear bit 0 · classify"]
-    FORCE --> APP["return pending movement to app"]
-    APP --> UPDATE["_AppUpdateMouse<br/>redraw · commit"]
+    FORCE -->|blocked direction| WAIT
+    FORCE -->|movement or ENTER| APP["return event to app"]
+    APP -->|commit movement| UPDATE["_AppUpdateMouse<br/>redraw · commit"]
     UPDATE --> WAIT
 ```
 

@@ -101,6 +101,7 @@ one nibble per `fp_shift_right_digit` call; if $\Delta > 15$ the smaller operand
 \begin{algorithm}
 \caption{\texttt{\_FPAdd}: $OP1 \gets OP1 + OP2$ (sign-magnitude BCD)}
 \begin{algorithmic}
+\STATE clear the two extension bytes in each operand
 \IF{$OP2 = 0$}
     \RETURN $OP1$
 \ENDIF
@@ -110,7 +111,8 @@ one nibble per `fp_shift_right_digit` call; if $\Delta > 15$ the smaller operand
 \ENDIF
 \STATE $\Delta \gets \mathrm{exp}(OP1) - \mathrm{exp}(OP2)$ \COMMENT{\texttt{fp\_exp\_diff}}
 \IF{$|\Delta| > 15$}
-    \RETURN larger operand \COMMENT{other is negligible}
+    \STATE copy the operand with the larger exponent to $OP1$ if needed
+    \RETURN $OP1$
 \ENDIF
 \STATE shift the smaller mantissa right by $|\Delta|$ digits to align \COMMENT{\texttt{fp\_shift\_right\_digit}}
 \IF{$\mathrm{sign}(OP1) = \mathrm{sign}(OP2)$}
@@ -119,7 +121,7 @@ one nibble per `fp_shift_right_digit` call; if $\Delta > 15$ the smaller operand
     \STATE $\mathrm{mantissa} \gets$ BCD-subtract
     \STATE fix result sign \COMMENT{\texttt{fp\_sub\_mantissa}}
 \ENDIF
-\STATE round via the guard digits, renormalize, store exp/type in $OP1$
+\STATE normalize the result as needed, then round $OP1$ using its first guard digit
 \RETURN $OP1$
 \end{algorithmic}
 \end{algorithm}

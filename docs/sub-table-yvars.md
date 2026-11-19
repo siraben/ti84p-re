@@ -14,18 +14,17 @@ LCD](display-lcd.md).
 
 ```mermaid
 flowchart TB
-    TBLSET["TBLSET screen · page 37 + 02<br/>TblMin 92B3 / TblStep 92BC<br/>tblFlags IY+19: autoFill / autoCalc / reTable"]
+    TBLSET["TBLSET · pages 37 and 02<br/>TblMin 92B3 / TblStep 92BC"]
     YEQ["Y= equations in VAT<br/>EquObj tokens · tY1..tY0"]
-    PARSER["parser · page 38<br/>_ParseInp / parse_eval_expr"]
-    subgraph GEN["TABLE generator · page 05 — per X row"]
+    PARSER["page-38 parser"]
+    subgraph GEN["TABLE generator · page 05 · automatic X and Y"]
       direction TB
-      S1["1 · X = TblMin + k·TblStep"]
-      S2["2 · running-X staged in OP registers"]
-      S3["3 · evaluate each selected Y= → OP1"]
-      S4["4 · format OP1 → cell string"]
-      S5["5 · write into table data cache"]
-      S6["6 · paint cache as text grid on LCD"]
-      S1 --> S2 --> S3 --> S4 --> S5 --> S6
+      S1["X = TblMin + k·TblStep"]
+      S2["stage X in OP registers"]
+      S3["evaluate selected equation"]
+      S4["store numeric result in nine-byte cache slot"]
+      S5["format cell and draw text"]
+      S1 --> S2 --> S3 --> S4 --> S5
     end
     TBLSET -->|settings| S1
     YEQ --> S3
@@ -243,7 +242,7 @@ For each visible row the recompute fills the cache:
    `_ParseInp` region. The exact evaluator call edge remains open. Bcall
    `4741h` is `_CPYO1TOES15` at `35:7C7C`, an expression-stack helper;
    its name and entry do not establish a parser dispatcher.
-3. Format OP1 and store the result in the row's cache slot.
+3. Copy the nine-byte value from OP1 to the row's cache slot. The display path formats it when drawing the cell.
 
 The fill setup at `05:6200` loads `B = 7` for the visible rows. Its loop at
 `05:6205` increments
@@ -345,30 +344,15 @@ the condition detected by `05:74BE` remains [hypothesis].
 
 ### Grid rendering [confirmed]
 
-The table is a text grid (not the pixel graph buffer): up to 8 visible rows ×
-columns, drawn with the large font through the home-screen text primitives
-(`_PutMap`/`_PutC`, [display-lcd.md](display-lcd.md)). The paint loop:
+The table paints its values as text. The cell display path calls the formatter
+at `05:6CD9` from `05:6C67`. Its output loop reads each character from `(HL)`,
+calls the output trampoline at `ram:3CDB`, and advances `HL`. [confirmed]
 
-```z80
-05:7E45  loop over visible rows:
-           CALL 0x7E7C            ; position/clear the cell (selects buffer
-                                  ;   0x9221 for one column or 0x91E2 for the other)
-           CALL 0x7E9D
-           LD DE,(0x9192 YOutDat) ; the Y-column value pointer
-           CP 2 / CP 5            ; column-kind dispatch (X col vs Y col vs input)
-           CALL 0x7E7C
-           CALL 0x7E98             ; render the cached value into the cell
-           CALL 0x65DC            ; row-index bound check (current row vs last)
-           INC row
-           …
-           LD (0x91DC),A
-```
-
-`05:7E7C` chooses the destination cache band (`table_value_cache.band[1]` at
-`0x9221` versus `band[0]` at `0x91E2`) based on the
-column index, and writes `0xFF`/blank sentinels for empty (Ask) cells. The bottom
-status line and the highlighted-cell full-precision readout reuse the same value
-cache. [confirmed]
+The separate row loop at `05:7E45` fills numeric cache bands.
+`05:7E7C` loads a row value or sets the OP1 type byte to `0xFF` for a missing
+value. `05:7E98` and `05:7E9D` select the destination band at `0x9221` or
+`0x91E2`. Both reach `05:614A`, which computes the row offset and jumps to
+`ram:1B0C` to copy nine bytes from OP1 into RAM. [confirmed]
 
 ### Split graph-table mode [confirmed]
 
@@ -412,11 +396,10 @@ Conversely only the recompute driver clears it (`05:5DD7`, `05:62FD`,
    - walk the selected equation set — here only `Y1`; the exact builder and
      iterator remain open,
    - per row: stage the running-X through OP1/OP2, evaluate `Y1`'s tokens via
-     the page `38` parser cluster → OP1 = `X²+1`, format and
-     stash into `table_value_cache.band[0]`/`band[1]`,
+     the page `38` parser cluster → OP1 = `X²+1`, and store the numeric result in the row cache,
    - advance to the next row (bound-checked at `05:65DC`; X = `TblStart + k·TblStep`) and repeat,
    - clear `reTable`.
-4. The grid paints (`05:7E45`) the cached `X` and `Y1` columns as large-font text;
+4. The grid formats and displays cached values through `05:6C57`;
    scrolling uses the cache-copy/shift helpers and computes newly exposed rows.
 5. Deselecting `Y1` (or editing the formula, or changing `ΔTbl`) sets `reTable`
    again and the next view recomputes.
@@ -447,8 +430,8 @@ IY+19 b6    tblFlags.reTable  = table-dirty
 05:601E / 6026                            ; copy cache band 1↔2
 05:6032                                  ; shift cached values through LDDR
 05:6d40  table_mode_test                  ; BIT autoFill/autoCalc (Auto vs Ask)
-05:7e45  table_paint_grid_loop            ; render cached cells as text columns
-05:7e7c  table_cell_select_buffer         ; pick cache band 1/0
+05:7e45  row cache loop                   ; populate numeric bands
+05:7e7c  tbl_load_rowval                  ; load a value or blank sentinel into OP1
 05:7712  screen_split                     ; Graph-Table split-screen setup
 05:62fd  table_recompute_clear_reTable    ; another RES6 recompute exit
 
