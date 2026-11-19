@@ -665,13 +665,13 @@ bytes; the other 109 use macro or `rst 28h` forms. Exact archive and source
 hashes are in `tools/data/community-bcall-uses.csv`. [confirmed] for the
 checked scan output.
 
-The scan exposed 24 aligned main-table IDs that the old generated map omitted.
-All 24 were already literal entries in the OS 2.55MP table on page `0x3B`, and
-all 24 names were already present in the bundled TI include. Adding them changed
-the main map from 621 to 645 rows and the include-backed subset from 599 to 623;
-the 22 project-inferred names did not change. They are therefore new to this
-repository's resolver input, not new ROM routines or newly invented names.
-[confirmed]
+The corpus uses 24 ID/name pairs added to the resolver from the bundled TI
+include. All 24 decode to aligned table entries on page `3B`. Of the 645 IDs
+in the main catalog, 623 appear in that include and 22 have no bcall equate
+there. Name agreement is a separate count. At 580 IDs, the catalog name
+matches an include equate after case folding. For example, ID `4666h`
+appears as `_EXMEAN1` in the include and as `get_pos_list_elem` in the
+catalog. [confirmed]
 
 The main table above is the single address catalog. ABI and side-effect notes
 live with their subsystems: contexts and errors, display, floating point,

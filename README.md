@@ -133,7 +133,7 @@ the shortest paths into the main kinds of material:
 
 | Page | Subsystem |
 |------|-----------|
-| [System overview](docs/system-overview.md) | The four pillars and the system through-line |
+| [System overview](docs/system-overview.md) | Paging, bcalls, arithmetic, variable storage, and BASIC execution |
 | [Memory map](docs/memory-map.md) | Address space, ports, RAM layout |
 | [Paging](docs/paging.md) | Flash/RAM banking |
 | [The bcall mechanism](docs/bcall-mechanism.md) | `rst 28h` system calls + jump table (page 0x3B) |

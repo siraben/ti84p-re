@@ -24,12 +24,19 @@ The dispatcher at `ram:2A2F`–`ram:2A97` performs these steps. [confirmed]
 
 ## The jump table — flash page `0x3B` [confirmed]
 
-- Located at the start of physical flash page `0x3B` (file offset `0x3B*0x4000 = 0xEC000`).
-- **3-byte entries**: `addr_lo, addr_hi, page`. IDs step by 3 from `0x4000`, so entry for ID *X* is at table offset `X-0x4000`.
-- The resolver scores all 64 pages by plausible target addresses; page `0x3B` scores highest. The dispatcher independently selects it at `ram:2A5E`–`ram:2A6D`. The 645 checked rows resolve from ROM bytes; 623 IDs also appear in the SDK equates and 22 have project-inferred names. This is mapping evidence, not runtime coverage of every body.
-- Validation: known bcalls land exactly where expected — `_PutS`→`01:5C39`, `_GetKey`→`06:491E`, `_ClrLCDFull`→`01:60E4`, `_GetCSC`→`00:04B2`, `_CreateReal`→`00:10B8`.
+The main table starts at file offset `0xEC000`. Its 1,765 three-byte entries
+span IDs `4000h`–`54ACh`. Each entry contains `addr_lo, addr_hi, page`, so
+the offset for ID *X* is `X-0x4000`. Code begins at `3B:54AF`. [confirmed]
 
-`tools/symbols/bcall_targets.txt` holds 645 resolved main-table bcall rows.
+The resolver scores all 64 pages by their target addresses. Page `3B` scores
+highest, and the dispatcher selects it at `ram:2A5E`–`ram:2A6D`. For
+example, `_PutS` resolves to `01:5C39` and `_GetKey` to `06:491E`.
+`tools/symbols/bcall_targets.txt` catalogs 645 main-table IDs. Of those,
+623 have a bcall equate in the bundled 2007 include. The catalog uses the
+same name, ignoring case, for 580 IDs. See the
+[bcall index](bcall-index.md#corpus-coverage-and-map-provenance) for an
+example of a project label at an SDK-named ID. [confirmed]
+
 The retail boot table has 87 populated entries. `tools/symbols/bcalls8x_targets.txt`
 holds the 83 rows with official SDK names; four populated slots have only
 project-inferred names in the [bcall index](bcall-index.md#retail-boot-0x8xxx-bcalls).
@@ -51,7 +58,7 @@ nix develop -c ghidra-analyzeHeadless "$PWD" ti84 \
 ## Jump-table ID ranges
 
 The dispatcher (`bcall_dispatcher`) decodes the ID's top two bits to pick the table page: bit 15 set → page-byte `0x7F` (masked `& 0x3F` → page `0x3F`); bit 14 set → `0x7B` (→ page `0x3B`); with *neither* bit set it falls through to `lookup_bcall_table_page` (`ram:2ADA`). The two tables real bcall IDs use:
-- `0x4000`–`0x7FFF` (bit 14 set): the main table on flash page `0x3B`, entry at offset `ID − 0x4000` (645 byte-resolved rows: 623 IDs also present in the included SDK equates and 22 project-inferred names).
+- `0x4000`–`0x7FFF` (bit 14 set): the main table on flash page `0x3B`, entry at offset `ID − 0x4000` (1,765 entries on OS 2.55MP, of which 645 appear in the checked catalog).
 - `0x8xxx` (bit 15 set): the retail boot table is on physical page `3F`, indexed by `ID & 0x7FFF`. Its real entries occupy IDs `0x8018`–`0x80D2` and `0x80E4`–`0x8129`; bytes `3F:40D5`–`3F:40E3` between those ranges are executable dispatch-stub bytes, not five table entries. `D84PBE1.8Xv` supplies the retail page `3F`; `D84PBE2.8Xv` supplies the companion USB boot support page `2F`. Most entries resolve to `3F:addr`; USB entries such as `_AttemptUSBOSReceive` (`80E4`) and `_InitUSB` (`8108`) resolve to `2F:addr`. `tools/ti84re/rom/resolve_bcalls.py` refuses to emit these targets from a BootFree-substituted page. [confirmed]
 
 Both resolved table formats are 3-byte entries: target address (little endian) plus page byte masked with `& 0x3F`.
